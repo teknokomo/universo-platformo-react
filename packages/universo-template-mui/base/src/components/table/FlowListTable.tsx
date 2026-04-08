@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useSelector } from 'react-redux'
 import { formatDate, getPendingAction, isPendingEntity, isPendingInteractionBlocked, shouldShowPendingFeedback } from '@universo/utils'
 import { alpha, styled } from '@mui/material/styles'
-import type { Theme } from '@mui/material/styles'
+import type { SxProps, Theme } from '@mui/material/styles'
 import {
     Box,
     Chip,
@@ -142,6 +142,10 @@ export interface FlowListTableProps<T extends FlowListTableData = FlowListTableD
     initialOrder?: 'asc' | 'desc'
     /** Initial sort field used when no persisted state exists. */
     initialOrderBy?: string
+    /** Optional row-level sx styling. Useful for status tinting or visual separators. */
+    getRowSx?: (row: T, index: number) => SxProps<Theme> | undefined
+    /** Disable drag handle only for specific rows while keeping table sorting enabled for others. */
+    isRowDragDisabled?: (row: T, index: number) => boolean
 }
 
 const getLocalStorageKeyName = (name: string, isAgentCanvas?: boolean, sortStateId?: string): string => {
@@ -184,7 +188,9 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
     onPendingInteractionAttempt,
     sortStateId,
     initialOrder = 'desc',
-    initialOrderBy = 'updatedDate'
+    initialOrderBy = 'updatedDate',
+    getRowSx,
+    isRowDragDisabled
 }: FlowListTableProps<T>): React.ReactElement => {
     const { t } = useTranslation(i18nNamespace, { i18n })
     const theme = useTheme()
@@ -719,16 +725,33 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                                 : undefined
                         const rowPendingStyles = getPendingRowStyles(row)
                         const blockedPendingRowStyle = interactionBlocked ? { cursor: 'wait' as const } : undefined
+                        const customRowSx = getRowSx?.(row, index)
+                        const isRowDragDisabledValue = Boolean(isRowDragDisabled?.(row, index))
+                        const mergedRowSx = hasExpansion
+                            ? Array.isArray(customRowSx)
+                                ? [{ '& td, & th': { borderBottom: 0 } }, ...customRowSx]
+                                : customRowSx
+                                ? [{ '& td, & th': { borderBottom: 0 } }, customRowSx]
+                                : { '& td, & th': { borderBottom: 0 } }
+                            : customRowSx
 
                         const rowContent = (
                             <React.Fragment key={row.id}>
                                 {sortableRows ? (
                                     <SortableTableRow
                                         id={row.id}
-                                        disabled={dragDisabled || rowPending}
+                                        disabled={dragDisabled || rowPending || isRowDragDisabledValue}
                                         hasExpansion={hasExpansion}
                                         dragHandleAriaLabel={dragHandleAriaLabel}
-                                        sx={rowPendingStyles}
+                                        sx={
+                                            Array.isArray(mergedRowSx)
+                                                ? rowPendingStyles
+                                                    ? [...mergedRowSx, rowPendingStyles]
+                                                    : mergedRowSx
+                                                : mergedRowSx && rowPendingStyles
+                                                ? [mergedRowSx, rowPendingStyles]
+                                                : mergedRowSx || rowPendingStyles
+                                        }
                                         rowStyle={blockedPendingRowStyle}
                                         onClickCapture={pendingRowInteractionProps?.onClickCapture}
                                         onMouseDownCapture={pendingRowInteractionProps?.onMouseDownCapture}
@@ -741,9 +764,13 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                                         onClickCapture={pendingRowInteractionProps?.onClickCapture}
                                         onMouseDownCapture={pendingRowInteractionProps?.onMouseDownCapture}
                                         sx={
-                                            hasExpansion
-                                                ? { '& td, & th': { borderBottom: 0 }, ...(rowPendingStyles ?? {}) }
-                                                : rowPendingStyles
+                                            Array.isArray(mergedRowSx)
+                                                ? rowPendingStyles
+                                                    ? [...mergedRowSx, rowPendingStyles]
+                                                    : mergedRowSx
+                                                : mergedRowSx && rowPendingStyles
+                                                ? [mergedRowSx, rowPendingStyles]
+                                                : mergedRowSx || rowPendingStyles
                                         }
                                     >
                                         {renderRowCells(row, index)}

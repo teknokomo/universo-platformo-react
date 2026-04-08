@@ -23,6 +23,7 @@ import { useTheme } from '@mui/material/styles'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import CodeMirror from '@uiw/react-codemirror'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
+import { extractAxiosError } from '@universo/utils'
 import {
     resolveAllowedScriptCapabilities,
     resolveDefaultScriptCapabilities,
@@ -32,7 +33,10 @@ import {
     type ScriptModuleRole,
     type ScriptSourceKind
 } from '@universo/types'
+import type { Metahub } from '../../../types'
 import { getVLCString } from '../../../types'
+import { useMetahubDetails } from '../../metahubs/hooks'
+import { metahubsQueryKeys } from '../../shared'
 import { scriptsApi, type ScriptUpsertPayload } from '../api/scriptsApi'
 import { buildScriptEditorExtensions, getScriptEditorTheme, getScriptRoleGuidance } from '../utils/scriptEditor'
 
@@ -50,6 +54,47 @@ type DraftState = {
     isActive: boolean
     capabilities: ScriptCapability[]
 }
+
+const resolveErrorMessage = (error: unknown, fallback: string): string => {
+    const responseData =
+        error && typeof error === 'object' && 'response' in error
+            ? (error as { response?: { data?: unknown } }).response?.data ?? null
+            : null
+
+    if (responseData && typeof responseData === 'object') {
+        const directError =
+            typeof (responseData as { error?: unknown }).error === 'string' ? (responseData as { error: string }).error.trim() : ''
+        if (directError.length > 0) {
+            return directError
+        }
+
+        const directMessage =
+            typeof (responseData as { message?: unknown }).message === 'string' ? (responseData as { message: string }).message.trim() : ''
+        if (directMessage.length > 0) {
+            return directMessage
+        }
+
+        const detailsMessage =
+            typeof (responseData as { details?: { message?: unknown } }).details?.message === 'string'
+                ? String((responseData as { details: { message: string } }).details.message).trim()
+                : ''
+        if (detailsMessage.length > 0) {
+            return detailsMessage
+        }
+    }
+
+    const message = extractAxiosError(error).message.trim()
+    return message.length > 0 ? message : fallback
+}
+
+const DEFAULT_LIBRARY_SOURCE = `import { SharedLibraryScript } from '@universo/extension-sdk'
+
+export default class ExampleSharedLibrary extends SharedLibraryScript {
+    static formatValue(value: string) {
+        return value.trim()
+    }
+}
+`
 
 const DEFAULT_SOURCE = `import { ExtensionScript, AtClient, AtServer, OnEvent } from '@universo/extension-sdk'
 
@@ -480,7 +525,7 @@ export default class SpaceQuizWidget extends ExtensionScript {
 }
 `
 
-const createDraft = (script?: MetahubScriptRecord | null): DraftState => ({
+const createDraft = (attachedToKind: ScriptAttachmentKind, script?: MetahubScriptRecord | null): DraftState => ({
     id: script?.id ?? null,
     codename: script ? getVLCString(script.codename, script.codename?._primary ?? 'en') : '',
     name: script ? getVLCString(script.presentation.name, script.presentation.name?._primary ?? 'en') : '',
@@ -490,16 +535,25 @@ const createDraft = (script?: MetahubScriptRecord | null): DraftState => ({
               script.presentation.description?._primary ?? script.presentation.name?._primary ?? 'en'
           )
         : '',
-    moduleRole: script?.moduleRole ?? 'module',
+    moduleRole: script?.moduleRole ?? (attachedToKind === 'general' ? 'library' : 'module'),
     sourceKind: script?.sourceKind ?? 'embedded',
     sdkApiVersion: script?.sdkApiVersion ?? '1.0.0',
-    sourceCode: script?.sourceCode ?? (script?.moduleRole === 'widget' ? DEFAULT_WIDGET_SOURCE : DEFAULT_SOURCE),
+    sourceCode:
+        script?.sourceCode ??
+        (script?.moduleRole === 'widget'
+            ? DEFAULT_WIDGET_SOURCE
+            : script?.moduleRole === 'library' || attachedToKind === 'general'
+            ? DEFAULT_LIBRARY_SOURCE
+            : DEFAULT_SOURCE),
     isActive: script?.isActive ?? true,
     capabilities:
         script?.manifest.capabilities && script.manifest.capabilities.length > 0
             ? script.manifest.capabilities
-            : resolveDefaultScriptCapabilities(script?.moduleRole ?? 'module')
+            : resolveDefaultScriptCapabilities(script?.moduleRole ?? (attachedToKind === 'general' ? 'library' : 'module'))
 })
+
+const getAvailableModuleRoles = (attachedToKind: ScriptAttachmentKind): ScriptModuleRole[] =>
+    attachedToKind === 'general' ? ['library'] : ['module', 'lifecycle', 'widget']
 
 export const EntityScriptsTab = ({
     metahubId,
@@ -516,17 +570,27 @@ export const EntityScriptsTab = ({
     const queryClient = useQueryClient()
     const containerRef = useRef<HTMLDivElement | null>(null)
     const [selectedScriptId, setSelectedScriptId] = useState<string | null>(null)
-    const [draft, setDraft] = useState<DraftState>(() => createDraft())
+    const [draft, setDraft] = useState<DraftState>(() => createDraft(attachedToKind))
     const [error, setError] = useState<string | null>(null)
     const [layoutWidth, setLayoutWidth] = useState(0)
     const [isScriptListOpen, setIsScriptListOpen] = useState(true)
 
-    const canEditScripts = Boolean(metahubId) && (attachedToKind === 'metahub' || Boolean(attachedToId))
+    const hasEditableAttachment =
+        Boolean(metahubId) && (attachedToKind === 'metahub' || attachedToKind === 'general' || Boolean(attachedToId))
+    const metahubDetailsQuery = useMetahubDetails(metahubId ?? '', { enabled: Boolean(metahubId) })
+    const cachedMetahub = metahubId ? queryClient.getQueryData<Metahub>(metahubsQueryKeys.detail(metahubId)) : undefined
+    const resolvedPermissions = metahubDetailsQuery.data?.permissions ?? cachedMetahub?.permissions
+    const permissionsLoading = Boolean(metahubId) && !resolvedPermissions && metahubDetailsQuery.isLoading
+    const canManageScripts = resolvedPermissions?.manageMetahub === true
+    const availableModuleRoles = useMemo(() => {
+        const roles = getAvailableModuleRoles(attachedToKind)
+        return roles.includes(draft.moduleRole) ? roles : [...roles, draft.moduleRole]
+    }, [attachedToKind, draft.moduleRole])
 
     const scriptsQuery = useQuery({
         queryKey: ['metahub-scripts', metahubId, attachedToKind, attachedToId],
         queryFn: () => scriptsApi.list(metahubId!, { attachedToKind, attachedToId }),
-        enabled: Boolean(metahubId) && canEditScripts
+        enabled: Boolean(metahubId) && hasEditableAttachment && canManageScripts
     })
 
     const scripts = useMemo(() => scriptsQuery.data ?? [], [scriptsQuery.data])
@@ -536,9 +600,7 @@ export const EntityScriptsTab = ({
     const editorExtensions = useMemo(() => buildScriptEditorExtensions(), [])
     const editorTheme = useMemo(() => getScriptEditorTheme(muiTheme.palette.mode), [muiTheme.palette.mode])
     const scriptsLoadError = scriptsQuery.isError
-        ? scriptsQuery.error instanceof Error
-            ? scriptsQuery.error.message
-            : t('scripts.errors.load', 'Failed to load scripts')
+        ? resolveErrorMessage(scriptsQuery.error, t('scripts.errors.load', 'Failed to load scripts'))
         : null
     const displayedError = error ?? scriptsLoadError
     const isCompactLayout = layoutWidth > 0 ? layoutWidth < 880 : true
@@ -586,10 +648,10 @@ export const EntityScriptsTab = ({
 
     useEffect(() => {
         if (selectedScript) {
-            setDraft(createDraft(selectedScript))
+            setDraft(createDraft(attachedToKind, selectedScript))
             setError(null)
         }
-    }, [selectedScript])
+    }, [attachedToKind, selectedScript])
 
     useEffect(() => {
         if (!isCompactLayout) {
@@ -611,11 +673,11 @@ export const EntityScriptsTab = ({
         onSuccess: async (script) => {
             await invalidate()
             setSelectedScriptId(script.id)
-            setDraft(createDraft(script))
+            setDraft(createDraft(attachedToKind, script))
             setError(null)
         },
         onError: (mutationError: unknown) => {
-            setError(mutationError instanceof Error ? mutationError.message : t('scripts.errors.save', 'Failed to save script'))
+            setError(resolveErrorMessage(mutationError, t('scripts.errors.save', 'Failed to save script')))
         }
     })
 
@@ -624,11 +686,11 @@ export const EntityScriptsTab = ({
         onSuccess: async (script) => {
             await invalidate()
             setSelectedScriptId(script.id)
-            setDraft(createDraft(script))
+            setDraft(createDraft(attachedToKind, script))
             setError(null)
         },
         onError: (mutationError: unknown) => {
-            setError(mutationError instanceof Error ? mutationError.message : t('scripts.errors.save', 'Failed to save script'))
+            setError(resolveErrorMessage(mutationError, t('scripts.errors.save', 'Failed to save script')))
         }
     })
 
@@ -637,11 +699,11 @@ export const EntityScriptsTab = ({
         onSuccess: async () => {
             await invalidate()
             setSelectedScriptId(null)
-            setDraft(createDraft())
+            setDraft(createDraft(attachedToKind))
             setError(null)
         },
         onError: (mutationError: unknown) => {
-            setError(mutationError instanceof Error ? mutationError.message : t('scripts.errors.delete', 'Failed to delete script'))
+            setError(resolveErrorMessage(mutationError, t('scripts.errors.delete', 'Failed to delete script')))
         }
     })
 
@@ -649,7 +711,7 @@ export const EntityScriptsTab = ({
 
     const handleNew = () => {
         setSelectedScriptId(null)
-        setDraft(createDraft())
+        setDraft(createDraft(attachedToKind))
         setError(null)
         if (isCompactLayout) {
             setIsScriptListOpen(false)
@@ -667,7 +729,13 @@ export const EntityScriptsTab = ({
         setDraft((prev) => {
             const shouldSwapToWidgetTemplate =
                 !prev.id && moduleRole === 'widget' && (prev.sourceCode.trim().length === 0 || prev.sourceCode === DEFAULT_SOURCE)
-            const shouldSwapToDefaultTemplate = !prev.id && moduleRole !== 'widget' && prev.sourceCode === DEFAULT_WIDGET_SOURCE
+            const shouldSwapToLibraryTemplate =
+                !prev.id && moduleRole === 'library' && (prev.sourceCode.trim().length === 0 || prev.sourceCode === DEFAULT_SOURCE)
+            const shouldSwapToDefaultTemplate =
+                !prev.id &&
+                moduleRole === 'module' &&
+                (prev.sourceCode === DEFAULT_WIDGET_SOURCE || prev.sourceCode === DEFAULT_LIBRARY_SOURCE)
+            const shouldSwapFromLibraryTemplate = !prev.id && moduleRole !== 'library' && prev.sourceCode === DEFAULT_LIBRARY_SOURCE
             const previousDefaultCapabilities = resolveDefaultScriptCapabilities(prev.moduleRole)
             const nextAllowedCapabilities = resolveAllowedScriptCapabilities(moduleRole)
             const preservedCapabilities = prev.capabilities.filter((capability) => nextAllowedCapabilities.includes(capability))
@@ -687,7 +755,11 @@ export const EntityScriptsTab = ({
                 capabilities: nextCapabilities,
                 sourceCode: shouldSwapToWidgetTemplate
                     ? DEFAULT_WIDGET_SOURCE
+                    : shouldSwapToLibraryTemplate
+                    ? DEFAULT_LIBRARY_SOURCE
                     : shouldSwapToDefaultTemplate
+                    ? DEFAULT_SOURCE
+                    : shouldSwapFromLibraryTemplate
                     ? DEFAULT_SOURCE
                     : prev.sourceCode
             }
@@ -721,7 +793,7 @@ export const EntityScriptsTab = ({
     }
 
     const handleSave = async () => {
-        if (!metahubId) return
+        if (!metahubId || !canManageScripts) return
         if (!draft.codename.trim() || !draft.name.trim() || !draft.sourceCode.trim()) {
             setError(t('scripts.errors.required', 'Codename, name, and source code are required'))
             return
@@ -749,10 +821,22 @@ export const EntityScriptsTab = ({
         await createMutation.mutateAsync(payload)
     }
 
-    if (!canEditScripts) {
+    if (!hasEditableAttachment) {
         return (
             <Alert severity='info'>
                 {t('scripts.saveEntityFirst', 'Save this entity first, then scripts can be attached from this tab.')}
+            </Alert>
+        )
+    }
+
+    if (permissionsLoading) {
+        return <Alert severity='info'>{t('scripts.loadingPermissions', 'Loading script permissions...')}</Alert>
+    }
+
+    if (!canManageScripts) {
+        return (
+            <Alert severity='info'>
+                {t('scripts.noManagePermission', 'You do not have permission to manage scripts for this metahub.')}
             </Alert>
         )
     }
@@ -824,12 +908,20 @@ export const EntityScriptsTab = ({
                         label={t('scripts.fields.moduleRole', 'Module role')}
                         value={draft.moduleRole}
                         onChange={(event) => handleModuleRoleChange(event.target.value as ScriptModuleRole)}
-                        disabled={isSaving}
+                        disabled={isSaving || availableModuleRoles.length === 1}
                     >
-                        <MenuItem value='module'>{t('scripts.moduleRoles.module', 'Module')}</MenuItem>
-                        <MenuItem value='lifecycle'>{t('scripts.moduleRoles.lifecycle', 'Lifecycle')}</MenuItem>
-                        <MenuItem value='widget'>{t('scripts.moduleRoles.widget', 'Widget')}</MenuItem>
-                        <MenuItem value='global'>{t('scripts.moduleRoles.global', 'Global')}</MenuItem>
+                        {availableModuleRoles.includes('module') ? (
+                            <MenuItem value='module'>{t('scripts.moduleRoles.module', 'Module')}</MenuItem>
+                        ) : null}
+                        {availableModuleRoles.includes('lifecycle') ? (
+                            <MenuItem value='lifecycle'>{t('scripts.moduleRoles.lifecycle', 'Lifecycle')}</MenuItem>
+                        ) : null}
+                        {availableModuleRoles.includes('widget') ? (
+                            <MenuItem value='widget'>{t('scripts.moduleRoles.widget', 'Widget')}</MenuItem>
+                        ) : null}
+                        {availableModuleRoles.includes('library') ? (
+                            <MenuItem value='library'>{t('scripts.moduleRoles.library', 'Library')}</MenuItem>
+                        ) : null}
                     </Select>
                 </FormControl>
                 <FormControl size='small' fullWidth>
@@ -884,10 +976,15 @@ export const EntityScriptsTab = ({
                             {roleGuidance.entryPoints.join(', ')}
                         </Typography>
                         <Typography variant='body2'>
-                            {t(
-                                'scripts.guidance.editorHelp',
-                                'Start typing ExtensionScript, @AtClient, @AtServer, @AtServerAndClient, or @OnEvent to use SDK completions.'
-                            )}
+                            {draft.moduleRole === 'library'
+                                ? t(
+                                      'scripts.guidance.editorHelpLibrary',
+                                      'Start typing SharedLibraryScript or @shared/example-helpers to use shared-library completions.'
+                                  )
+                                : t(
+                                      'scripts.guidance.editorHelp',
+                                      'Start typing ExtensionScript, @AtClient, @AtServer, @AtServerAndClient, or @OnEvent to use SDK completions.'
+                                  )}
                         </Typography>
                     </Stack>
                 </Alert>
@@ -963,7 +1060,12 @@ export const EntityScriptsTab = ({
     return (
         <Stack spacing={2} sx={{ mt: 1, minWidth: 0 }} data-testid='entity-scripts-root'>
             {displayedError ? <Alert severity='error'>{displayedError}</Alert> : null}
-            <Box ref={containerRef} sx={{ minWidth: 0 }} data-testid='entity-scripts-layout' data-layout-mode={isCompactLayout ? 'compact' : 'split'}>
+            <Box
+                ref={containerRef}
+                sx={{ minWidth: 0 }}
+                data-testid='entity-scripts-layout'
+                data-layout-mode={isCompactLayout ? 'compact' : 'split'}
+            >
                 {isCompactLayout ? (
                     <Stack spacing={1.5} sx={{ minWidth: 0 }}>
                         <Stack direction='row' justifyContent='space-between' alignItems='flex-start' spacing={1.5} sx={{ minWidth: 0 }}>
@@ -980,7 +1082,9 @@ export const EntityScriptsTab = ({
                                     onClick={() => setIsScriptListOpen((prev) => !prev)}
                                     data-testid='entity-scripts-list-toggle'
                                 >
-                                    {isScriptListOpen ? t('scripts.listToggle.hide', 'Hide scripts') : t('scripts.listToggle.show', 'Show scripts')}
+                                    {isScriptListOpen
+                                        ? t('scripts.listToggle.hide', 'Hide scripts')
+                                        : t('scripts.listToggle.show', 'Show scripts')}
                                 </Button>
                                 <Button size='small' onClick={handleNew} disabled={isSaving}>
                                     {t('scripts.new', 'New')}

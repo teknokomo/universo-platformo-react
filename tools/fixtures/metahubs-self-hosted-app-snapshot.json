@@ -1,9 +1,9 @@
 {
   "kind": "metahub_snapshot_bundle",
   "bundleVersion": 1,
-  "exportedAt": "2026-04-07T00:02:23.184Z",
+  "exportedAt": "2026-04-07T20:39:38.145Z",
   "metahub": {
-    "id": "019d653b-4a65-7b07-8096-3a6be89f5ef3",
+    "id": "019d69a7-de69-7b65-91ed-cb64d5fde797",
     "name": {
       "_schema": "1",
       "locales": {
@@ -11,15 +11,15 @@
           "content": "Metahubs Self-Hosted App",
           "version": 1,
           "isActive": true,
-          "createdAt": "2026-04-06T23:57:57.451Z",
-          "updatedAt": "2026-04-06T23:57:57.451Z"
+          "createdAt": "2026-04-07T20:35:02.109Z",
+          "updatedAt": "2026-04-07T20:35:02.109Z"
         },
         "ru": {
           "content": "Автономное приложение метахабов",
           "version": 1,
           "isActive": true,
-          "createdAt": "2026-04-06T23:57:57.451Z",
-          "updatedAt": "2026-04-06T23:57:57.451Z"
+          "createdAt": "2026-04-07T20:35:02.109Z",
+          "updatedAt": "2026-04-07T20:35:02.109Z"
         }
       },
       "_primary": "en"
@@ -31,15 +31,15 @@
           "content": "Reference metahub for the self-hosted application flow with localized metadata, interface settings, migration controls, and snapshot import/export.",
           "version": 1,
           "isActive": true,
-          "createdAt": "2026-04-06T23:57:57.451Z",
-          "updatedAt": "2026-04-06T23:57:57.451Z"
+          "createdAt": "2026-04-07T20:35:02.109Z",
+          "updatedAt": "2026-04-07T20:35:02.109Z"
         },
         "ru": {
           "content": "Эталонный метахаб для автономного сценария приложения с локализованными метаданными, настройками интерфейса, управлением миграциями и экспортом/импортом снимков.",
           "version": 1,
           "isActive": true,
-          "createdAt": "2026-04-06T23:57:57.451Z",
-          "updatedAt": "2026-04-06T23:57:57.451Z"
+          "createdAt": "2026-04-07T20:35:02.109Z",
+          "updatedAt": "2026-04-07T20:35:02.109Z"
         }
       },
       "_primary": "en"
@@ -51,32 +51,32 @@
           "content": "MetahubsSelfHostedApp",
           "version": 2,
           "isActive": true,
-          "createdAt": "2026-04-06T23:57:57.066Z",
-          "updatedAt": "2026-04-06T23:57:57.452Z"
+          "createdAt": "2026-04-07T20:35:01.703Z",
+          "updatedAt": "2026-04-07T20:35:02.111Z"
         },
         "ru": {
           "content": "АвтономноеПриложениеМетахабов",
           "version": 1,
           "isActive": true,
-          "createdAt": "2026-04-06T23:57:57.066Z",
-          "updatedAt": "2026-04-06T23:57:57.066Z"
+          "createdAt": "2026-04-07T20:35:01.703Z",
+          "updatedAt": "2026-04-07T20:35:01.703Z"
         }
       },
       "_primary": "en"
     }
   },
   "snapshot": {
-    "metahubId": "019d653b-4a65-7b07-8096-3a6be89f5ef3",
-    "generatedAt": "2026-04-07T00:02:22.585Z",
+    "metahubId": "019d69a7-de69-7b65-91ed-cb64d5fde797",
+    "generatedAt": "2026-04-07T20:39:37.643Z",
     "version": 1,
     "versionEnvelope": {
       "structureVersion": "0.1.0",
       "templateVersion": null,
-      "snapshotFormatVersion": 1
+      "snapshotFormatVersion": 2
     },
     "entities": {
-      "019d653b-727b-715c-8c09-ceb4506f5015": {
-        "id": "019d653b-727b-715c-8c09-ceb4506f5015",
+      "019d69a8-08a7-7064-9a1b-0f2df73099dc": {
+        "id": "019d69a8-08a7-7064-9a1b-0f2df73099dc",
         "kind": "hub",
         "codename": {
           "_schema": "1",
@@ -85,15 +85,15 @@
               "content": "Main",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T23:58:07.951Z",
-              "updatedAt": "2026-04-06T23:58:07.951Z"
+              "createdAt": "2026-04-07T20:35:13.151Z",
+              "updatedAt": "2026-04-07T20:35:13.151Z"
             },
             "ru": {
               "content": "Основной",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T23:58:07.951Z",
-              "updatedAt": "2026-04-06T23:58:07.951Z"
+              "createdAt": "2026-04-07T20:35:13.151Z",
+              "updatedAt": "2026-04-07T20:35:13.151Z"
             }
           },
           "_primary": "en"
@@ -147,8 +147,8 @@
         "fields": [],
         "hubs": []
       },
-      "019d653c-37c9-7fe5-b9ab-8a629594ca6b": {
-        "id": "019d653c-37c9-7fe5-b9ab-8a629594ca6b",
+      "019d69a8-d15b-7cc6-8f7a-5309976ff0fb": {
+        "id": "019d69a8-d15b-7cc6-8f7a-5309976ff0fb",
         "kind": "hub",
         "codename": {
           "_schema": "1",
@@ -157,15 +157,15 @@
               "content": "Hubs",
               "version": 2,
               "isActive": true,
-              "createdAt": "2026-04-06T23:58:55.896Z",
-              "updatedAt": "2026-04-06T23:58:58.094Z"
+              "createdAt": "2026-04-07T20:36:02.067Z",
+              "updatedAt": "2026-04-07T20:36:04.184Z"
             },
             "ru": {
               "content": "Хабы",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T23:58:55.896Z",
-              "updatedAt": "2026-04-06T23:58:55.896Z"
+              "createdAt": "2026-04-07T20:36:02.067Z",
+              "updatedAt": "2026-04-07T20:36:02.067Z"
             }
           },
           "_primary": "en"
@@ -178,15 +178,15 @@
                 "content": "Hubs",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:58:58.094Z",
-                "updatedAt": "2026-04-06T23:58:58.094Z"
+                "createdAt": "2026-04-07T20:36:04.184Z",
+                "updatedAt": "2026-04-07T20:36:04.184Z"
               },
               "ru": {
                 "content": "Хабы",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:58:58.094Z",
-                "updatedAt": "2026-04-06T23:58:58.094Z"
+                "createdAt": "2026-04-07T20:36:04.184Z",
+                "updatedAt": "2026-04-07T20:36:04.184Z"
               }
             },
             "_primary": "en"
@@ -198,15 +198,15 @@
                 "content": "Hub hierarchy for navigation, grouping, and scoped content placement.",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:58:58.094Z",
-                "updatedAt": "2026-04-06T23:58:58.094Z"
+                "createdAt": "2026-04-07T20:36:04.184Z",
+                "updatedAt": "2026-04-07T20:36:04.184Z"
               },
               "ru": {
                 "content": "Иерархия хабов для навигации, группировки и размещения контента по областям.",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:58:58.094Z",
-                "updatedAt": "2026-04-06T23:58:58.094Z"
+                "createdAt": "2026-04-07T20:36:04.184Z",
+                "updatedAt": "2026-04-07T20:36:04.184Z"
               }
             },
             "_primary": "en"
@@ -219,8 +219,8 @@
         "fields": [],
         "hubs": []
       },
-      "019d653b-739b-71a3-869b-8b7f97b62d82": {
-        "id": "019d653b-739b-71a3-869b-8b7f97b62d82",
+      "019d69a8-093b-7741-9dd4-9124805e8056": {
+        "id": "019d69a8-093b-7741-9dd4-9124805e8056",
         "kind": "catalog",
         "codename": {
           "_schema": "1",
@@ -229,15 +229,15 @@
               "content": "Main",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T23:58:08.241Z",
-              "updatedAt": "2026-04-06T23:58:08.241Z"
+              "createdAt": "2026-04-07T20:35:13.299Z",
+              "updatedAt": "2026-04-07T20:35:13.299Z"
             },
             "ru": {
               "content": "Основной",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T23:58:08.241Z",
-              "updatedAt": "2026-04-06T23:58:08.241Z"
+              "createdAt": "2026-04-07T20:35:13.299Z",
+              "updatedAt": "2026-04-07T20:35:13.299Z"
             }
           },
           "_primary": "en"
@@ -292,8 +292,8 @@
         "fields": [],
         "hubs": []
       },
-      "019d653b-86b8-7f57-b016-f13b808cc9fe": {
-        "id": "019d653b-86b8-7f57-b016-f13b808cc9fe",
+      "019d69a8-1bb0-7729-bc2f-f5d4a6307d67": {
+        "id": "019d69a8-1bb0-7729-bc2f-f5d4a6307d67",
         "kind": "catalog",
         "codename": {
           "_schema": "1",
@@ -302,20 +302,20 @@
               "content": "Metahubs",
               "version": 2,
               "isActive": true,
-              "createdAt": "2026-04-06T23:58:10.755Z",
-              "updatedAt": "2026-04-06T23:58:12.685Z"
+              "createdAt": "2026-04-07T20:35:15.747Z",
+              "updatedAt": "2026-04-07T20:35:17.597Z"
             },
             "ru": {
               "content": "Метахабы",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T23:58:10.755Z",
-              "updatedAt": "2026-04-06T23:58:10.755Z"
+              "createdAt": "2026-04-07T20:35:15.747Z",
+              "updatedAt": "2026-04-07T20:35:15.747Z"
             }
           },
           "_primary": "en"
         },
-        "tableName": "cat_019d653b86b87f57b016f13b808cc9fe",
+        "tableName": "cat_019d69a81bb07729bc2ff5d4a6307d67",
         "presentation": {
           "name": {
             "_schema": "1",
@@ -324,15 +324,15 @@
                 "content": "Metahubs",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:58:12.685Z",
-                "updatedAt": "2026-04-06T23:58:12.685Z"
+                "createdAt": "2026-04-07T20:35:17.597Z",
+                "updatedAt": "2026-04-07T20:35:17.597Z"
               },
               "ru": {
                 "content": "Метахабы",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:58:12.685Z",
-                "updatedAt": "2026-04-06T23:58:12.685Z"
+                "createdAt": "2026-04-07T20:35:17.597Z",
+                "updatedAt": "2026-04-07T20:35:17.597Z"
               }
             },
             "_primary": "en"
@@ -344,15 +344,15 @@
                 "content": "Metahub records used to configure authoring, publication, and access workflows.",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:58:12.685Z",
-                "updatedAt": "2026-04-06T23:58:12.685Z"
+                "createdAt": "2026-04-07T20:35:17.597Z",
+                "updatedAt": "2026-04-07T20:35:17.597Z"
               },
               "ru": {
                 "content": "Записи метахабов для настройки сценариев авторинга, публикации и доступа.",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:58:12.685Z",
-                "updatedAt": "2026-04-06T23:58:12.685Z"
+                "createdAt": "2026-04-07T20:35:17.597Z",
+                "updatedAt": "2026-04-07T20:35:17.597Z"
               }
             },
             "_primary": "en"
@@ -366,7 +366,7 @@
         },
         "fields": [
           {
-            "id": "019d653b-97dc-78dc-9291-5ac212f26a79",
+            "id": "019d69a8-33e5-7290-bd57-63f397c5dee2",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -374,8 +374,8 @@
                   "content": "Name",
                   "version": 2,
                   "isActive": true,
-                  "createdAt": "2026-04-06T23:58:15.271Z",
-                  "updatedAt": "2026-04-06T23:58:16.560Z"
+                  "createdAt": "2026-04-07T20:35:20.088Z",
+                  "updatedAt": "2026-04-07T20:35:22.402Z"
                 }
               },
               "_primary": "en"
@@ -392,15 +392,15 @@
                     "content": "Name",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:58:16.560Z",
-                    "updatedAt": "2026-04-06T23:58:16.560Z"
+                    "createdAt": "2026-04-07T20:35:22.402Z",
+                    "updatedAt": "2026-04-07T20:35:22.402Z"
                   },
                   "ru": {
                     "content": "Название",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:58:16.560Z",
-                    "updatedAt": "2026-04-06T23:58:16.560Z"
+                    "createdAt": "2026-04-07T20:35:22.402Z",
+                    "updatedAt": "2026-04-07T20:35:22.402Z"
                   }
                 },
                 "_primary": "en"
@@ -412,7 +412,7 @@
             "sortOrder": 1
           },
           {
-            "id": "019d653b-a31c-794d-ba30-b7d81444ed52",
+            "id": "019d69a8-416b-771b-a3ac-7c1d9d702fa0",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -420,8 +420,8 @@
                   "content": "Description",
                   "version": 2,
                   "isActive": true,
-                  "createdAt": "2026-04-06T23:58:18.191Z",
-                  "updatedAt": "2026-04-06T23:58:19.452Z"
+                  "createdAt": "2026-04-07T20:35:25.327Z",
+                  "updatedAt": "2026-04-07T20:35:26.766Z"
                 }
               },
               "_primary": "en"
@@ -438,15 +438,15 @@
                     "content": "Description",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:58:19.452Z",
-                    "updatedAt": "2026-04-06T23:58:19.452Z"
+                    "createdAt": "2026-04-07T20:35:26.766Z",
+                    "updatedAt": "2026-04-07T20:35:26.766Z"
                   },
                   "ru": {
                     "content": "Описание",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:58:19.452Z",
-                    "updatedAt": "2026-04-06T23:58:19.452Z"
+                    "createdAt": "2026-04-07T20:35:26.766Z",
+                    "updatedAt": "2026-04-07T20:35:26.766Z"
                   }
                 },
                 "_primary": "en"
@@ -458,7 +458,7 @@
             "sortOrder": 2
           },
           {
-            "id": "019d653b-ae6c-7b4a-a5d8-d4b9f60aa117",
+            "id": "019d69a8-4c62-720a-a376-ce1f707719b6",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -466,8 +466,8 @@
                   "content": "Slug",
                   "version": 2,
                   "isActive": true,
-                  "createdAt": "2026-04-06T23:58:21.066Z",
-                  "updatedAt": "2026-04-06T23:58:22.341Z"
+                  "createdAt": "2026-04-07T20:35:28.339Z",
+                  "updatedAt": "2026-04-07T20:35:29.564Z"
                 }
               },
               "_primary": "en"
@@ -484,15 +484,15 @@
                     "content": "Slug",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:58:22.341Z",
-                    "updatedAt": "2026-04-06T23:58:22.341Z"
+                    "createdAt": "2026-04-07T20:35:29.564Z",
+                    "updatedAt": "2026-04-07T20:35:29.564Z"
                   },
                   "ru": {
                     "content": "Слаг",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:58:22.341Z",
-                    "updatedAt": "2026-04-06T23:58:22.341Z"
+                    "createdAt": "2026-04-07T20:35:29.564Z",
+                    "updatedAt": "2026-04-07T20:35:29.564Z"
                   }
                 },
                 "_primary": "en"
@@ -504,7 +504,7 @@
             "sortOrder": 3
           },
           {
-            "id": "019d653b-b9a5-774b-98da-11cab7c1e5d2",
+            "id": "019d69a8-572e-7b02-b7cf-6948b4544381",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -512,8 +512,8 @@
                   "content": "IsPublic",
                   "version": 2,
                   "isActive": true,
-                  "createdAt": "2026-04-06T23:58:23.961Z",
-                  "updatedAt": "2026-04-06T23:58:25.219Z"
+                  "createdAt": "2026-04-07T20:35:31.127Z",
+                  "updatedAt": "2026-04-07T20:35:32.346Z"
                 }
               },
               "_primary": "en"
@@ -530,15 +530,15 @@
                     "content": "Is Public",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:58:25.219Z",
-                    "updatedAt": "2026-04-06T23:58:25.219Z"
+                    "createdAt": "2026-04-07T20:35:32.346Z",
+                    "updatedAt": "2026-04-07T20:35:32.346Z"
                   },
                   "ru": {
                     "content": "Публичный",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:58:25.219Z",
-                    "updatedAt": "2026-04-06T23:58:25.219Z"
+                    "createdAt": "2026-04-07T20:35:32.346Z",
+                    "updatedAt": "2026-04-07T20:35:32.346Z"
                   }
                 },
                 "_primary": "en"
@@ -550,7 +550,7 @@
             "sortOrder": 4
           },
           {
-            "id": "019d653b-c515-77eb-a63a-ef547bd0acb7",
+            "id": "019d69a8-61fa-71c0-938b-af4d9760b544",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -558,8 +558,8 @@
                   "content": "StorageMode",
                   "version": 2,
                   "isActive": true,
-                  "createdAt": "2026-04-06T23:58:26.838Z",
-                  "updatedAt": "2026-04-06T23:58:28.140Z"
+                  "createdAt": "2026-04-07T20:35:33.894Z",
+                  "updatedAt": "2026-04-07T20:35:35.094Z"
                 }
               },
               "_primary": "en"
@@ -576,15 +576,15 @@
                     "content": "Storage Mode",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:58:28.140Z",
-                    "updatedAt": "2026-04-06T23:58:28.140Z"
+                    "createdAt": "2026-04-07T20:35:35.094Z",
+                    "updatedAt": "2026-04-07T20:35:35.094Z"
                   },
                   "ru": {
                     "content": "Режим хранения",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:58:28.140Z",
-                    "updatedAt": "2026-04-06T23:58:28.140Z"
+                    "createdAt": "2026-04-07T20:35:35.094Z",
+                    "updatedAt": "2026-04-07T20:35:35.094Z"
                   }
                 },
                 "_primary": "en"
@@ -598,8 +598,8 @@
         ],
         "hubs": []
       },
-      "019d653b-d0e7-7228-9de1-befbee97a3cd": {
-        "id": "019d653b-d0e7-7228-9de1-befbee97a3cd",
+      "019d69a8-6d5c-70b8-a8ec-b520c618d2cf": {
+        "id": "019d69a8-6d5c-70b8-a8ec-b520c618d2cf",
         "kind": "catalog",
         "codename": {
           "_schema": "1",
@@ -608,20 +608,20 @@
               "content": "Catalogs",
               "version": 2,
               "isActive": true,
-              "createdAt": "2026-04-06T23:58:29.764Z",
-              "updatedAt": "2026-04-06T23:58:31.691Z"
+              "createdAt": "2026-04-07T20:35:36.658Z",
+              "updatedAt": "2026-04-07T20:35:38.512Z"
             },
             "ru": {
               "content": "Каталоги",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T23:58:29.764Z",
-              "updatedAt": "2026-04-06T23:58:29.764Z"
+              "createdAt": "2026-04-07T20:35:36.659Z",
+              "updatedAt": "2026-04-07T20:35:36.659Z"
             }
           },
           "_primary": "en"
         },
-        "tableName": "cat_019d653bd0e772289de1befbee97a3cd",
+        "tableName": "cat_019d69a86d5c70b8a8ecb520c618d2cf",
         "presentation": {
           "name": {
             "_schema": "1",
@@ -630,15 +630,15 @@
                 "content": "Catalogs",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:58:31.691Z",
-                "updatedAt": "2026-04-06T23:58:31.691Z"
+                "createdAt": "2026-04-07T20:35:38.512Z",
+                "updatedAt": "2026-04-07T20:35:38.512Z"
               },
               "ru": {
                 "content": "Каталоги",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:58:31.691Z",
-                "updatedAt": "2026-04-06T23:58:31.691Z"
+                "createdAt": "2026-04-07T20:35:38.512Z",
+                "updatedAt": "2026-04-07T20:35:38.512Z"
               }
             },
             "_primary": "en"
@@ -650,15 +650,15 @@
                 "content": "Catalog definitions with display settings, editing surfaces, and structure rules.",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:58:31.691Z",
-                "updatedAt": "2026-04-06T23:58:31.691Z"
+                "createdAt": "2026-04-07T20:35:38.512Z",
+                "updatedAt": "2026-04-07T20:35:38.512Z"
               },
               "ru": {
                 "content": "Определения каталогов с настройками отображения, поверхностями редактирования и правилами структуры.",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:58:31.691Z",
-                "updatedAt": "2026-04-06T23:58:31.691Z"
+                "createdAt": "2026-04-07T20:35:38.512Z",
+                "updatedAt": "2026-04-07T20:35:38.512Z"
               }
             },
             "_primary": "en"
@@ -672,7 +672,7 @@
         },
         "fields": [
           {
-            "id": "019d653b-e1d5-7414-92ba-5ca800e801a2",
+            "id": "019d69a8-7e40-75ca-a607-9bccf430f07a",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -680,8 +680,8 @@
                   "content": "Name",
                   "version": 2,
                   "isActive": true,
-                  "createdAt": "2026-04-06T23:58:34.255Z",
-                  "updatedAt": "2026-04-06T23:58:35.503Z"
+                  "createdAt": "2026-04-07T20:35:41.074Z",
+                  "updatedAt": "2026-04-07T20:35:42.335Z"
                 }
               },
               "_primary": "en"
@@ -698,15 +698,15 @@
                     "content": "Name",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:58:35.503Z",
-                    "updatedAt": "2026-04-06T23:58:35.503Z"
+                    "createdAt": "2026-04-07T20:35:42.335Z",
+                    "updatedAt": "2026-04-07T20:35:42.335Z"
                   },
                   "ru": {
                     "content": "Название",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:58:35.503Z",
-                    "updatedAt": "2026-04-06T23:58:35.503Z"
+                    "createdAt": "2026-04-07T20:35:42.335Z",
+                    "updatedAt": "2026-04-07T20:35:42.335Z"
                   }
                 },
                 "_primary": "en"
@@ -718,7 +718,7 @@
             "sortOrder": 1
           },
           {
-            "id": "019d653b-ecfc-7488-af76-c428e9f44750",
+            "id": "019d69a8-8939-7bc5-86b2-c6d36d5aad73",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -726,8 +726,8 @@
                   "content": "Codename",
                   "version": 2,
                   "isActive": true,
-                  "createdAt": "2026-04-06T23:58:37.118Z",
-                  "updatedAt": "2026-04-06T23:58:38.363Z"
+                  "createdAt": "2026-04-07T20:35:43.903Z",
+                  "updatedAt": "2026-04-07T20:35:45.137Z"
                 }
               },
               "_primary": "en"
@@ -744,15 +744,15 @@
                     "content": "Codename",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:58:38.363Z",
-                    "updatedAt": "2026-04-06T23:58:38.363Z"
+                    "createdAt": "2026-04-07T20:35:45.137Z",
+                    "updatedAt": "2026-04-07T20:35:45.137Z"
                   },
                   "ru": {
                     "content": "Кодовое имя",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:58:38.363Z",
-                    "updatedAt": "2026-04-06T23:58:38.363Z"
+                    "createdAt": "2026-04-07T20:35:45.137Z",
+                    "updatedAt": "2026-04-07T20:35:45.137Z"
                   }
                 },
                 "_primary": "en"
@@ -764,7 +764,7 @@
             "sortOrder": 2
           },
           {
-            "id": "019d653b-f834-7dea-89ac-098f0efac56c",
+            "id": "019d69a8-93f2-7091-b5ad-0bc4f6986523",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -772,8 +772,8 @@
                   "content": "Kind",
                   "version": 2,
                   "isActive": true,
-                  "createdAt": "2026-04-06T23:58:39.975Z",
-                  "updatedAt": "2026-04-06T23:58:41.234Z"
+                  "createdAt": "2026-04-07T20:35:46.702Z",
+                  "updatedAt": "2026-04-07T20:35:47.906Z"
                 }
               },
               "_primary": "en"
@@ -790,15 +790,15 @@
                     "content": "Kind",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:58:41.233Z",
-                    "updatedAt": "2026-04-06T23:58:41.233Z"
+                    "createdAt": "2026-04-07T20:35:47.906Z",
+                    "updatedAt": "2026-04-07T20:35:47.906Z"
                   },
                   "ru": {
                     "content": "Вид",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:58:41.233Z",
-                    "updatedAt": "2026-04-06T23:58:41.233Z"
+                    "createdAt": "2026-04-07T20:35:47.906Z",
+                    "updatedAt": "2026-04-07T20:35:47.906Z"
                   }
                 },
                 "_primary": "en"
@@ -812,8 +812,8 @@
         ],
         "hubs": []
       },
-      "019d653c-03f0-7669-b2ea-fb344032b6cf": {
-        "id": "019d653c-03f0-7669-b2ea-fb344032b6cf",
+      "019d69a8-9f28-738b-9a33-7ab7b2df3738": {
+        "id": "019d69a8-9f28-738b-9a33-7ab7b2df3738",
         "kind": "catalog",
         "codename": {
           "_schema": "1",
@@ -822,20 +822,20 @@
               "content": "Enumerations",
               "version": 2,
               "isActive": true,
-              "createdAt": "2026-04-06T23:58:42.850Z",
-              "updatedAt": "2026-04-06T23:58:44.757Z"
+              "createdAt": "2026-04-07T20:35:49.439Z",
+              "updatedAt": "2026-04-07T20:35:51.265Z"
             },
             "ru": {
               "content": "Перечисления",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T23:58:42.850Z",
-              "updatedAt": "2026-04-06T23:58:42.850Z"
+              "createdAt": "2026-04-07T20:35:49.439Z",
+              "updatedAt": "2026-04-07T20:35:49.439Z"
             }
           },
           "_primary": "en"
         },
-        "tableName": "cat_019d653c03f07669b2eafb344032b6cf",
+        "tableName": "cat_019d69a89f28738b9a337ab7b2df3738",
         "presentation": {
           "name": {
             "_schema": "1",
@@ -844,15 +844,15 @@
                 "content": "Enumerations",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:58:44.757Z",
-                "updatedAt": "2026-04-06T23:58:44.757Z"
+                "createdAt": "2026-04-07T20:35:51.265Z",
+                "updatedAt": "2026-04-07T20:35:51.265Z"
               },
               "ru": {
                 "content": "Перечисления",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:58:44.757Z",
-                "updatedAt": "2026-04-06T23:58:44.757Z"
+                "createdAt": "2026-04-07T20:35:51.265Z",
+                "updatedAt": "2026-04-07T20:35:51.265Z"
               }
             },
             "_primary": "en"
@@ -864,15 +864,15 @@
                 "content": "Catalog records that mirror enumeration-driven content in the published self-hosted app.",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:58:44.757Z",
-                "updatedAt": "2026-04-06T23:58:44.757Z"
+                "createdAt": "2026-04-07T20:35:51.265Z",
+                "updatedAt": "2026-04-07T20:35:51.265Z"
               },
               "ru": {
                 "content": "Записи каталога, отражающие контент на основе перечислений в опубликованном автономном приложении.",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:58:44.757Z",
-                "updatedAt": "2026-04-06T23:58:44.757Z"
+                "createdAt": "2026-04-07T20:35:51.265Z",
+                "updatedAt": "2026-04-07T20:35:51.265Z"
               }
             },
             "_primary": "en"
@@ -886,7 +886,7 @@
         },
         "fields": [
           {
-            "id": "019d653c-14db-7e90-a38e-a2f711b41547",
+            "id": "019d69a8-af72-7db8-881e-2e25760df5cc",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -894,8 +894,8 @@
                   "content": "Name",
                   "version": 2,
                   "isActive": true,
-                  "createdAt": "2026-04-06T23:58:47.315Z",
-                  "updatedAt": "2026-04-06T23:58:48.569Z"
+                  "createdAt": "2026-04-07T20:35:53.753Z",
+                  "updatedAt": "2026-04-07T20:35:54.948Z"
                 }
               },
               "_primary": "en"
@@ -912,15 +912,15 @@
                     "content": "Name",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:58:48.569Z",
-                    "updatedAt": "2026-04-06T23:58:48.569Z"
+                    "createdAt": "2026-04-07T20:35:54.948Z",
+                    "updatedAt": "2026-04-07T20:35:54.948Z"
                   },
                   "ru": {
                     "content": "Название",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:58:48.569Z",
-                    "updatedAt": "2026-04-06T23:58:48.569Z"
+                    "createdAt": "2026-04-07T20:35:54.948Z",
+                    "updatedAt": "2026-04-07T20:35:54.948Z"
                   }
                 },
                 "_primary": "en"
@@ -932,7 +932,7 @@
             "sortOrder": 1
           },
           {
-            "id": "019d653c-2012-7fda-ab1c-a05e01c6d2bd",
+            "id": "019d69a8-ba2b-7e1c-be7b-02fa5643cae1",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -940,8 +940,8 @@
                   "content": "Codename",
                   "version": 2,
                   "isActive": true,
-                  "createdAt": "2026-04-06T23:58:50.180Z",
-                  "updatedAt": "2026-04-06T23:58:51.446Z"
+                  "createdAt": "2026-04-07T20:35:56.480Z",
+                  "updatedAt": "2026-04-07T20:35:57.672Z"
                 }
               },
               "_primary": "en"
@@ -958,15 +958,15 @@
                     "content": "Codename",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:58:51.446Z",
-                    "updatedAt": "2026-04-06T23:58:51.446Z"
+                    "createdAt": "2026-04-07T20:35:57.672Z",
+                    "updatedAt": "2026-04-07T20:35:57.672Z"
                   },
                   "ru": {
                     "content": "Кодовое имя",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:58:51.446Z",
-                    "updatedAt": "2026-04-06T23:58:51.446Z"
+                    "createdAt": "2026-04-07T20:35:57.672Z",
+                    "updatedAt": "2026-04-07T20:35:57.672Z"
                   }
                 },
                 "_primary": "en"
@@ -978,7 +978,7 @@
             "sortOrder": 2
           },
           {
-            "id": "019d653c-2b30-7268-9579-b67676b6371a",
+            "id": "019d69a8-c548-7efb-8248-4bda287ef8ed",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -986,8 +986,8 @@
                   "content": "SortOrder",
                   "version": 2,
                   "isActive": true,
-                  "createdAt": "2026-04-06T23:58:53.047Z",
-                  "updatedAt": "2026-04-06T23:58:54.291Z"
+                  "createdAt": "2026-04-07T20:35:59.334Z",
+                  "updatedAt": "2026-04-07T20:36:00.527Z"
                 }
               },
               "_primary": "en"
@@ -1004,15 +1004,15 @@
                     "content": "Sort Order",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:58:54.291Z",
-                    "updatedAt": "2026-04-06T23:58:54.291Z"
+                    "createdAt": "2026-04-07T20:36:00.527Z",
+                    "updatedAt": "2026-04-07T20:36:00.527Z"
                   },
                   "ru": {
                     "content": "Порядок сортировки",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:58:54.291Z",
-                    "updatedAt": "2026-04-06T23:58:54.291Z"
+                    "createdAt": "2026-04-07T20:36:00.527Z",
+                    "updatedAt": "2026-04-07T20:36:00.527Z"
                   }
                 },
                 "_primary": "en"
@@ -1026,8 +1026,8 @@
         ],
         "hubs": []
       },
-      "019d653c-5b60-77e3-966a-d0736e63bc9e": {
-        "id": "019d653c-5b60-77e3-966a-d0736e63bc9e",
+      "019d69a8-f3a4-7e27-a16f-d4764db754b4": {
+        "id": "019d69a8-f3a4-7e27-a16f-d4764db754b4",
         "kind": "catalog",
         "codename": {
           "_schema": "1",
@@ -1036,20 +1036,20 @@
               "content": "Sets",
               "version": 2,
               "isActive": true,
-              "createdAt": "2026-04-06T23:59:05.229Z",
-              "updatedAt": "2026-04-06T23:59:07.133Z"
+              "createdAt": "2026-04-07T20:36:11.074Z",
+              "updatedAt": "2026-04-07T20:36:12.893Z"
             },
             "ru": {
               "content": "Наборы",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T23:59:05.229Z",
-              "updatedAt": "2026-04-06T23:59:05.229Z"
+              "createdAt": "2026-04-07T20:36:11.074Z",
+              "updatedAt": "2026-04-07T20:36:11.074Z"
             }
           },
           "_primary": "en"
         },
-        "tableName": "cat_019d653c5b6077e3966ad0736e63bc9e",
+        "tableName": "cat_019d69a8f3a47e27a16fd4764db754b4",
         "presentation": {
           "name": {
             "_schema": "1",
@@ -1058,15 +1058,15 @@
                 "content": "Sets",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:59:07.133Z",
-                "updatedAt": "2026-04-06T23:59:07.133Z"
+                "createdAt": "2026-04-07T20:36:12.893Z",
+                "updatedAt": "2026-04-07T20:36:12.893Z"
               },
               "ru": {
                 "content": "Наборы",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:59:07.133Z",
-                "updatedAt": "2026-04-06T23:59:07.133Z"
+                "createdAt": "2026-04-07T20:36:12.893Z",
+                "updatedAt": "2026-04-07T20:36:12.893Z"
               }
             },
             "_primary": "en"
@@ -1078,15 +1078,15 @@
                 "content": "Catalog records that mirror set-driven content and shared typed references.",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:59:07.133Z",
-                "updatedAt": "2026-04-06T23:59:07.133Z"
+                "createdAt": "2026-04-07T20:36:12.893Z",
+                "updatedAt": "2026-04-07T20:36:12.893Z"
               },
               "ru": {
                 "content": "Записи каталога, отражающие контент на основе наборов и общие типизированные ссылки.",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:59:07.133Z",
-                "updatedAt": "2026-04-06T23:59:07.133Z"
+                "createdAt": "2026-04-07T20:36:12.893Z",
+                "updatedAt": "2026-04-07T20:36:12.893Z"
               }
             },
             "_primary": "en"
@@ -1100,7 +1100,7 @@
         },
         "fields": [
           {
-            "id": "019d653c-6c3f-7537-a16c-f8f44851c03f",
+            "id": "019d69a9-03e5-7456-aa60-4b583f114fc7",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -1108,8 +1108,8 @@
                   "content": "Name",
                   "version": 2,
                   "isActive": true,
-                  "createdAt": "2026-04-06T23:59:09.702Z",
-                  "updatedAt": "2026-04-06T23:59:10.950Z"
+                  "createdAt": "2026-04-07T20:36:15.365Z",
+                  "updatedAt": "2026-04-07T20:36:16.558Z"
                 }
               },
               "_primary": "en"
@@ -1126,15 +1126,15 @@
                     "content": "Name",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:59:10.950Z",
-                    "updatedAt": "2026-04-06T23:59:10.950Z"
+                    "createdAt": "2026-04-07T20:36:16.558Z",
+                    "updatedAt": "2026-04-07T20:36:16.558Z"
                   },
                   "ru": {
                     "content": "Название",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:59:10.950Z",
-                    "updatedAt": "2026-04-06T23:59:10.950Z"
+                    "createdAt": "2026-04-07T20:36:16.558Z",
+                    "updatedAt": "2026-04-07T20:36:16.558Z"
                   }
                 },
                 "_primary": "en"
@@ -1146,7 +1146,7 @@
             "sortOrder": 1
           },
           {
-            "id": "019d653c-775d-7d68-9e7d-a62443db496b",
+            "id": "019d69a9-0eae-7777-9e03-082999bdd62a",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -1154,8 +1154,8 @@
                   "content": "Codename",
                   "version": 2,
                   "isActive": true,
-                  "createdAt": "2026-04-06T23:59:12.549Z",
-                  "updatedAt": "2026-04-06T23:59:13.797Z"
+                  "createdAt": "2026-04-07T20:36:18.109Z",
+                  "updatedAt": "2026-04-07T20:36:19.318Z"
                 }
               },
               "_primary": "en"
@@ -1172,15 +1172,15 @@
                     "content": "Codename",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:59:13.797Z",
-                    "updatedAt": "2026-04-06T23:59:13.797Z"
+                    "createdAt": "2026-04-07T20:36:19.318Z",
+                    "updatedAt": "2026-04-07T20:36:19.318Z"
                   },
                   "ru": {
                     "content": "Кодовое имя",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:59:13.797Z",
-                    "updatedAt": "2026-04-06T23:59:13.797Z"
+                    "createdAt": "2026-04-07T20:36:19.318Z",
+                    "updatedAt": "2026-04-07T20:36:19.318Z"
                   }
                 },
                 "_primary": "en"
@@ -1192,7 +1192,7 @@
             "sortOrder": 2
           },
           {
-            "id": "019d653c-826c-702a-8f12-1390c4b391dd",
+            "id": "019d69a9-1965-719b-984f-9e90994a683a",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -1200,8 +1200,8 @@
                   "content": "DataType",
                   "version": 2,
                   "isActive": true,
-                  "createdAt": "2026-04-06T23:59:15.395Z",
-                  "updatedAt": "2026-04-06T23:59:16.627Z"
+                  "createdAt": "2026-04-07T20:36:20.862Z",
+                  "updatedAt": "2026-04-07T20:36:22.060Z"
                 }
               },
               "_primary": "en"
@@ -1218,15 +1218,15 @@
                     "content": "Data Type",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:59:16.627Z",
-                    "updatedAt": "2026-04-06T23:59:16.627Z"
+                    "createdAt": "2026-04-07T20:36:22.060Z",
+                    "updatedAt": "2026-04-07T20:36:22.060Z"
                   },
                   "ru": {
                     "content": "Тип данных",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:59:16.627Z",
-                    "updatedAt": "2026-04-06T23:59:16.627Z"
+                    "createdAt": "2026-04-07T20:36:22.060Z",
+                    "updatedAt": "2026-04-07T20:36:22.060Z"
                   }
                 },
                 "_primary": "en"
@@ -1240,8 +1240,8 @@
         ],
         "hubs": []
       },
-      "019d653c-8e0f-7601-9eea-49cac4e1cd2b": {
-        "id": "019d653c-8e0f-7601-9eea-49cac4e1cd2b",
+      "019d69a9-24a4-7528-a732-9a8ac30a529e": {
+        "id": "019d69a9-24a4-7528-a732-9a8ac30a529e",
         "kind": "catalog",
         "codename": {
           "_schema": "1",
@@ -1250,20 +1250,20 @@
               "content": "Branches",
               "version": 2,
               "isActive": true,
-              "createdAt": "2026-04-06T23:59:18.227Z",
-              "updatedAt": "2026-04-06T23:59:20.117Z"
+              "createdAt": "2026-04-07T20:36:23.601Z",
+              "updatedAt": "2026-04-07T20:36:25.439Z"
             },
             "ru": {
               "content": "Ветки",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T23:59:18.227Z",
-              "updatedAt": "2026-04-06T23:59:18.227Z"
+              "createdAt": "2026-04-07T20:36:23.601Z",
+              "updatedAt": "2026-04-07T20:36:23.601Z"
             }
           },
           "_primary": "en"
         },
-        "tableName": "cat_019d653c8e0f76019eea49cac4e1cd2b",
+        "tableName": "cat_019d69a924a47528a7329a8ac30a529e",
         "presentation": {
           "name": {
             "_schema": "1",
@@ -1272,15 +1272,15 @@
                 "content": "Branches",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:59:20.117Z",
-                "updatedAt": "2026-04-06T23:59:20.117Z"
+                "createdAt": "2026-04-07T20:36:25.439Z",
+                "updatedAt": "2026-04-07T20:36:25.439Z"
               },
               "ru": {
                 "content": "Ветки",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:59:20.117Z",
-                "updatedAt": "2026-04-06T23:59:20.117Z"
+                "createdAt": "2026-04-07T20:36:25.439Z",
+                "updatedAt": "2026-04-07T20:36:25.439Z"
               }
             },
             "_primary": "en"
@@ -1292,15 +1292,15 @@
                 "content": "Working branches for preparing and comparing publication changes.",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:59:20.117Z",
-                "updatedAt": "2026-04-06T23:59:20.117Z"
+                "createdAt": "2026-04-07T20:36:25.439Z",
+                "updatedAt": "2026-04-07T20:36:25.439Z"
               },
               "ru": {
                 "content": "Рабочие ветки для подготовки и сравнения изменений перед публикацией.",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:59:20.117Z",
-                "updatedAt": "2026-04-06T23:59:20.117Z"
+                "createdAt": "2026-04-07T20:36:25.439Z",
+                "updatedAt": "2026-04-07T20:36:25.439Z"
               }
             },
             "_primary": "en"
@@ -1314,7 +1314,7 @@
         },
         "fields": [
           {
-            "id": "019d653c-9ede-7cb7-922f-98a5a15f0530",
+            "id": "019d69a9-35ce-7da6-aabf-6d33940bb678",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -1322,8 +1322,8 @@
                   "content": "Name",
                   "version": 2,
                   "isActive": true,
-                  "createdAt": "2026-04-06T23:59:22.665Z",
-                  "updatedAt": "2026-04-06T23:59:23.910Z"
+                  "createdAt": "2026-04-07T20:36:28.098Z",
+                  "updatedAt": "2026-04-07T20:36:29.328Z"
                 }
               },
               "_primary": "en"
@@ -1340,15 +1340,15 @@
                     "content": "Name",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:59:23.910Z",
-                    "updatedAt": "2026-04-06T23:59:23.910Z"
+                    "createdAt": "2026-04-07T20:36:29.328Z",
+                    "updatedAt": "2026-04-07T20:36:29.328Z"
                   },
                   "ru": {
                     "content": "Название",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:59:23.910Z",
-                    "updatedAt": "2026-04-06T23:59:23.910Z"
+                    "createdAt": "2026-04-07T20:36:29.328Z",
+                    "updatedAt": "2026-04-07T20:36:29.328Z"
                   }
                 },
                 "_primary": "en"
@@ -1360,7 +1360,7 @@
             "sortOrder": 1
           },
           {
-            "id": "019d653c-aa12-76af-a8c0-44f10e1d06ca",
+            "id": "019d69a9-40ce-78ba-8f81-90a792d0dd39",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -1368,8 +1368,8 @@
                   "content": "Codename",
                   "version": 2,
                   "isActive": true,
-                  "createdAt": "2026-04-06T23:59:25.512Z",
-                  "updatedAt": "2026-04-06T23:59:26.767Z"
+                  "createdAt": "2026-04-07T20:36:30.896Z",
+                  "updatedAt": "2026-04-07T20:36:32.133Z"
                 }
               },
               "_primary": "en"
@@ -1386,15 +1386,15 @@
                     "content": "Codename",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:59:26.766Z",
-                    "updatedAt": "2026-04-06T23:59:26.766Z"
+                    "createdAt": "2026-04-07T20:36:32.133Z",
+                    "updatedAt": "2026-04-07T20:36:32.133Z"
                   },
                   "ru": {
                     "content": "Кодовое имя",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:59:26.766Z",
-                    "updatedAt": "2026-04-06T23:59:26.766Z"
+                    "createdAt": "2026-04-07T20:36:32.133Z",
+                    "updatedAt": "2026-04-07T20:36:32.133Z"
                   }
                 },
                 "_primary": "en"
@@ -1406,7 +1406,7 @@
             "sortOrder": 2
           },
           {
-            "id": "019d653c-baad-7202-b76f-2e77a6a8ff93",
+            "id": "019d69a9-4b9e-71e9-a774-479a00556be4",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -1414,8 +1414,8 @@
                   "content": "IsDefault",
                   "version": 2,
                   "isActive": true,
-                  "createdAt": "2026-04-06T23:59:28.375Z",
-                  "updatedAt": "2026-04-06T23:59:31.023Z"
+                  "createdAt": "2026-04-07T20:36:33.704Z",
+                  "updatedAt": "2026-04-07T20:36:34.922Z"
                 }
               },
               "_primary": "en"
@@ -1432,15 +1432,15 @@
                     "content": "Is Default",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:59:31.023Z",
-                    "updatedAt": "2026-04-06T23:59:31.023Z"
+                    "createdAt": "2026-04-07T20:36:34.922Z",
+                    "updatedAt": "2026-04-07T20:36:34.922Z"
                   },
                   "ru": {
                     "content": "По умолчанию",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:59:31.023Z",
-                    "updatedAt": "2026-04-06T23:59:31.023Z"
+                    "createdAt": "2026-04-07T20:36:34.922Z",
+                    "updatedAt": "2026-04-07T20:36:34.922Z"
                   }
                 },
                 "_primary": "en"
@@ -1454,8 +1454,8 @@
         ],
         "hubs": []
       },
-      "019d653c-c65e-7306-aa71-5fba11b9b159": {
-        "id": "019d653c-c65e-7306-aa71-5fba11b9b159",
+      "019d69a9-56fa-71a0-9ed9-9269c5c156f7": {
+        "id": "019d69a9-56fa-71a0-9ed9-9269c5c156f7",
         "kind": "catalog",
         "codename": {
           "_schema": "1",
@@ -1464,20 +1464,20 @@
               "content": "Publications",
               "version": 2,
               "isActive": true,
-              "createdAt": "2026-04-06T23:59:32.630Z",
-              "updatedAt": "2026-04-06T23:59:34.530Z"
+              "createdAt": "2026-04-07T20:36:36.477Z",
+              "updatedAt": "2026-04-07T20:36:38.313Z"
             },
             "ru": {
               "content": "Публикации",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T23:59:32.630Z",
-              "updatedAt": "2026-04-06T23:59:32.630Z"
+              "createdAt": "2026-04-07T20:36:36.477Z",
+              "updatedAt": "2026-04-07T20:36:36.477Z"
             }
           },
           "_primary": "en"
         },
-        "tableName": "cat_019d653cc65e7306aa715fba11b9b159",
+        "tableName": "cat_019d69a956fa71a09ed99269c5c156f7",
         "presentation": {
           "name": {
             "_schema": "1",
@@ -1486,15 +1486,15 @@
                 "content": "Publications",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:59:34.530Z",
-                "updatedAt": "2026-04-06T23:59:34.530Z"
+                "createdAt": "2026-04-07T20:36:38.313Z",
+                "updatedAt": "2026-04-07T20:36:38.313Z"
               },
               "ru": {
                 "content": "Публикации",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:59:34.530Z",
-                "updatedAt": "2026-04-06T23:59:34.530Z"
+                "createdAt": "2026-04-07T20:36:38.313Z",
+                "updatedAt": "2026-04-07T20:36:38.313Z"
               }
             },
             "_primary": "en"
@@ -1506,15 +1506,15 @@
                 "content": "Publication records that track application releases, versions, and activation state.",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:59:34.530Z",
-                "updatedAt": "2026-04-06T23:59:34.530Z"
+                "createdAt": "2026-04-07T20:36:38.313Z",
+                "updatedAt": "2026-04-07T20:36:38.313Z"
               },
               "ru": {
                 "content": "Записи публикаций для релизов, версий и состояния активации.",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:59:34.530Z",
-                "updatedAt": "2026-04-06T23:59:34.530Z"
+                "createdAt": "2026-04-07T20:36:38.313Z",
+                "updatedAt": "2026-04-07T20:36:38.313Z"
               }
             },
             "_primary": "en"
@@ -1528,7 +1528,7 @@
         },
         "fields": [
           {
-            "id": "019d653c-d731-7b68-9859-96753d8bfd9d",
+            "id": "019d69a9-6758-74a5-a828-2c8c7478d7a1",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -1536,8 +1536,8 @@
                   "content": "Name",
                   "version": 2,
                   "isActive": true,
-                  "createdAt": "2026-04-06T23:59:37.078Z",
-                  "updatedAt": "2026-04-06T23:59:38.328Z"
+                  "createdAt": "2026-04-07T20:36:40.799Z",
+                  "updatedAt": "2026-04-07T20:36:42.012Z"
                 }
               },
               "_primary": "en"
@@ -1554,15 +1554,15 @@
                     "content": "Name",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:59:38.328Z",
-                    "updatedAt": "2026-04-06T23:59:38.328Z"
+                    "createdAt": "2026-04-07T20:36:42.012Z",
+                    "updatedAt": "2026-04-07T20:36:42.012Z"
                   },
                   "ru": {
                     "content": "Название",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:59:38.328Z",
-                    "updatedAt": "2026-04-06T23:59:38.328Z"
+                    "createdAt": "2026-04-07T20:36:42.012Z",
+                    "updatedAt": "2026-04-07T20:36:42.012Z"
                   }
                 },
                 "_primary": "en"
@@ -1574,7 +1574,7 @@
             "sortOrder": 1
           },
           {
-            "id": "019d653c-e24d-7ab5-a414-1d9095cb008e",
+            "id": "019d69a9-7213-7d1e-9c4b-f6da18839c43",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -1582,8 +1582,8 @@
                   "content": "VersionNumber",
                   "version": 2,
                   "isActive": true,
-                  "createdAt": "2026-04-06T23:59:39.926Z",
-                  "updatedAt": "2026-04-06T23:59:41.171Z"
+                  "createdAt": "2026-04-07T20:36:43.563Z",
+                  "updatedAt": "2026-04-07T20:36:44.767Z"
                 }
               },
               "_primary": "en"
@@ -1600,15 +1600,15 @@
                     "content": "Version Number",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:59:41.171Z",
-                    "updatedAt": "2026-04-06T23:59:41.171Z"
+                    "createdAt": "2026-04-07T20:36:44.767Z",
+                    "updatedAt": "2026-04-07T20:36:44.767Z"
                   },
                   "ru": {
                     "content": "Номер версии",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:59:41.171Z",
-                    "updatedAt": "2026-04-06T23:59:41.171Z"
+                    "createdAt": "2026-04-07T20:36:44.767Z",
+                    "updatedAt": "2026-04-07T20:36:44.767Z"
                   }
                 },
                 "_primary": "en"
@@ -1620,7 +1620,7 @@
             "sortOrder": 2
           },
           {
-            "id": "019d653c-ed67-7730-9598-22a69e3d4ba5",
+            "id": "019d69a9-7cd5-72ac-84d7-07e597971030",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -1628,8 +1628,8 @@
                   "content": "IsActive",
                   "version": 2,
                   "isActive": true,
-                  "createdAt": "2026-04-06T23:59:42.770Z",
-                  "updatedAt": "2026-04-06T23:59:44.017Z"
+                  "createdAt": "2026-04-07T20:36:46.319Z",
+                  "updatedAt": "2026-04-07T20:36:47.521Z"
                 }
               },
               "_primary": "en"
@@ -1646,15 +1646,15 @@
                     "content": "Is Active",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:59:44.017Z",
-                    "updatedAt": "2026-04-06T23:59:44.017Z"
+                    "createdAt": "2026-04-07T20:36:47.521Z",
+                    "updatedAt": "2026-04-07T20:36:47.521Z"
                   },
                   "ru": {
                     "content": "Активна",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:59:44.017Z",
-                    "updatedAt": "2026-04-06T23:59:44.017Z"
+                    "createdAt": "2026-04-07T20:36:47.521Z",
+                    "updatedAt": "2026-04-07T20:36:47.521Z"
                   }
                 },
                 "_primary": "en"
@@ -1668,8 +1668,8 @@
         ],
         "hubs": []
       },
-      "019d653c-f916-7037-b4ea-bdf145f84521": {
-        "id": "019d653c-f916-7037-b4ea-bdf145f84521",
+      "019d69a9-8818-7c29-b3dc-641d8f85a52c": {
+        "id": "019d69a9-8818-7c29-b3dc-641d8f85a52c",
         "kind": "catalog",
         "codename": {
           "_schema": "1",
@@ -1678,20 +1678,20 @@
               "content": "Layouts",
               "version": 2,
               "isActive": true,
-              "createdAt": "2026-04-06T23:59:45.621Z",
-              "updatedAt": "2026-04-06T23:59:47.518Z"
+              "createdAt": "2026-04-07T20:36:49.069Z",
+              "updatedAt": "2026-04-07T20:36:50.899Z"
             },
             "ru": {
               "content": "Макеты",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T23:59:45.621Z",
-              "updatedAt": "2026-04-06T23:59:45.621Z"
+              "createdAt": "2026-04-07T20:36:49.069Z",
+              "updatedAt": "2026-04-07T20:36:49.069Z"
             }
           },
           "_primary": "en"
         },
-        "tableName": "cat_019d653cf9167037b4eabdf145f84521",
+        "tableName": "cat_019d69a988187c29b3dc641d8f85a52c",
         "presentation": {
           "name": {
             "_schema": "1",
@@ -1700,15 +1700,15 @@
                 "content": "Layouts",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:59:47.518Z",
-                "updatedAt": "2026-04-06T23:59:47.518Z"
+                "createdAt": "2026-04-07T20:36:50.899Z",
+                "updatedAt": "2026-04-07T20:36:50.899Z"
               },
               "ru": {
                 "content": "Макеты",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:59:47.518Z",
-                "updatedAt": "2026-04-06T23:59:47.518Z"
+                "createdAt": "2026-04-07T20:36:50.899Z",
+                "updatedAt": "2026-04-07T20:36:50.899Z"
               }
             },
             "_primary": "en"
@@ -1720,15 +1720,15 @@
                 "content": "Dashboard layouts, widget zones, and presentation presets for the app.",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:59:47.518Z",
-                "updatedAt": "2026-04-06T23:59:47.518Z"
+                "createdAt": "2026-04-07T20:36:50.899Z",
+                "updatedAt": "2026-04-07T20:36:50.899Z"
               },
               "ru": {
                 "content": "Макеты панели, зоны виджетов и пресеты представления приложения.",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:59:47.518Z",
-                "updatedAt": "2026-04-06T23:59:47.518Z"
+                "createdAt": "2026-04-07T20:36:50.899Z",
+                "updatedAt": "2026-04-07T20:36:50.899Z"
               }
             },
             "_primary": "en"
@@ -1742,7 +1742,7 @@
         },
         "fields": [
           {
-            "id": "019d653d-09fb-708f-9519-a9e4041e0e28",
+            "id": "019d69a9-9841-76bf-8f5b-6e8eacfc2583",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -1750,8 +1750,8 @@
                   "content": "Name",
                   "version": 2,
                   "isActive": true,
-                  "createdAt": "2026-04-06T23:59:50.079Z",
-                  "updatedAt": "2026-04-06T23:59:51.329Z"
+                  "createdAt": "2026-04-07T20:36:53.345Z",
+                  "updatedAt": "2026-04-07T20:36:54.547Z"
                 }
               },
               "_primary": "en"
@@ -1768,15 +1768,15 @@
                     "content": "Name",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:59:51.329Z",
-                    "updatedAt": "2026-04-06T23:59:51.329Z"
+                    "createdAt": "2026-04-07T20:36:54.547Z",
+                    "updatedAt": "2026-04-07T20:36:54.547Z"
                   },
                   "ru": {
                     "content": "Название",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:59:51.329Z",
-                    "updatedAt": "2026-04-06T23:59:51.329Z"
+                    "createdAt": "2026-04-07T20:36:54.547Z",
+                    "updatedAt": "2026-04-07T20:36:54.547Z"
                   }
                 },
                 "_primary": "en"
@@ -1788,7 +1788,7 @@
             "sortOrder": 1
           },
           {
-            "id": "019d653d-151a-7525-ba24-ed4bc1b78206",
+            "id": "019d69a9-a2ee-7c23-b98f-42f04391f962",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -1796,8 +1796,8 @@
                   "content": "TemplateKey",
                   "version": 2,
                   "isActive": true,
-                  "createdAt": "2026-04-06T23:59:52.931Z",
-                  "updatedAt": "2026-04-06T23:59:54.176Z"
+                  "createdAt": "2026-04-07T20:36:56.083Z",
+                  "updatedAt": "2026-04-07T20:36:57.269Z"
                 }
               },
               "_primary": "en"
@@ -1814,15 +1814,15 @@
                     "content": "Template Key",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:59:54.175Z",
-                    "updatedAt": "2026-04-06T23:59:54.175Z"
+                    "createdAt": "2026-04-07T20:36:57.269Z",
+                    "updatedAt": "2026-04-07T20:36:57.269Z"
                   },
                   "ru": {
                     "content": "Ключ шаблона",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:59:54.175Z",
-                    "updatedAt": "2026-04-06T23:59:54.175Z"
+                    "createdAt": "2026-04-07T20:36:57.269Z",
+                    "updatedAt": "2026-04-07T20:36:57.269Z"
                   }
                 },
                 "_primary": "en"
@@ -1834,7 +1834,7 @@
             "sortOrder": 2
           },
           {
-            "id": "019d653d-2041-72f9-a777-e133737e24c5",
+            "id": "019d69a9-ad95-7dde-964c-27752f2cb79d",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -1842,8 +1842,8 @@
                   "content": "IsDefault",
                   "version": 2,
                   "isActive": true,
-                  "createdAt": "2026-04-06T23:59:55.784Z",
-                  "updatedAt": "2026-04-06T23:59:57.034Z"
+                  "createdAt": "2026-04-07T20:36:58.818Z",
+                  "updatedAt": "2026-04-07T20:37:00.011Z"
                 }
               },
               "_primary": "en"
@@ -1860,15 +1860,15 @@
                     "content": "Is Default",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:59:57.033Z",
-                    "updatedAt": "2026-04-06T23:59:57.033Z"
+                    "createdAt": "2026-04-07T20:37:00.011Z",
+                    "updatedAt": "2026-04-07T20:37:00.011Z"
                   },
                   "ru": {
                     "content": "По умолчанию",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:59:57.034Z",
-                    "updatedAt": "2026-04-06T23:59:57.034Z"
+                    "createdAt": "2026-04-07T20:37:00.011Z",
+                    "updatedAt": "2026-04-07T20:37:00.011Z"
                   }
                 },
                 "_primary": "en"
@@ -1880,7 +1880,7 @@
             "sortOrder": 3
           },
           {
-            "id": "019d653d-2b59-7722-a5b2-05aa652ec9b9",
+            "id": "019d69a9-b845-76ad-946b-72376a388d7a",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -1888,8 +1888,8 @@
                   "content": "SortOrder",
                   "version": 2,
                   "isActive": true,
-                  "createdAt": "2026-04-06T23:59:58.628Z",
-                  "updatedAt": "2026-04-06T23:59:59.867Z"
+                  "createdAt": "2026-04-07T20:37:01.542Z",
+                  "updatedAt": "2026-04-07T20:37:02.732Z"
                 }
               },
               "_primary": "en"
@@ -1906,15 +1906,15 @@
                     "content": "Sort Order",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:59:59.867Z",
-                    "updatedAt": "2026-04-06T23:59:59.867Z"
+                    "createdAt": "2026-04-07T20:37:02.732Z",
+                    "updatedAt": "2026-04-07T20:37:02.732Z"
                   },
                   "ru": {
                     "content": "Порядок сортировки",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T23:59:59.867Z",
-                    "updatedAt": "2026-04-06T23:59:59.867Z"
+                    "createdAt": "2026-04-07T20:37:02.732Z",
+                    "updatedAt": "2026-04-07T20:37:02.732Z"
                   }
                 },
                 "_primary": "en"
@@ -1928,8 +1928,8 @@
         ],
         "hubs": []
       },
-      "019d653d-3700-77cd-9574-99c001d7f5fb": {
-        "id": "019d653d-3700-77cd-9574-99c001d7f5fb",
+      "019d69a9-c386-7ec0-9b33-3030c50fc170": {
+        "id": "019d69a9-c386-7ec0-9b33-3030c50fc170",
         "kind": "catalog",
         "codename": {
           "_schema": "1",
@@ -1938,20 +1938,20 @@
               "content": "Settings",
               "version": 2,
               "isActive": true,
-              "createdAt": "2026-04-07T00:00:01.469Z",
-              "updatedAt": "2026-04-07T00:00:03.364Z"
+              "createdAt": "2026-04-07T20:37:04.279Z",
+              "updatedAt": "2026-04-07T20:37:06.110Z"
             },
             "ru": {
               "content": "Настройки",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-07T00:00:01.469Z",
-              "updatedAt": "2026-04-07T00:00:01.469Z"
+              "createdAt": "2026-04-07T20:37:04.279Z",
+              "updatedAt": "2026-04-07T20:37:04.279Z"
             }
           },
           "_primary": "en"
         },
-        "tableName": "cat_019d653d370077cd957499c001d7f5fb",
+        "tableName": "cat_019d69a9c3867ec09b333030c50fc170",
         "presentation": {
           "name": {
             "_schema": "1",
@@ -1960,15 +1960,15 @@
                 "content": "Settings",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-07T00:00:03.364Z",
-                "updatedAt": "2026-04-07T00:00:03.364Z"
+                "createdAt": "2026-04-07T20:37:06.110Z",
+                "updatedAt": "2026-04-07T20:37:06.110Z"
               },
               "ru": {
                 "content": "Настройки",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-07T00:00:03.364Z",
-                "updatedAt": "2026-04-07T00:00:03.364Z"
+                "createdAt": "2026-04-07T20:37:06.110Z",
+                "updatedAt": "2026-04-07T20:37:06.110Z"
               }
             },
             "_primary": "en"
@@ -1980,15 +1980,15 @@
                 "content": "Seeded settings rows derived from the real metahub settings registry defaults.",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-07T00:00:03.364Z",
-                "updatedAt": "2026-04-07T00:00:03.364Z"
+                "createdAt": "2026-04-07T20:37:06.110Z",
+                "updatedAt": "2026-04-07T20:37:06.110Z"
               },
               "ru": {
                 "content": "Заполненные настройки на основе текущих значений по умолчанию из реестра настроек метахаба.",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-07T00:00:03.364Z",
-                "updatedAt": "2026-04-07T00:00:03.364Z"
+                "createdAt": "2026-04-07T20:37:06.110Z",
+                "updatedAt": "2026-04-07T20:37:06.110Z"
               }
             },
             "_primary": "en"
@@ -2002,7 +2002,7 @@
         },
         "fields": [
           {
-            "id": "019d653d-47e4-7bdc-a928-92b1754a53e7",
+            "id": "019d69a9-d42c-73eb-b05a-74fe9df16634",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -2010,8 +2010,8 @@
                   "content": "Key",
                   "version": 2,
                   "isActive": true,
-                  "createdAt": "2026-04-07T00:00:05.913Z",
-                  "updatedAt": "2026-04-07T00:00:07.178Z"
+                  "createdAt": "2026-04-07T20:37:08.674Z",
+                  "updatedAt": "2026-04-07T20:37:09.867Z"
                 }
               },
               "_primary": "en"
@@ -2028,15 +2028,15 @@
                     "content": "Key",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-07T00:00:07.178Z",
-                    "updatedAt": "2026-04-07T00:00:07.178Z"
+                    "createdAt": "2026-04-07T20:37:09.867Z",
+                    "updatedAt": "2026-04-07T20:37:09.867Z"
                   },
                   "ru": {
                     "content": "Ключ",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-07T00:00:07.178Z",
-                    "updatedAt": "2026-04-07T00:00:07.178Z"
+                    "createdAt": "2026-04-07T20:37:09.867Z",
+                    "updatedAt": "2026-04-07T20:37:09.867Z"
                   }
                 },
                 "_primary": "en"
@@ -2048,7 +2048,7 @@
             "sortOrder": 1
           },
           {
-            "id": "019d653d-5309-7d5f-910e-16ba2938fa79",
+            "id": "019d69a9-def9-70d3-95f3-ad29fd45afe9",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -2056,8 +2056,8 @@
                   "content": "Value",
                   "version": 2,
                   "isActive": true,
-                  "createdAt": "2026-04-07T00:00:08.784Z",
-                  "updatedAt": "2026-04-07T00:00:10.031Z"
+                  "createdAt": "2026-04-07T20:37:11.448Z",
+                  "updatedAt": "2026-04-07T20:37:12.640Z"
                 }
               },
               "_primary": "en"
@@ -2074,15 +2074,15 @@
                     "content": "Value",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-07T00:00:10.031Z",
-                    "updatedAt": "2026-04-07T00:00:10.031Z"
+                    "createdAt": "2026-04-07T20:37:12.640Z",
+                    "updatedAt": "2026-04-07T20:37:12.640Z"
                   },
                   "ru": {
                     "content": "Значение",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-07T00:00:10.031Z",
-                    "updatedAt": "2026-04-07T00:00:10.031Z"
+                    "createdAt": "2026-04-07T20:37:12.640Z",
+                    "updatedAt": "2026-04-07T20:37:12.640Z"
                   }
                 },
                 "_primary": "en"
@@ -2094,7 +2094,7 @@
             "sortOrder": 2
           },
           {
-            "id": "019d653d-5e27-7b68-b5a8-0c55528692c5",
+            "id": "019d69a9-e9ca-7597-88e0-32e55fd5f356",
             "codename": {
               "_schema": "1",
               "locales": {
@@ -2102,8 +2102,8 @@
                   "content": "Category",
                   "version": 2,
                   "isActive": true,
-                  "createdAt": "2026-04-07T00:00:11.635Z",
-                  "updatedAt": "2026-04-07T00:00:12.882Z"
+                  "createdAt": "2026-04-07T20:37:14.194Z",
+                  "updatedAt": "2026-04-07T20:37:15.392Z"
                 }
               },
               "_primary": "en"
@@ -2120,15 +2120,15 @@
                     "content": "Category",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-07T00:00:12.882Z",
-                    "updatedAt": "2026-04-07T00:00:12.882Z"
+                    "createdAt": "2026-04-07T20:37:15.392Z",
+                    "updatedAt": "2026-04-07T20:37:15.392Z"
                   },
                   "ru": {
                     "content": "Категория",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-07T00:00:12.882Z",
-                    "updatedAt": "2026-04-07T00:00:12.882Z"
+                    "createdAt": "2026-04-07T20:37:15.392Z",
+                    "updatedAt": "2026-04-07T20:37:15.392Z"
                   }
                 },
                 "_primary": "en"
@@ -2142,8 +2142,8 @@
         ],
         "hubs": []
       },
-      "019d653b-7965-723b-a02a-4a5ccc976b78": {
-        "id": "019d653b-7965-723b-a02a-4a5ccc976b78",
+      "019d69a8-0ee6-7fd1-9786-701a035e339a": {
+        "id": "019d69a8-0ee6-7fd1-9786-701a035e339a",
         "kind": "enumeration",
         "codename": {
           "_schema": "1",
@@ -2152,20 +2152,20 @@
               "content": "Main",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T23:58:09.723Z",
-              "updatedAt": "2026-04-06T23:58:09.723Z"
+              "createdAt": "2026-04-07T20:35:14.750Z",
+              "updatedAt": "2026-04-07T20:35:14.750Z"
             },
             "ru": {
               "content": "Основное",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T23:58:09.723Z",
-              "updatedAt": "2026-04-06T23:58:09.723Z"
+              "createdAt": "2026-04-07T20:35:14.750Z",
+              "updatedAt": "2026-04-07T20:35:14.750Z"
             }
           },
           "_primary": "en"
         },
-        "tableName": "enum_019d653b7965723ba02a4a5ccc976b78",
+        "tableName": "enum_019d69a80ee67fd19786701a035e339a",
         "presentation": {
           "name": {
             "_schema": "1",
@@ -2216,8 +2216,8 @@
         "fields": [],
         "hubs": []
       },
-      "019d653c-4fe3-7c14-935b-438fe390e2c0": {
-        "id": "019d653c-4fe3-7c14-935b-438fe390e2c0",
+      "019d69a8-e8af-7a3d-9be2-5b086a420d22": {
+        "id": "019d69a8-e8af-7a3d-9be2-5b086a420d22",
         "kind": "enumeration",
         "codename": {
           "_schema": "1",
@@ -2226,20 +2226,20 @@
               "content": "Enumerations",
               "version": 2,
               "isActive": true,
-              "createdAt": "2026-04-06T23:59:02.073Z",
-              "updatedAt": "2026-04-06T23:59:03.904Z"
+              "createdAt": "2026-04-07T20:36:08.050Z",
+              "updatedAt": "2026-04-07T20:36:09.807Z"
             },
             "ru": {
               "content": "Перечисления",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T23:59:02.073Z",
-              "updatedAt": "2026-04-06T23:59:02.073Z"
+              "createdAt": "2026-04-07T20:36:08.050Z",
+              "updatedAt": "2026-04-07T20:36:08.050Z"
             }
           },
           "_primary": "en"
         },
-        "tableName": "enum_019d653c4fe37c14935b438fe390e2c0",
+        "tableName": "enum_019d69a8e8af7a3d9be25b086a420d22",
         "presentation": {
           "name": {
             "_schema": "1",
@@ -2248,15 +2248,15 @@
                 "content": "Enumerations",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:59:03.904Z",
-                "updatedAt": "2026-04-06T23:59:03.904Z"
+                "createdAt": "2026-04-07T20:36:09.807Z",
+                "updatedAt": "2026-04-07T20:36:09.807Z"
               },
               "ru": {
                 "content": "Перечисления",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:59:03.904Z",
-                "updatedAt": "2026-04-06T23:59:03.904Z"
+                "createdAt": "2026-04-07T20:36:09.807Z",
+                "updatedAt": "2026-04-07T20:36:09.807Z"
               }
             },
             "_primary": "en"
@@ -2268,15 +2268,15 @@
                 "content": "Enumeration dictionaries for stable choices in forms and records.",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:59:03.904Z",
-                "updatedAt": "2026-04-06T23:59:03.904Z"
+                "createdAt": "2026-04-07T20:36:09.807Z",
+                "updatedAt": "2026-04-07T20:36:09.807Z"
               },
               "ru": {
                 "content": "Справочники перечислений для стабильных вариантов выбора в формах и записях.",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:59:03.904Z",
-                "updatedAt": "2026-04-06T23:59:03.904Z"
+                "createdAt": "2026-04-07T20:36:09.807Z",
+                "updatedAt": "2026-04-07T20:36:09.807Z"
               }
             },
             "_primary": "en"
@@ -2284,7 +2284,7 @@
         },
         "config": {
           "hubs": [
-            "019d653c-37c9-7fe5-b9ab-8a629594ca6b"
+            "019d69a8-d15b-7cc6-8f7a-5309976ff0fb"
           ],
           "sortOrder": 2,
           "isSingleHub": true,
@@ -2292,11 +2292,11 @@
         },
         "fields": [],
         "hubs": [
-          "019d653c-37c9-7fe5-b9ab-8a629594ca6b"
+          "019d69a8-d15b-7cc6-8f7a-5309976ff0fb"
         ]
       },
-      "019d653b-78d0-7f64-ab20-9970780e4048": {
-        "id": "019d653b-78d0-7f64-ab20-9970780e4048",
+      "019d69a8-0e59-754a-8afb-0fb07fc895ab": {
+        "id": "019d69a8-0e59-754a-8afb-0fb07fc895ab",
         "kind": "set",
         "codename": {
           "_schema": "1",
@@ -2305,20 +2305,20 @@
               "content": "Main",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T23:58:09.575Z",
-              "updatedAt": "2026-04-06T23:58:09.575Z"
+              "createdAt": "2026-04-07T20:35:14.610Z",
+              "updatedAt": "2026-04-07T20:35:14.610Z"
             },
             "ru": {
               "content": "Основной",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T23:58:09.575Z",
-              "updatedAt": "2026-04-06T23:58:09.575Z"
+              "createdAt": "2026-04-07T20:35:14.610Z",
+              "updatedAt": "2026-04-07T20:35:14.610Z"
             }
           },
           "_primary": "en"
         },
-        "tableName": "set_019d653b78d07f64ab209970780e4048",
+        "tableName": "set_019d69a80e59754a8afb0fb07fc895ab",
         "presentation": {
           "name": {
             "_schema": "1",
@@ -2369,8 +2369,8 @@
         "fields": [],
         "hubs": []
       },
-      "019d653c-4145-7f69-96d3-498dcc86ab6a": {
-        "id": "019d653c-4145-7f69-96d3-498dcc86ab6a",
+      "019d69a8-da95-7e53-a455-a61dc88b9c14": {
+        "id": "019d69a8-da95-7e53-a455-a61dc88b9c14",
         "kind": "set",
         "codename": {
           "_schema": "1",
@@ -2379,20 +2379,20 @@
               "content": "Sets",
               "version": 2,
               "isActive": true,
-              "createdAt": "2026-04-06T23:58:58.614Z",
-              "updatedAt": "2026-04-06T23:59:00.451Z"
+              "createdAt": "2026-04-07T20:36:04.676Z",
+              "updatedAt": "2026-04-07T20:36:06.473Z"
             },
             "ru": {
               "content": "Наборы",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T23:58:58.614Z",
-              "updatedAt": "2026-04-06T23:58:58.614Z"
+              "createdAt": "2026-04-07T20:36:04.676Z",
+              "updatedAt": "2026-04-07T20:36:04.676Z"
             }
           },
           "_primary": "en"
         },
-        "tableName": "set_019d653c41457f6996d3498dcc86ab6a",
+        "tableName": "set_019d69a8da957e53a455a61dc88b9c14",
         "presentation": {
           "name": {
             "_schema": "1",
@@ -2401,15 +2401,15 @@
                 "content": "Sets",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:59:00.451Z",
-                "updatedAt": "2026-04-06T23:59:00.451Z"
+                "createdAt": "2026-04-07T20:36:06.473Z",
+                "updatedAt": "2026-04-07T20:36:06.473Z"
               },
               "ru": {
                 "content": "Наборы",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:59:00.451Z",
-                "updatedAt": "2026-04-06T23:59:00.451Z"
+                "createdAt": "2026-04-07T20:36:06.473Z",
+                "updatedAt": "2026-04-07T20:36:06.473Z"
               }
             },
             "_primary": "en"
@@ -2421,15 +2421,15 @@
                 "content": "Reusable typed sets for references, templates, and metadata constraints.",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:59:00.451Z",
-                "updatedAt": "2026-04-06T23:59:00.451Z"
+                "createdAt": "2026-04-07T20:36:06.473Z",
+                "updatedAt": "2026-04-07T20:36:06.473Z"
               },
               "ru": {
                 "content": "Переиспользуемые типизированные наборы для ссылок, шаблонов и ограничений метаданных.",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T23:59:00.451Z",
-                "updatedAt": "2026-04-06T23:59:00.451Z"
+                "createdAt": "2026-04-07T20:36:06.473Z",
+                "updatedAt": "2026-04-07T20:36:06.473Z"
               }
             },
             "_primary": "en"
@@ -2437,7 +2437,7 @@
         },
         "config": {
           "hubs": [
-            "019d653c-37c9-7fe5-b9ab-8a629594ca6b"
+            "019d69a8-d15b-7cc6-8f7a-5309976ff0fb"
           ],
           "sortOrder": 2,
           "isSingleHub": true,
@@ -2445,15 +2445,15 @@
         },
         "fields": [],
         "hubs": [
-          "019d653c-37c9-7fe5-b9ab-8a629594ca6b"
+          "019d69a8-d15b-7cc6-8f7a-5309976ff0fb"
         ]
       }
     },
     "elements": {
-      "019d653d-3700-77cd-9574-99c001d7f5fb": [
+      "019d69a9-c386-7ec0-9b33-3030c50fc170": [
         {
-          "id": "019d653d-6646-7715-8a72-76cea3235589",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69a9-f19e-7d87-af72-6302eab93b28",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "general.language",
             "Value": "system",
@@ -2462,8 +2462,8 @@
           "sortOrder": 1
         },
         {
-          "id": "019d653d-6cf5-7ec6-a11f-54dbd43a5986",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69a9-f820-7a82-847b-11bcdc3d9345",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "general.timezone",
             "Value": "UTC",
@@ -2472,8 +2472,8 @@
           "sortOrder": 2
         },
         {
-          "id": "019d653d-738d-72cb-aee0-084893977812",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69a9-fefa-79cb-adfe-98fe8c4c3f8c",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "general.codenameStyle",
             "Value": "pascal-case",
@@ -2482,8 +2482,8 @@
           "sortOrder": 3
         },
         {
-          "id": "019d653d-7a16-773c-b8ad-dfe474d0e2b8",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-0555-778e-a671-dba18456dc12",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "general.codenameAlphabet",
             "Value": "en-ru",
@@ -2492,8 +2492,8 @@
           "sortOrder": 4
         },
         {
-          "id": "019d653d-8171-7911-86eb-4e255b55c678",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-0baf-7761-8b2d-34d4cb26f764",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "general.codenameAllowMixedAlphabets",
             "Value": "false",
@@ -2502,8 +2502,8 @@
           "sortOrder": 5
         },
         {
-          "id": "019d653d-8804-7925-8e41-4743fa059e34",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-11fc-7c68-a98a-0b65a25c4e8b",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "general.codenameAutoConvertMixedAlphabets",
             "Value": "true",
@@ -2512,8 +2512,8 @@
           "sortOrder": 6
         },
         {
-          "id": "019d653d-8eb8-7580-ad01-083fe4861922",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-1851-76e2-bb6d-8d1b78b9ddd0",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "general.codenameAutoReformat",
             "Value": "true",
@@ -2522,8 +2522,8 @@
           "sortOrder": 7
         },
         {
-          "id": "019d653d-9552-7ea7-a94c-a287e9c24a0a",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-1e9f-735c-9428-e997276d9ad8",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "general.codenameRequireReformat",
             "Value": "true",
@@ -2532,8 +2532,8 @@
           "sortOrder": 8
         },
         {
-          "id": "019d653d-9be8-70ec-9bd1-dff5dde7481d",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-24ec-7e22-b511-3e4ef7cdbea5",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "general.codenameLocalizedEnabled",
             "Value": "true",
@@ -2542,8 +2542,8 @@
           "sortOrder": 9
         },
         {
-          "id": "019d653d-a276-7374-80f0-5f1eb7ac4642",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-2b3f-7a81-82b1-b9be0016f6f9",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "common.dialogSizePreset",
             "Value": "medium",
@@ -2552,8 +2552,8 @@
           "sortOrder": 10
         },
         {
-          "id": "019d653d-a90e-7f1f-ab03-9410f454278e",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-3190-7b04-ab65-084044054ab4",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "common.dialogAllowFullscreen",
             "Value": "true",
@@ -2562,8 +2562,8 @@
           "sortOrder": 11
         },
         {
-          "id": "019d653d-afa9-7a4f-8f38-7c0e5ac13303",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-37e2-7138-8b1b-c601c739a6bc",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "common.dialogAllowResize",
             "Value": "true",
@@ -2572,8 +2572,8 @@
           "sortOrder": 12
         },
         {
-          "id": "019d653d-b655-710d-87bb-b60704e76c28",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-3e45-7df7-b97b-1d3060851a2a",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "common.dialogCloseBehavior",
             "Value": "strict-modal",
@@ -2582,8 +2582,8 @@
           "sortOrder": 13
         },
         {
-          "id": "019d653d-bcde-7db3-943d-f3d54a4e9521",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-449c-7ce9-a647-7c28505e75b7",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "hubs.allowCopy",
             "Value": "true",
@@ -2592,8 +2592,8 @@
           "sortOrder": 14
         },
         {
-          "id": "019d653d-c36f-75e4-8b1f-eebe631fff09",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-4af5-7e07-b222-b45ab0003715",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "hubs.allowDelete",
             "Value": "true",
@@ -2602,8 +2602,8 @@
           "sortOrder": 15
         },
         {
-          "id": "019d653d-ca07-79b2-8b3c-1d2e2cbf3083",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-5157-7df1-81a1-3c4dd671bf5b",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "hubs.allowNesting",
             "Value": "true",
@@ -2612,8 +2612,8 @@
           "sortOrder": 16
         },
         {
-          "id": "019d653d-d09a-7c32-938e-bd6d941f0cc1",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-57a9-719b-b4c0-4adbdccb9b6a",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "hubs.resetNestingOnce",
             "Value": "false",
@@ -2622,8 +2622,8 @@
           "sortOrder": 17
         },
         {
-          "id": "019d653d-d723-7f90-b8e9-85040eb8a962",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-5dfc-70d0-b6c0-b21fa301ff70",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "hubs.allowAttachExistingEntities",
             "Value": "true",
@@ -2632,8 +2632,8 @@
           "sortOrder": 18
         },
         {
-          "id": "019d653d-ddbd-71a1-b62f-e6c22d125a7e",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-644a-7223-9cab-aae1762a91bf",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "catalogs.allowCopy",
             "Value": "true",
@@ -2642,8 +2642,8 @@
           "sortOrder": 19
         },
         {
-          "id": "019d653d-e458-7d1f-b5ad-0387fac1f9d5",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-6a93-7ef4-a850-afe0cfb48cb7",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "catalogs.allowDelete",
             "Value": "true",
@@ -2652,8 +2652,8 @@
           "sortOrder": 20
         },
         {
-          "id": "019d653d-eae2-7c47-a9bc-6aca87a15467",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-70e9-7837-ae16-748606384e7d",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "catalogs.attributeCodenameScope",
             "Value": "per-level",
@@ -2662,8 +2662,8 @@
           "sortOrder": 21
         },
         {
-          "id": "019d653d-f16e-7e15-9ed7-cf6ba7eea720",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-773a-719c-8139-76df1d7f9844",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "catalogs.allowedAttributeTypes",
             "Value": "[\"STRING\",\"NUMBER\",\"BOOLEAN\",\"DATE\",\"REF\",\"JSON\",\"TABLE\"]",
@@ -2672,8 +2672,8 @@
           "sortOrder": 22
         },
         {
-          "id": "019d653d-f803-743e-a852-5cc0ed9018ff",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-7d95-749b-91bb-a902398a376c",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "catalogs.allowAttributeCopy",
             "Value": "true",
@@ -2682,8 +2682,8 @@
           "sortOrder": 23
         },
         {
-          "id": "019d653d-fe93-7871-b984-0c1070edeb59",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-83df-7a82-baad-fede3e5c9c6f",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "catalogs.allowAttributeDelete",
             "Value": "true",
@@ -2692,8 +2692,8 @@
           "sortOrder": 24
         },
         {
-          "id": "019d653e-0523-747b-aab7-932a21f6ebf2",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-8a33-7e5e-8ae6-67c84663b37b",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "catalogs.allowDeleteLastDisplayAttribute",
             "Value": "true",
@@ -2702,8 +2702,8 @@
           "sortOrder": 25
         },
         {
-          "id": "019d653e-0baa-7856-b679-e7945a860e4f",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-908c-741b-a51d-2898052f6f78",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "catalogs.allowElementCopy",
             "Value": "true",
@@ -2712,8 +2712,8 @@
           "sortOrder": 26
         },
         {
-          "id": "019d653e-123d-75bb-8475-fe3f18799cc1",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-96ec-715d-8569-e277b8d2d2fe",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "catalogs.allowElementDelete",
             "Value": "true",
@@ -2722,8 +2722,8 @@
           "sortOrder": 27
         },
         {
-          "id": "019d653e-18ce-7c10-bc33-fc4dac8ef657",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-9d45-7fa5-bd3d-a618d5187945",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "catalogs.allowAttributeMoveBetweenRootAndChildren",
             "Value": "true",
@@ -2732,8 +2732,8 @@
           "sortOrder": 28
         },
         {
-          "id": "019d653e-1f59-7589-bbf4-a275ff7a0dce",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-a399-7c75-bacd-d288a0ca00b8",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "catalogs.allowAttributeMoveBetweenChildLists",
             "Value": "true",
@@ -2742,8 +2742,8 @@
           "sortOrder": 29
         },
         {
-          "id": "019d653e-25ef-7d83-8772-8794e227eac2",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-a9e7-76b0-ab38-26b138c84263",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "sets.allowCopy",
             "Value": "true",
@@ -2752,8 +2752,8 @@
           "sortOrder": 30
         },
         {
-          "id": "019d653e-2c78-75d0-a53c-b4aa5820d40a",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-b03d-7add-9e0a-2ceedfafbe2c",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "sets.allowDelete",
             "Value": "true",
@@ -2762,8 +2762,8 @@
           "sortOrder": 31
         },
         {
-          "id": "019d653e-330a-7a4b-9684-875d9fa7a888",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-b690-7963-b9b6-7fe52575642b",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "sets.constantCodenameScope",
             "Value": "global",
@@ -2772,8 +2772,8 @@
           "sortOrder": 32
         },
         {
-          "id": "019d653e-39b6-7aed-8d34-187077c155f5",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-bcde-70c4-9a05-3d42942a2c77",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "sets.allowedConstantTypes",
             "Value": "[\"STRING\",\"NUMBER\",\"BOOLEAN\",\"DATE\"]",
@@ -2782,8 +2782,8 @@
           "sortOrder": 33
         },
         {
-          "id": "019d653e-4059-76aa-af87-7ae7d7328f2f",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-c32b-76e0-b105-03d7e367cd99",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "sets.allowConstantCopy",
             "Value": "true",
@@ -2792,8 +2792,8 @@
           "sortOrder": 34
         },
         {
-          "id": "019d653e-46e5-7c0c-b164-28d5812fce2f",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-c97f-7001-b16c-343adaeac405",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "sets.allowConstantDelete",
             "Value": "true",
@@ -2802,8 +2802,8 @@
           "sortOrder": 35
         },
         {
-          "id": "019d653e-4d73-7708-98c1-8092b9da88b2",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-cfce-7795-ab58-0710fac3e681",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "enumerations.allowCopy",
             "Value": "true",
@@ -2812,8 +2812,8 @@
           "sortOrder": 36
         },
         {
-          "id": "019d653e-53f4-7dfc-ad28-af335e0cda55",
-          "objectId": "019d653d-3700-77cd-9574-99c001d7f5fb",
+          "id": "019d69aa-d785-7ef0-b313-f583871a8bc7",
+          "objectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
           "data": {
             "Key": "enumerations.allowDelete",
             "Value": "true",
@@ -2824,10 +2824,10 @@
       ]
     },
     "enumerationValues": {
-      "019d653c-4fe3-7c14-935b-438fe390e2c0": [
+      "019d69a8-e8af-7a3d-9be2-5b086a420d22": [
         {
-          "id": "019d653e-60b6-7c72-af0f-7c9e23f0e3a8",
-          "objectId": "019d653c-4fe3-7c14-935b-438fe390e2c0",
+          "id": "019d69aa-e341-7062-9b45-6b49986b32d1",
+          "objectId": "019d69a8-e8af-7a3d-9be2-5b086a420d22",
           "codename": {
             "_schema": "1",
             "locales": {
@@ -2835,8 +2835,8 @@
                 "content": "Active",
                 "version": 2,
                 "isActive": true,
-                "createdAt": "2026-04-07T00:01:17.051Z",
-                "updatedAt": "2026-04-07T00:01:19.268Z"
+                "createdAt": "2026-04-07T20:38:17.467Z",
+                "updatedAt": "2026-04-07T20:38:19.517Z"
               }
             },
             "_primary": "en"
@@ -2849,21 +2849,189 @@
                   "content": "Active",
                   "version": 1,
                   "isActive": true,
-                  "createdAt": "2026-04-07T00:01:19.268Z",
-                  "updatedAt": "2026-04-07T00:01:19.268Z"
+                  "createdAt": "2026-04-07T20:38:19.517Z",
+                  "updatedAt": "2026-04-07T20:38:19.517Z"
                 }
               },
               "_primary": "en"
-            },
-            "description": {}
+            }
           },
           "sortOrder": 1,
           "isDefault": true
         }
       ]
     },
+    "sharedAttributes": [
+      {
+        "id": "019d69aa-f50d-77ca-988f-619e9d46670c",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "SharedTitle",
+              "version": 2,
+              "isActive": true,
+              "createdAt": "2026-04-07T20:38:22.608Z",
+              "updatedAt": "2026-04-07T20:38:23.826Z"
+            },
+            "ru": {
+              "content": "SharedTitle",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-07T20:38:22.608Z",
+              "updatedAt": "2026-04-07T20:38:22.608Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "dataType": "STRING",
+        "isRequired": false,
+        "isDisplayAttribute": false,
+        "targetConstantId": null,
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Shared Title",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-07T20:38:23.826Z",
+                "updatedAt": "2026-04-07T20:38:23.826Z"
+              },
+              "ru": {
+                "content": "Общий заголовок",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-07T20:38:23.826Z",
+                "updatedAt": "2026-04-07T20:38:23.826Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {}
+        },
+        "validationRules": {},
+        "uiConfig": {},
+        "sortOrder": 1
+      }
+    ],
+    "sharedConstants": [
+      {
+        "id": "019d69ab-04ae-76d0-a8cd-425d569239ec",
+        "objectId": "019d69aa-eb44-7261-b3bb-71c8dde945f2",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "SharedConstant",
+              "version": 2,
+              "isActive": true,
+              "createdAt": "2026-04-07T20:38:25.388Z",
+              "updatedAt": "2026-04-07T20:38:28.462Z"
+            },
+            "ru": {
+              "content": "SharedConstant",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-07T20:38:25.388Z",
+              "updatedAt": "2026-04-07T20:38:25.388Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "dataType": "STRING",
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Shared Constant",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-07T20:38:28.462Z",
+                "updatedAt": "2026-04-07T20:38:28.462Z"
+              },
+              "ru": {
+                "content": "Общая константа",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-07T20:38:28.462Z",
+                "updatedAt": "2026-04-07T20:38:28.462Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "validationRules": {},
+        "uiConfig": {},
+        "value": "shared-fixture-value",
+        "sortOrder": 1
+      }
+    ],
+    "sharedEnumerationValues": [
+      {
+        "id": "019d69ab-0e89-7883-990d-121e63a39686",
+        "objectId": "019d69aa-eb97-76ca-8c5a-591f7ffd4436",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "SharedStatus",
+              "version": 2,
+              "isActive": true,
+              "createdAt": "2026-04-07T20:38:28.820Z",
+              "updatedAt": "2026-04-07T20:38:30.850Z"
+            },
+            "ru": {
+              "content": "SharedStatus",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-07T20:38:28.820Z",
+              "updatedAt": "2026-04-07T20:38:28.820Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Shared Status",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-07T20:38:30.850Z",
+                "updatedAt": "2026-04-07T20:38:30.850Z"
+              },
+              "ru": {
+                "content": "Общий статус",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-07T20:38:30.850Z",
+                "updatedAt": "2026-04-07T20:38:30.850Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "sortOrder": 1,
+        "isDefault": false
+      }
+    ],
+    "sharedEntityOverrides": [
+      {
+        "id": "019d69ab-1232-7ae4-bad2-6f440f489da6",
+        "entityKind": "attribute",
+        "sharedEntityId": "019d69aa-f50d-77ca-988f-619e9d46670c",
+        "targetObjectId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
+        "isExcluded": true,
+        "isActive": null,
+        "sortOrder": null
+      }
+    ],
     "systemFields": {
-      "019d653b-739b-71a3-869b-8b7f97b62d82": {
+      "019d69a8-093b-7741-9dd4-9124805e8056": {
         "fields": [
           {
             "key": "app.published",
@@ -2944,7 +3112,7 @@
           }
         }
       },
-      "019d653b-86b8-7f57-b016-f13b808cc9fe": {
+      "019d69a8-1bb0-7729-bc2f-f5d4a6307d67": {
         "fields": [
           {
             "key": "app.published",
@@ -3025,7 +3193,7 @@
           }
         }
       },
-      "019d653b-d0e7-7228-9de1-befbee97a3cd": {
+      "019d69a8-6d5c-70b8-a8ec-b520c618d2cf": {
         "fields": [
           {
             "key": "app.published",
@@ -3106,7 +3274,7 @@
           }
         }
       },
-      "019d653c-03f0-7669-b2ea-fb344032b6cf": {
+      "019d69a8-9f28-738b-9a33-7ab7b2df3738": {
         "fields": [
           {
             "key": "app.published",
@@ -3187,7 +3355,7 @@
           }
         }
       },
-      "019d653c-5b60-77e3-966a-d0736e63bc9e": {
+      "019d69a8-f3a4-7e27-a16f-d4764db754b4": {
         "fields": [
           {
             "key": "app.published",
@@ -3268,7 +3436,7 @@
           }
         }
       },
-      "019d653c-8e0f-7601-9eea-49cac4e1cd2b": {
+      "019d69a9-24a4-7528-a732-9a8ac30a529e": {
         "fields": [
           {
             "key": "app.published",
@@ -3349,7 +3517,7 @@
           }
         }
       },
-      "019d653c-c65e-7306-aa71-5fba11b9b159": {
+      "019d69a9-56fa-71a0-9ed9-9269c5c156f7": {
         "fields": [
           {
             "key": "app.published",
@@ -3430,7 +3598,7 @@
           }
         }
       },
-      "019d653c-f916-7037-b4ea-bdf145f84521": {
+      "019d69a9-8818-7c29-b3dc-641d8f85a52c": {
         "fields": [
           {
             "key": "app.published",
@@ -3511,7 +3679,7 @@
           }
         }
       },
-      "019d653d-3700-77cd-9574-99c001d7f5fb": {
+      "019d69a9-c386-7ec0-9b33-3030c50fc170": {
         "fields": [
           {
             "key": "app.published",
@@ -3595,7 +3763,7 @@
     },
     "layouts": [
       {
-        "id": "019d653b-6723-7620-8250-f8d01e9ed082",
+        "id": "019d69a7-fdbc-70e0-85e6-62be357b69b6",
         "templateKey": "dashboard",
         "name": {
           "_schema": "1",
@@ -3604,15 +3772,15 @@
               "content": "Metahubs Self-Hosted Dashboard",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-07T00:01:22.347Z",
-              "updatedAt": "2026-04-07T00:01:22.347Z"
+              "createdAt": "2026-04-07T20:38:34.289Z",
+              "updatedAt": "2026-04-07T20:38:34.289Z"
             },
             "ru": {
               "content": "Панель автономного приложения метахабов",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-07T00:01:22.347Z",
-              "updatedAt": "2026-04-07T00:01:22.347Z"
+              "createdAt": "2026-04-07T20:38:34.289Z",
+              "updatedAt": "2026-04-07T20:38:34.289Z"
             }
           },
           "_primary": "en"
@@ -3624,15 +3792,15 @@
               "content": "Default dashboard layout for the self-hosted metahub application.",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-07T00:01:22.347Z",
-              "updatedAt": "2026-04-07T00:01:22.347Z"
+              "createdAt": "2026-04-07T20:38:34.289Z",
+              "updatedAt": "2026-04-07T20:38:34.289Z"
             },
             "ru": {
               "content": "Базовый макет панели для автономного приложения метахабов.",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-07T00:01:22.347Z",
-              "updatedAt": "2026-04-07T00:01:22.347Z"
+              "createdAt": "2026-04-07T20:38:34.289Z",
+              "updatedAt": "2026-04-07T20:38:34.289Z"
             }
           },
           "_primary": "en"
@@ -3671,7 +3839,7 @@
     ],
     "catalogLayouts": [
       {
-        "id": "019d653e-812f-7d7f-bf51-f2231ca68d22",
+        "id": "019d69ab-30a3-7c5f-9e76-065265432e26",
         "templateKey": "dashboard",
         "name": {
           "_schema": "1",
@@ -3680,15 +3848,15 @@
               "content": "Settings Catalog Layout",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-07T00:01:27.812Z",
-              "updatedAt": "2026-04-07T00:01:27.812Z"
+              "createdAt": "2026-04-07T20:38:39.510Z",
+              "updatedAt": "2026-04-07T20:38:39.510Z"
             },
             "ru": {
               "content": "Макет каталога настроек",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-07T00:01:27.812Z",
-              "updatedAt": "2026-04-07T00:01:27.812Z"
+              "createdAt": "2026-04-07T20:38:39.510Z",
+              "updatedAt": "2026-04-07T20:38:39.510Z"
             }
           },
           "_primary": "en"
@@ -3700,15 +3868,15 @@
               "content": "Catalog-specific layout override for the Settings catalog.",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-07T00:01:27.812Z",
-              "updatedAt": "2026-04-07T00:01:27.812Z"
+              "createdAt": "2026-04-07T20:38:39.510Z",
+              "updatedAt": "2026-04-07T20:38:39.510Z"
             },
             "ru": {
               "content": "Специальный макет каталога для каталога настроек.",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-07T00:01:27.812Z",
-              "updatedAt": "2026-04-07T00:01:27.812Z"
+              "createdAt": "2026-04-07T20:38:39.510Z",
+              "updatedAt": "2026-04-07T20:38:39.510Z"
             }
           },
           "_primary": "en"
@@ -3731,11 +3899,11 @@
         "isActive": true,
         "isDefault": true,
         "sortOrder": 0,
-        "catalogId": "019d653d-3700-77cd-9574-99c001d7f5fb",
-        "baseLayoutId": "019d653b-6723-7620-8250-f8d01e9ed082"
+        "catalogId": "019d69a9-c386-7ec0-9b33-3030c50fc170",
+        "baseLayoutId": "019d69a7-fdbc-70e0-85e6-62be357b69b6"
       }
     ],
-    "defaultLayoutId": "019d653b-6723-7620-8250-f8d01e9ed082",
+    "defaultLayoutId": "019d69a7-fdbc-70e0-85e6-62be357b69b6",
     "layoutConfig": {
       "rowHeight": "auto",
       "showFooter": false,
@@ -3765,8 +3933,8 @@
     },
     "layoutZoneWidgets": [
       {
-        "id": "019d653b-6a62-7472-a75a-5c97bae02447",
-        "layoutId": "019d653b-6723-7620-8250-f8d01e9ed082",
+        "id": "019d69a8-00ed-7a8c-8471-e05dfa44931f",
+        "layoutId": "019d69a7-fdbc-70e0-85e6-62be357b69b6",
         "zone": "center",
         "widgetKey": "detailsTable",
         "sortOrder": 1,
@@ -3774,8 +3942,8 @@
         "isActive": true
       },
       {
-        "id": "019d653b-69d0-78e6-9816-042bb3126d3c",
-        "layoutId": "019d653b-6723-7620-8250-f8d01e9ed082",
+        "id": "019d69a8-0060-78a4-b718-4349015da136",
+        "layoutId": "019d69a7-fdbc-70e0-85e6-62be357b69b6",
         "zone": "center",
         "widgetKey": "detailsTitle",
         "sortOrder": 2,
@@ -3783,8 +3951,8 @@
         "isActive": true
       },
       {
-        "id": "019d653b-6816-7025-bfff-6e79e7105ee2",
-        "layoutId": "019d653b-6723-7620-8250-f8d01e9ed082",
+        "id": "019d69a7-fea8-7b4b-957e-4e547331a47c",
+        "layoutId": "019d69a7-fdbc-70e0-85e6-62be357b69b6",
         "zone": "left",
         "widgetKey": "menuWidget",
         "sortOrder": 3,
@@ -3797,15 +3965,15 @@
                 "content": "Catalogs",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-07T00:01:24.070Z",
-                "updatedAt": "2026-04-07T00:01:24.070Z"
+                "createdAt": "2026-04-07T20:38:35.905Z",
+                "updatedAt": "2026-04-07T20:38:35.905Z"
               },
               "ru": {
                 "content": "Каталоги",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-07T00:01:24.070Z",
-                "updatedAt": "2026-04-07T00:01:24.070Z"
+                "createdAt": "2026-04-07T20:38:35.905Z",
+                "updatedAt": "2026-04-07T20:38:35.905Z"
               }
             },
             "_primary": "en"
@@ -3818,8 +3986,8 @@
         "isActive": true
       },
       {
-        "id": "019d653b-68ad-7e15-bccb-49ac03cae49f",
-        "layoutId": "019d653b-6723-7620-8250-f8d01e9ed082",
+        "id": "019d69a7-ff42-74b4-a42d-6c80a521f4fc",
+        "layoutId": "019d69a7-fdbc-70e0-85e6-62be357b69b6",
         "zone": "top",
         "widgetKey": "appNavbar",
         "sortOrder": 1,
@@ -3827,8 +3995,8 @@
         "isActive": true
       },
       {
-        "id": "019d653b-693f-74d3-ab66-7f81fc2cda99",
-        "layoutId": "019d653b-6723-7620-8250-f8d01e9ed082",
+        "id": "019d69a7-ffd0-73d9-8188-b8d67df001d0",
+        "layoutId": "019d69a7-fdbc-70e0-85e6-62be357b69b6",
         "zone": "top",
         "widgetKey": "header",
         "sortOrder": 2,
@@ -3838,9 +4006,9 @@
     ],
     "catalogLayoutWidgetOverrides": [
       {
-        "id": "019d653e-8a64-743b-9952-a063f4093dda",
-        "catalogLayoutId": "019d653e-812f-7d7f-bf51-f2231ca68d22",
-        "baseWidgetId": "019d653b-69d0-78e6-9816-042bb3126d3c",
+        "id": "019d69ab-396e-7ae4-8d63-d57f530c54c8",
+        "catalogLayoutId": "019d69ab-30a3-7c5f-9e76-065265432e26",
+        "baseWidgetId": "019d69a8-0060-78a4-b718-4349015da136",
         "zone": null,
         "sortOrder": null,
         "config": null,
@@ -3849,5 +4017,5 @@
       }
     ]
   },
-  "snapshotHash": "96403c4562fd8c634ce55440c8128b3b1a326f33f92c327c7abcc6610aa29654"
+  "snapshotHash": "a731672d0b7795675664ea923ad65b72daa264342478e34dfdd168905ea3ef8f"
 }

@@ -21,6 +21,7 @@ describe('systemTableDefinitions', () => {
             expect(tableNames).toContain('_mhb_settings')
             expect(tableNames).toContain('_mhb_layouts')
             expect(tableNames).toContain('_mhb_widgets')
+            expect(tableNames).toContain('_mhb_shared_entity_overrides')
             expect(tableNames).toContain('_mhb_migrations')
             expect(tableNames).toContain('_mhb_scripts')
         })
@@ -166,6 +167,18 @@ describe('systemTableDefinitions', () => {
                 codenamePrimaryTextSql('codename')
             ])
             expect(scopedIndex?.unique).toBe(true)
+        })
+    })
+
+    describe('shared entity override indexes', () => {
+        it('keeps one active override row per shared entity and target object', () => {
+            const overridesTable = SYSTEM_TABLES.find((table) => table.name === '_mhb_shared_entity_overrides')
+            const uniqueIndex = overridesTable?.indexes?.find((index) => index.name === 'idx_mhb_shared_entity_overrides_unique_active')
+
+            expect(uniqueIndex).toBeDefined()
+            expect(uniqueIndex?.columns).toEqual(['entity_kind', 'shared_entity_id', 'target_object_id'])
+            expect(uniqueIndex?.unique).toBe(true)
+            expect(uniqueIndex?.where).toBe('_upl_deleted = false AND _mhb_deleted = false')
         })
     })
 

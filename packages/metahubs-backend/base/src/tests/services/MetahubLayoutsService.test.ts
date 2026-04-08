@@ -469,7 +469,7 @@ describe('MetahubLayoutsService', () => {
         })
     })
 
-    it('exposes inherited metadata for catalog layout widgets', async () => {
+    it('ignores stale inherited widget overrides when the base sharedBehavior forbids them', async () => {
         const layoutId = 'catalog-layout-1'
         const baseLayoutId = 'global-layout-1'
         const baseWidgetId = 'base-widget-1'
@@ -480,7 +480,14 @@ describe('MetahubLayoutsService', () => {
             zone: 'left',
             widget_key: 'menuWidget',
             sort_order: 1,
-            config: { title: 'Base menu' },
+            config: {
+                title: 'Base menu',
+                sharedBehavior: {
+                    canDeactivate: false,
+                    canExclude: false,
+                    positionLocked: true
+                }
+            },
             is_active: true,
             _upl_created_at: '2026-04-06T00:00:00.000Z',
             _upl_updated_at: '2026-04-06T00:00:00.000Z'
@@ -512,7 +519,18 @@ describe('MetahubLayoutsService', () => {
             }
 
             if (sql.includes('SELECT * FROM') && sql.includes('_mhb_catalog_widget_overrides') && sql.includes('catalog_layout_id = $1')) {
-                return []
+                return [
+                    {
+                        id: 'override-1',
+                        catalog_layout_id: layoutId,
+                        base_widget_id: baseWidgetId,
+                        zone: 'right',
+                        sort_order: 9,
+                        is_active: false,
+                        is_deleted_override: true,
+                        _upl_updated_at: '2026-04-06T01:00:00.000Z'
+                    }
+                ]
             }
 
             if (sql.includes('UPDATE') && sql.includes('_mhb_layouts') && sql.includes('config = $1')) {
@@ -542,7 +560,10 @@ describe('MetahubLayoutsService', () => {
                     id: baseWidgetId,
                     widgetKey: 'menuWidget',
                     isInherited: true,
-                    config: { title: 'Base menu' }
+                    zone: 'left',
+                    sortOrder: 1,
+                    isActive: true,
+                    config: expect.objectContaining({ title: 'Base menu' })
                 })
             ])
         )
@@ -616,13 +637,11 @@ describe('MetahubLayoutsService', () => {
             statusCode: 400
         })
         expect(
-            query.mock.calls.some(
-                ([sql]) => String(sql).includes('UPDATE') && String(sql).includes('_mhb_catalog_widget_overrides')
-            )
+            query.mock.calls.some(([sql]) => String(sql).includes('UPDATE') && String(sql).includes('_mhb_catalog_widget_overrides'))
         ).toBe(false)
     })
 
-    it('rejects removal of inherited catalog widgets', async () => {
+    it('rejects inherited widget exclusion when the base layout disables it', async () => {
         const layoutId = 'catalog-layout-1'
         const baseLayoutId = 'global-layout-1'
         const baseWidgetId = 'base-widget-1'
@@ -651,7 +670,7 @@ describe('MetahubLayoutsService', () => {
                             zone: 'left',
                             widget_key: 'menuWidget',
                             sort_order: 1,
-                            config: { title: 'Base menu' },
+                            config: { title: 'Base menu', sharedBehavior: { canExclude: false } },
                             is_active: true,
                             _upl_created_at: '2026-04-06T00:00:00.000Z',
                             _upl_updated_at: '2026-04-06T00:00:00.000Z'
@@ -684,17 +703,247 @@ describe('MetahubLayoutsService', () => {
         const service = new MetahubLayoutsService(exec as never, schemaService as never)
 
         await expect(service.removeLayoutZoneWidget('metahub-1', layoutId, baseWidgetId, 'user-1')).rejects.toMatchObject({
-            message: 'Inherited widgets cannot be removed. Move or toggle the inherited widget instead.',
+            message: 'Inherited widget exclusion is disabled by the base layout and cannot be changed.',
             statusCode: 400
         })
         expect(
             query.mock.calls.some(
                 ([sql]) =>
-                    String(sql).includes('UPDATE') &&
-                    String(sql).includes('_mhb_widgets') &&
-                    String(sql).includes('_mhb_deleted = true')
+                    String(sql).includes('UPDATE') && String(sql).includes('_mhb_widgets') && String(sql).includes('_mhb_deleted = true')
             )
         ).toBe(false)
+    })
+
+    it('stores inherited widget exclusion through catalog override rows when allowed', async () => {
+        const layoutId = 'catalog-layout-1'
+        const baseLayoutId = 'global-layout-1'
+        const baseWidgetId = 'base-widget-1'
+        const overrideRows: Array<Record<string, unknown>> = []
+
+        const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (
+                sql.includes('_mhb_layouts') &&
+                (sql.includes('SELECT id, catalog_id, base_layout_id, config') || sql.includes('SELECT * FROM'))
+            ) {
+                return [
+                    {
+                        id: layoutId,
+                        catalog_id: 'catalog-1',
+                        base_layout_id: baseLayoutId,
+                        config: {}
+                    }
+                ]
+            }
+
+            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_widgets') && sql.includes('layout_id = $1')) {
+                if (params?.[0] === baseLayoutId) {
+                    return [
+                        {
+                            id: baseWidgetId,
+                            layout_id: baseLayoutId,
+                            zone: 'left',
+                            widget_key: 'menuWidget',
+                            sort_order: 1,
+                            config: { title: 'Base menu', sharedBehavior: { canExclude: true } },
+                            is_active: true,
+                            _upl_created_at: '2026-04-06T00:00:00.000Z',
+                            _upl_updated_at: '2026-04-06T00:00:00.000Z'
+                        }
+                    ]
+                }
+
+                if (params?.[0] === layoutId) {
+                    return []
+                }
+            }
+
+            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_catalog_widget_overrides') && sql.includes('catalog_layout_id = $1')) {
+                return overrideRows
+            }
+
+            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_catalog_widget_overrides') && sql.includes('base_widget_id = $2')) {
+                return overrideRows.filter((row) => row.base_widget_id === params?.[1])
+            }
+
+            if (sql.includes('INSERT INTO') && sql.includes('_mhb_catalog_widget_overrides')) {
+                overrideRows.push({
+                    id: 'override-1',
+                    catalog_layout_id: params?.[0],
+                    base_widget_id: params?.[1],
+                    zone: params?.[2],
+                    sort_order: params?.[3],
+                    is_active: params?.[5],
+                    is_deleted_override: params?.[6],
+                    _upl_updated_at: params?.[7]
+                })
+                return []
+            }
+
+            if (sql.includes('UPDATE') && sql.includes('_mhb_layouts') && sql.includes('config = $1')) {
+                return []
+            }
+
+            throw new Error(`Unexpected SQL in inherited exclusion override test: ${sql}`)
+        })
+
+        const tx = { query }
+        const exec = {
+            query,
+            transaction: jest.fn(async (callback: (trx: typeof tx) => Promise<unknown>) => callback(tx)),
+            isReleased: () => false
+        }
+        const schemaService = {
+            ensureSchema: jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+        }
+
+        const service = new MetahubLayoutsService(exec as never, schemaService as never)
+
+        await service.removeLayoutZoneWidget('metahub-1', layoutId, baseWidgetId, 'user-1')
+
+        expect(overrideRows).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    base_widget_id: baseWidgetId,
+                    is_deleted_override: true
+                })
+            ])
+        )
+        expect(
+            query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO') && String(sql).includes('_mhb_catalog_widget_overrides'))
+        ).toBe(true)
+    })
+
+    it('rejects inherited widget moves when the base layout locks position', async () => {
+        const layoutId = 'catalog-layout-1'
+        const baseLayoutId = 'global-layout-1'
+        const baseWidgetId = 'base-widget-1'
+
+        const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('SELECT id, catalog_id, base_layout_id, config') && sql.includes('_mhb_layouts')) {
+                return [
+                    {
+                        id: layoutId,
+                        catalog_id: 'catalog-1',
+                        base_layout_id: baseLayoutId,
+                        config: {}
+                    }
+                ]
+            }
+
+            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_widgets') && sql.includes('layout_id = $1')) {
+                if (params?.[0] === baseLayoutId) {
+                    return [
+                        {
+                            id: baseWidgetId,
+                            layout_id: baseLayoutId,
+                            zone: 'left',
+                            widget_key: 'menuWidget',
+                            sort_order: 1,
+                            config: { title: 'Base menu', sharedBehavior: { positionLocked: true } },
+                            is_active: true,
+                            _upl_created_at: '2026-04-06T00:00:00.000Z',
+                            _upl_updated_at: '2026-04-06T00:00:00.000Z'
+                        }
+                    ]
+                }
+
+                if (params?.[0] === layoutId) {
+                    return []
+                }
+            }
+
+            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_catalog_widget_overrides') && sql.includes('catalog_layout_id = $1')) {
+                return []
+            }
+
+            throw new Error(`Unexpected SQL in inherited move rejection test: ${sql}`)
+        })
+
+        const tx = { query }
+        const exec = {
+            query,
+            transaction: jest.fn(async (callback: (trx: typeof tx) => Promise<unknown>) => callback(tx)),
+            isReleased: () => false
+        }
+        const schemaService = {
+            ensureSchema: jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+        }
+
+        const service = new MetahubLayoutsService(exec as never, schemaService as never)
+
+        await expect(
+            service.moveLayoutZoneWidget('metahub-1', layoutId, { widgetId: baseWidgetId, targetZone: 'right', targetIndex: 0 }, 'user-1')
+        ).rejects.toMatchObject({
+            message: 'Inherited widget position is locked by the base layout and cannot be moved.',
+            statusCode: 400
+        })
+    })
+
+    it('rejects inherited widget activation changes when the base layout disables deactivation', async () => {
+        const layoutId = 'catalog-layout-1'
+        const baseLayoutId = 'global-layout-1'
+        const baseWidgetId = 'base-widget-1'
+
+        const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (
+                sql.includes('_mhb_layouts') &&
+                (sql.includes('SELECT id, catalog_id, base_layout_id, config') || sql.includes('SELECT * FROM'))
+            ) {
+                return [
+                    {
+                        id: layoutId,
+                        catalog_id: 'catalog-1',
+                        base_layout_id: baseLayoutId,
+                        config: {}
+                    }
+                ]
+            }
+
+            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_widgets') && sql.includes('layout_id = $1')) {
+                if (params?.[0] === baseLayoutId) {
+                    return [
+                        {
+                            id: baseWidgetId,
+                            layout_id: baseLayoutId,
+                            zone: 'left',
+                            widget_key: 'menuWidget',
+                            sort_order: 1,
+                            config: { title: 'Base menu', sharedBehavior: { canDeactivate: false } },
+                            is_active: true,
+                            _upl_created_at: '2026-04-06T00:00:00.000Z',
+                            _upl_updated_at: '2026-04-06T00:00:00.000Z'
+                        }
+                    ]
+                }
+
+                if (params?.[0] === layoutId) {
+                    return []
+                }
+            }
+
+            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_catalog_widget_overrides') && sql.includes('catalog_layout_id = $1')) {
+                return []
+            }
+
+            throw new Error(`Unexpected SQL in inherited toggle rejection test: ${sql}`)
+        })
+
+        const tx = { query }
+        const exec = {
+            query,
+            transaction: jest.fn(async (callback: (trx: typeof tx) => Promise<unknown>) => callback(tx)),
+            isReleased: () => false
+        }
+        const schemaService = {
+            ensureSchema: jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+        }
+
+        const service = new MetahubLayoutsService(exec as never, schemaService as never)
+
+        await expect(service.toggleLayoutZoneWidgetActive('metahub-1', layoutId, baseWidgetId, false, 'user-1')).rejects.toMatchObject({
+            message: 'Inherited widget activation is locked by the base layout and cannot be changed.',
+            statusCode: 400
+        })
     })
 
     it('blocks deletion of a global layout that is still referenced by catalog layouts', async () => {

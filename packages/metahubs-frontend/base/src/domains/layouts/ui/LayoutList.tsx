@@ -754,6 +754,7 @@ export const LayoutListContent = ({
                         onSearchChange={handleSearchChange}
                         title={embedded ? undefined : resolvedTitle}
                         adaptiveSearch={useCompactEmbeddedHeader}
+                        controlsAlign={embedded ? 'end' : 'start'}
                     >
                         <ToolbarControls
                             viewToggleEnabled

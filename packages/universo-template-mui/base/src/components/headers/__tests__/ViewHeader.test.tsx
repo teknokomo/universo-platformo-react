@@ -65,13 +65,14 @@ describe('ViewHeader mobile search', () => {
         expect(searchInputs.at(-1)).toHaveValue('archived')
     })
 
-    it('pushes header actions to the right when search is rendered without a title region', () => {
+    it('pushes embedded end-aligned controls to the right when search is rendered without a title region', () => {
         renderWithTheme(
-            <ViewHeader search searchPlaceholder='Search layouts'>
+            <ViewHeader search searchPlaceholder='Search layouts' controlsAlign='end'>
                 <button type='button'>Create</button>
             </ViewHeader>
         )
 
+        expect(window.getComputedStyle(screen.getByTestId('view-header-controls-region')).marginLeft).toBe('auto')
         expect(window.getComputedStyle(screen.getByTestId('view-header-actions-region')).marginLeft).toBe('auto')
     })
 })

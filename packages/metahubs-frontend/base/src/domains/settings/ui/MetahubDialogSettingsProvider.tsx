@@ -18,11 +18,9 @@ export function MetahubDialogSettingsProvider({ children }: { children: ReactNod
     const { t } = useTranslation('metahubs')
 
     const sizePreset = useSettingValue<DialogSizePreset>('common.dialogSizePreset') ?? DEFAULT_DIALOG_PRESENTATION.sizePreset
-    const allowFullscreen =
-        useSettingValue<boolean>('common.dialogAllowFullscreen') ?? DEFAULT_DIALOG_PRESENTATION.allowFullscreen
+    const allowFullscreen = useSettingValue<boolean>('common.dialogAllowFullscreen') ?? DEFAULT_DIALOG_PRESENTATION.allowFullscreen
     const allowResize = useSettingValue<boolean>('common.dialogAllowResize') ?? DEFAULT_DIALOG_PRESENTATION.allowResize
-    const closeBehavior =
-        useSettingValue<DialogCloseBehavior>('common.dialogCloseBehavior') ?? DEFAULT_DIALOG_PRESENTATION.closeBehavior
+    const closeBehavior = useSettingValue<DialogCloseBehavior>('common.dialogCloseBehavior') ?? DEFAULT_DIALOG_PRESENTATION.closeBehavior
 
     return (
         <DialogPresentationProvider

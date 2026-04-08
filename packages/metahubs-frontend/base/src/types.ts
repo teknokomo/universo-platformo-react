@@ -15,6 +15,7 @@ import type {
     AttributeDataType,
     ConstantDataType,
     MetaEntityKind,
+    SharedBehavior,
     DashboardLayoutZone,
     DashboardLayoutWidgetKey,
     BranchCopyOptions,
@@ -458,7 +459,13 @@ export interface EnumerationValue {
     codename: CodenameVLC
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
+    presentation?: Record<string, unknown> & { sharedBehavior?: SharedBehavior }
     sortOrder: number
+    effectiveSortOrder?: number
+    isShared?: boolean
+    isActive?: boolean
+    isExcluded?: boolean
+    sharedBehavior?: Required<SharedBehavior> | null
     isDefault: boolean
     createdAt: string
     updatedAt: string
@@ -472,6 +479,11 @@ export interface EnumerationValueDisplay {
     name: string
     description: string
     sortOrder: number
+    effectiveSortOrder?: number
+    isShared?: boolean
+    isActive?: boolean
+    isExcluded?: boolean
+    sharedBehavior?: Required<SharedBehavior> | null
     isDefault: boolean
     createdAt: string
     updatedAt: string
@@ -497,6 +509,11 @@ export interface Attribute {
     isRequired: boolean
     isDisplayAttribute?: boolean
     sortOrder: number
+    effectiveSortOrder?: number
+    isShared?: boolean
+    isActive?: boolean
+    isExcluded?: boolean
+    sharedBehavior?: Required<SharedBehavior> | null
     createdAt: string
     updatedAt: string
     version?: number
@@ -520,6 +537,11 @@ export interface AttributeDisplay {
     isRequired: boolean
     isDisplayAttribute?: boolean
     sortOrder: number
+    effectiveSortOrder?: number
+    isShared?: boolean
+    isActive?: boolean
+    isExcluded?: boolean
+    sharedBehavior?: Required<SharedBehavior> | null
     createdAt: string
     updatedAt: string
     role?: MetahubRole
@@ -542,6 +564,11 @@ export interface Constant {
     uiConfig: Record<string, unknown>
     value: unknown
     sortOrder: number
+    effectiveSortOrder?: number
+    isShared?: boolean
+    isActive?: boolean
+    isExcluded?: boolean
+    sharedBehavior?: Required<SharedBehavior> | null
     createdAt: string
     updatedAt: string
     version?: number
@@ -558,6 +585,11 @@ export interface ConstantDisplay {
     uiConfig: Record<string, unknown>
     value: unknown
     sortOrder: number
+    effectiveSortOrder?: number
+    isShared?: boolean
+    isActive?: boolean
+    isExcluded?: boolean
+    sharedBehavior?: Required<SharedBehavior> | null
     createdAt: string
     updatedAt: string
 }
@@ -669,6 +701,7 @@ export interface EnumerationValueLocalizedPayload {
     description?: SimpleLocalizedInput
     namePrimaryLocale?: string
     descriptionPrimaryLocale?: string
+    presentation?: Record<string, unknown> & { sharedBehavior?: SharedBehavior }
     sortOrder?: number
     isDefault?: boolean
 }

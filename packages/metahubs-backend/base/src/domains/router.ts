@@ -20,6 +20,7 @@ import { createMetahubMigrationsRoutes } from './metahubs/routes/metahubMigratio
 import { createPublicationsRoutes } from './publications/routes/publicationsRoutes'
 import { createApplicationMigrationsRoutes } from './applications/routes/applicationMigrationsRoutes'
 import { createSettingsRoutes } from './settings/routes/settingsRoutes'
+import { createSharedEntityOverridesRoutes } from './shared/routes/sharedEntityOverridesRoutes'
 import { isMetahubDomainError } from './shared/domainErrors'
 
 const log = createLogger('Metahubs')
@@ -89,6 +90,7 @@ export function createMetahubsServiceRoutes(ensureAuth: RequestHandler, getDbExe
     router.use('/', createElementsRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createLayoutsRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createScriptsRoutes(ensureAuth, getDbExecutor, read, write))
+    router.use('/', createSharedEntityOverridesRoutes(ensureAuth, getDbExecutor, read, write))
 
     // Settings (metahub-level configuration)
     router.use('/', createSettingsRoutes(ensureAuth, getDbExecutor, read, write))
@@ -160,6 +162,7 @@ export { createConstantsRoutes } from './constants/routes/constantsRoutes'
 export { createElementsRoutes } from './elements/routes/elementsRoutes'
 export { createLayoutsRoutes } from './layouts/routes/layoutsRoutes'
 export { createScriptsRoutes } from './scripts/routes/scriptsRoutes'
+export { createSharedEntityOverridesRoutes } from './shared/routes/sharedEntityOverridesRoutes'
 export { createTemplatesRoutes } from './templates/routes/templatesRoutes'
 export { createPublicMetahubsRoutes } from './metahubs/routes/publicMetahubsRoutes'
 export { createMetahubMigrationsRoutes } from './metahubs/routes/metahubMigrationsRoutes'

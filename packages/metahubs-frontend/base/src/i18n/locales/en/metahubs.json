@@ -155,6 +155,8 @@
         },
         "scripts": {
             "saveEntityFirst": "Save this entity first, then scripts can be attached from this tab.",
+            "loadingPermissions": "Loading script permissions...",
+            "noManagePermission": "You do not have permission to manage scripts for this metahub.",
             "listTitle": "Attached scripts",
             "currentSelection": "Selected",
             "noneSelected": "No script selected",
@@ -185,6 +187,7 @@
                 "module": "Module",
                 "lifecycle": "Lifecycle",
                 "widget": "Widget",
+                "library": "Library",
                 "global": "Global"
             },
             "sourceKinds": {
@@ -203,10 +206,12 @@
                 "effectiveCapabilities": "Effective capabilities for this role",
                 "recommendedEntryPoints": "Recommended entry points",
                 "editorHelp": "Start typing ExtensionScript, @AtClient, @AtServer, or @OnEvent to use SDK completions.",
+                "editorHelpLibrary": "Start typing SharedLibraryScript or @shared/example-helpers to use shared-library completions.",
                 "roleSummaries": {
                     "module": "General modules can mix record and metadata operations and may also subscribe to lifecycle hooks when needed.",
                     "lifecycle": "Lifecycle modules are optimized for before/after entity events and usually validate, enrich, or veto record mutations.",
                     "widget": "Widget modules should expose a client mount() method and can optionally proxy submit(payload) to the server through callServerMethod().",
+                    "library": "Library modules are import-only shared helpers for the Common section. Keep them pure, reuse @shared/<codename> imports when needed, and avoid decorators or runtime ctx access.",
                     "global": "Global modules are best for metahub-wide helpers that only need read-only metadata access."
                 }
             },
@@ -628,7 +633,67 @@
     "general": {
         "title": "Common",
         "tabs": {
-            "layouts": "Layouts"
+            "layouts": "Layouts",
+            "attributes": "Attributes",
+            "constants": "Constants",
+            "values": "Values",
+            "scripts": "Scripts"
+        },
+        "shared": {
+            "loading": "Loading shared entities...",
+            "loadError": "Failed to load shared containers.",
+            "empty": "Shared container is unavailable."
+        }
+    },
+    "shared": {
+        "tab": "Shared",
+        "behavior": {
+            "title": "Shared behavior",
+            "description": "Control how this shared entity behaves inside target objects and which overrides remain available there.",
+            "canDeactivate": "Can be deactivated",
+            "canDeactivateHelper": "Allow target objects to switch this shared entity off without removing it completely.",
+            "canExclude": "Can be excluded",
+            "canExcludeHelper": "Allow target objects to exclude this shared entity from their own list.",
+            "positionLocked": "Position locked",
+            "positionLockedHelper": "Keep this shared entity fixed in inherited order so target objects cannot reorder it."
+        },
+        "exclusions": {
+            "tab": "Exclusions",
+            "title": "Exclusions",
+            "description": "Disable inheritance for selected target objects while keeping the shared entity available everywhere else.",
+            "availableAfterCreate": "Save this shared entity first to configure exclusions for individual targets.",
+            "disabled": "Exclusions are currently locked for this shared entity.",
+            "saveWithDialog": "Exclusion changes are applied when you save this dialog.",
+            "loading": "Loading available targets...",
+            "loadError": "Failed to load available targets for exclusions.",
+            "empty": "No targets are available yet.",
+            "addButton": "Add",
+            "dialogTitle": "Select exclusions",
+            "emptySelection": "No exclusions configured.",
+            "noAvailableSelection": "No additional targets are available.",
+            "searchPlaceholder": "Search targets...",
+            "cancelButton": "Cancel",
+            "confirmButton": "Add",
+            "removeTitle": "Remove from exclusions",
+            "nameHeader": "Name",
+            "contextHeader": "Context",
+            "saving": "Saving..."
+        },
+        "list": {
+            "badge": "Shared",
+            "inactive": "Inactive",
+            "localDivider": "Local",
+            "actions": {
+                "activate": "Activate",
+                "deactivate": "Deactivate",
+                "exclude": "Exclude"
+            },
+            "messages": {
+                "activated": "Shared entity enabled for this target",
+                "deactivated": "Shared entity disabled for this target",
+                "excluded": "Shared entity excluded from this target",
+                "actionError": "Failed to update shared entity state"
+            }
         }
     },
     "catalogs": {
@@ -896,7 +961,8 @@
         },
         "tabs": {
             "general": "General",
-            "value": "Value"
+            "value": "Value",
+            "presentation": "Presentation"
         },
         "typeSettings": {
             "title": "Type Settings",
@@ -1045,6 +1111,10 @@
         "copy": {
             "action": "Copy",
             "actionLoading": "Copying..."
+        },
+        "tabs": {
+            "general": "General",
+            "presentation": "Presentation"
         },
         "codename": "Codename",
         "codenameHelper": "Unique field identifier (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.",

@@ -1,6 +1,7 @@
 import type { Locator, Page, Response } from '@playwright/test'
 import { createLocalizedContent, getVLCString } from '@universo/utils'
 import { expect, test } from '../../fixtures/test'
+import { waitForSettledMutationResponse } from '../../support/browser/network'
 import {
     createLoggedInApiContext,
     createMetahub,
@@ -292,9 +293,10 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
         })
         await constantDialog.getByRole('tab', { name: 'Value' }).click()
         await constantDialog.getByRole('textbox', { name: 'Value' }).fill(initialConstantValue)
-        const createConstantRequest = page.waitForResponse(
-            (response) =>
-                response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/set/${setId}/constants`)
+        const createConstantRequest = waitForSettledMutationResponse(
+            page,
+            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/set/${setId}/constants`),
+            { label: 'Creating constant' }
         )
         await constantDialog.getByTestId(entityDialogSelectors.submitButton).click()
         const createdConstant = await parseJsonResponse<EntityRecord>(await createConstantRequest, 'Creating constant')
@@ -323,10 +325,12 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
         await constantValueField.fill(updatedConstantValue)
         await constantValueField.press('Tab')
         await expect(editConstantDialog.getByTestId(entityDialogSelectors.submitButton)).toBeEnabled()
-        const updateConstantRequest = page.waitForResponse(
+        const updateConstantRequest = waitForSettledMutationResponse(
+            page,
             (response) =>
                 response.request().method() === 'PATCH' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/set/${setId}/constant/${createdConstant.id}`)
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/set/${setId}/constant/${createdConstant.id}`),
+            { label: 'Updating constant' }
         )
         await editConstantDialog.getByTestId(entityDialogSelectors.submitButton).click()
         await parseJsonResponse<EntityRecord>(await updateConstantRequest, 'Updating constant')
@@ -343,10 +347,12 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
             codename: `${runManifest.runId}-value`,
             description: `Value description ${runManifest.runId}`
         })
-        const createValueRequest = page.waitForResponse(
+        const createValueRequest = waitForSettledMutationResponse(
+            page,
             (response) =>
                 response.request().method() === 'POST' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/enumeration/${enumerationId}/values`)
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/enumeration/${enumerationId}/values`),
+            { label: 'Creating enumeration value' }
         )
         await valueDialog.getByTestId(entityDialogSelectors.submitButton).click()
         const createdValue = await parseJsonResponse<EntityRecord>(await createValueRequest, 'Creating enumeration value')
@@ -362,10 +368,12 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
         await expect(editValueDialog.getByLabel('Description').first()).toBeVisible()
         await expect(editValueDialog.getByLabel('Codename').first()).toBeVisible()
         await editValueDialog.getByLabel('Description').first().fill(`Updated value description ${runManifest.runId}`)
-        const updateValueRequest = page.waitForResponse(
+        const updateValueRequest = waitForSettledMutationResponse(
+            page,
             (response) =>
                 response.request().method() === 'PATCH' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/enumeration/${enumerationId}/value/${createdValue.id}`)
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/enumeration/${enumerationId}/value/${createdValue.id}`),
+            { label: 'Updating enumeration value' }
         )
         await editValueDialog.getByTestId(entityDialogSelectors.submitButton).click()
         await parseJsonResponse<EntityRecord>(await updateValueRequest, 'Updating enumeration value')
@@ -381,10 +389,12 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
         await expect(copyValueDialog.getByLabel('Description').first()).toBeVisible()
         await expect(copyValueDialog.getByLabel('Codename').first()).toBeVisible()
         await copyValueDialog.getByLabel('Description').first().fill(`Copied value description ${runManifest.runId}`)
-        const copyValueRequest = page.waitForResponse(
+        const copyValueRequest = waitForSettledMutationResponse(
+            page,
             (response) =>
                 response.request().method() === 'POST' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/enumeration/${enumerationId}/value/${createdValue.id}/copy`)
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/enumeration/${enumerationId}/value/${createdValue.id}/copy`),
+            { label: 'Copying enumeration value' }
         )
         await copyValueDialog.getByTestId(entityDialogSelectors.submitButton).click()
         const copiedValue = await parseJsonResponse<EntityRecord>(await copyValueRequest, 'Copying enumeration value')
@@ -424,10 +434,12 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
 
         expect(autoGeneratedCopyCodename.toLowerCase()).toContain('copy')
 
-        const copyAttributeRequest = page.waitForResponse(
+        const copyAttributeRequest = waitForSettledMutationResponse(
+            page,
             (response) =>
                 response.request().method() === 'POST' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/catalog/${catalogId}/attribute/${attribute.id}/copy`)
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/catalog/${catalogId}/attribute/${attribute.id}/copy`),
+            { label: 'Copying attribute' }
         )
         await copyAttributeDialog.getByTestId(entityDialogSelectors.submitButton).click()
         const copiedAttribute = await parseJsonResponse<EntityRecord>(await copyAttributeRequest, 'Copying attribute')

@@ -26,14 +26,15 @@ export const loadPublishedPublicationRuntimeSource: LoadPublishedPublicationRunt
     const objectsService = new MetahubObjectsService(executor, schemaService)
     const attributesService = new MetahubAttributesService(executor, schemaService)
     const serializer = new SnapshotSerializer(objectsService, attributesService)
-    const rawCatalogDefs = serializer.deserializeSnapshot(snapshot)
+    const runtimeSnapshot = SnapshotSerializer.materializeSharedEntitiesForRuntime(snapshot)
+    const rawCatalogDefs = serializer.deserializeSnapshot(runtimeSnapshot)
 
     return {
         publicationId: publication.id,
         publicationVersionId: activeVersion.id,
-        snapshotHash: activeVersion.snapshotHash || serializer.calculateHash(snapshot),
-        snapshot: snapshot as unknown as PublishedApplicationSnapshot,
-        entities: enrichDefinitionsWithSetConstants(rawCatalogDefs, snapshot),
+        snapshotHash: serializer.calculateHash(runtimeSnapshot as MetahubSnapshot),
+        snapshot: runtimeSnapshot as unknown as PublishedApplicationSnapshot,
+        entities: enrichDefinitionsWithSetConstants(rawCatalogDefs, runtimeSnapshot),
         publicationSnapshot: snapshot as unknown as Record<string, unknown>
     }
 }

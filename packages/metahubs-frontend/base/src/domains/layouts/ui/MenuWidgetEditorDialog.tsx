@@ -35,6 +35,7 @@ import { fetchAllPaginatedItems, metahubsQueryKeys } from '../../shared'
 import * as catalogsApi from '../../catalogs/api'
 import { useMetahubHubs } from '../../hubs/hooks'
 import { getVLCString, normalizeLocale } from '../../../types'
+import LayoutWidgetSharedBehaviorFields from './LayoutWidgetSharedBehaviorFields'
 
 // ---------------------------------------------------------------------------
 // Props
@@ -45,6 +46,7 @@ export interface MenuWidgetEditorDialogProps {
     metahubId: string
     /** Current widget config (null when creating a new menuWidget). */
     config: MenuWidgetConfig | null
+    showSharedBehavior?: boolean
     onSave: (config: MenuWidgetConfig) => void
     onCancel: () => void
 }
@@ -387,7 +389,14 @@ function ItemFormDialog({
 // Main component
 // ---------------------------------------------------------------------------
 
-export default function MenuWidgetEditorDialog({ open, metahubId, config, onSave, onCancel }: MenuWidgetEditorDialogProps) {
+export default function MenuWidgetEditorDialog({
+    open,
+    metahubId,
+    config,
+    showSharedBehavior = false,
+    onSave,
+    onCancel
+}: MenuWidgetEditorDialogProps) {
     const { t, i18n } = useTranslation(['metahubs', 'common'])
     const uiLocale = normalizeLocale(i18n.language)
     const isEdit = Boolean(config)
@@ -596,6 +605,13 @@ export default function MenuWidgetEditorDialog({ open, metahubId, config, onSave
                                 </Box>
                             </Stack>
                         </Stack>
+
+                        {showSharedBehavior ? (
+                            <LayoutWidgetSharedBehaviorFields
+                                value={draft}
+                                onChange={(nextValue) => setDraft(nextValue as MenuWidgetConfig)}
+                            />
+                        ) : null}
 
                         {/* --- Menu items DnD --- */}
                         <Box>

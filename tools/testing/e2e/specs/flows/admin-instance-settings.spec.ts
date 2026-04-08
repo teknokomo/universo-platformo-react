@@ -1,6 +1,7 @@
 import { resolveLocalizedContent } from '@universo/utils'
 import { expect, test } from '../../fixtures/test'
 import { createLoggedInBrowserContext } from '../../support/browser/auth'
+import { waitForSettledMutationResponse } from '../../support/browser/network'
 import { expectHorizontalEdgesAligned } from '../../support/browser/spacing'
 import {
     createBootstrapApiContext,
@@ -62,8 +63,10 @@ test('@flow @permission admin can edit instances and persist admin settings from
         await editDialog.getByLabel('Description').fill(nextInstanceDescription)
         await expect(editDialog.getByTestId(entityDialogSelectors.deleteButton)).toBeDisabled()
 
-        const updateInstanceRequest = page.waitForResponse(
-            (response) => response.request().method() === 'PUT' && response.url().endsWith(`/api/v1/admin/instances/${instance.id}`)
+        const updateInstanceRequest = waitForSettledMutationResponse(
+            page,
+            (response) => response.request().method() === 'PUT' && response.url().endsWith(`/api/v1/admin/instances/${instance.id}`),
+            { label: 'Updating instance' }
         )
 
         await editDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -97,7 +100,12 @@ test('@flow @permission admin can edit instances and persist admin settings from
         await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible()
         await expect(page.getByRole('button', { name: 'Save Changes' })).toHaveCount(0)
 
+        const metahubsTab = page.getByRole('tab', { name: 'Metahubs' })
+        await metahubsTab.click()
+        await expect(metahubsTab).toHaveAttribute('aria-selected', 'true')
+
         const allowMixedAlphabetsRow = page.getByTestId('admin-setting-codenameAllowMixedAlphabets')
+        await expect(allowMixedAlphabetsRow).toBeVisible()
         const allowMixedAlphabetsSwitch = allowMixedAlphabetsRow.getByRole('switch')
 
         if (nextAllowMixedAlphabets) {
@@ -116,8 +124,10 @@ test('@flow @permission admin can edit instances and persist admin settings from
         await expect(saveButton).toBeVisible()
         await expect(saveButton).toBeEnabled()
 
-        const updateSettingsRequest = page.waitForResponse(
-            (response) => response.request().method() === 'PUT' && response.url().endsWith('/api/v1/admin/settings/metahubs')
+        const updateSettingsRequest = waitForSettledMutationResponse(
+            page,
+            (response) => response.request().method() === 'PUT' && response.url().endsWith('/api/v1/admin/settings/metahubs'),
+            { label: 'Updating admin settings' }
         )
 
         await saveButton.click()

@@ -17,7 +17,7 @@ current platform shape and how to approach common tasks safely.
 - Publishing Content.
 - Working with UPDL.
 - Multi-Platform Export.
-- Metahub Scripting.
+- [Metahub Scripting](metahub-scripting.md) — executable scopes, shared libraries, and fail-closed authoring rules.
 - [Updating System App Schemas](updating-system-app-schemas.md) — how to add, change, or remove fields and tables in fixed system app manifests.
 
 Use these pages as orientation guides, then move into architecture or package

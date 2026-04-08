@@ -37,7 +37,6 @@ import {
     revealPendingEntityFeedback,
     ViewHeaderMUI as ViewHeader,
     BaseEntityMenu,
-    type ActionContext,
     useListDialogs
 } from '@universo/template-mui'
 import type { DragEndEvent } from '@universo/template-mui'
@@ -54,17 +53,7 @@ import * as elementsApi from '../api'
 import * as attributesApi from '../../attributes'
 import { listEnumerationValues } from '../../enumerations/api'
 import { metahubsQueryKeys, invalidateElementsQueries } from '../../shared'
-import {
-    Constant,
-    Hub,
-    Catalog,
-    CatalogLocalizedPayload,
-    HubElement,
-    HubElementDisplay,
-    getVLCString,
-    toHubElementDisplay,
-    type VersionedLocalizedContent
-} from '../../../types'
+import { Catalog, CatalogLocalizedPayload, HubElement, HubElementDisplay, getVLCString, toHubElementDisplay } from '../../../types'
 import { hasAxiosResponse, isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
 import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
 import elementActions from './ElementActions'
@@ -131,8 +120,8 @@ const ReferenceFieldAutocomplete = ({
     const { t } = useTranslation('metahubs')
 
     const { data: targetAttributesData, isLoading: isLoadingAttributes } = useQuery({
-        queryKey: metahubsQueryKeys.attributesListDirect(metahubId, targetCatalogId, { limit: 100, locale }),
-        queryFn: () => attributesApi.listAttributesDirect(metahubId, targetCatalogId, { limit: 100, locale }),
+        queryKey: metahubsQueryKeys.attributesListDirect(metahubId, targetCatalogId, { limit: 100, locale, includeShared: true }),
+        queryFn: () => attributesApi.listAttributesDirect(metahubId, targetCatalogId, { limit: 100, locale, includeShared: true }),
         enabled: Boolean(metahubId && targetCatalogId)
     })
 
@@ -276,8 +265,8 @@ const EnumerationFieldAutocomplete = ({
     const { t } = useTranslation('metahubs')
 
     const { data: valuesData, isLoading } = useQuery({
-        queryKey: metahubsQueryKeys.enumerationValuesList(metahubId, enumerationId),
-        queryFn: () => listEnumerationValues(metahubId, enumerationId),
+        queryKey: metahubsQueryKeys.enumerationValuesList(metahubId, enumerationId, { includeShared: true }),
+        queryFn: () => listEnumerationValues(metahubId, enumerationId, { includeShared: true }),
         enabled: Boolean(metahubId && enumerationId)
     })
 

@@ -47,7 +47,7 @@ import type { SetWithHubs } from '../api'
 import { invalidateSetsQueries, metahubsQueryKeys } from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { isOptimisticLockConflict, extractConflictInfo, isPendingEntity, getPendingAction, type ConflictInfo } from '@universo/utils'
-import { SetLocalizedPayload, Hub, getVLCString } from '../../../types'
+import { SetLocalizedPayload, getVLCString } from '../../../types'
 import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
 import { ensureLocalizedContent, extractLocalizedInput, hasPrimaryContent } from '../../../utils/localizedInput'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
@@ -61,7 +61,6 @@ import {
     toSetWithHubsDisplay,
     type SetWithHubsDisplay,
     type SetFormValues,
-    type SetPendingData,
     type SetMenuBaseContext,
     type ConfirmSpec
 } from './setListUtils'

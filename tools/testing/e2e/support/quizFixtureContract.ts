@@ -656,6 +656,15 @@ export function canonicalizeQuizFixtureEnvelope(envelope: Record<string, any>) {
 export function assertQuizFixtureEnvelopeContract(envelope: Record<string, any>) {
     const errors: string[] = []
 
+    if (!envelope?.snapshot || typeof envelope.snapshot !== 'object') {
+        errors.push('Quiz fixture is missing the snapshot payload')
+    } else {
+        const expectedSnapshotHash = computeSnapshotHash(envelope.snapshot)
+        if (envelope?.snapshotHash !== expectedSnapshotHash) {
+            errors.push('Quiz fixture snapshotHash drifted from the canonical snapshot payload')
+        }
+    }
+
     const metahubNameEn = readLocalizedText(envelope?.metahub?.name, 'en')
     const metahubNameRu = readLocalizedText(envelope?.metahub?.name, 'ru')
     const metahubDescriptionEn = readLocalizedText(envelope?.metahub?.description, 'en')

@@ -28,7 +28,7 @@ const request = require('supertest') as typeof import('supertest')
 
 import { createMockDbExecutor } from '../utils/dbMocks'
 import { createAttributesRoutes } from '../../domains/attributes/routes/attributesRoutes'
-import { MetahubDomainError, MetahubNotFoundError } from '../../domains/shared/domainErrors'
+import { MetahubDomainError } from '../../domains/shared/domainErrors'
 import { testCodenameVlc } from '../utils/codenameTestHelpers'
 
 const mockAcquireAdvisoryLock = jest.fn(async () => true)
@@ -55,14 +55,18 @@ jest.mock('../../domains/ddl', () => ({
 }))
 
 const mockAttributesService = {
+    findAll: jest.fn(),
+    findAllMerged: jest.fn(),
     countByObjectId: jest.fn(),
     findById: jest.fn(),
+    moveAttribute: jest.fn(),
     ensureSequentialSortOrder: jest.fn(),
     update: jest.fn(),
     findByCodename: jest.fn(),
     create: jest.fn(),
     findChildAttributes: jest.fn(),
     reorderAttribute: jest.fn(),
+    reorderAttributeMergedOrder: jest.fn(),
     setDisplayAttribute: jest.fn(),
     clearDisplayAttribute: jest.fn()
 }
@@ -165,8 +169,16 @@ describe('Attributes Routes', () => {
         mockAcquireAdvisoryLock.mockResolvedValue(true)
         mockReleaseAdvisoryLock.mockResolvedValue(undefined)
         mockUuidToLockKey.mockImplementation((value: string) => value)
+        mockAttributesService.findAll.mockResolvedValue([])
+        mockAttributesService.findAllMerged.mockResolvedValue([])
         mockAttributesService.countByObjectId.mockResolvedValue(0)
         mockAttributesService.findById.mockResolvedValue(null)
+        mockAttributesService.moveAttribute.mockResolvedValue({
+            id: '11111111-1111-1111-1111-111111111111',
+            objectId: 'catalog-1',
+            sortOrder: 1,
+            parentAttributeId: null
+        })
         mockAttributesService.ensureSequentialSortOrder.mockResolvedValue(undefined)
         mockAttributesService.update.mockResolvedValue({})
         mockAttributesService.findByCodename.mockResolvedValue(null)
@@ -182,7 +194,45 @@ describe('Attributes Routes', () => {
             sortOrder: 1,
             parentAttributeId: null
         })
+        mockAttributesService.reorderAttributeMergedOrder.mockResolvedValue({
+            id: '11111111-1111-1111-1111-111111111111',
+            objectId: '22222222-2222-2222-2222-222222222222',
+            effectiveSortOrder: 1,
+            isShared: true,
+            parentAttributeId: null
+        })
         mockEnumerationValuesService.findById.mockResolvedValue(null)
+    })
+
+    it('GET /metahub/:metahubId/catalog/:catalogId/attributes uses merged read when includeShared=true', async () => {
+        mockAttributesService.findAllMerged.mockResolvedValue([
+            {
+                id: 'shared-attr-1',
+                catalogId: 'shared-catalog-1',
+                codename: 'SharedTitle',
+                dataType: 'STRING',
+                name: { en: 'Shared Title' },
+                validationRules: {},
+                uiConfig: {},
+                isRequired: false,
+                sortOrder: 1,
+                effectiveSortOrder: 1,
+                isShared: true,
+                isActive: true,
+                isExcluded: false,
+                sharedBehavior: { canDeactivate: true, canExclude: true, positionLocked: false },
+                createdAt: '2026-03-04T10:00:00.000Z',
+                updatedAt: '2026-03-04T10:00:00.000Z'
+            }
+        ])
+
+        const app = buildApp()
+        const response = await request(app).get('/metahub/metahub-1/catalog/catalog-1/attributes?includeShared=true').expect(200)
+
+        expect(response.body.items[0]).toMatchObject({ id: 'shared-attr-1', isShared: true, effectiveSortOrder: 1 })
+        expect(response.body.meta).toMatchObject({ includeShared: true })
+        expect(mockAttributesService.findAllMerged).toHaveBeenCalledWith('metahub-1', 'catalog-1', 'test-user-id', 'business')
+        expect(mockAttributesService.findAll).not.toHaveBeenCalled()
     })
 
     describe('POST /metahub/:metahubId/catalog/:catalogId/attributes', () => {
@@ -229,6 +279,59 @@ describe('Attributes Routes', () => {
                 code: 'TABLE_ATTRIBUTE_LIMIT_REACHED',
                 maxTableAttributes: 10
             })
+        })
+
+        it('passes uiConfig.sharedBehavior through create validation when provided', async () => {
+            mockAttributesService.create.mockResolvedValueOnce({
+                id: 'attr-1',
+                catalogId: 'catalog-1',
+                codename: 'Title',
+                dataType: 'STRING',
+                isRequired: false,
+                isDisplayAttribute: false,
+                uiConfig: {
+                    sharedBehavior: {
+                        canDeactivate: false,
+                        canExclude: true,
+                        positionLocked: true
+                    }
+                },
+                validationRules: {}
+            })
+
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/metahub-1/catalog/catalog-1/attributes')
+                .send({
+                    codename: testCodenameVlc('title'),
+                    dataType: 'STRING',
+                    name: { en: 'Title' },
+                    uiConfig: {
+                        sharedBehavior: {
+                            canDeactivate: false,
+                            canExclude: true,
+                            positionLocked: true
+                        }
+                    }
+                })
+                .expect(201)
+
+            expect(mockAttributesService.create).toHaveBeenCalledWith(
+                'metahub-1',
+                expect.objectContaining({
+                    catalogId: 'catalog-1',
+                    uiConfig: {
+                        sharedBehavior: {
+                            canDeactivate: false,
+                            canExclude: true,
+                            positionLocked: true
+                        }
+                    }
+                }),
+                'test-user-id',
+                expect.any(Object)
+            )
+            expect(response.body).toMatchObject({ id: 'attr-1', codename: 'Title' })
         })
 
         it('fails closed when schema sync fails after attribute creation', async () => {
@@ -364,6 +467,83 @@ describe('Attributes Routes', () => {
                 code: 'TABLE_CHILD_LIMIT_REACHED',
                 maxChildAttributes: 3
             })
+        })
+
+        it('calls merged reorder service when mergedOrderIds are provided for same-list reorder', async () => {
+            const app = buildApp()
+            await request(app)
+                .patch('/metahub/metahub-1/catalog/catalog-1/attributes/reorder')
+                .send({
+                    attributeId: '11111111-1111-1111-1111-111111111111',
+                    newSortOrder: 2,
+                    mergedOrderIds: ['11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222']
+                })
+                .expect(200)
+
+            expect(mockAttributesService.reorderAttributeMergedOrder).toHaveBeenCalledWith(
+                'metahub-1',
+                'catalog-1',
+                '11111111-1111-1111-1111-111111111111',
+                ['11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222'],
+                'test-user-id'
+            )
+            expect(mockAttributesService.reorderAttribute).not.toHaveBeenCalled()
+        })
+    })
+
+    describe('PATCH /metahub/:metahubId/catalog/:catalogId/attribute/:attributeId/move', () => {
+        it('moves an attribute only when it belongs to the routed catalog', async () => {
+            mockAttributesService.findById.mockResolvedValue({
+                id: 'attr-1',
+                catalogId: 'catalog-1',
+                sortOrder: 2,
+                parentAttributeId: null,
+                isSystem: false
+            })
+
+            const app = buildApp()
+            await request(app).patch('/metahub/metahub-1/catalog/catalog-1/attribute/attr-1/move').send({ direction: 'up' }).expect(200)
+
+            expect(mockAttributesService.moveAttribute).toHaveBeenCalledWith('metahub-1', 'catalog-1', 'attr-1', 'up', 'test-user-id')
+        })
+
+        it('returns 404 when the attribute belongs to another catalog', async () => {
+            mockAttributesService.findById.mockResolvedValue({
+                id: 'attr-foreign',
+                catalogId: 'catalog-2',
+                sortOrder: 2,
+                parentAttributeId: null,
+                isSystem: false
+            })
+
+            const app = buildApp()
+            const response = await request(app)
+                .patch('/metahub/metahub-1/catalog/catalog-1/attribute/attr-foreign/move')
+                .send({ direction: 'up' })
+                .expect(404)
+
+            expect(response.body).toMatchObject({ error: 'Attribute not found' })
+            expect(mockAttributesService.moveAttribute).not.toHaveBeenCalled()
+        })
+
+        it('returns 404 when a shared-pool attribute id is submitted through a catalog route', async () => {
+            mockAttributesService.findById.mockResolvedValue({
+                id: 'shared-attr-1',
+                catalogId: 'shared-catalog-pool-1',
+                sortOrder: 1,
+                parentAttributeId: null,
+                isSystem: false,
+                isShared: true
+            })
+
+            const app = buildApp()
+            const response = await request(app)
+                .patch('/metahub/metahub-1/catalog/catalog-1/attribute/shared-attr-1/move')
+                .send({ direction: 'down' })
+                .expect(404)
+
+            expect(response.body).toMatchObject({ error: 'Attribute not found' })
+            expect(mockAttributesService.moveAttribute).not.toHaveBeenCalled()
         })
     })
 

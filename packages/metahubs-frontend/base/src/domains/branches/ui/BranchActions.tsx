@@ -16,7 +16,6 @@ import type { MetahubBranchDisplay, BranchLocalizedPayload } from '../../../type
 import { getVLCString } from '../../../types'
 import { sanitizeCodenameForStyle } from '../../../utils/codename'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
-import { normalizeLocale } from '../../../utils/localizedInput'
 import { CodenameField } from '../../../components'
 import { useQuery } from '@tanstack/react-query'
 import * as branchesApi from '../api'

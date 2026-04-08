@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { alpha, type Theme } from '@mui/material/styles'
 import { Box, Skeleton, Stack, Typography, Chip, Alert, Tooltip, Tabs, Tab, IconButton } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import InfoIcon from '@mui/icons-material/Info'
@@ -13,7 +14,6 @@ import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
 import { useQueryClient } from '@tanstack/react-query'
 
-// project imports
 import {
     TemplateMainCard as MainCard,
     ToolbarControls,
@@ -22,12 +22,13 @@ import {
     PaginationControls,
     FlowListTable,
     useConfirm,
+    ViewHeaderMUI as ViewHeader,
+    BaseEntityMenu,
     revealPendingEntityFeedback,
     useListDialogs
 } from '@universo/template-mui'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
 import { EntityFormDialog, ConfirmDeleteDialog, ConflictResolutionDialog, type TabConfig } from '@universo/template-mui/components/dialogs'
-import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
 
 import {
     useCreateAttribute,
@@ -41,7 +42,15 @@ import {
     useClearDisplayAttribute,
     useAttributeListData
 } from '../hooks'
-import { invalidateAttributesQueries, metahubsQueryKeys } from '../../shared'
+import {
+    invalidateAttributesQueries,
+    isSharedEntityActive,
+    isSharedEntityMovable,
+    isSharedEntityRow,
+    metahubsQueryKeys,
+    sortSharedEntityList,
+    useUpsertSharedEntityOverride
+} from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
 import {
     Attribute,
@@ -61,8 +70,15 @@ import { normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../uti
 import { extractLocalizedInput, hasPrimaryContent, ensureLocalizedContent } from '../../../utils/localizedInput'
 import attributeActions from './AttributeActions'
 import AttributeFormFields, { PresentationTabFields } from './AttributeFormFields'
+import { shouldForceFirstAttributeDefaults } from './attributeDisplayRules'
 import ChildAttributeList from './ChildAttributeList'
 import { AttributeDndProvider, AttributeDndContainerRegistryProvider, useAttributeDndState } from './dnd'
+import SharedEntitySettingsFields from '../../shared/ui/SharedEntitySettingsFields'
+import {
+    readSharedExcludedTargetIdsField,
+    SHARED_EXCLUDED_TARGET_IDS_FIELD,
+    syncSharedEntityExclusions
+} from '../../shared/sharedEntityExclusions'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
 import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
 import { useSettingValue } from '../../settings/hooks/useSettings'
@@ -89,10 +105,22 @@ import {
 
 type GenericFormValues = Record<string, unknown>
 
-/**
- * Render-prop component that reads DnD state and provides `isDropTarget` + ghost row data for a container.
- * Must be used inside <AttributeDndProvider>.
- */
+const DIALOG_SAVE_CANCEL = { __dialogCancelled: true } as const
+
+type AttributeListContentProps = {
+    metahubId?: string
+    hubId?: string | null
+    catalogId?: string
+    sharedEntityMode?: boolean
+    title?: string | null
+    emptyTitle?: string
+    emptyDescription?: string
+    renderPageShell?: boolean
+    showCatalogTabs?: boolean
+    showSettingsTab?: boolean
+    allowSystemTab?: boolean
+}
+
 const DndDropTarget: React.FC<{
     containerId: string
     children: (props: {
@@ -106,7 +134,19 @@ const DndDropTarget: React.FC<{
     return <>{children({ isDropTarget, pendingTransfer, activeAttribute })}</>
 }
 
-const AttributeListContent = () => {
+export const AttributeListContent = ({
+    metahubId: metahubIdProp,
+    hubId: hubIdProp,
+    catalogId: catalogIdProp,
+    sharedEntityMode = false,
+    title,
+    emptyTitle,
+    emptyDescription,
+    renderPageShell = true,
+    showCatalogTabs = true,
+    showSettingsTab = true,
+    allowSystemTab = true
+}: AttributeListContentProps = {}) => {
     const navigate = useNavigate()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
@@ -139,11 +179,17 @@ const AttributeListContent = () => {
         attributeMap,
         platformSystemAttributesPolicy,
         limitValue,
-        totalAttributes,
         limitReached,
         childSearchMatchParentIds,
-        attributeCodenameScope
-    } = useAttributeListData()
+        includeShared
+    } = useAttributeListData({
+        metahubId: metahubIdProp,
+        hubId: hubIdProp,
+        catalogId: catalogIdProp,
+        resolveCatalogDetails: showSettingsTab,
+        allowSystemView: showCatalogTabs && allowSystemTab,
+        includeSharedEntities: !sharedEntityMode
+    })
 
     const { dialogs, openCreate, openDelete, openConflict, close } = useListDialogs<Attribute>()
     const [editDialogOpen, setEditDialogOpen] = useState(false)
@@ -195,6 +241,7 @@ const AttributeListContent = () => {
     const deleteAttributeMutation = useDeleteAttribute()
     const moveAttributeMutation = useMoveAttribute()
     const reorderMutation = useReorderAttribute()
+    const upsertSharedEntityOverrideMutation = useUpsertSharedEntityOverride()
     const toggleRequiredMutation = useToggleAttributeRequired()
     const setDisplayAttributeMutation = useSetDisplayAttribute()
     const clearDisplayAttributeMutation = useClearDisplayAttribute()
@@ -271,7 +318,8 @@ const AttributeListContent = () => {
             attributeId: string,
             newSortOrder: number,
             newParentAttributeId?: string | null,
-            currentParentAttributeId?: string | null
+            currentParentAttributeId?: string | null,
+            mergedOrderIds?: string[]
         ) => {
             if (!metahubId || !catalogId) return
 
@@ -283,7 +331,8 @@ const AttributeListContent = () => {
                     attributeId,
                     newSortOrder,
                     newParentAttributeId,
-                    currentParentAttributeId
+                    currentParentAttributeId,
+                    mergedOrderIds
                 })
                 enqueueSnackbar(t('attributes.reorderSuccess', 'Attribute order updated'), { variant: 'success' })
             } catch (error: unknown) {
@@ -328,7 +377,8 @@ const AttributeListContent = () => {
                                 newSortOrder,
                                 newParentAttributeId,
                                 autoRenameCodename: true,
-                                currentParentAttributeId
+                                currentParentAttributeId,
+                                mergedOrderIds
                             })
                             enqueueSnackbar(t('attributes.reorderSuccess', 'Attribute order updated'), { variant: 'success' })
                         } catch (retryError: unknown) {
@@ -358,6 +408,63 @@ const AttributeListContent = () => {
             }
         },
         [metahubId, catalogId, effectiveHubId, reorderMutation, confirm, enqueueSnackbar, t, tc]
+    )
+
+    const sortedAttributes = useMemo(() => sortSharedEntityList(attributes ?? []), [attributes])
+
+    const attributeTableData = useMemo(
+        () => sortedAttributes.map((attribute) => toAttributeDisplay(attribute, i18n.language)),
+        [i18n.language, sortedAttributes]
+    )
+
+    const hasSharedRows = useMemo(
+        () => includeShared && attributeTableData.some((row) => isSharedEntityRow(row)),
+        [attributeTableData, includeShared]
+    )
+
+    const firstLocalRowId = useMemo(() => {
+        if (!hasSharedRows) return null
+        return attributeTableData.find((row) => !isSharedEntityRow(row))?.id ?? null
+    }, [attributeTableData, hasSharedRows])
+
+    const getAttributeRowSx = useCallback(
+        (row: AttributeDisplay) => {
+            if (!hasSharedRows) return undefined
+
+            const isShared = isSharedEntityRow(row)
+            const isInactive = isShared && !isSharedEntityActive(row)
+            const isFirstLocalRow = row.id === firstLocalRowId
+
+            if (!isShared && !isFirstLocalRow) {
+                return undefined
+            }
+
+            return (theme: Theme) => ({
+                ...(isShared
+                    ? {
+                          backgroundColor: alpha(theme.palette.info.main, isInactive ? 0.1 : 0.06)
+                      }
+                    : null),
+                ...(isInactive
+                    ? {
+                          opacity: 0.78
+                      }
+                    : null),
+                ...(isFirstLocalRow
+                    ? {
+                          '& td, & th': {
+                              borderTop: `2px solid ${alpha(theme.palette.info.main, 0.2)}`
+                          }
+                      }
+                    : null)
+            })
+        },
+        [firstLocalRowId, hasSharedRows]
+    )
+
+    const isAttributeRowDragDisabled = useCallback(
+        (row: AttributeDisplay) => hasSharedRows && isSharedEntityRow(row) && !isSharedEntityMovable(row),
+        [hasSharedRows]
     )
 
     // DnD: Validate cross-list transfer before applying
@@ -430,14 +537,14 @@ const AttributeListContent = () => {
     )
 
     const localizedFormDefaults = useMemo<AttributeFormValues>(() => {
-        const hasNoAttributes = (attributes?.length ?? 0) === 0
+        const shouldForceDefaults = shouldForceFirstAttributeDefaults(attributes?.length ?? 0, sharedEntityMode)
         return {
             nameVlc: null,
             codename: null,
             codenameTouched: false,
             dataType: 'STRING',
-            isRequired: hasNoAttributes,
-            isDisplayAttribute: hasNoAttributes,
+            isRequired: shouldForceDefaults,
+            isDisplayAttribute: shouldForceDefaults,
             targetEntityId: null,
             targetEntityKind: null,
             targetConstantId: null,
@@ -447,7 +554,7 @@ const AttributeListContent = () => {
             },
             uiConfig: {}
         }
-    }, [attributes?.length])
+    }, [attributes?.length, sharedEntityMode])
 
     const validateAttributeForm = useCallback(
         (values: GenericFormValues) => {
@@ -537,8 +644,8 @@ const AttributeListContent = () => {
             errors?: Record<string, string>
         }): TabConfig[] => {
             const fieldErrors = errors ?? {}
-            const displayAttributeLocked = (attributes?.length ?? 0) === 0
-            return [
+            const displayAttributeLocked = shouldForceFirstAttributeDefaults(attributes?.length ?? 0, sharedEntityMode)
+            const tabs: TabConfig[] = [
                 {
                     id: 'general',
                     label: t('attributes.tabs.general', 'General'),
@@ -596,32 +703,68 @@ const AttributeListContent = () => {
                     id: 'presentation',
                     label: t('attributes.tabs.presentation', 'Presentation'),
                     content: (
-                        <PresentationTabFields
-                            values={values}
-                            setValue={setValue}
-                            isLoading={isLoading}
-                            metahubId={metahubId}
-                            displayAttributeLabel={t('attributes.isDisplayAttributeLabel', 'Display attribute')}
-                            displayAttributeHelper={t(
-                                'attributes.isDisplayAttributeHelper',
-                                'Use as representation when referencing elements of this catalog'
-                            )}
-                            displayAttributeLocked={displayAttributeLocked}
-                            headerAsCheckboxLabel={t('attributes.presentation.headerAsCheckbox', 'Display header as checkbox')}
-                            headerAsCheckboxHelper={t(
-                                'attributes.presentation.headerAsCheckboxHelper',
-                                'Show a checkbox in the column header instead of the text label'
-                            )}
-                            dataType={values.dataType ?? 'STRING'}
-                            targetEntityKind={values.targetEntityKind ?? null}
-                            targetEntityId={values.targetEntityId ?? null}
-                            isRequired={Boolean(values.isRequired)}
-                        />
+                        <Stack spacing={2}>
+                            <PresentationTabFields
+                                values={values}
+                                setValue={setValue}
+                                isLoading={isLoading}
+                                metahubId={metahubId}
+                                displayAttributeLabel={t('attributes.isDisplayAttributeLabel', 'Display attribute')}
+                                displayAttributeHelper={t(
+                                    'attributes.isDisplayAttributeHelper',
+                                    'Use as representation when referencing elements of this catalog'
+                                )}
+                                displayAttributeLocked={displayAttributeLocked}
+                                forceDisplayAttributeWhenLocked={displayAttributeLocked}
+                                headerAsCheckboxLabel={t('attributes.presentation.headerAsCheckbox', 'Display header as checkbox')}
+                                headerAsCheckboxHelper={t(
+                                    'attributes.presentation.headerAsCheckboxHelper',
+                                    'Show a checkbox in the column header instead of the text label'
+                                )}
+                                dataType={values.dataType ?? 'STRING'}
+                                targetEntityKind={values.targetEntityKind ?? null}
+                                targetEntityId={values.targetEntityId ?? null}
+                                isRequired={Boolean(values.isRequired)}
+                            />
+                            {sharedEntityMode ? (
+                                <SharedEntitySettingsFields
+                                    metahubId={metahubId}
+                                    entityKind='attribute'
+                                    sharedEntityId={null}
+                                    storageField='uiConfig'
+                                    section='behavior'
+                                    values={values}
+                                    setValue={setValue}
+                                    isLoading={isLoading}
+                                />
+                            ) : null}
+                        </Stack>
                     )
                 }
             ]
+
+            if (sharedEntityMode) {
+                tabs.push({
+                    id: 'exclusions',
+                    label: t('metahubs:shared.exclusions.tab', 'Exclusions'),
+                    content: (
+                        <SharedEntitySettingsFields
+                            metahubId={metahubId}
+                            entityKind='attribute'
+                            sharedEntityId={null}
+                            storageField='uiConfig'
+                            section='exclusions'
+                            values={values}
+                            setValue={setValue}
+                            isLoading={isLoading}
+                        />
+                    )
+                })
+            }
+
+            return tabs
         },
-        [i18n.language, t, tc, metahubId, catalogId, attributes?.length]
+        [attributes?.length, catalogId, i18n.language, metahubId, sharedEntityMode, t, tc]
     )
 
     const attributeColumns = useMemo(() => {
@@ -649,8 +792,8 @@ const AttributeListContent = () => {
                     const isDisplayAttr = rawAttribute?.isDisplayAttribute ?? row.isDisplayAttribute ?? false
                     const systemMetadata = rawAttribute?.system ?? row.system ?? null
                     return (
-                        <Stack spacing={0.25}>
-                            <Stack direction='row' spacing={0.5} alignItems='center'>
+                        <Stack spacing={0.5}>
+                            <Stack direction='row' spacing={0.5} alignItems='center' flexWrap='wrap' useFlexGap>
                                 {isDisplayAttr && (
                                     <Tooltip
                                         title={t(
@@ -672,6 +815,12 @@ const AttributeListContent = () => {
                                 >
                                     {row.name || '—'}
                                 </Typography>
+                                {includeShared && isSharedEntityRow(row) ? (
+                                    <Chip label={t('metahubs:shared.list.badge', 'Shared')} size='small' color='info' variant='outlined' />
+                                ) : null}
+                                {includeShared && isSharedEntityRow(row) && !isSharedEntityActive(row) ? (
+                                    <Chip label={t('metahubs:shared.list.inactive', 'Inactive')} size='small' variant='outlined' />
+                                ) : null}
                             </Stack>
                             {isSystemView && systemMetadata?.systemKey && (
                                 <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
@@ -769,18 +918,22 @@ const AttributeListContent = () => {
         }
 
         return columns
-    }, [attributeMap, isSystemView, t, tc])
+    }, [attributeMap, firstLocalRowId, hasSharedRows, i18n.language, includeShared, isSystemView, t, tc])
 
     const createAttributeContext = useCallback(
-        (baseContext: ActionBaseContext) => ({
+        (baseContext: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => ({
             ...baseContext,
             attributeMap,
             uiLocale: i18n.language,
             metahubId,
             catalogId,
+            sharedEntityMode,
             api: {
                 updateEntity: (id: string, patch: AttributeLocalizedPayload) => {
                     if (!metahubId || !catalogId) return Promise.resolve()
+                    const sharedExcludedTargetIds = readSharedExcludedTargetIdsField(patch)
+                    const { [SHARED_EXCLUDED_TARGET_IDS_FIELD]: _ignored, ...payloadWithoutSharedExclusions } =
+                        patch as AttributeLocalizedPayload & Record<string, unknown>
                     const rawCodename = getVLCString(patch.codename, patch.codename?._primary ?? 'en')
                     const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
                     if (!normalizedCodename) {
@@ -800,33 +953,53 @@ const AttributeListContent = () => {
                     const codenamePayload = ensureLocalizedContent(patch.codename, patch.codename?._primary ?? 'en', normalizedCodename)
                     const attribute = attributeMap.get(id)
                     const expectedVersion = attribute?.version
-                    updateAttributeMutation.mutate(
-                        {
+
+                    return updateAttributeMutation
+                        .mutateAsync({
                             metahubId,
                             hubId: effectiveHubId,
                             catalogId,
                             attributeId: id,
-                            data: { ...patch, codename: codenamePayload, dataType, isRequired: patch.isRequired, expectedVersion }
-                        },
-                        {
-                            onError: (error: unknown) => {
-                                if (isOptimisticLockConflict(error)) {
-                                    const conflict = extractConflictInfo(error)
-                                    if (conflict) {
-                                        openConflict({
-                                            conflict,
-                                            pendingUpdate: {
-                                                id,
-                                                patch: { ...patch, codename: codenamePayload, dataType, isRequired: patch.isRequired }
-                                            }
-                                        })
-                                    }
-                                }
+                            data: {
+                                ...payloadWithoutSharedExclusions,
+                                codename: codenamePayload,
+                                dataType,
+                                isRequired: patch.isRequired,
+                                expectedVersion
                             }
-                        }
-                    )
+                        })
+                        .then(async () => {
+                            if (sharedEntityMode && sharedExcludedTargetIds !== undefined) {
+                                await syncSharedEntityExclusions({
+                                    metahubId,
+                                    entityKind: 'attribute',
+                                    sharedEntityId: id,
+                                    excludedTargetIds: sharedExcludedTargetIds
+                                })
+                            }
+                        })
+                        .catch((error: unknown) => {
+                            if (isOptimisticLockConflict(error)) {
+                                const conflict = extractConflictInfo(error)
+                                if (conflict) {
+                                    openConflict({
+                                        conflict,
+                                        pendingUpdate: {
+                                            id,
+                                            patch: {
+                                                ...payloadWithoutSharedExclusions,
+                                                codename: codenamePayload,
+                                                dataType,
+                                                isRequired: patch.isRequired
+                                            }
+                                        }
+                                    })
+                                }
+                                throw DIALOG_SAVE_CANCEL
+                            }
 
-                    return Promise.resolve()
+                            throw error
+                        })
                 },
                 deleteEntity: (id: string) => {
                     if (!metahubId || !catalogId) return
@@ -984,8 +1157,11 @@ const AttributeListContent = () => {
             i18n.language,
             metahubId,
             moveAttributeMutation,
+            openConflict,
+            openDelete,
             queryClient,
             setDisplayAttributeMutation,
+            sharedEntityMode,
             t,
             toggleRequiredMutation,
             updateAttributeMutation
@@ -1005,7 +1181,7 @@ const AttributeListContent = () => {
     }
 
     // Show loading while resolving catalog (only when no hubId in URL)
-    if (!hubIdParam && isCatalogResolutionLoading) {
+    if (showSettingsTab && !hubIdParam && isCatalogResolutionLoading) {
         return (
             <EmptyListState
                 image={APIEmptySVG}
@@ -1017,7 +1193,7 @@ const AttributeListContent = () => {
     }
 
     // Show error if catalog resolution failed
-    if (!hubIdParam && catalogResolutionError) {
+    if (showSettingsTab && !hubIdParam && catalogResolutionError) {
         return (
             <EmptyListState
                 image={APIEmptySVG}
@@ -1040,6 +1216,7 @@ const AttributeListContent = () => {
 
     const handleCatalogTabChange = (_event: unknown, nextTab: CatalogTab) => {
         if (!metahubId || !catalogId) return
+        if (!showCatalogTabs) return
         if (nextTab === 'settings') {
             setEditDialogOpen(true)
             return
@@ -1096,12 +1273,48 @@ const AttributeListContent = () => {
     }
 
     const renderAttributeActions = (row: AttributeDisplay) => {
-        const originalAttribute = attributes.find((a) => a.id === row.id)
+        const originalAttribute = attributeMap.get(row.id)
         if (!originalAttribute) return null
+
+        const isMergedSharedRow = includeShared && isSharedEntityRow(row)
+        const isSharedRowActive = isSharedEntityActive(row)
+
+        const handleSharedRowOverride = async (patch: { isExcluded?: boolean; isActive?: boolean | null }, successMessage: string) => {
+            if (!metahubId || !catalogId) return
+
+            try {
+                await upsertSharedEntityOverrideMutation.mutateAsync({
+                    metahubId,
+                    data: {
+                        entityKind: 'attribute',
+                        sharedEntityId: row.id,
+                        targetObjectId: catalogId,
+                        ...patch
+                    }
+                })
+
+                if (effectiveHubId) {
+                    await invalidateAttributesQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
+                } else {
+                    await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(metahubId, catalogId) })
+                }
+
+                enqueueSnackbar(successMessage, { variant: 'success' })
+            } catch (error: unknown) {
+                const message =
+                    extractResponseMessage(error) ??
+                    (error instanceof Error
+                        ? error.message
+                        : t('metahubs:shared.list.messages.actionError', 'Failed to update shared entity state'))
+                enqueueSnackbar(message, { variant: 'error' })
+            }
+        }
 
         const displayEntity = toAttributeDisplay(originalAttribute, i18n.language)
         const descriptors: ActionDescriptor<AttributeDisplay, AttributeLocalizedPayload>[] = isSystemView
             ? systemAttributeActions
+            : includeShared
+            ? attributeActions.filter((descriptor) => descriptor.id !== 'move-up' && descriptor.id !== 'move-down')
             : [...attributeActions]
         const actionContext = createAttributeContext({
             entity: displayEntity,
@@ -1113,6 +1326,41 @@ const AttributeListContent = () => {
                 (!descriptor.entityKinds || descriptor.entityKinds.includes('attribute')) &&
                 (!descriptor.visible || descriptor.visible(actionContext))
         )
+        const sharedRowDescriptors: ActionDescriptor<AttributeDisplay, AttributeLocalizedPayload>[] = []
+
+        if (isMergedSharedRow && row.sharedBehavior?.canDeactivate !== false) {
+            sharedRowDescriptors.push({
+                id: isSharedRowActive ? 'deactivate' : 'activate',
+                labelKey: isSharedRowActive ? 'shared.list.actions.deactivate' : 'shared.list.actions.activate',
+                order: 10,
+                onSelect: async () => {
+                    await handleSharedRowOverride(
+                        { isActive: isSharedRowActive ? false : null },
+                        isSharedRowActive
+                            ? t('metahubs:shared.list.messages.deactivated', 'Shared entity disabled for this target')
+                            : t('metahubs:shared.list.messages.activated', 'Shared entity enabled for this target')
+                    )
+                }
+            })
+        }
+
+        if (isMergedSharedRow && row.sharedBehavior?.canExclude !== false) {
+            sharedRowDescriptors.push({
+                id: 'exclude',
+                labelKey: 'shared.list.actions.exclude',
+                order: 20,
+                tone: 'danger',
+                dividerBefore: sharedRowDescriptors.length > 0,
+                onSelect: async () => {
+                    await handleSharedRowOverride(
+                        { isExcluded: true },
+                        t('metahubs:shared.list.messages.excluded', 'Shared entity excluded from this target')
+                    )
+                }
+            })
+        }
+
+        const menuDescriptors = isMergedSharedRow ? sharedRowDescriptors : visibleDescriptors
 
         return (
             <Stack direction='row' spacing={0} alignItems='center'>
@@ -1140,11 +1388,11 @@ const AttributeListContent = () => {
                         )}
                     </IconButton>
                 )}
-                {visibleDescriptors.length > 0 && (
+                {menuDescriptors.length > 0 && (
                     <BaseEntityMenu<AttributeDisplay, AttributeLocalizedPayload>
                         entity={displayEntity}
                         entityKind='attribute'
-                        descriptors={visibleDescriptors}
+                        descriptors={menuDescriptors}
                         namespace='metahubs'
                         menuButtonLabelKey='flowList:menu.button'
                         i18nInstance={i18n}
@@ -1155,454 +1403,461 @@ const AttributeListContent = () => {
         )
     }
 
-    // Transform Attribute data for table display
-    const getAttributeTableData = (attr: Attribute): AttributeDisplay => toAttributeDisplay(attr, i18n.language)
+    const contentOffsetSx = renderPageShell ? { xs: -1.5, md: -2 } : 0
+
+    const body = (
+        <>
+            {error ? (
+                <EmptyListState
+                    image={APIEmptySVG}
+                    imageAlt='Connection error'
+                    title={t('errors.connectionFailed')}
+                    description={!hasResponseStatus(error) ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
+                    action={{
+                        label: t('actions.retry'),
+                        onClick: () => paginationResult.actions.goToPage(1)
+                    }}
+                />
+            ) : (
+                <Stack flexDirection='column' sx={{ gap: 1 }}>
+                    <ViewHeader
+                        search={true}
+                        searchPlaceholder={t('attributes.searchPlaceholder')}
+                        onSearchChange={handleSearchChange}
+                        controlsAlign={renderPageShell ? 'start' : 'end'}
+                        title={
+                            title !== undefined
+                                ? title
+                                : isSystemView
+                                ? t('attributes.system.title', 'System Attributes')
+                                : t('attributes.title')
+                        }
+                    >
+                        <ToolbarControls
+                            primaryAction={
+                                isSystemView
+                                    ? undefined
+                                    : {
+                                          label: tc('create'),
+                                          onClick: handleAddNew,
+                                          startIcon: <AddRoundedIcon />,
+                                          disabled: limitReached
+                                      }
+                            }
+                        />
+                    </ViewHeader>
+
+                    {showCatalogTabs ? (
+                        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+                            <Tabs
+                                value={activeCatalogTab}
+                                onChange={handleCatalogTabChange}
+                                aria-label={t('catalogs.title', 'Catalogs')}
+                                textColor='primary'
+                                indicatorColor='primary'
+                                sx={{
+                                    minHeight: 40,
+                                    '& .MuiTab-root': {
+                                        minHeight: 40,
+                                        textTransform: 'none'
+                                    }
+                                }}
+                            >
+                                <Tab value='attributes' label={t('attributes.title')} />
+                                {allowSystemTab ? <Tab value='system' label={t('attributes.tabs.system', 'System')} /> : null}
+                                <Tab value='elements' label={t('elements.title')} />
+                                {showSettingsTab ? <Tab value='settings' label={t('settings.title')} /> : null}
+                            </Tabs>
+                        </Box>
+                    ) : null}
+
+                    {allowSystemTab && isSystemView ? (
+                        <Alert
+                            severity='info'
+                            icon={<InfoIcon />}
+                            sx={{
+                                mx: contentOffsetSx,
+                                mt: 0,
+                                mb: 2
+                            }}
+                        >
+                            {t(
+                                'attributes.system.hint',
+                                'System attributes are managed by the platform. You can only enable or disable supported attributes.'
+                            )}
+                        </Alert>
+                    ) : null}
+
+                    {!isSystemView && limitReached ? (
+                        <Alert
+                            severity='info'
+                            icon={<InfoIcon />}
+                            sx={{
+                                mx: contentOffsetSx,
+                                mt: 0,
+                                mb: 2
+                            }}
+                        >
+                            {t('attributes.limitReached', { limit: limitValue })}
+                        </Alert>
+                    ) : null}
+
+                    {isLoading && attributes.length === 0 ? (
+                        <Skeleton variant='rectangular' height={120} />
+                    ) : !isLoading && attributes.length === 0 ? (
+                        <EmptyListState
+                            image={APIEmptySVG}
+                            imageAlt='No attributes'
+                            title={
+                                emptyTitle ?? (isSystemView ? t('attributes.system.empty', 'No system attributes') : t('attributes.empty'))
+                            }
+                            description={
+                                emptyDescription ??
+                                (isSystemView
+                                    ? t('attributes.system.emptyDescription', 'This catalog has no configurable system attributes.')
+                                    : t('attributes.emptyDescription'))
+                            }
+                        />
+                    ) : (
+                        <Box sx={{ mx: contentOffsetSx }}>
+                            {isSystemView ? (
+                                <FlowListTable<AttributeDisplay>
+                                    data={attributeTableData}
+                                    customColumns={attributeColumns}
+                                    sortStateId='catalog-system-attributes'
+                                    initialOrder='asc'
+                                    initialOrderBy='sortOrder'
+                                    onPendingInteractionAttempt={(row: AttributeDisplay) => handlePendingAttributeInteraction(row.id)}
+                                    renderActions={renderAttributeActions}
+                                />
+                            ) : (
+                                <AttributeDndProvider
+                                    rootItems={sortedAttributes}
+                                    allowCrossListRootChildren={allowCrossListRootChildren}
+                                    allowCrossListBetweenChildren={allowCrossListBetweenChildren}
+                                    onReorder={handleReorder}
+                                    onValidateTransfer={handleValidateTransfer}
+                                    uiLocale={i18n.language}
+                                >
+                                    <DndDropTarget containerId='root'>
+                                        {({ isDropTarget, pendingTransfer: pt, activeAttribute: activeAttr }) => {
+                                            const baseData = attributeTableData
+                                            const baseIds = sortedAttributes.map((attribute) => attribute.id)
+                                            let effectiveData = baseData
+                                            let effectiveIds = baseIds
+
+                                            if (pt) {
+                                                if (pt.fromContainerId === 'root') {
+                                                    effectiveData = baseData.filter((d) => d.id !== pt.itemId)
+                                                    effectiveIds = baseIds.filter((id) => id !== pt.itemId)
+                                                } else if (pt.toContainerId === 'root' && activeAttr) {
+                                                    const ghost = toAttributeDisplay(activeAttr, i18n.language)
+                                                    const insertAt = Math.min(pt.insertIndex, baseData.length)
+                                                    effectiveData = [...baseData.slice(0, insertAt), ghost, ...baseData.slice(insertAt)]
+                                                    effectiveIds = [...baseIds.slice(0, insertAt), pt.itemId, ...baseIds.slice(insertAt)]
+                                                }
+                                            }
+
+                                            return (
+                                                <FlowListTable<AttributeDisplay>
+                                                    data={effectiveData}
+                                                    customColumns={attributeColumns}
+                                                    onPendingInteractionAttempt={(row: AttributeDisplay) =>
+                                                        handlePendingAttributeInteraction(row.id)
+                                                    }
+                                                    sortableRows
+                                                    externalDndContext
+                                                    droppableContainerId='root'
+                                                    sortableItemIds={effectiveIds}
+                                                    dragHandleAriaLabel={t('attributes.dnd.dragHandle', 'Drag to reorder')}
+                                                    isDropTarget={isDropTarget}
+                                                    getRowSx={getAttributeRowSx}
+                                                    isRowDragDisabled={isAttributeRowDragDisabled}
+                                                    renderActions={renderAttributeActions}
+                                                    renderRowExpansion={(row: AttributeDisplay) => {
+                                                        if (row.dataType !== 'TABLE') return null
+                                                        if (!expandedTableIds.has(row.id)) return null
+                                                        return (
+                                                            <Box sx={{ pl: 1, pr: 1, pb: 1 }}>
+                                                                <Box
+                                                                    sx={{
+                                                                        borderTop: '1px dashed',
+                                                                        borderColor: 'divider',
+                                                                        mx: 2,
+                                                                        mb: 1
+                                                                    }}
+                                                                />
+                                                                <ChildAttributeList
+                                                                    metahubId={metahubId!}
+                                                                    hubId={effectiveHubId}
+                                                                    catalogId={catalogId!}
+                                                                    parentAttributeId={row.id}
+                                                                    parentMaxChildAttributes={
+                                                                        row.validationRules?.maxChildAttributes > 0 &&
+                                                                        typeof row.validationRules.maxChildAttributes === 'number'
+                                                                            ? row.validationRules.maxChildAttributes
+                                                                            : null
+                                                                    }
+                                                                    searchFilter={
+                                                                        childSearchMatchParentIds.includes(row.id) ? searchValue : undefined
+                                                                    }
+                                                                    onRefresh={async () => {
+                                                                        if (metahubId && catalogId) {
+                                                                            invalidateAttributesQueries.allCodenames(
+                                                                                queryClient,
+                                                                                metahubId,
+                                                                                catalogId
+                                                                            )
+                                                                        }
+                                                                        if (effectiveHubId) {
+                                                                            await invalidateAttributesQueries.all(
+                                                                                queryClient,
+                                                                                metahubId!,
+                                                                                effectiveHubId,
+                                                                                catalogId!
+                                                                            )
+                                                                        } else {
+                                                                            queryClient.invalidateQueries({
+                                                                                queryKey: metahubsQueryKeys.attributesDirect(
+                                                                                    metahubId!,
+                                                                                    catalogId!
+                                                                                )
+                                                                            })
+                                                                        }
+                                                                    }}
+                                                                />
+                                                            </Box>
+                                                        )
+                                                    }}
+                                                />
+                                            )
+                                        }}
+                                    </DndDropTarget>
+                                </AttributeDndProvider>
+                            )}
+                        </Box>
+                    )}
+
+                    {!isLoading && attributes.length > 0 ? (
+                        <Box sx={{ mx: contentOffsetSx, mt: 2 }}>
+                            <PaginationControls
+                                pagination={paginationResult.pagination}
+                                actions={paginationResult.actions}
+                                isLoading={paginationResult.isLoading}
+                                rowsPerPageOptions={[10, 20, 50, 100]}
+                                namespace='common'
+                            />
+                        </Box>
+                    ) : null}
+                </Stack>
+            )}
+
+            <EntityFormDialog
+                open={dialogs.create.open}
+                title={t('attributes.createDialog.title', 'Add Attribute')}
+                nameLabel={tc('fields.name', 'Name')}
+                descriptionLabel={tc('fields.description', 'Description')}
+                saveButtonText={tc('actions.create', 'Create')}
+                savingButtonText={tc('actions.creating', 'Creating...')}
+                cancelButtonText={tc('actions.cancel', 'Cancel')}
+                onClose={handleDialogClose}
+                onSave={handleCreateAttribute}
+                hideDefaultFields
+                initialExtraValues={localizedFormDefaults}
+                tabs={renderTabs}
+                validate={validateAttributeForm}
+                canSave={canSaveAttributeForm}
+            />
+
+            <ConfirmDeleteDialog
+                open={dialogs.delete.open}
+                title={t('attributes.deleteDialog.title')}
+                description={t('attributes.deleteDialog.message')}
+                confirmButtonText={tc('actions.delete', 'Delete')}
+                deletingButtonText={tc('actions.deleting', 'Deleting...')}
+                cancelButtonText={tc('actions.cancel', 'Cancel')}
+                onCancel={() => close('delete')}
+                onConfirm={() => {
+                    if (!dialogs.delete.item) return
+                    const actualAttribute = attributeMap.get(dialogs.delete.item.id) ?? dialogs.delete.item
+                    if (actualAttribute?.isDisplayAttribute) {
+                        enqueueSnackbar(
+                            t(
+                                'attributes.deleteDisplayAttributeBlocked',
+                                'Нельзя удалить атрибут-представление. Сначала назначьте представлением другой атрибут.'
+                            ),
+                            { variant: 'warning' }
+                        )
+                        close('delete')
+                        return
+                    }
+
+                    deleteAttributeMutation.mutate(
+                        {
+                            metahubId,
+                            hubId: effectiveHubId,
+                            catalogId,
+                            attributeId: dialogs.delete.item.id
+                        },
+                        {
+                            onError: (err: unknown) => {
+                                const responseMessage = extractResponseMessage(err)
+                                const message =
+                                    typeof responseMessage === 'string'
+                                        ? responseMessage
+                                        : err instanceof Error
+                                        ? err.message
+                                        : typeof err === 'string'
+                                        ? err
+                                        : t('attributes.deleteError')
+                                enqueueSnackbar(message, { variant: 'error' })
+                            }
+                        }
+                    )
+                }}
+            />
+
+            <ConflictResolutionDialog
+                open={dialogs.conflict.open}
+                conflict={(dialogs.conflict.data as { conflict?: ConflictInfo })?.conflict ?? null}
+                onCancel={() => {
+                    close('conflict')
+                    if (metahubId && catalogId) {
+                        invalidateAttributesQueries.allCodenames(queryClient, metahubId, catalogId)
+                        if (effectiveHubId) {
+                            invalidateAttributesQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
+                        } else {
+                            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(metahubId, catalogId) })
+                        }
+                    }
+                }}
+                onOverwrite={async () => {
+                    const pendingUpdate = (dialogs.conflict.data as { pendingUpdate?: { id: string; patch: AttributeLocalizedPayload } })
+                        ?.pendingUpdate
+                    if (pendingUpdate && metahubId && catalogId) {
+                        const { id, patch } = pendingUpdate
+                        await updateAttributeMutation.mutateAsync({
+                            metahubId,
+                            hubId: effectiveHubId,
+                            catalogId,
+                            attributeId: id,
+                            data: patch
+                        })
+                        close('conflict')
+                    }
+                }}
+                isLoading={updateAttributeMutation.isPending}
+            />
+
+            {showSettingsTab &&
+                catalogForHubResolution &&
+                catalogId &&
+                (() => {
+                    const catalogDisplay: CatalogDisplayWithHub = {
+                        id: catalogForHubResolution.id,
+                        metahubId: catalogForHubResolution.metahubId,
+                        codename: catalogForHubResolution.codename,
+                        name: getVLCString(catalogForHubResolution.name, preferredVlcLocale) || catalogForHubResolution.codename,
+                        description: getVLCString(catalogForHubResolution.description, preferredVlcLocale) || '',
+                        isSingleHub: catalogForHubResolution.isSingleHub,
+                        isRequiredHub: catalogForHubResolution.isRequiredHub,
+                        sortOrder: catalogForHubResolution.sortOrder,
+                        createdAt: catalogForHubResolution.createdAt,
+                        updatedAt: catalogForHubResolution.updatedAt,
+                        hubId: effectiveHubId || undefined,
+                        hubs: catalogForHubResolution.hubs?.map((h) => ({
+                            id: h.id,
+                            name: typeof h.name === 'string' ? h.name : h.codename || '',
+                            codename: h.codename || ''
+                        }))
+                    }
+                    const catalogMap = new Map<string, Catalog>([[catalogForHubResolution.id, catalogForHubResolution]])
+                    const settingsCtx = {
+                        entity: catalogDisplay,
+                        entityKind: 'catalog' as const,
+                        t,
+                        catalogMap,
+                        metahubId,
+                        currentHubId: effectiveHubId || null,
+                        uiLocale: preferredVlcLocale,
+                        api: {
+                            updateEntity: (id: string, patch: CatalogLocalizedPayload) => {
+                                if (!metahubId) return
+                                updateCatalogMutation.mutate({
+                                    metahubId,
+                                    catalogId: id,
+                                    data: { ...patch, expectedVersion: catalogForHubResolution.version }
+                                })
+                            }
+                        },
+                        helpers: {
+                            refreshList: () => {
+                                if (metahubId && catalogId) {
+                                    void queryClient.invalidateQueries({
+                                        queryKey: metahubsQueryKeys.catalogDetail(metahubId, catalogId)
+                                    })
+                                    void queryClient.invalidateQueries({
+                                        queryKey: metahubsQueryKeys.allCatalogs(metahubId)
+                                    })
+                                    void queryClient.invalidateQueries({
+                                        queryKey: ['breadcrumb', 'catalog-standalone', metahubId, catalogId]
+                                    })
+                                    void queryClient.invalidateQueries({
+                                        queryKey: ['breadcrumb', 'catalog', metahubId]
+                                    })
+                                }
+                            },
+                            enqueueSnackbar: (payload: {
+                                message: string
+                                options?: { variant?: 'default' | 'error' | 'success' | 'warning' | 'info' }
+                            }) => {
+                                if (payload?.message) enqueueSnackbar(payload.message, payload.options)
+                            }
+                        }
+                    }
+                    return (
+                        <EntityFormDialog
+                            open={editDialogOpen}
+                            mode='edit'
+                            title={t('catalogs.editTitle', 'Edit Catalog')}
+                            nameLabel={tc('fields.name', 'Name')}
+                            descriptionLabel={tc('fields.description', 'Description')}
+                            saveButtonText={tc('actions.save', 'Save')}
+                            savingButtonText={tc('actions.saving', 'Saving...')}
+                            cancelButtonText={tc('actions.cancel', 'Cancel')}
+                            hideDefaultFields
+                            initialExtraValues={buildCatalogInitialValues(settingsCtx)}
+                            tabs={buildCatalogFormTabs(settingsCtx, hubs, catalogId)}
+                            validate={(values) => validateCatalogForm(settingsCtx, values)}
+                            canSave={canSaveCatalogForm}
+                            onSave={(data) => {
+                                const payload = catalogToPayload(data)
+                                settingsCtx.api.updateEntity(catalogForHubResolution.id, payload)
+                            }}
+                            onClose={() => setEditDialogOpen(false)}
+                        />
+                    )
+                })()}
+        </>
+    )
 
     return (
         <AttributeDndContainerRegistryProvider>
             <ExistingCodenamesProvider entities={codenameEntities}>
-                <MainCard
-                    sx={{ maxWidth: '100%', width: '100%' }}
-                    contentSX={{ px: 0, py: 0 }}
-                    disableContentPadding
-                    disableHeader
-                    border={false}
-                    shadow={false}
-                >
-                    {error ? (
-                        <EmptyListState
-                            image={APIEmptySVG}
-                            imageAlt='Connection error'
-                            title={t('errors.connectionFailed')}
-                            description={!hasResponseStatus(error) ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
-                            action={{
-                                label: t('actions.retry'),
-                                onClick: () => paginationResult.actions.goToPage(1)
-                            }}
-                        />
-                    ) : (
-                        <Stack flexDirection='column' sx={{ gap: 1 }}>
-                            <ViewHeader
-                                search={true}
-                                searchPlaceholder={t('attributes.searchPlaceholder')}
-                                onSearchChange={handleSearchChange}
-                                title={isSystemView ? t('attributes.system.title', 'System Attributes') : t('attributes.title')}
-                            >
-                                <ToolbarControls
-                                    primaryAction={
-                                        isSystemView
-                                            ? undefined
-                                            : {
-                                                  label: tc('create'),
-                                                  onClick: handleAddNew,
-                                                  startIcon: <AddRoundedIcon />,
-                                                  disabled: limitReached
-                                              }
-                                    }
-                                />
-                            </ViewHeader>
-
-                            <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-                                <Tabs
-                                    value={activeCatalogTab}
-                                    onChange={handleCatalogTabChange}
-                                    aria-label={t('catalogs.title', 'Catalogs')}
-                                    textColor='primary'
-                                    indicatorColor='primary'
-                                    sx={{
-                                        minHeight: 40,
-                                        '& .MuiTab-root': {
-                                            minHeight: 40,
-                                            textTransform: 'none'
-                                        }
-                                    }}
-                                >
-                                    <Tab value='attributes' label={t('attributes.title')} />
-                                    <Tab value='system' label={t('attributes.tabs.system', 'System')} />
-                                    <Tab value='elements' label={t('elements.title')} />
-                                    <Tab value='settings' label={t('settings.title')} />
-                                </Tabs>
-                            </Box>
-
-                            {isSystemView && (
-                                <Alert
-                                    severity='info'
-                                    icon={<InfoIcon />}
-                                    sx={{
-                                        mx: { xs: -1.5, md: -2 },
-                                        mt: 0,
-                                        mb: 2
-                                    }}
-                                >
-                                    {t(
-                                        'attributes.system.hint',
-                                        'System attributes are managed by the platform. You can only enable or disable supported attributes.'
-                                    )}
-                                </Alert>
-                            )}
-
-                            {!isSystemView && limitReached && (
-                                <Alert
-                                    severity='info'
-                                    icon={<InfoIcon />}
-                                    sx={{
-                                        mx: { xs: -1.5, md: -2 },
-                                        mt: 0,
-                                        mb: 2
-                                    }}
-                                >
-                                    {t('attributes.limitReached', { limit: limitValue })}
-                                </Alert>
-                            )}
-
-                            {isLoading && attributes.length === 0 ? (
-                                <Skeleton variant='rectangular' height={120} />
-                            ) : !isLoading && attributes.length === 0 ? (
-                                <EmptyListState
-                                    image={APIEmptySVG}
-                                    imageAlt='No attributes'
-                                    title={isSystemView ? t('attributes.system.empty', 'No system attributes') : t('attributes.empty')}
-                                    description={
-                                        isSystemView
-                                            ? t('attributes.system.emptyDescription', 'This catalog has no configurable system attributes.')
-                                            : t('attributes.emptyDescription')
-                                    }
-                                />
-                            ) : (
-                                <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
-                                    {isSystemView ? (
-                                        <FlowListTable<AttributeDisplay>
-                                            data={attributes.map(getAttributeTableData)}
-                                            customColumns={attributeColumns}
-                                            sortStateId='catalog-system-attributes'
-                                            initialOrder='asc'
-                                            initialOrderBy='sortOrder'
-                                            onPendingInteractionAttempt={(row: AttributeDisplay) =>
-                                                handlePendingAttributeInteraction(row.id)
-                                            }
-                                            renderActions={renderAttributeActions}
-                                        />
-                                    ) : (
-                                        <AttributeDndProvider
-                                            rootItems={attributes}
-                                            allowCrossListRootChildren={allowCrossListRootChildren}
-                                            allowCrossListBetweenChildren={allowCrossListBetweenChildren}
-                                            onReorder={handleReorder}
-                                            onValidateTransfer={handleValidateTransfer}
-                                            uiLocale={i18n.language}
-                                        >
-                                            <DndDropTarget containerId='root'>
-                                                {({ isDropTarget, pendingTransfer: pt, activeAttribute: activeAttr }) => {
-                                                    const baseData = attributes.map(getAttributeTableData)
-                                                    const baseIds = attributes.map((a) => a.id)
-                                                    let effectiveData = baseData
-                                                    let effectiveIds = baseIds
-
-                                                    if (pt) {
-                                                        if (pt.fromContainerId === 'root') {
-                                                            effectiveData = baseData.filter((d) => d.id !== pt.itemId)
-                                                            effectiveIds = baseIds.filter((id) => id !== pt.itemId)
-                                                        } else if (pt.toContainerId === 'root' && activeAttr) {
-                                                            const ghost = toAttributeDisplay(activeAttr, i18n.language)
-                                                            const insertAt = Math.min(pt.insertIndex, baseData.length)
-                                                            effectiveData = [
-                                                                ...baseData.slice(0, insertAt),
-                                                                ghost,
-                                                                ...baseData.slice(insertAt)
-                                                            ]
-                                                            effectiveIds = [
-                                                                ...baseIds.slice(0, insertAt),
-                                                                pt.itemId,
-                                                                ...baseIds.slice(insertAt)
-                                                            ]
-                                                        }
-                                                    }
-
-                                                    return (
-                                                        <FlowListTable<AttributeDisplay>
-                                                            data={effectiveData}
-                                                            customColumns={attributeColumns}
-                                                            onPendingInteractionAttempt={(row: AttributeDisplay) =>
-                                                                handlePendingAttributeInteraction(row.id)
-                                                            }
-                                                            sortableRows
-                                                            externalDndContext
-                                                            droppableContainerId='root'
-                                                            sortableItemIds={effectiveIds}
-                                                            dragHandleAriaLabel={t('attributes.dnd.dragHandle', 'Drag to reorder')}
-                                                            isDropTarget={isDropTarget}
-                                                            renderActions={renderAttributeActions}
-                                                            renderRowExpansion={(row: AttributeDisplay) => {
-                                                                if (row.dataType !== 'TABLE') return null
-                                                                if (!expandedTableIds.has(row.id)) return null
-                                                                return (
-                                                                    <Box sx={{ pl: 1, pr: 1, pb: 1 }}>
-                                                                        <Box
-                                                                            sx={{
-                                                                                borderTop: '1px dashed',
-                                                                                borderColor: 'divider',
-                                                                                mx: 2,
-                                                                                mb: 1
-                                                                            }}
-                                                                        />
-                                                                        <ChildAttributeList
-                                                                            metahubId={metahubId!}
-                                                                            hubId={effectiveHubId}
-                                                                            catalogId={catalogId!}
-                                                                            parentAttributeId={row.id}
-                                                                            parentMaxChildAttributes={
-                                                                                row.validationRules?.maxChildAttributes > 0 &&
-                                                                                typeof row.validationRules.maxChildAttributes === 'number'
-                                                                                    ? row.validationRules.maxChildAttributes
-                                                                                    : null
-                                                                            }
-                                                                            searchFilter={
-                                                                                childSearchMatchParentIds.includes(row.id)
-                                                                                    ? searchValue
-                                                                                    : undefined
-                                                                            }
-                                                                            onRefresh={async () => {
-                                                                                if (metahubId && catalogId) {
-                                                                                    invalidateAttributesQueries.allCodenames(
-                                                                                        queryClient,
-                                                                                        metahubId!,
-                                                                                        catalogId!
-                                                                                    )
-                                                                                }
-                                                                                if (effectiveHubId) {
-                                                                                    await invalidateAttributesQueries.all(
-                                                                                        queryClient,
-                                                                                        metahubId!,
-                                                                                        effectiveHubId,
-                                                                                        catalogId!
-                                                                                    )
-                                                                                } else {
-                                                                                    queryClient.invalidateQueries({
-                                                                                        queryKey: metahubsQueryKeys.attributesDirect(
-                                                                                            metahubId!,
-                                                                                            catalogId!
-                                                                                        )
-                                                                                    })
-                                                                                }
-                                                                            }}
-                                                                        />
-                                                                    </Box>
-                                                                )
-                                                            }}
-                                                        />
-                                                    )
-                                                }}
-                                            </DndDropTarget>
-                                        </AttributeDndProvider>
-                                    )}
-                                </Box>
-                            )}
-
-                            {/* Table Pagination at bottom */}
-                            {!isLoading && attributes.length > 0 && (
-                                <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
-                                    <PaginationControls
-                                        pagination={paginationResult.pagination}
-                                        actions={paginationResult.actions}
-                                        isLoading={paginationResult.isLoading}
-                                        rowsPerPageOptions={[10, 20, 50, 100]}
-                                        namespace='common'
-                                    />
-                                </Box>
-                            )}
-                        </Stack>
-                    )}
-
-                    <EntityFormDialog
-                        open={dialogs.create.open}
-                        title={t('attributes.createDialog.title', 'Add Attribute')}
-                        nameLabel={tc('fields.name', 'Name')}
-                        descriptionLabel={tc('fields.description', 'Description')}
-                        saveButtonText={tc('actions.create', 'Create')}
-                        savingButtonText={tc('actions.creating', 'Creating...')}
-                        cancelButtonText={tc('actions.cancel', 'Cancel')}
-                        onClose={handleDialogClose}
-                        onSave={handleCreateAttribute}
-                        hideDefaultFields
-                        initialExtraValues={localizedFormDefaults}
-                        tabs={renderTabs}
-                        validate={validateAttributeForm}
-                        canSave={canSaveAttributeForm}
-                    />
-
-                    {/* Independent ConfirmDeleteDialog */}
-                    <ConfirmDeleteDialog
-                        open={dialogs.delete.open}
-                        title={t('attributes.deleteDialog.title')}
-                        description={t('attributes.deleteDialog.message')}
-                        confirmButtonText={tc('actions.delete', 'Delete')}
-                        deletingButtonText={tc('actions.deleting', 'Deleting...')}
-                        cancelButtonText={tc('actions.cancel', 'Cancel')}
-                        onCancel={() => close('delete')}
-                        onConfirm={() => {
-                            if (!dialogs.delete.item) return
-                            const actualAttribute = attributeMap.get(dialogs.delete.item.id) ?? dialogs.delete.item
-                            if (actualAttribute?.isDisplayAttribute) {
-                                enqueueSnackbar(
-                                    t(
-                                        'attributes.deleteDisplayAttributeBlocked',
-                                        'Нельзя удалить атрибут-представление. Сначала назначьте представлением другой атрибут.'
-                                    ),
-                                    { variant: 'warning' }
-                                )
-                                close('delete')
-                                return
-                            }
-
-                            deleteAttributeMutation.mutate(
-                                {
-                                    metahubId,
-                                    hubId: effectiveHubId,
-                                    catalogId,
-                                    attributeId: dialogs.delete.item.id
-                                },
-                                {
-                                    onError: (err: unknown) => {
-                                        const responseMessage = extractResponseMessage(err)
-                                        const message =
-                                            typeof responseMessage === 'string'
-                                                ? responseMessage
-                                                : err instanceof Error
-                                                ? err.message
-                                                : typeof err === 'string'
-                                                ? err
-                                                : t('attributes.deleteError')
-                                        enqueueSnackbar(message, { variant: 'error' })
-                                    }
-                                }
-                            )
-                        }}
-                    />
-                    <ConflictResolutionDialog
-                        open={dialogs.conflict.open}
-                        conflict={(dialogs.conflict.data as { conflict?: ConflictInfo })?.conflict ?? null}
-                        onCancel={() => {
-                            close('conflict')
-                            if (metahubId && catalogId) {
-                                // Invalidate global codenames cache (for global scope duplicate checking)
-                                invalidateAttributesQueries.allCodenames(queryClient, metahubId, catalogId)
-                                if (effectiveHubId) {
-                                    invalidateAttributesQueries.all(queryClient, metahubId, effectiveHubId, catalogId)
-                                } else {
-                                    queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.attributesDirect(metahubId, catalogId) })
-                                }
-                            }
-                        }}
-                        onOverwrite={async () => {
-                            const pendingUpdate = (
-                                dialogs.conflict.data as { pendingUpdate?: { id: string; patch: AttributeLocalizedPayload } }
-                            )?.pendingUpdate
-                            if (pendingUpdate && metahubId && catalogId) {
-                                const { id, patch } = pendingUpdate
-                                await updateAttributeMutation.mutateAsync({
-                                    metahubId,
-                                    hubId: effectiveHubId,
-                                    catalogId,
-                                    attributeId: id,
-                                    data: patch
-                                })
-                                close('conflict')
-                            }
-                        }}
-                        isLoading={updateAttributeMutation.isPending}
-                    />
-
-                    {/* Settings edit dialog overlay for parent catalog */}
-                    {catalogForHubResolution &&
-                        catalogId &&
-                        (() => {
-                            const catalogDisplay: CatalogDisplayWithHub = {
-                                id: catalogForHubResolution.id,
-                                metahubId: catalogForHubResolution.metahubId,
-                                codename: catalogForHubResolution.codename,
-                                name: getVLCString(catalogForHubResolution.name, preferredVlcLocale) || catalogForHubResolution.codename,
-                                description: getVLCString(catalogForHubResolution.description, preferredVlcLocale) || '',
-                                isSingleHub: catalogForHubResolution.isSingleHub,
-                                isRequiredHub: catalogForHubResolution.isRequiredHub,
-                                sortOrder: catalogForHubResolution.sortOrder,
-                                createdAt: catalogForHubResolution.createdAt,
-                                updatedAt: catalogForHubResolution.updatedAt,
-                                hubId: effectiveHubId || undefined,
-                                hubs: catalogForHubResolution.hubs?.map((h) => ({
-                                    id: h.id,
-                                    name: typeof h.name === 'string' ? h.name : h.codename || '',
-                                    codename: h.codename || ''
-                                }))
-                            }
-                            const catalogMap = new Map<string, Catalog>([[catalogForHubResolution.id, catalogForHubResolution]])
-                            const settingsCtx = {
-                                entity: catalogDisplay,
-                                entityKind: 'catalog' as const,
-                                t,
-                                catalogMap,
-                                metahubId,
-                                currentHubId: effectiveHubId || null,
-                                uiLocale: preferredVlcLocale,
-                                api: {
-                                    updateEntity: (id: string, patch: CatalogLocalizedPayload) => {
-                                        if (!metahubId) return
-                                        updateCatalogMutation.mutate({
-                                            metahubId,
-                                            catalogId: id,
-                                            data: { ...patch, expectedVersion: catalogForHubResolution.version }
-                                        })
-                                    }
-                                },
-                                helpers: {
-                                    refreshList: () => {
-                                        if (metahubId && catalogId) {
-                                            void queryClient.invalidateQueries({
-                                                queryKey: metahubsQueryKeys.catalogDetail(metahubId, catalogId)
-                                            })
-                                            void queryClient.invalidateQueries({
-                                                queryKey: metahubsQueryKeys.allCatalogs(metahubId)
-                                            })
-                                            // Invalidate breadcrumb queries so page title refreshes immediately
-                                            void queryClient.invalidateQueries({
-                                                queryKey: ['breadcrumb', 'catalog-standalone', metahubId, catalogId]
-                                            })
-                                            void queryClient.invalidateQueries({
-                                                queryKey: ['breadcrumb', 'catalog', metahubId]
-                                            })
-                                        }
-                                    },
-                                    enqueueSnackbar: (payload: {
-                                        message: string
-                                        options?: { variant?: 'default' | 'error' | 'success' | 'warning' | 'info' }
-                                    }) => {
-                                        if (payload?.message) enqueueSnackbar(payload.message, payload.options)
-                                    }
-                                }
-                            }
-                            return (
-                                <EntityFormDialog
-                                    open={editDialogOpen}
-                                    mode='edit'
-                                    title={t('catalogs.editTitle', 'Edit Catalog')}
-                                    nameLabel={tc('fields.name', 'Name')}
-                                    descriptionLabel={tc('fields.description', 'Description')}
-                                    saveButtonText={tc('actions.save', 'Save')}
-                                    savingButtonText={tc('actions.saving', 'Saving...')}
-                                    cancelButtonText={tc('actions.cancel', 'Cancel')}
-                                    hideDefaultFields
-                                    initialExtraValues={buildCatalogInitialValues(settingsCtx)}
-                                    tabs={buildCatalogFormTabs(settingsCtx, hubs, catalogId)}
-                                    validate={(values) => validateCatalogForm(settingsCtx, values)}
-                                    canSave={canSaveCatalogForm}
-                                    onSave={(data) => {
-                                        const payload = catalogToPayload(data)
-                                        settingsCtx.api.updateEntity(catalogForHubResolution.id, payload)
-                                    }}
-                                    onClose={() => setEditDialogOpen(false)}
-                                />
-                            )
-                        })()}
-                </MainCard>
+                {renderPageShell ? (
+                    <MainCard
+                        sx={{ maxWidth: '100%', width: '100%' }}
+                        contentSX={{ px: 0, py: 0 }}
+                        disableContentPadding
+                        disableHeader
+                        border={false}
+                        shadow={false}
+                    >
+                        {body}
+                    </MainCard>
+                ) : (
+                    body
+                )}
             </ExistingCodenamesProvider>
         </AttributeDndContainerRegistryProvider>
     )

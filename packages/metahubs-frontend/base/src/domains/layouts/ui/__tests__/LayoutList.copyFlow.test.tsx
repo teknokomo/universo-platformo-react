@@ -219,7 +219,7 @@ describe('LayoutList copy flow entry', () => {
 
         render(
             <QueryClientProvider client={queryClient}>
-                <MemoryRouter initialEntries={['/metahub/metahub-1/catalog/catalog-1/layout']}> 
+                <MemoryRouter initialEntries={['/metahub/metahub-1/catalog/catalog-1/layout']}>
                     <Routes>
                         <Route path='/metahub/:metahubId/catalog/:catalogId/layout' element={<LayoutList embedded />} />
                     </Routes>

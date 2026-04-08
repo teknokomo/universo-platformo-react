@@ -2,7 +2,7 @@ import { z } from 'zod'
 import type { DbExecutor } from '@universo/utils'
 import { localizedContent, toNumberRules, validateNumber } from '@universo/utils'
 import { normalizeCodenameForStyle, isValidCodenameForStyle } from '@universo/utils/validation/codename'
-import { ConstantDataType, CONSTANT_DATA_TYPES } from '@universo/types'
+import { ConstantDataType, CONSTANT_DATA_TYPES, SHARED_OBJECT_KINDS } from '@universo/types'
 import type { ConstantCopyOptions } from '@universo/types'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubConstantsService } from '../../metahubs/services/MetahubConstantsService'
@@ -38,7 +38,8 @@ const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 const ConstantsListQuerySchema = ListQuerySchema.extend({
     sortBy: z.enum(['name', 'created', 'updated', 'codename', 'sortOrder']).default('sortOrder'),
     sortOrder: z.enum(['asc', 'desc']).default('asc'),
-    locale: z.string().trim().min(2).max(10).optional()
+    locale: z.string().trim().min(2).max(10).optional(),
+    includeShared: z.preprocess((val) => val === 'true' || val === true, z.boolean()).default(false)
 })
 
 const validationRulesSchema = z
@@ -81,7 +82,14 @@ const uiConfigSchema = z
         placeholder: z.record(z.string()).optional(),
         helpText: z.record(z.string()).optional(),
         hidden: z.boolean().optional(),
-        width: z.number().optional()
+        width: z.number().optional(),
+        sharedBehavior: z
+            .object({
+                canDeactivate: z.boolean().optional(),
+                canExclude: z.boolean().optional(),
+                positionLocked: z.boolean().optional()
+            })
+            .optional()
     })
     .optional()
 
@@ -123,7 +131,8 @@ const moveConstantSchema = z
 const reorderConstantSchema = z
     .object({
         constantId: z.string().uuid(),
-        newSortOrder: z.number().int().min(1)
+        newSortOrder: z.number().int().min(1),
+        mergedOrderIds: z.array(z.string().uuid()).min(1).optional()
     })
     .strict()
 
@@ -160,7 +169,7 @@ const ensureSetContext = async (
     objectsService: MetahubObjectsService
 ): Promise<Record<string, unknown>> => {
     const setObject = await objectsService.findById(metahubId, setId, userId)
-    if (!setObject || setObject.kind !== 'set') {
+    if (!setObject || (setObject.kind !== 'set' && setObject.kind !== SHARED_OBJECT_KINDS.SHARED_SET_POOL)) {
         throw new MetahubNotFoundError('set', setId)
     }
 
@@ -397,9 +406,11 @@ export function createConstantsController(createHandler: ReturnType<typeof creat
         if (!parsed.success) {
             return res.status(400).json({ error: 'Invalid query', details: parsed.error.flatten() })
         }
-        const { limit, offset, sortBy, sortOrder, search, locale } = parsed.data
+        const { limit, offset, sortBy, sortOrder, search, locale, includeShared } = parsed.data
 
-        let items = await constantsService.findAll(metahubId, setId, userId)
+        let items = includeShared
+            ? await constantsService.findAllMerged(metahubId, setId, userId)
+            : await constantsService.findAll(metahubId, setId, userId)
         const totalAll = items.length
         const limitReached = totalAll >= CONSTANT_LIMIT
 
@@ -419,6 +430,9 @@ export function createConstantsController(createHandler: ReturnType<typeof creat
             if (sortBy === 'name') {
                 valA = getNameSortValue(a.name, locale)
                 valB = getNameSortValue(b.name, locale)
+            } else if (sortBy === 'sortOrder') {
+                valA = (a as { effectiveSortOrder?: number }).effectiveSortOrder ?? a.sortOrder
+                valB = (b as { effectiveSortOrder?: number }).effectiveSortOrder ?? b.sortOrder
             } else if (sortBy === 'created') {
                 valA = a.createdAt
                 valB = b.createdAt
@@ -438,7 +452,7 @@ export function createConstantsController(createHandler: ReturnType<typeof creat
 
         res.json({
             ...paginated,
-            meta: { totalAll, limit: CONSTANT_LIMIT, limitReached }
+            meta: { totalAll, limit: CONSTANT_LIMIT, limitReached, includeShared }
         })
     })
 
@@ -731,13 +745,15 @@ export function createConstantsController(createHandler: ReturnType<typeof creat
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() })
             }
 
-            const reordered = await constantsService.reorderConstant(
-                metahubId,
-                setId,
-                parsed.data.constantId,
-                parsed.data.newSortOrder,
-                userId
-            )
+            const reordered = parsed.data.mergedOrderIds
+                ? await constantsService.reorderConstantMergedOrder(
+                      metahubId,
+                      setId,
+                      parsed.data.constantId,
+                      parsed.data.mergedOrderIds,
+                      userId
+                  )
+                : await constantsService.reorderConstant(metahubId, setId, parsed.data.constantId, parsed.data.newSortOrder, userId)
             res.json(reordered)
         },
         { permission: 'editContent' }

@@ -529,13 +529,13 @@ export const PresentationTabFields = ({
     const { data: enumerationValuesResponse, isLoading: isLoadingEnumValues } = useQuery({
         queryKey:
             metahubId && targetEntityId
-                ? metahubsQueryKeys.enumerationValuesList(metahubId, targetEntityId)
+                ? metahubsQueryKeys.enumerationValuesList(metahubId, targetEntityId, { includeShared: true })
                 : ['metahubs', 'enumerations', 'values', 'empty'],
         queryFn: async () => {
             if (!metahubId || !targetEntityId) {
                 return { items: [], total: 0 }
             }
-            return listEnumerationValues(metahubId, targetEntityId)
+            return listEnumerationValues(metahubId, targetEntityId, { includeShared: true })
         },
         enabled: Boolean(metahubId && targetEntityId && isEnumRef),
         staleTime: 30_000

@@ -498,6 +498,158 @@ describe('SnapshotRestoreService', () => {
         expect(insertedRows['_mhb_constants']).toBeUndefined()
     })
 
+    it('restores shared containers, shared entities, and remapped shared overrides', async () => {
+        const snapshot = makeMinimalSnapshot({
+            entities: {
+                'old-catalog-id': {
+                    id: 'old-catalog-id',
+                    kind: 'catalog',
+                    codename: 'products',
+                    presentation: { name: { en: 'Products' }, description: {} },
+                    config: {},
+                    fields: [],
+                    hubs: []
+                },
+                'old-set-id': {
+                    id: 'old-set-id',
+                    kind: 'set',
+                    codename: 'sizes',
+                    presentation: { name: { en: 'Sizes' }, description: {} },
+                    config: {},
+                    fields: [],
+                    hubs: []
+                },
+                'old-enum-id': {
+                    id: 'old-enum-id',
+                    kind: 'enumeration',
+                    codename: 'statuses',
+                    presentation: { name: { en: 'Statuses' }, description: {} },
+                    config: {},
+                    fields: [],
+                    hubs: []
+                }
+            },
+            sharedAttributes: [
+                {
+                    id: 'old-shared-attribute-id',
+                    codename: 'shared_title',
+                    dataType: 'STRING',
+                    isRequired: false,
+                    isDisplayAttribute: false,
+                    presentation: { name: { en: 'Shared Title' }, description: {} },
+                    validationRules: {},
+                    uiConfig: {},
+                    sortOrder: 0
+                }
+            ],
+            sharedConstants: [
+                {
+                    id: 'old-shared-constant-id',
+                    objectId: 'old-shared-set-container-id',
+                    codename: 'shared_size',
+                    dataType: 'STRING',
+                    presentation: { name: { en: 'Shared Size' } },
+                    validationRules: {},
+                    uiConfig: {},
+                    value: 'shared',
+                    sortOrder: 0
+                }
+            ],
+            sharedEnumerationValues: [
+                {
+                    id: 'old-shared-value-id',
+                    objectId: 'old-shared-enum-container-id',
+                    codename: 'shared_default',
+                    presentation: { name: { en: 'Shared Default' }, description: {} },
+                    sortOrder: 0,
+                    isDefault: false
+                }
+            ],
+            sharedEntityOverrides: [
+                {
+                    id: 'override-attribute-id',
+                    entityKind: 'attribute',
+                    sharedEntityId: 'old-shared-attribute-id',
+                    targetObjectId: 'old-catalog-id',
+                    isExcluded: false,
+                    isActive: true,
+                    sortOrder: 0
+                },
+                {
+                    id: 'override-constant-id',
+                    entityKind: 'constant',
+                    sharedEntityId: 'old-shared-constant-id',
+                    targetObjectId: 'old-set-id',
+                    isExcluded: false,
+                    isActive: true,
+                    sortOrder: 0
+                },
+                {
+                    id: 'override-value-id',
+                    entityKind: 'value',
+                    sharedEntityId: 'old-shared-value-id',
+                    targetObjectId: 'old-enum-id',
+                    isExcluded: true,
+                    isActive: true,
+                    sortOrder: 1
+                }
+            ]
+        } as unknown as Partial<MetahubSnapshot>)
+
+        const { knex, insertedRows } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+
+        await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
+
+        const objectRows = (insertedRows['_mhb_objects'] ?? []) as Record<string, unknown>[]
+        expect(objectRows).toHaveLength(6)
+        expect(objectRows.slice(3).map((row) => row.kind)).toEqual(['shared-catalog-pool', 'shared-set-pool', 'shared-enumeration-pool'])
+
+        const sharedAttributeRow = insertedRows['_mhb_attributes']![0] as Record<string, unknown>
+        const sharedConstantRow = insertedRows['_mhb_constants']![0] as Record<string, unknown>
+        const sharedValueRow = insertedRows['_mhb_values']![0] as Record<string, unknown>
+        const overrideRows = insertedRows['_mhb_shared_entity_overrides'] as Record<string, unknown>[]
+
+        expect(sharedAttributeRow).toMatchObject({
+            object_id: objectRows[3]?.id,
+            codename: expect.objectContaining({ _schema: '1' })
+        })
+        expect(sharedConstantRow).toMatchObject({
+            object_id: objectRows[4]?.id,
+            codename: expect.objectContaining({ _schema: '1' })
+        })
+        expect(sharedValueRow).toMatchObject({
+            object_id: objectRows[5]?.id,
+            codename: expect.objectContaining({ _schema: '1' })
+        })
+
+        expect(overrideRows).toHaveLength(3)
+        expect(overrideRows[0]).toMatchObject({
+            entity_kind: 'attribute',
+            shared_entity_id: sharedAttributeRow.id,
+            target_object_id: objectRows[0]?.id,
+            is_excluded: false,
+            is_active: true,
+            sort_order: 0
+        })
+        expect(overrideRows[1]).toMatchObject({
+            entity_kind: 'constant',
+            shared_entity_id: sharedConstantRow.id,
+            target_object_id: objectRows[1]?.id,
+            is_excluded: false,
+            is_active: true,
+            sort_order: 0
+        })
+        expect(overrideRows[2]).toMatchObject({
+            entity_kind: 'value',
+            shared_entity_id: sharedValueRow.id,
+            target_object_id: objectRows[2]?.id,
+            is_excluded: true,
+            is_active: true,
+            sort_order: 1
+        })
+    })
+
     it('handles empty snapshot gracefully', async () => {
         const snapshot = makeMinimalSnapshot({
             entities: {},

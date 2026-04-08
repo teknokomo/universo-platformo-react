@@ -50,7 +50,13 @@ import {
     useListDialogs
 } from '@universo/template-mui'
 import { ViewHeaderMUI as ViewHeader } from '@universo/template-mui'
-import { EntityFormDialog, mergeDialogPaperProps, mergeDialogSx, resolveDialogMaxWidth, useDialogPresentation } from '@universo/template-mui/components/dialogs'
+import {
+    EntityFormDialog,
+    mergeDialogPaperProps,
+    mergeDialogSx,
+    resolveDialogMaxWidth,
+    useDialogPresentation
+} from '@universo/template-mui/components/dialogs'
 
 import { usePublicationVersionListData } from '../hooks/usePublicationVersionListData'
 import type { VersionTableRow } from '../hooks/usePublicationVersionListData'

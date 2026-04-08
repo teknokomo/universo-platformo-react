@@ -1,5 +1,5 @@
 import { qSchemaTable } from '@universo/database'
-import { compileScriptSource } from '@universo/scripting-engine'
+import { compileScriptSource, extractSharedScriptImports } from '@universo/scripting-engine'
 import {
     assertSupportedScriptSdkApiVersion,
     DEFAULT_SCRIPT_MODULE_ROLE,
@@ -7,10 +7,10 @@ import {
     DEFAULT_SCRIPT_SOURCE_KIND,
     SCRIPT_AUTHORING_SOURCE_KINDS,
     SCRIPT_ATTACHMENT_KINDS,
-    type ApplicationScriptDefinition,
     type ScriptCapability,
     type MetahubScriptRecord,
     type ScriptAttachmentKind,
+    type ScriptCompilationLibraryInput,
     findDisallowedScriptCapabilities,
     type ScriptManifest,
     type ScriptModuleRole,
@@ -72,6 +72,44 @@ export interface UpdateMetahubScriptInput {
 }
 
 const ACTIVE_ATTACHMENT_CLAUSE = '_upl_deleted = false AND _mhb_deleted = false'
+const LEGACY_GLOBAL_SCRIPT_ROLE = 'global'
+
+const isGeneralAttachmentScope = (attachedToKind: ScriptAttachmentKind, attachedToId: string | null): boolean =>
+    attachedToKind === 'general' && attachedToId === null
+
+const isLibraryModuleRole = (moduleRole: ScriptModuleRole | string | undefined): boolean =>
+    normalizeScriptModuleRole(moduleRole) === 'library'
+
+const isOutOfScopeLibrary = (
+    attachedToKind: ScriptAttachmentKind,
+    attachedToId: string | null,
+    moduleRole: ScriptModuleRole | string | undefined
+): boolean => isLibraryModuleRole(moduleRole) && !isGeneralAttachmentScope(attachedToKind, attachedToId)
+
+const assertScopeModuleRoleCompatibility = (
+    attachedToKind: ScriptAttachmentKind,
+    attachedToId: string | null,
+    moduleRole: ScriptModuleRole,
+    options: {
+        allowOutOfScopeLibrary?: boolean
+    } = {}
+): void => {
+    if (isGeneralAttachmentScope(attachedToKind, attachedToId) && moduleRole !== 'library') {
+        throw new MetahubValidationError('General scripts must use the library module role', {
+            attachedToKind,
+            attachedToId,
+            moduleRole
+        })
+    }
+
+    if (isOutOfScopeLibrary(attachedToKind, attachedToId, moduleRole) && !options.allowOutOfScopeLibrary) {
+        throw new MetahubValidationError('Library scripts must use the general attachment scope', {
+            attachedToKind,
+            attachedToId,
+            moduleRole
+        })
+    }
+}
 
 const normalizeScriptCodename = (value: string): string => {
     const normalized = normalizeCodenameForStyle(value, 'kebab-case', 'en')
@@ -141,6 +179,7 @@ const normalizeScriptRow = (row: StoredMetahubScriptRow): MetahubScriptRecord =>
         sdkApiVersion: row.sdk_api_version,
         manifestSdkApiVersion: manifest.sdkApiVersion
     })
+    const moduleRole = normalizeScriptModuleRole(row.module_role)
 
     return {
         id: row.id,
@@ -151,13 +190,14 @@ const normalizeScriptRow = (row: StoredMetahubScriptRow): MetahubScriptRecord =>
                 : createFallbackScriptPresentation(),
         attachedToKind: row.attached_to_kind,
         attachedToId: row.attached_to_id,
-        moduleRole: row.module_role,
+        moduleRole,
         sourceKind: row.source_kind,
         sdkApiVersion,
         sourceCode: row.source_code,
         manifest: {
             ...manifest,
-            sdkApiVersion
+            sdkApiVersion,
+            moduleRole
         },
         serverBundle: row.server_bundle,
         clientBundle: row.client_bundle,
@@ -174,21 +214,99 @@ const normalizeScriptRow = (row: StoredMetahubScriptRow): MetahubScriptRecord =>
     }
 }
 
-const toApplicationScriptDefinition = (script: MetahubScriptRecord): ApplicationScriptDefinition => ({
+const isSharedLibraryScope = (
+    attachedToKind: ScriptAttachmentKind,
+    attachedToId: string | null,
+    moduleRole: ScriptModuleRole | string | undefined
+): boolean => isGeneralAttachmentScope(attachedToKind, attachedToId) && isLibraryModuleRole(moduleRole)
+
+const isLegacyGlobalScript = (row: Pick<StoredMetahubScriptRow, 'module_role'>): boolean =>
+    String(row.module_role) === LEGACY_GLOBAL_SCRIPT_ROLE
+
+const toSharedLibraryDependency = (script: MetahubScriptRecord) => ({
     id: script.id,
     codename: getCodenameText(script.codename),
-    presentation: script.presentation,
     attachedToKind: script.attachedToKind,
     attachedToId: script.attachedToId,
-    moduleRole: script.moduleRole,
-    sourceKind: script.sourceKind,
-    sdkApiVersion: script.sdkApiVersion,
-    manifest: script.manifest,
-    serverBundle: script.serverBundle,
-    clientBundle: script.clientBundle,
-    checksum: script.checksum,
-    isActive: script.isActive,
-    config: script.config
+    moduleRole: script.moduleRole
+})
+
+type PublishedScriptEntry = {
+    row: StoredMetahubScriptRow
+    script: MetahubScriptRecord
+}
+
+const buildPublishedScriptSortKey = (script: MetahubScriptRecord): string =>
+    `${script.attachedToKind}:${script.attachedToId ?? ''}:${script.moduleRole}:${getCodenameText(script.codename)}:${script.id}`
+
+const sortPublishedScriptEntries = (entries: PublishedScriptEntry[]): PublishedScriptEntry[] =>
+    [...entries].sort((left, right) => buildPublishedScriptSortKey(left.script).localeCompare(buildPublishedScriptSortKey(right.script)))
+
+const buildSharedLibraryCompilationMap = (entries: PublishedScriptEntry[]): Record<string, ScriptCompilationLibraryInput> => {
+    const libraries: Record<string, ScriptCompilationLibraryInput> = {}
+
+    for (const { script } of entries) {
+        if (!isSharedLibraryScope(script.attachedToKind, script.attachedToId, script.moduleRole)) {
+            continue
+        }
+
+        const codename = getCodenameText(script.codename)
+        libraries[codename] = {
+            codename,
+            sourceCode: script.sourceCode
+        }
+    }
+
+    return libraries
+}
+
+const resolveSharedLibraryPublicationOrder = (entries: PublishedScriptEntry[]): PublishedScriptEntry[] => {
+    const libraryEntries = entries.filter(({ script }) =>
+        isSharedLibraryScope(script.attachedToKind, script.attachedToId, script.moduleRole)
+    )
+    const libraryEntryByCodename = new Map(libraryEntries.map((entry) => [getCodenameText(entry.script.codename), entry]))
+    const visited = new Set<string>()
+    const visiting: string[] = []
+    const ordered: PublishedScriptEntry[] = []
+
+    const visit = (codename: string): void => {
+        if (visited.has(codename)) {
+            return
+        }
+
+        const cycleStartIndex = visiting.indexOf(codename)
+        if (cycleStartIndex >= 0) {
+            const cycle = [...visiting.slice(cycleStartIndex), codename]
+            throw new Error(`Circular @shared imports detected: ${cycle.join(' -> ')}`)
+        }
+
+        const entry = libraryEntryByCodename.get(codename)
+        if (!entry) {
+            throw new Error(`Shared library "@shared/${codename}" not found in metahub`)
+        }
+
+        visiting.push(codename)
+        for (const dependency of extractSharedScriptImports(entry.script.sourceCode)) {
+            if (!libraryEntryByCodename.has(dependency)) {
+                throw new Error(`Shared library "@shared/${dependency}" not found in metahub`)
+            }
+            visit(dependency)
+        }
+        visiting.pop()
+
+        visited.add(codename)
+        ordered.push(entry)
+    }
+
+    for (const codename of [...libraryEntryByCodename.keys()].sort()) {
+        visit(codename)
+    }
+
+    return ordered
+}
+
+const buildCompilationErrorDetails = (error: unknown): { message: string } => ({
+    message: error instanceof Error ? error.message : String(error)
 })
 
 export class MetahubScriptsService {
@@ -200,9 +318,80 @@ export class MetahubScriptsService {
         return rows.map(normalizeScriptRow)
     }
 
-    async listPublishedScripts(metahubId: string, userId?: string): Promise<ApplicationScriptDefinition[]> {
-        const scripts = await this.listScripts(metahubId, { onlyActive: true }, userId)
-        return scripts.filter((script) => script.isActive).map(toApplicationScriptDefinition)
+    async listPublishedScripts(metahubId: string, userId?: string): Promise<MetahubScriptRecord[]> {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const storedScripts = await listStoredMetahubScripts(this.exec, schemaName, { onlyActive: true })
+        const scripts = sortPublishedScriptEntries(
+            storedScripts.map((row) => ({ row, script: normalizeScriptRow(row) })).filter(({ script }) => script.isActive)
+        )
+        const publishedScripts: MetahubScriptRecord[] = []
+        const sharedLibraries = buildSharedLibraryCompilationMap(scripts)
+        const orderedSharedLibraryScripts = (() => {
+            try {
+                return resolveSharedLibraryPublicationOrder(scripts)
+            } catch (error) {
+                throw new MetahubValidationError('Script compilation failed', buildCompilationErrorDetails(error))
+            }
+        })()
+
+        for (const { script } of orderedSharedLibraryScripts) {
+            await this.compileSource(
+                schemaName,
+                {
+                    codename: getCodenameText(script.codename),
+                    sourceCode: script.sourceCode,
+                    sdkApiVersion: script.sdkApiVersion,
+                    moduleRole: script.moduleRole,
+                    sourceKind: script.sourceKind,
+                    capabilities: script.manifest.capabilities
+                },
+                {
+                    currentScriptId: script.id,
+                    attachedToKind: script.attachedToKind,
+                    attachedToId: script.attachedToId,
+                    sharedLibraries
+                }
+            )
+        }
+
+        for (const { row: storedScript, script } of scripts) {
+            if (isSharedLibraryScope(script.attachedToKind, script.attachedToId, script.moduleRole)) {
+                continue
+            }
+
+            if (isLegacyGlobalScript(storedScript) || extractSharedScriptImports(script.sourceCode).length === 0) {
+                publishedScripts.push(script)
+                continue
+            }
+
+            const compiled = await this.compileSource(
+                schemaName,
+                {
+                    codename: getCodenameText(script.codename),
+                    sourceCode: script.sourceCode,
+                    sdkApiVersion: script.sdkApiVersion,
+                    moduleRole: script.moduleRole,
+                    sourceKind: script.sourceKind,
+                    capabilities: script.manifest.capabilities
+                },
+                {
+                    currentScriptId: script.id,
+                    attachedToKind: script.attachedToKind,
+                    attachedToId: script.attachedToId,
+                    sharedLibraries
+                }
+            )
+
+            publishedScripts.push({
+                ...script,
+                manifest: compiled.manifest,
+                serverBundle: compiled.serverBundle,
+                clientBundle: compiled.clientBundle,
+                checksum: compiled.checksum
+            })
+        }
+
+        return publishedScripts
     }
 
     async getScriptById(metahubId: string, scriptId: string, userId?: string): Promise<MetahubScriptRecord | null> {
@@ -216,6 +405,7 @@ export class MetahubScriptsService {
         const codename = normalizeScriptCodename(input.codename)
         const attachment = await this.validateAttachment(schemaName, metahubId, input.attachedToKind, input.attachedToId ?? null)
         const moduleRole = normalizeScriptModuleRole(input.moduleRole ?? DEFAULT_SCRIPT_MODULE_ROLE)
+        assertScopeModuleRoleCompatibility(input.attachedToKind, attachment, moduleRole)
         const sourceKind = assertSupportedSourceKind(input.sourceKind ?? DEFAULT_SCRIPT_SOURCE_KIND)
         const sdkApiVersion = assertSupportedScriptSdkApiVersion(input.sdkApiVersion ?? DEFAULT_SCRIPT_SDK_API_VERSION)
         const capabilities = resolveScriptCapabilities(moduleRole, input.capabilities)
@@ -225,14 +415,21 @@ export class MetahubScriptsService {
             attachedToId: attachment,
             moduleRole
         })
-        const compiled = await this.compileSource({
-            codename,
-            sourceCode: input.sourceCode,
-            sdkApiVersion,
-            moduleRole,
-            sourceKind,
-            capabilities
-        })
+        const compiled = await this.compileSource(
+            schemaName,
+            {
+                codename,
+                sourceCode: input.sourceCode,
+                sdkApiVersion,
+                moduleRole,
+                sourceKind,
+                capabilities
+            },
+            {
+                attachedToKind: input.attachedToKind,
+                attachedToId: attachment
+            }
+        )
 
         const created = await insertStoredMetahubScript(this.exec, schemaName, {
             codename: createCodenameVLC('en', codename),
@@ -274,6 +471,33 @@ export class MetahubScriptsService {
         const nextAttachmentId = await this.validateAttachment(schemaName, metahubId, nextAttachmentKind, requestedAttachmentId)
 
         const nextModuleRole = normalizeScriptModuleRole(input.moduleRole ?? existing.module_role)
+        const preservesExistingOutOfScopeLibrary =
+            isOutOfScopeLibrary(existing.attached_to_kind, existing.attached_to_id ?? null, existing.module_role) &&
+            input.attachedToKind === undefined &&
+            !Object.prototype.hasOwnProperty.call(input, 'attachedToId') &&
+            (input.moduleRole === undefined || (isLegacyGlobalScript(existing) && isLibraryModuleRole(input.moduleRole)))
+        assertScopeModuleRoleCompatibility(nextAttachmentKind, nextAttachmentId, nextModuleRole, {
+            allowOutOfScopeLibrary: preservesExistingOutOfScopeLibrary
+        })
+        const existingCodename = getCodenameText(existing.codename)
+        const existingIsSharedLibrary = isSharedLibraryScope(
+            existing.attached_to_kind,
+            existing.attached_to_id ?? null,
+            existing.module_role
+        )
+        const nextIsSharedLibrary = isSharedLibraryScope(nextAttachmentKind, nextAttachmentId, nextModuleRole)
+        const persistedModuleRole = preservesExistingOutOfScopeLibrary ? String(existing.module_role) : nextModuleRole
+
+        if (existingIsSharedLibrary && (!nextIsSharedLibrary || nextCodename !== existingCodename)) {
+            const dependents = await this.findSharedLibraryDependents(schemaName, existingCodename, scriptId)
+            if (dependents.length > 0) {
+                throw new MetahubConflictError('Shared library codename is still used by dependent scripts', {
+                    codename: existingCodename,
+                    dependents
+                })
+            }
+        }
+
         await this.ensureUniqueCodename(
             schemaName,
             {
@@ -301,14 +525,22 @@ export class MetahubScriptsService {
             input.capabilities !== undefined
 
         const compiled = needsRecompile
-            ? await this.compileSource({
-                  codename: nextCodename,
-                  sourceCode: nextSourceCode,
-                  sdkApiVersion: nextSdkApiVersion,
-                  moduleRole: nextModuleRole,
-                  sourceKind: nextSourceKind,
-                  capabilities: nextCapabilities
-              })
+            ? await this.compileSource(
+                  schemaName,
+                  {
+                      codename: nextCodename,
+                      sourceCode: nextSourceCode,
+                      sdkApiVersion: nextSdkApiVersion,
+                      moduleRole: nextModuleRole,
+                      sourceKind: nextSourceKind,
+                      capabilities: nextCapabilities
+                  },
+                  {
+                      currentScriptId: scriptId,
+                      attachedToKind: nextAttachmentKind,
+                      attachedToId: nextAttachmentId
+                  }
+              )
             : null
 
         const updated = await incrementVersion(this.exec, schemaName, METAHUB_SCRIPTS_TABLE, scriptId, {
@@ -316,7 +548,7 @@ export class MetahubScriptsService {
             presentation: JSON.stringify(input.presentation ?? existing.presentation ?? {}),
             attached_to_kind: nextAttachmentKind,
             attached_to_id: nextAttachmentId,
-            module_role: nextModuleRole,
+            module_role: persistedModuleRole,
             source_kind: nextSourceKind,
             sdk_api_version: nextSdkApiVersion,
             source_code: nextSourceCode,
@@ -346,6 +578,16 @@ export class MetahubScriptsService {
             throw new MetahubNotFoundError('Script', scriptId)
         }
 
+        if (isSharedLibraryScope(existing.attached_to_kind, existing.attached_to_id ?? null, existing.module_role)) {
+            const dependents = await this.findSharedLibraryDependents(schemaName, getCodenameText(existing.codename), scriptId)
+            if (dependents.length > 0) {
+                throw new MetahubConflictError('Shared library is still imported by other scripts', {
+                    codename: getCodenameText(existing.codename),
+                    dependents
+                })
+            }
+        }
+
         await incrementVersion(this.exec, schemaName, METAHUB_SCRIPTS_TABLE, scriptId, {
             _mhb_deleted: true,
             _mhb_deleted_at: new Date(),
@@ -369,6 +611,22 @@ export class MetahubScriptsService {
         if (existing && existing.id !== excludeId) {
             throw new MetahubConflictError('Script codename already exists in this attachment scope', scope)
         }
+
+        if (scope.attachedToKind === 'general' && scope.attachedToId === null && scope.moduleRole === 'library') {
+            const legacyScope = {
+                codename: scope.codename,
+                attachedToKind: 'metahub' as ScriptAttachmentKind,
+                attachedToId: null,
+                moduleRole: LEGACY_GLOBAL_SCRIPT_ROLE as unknown as ScriptModuleRole
+            }
+            const legacyExisting = await findStoredMetahubScriptByScope(this.exec, schemaName, legacyScope)
+            if (legacyExisting && legacyExisting.id !== excludeId) {
+                throw new MetahubConflictError('Script codename already exists in this attachment scope', {
+                    ...scope,
+                    legacyScriptId: legacyExisting.id
+                })
+            }
+        }
     }
 
     private async validateAttachment(
@@ -381,15 +639,19 @@ export class MetahubScriptsService {
             throw new MetahubValidationError('Unsupported script attachment kind')
         }
 
-        if (attachedToKind === 'metahub') {
+        if (attachedToKind === 'metahub' || attachedToKind === 'general') {
             if (attachedToId && attachedToId !== metahubId) {
-                throw new MetahubValidationError('Metahub-level scripts cannot target a different metahub id')
+                throw new MetahubValidationError(
+                    attachedToKind === 'general'
+                        ? 'General library scripts cannot target a concrete attachment id'
+                        : 'Metahub-level scripts cannot target a different metahub id'
+                )
             }
             return null
         }
 
         if (!attachedToId) {
-            throw new MetahubValidationError('attachedToId is required for non-metahub scripts')
+            throw new MetahubValidationError('attachedToId is required for object-attached scripts')
         }
 
         let row: { id: string } | null = null
@@ -430,20 +692,110 @@ export class MetahubScriptsService {
         return attachedToId
     }
 
-    private async compileSource(input: {
-        codename: string
-        sourceCode: string
-        sdkApiVersion?: string
-        moduleRole?: ScriptModuleRole
-        sourceKind?: ScriptSourceKind
-        capabilities?: ScriptCapability[]
-    }) {
+    private async findSharedLibraryDependents(
+        schemaName: string,
+        codename: string,
+        excludeScriptId?: string
+    ): Promise<
+        Array<{
+            id: string
+            codename: string
+            attachedToKind: ScriptAttachmentKind
+            attachedToId: string | null
+            moduleRole: ScriptModuleRole
+        }>
+    > {
+        const storedScripts = await listStoredMetahubScripts(this.exec, schemaName)
+
+        return storedScripts
+            .filter((row) => row.id !== excludeScriptId)
+            .map(normalizeScriptRow)
+            .filter((script) => extractSharedScriptImports(script.sourceCode).includes(codename))
+            .map(toSharedLibraryDependency)
+    }
+
+    private async loadSharedLibraries(
+        schemaName: string,
+        options: {
+            currentScriptId?: string
+            currentLibrary?: ScriptCompilationLibraryInput
+        } = {}
+    ): Promise<Record<string, ScriptCompilationLibraryInput>> {
+        const libraryRows = await listStoredMetahubScripts(this.exec, schemaName, {
+            attachedToKind: 'general',
+            attachedToId: null,
+            onlyActive: true
+        })
+
+        const libraries: Record<string, ScriptCompilationLibraryInput> = {}
+
+        for (const row of libraryRows) {
+            if (row.id === options.currentScriptId) {
+                continue
+            }
+
+            const normalized = normalizeScriptRow(row)
+            if (!isSharedLibraryScope(normalized.attachedToKind, normalized.attachedToId, normalized.moduleRole)) {
+                continue
+            }
+
+            const codename = getCodenameText(normalized.codename)
+            libraries[codename] = {
+                codename,
+                sourceCode: normalized.sourceCode
+            }
+        }
+
+        if (options.currentLibrary) {
+            libraries[options.currentLibrary.codename] = options.currentLibrary
+        }
+
+        return libraries
+    }
+
+    private async compileSource(
+        schemaName: string,
+        input: {
+            codename: string
+            sourceCode: string
+            sdkApiVersion?: string
+            moduleRole?: ScriptModuleRole
+            sourceKind?: ScriptSourceKind
+            capabilities?: ScriptCapability[]
+        },
+        options?: {
+            currentScriptId?: string
+            attachedToKind?: ScriptAttachmentKind
+            attachedToId?: string | null
+            sharedLibraries?: Record<string, ScriptCompilationLibraryInput>
+        }
+    ) {
         try {
-            return await compileScriptSource(input)
-        } catch (error) {
-            throw new MetahubValidationError('Script compilation failed', {
-                message: error instanceof Error ? error.message : String(error)
+            const moduleRole = normalizeScriptModuleRole(input.moduleRole ?? DEFAULT_SCRIPT_MODULE_ROLE)
+            const sharedLibraries =
+                options?.sharedLibraries ??
+                (await this.loadSharedLibraries(schemaName, {
+                    currentScriptId: options?.currentScriptId,
+                    currentLibrary:
+                        options?.attachedToKind && isSharedLibraryScope(options.attachedToKind, options.attachedToId ?? null, moduleRole)
+                            ? {
+                                  codename: input.codename,
+                                  sourceCode: input.sourceCode
+                              }
+                            : undefined
+                }))
+
+            return await compileScriptSource({
+                codename: input.codename,
+                sourceCode: input.sourceCode,
+                sdkApiVersion: input.sdkApiVersion,
+                moduleRole,
+                sourceKind: input.sourceKind,
+                capabilities: input.capabilities,
+                sharedLibraries
             })
+        } catch (error) {
+            throw new MetahubValidationError('Script compilation failed', buildCompilationErrorDetails(error))
         }
     }
 }

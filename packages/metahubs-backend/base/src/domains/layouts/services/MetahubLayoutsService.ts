@@ -7,6 +7,8 @@ import {
     DASHBOARD_LAYOUT_ZONES,
     type DashboardLayoutWidgetKey,
     type DashboardLayoutZone,
+    resolveSharedBehavior,
+    type SharedBehavior,
     type VersionedLocalizedContent
 } from '@universo/types'
 import { escapeLikeWildcards } from '@universo/utils'
@@ -111,6 +113,14 @@ export const LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY = '__skipDefaultZoneWidg
 const DASHBOARD_WIDGET_VISIBILITY_CONFIG_KEYS = Object.keys(buildDashboardLayoutConfig([]))
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
+const resolveWidgetSharedBehavior = (config: unknown): Required<SharedBehavior> => {
+    if (!isRecord(config) || !isRecord(config.sharedBehavior)) {
+        return resolveSharedBehavior(undefined)
+    }
+
+    return resolveSharedBehavior(config.sharedBehavior as Partial<SharedBehavior>)
+}
 
 const stripDashboardWidgetVisibilityConfig = (config: unknown): Record<string, unknown> => {
     if (!isRecord(config)) {
@@ -458,24 +468,29 @@ export class MetahubLayoutsService {
         for (const row of baseRows) {
             const baseWidgetId = String(row.id)
             const override = overrideMap.get(baseWidgetId)
-            if (override?.is_deleted_override === true) {
+            const baseConfig = (row.config as Record<string, unknown>) ?? {}
+            const sharedBehavior = resolveWidgetSharedBehavior(baseConfig)
+            if (override?.is_deleted_override === true && sharedBehavior.canExclude) {
                 continue
             }
 
-            const baseConfig = (row.config as Record<string, unknown>) ?? {}
             resolved.push({
                 id: baseWidgetId,
                 layoutId: layoutScope.id,
                 widgetKey: String(row.widget_key) as DashboardLayoutWidgetKey,
-                zone: (override?.zone ? String(override.zone) : String(row.zone)) as DashboardLayoutZone,
+                zone:
+                    sharedBehavior.positionLocked || !override?.zone
+                        ? (String(row.zone) as DashboardLayoutZone)
+                        : (String(override.zone) as DashboardLayoutZone),
                 sortOrder:
-                    typeof override?.sort_order === 'number'
+                    !sharedBehavior.positionLocked && typeof override?.sort_order === 'number'
                         ? override.sort_order
                         : typeof row.sort_order === 'number'
                         ? row.sort_order
                         : 1,
                 config: baseConfig,
-                isActive: typeof override?.is_active === 'boolean' ? override.is_active : row.is_active !== false,
+                isActive:
+                    sharedBehavior.canDeactivate && typeof override?.is_active === 'boolean' ? override.is_active : row.is_active !== false,
                 createdAt: String(row._upl_created_at),
                 updatedAt: String(override?._upl_updated_at ?? row._upl_updated_at),
                 isInherited: true,
@@ -543,7 +558,7 @@ export class MetahubLayoutsService {
         const existingIsActive = typeof existing?.is_active === 'boolean' ? existing.is_active : null
         const nextZone = patch.zone !== undefined ? patch.zone : existingZone
         const nextSortOrder = patch.sortOrder !== undefined ? patch.sortOrder : existingSortOrder
-    const nextConfig = null
+        const nextConfig = null
         const nextIsActive = patch.isActive !== undefined ? patch.isActive : existingIsActive
         const nextIsDeletedOverride = patch.isDeletedOverride === true
 
@@ -606,12 +621,21 @@ export class MetahubLayoutsService {
                 const item = zoneItems[index]
                 const nextSortOrder = index + 1
                 if (item.isInherited && item.baseWidgetId) {
+                    const sharedBehavior = resolveWidgetSharedBehavior(item.config)
                     await this.upsertCatalogWidgetOverride(db, schemaName, {
                         catalogLayoutId: layoutScope.id,
                         baseWidgetId: item.baseWidgetId,
                         patch: {
-                            zone: item.baseZone !== null && item.zone !== item.baseZone ? item.zone : null,
-                            sortOrder: item.baseSortOrder !== null && nextSortOrder !== item.baseSortOrder ? nextSortOrder : null,
+                            zone:
+                                !sharedBehavior.positionLocked && item.baseZone !== null && item.zone !== item.baseZone ? item.zone : null,
+                            sortOrder:
+                                !sharedBehavior.positionLocked && item.baseSortOrder !== null && nextSortOrder !== item.baseSortOrder
+                                    ? nextSortOrder
+                                    : null,
+                            isActive:
+                                sharedBehavior.canDeactivate && item.baseIsActive !== null && item.isActive !== item.baseIsActive
+                                    ? item.isActive
+                                    : null,
                             isDeletedOverride: false
                         },
                         userId
@@ -1234,6 +1258,13 @@ export class MetahubLayoutsService {
                 const resolvedWidgets = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
                 const current = resolvedWidgets.find((row) => row.id === input.widgetId)
                 if (!current) throw new MetahubNotFoundError('Layout widget', input.widgetId)
+                if (current.isInherited && resolveWidgetSharedBehavior(current.config).positionLocked) {
+                    throw new MetahubValidationError('Inherited widget position is locked by the base layout and cannot be moved.', {
+                        widgetId: current.id,
+                        widgetKey: current.widgetKey,
+                        layoutId
+                    })
+                }
 
                 const sourceZone = current.zone
                 const targetZone = input.targetZone ?? sourceZone
@@ -1332,11 +1363,34 @@ export class MetahubLayoutsService {
                 }
 
                 if (current.isInherited) {
-                    throw new MetahubValidationError('Inherited widgets cannot be removed. Move or toggle the inherited widget instead.', {
-                        widgetId: current.id,
-                        widgetKey: current.widgetKey,
-                        layoutId
+                    const sharedBehavior = resolveWidgetSharedBehavior(current.config)
+                    if (!sharedBehavior.canExclude || !current.baseWidgetId) {
+                        throw new MetahubValidationError(
+                            'Inherited widget exclusion is disabled by the base layout and cannot be changed.',
+                            {
+                                widgetId: current.id,
+                                widgetKey: current.widgetKey,
+                                layoutId
+                            }
+                        )
+                    }
+
+                    await this.upsertCatalogWidgetOverride(tx, schemaName, {
+                        catalogLayoutId: layoutId,
+                        baseWidgetId: current.baseWidgetId,
+                        patch: {
+                            zone: null,
+                            sortOrder: null,
+                            isActive: null,
+                            isDeletedOverride: true
+                        },
+                        userId
                     })
+
+                    const refreshedWidgets = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
+                    await this.normalizeResolvedCatalogLayoutSortOrders(tx, schemaName, layoutScope, refreshedWidgets, userId ?? null)
+                    await this.syncLayoutConfigFromZoneWidgets(tx, schemaName, layoutId, userId ?? null)
+                    return
                 }
 
                 await tx.query(
@@ -1400,14 +1454,11 @@ export class MetahubLayoutsService {
                 }
 
                 if (currentResolved.isInherited) {
-                    throw new MetahubValidationError(
-                        'Inherited widgets inherit config from the base layout and cannot be edited.',
-                        {
-                            widgetId: currentResolved.id,
-                            widgetKey: currentResolved.widgetKey,
-                            layoutId
-                        }
-                    )
+                    throw new MetahubValidationError('Inherited widgets inherit config from the base layout and cannot be edited.', {
+                        widgetId: currentResolved.id,
+                        widgetKey: currentResolved.widgetKey,
+                        layoutId
+                    })
                 }
 
                 const now = new Date()
@@ -1483,6 +1534,18 @@ export class MetahubLayoutsService {
                         [isActive, now, userId ?? null, currentResolved.id]
                     )
                 } else if (currentResolved.baseWidgetId) {
+                    const sharedBehavior = resolveWidgetSharedBehavior(currentResolved.config)
+                    if (!sharedBehavior.canDeactivate && isActive !== currentResolved.baseIsActive) {
+                        throw new MetahubValidationError(
+                            'Inherited widget activation is locked by the base layout and cannot be changed.',
+                            {
+                                widgetId: currentResolved.id,
+                                widgetKey: currentResolved.widgetKey,
+                                layoutId
+                            }
+                        )
+                    }
+
                     await this.upsertCatalogWidgetOverride(tx, schemaName, {
                         catalogLayoutId: layoutId,
                         baseWidgetId: currentResolved.baseWidgetId,

@@ -5,11 +5,12 @@ import type { AttributeCopyOptions } from '@universo/types'
 
 export type AttributeListScope = 'business' | 'system' | 'all'
 
-type AttributesListParams = PaginationParams & { locale?: string; scope?: AttributeListScope }
+type AttributesListParams = PaginationParams & { locale?: string; scope?: AttributeListScope; includeShared?: boolean }
 type AttributesListMeta = {
     totalAll?: number
     limit?: number
     limitReached?: boolean
+    includeShared?: boolean
     platformSystemAttributesPolicy?: PlatformSystemAttributesPolicy
 }
 type AttributesListResponse = PaginatedResponse<Attribute> & { meta?: AttributesListMeta }
@@ -35,7 +36,8 @@ export const listAttributes = async (
             sortOrder: params?.sortOrder,
             search: params?.search,
             locale: params?.locale,
-            scope: params?.scope
+            scope: params?.scope,
+            includeShared: params?.includeShared
         }
     })
 
@@ -138,7 +140,8 @@ export const listAttributesDirect = async (
             sortOrder: params?.sortOrder,
             search: params?.search,
             locale: params?.locale,
-            scope: params?.scope
+            scope: params?.scope,
+            includeShared: params?.includeShared
         }
     })
 
@@ -216,12 +219,14 @@ export const reorderAttribute = (
     attributeId: string,
     newSortOrder: number,
     newParentAttributeId?: string | null,
+    mergedOrderIds?: string[],
     autoRenameCodename?: boolean
 ) =>
     apiClient.patch<Attribute>(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attributes/reorder`, {
         attributeId,
         newSortOrder,
         ...(newParentAttributeId !== undefined && { newParentAttributeId }),
+        ...(Array.isArray(mergedOrderIds) && mergedOrderIds.length > 0 && { mergedOrderIds }),
         ...(autoRenameCodename && { autoRenameCodename })
     })
 
@@ -235,12 +240,14 @@ export const reorderAttributeDirect = (
     attributeId: string,
     newSortOrder: number,
     newParentAttributeId?: string | null,
+    mergedOrderIds?: string[],
     autoRenameCodename?: boolean
 ) =>
     apiClient.patch<Attribute>(`/metahub/${metahubId}/catalog/${catalogId}/attributes/reorder`, {
         attributeId,
         newSortOrder,
         ...(newParentAttributeId !== undefined && { newParentAttributeId }),
+        ...(Array.isArray(mergedOrderIds) && mergedOrderIds.length > 0 && { mergedOrderIds }),
         ...(autoRenameCodename && { autoRenameCodename })
     })
 

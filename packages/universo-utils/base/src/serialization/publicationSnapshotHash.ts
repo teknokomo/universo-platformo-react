@@ -11,6 +11,10 @@ export interface PublicationSnapshotHashInput {
     elements?: Record<string, unknown>
     enumerationValues?: Record<string, unknown>
     constants?: Record<string, unknown>
+    sharedAttributes?: unknown
+    sharedConstants?: unknown
+    sharedEnumerationValues?: unknown
+    sharedEntityOverrides?: unknown
     systemFields?: Record<string, CatalogSystemFieldsSnapshot | SnapshotRecord>
     scripts?: unknown
     layouts?: unknown
@@ -153,6 +157,43 @@ const normalizeField = (fieldValue: unknown): Record<string, unknown> => {
     }
 }
 
+const normalizeConstant = (constantValue: unknown): Record<string, unknown> => {
+    const constant = asRecord(constantValue)
+
+    return {
+        id: typeof constant.id === 'string' ? constant.id : '',
+        codename: normalizeCodenameValue(constant.codename),
+        dataType: constant.dataType,
+        presentation: constant.presentation ?? {},
+        validationRules: constant.validationRules ?? {},
+        uiConfig: constant.uiConfig ?? {},
+        value: constant.value ?? null,
+        sortOrder: typeof constant.sortOrder === 'number' ? constant.sortOrder : 0
+    }
+}
+
+const normalizeEnumerationValue = (valueValue: unknown): Record<string, unknown> => {
+    const value = asRecord(valueValue)
+
+    return {
+        id: typeof value.id === 'string' ? value.id : '',
+        codename: normalizeCodenameValue(value.codename),
+        presentation: value.presentation ?? {},
+        sortOrder: typeof value.sortOrder === 'number' ? value.sortOrder : 0,
+        isDefault: Boolean(value.isDefault)
+    }
+}
+
+const compareBySortOrderCodenameAndId = (left: Record<string, unknown>, right: Record<string, unknown>): number => {
+    if ((left.sortOrder as number) !== (right.sortOrder as number)) {
+        return (left.sortOrder as number) - (right.sortOrder as number)
+    }
+    if (resolveCodenameSortText(left.codename) !== resolveCodenameSortText(right.codename)) {
+        return resolveCodenameSortText(left.codename).localeCompare(resolveCodenameSortText(right.codename))
+    }
+    return String(left.id ?? '').localeCompare(String(right.id ?? ''))
+}
+
 export const normalizePublicationSnapshotForHash = (
     snapshot: PublicationSnapshotHashInput,
     options: NormalizePublicationSnapshotForHashOptions = {}
@@ -222,20 +263,8 @@ export const normalizePublicationSnapshotForHash = (
         .map(([objectId, list]) => ({
             objectId,
             values: asArray<SnapshotRecord>(list)
-                .map((value) => ({
-                    id: typeof value.id === 'string' ? value.id : '',
-                    codename: normalizeCodenameValue(value.codename),
-                    presentation: value.presentation ?? {},
-                    sortOrder: typeof value.sortOrder === 'number' ? value.sortOrder : 0,
-                    isDefault: Boolean(value.isDefault)
-                }))
-                .sort((left, right) => {
-                    if (left.sortOrder !== right.sortOrder) return left.sortOrder - right.sortOrder
-                    if (resolveCodenameSortText(left.codename) !== resolveCodenameSortText(right.codename)) {
-                        return resolveCodenameSortText(left.codename).localeCompare(resolveCodenameSortText(right.codename))
-                    }
-                    return left.id.localeCompare(right.id)
-                })
+                .map(normalizeEnumerationValue)
+                .sort(compareBySortOrderCodenameAndId)
         }))
         .sort((left, right) => left.objectId.localeCompare(right.objectId))
 
@@ -243,25 +272,48 @@ export const normalizePublicationSnapshotForHash = (
         .map(([objectId, list]) => ({
             objectId,
             constants: asArray<SnapshotRecord>(list)
-                .map((constant) => ({
-                    id: typeof constant.id === 'string' ? constant.id : '',
-                    codename: normalizeCodenameValue(constant.codename),
-                    dataType: constant.dataType,
-                    presentation: constant.presentation ?? {},
-                    validationRules: constant.validationRules ?? {},
-                    uiConfig: constant.uiConfig ?? {},
-                    value: constant.value ?? null,
-                    sortOrder: typeof constant.sortOrder === 'number' ? constant.sortOrder : 0
-                }))
-                .sort((left, right) => {
-                    if (left.sortOrder !== right.sortOrder) return left.sortOrder - right.sortOrder
-                    if (resolveCodenameSortText(left.codename) !== resolveCodenameSortText(right.codename)) {
-                        return resolveCodenameSortText(left.codename).localeCompare(resolveCodenameSortText(right.codename))
-                    }
-                    return left.id.localeCompare(right.id)
-                })
+                .map(normalizeConstant)
+                .sort(compareBySortOrderCodenameAndId)
         }))
         .sort((left, right) => left.objectId.localeCompare(right.objectId))
+
+    const sharedAttributes = asArray<unknown>(snapshot.sharedAttributes)
+        .map(normalizeField)
+        .sort(compareBySortOrderCodenameAndId)
+
+    const sharedConstants = asArray<unknown>(snapshot.sharedConstants)
+        .map(normalizeConstant)
+        .sort(compareBySortOrderCodenameAndId)
+
+    const sharedEnumerationValues = asArray<unknown>(snapshot.sharedEnumerationValues)
+        .map(normalizeEnumerationValue)
+        .sort(compareBySortOrderCodenameAndId)
+
+    const sharedEntityOverrides = asArray<SnapshotRecord>(snapshot.sharedEntityOverrides)
+        .map((override) => ({
+            id: typeof override.id === 'string' ? override.id : '',
+            entityKind: typeof override.entityKind === 'string' ? override.entityKind : '',
+            sharedEntityId: typeof override.sharedEntityId === 'string' ? override.sharedEntityId : '',
+            targetObjectId: typeof override.targetObjectId === 'string' ? override.targetObjectId : '',
+            isExcluded: override.isExcluded === true,
+            isActive: typeof override.isActive === 'boolean' ? override.isActive : null,
+            sortOrder: typeof override.sortOrder === 'number' ? override.sortOrder : null
+        }))
+        .sort((left, right) => {
+            if ((left.entityKind as string) !== (right.entityKind as string)) {
+                return (left.entityKind as string).localeCompare(right.entityKind as string)
+            }
+            if ((left.targetObjectId as string) !== (right.targetObjectId as string)) {
+                return (left.targetObjectId as string).localeCompare(right.targetObjectId as string)
+            }
+            if ((left.sortOrder as number | null) !== (right.sortOrder as number | null)) {
+                return Number(left.sortOrder ?? Number.MAX_SAFE_INTEGER) - Number(right.sortOrder ?? Number.MAX_SAFE_INTEGER)
+            }
+            if ((left.sharedEntityId as string) !== (right.sharedEntityId as string)) {
+                return (left.sharedEntityId as string).localeCompare(right.sharedEntityId as string)
+            }
+            return (left.id as string).localeCompare(right.id as string)
+        })
 
     const scripts = asArray<unknown>(snapshot.scripts)
         .map(normalizeScript)
@@ -379,6 +431,10 @@ export const normalizePublicationSnapshotForHash = (
         elements,
         enumerationValues,
         constants,
+        sharedAttributes,
+        sharedConstants,
+        sharedEnumerationValues,
+        sharedEntityOverrides,
         systemFields,
         scripts,
         layouts,

@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
     create: vi.fn(),
     update: vi.fn(),
     remove: vi.fn(),
+    useMetahubDetails: vi.fn(),
     lastCodeMirrorProps: null as Record<string, unknown> | null,
     resizeWidth: 640,
     resizeCallback: null as ResizeObserverCallback | null,
@@ -87,6 +88,10 @@ vi.mock('../../api/scriptsApi', () => ({
     }
 }))
 
+vi.mock('../../../metahubs/hooks', () => ({
+    useMetahubDetails: (...args: unknown[]) => mocks.useMetahubDetails(...args)
+}))
+
 const translate = (key: string, fallback?: string) => fallback ?? key
 
 const createQueryClient = () =>
@@ -112,7 +117,7 @@ const createVisibleDomRect = (): DOMRect =>
         bottom: 40,
         left: 0,
         toJSON: () => ({})
-    }) as DOMRect
+    } as DOMRect)
 
 const createScriptRecord = (overrides: Record<string, unknown> = {}) => ({
     id: 'script-1',
@@ -199,6 +204,10 @@ describe('EntityScriptsTab', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(createVisibleDomRect)
+        mocks.useMetahubDetails.mockReturnValue({
+            data: { permissions: { manageMetahub: true } },
+            isLoading: false
+        })
         mocks.list.mockResolvedValue([])
         mocks.create.mockResolvedValue(createScriptRecord())
         mocks.update.mockResolvedValue(createScriptRecord())
@@ -228,6 +237,19 @@ describe('EntityScriptsTab', () => {
         expect(mocks.create).not.toHaveBeenCalled()
     })
 
+    it('hides scripts authoring when the user lacks manage permission for the metahub', () => {
+        mocks.useMetahubDetails.mockReturnValue({
+            data: { permissions: { manageMetahub: false } },
+            isLoading: false
+        })
+
+        renderTab(<EntityScriptsTab metahubId='metahub-1' attachedToKind='general' attachedToId={null} t={translate} />)
+
+        expect(screen.getByText('You do not have permission to manage scripts for this metahub.')).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Create script' })).not.toBeInTheDocument()
+        expect(mocks.list).not.toHaveBeenCalled()
+    })
+
     it('swaps to the widget template and submits a create payload for new widget scripts', async () => {
         const user = userEvent.setup()
 
@@ -235,7 +257,7 @@ describe('EntityScriptsTab', () => {
 
         await waitFor(() => expect(mocks.list).toHaveBeenCalled())
         await waitFor(() => expect(screen.queryByText('Loading attached scripts...')).not.toBeInTheDocument())
-    await user.click(screen.getAllByRole('combobox')[0])
+        await user.click(screen.getAllByRole('combobox')[0])
         await user.click(screen.getByRole('option', { name: 'Widget' }))
 
         await waitFor(() => {
@@ -323,6 +345,28 @@ describe('EntityScriptsTab', () => {
         await waitFor(() => expect(mocks.list).toHaveBeenCalledTimes(2))
     })
 
+    it('shows backend delete conflict details instead of the generic axios status text', async () => {
+        const user = userEvent.setup()
+
+        mocks.list.mockResolvedValue([createScriptRecord()])
+        mocks.remove.mockRejectedValue({
+            isAxiosError: true,
+            message: 'Request failed with status code 409',
+            response: {
+                data: {
+                    message: 'Shared library is still imported by other scripts'
+                }
+            }
+        })
+
+        renderTab(<EntityScriptsTab metahubId='metahub-1' attachedToKind='catalog' attachedToId='catalog-1' t={translate} />)
+
+        await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('Quiz widget'))
+        await user.click(screen.getByRole('button', { name: 'Delete' }))
+
+        await waitFor(() => expect(screen.getByText('Shared library is still imported by other scripts')).toBeInTheDocument())
+    })
+
     it('switches to a compact layout based on the actual container width', async () => {
         mocks.list.mockResolvedValue([createScriptRecord()])
 
@@ -345,5 +389,31 @@ describe('EntityScriptsTab', () => {
 
         await waitFor(() => expect(screen.getByTestId('entity-scripts-layout')).toHaveAttribute('data-layout-mode', 'split'))
         expect(screen.queryByTestId('entity-scripts-list-toggle')).not.toBeInTheDocument()
+    })
+
+    it('locks the Common scripts tab to the library role and loads shared libraries through the general attachment context', async () => {
+        mocks.list.mockResolvedValue([
+            createScriptRecord({
+                attachedToKind: 'general',
+                attachedToId: null,
+                moduleRole: 'library',
+                manifest: {
+                    className: 'ExampleSharedLibrary',
+                    sdkApiVersion: '1.0.0',
+                    moduleRole: 'library',
+                    sourceKind: 'embedded',
+                    capabilities: ['metadata.read'],
+                    methods: []
+                },
+                sourceCode:
+                    "import { SharedLibraryScript } from '@universo/extension-sdk'\n\nexport default class ExampleSharedLibrary extends SharedLibraryScript {}"
+            })
+        ])
+
+        renderTab(<EntityScriptsTab metahubId='metahub-1' attachedToKind='general' attachedToId={null} t={translate} />)
+
+        await waitFor(() => expect(mocks.list).toHaveBeenCalledWith('metahub-1', { attachedToKind: 'general', attachedToId: null }))
+        expect(screen.getByDisplayValue('library')).toBeDisabled()
+        expect(screen.getByText(/Start typing SharedLibraryScript or @shared\/example-helpers/)).toBeInTheDocument()
     })
 })

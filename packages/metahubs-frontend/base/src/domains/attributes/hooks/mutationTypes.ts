@@ -118,6 +118,7 @@ export interface ReorderAttributeParams {
     catalogId: string
     attributeId: string
     newSortOrder: number
+    mergedOrderIds?: string[]
     newParentAttributeId?: string | null
     currentParentAttributeId?: string | null
     autoRenameCodename?: boolean

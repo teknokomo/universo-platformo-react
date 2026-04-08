@@ -174,4 +174,33 @@ describe('MainGrid enhanced runtime details', () => {
         expect(screen.getByTestId('rendered-widget-quizWidget')).toBeInTheDocument()
         expect(screen.queryByTestId('customized-grid')).not.toBeInTheDocument()
     })
+
+    it('renders custom details content instead of the details table when provided', () => {
+        render(
+            <DashboardDetailsProvider
+                value={{
+                    ...details,
+                    content: <div data-testid='custom-page-surface'>Page surface</div>
+                }}
+            >
+                <MainGrid
+                    layoutConfig={baseLayoutConfig}
+                    centerWidgets={[
+                        {
+                            id: 'quiz-widget-1',
+                            zone: 'center',
+                            widgetKey: 'quizWidget',
+                            sortOrder: 1,
+                            config: { scriptCodename: 'quiz-widget' }
+                        }
+                    ]}
+                />
+            </DashboardDetailsProvider>
+        )
+
+        expect(screen.getByTestId('dashboard-custom-details-content')).toBeInTheDocument()
+        expect(screen.getByTestId('custom-page-surface')).toHaveTextContent('Page surface')
+        expect(screen.queryByTestId('customized-grid')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('rendered-widget-quizWidget')).not.toBeInTheDocument()
+    })
 })

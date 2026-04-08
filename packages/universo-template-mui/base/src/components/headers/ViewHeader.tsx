@@ -48,6 +48,7 @@ export interface ViewHeaderProps {
     onEdit?: () => void
     controlsWrap?: boolean
     adaptiveSearch?: boolean
+    controlsAlign?: 'start' | 'end'
 }
 
 /**
@@ -131,7 +132,8 @@ const ViewHeader: React.FC<ViewHeaderProps> = ({
     isEditButton,
     onEdit,
     controlsWrap = false,
-    adaptiveSearch = false
+    adaptiveSearch = false,
+    controlsAlign = 'start'
 }) => {
     const theme = useTheme()
     const desktopSearchRef = useRef<HTMLInputElement | null>(null)
@@ -159,6 +161,7 @@ const ViewHeader: React.FC<ViewHeaderProps> = ({
     const isDesktop = isMac || os === 'windows' || os === 'linux'
     const keyboardShortcut = isMac ? '[ ⌘ + F ]' : '[ Ctrl + F ]'
     const hasTitleRegion = Boolean(title || description || isBackButton || isEditButton)
+    const alignControlsEnd = controlsAlign === 'end'
 
     return (
         <Box
@@ -253,13 +256,13 @@ const ViewHeader: React.FC<ViewHeaderProps> = ({
                         flexWrap: { xs: 'wrap', sm: controlsWrap ? 'wrap' : 'nowrap' },
                         rowGap: controlsWrap ? 1 : 0,
                         gap: 1,
-                        ml: 0,
+                        ml: !hasTitleRegion && alignControlsEnd ? 'auto' : 0,
                         mt: { xs: 2, sm: 0 },
-                        width: { xs: '100%', sm: hasTitleRegion ? 'auto' : '100%' },
+                        width: { xs: '100%', sm: hasTitleRegion ? 'auto' : alignControlsEnd ? 'auto' : '100%' },
                         position: 'relative',
                         justifyContent: {
                             xs: 'flex-start',
-                            sm: hasTitleRegion ? (controlsWrap ? 'flex-start' : 'flex-end') : 'flex-start'
+                            sm: hasTitleRegion ? (controlsWrap ? 'flex-start' : 'flex-end') : alignControlsEnd ? 'flex-end' : 'flex-start'
                         }
                     }}
                 >
@@ -332,7 +335,7 @@ const ViewHeader: React.FC<ViewHeaderProps> = ({
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: 1,
-                                ml: controlsWrap ? 0 : search || hasTitleRegion ? 'auto' : 0,
+                                ml: controlsWrap ? 0 : search || hasTitleRegion || alignControlsEnd ? 'auto' : 0,
                                 flexShrink: 0,
                                 flexWrap: controlsWrap ? 'wrap' : 'nowrap',
                                 justifyContent: controlsWrap ? 'flex-start' : undefined,

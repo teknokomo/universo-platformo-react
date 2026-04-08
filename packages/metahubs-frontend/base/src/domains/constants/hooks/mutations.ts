@@ -13,7 +13,7 @@ import {
     confirmOptimisticCreate
 } from '@universo/template-mui'
 import { makePendingMarkers } from '@universo/utils'
-import { metahubsQueryKeys } from '../../shared'
+import { applyMergedSharedEntityOrder, metahubsQueryKeys } from '../../shared'
 import * as constantsApi from '../api'
 import type {
     BaseConstantScope,
@@ -229,18 +229,16 @@ export function useReorderConstant() {
 
     return useMutation({
         mutationKey: ['constants', 'reorder'],
-        mutationFn: async ({ metahubId, hubId, setId, constantId, newSortOrder }: ReorderConstantParams) => {
+        mutationFn: async ({ metahubId, hubId, setId, constantId, newSortOrder, mergedOrderIds }: ReorderConstantParams) => {
             if (hubId) {
-                const response = await constantsApi.reorderConstant(metahubId, hubId, setId, constantId, newSortOrder)
+                const response = await constantsApi.reorderConstant(metahubId, hubId, setId, constantId, newSortOrder, mergedOrderIds)
                 return response.data
             }
-            const response = await constantsApi.reorderConstantDirect(metahubId, setId, constantId, newSortOrder)
+            const response = await constantsApi.reorderConstantDirect(metahubId, setId, constantId, newSortOrder, mergedOrderIds)
             return response.data
         },
         onMutate: async (variables) => {
-            const listKey = variables.hubId
-                ? metahubsQueryKeys.constantsList(variables.metahubId, variables.hubId, variables.setId)
-                : metahubsQueryKeys.constantsListDirect(variables.metahubId, variables.setId)
+            const listKey = getConstantQueryKeyPrefix(variables)
 
             await queryClient.cancelQueries({ queryKey: listKey })
             const previousQueries = queryClient.getQueriesData<Record<string, unknown>>({ queryKey: listKey })
@@ -248,6 +246,18 @@ export function useReorderConstant() {
             queryClient.setQueriesData<Record<string, unknown>>({ queryKey: listKey }, (old) => {
                 if (!old || !Array.isArray((old as { items?: unknown[] }).items)) return old
                 const items = [...((old as { items: Array<Record<string, unknown>> }).items ?? [])]
+
+                if (Array.isArray(variables.mergedOrderIds) && variables.mergedOrderIds.length > 0) {
+                    return {
+                        ...old,
+                        items: applyMergedSharedEntityOrder(items, variables.mergedOrderIds).map((item, idx) => ({
+                            ...item,
+                            sortOrder: idx + 1,
+                            effectiveSortOrder: idx + 1
+                        }))
+                    }
+                }
+
                 const fromIndex = items.findIndex((item) => item.id === variables.constantId)
                 if (fromIndex === -1) return old
 

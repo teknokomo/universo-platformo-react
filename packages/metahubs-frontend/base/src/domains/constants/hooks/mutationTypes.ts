@@ -33,4 +33,5 @@ export interface CopyConstantParams extends BaseConstantScope {
 export interface ReorderConstantParams extends BaseConstantScope {
     constantId: string
     newSortOrder: number
+    mergedOrderIds?: string[]
 }

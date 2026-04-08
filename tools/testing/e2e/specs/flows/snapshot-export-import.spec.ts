@@ -5,12 +5,15 @@ import {
     createLoggedInApiContext,
     createMetahub,
     disposeApiContext,
+    listCatalogAttributes,
+    listEnumerationValues,
     listLayoutZoneWidgets,
     listLayouts,
     listMetahubCatalogs,
     listMetahubEnumerations,
     listMetahubHubs,
     listMetahubSets,
+    listSetConstants,
     sendWithCsrf
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
@@ -19,8 +22,10 @@ import { createLocalizedContent } from '@universo/utils'
 import {
     SELF_HOSTED_APP_CANONICAL_METAHUB,
     SELF_HOSTED_APP_FIXTURE_FILENAME,
+    SELF_HOSTED_APP_SHARED_ENTITIES,
     SELF_HOSTED_APP_SETTINGS_LAYOUT,
-    assertSelfHostedAppEnvelopeContract
+    assertSelfHostedAppEnvelopeContract,
+    findSelfHostedAppSection
 } from '../../support/selfHostedAppFixtureContract.mjs'
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
@@ -75,11 +80,23 @@ function readLocalizedText(value: unknown, locale = 'en'): string | undefined {
     return typeof fallbackValue === 'string' ? fallbackValue : undefined
 }
 
+function matchesSectionDefinition(entity: { name?: unknown; codename?: unknown } | undefined, section?: { name?: { en?: string } } | null) {
+    const expectedText = section?.name?.en
+    if (!expectedText) {
+        return false
+    }
+
+    return readLocalizedText(entity?.name) === expectedText || readLocalizedText(entity?.codename) === expectedText
+}
+
 async function loadSelfHostedAppFixture(): Promise<{
     fixturePath: string
     metahubName: string
     expectedCounts: { hubs: number; catalogs: number; sets: number; enumerations: number }
     expectedCatalogNames: string[]
+    sharedAttributeName: string
+    sharedConstantName: string
+    sharedEnumerationValueName: string
 }> {
     const fixturePath = path.join(process.cwd(), 'tools', 'fixtures', SELF_HOSTED_APP_FIXTURE_FILENAME)
     const rawFixture = await fs.readFile(fixturePath, 'utf8')
@@ -110,7 +127,10 @@ async function loadSelfHostedAppFixture(): Promise<{
             sets: entities.filter((entity) => entity.kind === 'set').length,
             enumerations: entities.filter((entity) => entity.kind === 'enumeration').length
         },
-        expectedCatalogNames
+        expectedCatalogNames,
+        sharedAttributeName: SELF_HOSTED_APP_SHARED_ENTITIES.attribute.name.en,
+        sharedConstantName: SELF_HOSTED_APP_SHARED_ENTITIES.constant.name.en,
+        sharedEnumerationValueName: SELF_HOSTED_APP_SHARED_ENTITIES.enumerationValue.name.en
     }
 }
 
@@ -252,6 +272,44 @@ test.describe('Snapshot Export/Import Flow', () => {
 
         const settingsCatalog = (catalogs.items ?? []).find((catalog) => readLocalizedText(catalog?.name) === 'Settings')
         expect(typeof settingsCatalog?.id).toBe('string')
+
+        const includedCatalogSection = findSelfHostedAppSection(
+            SELF_HOSTED_APP_SHARED_ENTITIES.attribute.includedCatalogSectionCodename
+        )
+        const importedSharedCatalog = (catalogs.items ?? []).find((catalog) => matchesSectionDefinition(catalog, includedCatalogSection))
+        expect(typeof importedSharedCatalog?.id).toBe('string')
+
+        const targetSetSection = findSelfHostedAppSection(SELF_HOSTED_APP_SHARED_ENTITIES.constant.targetSetSectionCodename)
+        const importedSetSection = (sets.items ?? []).find((setItem) => matchesSectionDefinition(setItem, targetSetSection))
+        expect(typeof importedSetSection?.id).toBe('string')
+
+        const targetEnumerationSection = findSelfHostedAppSection(
+            SELF_HOSTED_APP_SHARED_ENTITIES.enumerationValue.targetEnumerationSectionCodename
+        )
+        const importedEnumerationSection = (enumerations.items ?? []).find((enumeration) =>
+            matchesSectionDefinition(enumeration, targetEnumerationSection)
+        )
+        expect(typeof importedEnumerationSection?.id).toBe('string')
+
+        const [includedCatalogAttributes, excludedCatalogAttributes, importedSharedConstants, importedSharedValues] = await Promise.all([
+            listCatalogAttributes(api, importedId, importedSharedCatalog.id, { limit: 100, offset: 0, includeShared: true }),
+            listCatalogAttributes(api, importedId, settingsCatalog.id, { limit: 100, offset: 0, includeShared: true }),
+            listSetConstants(api, importedId, importedSetSection.id, { limit: 100, offset: 0, includeShared: true }),
+            listEnumerationValues(api, importedId, importedEnumerationSection.id, { includeShared: true })
+        ])
+
+        expect(
+            (includedCatalogAttributes.items ?? []).some((attribute) => readLocalizedText(attribute?.name) === fixture.sharedAttributeName)
+        ).toBe(true)
+        expect(
+            (excludedCatalogAttributes.items ?? []).some((attribute) => readLocalizedText(attribute?.name) === fixture.sharedAttributeName)
+        ).toBe(false)
+        expect(
+            (importedSharedConstants.items ?? []).some((constant) => readLocalizedText(constant?.name) === fixture.sharedConstantName)
+        ).toBe(true)
+        expect(
+            (importedSharedValues.items ?? []).some((value) => readLocalizedText(value?.name) === fixture.sharedEnumerationValueName)
+        ).toBe(true)
 
         const settingsLayouts = await listLayouts(api, importedId, {
             catalogId: settingsCatalog?.id,

@@ -83,4 +83,5 @@ export interface ReorderEnumerationValueParams {
     enumerationId: string
     valueId: string
     newSortOrder: number
+    mergedOrderIds?: string[]
 }

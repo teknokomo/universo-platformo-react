@@ -30,6 +30,7 @@ type GenericFormValues = Record<string, unknown>
 type AttributeContextExtras = {
     metahubId?: string
     catalogId?: string
+    sharedEntityMode?: boolean
     allowAttributeCopy?: boolean
     allowAttributeDelete?: boolean
     allowDeleteLastDisplayAttribute?: boolean
@@ -77,14 +78,20 @@ import {
     normalizeLocale
 } from '../../../utils/localizedInput'
 import AttributeFormFields, { PresentationTabFields } from './AttributeFormFields'
+import { shouldForceFirstAttributeDefaults, shouldLockDisplayAttributeToggle } from './attributeDisplayRules'
+import SharedEntitySettingsFields from '../../shared/ui/SharedEntitySettingsFields'
 import { createScriptsTab } from '../../scripts/ui/EntityScriptsTab'
+import { readSharedExcludedTargetIdsField, SHARED_EXCLUDED_TARGET_IDS_FIELD } from '../../shared/sharedEntityExclusions'
+
+const DIALOG_SAVE_CANCEL = { __dialogCancelled: true } as const
 
 const ATTRIBUTE_DATA_TYPES = new Set<Attribute['dataType']>(['STRING', 'NUMBER', 'BOOLEAN', 'DATE', 'REF', 'JSON', 'TABLE'])
 
 const buildInitialValues = (ctx: ActionContext<AttributeDisplay, AttributeLocalizedPayload>) => {
     const attributeMap = ctx.attributeMap as Map<string, Attribute> | undefined
     const raw = attributeMap?.get(ctx.entity.id)
-    const isSingleAttribute = (attributeMap?.size ?? 0) <= 1
+    const contextExtras = ctx as ActionContext<AttributeDisplay, AttributeLocalizedPayload> & AttributeContextExtras
+    const shouldForceDefaults = shouldForceFirstAttributeDefaults(attributeMap?.size ?? 0, contextExtras.sharedEntityMode)
     const uiLocale = normalizeLocale(ctx.uiLocale as string | undefined)
     const nameFallback = ctx.entity?.name || ctx.entity?.codename || ''
 
@@ -93,8 +100,8 @@ const buildInitialValues = (ctx: ActionContext<AttributeDisplay, AttributeLocali
         codename: ensureEntityCodenameContent(raw, uiLocale, raw?.codename ?? ctx.entity?.codename ?? ''),
         codenameTouched: true,
         dataType: raw?.dataType ?? ctx.entity?.dataType ?? 'STRING',
-        isRequired: isSingleAttribute ? true : raw?.isRequired ?? ctx.entity?.isRequired ?? false,
-        isDisplayAttribute: isSingleAttribute ? true : raw?.isDisplayAttribute ?? getEntityDisplayAttributeFlag(ctx.entity),
+        isRequired: shouldForceDefaults ? true : raw?.isRequired ?? ctx.entity?.isRequired ?? false,
+        isDisplayAttribute: shouldForceDefaults ? true : raw?.isDisplayAttribute ?? getEntityDisplayAttributeFlag(ctx.entity),
         validationRules: raw?.validationRules ?? ctx.entity?.validationRules ?? {},
         targetEntityId: raw?.targetEntityId ?? ctx.entity?.targetEntityId ?? null,
         targetEntityKind: raw?.targetEntityKind ?? ctx.entity?.targetEntityKind ?? null,
@@ -219,7 +226,7 @@ const sanitizeAttributeUiConfig = (
     return nextUiConfig
 }
 
-const toPayload = (values: GenericFormValues): AttributeLocalizedPayload => {
+const toPayload = (values: GenericFormValues): AttributeLocalizedPayload & Record<string, unknown> => {
     const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
@@ -239,7 +246,7 @@ const toPayload = (values: GenericFormValues): AttributeLocalizedPayload => {
     const uiConfig = sanitizeAttributeUiConfig(dataType, targetEntityKind, sourceUiConfig, isRequired)
     const codenamePayload = ensureLocalizedContent(codenameValue, namePrimaryLocale ?? codenamePrimaryLocale, codename)
 
-    return {
+    const payload: AttributeLocalizedPayload & Record<string, unknown> = {
         codename: codenamePayload,
         dataType,
         isRequired,
@@ -252,6 +259,13 @@ const toPayload = (values: GenericFormValues): AttributeLocalizedPayload => {
         targetConstantId,
         uiConfig: Object.keys(uiConfig).length > 0 ? uiConfig : undefined
     }
+
+    const sharedExcludedTargetIds = readSharedExcludedTargetIdsField(values)
+    if (sharedExcludedTargetIds !== undefined) {
+        payload[SHARED_EXCLUDED_TARGET_IDS_FIELD] = sharedExcludedTargetIds
+    }
+
+    return payload
 }
 
 const resolveSortOrder = (attribute?: { sortOrder?: number }) => {
@@ -334,11 +348,12 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                     initialExtraValues: initial,
                     tabs: ({ values, setValue, isLoading, errors }: AttributeTabArgs): TabConfig[] => {
                         const attributeMap = ctx.attributeMap as Map<string, Attribute> | undefined
-                        // Lock the display attribute toggle when:
-                        // 1. there's only one attribute (can't unset the only one), or
-                        // 2. the current attribute IS the display attribute (must assign to another first)
-                        const displayAttributeLocked = (attributeMap?.size ?? 0) <= 1 || isDisplayAttributeEntity(ctx)
-                        return [
+                        const displayAttributeLocked = shouldLockDisplayAttributeToggle({
+                            attributeCount: attributeMap?.size ?? 0,
+                            sharedEntityMode: contextExtras.sharedEntityMode,
+                            isCurrentDisplayAttribute: isDisplayAttributeEntity(ctx)
+                        })
+                        const tabs: TabConfig[] = [
                             {
                                 id: 'general',
                                 label: ctx.t('attributes.tabs.general', 'General'),
@@ -412,30 +427,44 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                                 id: 'presentation',
                                 label: ctx.t('attributes.tabs.presentation', 'Presentation'),
                                 content: (
-                                    <PresentationTabFields
-                                        values={values}
-                                        setValue={setValue}
-                                        isLoading={isLoading}
-                                        metahubId={contextExtras.metahubId}
-                                        displayAttributeLabel={ctx.t('attributes.isDisplayAttributeLabel', 'Display attribute')}
-                                        displayAttributeHelper={ctx.t(
-                                            'attributes.isDisplayAttributeHelper',
-                                            'Use as representation when referencing elements of this catalog'
-                                        )}
-                                        displayAttributeLocked={displayAttributeLocked}
-                                        headerAsCheckboxLabel={ctx.t(
-                                            'attributes.presentation.headerAsCheckbox',
-                                            'Display header as checkbox'
-                                        )}
-                                        headerAsCheckboxHelper={ctx.t(
-                                            'attributes.presentation.headerAsCheckboxHelper',
-                                            'Show a checkbox in the column header instead of the text label'
-                                        )}
-                                        dataType={values.dataType ?? 'STRING'}
-                                        targetEntityKind={values.targetEntityKind ?? null}
-                                        targetEntityId={values.targetEntityId ?? null}
-                                        isRequired={Boolean(values.isRequired)}
-                                    />
+                                    <Stack spacing={2}>
+                                        <PresentationTabFields
+                                            values={values}
+                                            setValue={setValue}
+                                            isLoading={isLoading}
+                                            metahubId={contextExtras.metahubId}
+                                            displayAttributeLabel={ctx.t('attributes.isDisplayAttributeLabel', 'Display attribute')}
+                                            displayAttributeHelper={ctx.t(
+                                                'attributes.isDisplayAttributeHelper',
+                                                'Use as representation when referencing elements of this catalog'
+                                            )}
+                                            displayAttributeLocked={displayAttributeLocked}
+                                            headerAsCheckboxLabel={ctx.t(
+                                                'attributes.presentation.headerAsCheckbox',
+                                                'Display header as checkbox'
+                                            )}
+                                            headerAsCheckboxHelper={ctx.t(
+                                                'attributes.presentation.headerAsCheckboxHelper',
+                                                'Show a checkbox in the column header instead of the text label'
+                                            )}
+                                            dataType={values.dataType ?? 'STRING'}
+                                            targetEntityKind={values.targetEntityKind ?? null}
+                                            targetEntityId={values.targetEntityId ?? null}
+                                            isRequired={Boolean(values.isRequired)}
+                                        />
+                                        {contextExtras.sharedEntityMode ? (
+                                            <SharedEntitySettingsFields
+                                                metahubId={contextExtras.metahubId}
+                                                entityKind='attribute'
+                                                sharedEntityId={ctx.entity.id}
+                                                storageField='uiConfig'
+                                                section='behavior'
+                                                values={values}
+                                                setValue={setValue}
+                                                isLoading={isLoading}
+                                            />
+                                        ) : null}
+                                    </Stack>
                                 )
                             },
                             createScriptsTab({
@@ -445,6 +474,27 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                                 attachedToId: ctx.entity.id
                             })
                         ]
+
+                        if (contextExtras.sharedEntityMode) {
+                            tabs.splice(2, 0, {
+                                id: 'exclusions',
+                                label: ctx.t('shared.exclusions.tab', 'Exclusions'),
+                                content: (
+                                    <SharedEntitySettingsFields
+                                        metahubId={contextExtras.metahubId}
+                                        entityKind='attribute'
+                                        sharedEntityId={ctx.entity.id}
+                                        storageField='uiConfig'
+                                        section='exclusions'
+                                        values={values}
+                                        setValue={setValue}
+                                        isLoading={isLoading}
+                                    />
+                                )
+                            })
+                        }
+
+                        return tabs
                     },
                     validate: (values: GenericFormValues) => validateAttributeForm(ctx, values),
                     canSave: canSaveAttributeForm,
@@ -460,8 +510,16 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                     onSave: async (data: GenericFormValues) => {
                         try {
                             const payload = toPayload(data)
-                            void ctx.api?.updateEntity?.(ctx.entity.id, payload)
+                            await ctx.api?.updateEntity?.(ctx.entity.id, payload)
                         } catch (error: unknown) {
+                            if (
+                                error &&
+                                typeof error === 'object' &&
+                                '__dialogCancelled' in error &&
+                                (error as { __dialogCancelled?: unknown }).__dialogCancelled === true
+                            ) {
+                                throw error
+                            }
                             notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
                             throw error
                         }
@@ -590,31 +648,45 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                                 id: 'presentation',
                                 label: ctx.t('attributes.tabs.presentation', 'Presentation'),
                                 content: (
-                                    <PresentationTabFields
-                                        values={values}
-                                        setValue={setValue}
-                                        isLoading={isLoading}
-                                        metahubId={contextExtras.metahubId}
-                                        displayAttributeLabel={ctx.t('attributes.isDisplayAttributeLabel', 'Display attribute')}
-                                        displayAttributeHelper={ctx.t(
-                                            'attributes.isDisplayAttributeHelper',
-                                            'Use as representation when referencing elements of this catalog'
-                                        )}
-                                        displayAttributeLocked={false}
-                                        forceDisplayAttributeWhenLocked={false}
-                                        headerAsCheckboxLabel={ctx.t(
-                                            'attributes.presentation.headerAsCheckbox',
-                                            'Display header as checkbox'
-                                        )}
-                                        headerAsCheckboxHelper={ctx.t(
-                                            'attributes.presentation.headerAsCheckboxHelper',
-                                            'Show a checkbox in the column header instead of the text label'
-                                        )}
-                                        dataType={values.dataType ?? 'STRING'}
-                                        targetEntityKind={values.targetEntityKind ?? null}
-                                        targetEntityId={values.targetEntityId ?? null}
-                                        isRequired={Boolean(values.isRequired)}
-                                    />
+                                    <Stack spacing={2}>
+                                        <PresentationTabFields
+                                            values={values}
+                                            setValue={setValue}
+                                            isLoading={isLoading}
+                                            metahubId={contextExtras.metahubId}
+                                            displayAttributeLabel={ctx.t('attributes.isDisplayAttributeLabel', 'Display attribute')}
+                                            displayAttributeHelper={ctx.t(
+                                                'attributes.isDisplayAttributeHelper',
+                                                'Use as representation when referencing elements of this catalog'
+                                            )}
+                                            displayAttributeLocked={false}
+                                            forceDisplayAttributeWhenLocked={false}
+                                            headerAsCheckboxLabel={ctx.t(
+                                                'attributes.presentation.headerAsCheckbox',
+                                                'Display header as checkbox'
+                                            )}
+                                            headerAsCheckboxHelper={ctx.t(
+                                                'attributes.presentation.headerAsCheckboxHelper',
+                                                'Show a checkbox in the column header instead of the text label'
+                                            )}
+                                            dataType={values.dataType ?? 'STRING'}
+                                            targetEntityKind={values.targetEntityKind ?? null}
+                                            targetEntityId={values.targetEntityId ?? null}
+                                            isRequired={Boolean(values.isRequired)}
+                                        />
+                                        {contextExtras.sharedEntityMode ? (
+                                            <SharedEntitySettingsFields
+                                                metahubId={contextExtras.metahubId}
+                                                entityKind='attribute'
+                                                sharedEntityId={null}
+                                                storageField='uiConfig'
+                                                section='behavior'
+                                                values={values}
+                                                setValue={setValue}
+                                                isLoading={isLoading}
+                                            />
+                                        ) : null}
+                                    </Stack>
                                 )
                             }
                         ]
@@ -638,6 +710,26 @@ const attributeActions: readonly ActionDescriptor<AttributeDisplay, AttributeLoc
                                 )
                             })
                         }
+
+                        if (contextExtras.sharedEntityMode) {
+                            tabs.splice(2, 0, {
+                                id: 'exclusions',
+                                label: ctx.t('shared.exclusions.tab', 'Exclusions'),
+                                content: (
+                                    <SharedEntitySettingsFields
+                                        metahubId={contextExtras.metahubId}
+                                        entityKind='attribute'
+                                        sharedEntityId={null}
+                                        storageField='uiConfig'
+                                        section='exclusions'
+                                        values={values}
+                                        setValue={setValue}
+                                        isLoading={isLoading}
+                                    />
+                                )
+                            })
+                        }
+
                         return tabs
                     },
                     validate: (values: GenericFormValues) => {

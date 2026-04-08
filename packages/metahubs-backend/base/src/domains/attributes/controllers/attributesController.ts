@@ -70,7 +70,8 @@ const AttributesListQuerySchema = ListQuerySchema.extend({
     sortBy: z.enum(['name', 'created', 'updated', 'codename', 'sortOrder']).default('sortOrder'),
     sortOrder: z.enum(['asc', 'desc']).default('asc'),
     locale: z.string().trim().min(2).max(10).optional(),
-    scope: z.enum(['business', 'system', 'all']).default('business')
+    scope: z.enum(['business', 'system', 'all']).default('business'),
+    includeShared: z.preprocess((val) => val === 'true' || val === true, z.boolean()).default(false)
 })
 
 const validateAttributesListQuery = (query: unknown) => AttributesListQuerySchema.parse(query)
@@ -138,6 +139,13 @@ const uiConfigSchema = z
         hidden: z.boolean().optional(),
         width: z.number().optional(),
         headerAsCheckbox: z.boolean().optional(),
+        sharedBehavior: z
+            .object({
+                canDeactivate: z.boolean().optional(),
+                canExclude: z.boolean().optional(),
+                positionLocked: z.boolean().optional()
+            })
+            .optional(),
         enumPresentationMode: z.enum(ENUM_PRESENTATION_MODES).optional(),
         defaultEnumValueId: z.string().uuid().nullable().optional(),
         enumAllowEmpty: z.boolean().optional(),
@@ -209,7 +217,8 @@ const reorderAttributeSchema = z
         attributeId: z.string().uuid(),
         newSortOrder: z.number().int().min(1),
         newParentAttributeId: z.string().uuid().nullable().optional(),
-        autoRenameCodename: z.boolean().optional()
+        autoRenameCodename: z.boolean().optional(),
+        mergedOrderIds: z.array(z.string().uuid()).min(1).optional()
     })
     .strict()
 
@@ -320,9 +329,12 @@ export function createAttributesController(_createHandler: CreateHandler, getDbE
             throw error
         }
 
-        const { limit, offset, sortBy, sortOrder, search, locale, scope } = validatedQuery
+        const { limit, offset, sortBy, sortOrder, search, locale, scope, includeShared } = validatedQuery
 
-        let items = await attributesService.findAll(metahubId, catalogId, userId, scope)
+        let items =
+            includeShared && scope === 'business'
+                ? await attributesService.findAllMerged(metahubId, catalogId, userId, scope)
+                : await attributesService.findAll(metahubId, catalogId, userId, scope)
 
         if (scope !== 'business') {
             items = items.filter((item) => shouldExposeCatalogSystemField(item.system?.systemKey ?? null, platformSystemAttributesPolicy))
@@ -420,6 +432,9 @@ export function createAttributesController(_createHandler: CreateHandler, getDbE
             if (sortBy === 'name') {
                 valA = getNameValue(a.name)
                 valB = getNameValue(b.name)
+            } else if (sortBy === 'sortOrder') {
+                valA = (a as { effectiveSortOrder?: number }).effectiveSortOrder ?? a.sortOrder
+                valB = (b as { effectiveSortOrder?: number }).effectiveSortOrder ?? b.sortOrder
             } else if (sortBy === 'created') {
                 valA = a.createdAt
                 valB = b.createdAt
@@ -444,6 +459,7 @@ export function createAttributesController(_createHandler: CreateHandler, getDbE
                 totalAll,
                 limit: ATTRIBUTE_LIMIT,
                 limitReached,
+                includeShared: includeShared && scope === 'business',
                 platformSystemAttributesPolicy,
                 ...(childSearchMatchParentIds.length > 0 ? { childSearchMatchParentIds } : {})
             }
@@ -1425,6 +1441,11 @@ export function createAttributesController(_createHandler: CreateHandler, getDbE
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
         if (!userId) return
 
+        const attribute = await attributesService.findById(metahubId, attributeId, userId)
+        if (!attribute || attribute.catalogId !== catalogId) {
+            return res.status(404).json({ error: 'Attribute not found' })
+        }
+
         const parsed = moveAttributeSchema.safeParse(req.body)
         if (!parsed.success) {
             return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
@@ -1448,26 +1469,35 @@ export function createAttributesController(_createHandler: CreateHandler, getDbE
             return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
         }
 
-        const { attributeId, newSortOrder, newParentAttributeId, autoRenameCodename } = parsed.data
+        const { attributeId, newSortOrder, newParentAttributeId, autoRenameCodename, mergedOrderIds } = parsed.data
+
+        if (newParentAttributeId !== undefined && mergedOrderIds) {
+            return res.status(400).json({
+                error: 'Validation failed',
+                details: { mergedOrderIds: ['mergedOrderIds is not supported for cross-list transfers'] }
+            })
+        }
 
         const codenameScope = await getAttributeCodenameScope(settingsService, metahubId, userId)
         const { style: codenameStyle } = await getCodenameSettings(settingsService, metahubId, userId)
         const allowCrossListRootChildren = await getAllowAttributeMoveBetweenRootAndChildren(settingsService, metahubId, userId)
         const allowCrossListBetweenChildren = await getAllowAttributeMoveBetweenChildLists(settingsService, metahubId, userId)
 
-        const updated = await attributesService.reorderAttribute(
-            metahubId,
-            catalogId,
-            attributeId,
-            newSortOrder,
-            newParentAttributeId,
-            codenameScope as 'per-level' | 'global',
-            codenameStyle as 'kebab-case' | 'pascal-case',
-            allowCrossListRootChildren,
-            allowCrossListBetweenChildren,
-            autoRenameCodename,
-            userId
-        )
+        const updated = mergedOrderIds
+            ? await attributesService.reorderAttributeMergedOrder(metahubId, catalogId, attributeId, mergedOrderIds, userId)
+            : await attributesService.reorderAttribute(
+                  metahubId,
+                  catalogId,
+                  attributeId,
+                  newSortOrder,
+                  newParentAttributeId,
+                  codenameScope as 'per-level' | 'global',
+                  codenameStyle as 'kebab-case' | 'pascal-case',
+                  allowCrossListRootChildren,
+                  allowCrossListBetweenChildren,
+                  autoRenameCodename,
+                  userId
+              )
         res.json(updated)
     }
 

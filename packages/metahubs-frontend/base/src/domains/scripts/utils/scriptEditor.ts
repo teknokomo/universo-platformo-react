@@ -2,12 +2,7 @@ import type { PaletteMode } from '@mui/material'
 import { autocompletion, completeFromList, type Completion } from '@codemirror/autocomplete'
 import { javascript } from '@codemirror/lang-javascript'
 import { vscodeDark, vscodeLight } from '@uiw/codemirror-theme-vscode'
-import {
-    SCRIPT_LIFECYCLE_EVENTS,
-    resolveAllowedScriptCapabilities,
-    type ScriptCapability,
-    type ScriptModuleRole
-} from '@universo/types'
+import { SCRIPT_LIFECYCLE_EVENTS, resolveAllowedScriptCapabilities, type ScriptCapability, type ScriptModuleRole } from '@universo/types'
 
 export interface ScriptRoleGuidance {
     summary: string
@@ -21,6 +16,19 @@ const BASE_SCRIPT_EDITOR_COMPLETIONS: Completion[] = [
         type: 'class',
         detail: 'SDK base class',
         info: 'Base class for all embedded metahub scripts.'
+    },
+    {
+        label: 'SharedLibraryScript',
+        type: 'class',
+        detail: 'SDK base class',
+        info: 'Marker base class for import-only shared libraries attached to the Common section.'
+    },
+    {
+        label: "import SharedHelpers from '@shared/example-helpers'",
+        type: 'keyword',
+        detail: 'Shared library import',
+        info: 'Imports another Common library by codename through the @shared/<codename> resolver.',
+        apply: "import SharedHelpers from '@shared/example-helpers'"
     },
     {
         label: '@AtClient()',
@@ -185,10 +193,11 @@ export const getScriptRoleGuidance = (moduleRole: ScriptModuleRole): ScriptRoleG
                 entryPoints: ['mount()', 'submit(payload)'],
                 allowedCapabilities: resolveAllowedScriptCapabilities(moduleRole)
             }
-        case 'global':
+        case 'library':
             return {
-                summary: 'Global modules are best for metahub-wide helpers that only need read-only metadata access.',
-                entryPoints: ['mount()', 'getByCodename()'],
+                summary:
+                    'Library modules are import-only shared helpers for the Common section. Keep them pure, reuse @shared/<codename> imports when needed, and avoid decorators or runtime ctx access.',
+                entryPoints: ['static formatValue()', "import Utils from '@shared/example-helpers'"],
                 allowedCapabilities: resolveAllowedScriptCapabilities(moduleRole)
             }
         case 'module':

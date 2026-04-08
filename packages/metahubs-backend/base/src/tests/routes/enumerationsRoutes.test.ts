@@ -13,6 +13,7 @@ const request = require('supertest') as typeof import('supertest')
 import { createEnumerationsRoutes } from '../../domains/enumerations/routes/enumerationsRoutes'
 import { MetahubNotFoundError } from '../../domains/shared/domainErrors'
 import { testCodenameVlc } from '../utils/codenameTestHelpers'
+import { SHARED_OBJECT_KINDS } from '@universo/types'
 
 const mockFindMetahubById = jest.fn(async () => ({ id: 'metahub-1' }))
 
@@ -78,7 +79,10 @@ const mockAttributesService = {
 }
 
 const mockValuesService = {
-    reorderValue: jest.fn()
+    findAll: jest.fn(),
+    findAllMerged: jest.fn(),
+    reorderValue: jest.fn(),
+    reorderValueMergedOrder: jest.fn()
 }
 const mockHubsService = {
     findByIds: jest.fn()
@@ -236,10 +240,18 @@ describe('Enumerations Routes', () => {
             id: '44444444-4444-4444-8444-444444444444',
             config: { sortOrder: 2 }
         })
+        mockValuesService.findAll.mockResolvedValue([])
+        mockValuesService.findAllMerged.mockResolvedValue([])
         mockValuesService.reorderValue.mockResolvedValue({
             id: '44444444-4444-4444-4444-444444444444',
             objectId: 'enum-1',
             sortOrder: 2
+        })
+        mockValuesService.reorderValueMergedOrder.mockResolvedValue({
+            id: '44444444-4444-4444-4444-444444444444',
+            objectId: 'enum-1',
+            effectiveSortOrder: 2,
+            isShared: true
         })
         mockAttributesService.findReferenceBlockersByTarget.mockResolvedValue([])
         mockHubsService.findByIds.mockResolvedValue([
@@ -255,6 +267,35 @@ describe('Enumerations Routes', () => {
     })
 
     describe('PATCH /metahub/:metahubId/enumeration/:enumerationId/values/reorder', () => {
+        it('GET /metahub/:metahubId/enumeration/:enumerationId/values uses merged read when includeShared=true', async () => {
+            mockValuesService.findAllMerged.mockResolvedValue([
+                {
+                    id: 'shared-value-1',
+                    objectId: 'shared-enum-pool-1',
+                    codename: 'Open',
+                    name: { en: 'Open' },
+                    description: {},
+                    sortOrder: 1,
+                    effectiveSortOrder: 1,
+                    isDefault: false,
+                    isShared: true,
+                    isActive: true,
+                    isExcluded: false,
+                    sharedBehavior: { canDeactivate: true, canExclude: true, positionLocked: false },
+                    createdAt: '2026-03-04T10:00:00.000Z',
+                    updatedAt: '2026-03-04T10:00:00.000Z'
+                }
+            ])
+
+            const app = buildApp()
+            const response = await request(app).get('/metahub/metahub-1/enumeration/enum-1/values?includeShared=true').expect(200)
+
+            expect(response.body.items[0]).toMatchObject({ id: 'shared-value-1', isShared: true, effectiveSortOrder: 1 })
+            expect(response.body.meta).toMatchObject({ includeShared: true })
+            expect(mockValuesService.findAllMerged).toHaveBeenCalledWith('metahub-1', 'enum-1', 'test-user-id')
+            expect(mockValuesService.findAll).not.toHaveBeenCalled()
+        })
+
         it('reorders enumeration value and returns updated value', async () => {
             const app = buildApp()
             const response = await request(app)
@@ -273,6 +314,27 @@ describe('Enumerations Routes', () => {
                 2,
                 'test-user-id'
             )
+        })
+
+        it('calls merged reorder service when mergedOrderIds are provided', async () => {
+            const app = buildApp()
+            await request(app)
+                .patch('/metahub/metahub-1/enumeration/enum-1/values/reorder')
+                .send({
+                    valueId: '44444444-4444-4444-4444-444444444444',
+                    newSortOrder: 2,
+                    mergedOrderIds: ['44444444-4444-4444-4444-444444444444', '55555555-5555-5555-5555-555555555555']
+                })
+                .expect(200)
+
+            expect(mockValuesService.reorderValueMergedOrder).toHaveBeenCalledWith(
+                'metahub-1',
+                'enum-1',
+                '44444444-4444-4444-4444-444444444444',
+                ['44444444-4444-4444-4444-444444444444', '55555555-5555-5555-5555-555555555555'],
+                'test-user-id'
+            )
+            expect(mockValuesService.reorderValue).not.toHaveBeenCalled()
         })
 
         it('returns 404 when reordered value is not found in target enumeration', async () => {
@@ -301,6 +363,31 @@ describe('Enumerations Routes', () => {
 
             expect(response.body.error).toBe('Validation failed')
             expect(mockValuesService.reorderValue).not.toHaveBeenCalled()
+        })
+
+        it('accepts shared enumeration pool context ids', async () => {
+            mockObjectsService.findById.mockResolvedValueOnce({
+                id: 'shared-enum-pool-1',
+                kind: SHARED_OBJECT_KINDS.SHARED_ENUM_POOL,
+                codename: 'shared-enumerations'
+            })
+
+            const app = buildApp()
+            await request(app)
+                .patch('/metahub/metahub-1/enumeration/shared-enum-pool-1/values/reorder')
+                .send({
+                    valueId: '44444444-4444-4444-4444-444444444444',
+                    newSortOrder: 2
+                })
+                .expect(200)
+
+            expect(mockValuesService.reorderValue).toHaveBeenCalledWith(
+                'metahub-1',
+                'shared-enum-pool-1',
+                '44444444-4444-4444-4444-444444444444',
+                2,
+                'test-user-id'
+            )
         })
     })
 

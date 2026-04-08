@@ -2,8 +2,8 @@ import { useMemo } from 'react'
 import { useParams, useSearchParams, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { usePaginated, useDebouncedSearch } from '@universo/template-mui'
-import { fetchAllPaginatedItems, metahubsQueryKeys } from '../../shared'
-import type { Attribute, PaginatedResponse } from '../../../types'
+import { metahubsQueryKeys } from '../../shared'
+import type { Attribute } from '../../../types'
 import { DEFAULT_PLATFORM_SYSTEM_ATTRIBUTES_POLICY, type PlatformSystemAttributesPolicy } from '@universo/types'
 import * as attributesApi from '../api'
 import { getCatalogById } from '../../catalogs'
@@ -11,16 +11,36 @@ import { useMetahubHubs } from '../../hubs/hooks'
 import { useSettingValue } from '../../settings/hooks/useSettings'
 import type { CatalogTab } from './attributeListUtils'
 
-export function useAttributeListData() {
+type UseAttributeListDataOptions = {
+    metahubId?: string
+    hubId?: string | null
+    catalogId?: string
+    resolveCatalogDetails?: boolean
+    allowSystemView?: boolean
+    includeSharedEntities?: boolean
+}
+
+export function useAttributeListData(options: UseAttributeListDataOptions = {}) {
     const location = useLocation()
     const [searchParams] = useSearchParams()
-    const { metahubId, hubId: hubIdParam, catalogId } = useParams<{ metahubId: string; hubId?: string; catalogId: string }>()
+    const {
+        metahubId: routeMetahubId,
+        hubId: routeHubIdParam,
+        catalogId: routeCatalogId
+    } = useParams<{ metahubId: string; hubId?: string; catalogId: string }>()
+    const metahubId = options.metahubId ?? routeMetahubId
+    const hubIdParam = options.hubId ?? routeHubIdParam
+    const catalogId = options.catalogId ?? routeCatalogId
+    const resolveCatalogDetails = options.resolveCatalogDetails ?? true
+    const allowSystemView = options.allowSystemView ?? true
+    const includeSharedEntities = options.includeSharedEntities ?? true
 
     const requestedCatalogTab = searchParams.get('tab')
     const isDedicatedSystemRoute = location.pathname.endsWith('/system')
     const activeCatalogTab: Extract<CatalogTab, 'attributes' | 'system'> =
-        isDedicatedSystemRoute || requestedCatalogTab === 'system' ? 'system' : 'attributes'
+        allowSystemView && (isDedicatedSystemRoute || requestedCatalogTab === 'system') ? 'system' : 'attributes'
     const isSystemView = activeCatalogTab === 'system'
+    const includeShared = includeSharedEntities && !isSystemView
     const attributeCodenameScope = useSettingValue<string>('catalogs.attributeCodenameScope') ?? 'per-level'
 
     // Resolve hub from catalog when hubId is not in URL
@@ -37,7 +57,7 @@ export function useAttributeListData() {
             }
             return getCatalogById(metahubId, catalogId)
         },
-        enabled: !!metahubId && !!catalogId && !hubIdParam
+        enabled: resolveCatalogDetails && !!metahubId && !!catalogId && !hubIdParam
     })
 
     const effectiveHubId = hubIdParam || catalogForHubResolution?.hubs?.[0]?.id
@@ -55,11 +75,13 @@ export function useAttributeListData() {
                       effectiveHubId
                           ? metahubsQueryKeys.attributesList(metahubId, effectiveHubId, catalogId, {
                                 ...params,
-                                scope: isSystemView ? 'system' : undefined
+                                scope: isSystemView ? 'system' : undefined,
+                                includeShared
                             })
                           : metahubsQueryKeys.attributesListDirect(metahubId, catalogId, {
                                 ...params,
-                                scope: isSystemView ? 'system' : undefined
+                                scope: isSystemView ? 'system' : undefined,
+                                includeShared
                             })
                 : () => ['empty'],
         queryFn:
@@ -68,11 +90,13 @@ export function useAttributeListData() {
                       effectiveHubId
                           ? attributesApi.listAttributes(metahubId, effectiveHubId, catalogId, {
                                 ...params,
-                                scope: isSystemView ? 'system' : undefined
+                                scope: isSystemView ? 'system' : undefined,
+                                includeShared
                             })
                           : attributesApi.listAttributesDirect(metahubId, catalogId, {
                                 ...params,
-                                scope: isSystemView ? 'system' : undefined
+                                scope: isSystemView ? 'system' : undefined,
+                                includeShared
                             })
                 : async () => ({ items: [], pagination: { limit: 20, offset: 0, count: 0, total: 0, hasMore: false } }),
         initialLimit: 20,
@@ -154,6 +178,7 @@ export function useAttributeListData() {
         totalAttributes,
         limitReached,
         childSearchMatchParentIds,
-        attributeCodenameScope
+        attributeCodenameScope,
+        includeShared
     }
 }

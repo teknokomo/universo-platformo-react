@@ -1,6 +1,7 @@
 import type { Locator, Page, Response } from '@playwright/test'
 import { createLocalizedContent } from '@universo/utils'
 import { expect, test } from '../../fixtures/test'
+import { waitForSettledMutationResponse } from '../../support/browser/network'
 import {
     createLoggedInApiContext,
     createMetahub,
@@ -221,8 +222,10 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         const hubDialog = await openEntityDialog(page, 'Create Hub')
         await fillNameAndCodename(hubDialog, { name: hubName, codename: hubCodename })
 
-        const createHubResponse = page.waitForResponse(
-            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/hubs`)
+        const createHubResponse = waitForSettledMutationResponse(
+            page,
+            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/hubs`),
+            { label: 'Creating hub' }
         )
         await hubDialog.getByTestId(entityDialogSelectors.submitButton).click()
 
@@ -262,9 +265,10 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         await expect(copyHubDialog).toBeVisible()
         await fillNameAndCodename(copyHubDialog, { codename: copiedHubCodename })
 
-        const copyHubResponse = page.waitForResponse(
-            (response) =>
-                response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/hub/${createdHub.id}/copy`)
+        const copyHubResponse = waitForSettledMutationResponse(
+            page,
+            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/hub/${createdHub.id}/copy`),
+            { label: 'Copying hub' }
         )
         await copyHubDialog.getByTestId(entityDialogSelectors.submitButton).click()
 
@@ -282,9 +286,10 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         const deleteHubDialog = page.getByRole('dialog', { name: 'Delete Hub' })
         await expect(deleteHubDialog).toBeVisible()
 
-        const deleteHubResponse = page.waitForResponse(
-            (response) =>
-                response.request().method() === 'DELETE' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/hub/${copiedHub.id}`)
+        const deleteHubResponse = waitForSettledMutationResponse(
+            page,
+            (response) => response.request().method() === 'DELETE' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/hub/${copiedHub.id}`),
+            { label: 'Deleting hub' }
         )
         await deleteHubDialog.getByRole('button', { name: 'Delete' }).click()
         const deleteHubResult = await deleteHubResponse
@@ -297,8 +302,10 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         const catalogDialog = await openEntityDialog(page, 'Create Catalog')
         await fillNameAndCodename(catalogDialog, { name: catalogName, codename: catalogCodename })
 
-        const createCatalogResponse = page.waitForResponse(
-            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/catalogs`)
+        const createCatalogResponse = waitForSettledMutationResponse(
+            page,
+            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/catalogs`),
+            { label: 'Creating catalog' }
         )
         await catalogDialog.getByTestId(entityDialogSelectors.submitButton).click()
 
@@ -337,10 +344,12 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         await expect(copyCatalogDialog).toBeVisible()
         await fillNameAndCodename(copyCatalogDialog, { codename: copiedCatalogCodename })
 
-        const copyCatalogResponse = page.waitForResponse(
+        const copyCatalogResponse = waitForSettledMutationResponse(
+            page,
             (response) =>
                 response.request().method() === 'POST' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/catalog/${createdCatalog.id}/copy`)
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/catalog/${createdCatalog.id}/copy`),
+            { label: 'Copying catalog' }
         )
         await copyCatalogDialog.getByTestId(entityDialogSelectors.submitButton).click()
 
@@ -358,10 +367,12 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         const deleteCatalogDialog = page.getByRole('dialog', { name: 'Delete Catalog' })
         await expect(deleteCatalogDialog).toBeVisible()
 
-        const deleteCatalogResponse = page.waitForResponse(
+        const deleteCatalogResponse = waitForSettledMutationResponse(
+            page,
             (response) =>
                 response.request().method() === 'DELETE' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/catalog/${copiedCatalog.id}`)
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/catalog/${copiedCatalog.id}`),
+            { label: 'Deleting catalog' }
         )
         await deleteCatalogDialog.getByRole('button', { name: 'Delete' }).click()
         const deleteCatalogResult = await deleteCatalogResponse
@@ -378,8 +389,10 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         const enumerationDialog = await openEntityDialog(page, 'Create Enumeration')
         await fillNameAndCodename(enumerationDialog, { name: enumerationName, codename: enumerationCodename })
 
-        const createEnumerationResponse = page.waitForResponse(
-            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/enumerations`)
+        const createEnumerationResponse = waitForSettledMutationResponse(
+            page,
+            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/enumerations`),
+            { label: 'Creating enumeration' }
         )
         await enumerationDialog.getByTestId(entityDialogSelectors.submitButton).click()
 
@@ -423,10 +436,12 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         await expect(copyEnumerationDialog).toBeVisible()
         await fillNameAndCodename(copyEnumerationDialog, { codename: copiedEnumerationCodename })
 
-        const copyEnumerationResponse = page.waitForResponse(
+        const copyEnumerationResponse = waitForSettledMutationResponse(
+            page,
             (response) =>
                 response.request().method() === 'POST' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/enumeration/${createdEnumeration.id}/copy`)
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/enumeration/${createdEnumeration.id}/copy`),
+            { label: 'Copying enumeration' }
         )
         await copyEnumerationDialog.getByTestId(entityDialogSelectors.submitButton).click()
 
@@ -448,10 +463,12 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         const deleteEnumerationDialog = page.getByRole('dialog', { name: 'Delete Enumeration' })
         await expect(deleteEnumerationDialog).toBeVisible()
 
-        const deleteEnumerationResponse = page.waitForResponse(
+        const deleteEnumerationResponse = waitForSettledMutationResponse(
+            page,
             (response) =>
                 response.request().method() === 'DELETE' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/enumeration/${copiedEnumeration.id}`)
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/enumeration/${copiedEnumeration.id}`),
+            { label: 'Deleting enumeration' }
         )
         await deleteEnumerationDialog.getByRole('button', { name: 'Delete' }).click()
         const deleteEnumerationResult = await deleteEnumerationResponse
@@ -468,8 +485,10 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         const setDialog = await openEntityDialog(page, 'Create Set')
         await fillNameAndCodename(setDialog, { name: setName, codename: setCodename })
 
-        const createSetResponse = page.waitForResponse(
-            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/sets`)
+        const createSetResponse = waitForSettledMutationResponse(
+            page,
+            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/sets`),
+            { label: 'Creating set' }
         )
         await setDialog.getByTestId(entityDialogSelectors.submitButton).click()
 
@@ -509,9 +528,10 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         await expect(copySetDialog).toBeVisible()
         await fillNameAndCodename(copySetDialog, { codename: copiedSetCodename })
 
-        const copySetResponse = page.waitForResponse(
-            (response) =>
-                response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/set/${createdSet.id}/copy`)
+        const copySetResponse = waitForSettledMutationResponse(
+            page,
+            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/set/${createdSet.id}/copy`),
+            { label: 'Copying set' }
         )
         await copySetDialog.getByTestId(entityDialogSelectors.submitButton).click()
 
@@ -529,9 +549,10 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         const deleteSetDialog = page.getByRole('dialog', { name: 'Delete Set' })
         await expect(deleteSetDialog).toBeVisible()
 
-        const deleteSetResponse = page.waitForResponse(
-            (response) =>
-                response.request().method() === 'DELETE' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/set/${copiedSet.id}`)
+        const deleteSetResponse = waitForSettledMutationResponse(
+            page,
+            (response) => response.request().method() === 'DELETE' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/set/${copiedSet.id}`),
+            { label: 'Deleting set' }
         )
         await deleteSetDialog.getByRole('button', { name: 'Delete' }).click()
         const deleteSetResult = await deleteSetResponse
@@ -593,10 +614,12 @@ test('@flow @combined metahub leaf routes support browser attribute element enum
         const attributeDialog = await openEntityDialog(page, 'Add Attribute')
         await fillNameAndCodename(attributeDialog, { name: attributeName, codename: attributeCodename })
 
-        const createAttributeResponse = page.waitForResponse(
+        const createAttributeResponse = waitForSettledMutationResponse(
+            page,
             (response) =>
                 response.request().method() === 'POST' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/catalog/${catalogId}/attributes`)
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/catalog/${catalogId}/attributes`),
+            { label: 'Creating attribute' }
         )
         await attributeDialog.getByTestId(entityDialogSelectors.submitButton).click()
 
@@ -637,10 +660,12 @@ test('@flow @combined metahub leaf routes support browser attribute element enum
         await expect(elementDialog).toBeVisible()
         await elementDialog.getByLabel(attributeName).fill(elementValue)
 
-        const createElementResponse = page.waitForResponse(
+        const createElementResponse = waitForSettledMutationResponse(
+            page,
             (response) =>
                 response.request().method() === 'POST' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/catalog/${catalogId}/elements`)
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/catalog/${catalogId}/elements`),
+            { label: 'Creating element' }
         )
         await elementDialog.getByRole('button', { name: 'Create' }).click()
 
@@ -669,10 +694,12 @@ test('@flow @combined metahub leaf routes support browser attribute element enum
         const valueDialog = await openEntityDialog(page, 'Create value')
         await fillNameAndCodename(valueDialog, { name: enumerationValueName, codename: enumerationValueCodename })
 
-        const createValueResponse = page.waitForResponse(
+        const createValueResponse = waitForSettledMutationResponse(
+            page,
             (response) =>
                 response.request().method() === 'POST' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/enumeration/${enumerationId}/values`)
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/enumeration/${enumerationId}/values`),
+            { label: 'Creating enumeration value' }
         )
         await valueDialog.getByTestId(entityDialogSelectors.submitButton).click()
 
@@ -692,9 +719,10 @@ test('@flow @combined metahub leaf routes support browser attribute element enum
         const constantDialog = await openEntityDialog(page, 'Create Constant')
         await fillNameAndCodename(constantDialog, { name: constantName, codename: constantCodename })
 
-        const createConstantResponse = page.waitForResponse(
-            (response) =>
-                response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/set/${setId}/constants`)
+        const createConstantResponse = waitForSettledMutationResponse(
+            page,
+            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/set/${setId}/constants`),
+            { label: 'Creating constant' }
         )
         await constantDialog.getByTestId(entityDialogSelectors.submitButton).click()
 

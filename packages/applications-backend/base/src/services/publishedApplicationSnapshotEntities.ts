@@ -1,3 +1,4 @@
+import { createHash } from 'crypto'
 import type { EntityDefinition, FieldDefinition } from '@universo/schema-ddl'
 import { getCodenamePrimary } from '@universo/utils'
 import { AttributeDataType, type CatalogSystemFieldsSnapshot } from '@universo/types'
@@ -24,6 +25,14 @@ type SetConstantRefPayload = {
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
+
+const buildDeterministicScopedUuid = (seed: string): string => {
+    const hex = createHash('sha256').update(seed).digest('hex').slice(0, 32).split('')
+    hex[12] = '5'
+    hex[16] = ((parseInt(hex[16] ?? '0', 16) & 0x3) | 0x8).toString(16)
+
+    return `${hex.slice(0, 8).join('')}-${hex.slice(8, 12).join('')}-${hex.slice(12, 16).join('')}-${hex.slice(16, 20).join('')}-${hex.slice(20, 32).join('')}`
+}
 
 const resolveSnapshotCodenameText = (value: SnapshotCodenameValue | null | undefined): string | null => {
     const text = getCodenamePrimary(value).trim()
@@ -115,6 +124,85 @@ const normalizeSnapshotFieldDefinition = (field: SnapshotFieldDefinition): Field
     codename: resolveSnapshotCodenameText(field.codename) ?? '',
     childFields: field.childFields?.map((child) => normalizeSnapshotFieldDefinition(child))
 })
+
+const collectDuplicatedFieldIds = (snapshot: PublishedApplicationSnapshot): Set<string> => {
+    const ownersByFieldId = new Map<string, Set<string>>()
+
+    const visitFields = (entityId: string, fields: SnapshotFieldDefinition[]): void => {
+        for (const field of fields) {
+            const fieldId = typeof field.id === 'string' && field.id.length > 0 ? field.id : null
+            if (fieldId) {
+                const entityOwners = ownersByFieldId.get(fieldId) ?? new Set<string>()
+                entityOwners.add(entityId)
+                ownersByFieldId.set(fieldId, entityOwners)
+            }
+
+            if (Array.isArray(field.childFields) && field.childFields.length > 0) {
+                visitFields(entityId, field.childFields)
+            }
+        }
+    }
+
+    for (const entity of Object.values(snapshot.entities ?? {})) {
+        if (!isRecord(entity) || typeof entity.id !== 'string') {
+            continue
+        }
+
+        const fields = Array.isArray(entity.fields) ? (entity.fields as SnapshotFieldDefinition[]) : []
+        visitFields(entity.id, fields)
+    }
+
+    return new Set(
+        Array.from(ownersByFieldId.entries())
+            .filter(([, entityIds]) => entityIds.size > 1)
+            .map(([fieldId]) => fieldId)
+    )
+}
+
+const rewriteDuplicatedFieldIdsForEntity = (
+    entityId: string,
+    fields: SnapshotFieldDefinition[],
+    duplicatedFieldIds: Set<string>
+): SnapshotFieldDefinition[] => {
+    if (fields.length === 0 || duplicatedFieldIds.size === 0) {
+        return fields
+    }
+
+    const remappedIds = new Map<string, string>()
+
+    const registerIds = (fieldList: SnapshotFieldDefinition[]): void => {
+        for (const field of fieldList) {
+            if (duplicatedFieldIds.has(field.id) && !remappedIds.has(field.id)) {
+                remappedIds.set(field.id, buildDeterministicScopedUuid(`application-runtime-field:${entityId}:${field.id}`))
+            }
+
+            if (Array.isArray(field.childFields) && field.childFields.length > 0) {
+                registerIds(field.childFields)
+            }
+        }
+    }
+
+    registerIds(fields)
+
+    if (remappedIds.size === 0) {
+        return fields
+    }
+
+    const rewriteField = (field: SnapshotFieldDefinition): SnapshotFieldDefinition => ({
+        ...field,
+        id: remappedIds.get(field.id) ?? field.id,
+        ...(typeof field.parentAttributeId === 'string'
+            ? { parentAttributeId: remappedIds.get(field.parentAttributeId) ?? field.parentAttributeId }
+            : field.parentAttributeId === null
+              ? { parentAttributeId: null }
+              : {}),
+        ...(Array.isArray(field.childFields) && field.childFields.length > 0
+            ? { childFields: field.childFields.map((child) => rewriteField(child)) }
+            : {})
+    })
+
+    return fields.map((field) => rewriteField(field))
+}
 
 const enrichFieldWithSetConstantRef = (
     field: FieldDefinition,
@@ -233,10 +321,16 @@ const assertExecutableEntityContract = (entity: EntityDefinition): void => {
 export const resolveExecutablePayloadEntities = (snapshot: PublishedApplicationSnapshot): EntityDefinition[] => {
     const snapshotSystemFields = resolveSnapshotSystemFields(snapshot)
     const constantLookups = buildSetConstantLookups(snapshot)
+    const duplicatedFieldIds = collectDuplicatedFieldIds(snapshot)
 
     return Object.values(snapshot.entities ?? {})
         .map((entity) => {
             const entityConfig = isRecord(entity.config) ? entity.config : {}
+            const normalizedSnapshotFields = rewriteDuplicatedFieldIdsForEntity(
+                entity.id,
+                entity.fields ?? [],
+                duplicatedFieldIds
+            )
             const normalizedEntity: EntityDefinition = {
                 ...entity,
                 codename: resolveSnapshotCodenameText(entity.codename) ?? '',
@@ -244,7 +338,7 @@ export const resolveExecutablePayloadEntities = (snapshot: PublishedApplicationS
                     ...entityConfig,
                     ...(snapshotSystemFields?.[entity.id] ? { systemFields: snapshotSystemFields[entity.id] } : {})
                 },
-                fields: normalizeExecutableEntityFields(entity.fields ?? [], constantLookups)
+                fields: normalizeExecutableEntityFields(normalizedSnapshotFields, constantLookups)
             }
 
             assertExecutableEntityContract(normalizedEntity)

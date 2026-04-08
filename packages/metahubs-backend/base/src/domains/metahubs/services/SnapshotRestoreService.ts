@@ -1,18 +1,16 @@
 import type { Knex } from 'knex'
-import { getCodenamePrimary } from '@universo/utils'
-import type { CatalogSystemFieldsSnapshot, EnumerationValueDefinition } from '@universo/types'
-import type {
-    MetahubSnapshot,
-    MetaEntitySnapshot,
-    MetaFieldSnapshot,
-    MetaElementSnapshot,
-    MetaConstantSnapshot,
-    MetahubLayoutSnapshot,
-    MetahubCatalogLayoutSnapshot,
-    MetahubCatalogLayoutWidgetOverrideSnapshot
-} from '../../publications/services/SnapshotSerializer'
+import { createLocalizedContent, getCodenamePrimary } from '@universo/utils'
+import {
+    SHARED_ENTITY_KIND_TO_POOL_KIND,
+    SHARED_POOL_TO_ENTITY_KIND,
+    SHARED_POOL_TO_TARGET_KIND,
+    type SharedEntityKind,
+    type SharedObjectKind
+} from '@universo/types'
+import type { MetahubSnapshot, MetaEntitySnapshot, MetaFieldSnapshot } from '../../publications/services/SnapshotSerializer'
 import { ensureCodenameValue } from '../../shared/codename'
 import { toJsonbValue } from '../../shared/jsonb'
+import { SHARED_CONTAINER_DESCRIPTORS } from '../../shared/services/SharedContainerService'
 import { ensureCatalogSystemAttributesSeed, readPlatformSystemAttributesPolicyWithKnex } from '../../templates/services/systemAttributeSeed'
 import { resolveWidgetTableName } from '../../templates/services/widgetTableResolver'
 import { createLogger } from '../../../utils/logger'
@@ -22,6 +20,8 @@ const log = createLogger('SnapshotRestoreService')
 type SnapshotScript = NonNullable<MetahubSnapshot['scripts']>[number] & {
     sourceCode?: string
 }
+
+type SharedEntityIdMaps = Record<SharedEntityKind, Map<string, string>>
 
 const getScriptCodenameText = (codename: SnapshotScript['codename']): string => getCodenamePrimary(codename) ?? '[unknown]'
 
@@ -54,10 +54,229 @@ export class SnapshotRestoreService {
 
             const attributeIdMap = await this.restoreAttributes(trx, snapshot, entityIdMap, constantIdMap, userId)
             await this.restoreEnumerationValues(trx, snapshot, entityIdMap, userId)
+            const sharedEntityIdMaps = await this.restoreSharedEntities(trx, snapshot, entityIdMap, constantIdMap, userId)
+            await this.restoreSharedEntityOverrides(trx, snapshot, entityIdMap, sharedEntityIdMaps, userId)
             await this.restoreElements(trx, snapshot, entityIdMap, userId)
             await this.restoreScripts(trx, metahubId, snapshot, entityIdMap, attributeIdMap, userId)
             await this.restoreLayouts(trx, snapshot, entityIdMap, userId)
         })
+    }
+
+    private createSharedEntityIdMaps(): SharedEntityIdMaps {
+        return {
+            attribute: new Map<string, string>(),
+            constant: new Map<string, string>(),
+            value: new Map<string, string>()
+        }
+    }
+
+    private async createSharedContainer(qb: Knex.Transaction, sharedKind: SharedObjectKind, userId: string, now: Date): Promise<string> {
+        const descriptor = SHARED_CONTAINER_DESCRIPTORS[sharedKind]
+
+        const [inserted] = await qb
+            .withSchema(this.schemaName)
+            .into('_mhb_objects')
+            .insert({
+                kind: sharedKind,
+                codename: ensureCodenameValue(descriptor.codename),
+                table_name: null,
+                presentation: {
+                    name: createLocalizedContent('en', descriptor.title),
+                    description: createLocalizedContent('en', descriptor.description)
+                },
+                config: {
+                    isVirtualContainer: true,
+                    sortOrder: 0,
+                    sharedEntityKind: SHARED_POOL_TO_ENTITY_KIND[sharedKind],
+                    targetObjectKind: SHARED_POOL_TO_TARGET_KIND[sharedKind]
+                },
+                _upl_created_at: now,
+                _upl_created_by: userId,
+                _upl_updated_at: now,
+                _upl_updated_by: userId,
+                _upl_version: 1,
+                _upl_archived: false,
+                _upl_deleted: false,
+                _upl_locked: false,
+                _mhb_published: false,
+                _mhb_archived: false,
+                _mhb_deleted: false
+            })
+            .returning('id')
+
+        return inserted.id
+    }
+
+    private async restoreSharedEntities(
+        qb: Knex.Transaction,
+        snapshot: MetahubSnapshot,
+        entityIdMap: Map<string, string>,
+        constantIdMap: Map<string, string>,
+        userId: string
+    ): Promise<SharedEntityIdMaps> {
+        const sharedEntityIdMaps = this.createSharedEntityIdMaps()
+        const now = new Date()
+
+        const sharedAttributes = snapshot.sharedAttributes ?? []
+        const sharedConstants = snapshot.sharedConstants ?? []
+        const sharedEnumerationValues = snapshot.sharedEnumerationValues ?? []
+
+        const sharedContainerIds: Partial<Record<SharedEntityKind, string>> = {}
+
+        if (sharedAttributes.length > 0) {
+            sharedContainerIds.attribute = await this.createSharedContainer(qb, SHARED_ENTITY_KIND_TO_POOL_KIND.attribute, userId, now)
+        }
+
+        if (sharedConstants.length > 0) {
+            sharedContainerIds.constant = await this.createSharedContainer(qb, SHARED_ENTITY_KIND_TO_POOL_KIND.constant, userId, now)
+        }
+
+        if (sharedEnumerationValues.length > 0) {
+            sharedContainerIds.value = await this.createSharedContainer(qb, SHARED_ENTITY_KIND_TO_POOL_KIND.value, userId, now)
+        }
+
+        if (sharedContainerIds.attribute) {
+            for (const field of sharedAttributes) {
+                const parentId = await this.insertAttribute(
+                    qb,
+                    sharedContainerIds.attribute,
+                    null,
+                    field,
+                    entityIdMap,
+                    constantIdMap,
+                    sharedEntityIdMaps.attribute,
+                    userId,
+                    now
+                )
+
+                if (field.dataType === 'TABLE' && field.childFields?.length && parentId) {
+                    for (const child of field.childFields) {
+                        await this.insertAttribute(
+                            qb,
+                            sharedContainerIds.attribute,
+                            parentId,
+                            child as MetaFieldSnapshot,
+                            entityIdMap,
+                            constantIdMap,
+                            sharedEntityIdMaps.attribute,
+                            userId,
+                            now
+                        )
+                    }
+                }
+            }
+        }
+
+        if (sharedContainerIds.constant) {
+            for (const constant of sharedConstants) {
+                const [inserted] = await qb
+                    .withSchema(this.schemaName)
+                    .into('_mhb_constants')
+                    .insert({
+                        object_id: sharedContainerIds.constant,
+                        codename: ensureCodenameValue(constant.codename),
+                        data_type: constant.dataType,
+                        presentation: constant.presentation ?? { name: {} },
+                        validation_rules: constant.validationRules ?? {},
+                        ui_config: constant.uiConfig ?? {},
+                        value_json: toJsonbValue(constant.value),
+                        sort_order: constant.sortOrder ?? 0,
+                        _upl_created_at: now,
+                        _upl_created_by: userId,
+                        _upl_updated_at: now,
+                        _upl_updated_by: userId,
+                        _upl_version: 1,
+                        _upl_archived: false,
+                        _upl_deleted: false,
+                        _upl_locked: false,
+                        _mhb_published: false,
+                        _mhb_archived: false,
+                        _mhb_deleted: false
+                    })
+                    .returning('id')
+
+                sharedEntityIdMaps.constant.set(constant.id, inserted.id)
+            }
+        }
+
+        if (sharedContainerIds.value) {
+            for (const value of sharedEnumerationValues) {
+                const [inserted] = await qb
+                    .withSchema(this.schemaName)
+                    .into('_mhb_values')
+                    .insert({
+                        object_id: sharedContainerIds.value,
+                        codename: ensureCodenameValue(value.codename),
+                        presentation: value.presentation ?? { name: {}, description: {} },
+                        sort_order: value.sortOrder ?? 0,
+                        is_default: value.isDefault ?? false,
+                        _upl_created_at: now,
+                        _upl_created_by: userId,
+                        _upl_updated_at: now,
+                        _upl_updated_by: userId,
+                        _upl_version: 1,
+                        _upl_archived: false,
+                        _upl_deleted: false,
+                        _upl_locked: false,
+                        _mhb_published: false,
+                        _mhb_archived: false,
+                        _mhb_deleted: false
+                    })
+                    .returning('id')
+
+                sharedEntityIdMaps.value.set(value.id, inserted.id)
+            }
+        }
+
+        return sharedEntityIdMaps
+    }
+
+    private async restoreSharedEntityOverrides(
+        qb: Knex.Transaction,
+        snapshot: MetahubSnapshot,
+        entityIdMap: Map<string, string>,
+        sharedEntityIdMaps: SharedEntityIdMaps,
+        userId: string
+    ): Promise<void> {
+        const overrides = snapshot.sharedEntityOverrides ?? []
+        if (!overrides.length) {
+            return
+        }
+
+        const now = new Date()
+
+        for (const override of overrides) {
+            const newTargetObjectId = entityIdMap.get(override.targetObjectId) ?? null
+            const newSharedEntityId = sharedEntityIdMaps[override.entityKind].get(override.sharedEntityId) ?? null
+
+            if (!newTargetObjectId || !newSharedEntityId) {
+                log.warn(`Shared override ${override.id} has unresolved references, skipping restore (entityKind=${override.entityKind})`)
+                continue
+            }
+
+            await qb
+                .withSchema(this.schemaName)
+                .into('_mhb_shared_entity_overrides')
+                .insert({
+                    entity_kind: override.entityKind,
+                    shared_entity_id: newSharedEntityId,
+                    target_object_id: newTargetObjectId,
+                    is_excluded: override.isExcluded === true,
+                    is_active: typeof override.isActive === 'boolean' ? override.isActive : null,
+                    sort_order: typeof override.sortOrder === 'number' ? override.sortOrder : null,
+                    _upl_created_at: now,
+                    _upl_created_by: userId,
+                    _upl_updated_at: now,
+                    _upl_updated_by: userId,
+                    _upl_version: 1,
+                    _upl_archived: false,
+                    _upl_deleted: false,
+                    _upl_locked: false,
+                    _mhb_published: false,
+                    _mhb_archived: false,
+                    _mhb_deleted: false
+                })
+        }
     }
 
     // ── Pass 1: Entities + system attributes ──────────────────────────────
@@ -425,7 +644,9 @@ export class SnapshotRestoreService {
 
             if (script.attachedToKind !== 'metahub' && !attachedToId) {
                 log.warn(
-                    `Script attachment ${script.attachedToKind}:${script.attachedToId ?? '[null]'} not found during snapshot restore, skipping script ${scriptCodenameText}`
+                    `Script attachment ${script.attachedToKind}:${
+                        script.attachedToId ?? '[null]'
+                    } not found during snapshot restore, skipping script ${scriptCodenameText}`
                 )
                 continue
             }

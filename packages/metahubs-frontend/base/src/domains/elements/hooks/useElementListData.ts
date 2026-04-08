@@ -47,15 +47,31 @@ export function useElementListData() {
         queryKey:
             metahubId && catalogId
                 ? effectiveHubId
-                    ? metahubsQueryKeys.attributesList(metahubId, effectiveHubId, catalogId, { limit: 100, locale: i18n.language })
-                    : metahubsQueryKeys.attributesListDirect(metahubId, catalogId, { limit: 100, locale: i18n.language })
+                    ? metahubsQueryKeys.attributesList(metahubId, effectiveHubId, catalogId, {
+                          limit: 100,
+                          locale: i18n.language,
+                          includeShared: true
+                      })
+                    : metahubsQueryKeys.attributesListDirect(metahubId, catalogId, {
+                          limit: 100,
+                          locale: i18n.language,
+                          includeShared: true
+                      })
                 : ['empty'],
         queryFn:
             metahubId && catalogId
                 ? () =>
                       effectiveHubId
-                          ? attributesApi.listAttributes(metahubId, effectiveHubId, catalogId, { limit: 100, locale: i18n.language })
-                          : attributesApi.listAttributesDirect(metahubId, catalogId, { limit: 100, locale: i18n.language })
+                          ? attributesApi.listAttributes(metahubId, effectiveHubId, catalogId, {
+                                limit: 100,
+                                locale: i18n.language,
+                                includeShared: true
+                            })
+                          : attributesApi.listAttributesDirect(metahubId, catalogId, {
+                                limit: 100,
+                                locale: i18n.language,
+                                includeShared: true
+                            })
                 : async () => ({ items: [], pagination: { limit: 100, offset: 0, count: 0, total: 0, hasMore: false } }),
         enabled: canLoadData
     })
@@ -106,7 +122,7 @@ export function useElementListData() {
             await Promise.all(
                 childEnumTargetIds.map(async (enumId) => {
                     try {
-                        const resp = await listEnumerationValues(metahubId, enumId)
+                        const resp = await listEnumerationValues(metahubId, enumId, { includeShared: true })
                         result[enumId] = (resp.items ?? [])
                             .slice()
                             .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
@@ -372,7 +388,8 @@ export function useElementListData() {
                 if (targetKind === 'catalog') {
                     const attributesResponse = await attributesApi.listAttributesDirect(metahubId, targetId, {
                         limit: 100,
-                        locale: i18n.language
+                        locale: i18n.language,
+                        includeShared: true
                     })
                     const targetAttrs = attributesResponse?.items ?? []
 
@@ -396,7 +413,7 @@ export function useElementListData() {
                     continue
                 }
 
-                const valuesResponse = await listEnumerationValues(metahubId, targetId)
+                const valuesResponse = await listEnumerationValues(metahubId, targetId, { includeShared: true })
                 const valuesDisplayMap: Record<string, string> = {}
                 valuesResponse.items.forEach((item) => {
                     valuesDisplayMap[item.id] = getVLCString(item.name, i18n.language) || getVLCString(item.name, 'en') || item.codename

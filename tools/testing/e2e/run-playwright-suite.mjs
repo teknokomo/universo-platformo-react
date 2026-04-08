@@ -282,11 +282,15 @@ async function runPlaywrightTests(args) {
 
 async function finalizeAndExit(code) {
     let cleanupFailed = false
+    let manifestCleanupError = null
+    let fullResetError = null
 
-    try {
-        await cleanupE2eRun({ quiet: false })
-    } catch (error) {
-        console.warn(`[e2e-runner] Manifest cleanup warning: ${toErrorMessage(error)}`)
+    if (!fullResetEnabled) {
+        try {
+            await cleanupE2eRun({ quiet: false })
+        } catch (error) {
+            manifestCleanupError = error
+        }
     }
 
     try {
@@ -300,7 +304,12 @@ async function finalizeAndExit(code) {
         await runFullReset('runner-finalize')
     } catch (error) {
         cleanupFailed = true
+        fullResetError = error
         console.error(`[e2e-runner] Full reset failed: ${toErrorMessage(error)}`)
+    }
+
+    if (manifestCleanupError && (!fullResetEnabled || fullResetError)) {
+        console.warn(`[e2e-runner] Manifest cleanup warning: ${toErrorMessage(manifestCleanupError)}`)
     }
 
     try {

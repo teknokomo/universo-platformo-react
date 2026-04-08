@@ -60,7 +60,8 @@ interface AttributeDndProviderProps {
         attributeId: string,
         newSortOrder: number,
         newParentAttributeId?: string | null,
-        currentParentAttributeId?: string | null
+        currentParentAttributeId?: string | null,
+        mergedOrderIds?: string[]
     ) => Promise<void>
     onValidateTransfer?: (attribute: Attribute, targetParentId: string | null, targetContainerItemCount: number) => Promise<boolean>
     uiLocale: string

@@ -5,13 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { extractCatalogLayoutBehaviorConfig } from '@universo/utils'
 
-const {
-    getLayout,
-    listLayoutZoneWidgets,
-    getLayoutZoneWidgetsCatalog,
-    updateLayout,
-    toggleLayoutZoneWidgetActive
-} = vi.hoisted(() => ({
+const { getLayout, listLayoutZoneWidgets, getLayoutZoneWidgetsCatalog, updateLayout, toggleLayoutZoneWidgetActive } = vi.hoisted(() => ({
     getLayout: vi.fn(),
     listLayoutZoneWidgets: vi.fn(),
     getLayoutZoneWidgetsCatalog: vi.fn(),
@@ -63,6 +57,7 @@ vi.mock('../../../metahubs/hooks', () => ({
 vi.mock('../MenuWidgetEditorDialog', () => ({ default: () => null }))
 vi.mock('../ColumnsContainerEditorDialog', () => ({ default: () => null }))
 vi.mock('../QuizWidgetEditorDialog', () => ({ default: () => null }))
+vi.mock('../WidgetBehaviorEditorDialog', () => ({ default: () => null }))
 
 import { metahubsQueryKeys } from '../../../shared'
 import LayoutDetails from '../LayoutDetails'

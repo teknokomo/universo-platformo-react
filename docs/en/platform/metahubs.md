@@ -11,17 +11,17 @@ They are not just folders: each metahub owns the authoring model that later beco
 
 - branches for design-time evolution;
 - catalogs, hubs, sets, enumerations, attributes, and other authoring entities;
-- the Common section, including global layouts and catalog-specific layout overlays;
-- scripts attached at metahub or entity scope;
+- the Common section, including global layouts, shared attributes/constants/values, and catalog-specific layout overlays;
+- scripts attached at Common/general, metahub, or entity scope;
 - publications that package the current approved state.
 
 ## Main Authoring Surfaces
 
 | Surface | Purpose |
 | --- | --- |
-| Common | Author global layouts, catalog-specific layout variants, and shared view behavior from one tabbed surface. |
+| Common | Author global layouts, shared entities, catalog-specific layout variants, and shared view behavior from one tabbed surface. |
 | Branches | Separate design-time timelines and controlled activation. |
-| Scripts | Author embedded runtime modules, lifecycle handlers, and widget code. |
+| Scripts | Author embedded runtime modules, `general/library` helpers, lifecycle handlers, and widget code. |
 | Publications | Freeze a version that can be delivered to applications. |
 | Members | Control who can author and manage the metahub. |
 
@@ -38,13 +38,13 @@ Metahub behavior is controlled by more than one settings layer, and the layers a
 
 ## Common Section Scope
 
-The real layouts authoring entrypoint now lives under the tabbed Common page, and legacy `/layouts` links redirect there.
-Catalog layouts stay sparse: they inherit from a selected global base layout, store only overrides, and can still own catalog-only widgets where needed.
+The real cross-cutting authoring entrypoint now lives under the tabbed Common page, and legacy `/layouts` links redirect there.
+Catalog layouts stay sparse, shared entities stay centralized, and Common/library scripts stay reusable through `@shared/<codename>` imports.
 This keeps metahub authoring separate from admin dialogs and from application-control-panel dialogs.
 
 ## How Metahubs Feed Runtime
 
-1. Author the structure, Common layouts, and scripts in the metahub.
+1. Author the structure, Common layouts, shared entities, and scripts in the metahub.
 2. Publish a version when the design-time state is ready.
 3. Link or update an application from that publication.
 4. Let application sync materialize the flattened runtime layouts, widgets, and scripts into application tables.
@@ -53,7 +53,7 @@ This keeps metahub authoring separate from admin dialogs and from application-co
 ## Scripts And Layouts Together
 
 The quiz flow is a good example of why metahubs stay the source of truth.
-The widget script is authored in the metahub, the widget placement is configured in the Common-section layout model, and the resulting publication carries both pieces into the linked application.
+The shared library helper is authored in Common, the widget consumer script is authored at metahub scope, the widget placement is configured in the Common-section layout model, and the resulting publication carries all three pieces into the linked application.
 Until a catalog gets its first custom layout, runtime behavior comes from the selected global layout; after that, the selected catalog layout owns the runtime create/edit/copy surface behavior.
 
 ## Practical Reading Order

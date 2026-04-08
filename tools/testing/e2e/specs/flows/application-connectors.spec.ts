@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises'
 import type { Locator, Page, Response } from '@playwright/test'
 import { createLocalizedContent } from '@universo/utils'
 import { expect, test } from '../../fixtures/test'
+import { waitForSettledMutationResponse } from '../../support/browser/network'
 import {
     createApplication,
     createLoggedInApiContext,
@@ -244,9 +245,10 @@ test('@flow @combined application connector can be created through the browser a
         await expect(createDialog.getByText(metahubName)).toBeVisible()
         await expect(submitButton).toBeEnabled()
 
-        const createRequest = page.waitForResponse(
-            (response) =>
-                response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${application.id}/connectors`)
+        const createRequest = waitForSettledMutationResponse(
+            page,
+            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${application.id}/connectors`),
+            { label: 'Creating connector' }
         )
 
         await submitButton.click()
@@ -282,10 +284,12 @@ test('@flow @combined application connector can be created through the browser a
         await editDialog.getByRole('tab', { name: 'Metahubs' }).click()
         await expect(editDialog.getByText(metahubName)).toBeVisible()
 
-        const updateRequest = page.waitForResponse(
+        const updateRequest = waitForSettledMutationResponse(
+            page,
             (response) =>
                 response.request().method() === 'PATCH' &&
-                response.url().endsWith(`/api/v1/applications/${application.id}/connectors/${createdConnector.id}`)
+                response.url().endsWith(`/api/v1/applications/${application.id}/connectors/${createdConnector.id}`),
+            { label: 'Updating connector' }
         )
 
         await editDialog.getByRole('tab', { name: 'General' }).click()
@@ -402,9 +406,10 @@ test('@flow imported snapshot publication creates schema on first connector atte
         await expect(pickerDialog).toHaveCount(0)
         await expect(createDialog.getByText(importedMetahubName)).toBeVisible()
 
-        const createRequest = page.waitForResponse(
-            (response) =>
-                response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${application.id}/connectors`)
+        const createRequest = waitForSettledMutationResponse(
+            page,
+            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${application.id}/connectors`),
+            { label: 'Creating imported connector' }
         )
         await createDialog.getByTestId(entityDialogSelectors.submitButton).click()
 
@@ -429,8 +434,10 @@ test('@flow imported snapshot publication creates schema on first connector atte
         await expect(diffDialog).toBeVisible()
         await expect(diffDialog.getByRole('heading', { name: /The following schema will be created/i })).toBeVisible()
 
-        const syncResponsePromise = page.waitForResponse(
-            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/application/${application.id}/sync`)
+        const syncResponsePromise = waitForSettledMutationResponse(
+            page,
+            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/application/${application.id}/sync`),
+            { label: 'Syncing application schema' }
         )
         await diffDialog.getByRole('button', { name: 'Create Schema' }).click()
 

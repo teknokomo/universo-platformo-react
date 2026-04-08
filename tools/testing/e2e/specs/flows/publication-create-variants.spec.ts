@@ -1,6 +1,7 @@
 import type { APIRequestContext, Locator, TestInfo } from '@playwright/test'
 import { createLocalizedContent } from '@universo/utils'
 import { expect, test } from '../../fixtures/test'
+import { waitForSettledMutationResponse } from '../../support/browser/network'
 import {
     createLoggedInApiContext,
     createMetahub,
@@ -90,11 +91,13 @@ async function createPublicationThroughBrowser(
     await page.goto(`/metahub/${metahubId}/publications`)
     await expect(page.getByRole('heading', { name: 'Publications' })).toBeVisible()
 
-    const createPublicationResponse = page.waitForResponse(
-        (response) => {
-            return response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahubId}/publications`)
-        },
-        { timeout: options.createApplicationSchema ? 90_000 : 30_000 }
+    const createPublicationResponse = waitForSettledMutationResponse(
+        page,
+        (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahubId}/publications`),
+        {
+            timeout: options.createApplicationSchema ? 90_000 : 30_000,
+            label: 'Creating publication'
+        }
     )
 
     const dialog = await openCreateDialog(page)

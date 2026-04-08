@@ -17,6 +17,10 @@ export interface CrudDialogsProps {
     catalogId?: string
     /** Surface used for create/edit/copy forms. */
     surface?: 'dialog' | 'page'
+    /** Render create/edit/copy form surface. */
+    renderForm?: boolean
+    /** Render delete confirmation surface. */
+    renderDelete?: boolean
 }
 
 export interface CrudDialogsLabels {
@@ -43,42 +47,58 @@ export interface CrudDialogsLabels {
  * Extracts the duplicated dialog JSX from both `DashboardApp` and
  * `ApplicationRuntime`. Connect it to the `CrudDashboardState`.
  */
-export function CrudDialogs({ state, locale, labels, apiBaseUrl, applicationId, catalogId, surface = 'dialog' }: CrudDialogsProps) {
+export function CrudDialogs({
+    state,
+    locale,
+    labels,
+    apiBaseUrl,
+    applicationId,
+    catalogId,
+    surface = 'dialog',
+    renderForm = true,
+    renderDelete = true
+}: CrudDialogsProps) {
+    const keepPageSurfaceMounted = surface === 'page' && state.isSubmitting
+
     return (
         <>
-            <FormDialog
-                open={state.formOpen && state.isFormReady}
-                title={state.copyRowId ? labels.copyTitle : state.editRowId ? labels.editTitle : labels.createTitle}
-                surface={surface}
-                fields={state.fieldConfigs}
-                locale={locale}
-                initialData={state.formInitialData}
-                isSubmitting={state.isSubmitting}
-                error={state.formError || state.copyError}
-                saveButtonText={state.copyRowId ? labels.copyText : state.editRowId ? labels.saveText : labels.createText}
-                savingButtonText={state.copyRowId ? labels.copyingText : state.editRowId ? labels.savingText : labels.creatingText}
-                cancelButtonText={labels.cancelText}
-                emptyStateText={labels.noFieldsText}
-                onClose={state.handleCloseForm}
-                onSubmit={state.handleFormSubmit}
-                apiBaseUrl={apiBaseUrl}
-                applicationId={applicationId}
-                catalogId={catalogId}
-                editRowId={state.editRowId}
-            />
+            {renderForm ? (
+                <FormDialog
+                    open={(state.formOpen || keepPageSurfaceMounted) && state.isFormReady}
+                    title={state.copyRowId ? labels.copyTitle : state.editRowId ? labels.editTitle : labels.createTitle}
+                    surface={surface}
+                    fields={state.fieldConfigs}
+                    locale={locale}
+                    initialData={state.formInitialData}
+                    isSubmitting={state.isSubmitting}
+                    error={state.formError || state.copyError}
+                    saveButtonText={state.copyRowId ? labels.copyText : state.editRowId ? labels.saveText : labels.createText}
+                    savingButtonText={state.copyRowId ? labels.copyingText : state.editRowId ? labels.savingText : labels.creatingText}
+                    cancelButtonText={labels.cancelText}
+                    emptyStateText={labels.noFieldsText}
+                    onClose={state.handleCloseForm}
+                    onSubmit={state.handleFormSubmit}
+                    apiBaseUrl={apiBaseUrl}
+                    applicationId={applicationId}
+                    catalogId={catalogId}
+                    editRowId={state.editRowId}
+                />
+            ) : null}
 
-            <ConfirmDeleteDialog
-                open={Boolean(state.deleteRowId)}
-                title={labels.deleteTitle}
-                description={labels.deleteDescription}
-                confirmButtonText={labels.deleteText}
-                deletingButtonText={labels.deletingText}
-                cancelButtonText={labels.cancelText}
-                loading={state.isDeleting}
-                error={state.deleteError ?? undefined}
-                onCancel={state.handleCloseDelete}
-                onConfirm={state.handleConfirmDelete}
-            />
+            {renderDelete ? (
+                <ConfirmDeleteDialog
+                    open={Boolean(state.deleteRowId)}
+                    title={labels.deleteTitle}
+                    description={labels.deleteDescription}
+                    confirmButtonText={labels.deleteText}
+                    deletingButtonText={labels.deletingText}
+                    cancelButtonText={labels.cancelText}
+                    loading={state.isDeleting}
+                    error={state.deleteError ?? undefined}
+                    onCancel={state.handleCloseDelete}
+                    onConfirm={state.handleConfirmDelete}
+                />
+            ) : null}
         </>
     )
 }

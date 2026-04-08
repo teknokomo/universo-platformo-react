@@ -1,4 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
+import type { SharedEntityKind } from '@universo/types'
 import { PaginationParams } from '../../types'
 
 type AttributeListScope = 'business' | 'system' | 'all'
@@ -109,10 +110,19 @@ export const metahubsQueryKeys = {
     // Layouts scoped to a specific metahub
     layoutsRoot: (metahubId: string) => [...metahubsQueryKeys.detail(metahubId), 'layouts'] as const,
 
+    sharedContainers: (metahubId: string) => [...metahubsQueryKeys.detail(metahubId), 'sharedContainers'] as const,
+
+    sharedEntityOverrides: (metahubId: string) => [...metahubsQueryKeys.detail(metahubId), 'sharedEntityOverrides'] as const,
+    sharedEntityOverridesByEntity: (metahubId: string, entityKind: SharedEntityKind, sharedEntityId: string) =>
+        [...metahubsQueryKeys.sharedEntityOverrides(metahubId), entityKind, 'entity', sharedEntityId] as const,
+    sharedEntityTargets: (metahubId: string, entityKind: SharedEntityKind, locale?: string) =>
+        [...metahubsQueryKeys.detail(metahubId), 'sharedEntityTargets', entityKind, locale ?? 'default'] as const,
+
     layouts: (metahubId: string, catalogId?: string | null) =>
         [...metahubsQueryKeys.layoutsRoot(metahubId), normalizeLayoutScope(catalogId)] as const,
 
-    layoutsListBase: (metahubId: string, catalogId?: string | null) => [...metahubsQueryKeys.layouts(metahubId, catalogId), 'list'] as const,
+    layoutsListBase: (metahubId: string, catalogId?: string | null) =>
+        [...metahubsQueryKeys.layouts(metahubId, catalogId), 'list'] as const,
 
     layoutsList: (metahubId: string, params?: PaginationParams & { catalogId?: string | null }) => {
         const normalized = {
@@ -235,14 +245,20 @@ export const metahubsQueryKeys = {
     constants: (metahubId: string, hubId: string, setId: string) =>
         [...metahubsQueryKeys.setDetailInHub(metahubId, hubId, setId), 'constants'] as const,
 
-    constantsList: (metahubId: string, hubId: string, setId: string, params?: PaginationParams & { locale?: string }) => {
+    constantsList: (
+        metahubId: string,
+        hubId: string,
+        setId: string,
+        params?: PaginationParams & { locale?: string; includeShared?: boolean }
+    ) => {
         const normalized = {
             limit: params?.limit ?? 100,
             offset: params?.offset ?? 0,
             sortBy: params?.sortBy ?? 'updated',
             sortOrder: params?.sortOrder ?? 'desc',
             search: params?.search?.trim() || undefined,
-            locale: params?.locale
+            locale: params?.locale,
+            includeShared: params?.includeShared ?? false
         }
         return [...metahubsQueryKeys.constants(metahubId, hubId, setId), 'list', normalized] as const
     },
@@ -250,14 +266,15 @@ export const metahubsQueryKeys = {
     // Constants scoped directly to set (without hub context)
     constantsDirect: (metahubId: string, setId: string) => [...metahubsQueryKeys.setDetail(metahubId, setId), 'constants'] as const,
 
-    constantsListDirect: (metahubId: string, setId: string, params?: PaginationParams & { locale?: string }) => {
+    constantsListDirect: (metahubId: string, setId: string, params?: PaginationParams & { locale?: string; includeShared?: boolean }) => {
         const normalized = {
             limit: params?.limit ?? 100,
             offset: params?.offset ?? 0,
             sortBy: params?.sortBy ?? 'updated',
             sortOrder: params?.sortOrder ?? 'desc',
             search: params?.search?.trim() || undefined,
-            locale: params?.locale
+            locale: params?.locale,
+            includeShared: params?.includeShared ?? false
         }
         return [...metahubsQueryKeys.constantsDirect(metahubId, setId), 'list', normalized] as const
     },
@@ -310,8 +327,12 @@ export const metahubsQueryKeys = {
     enumerationValues: (metahubId: string, enumerationId: string) =>
         [...metahubsQueryKeys.enumerationDetail(metahubId, enumerationId), 'values'] as const,
 
-    enumerationValuesList: (metahubId: string, enumerationId: string) =>
-        [...metahubsQueryKeys.enumerationValues(metahubId, enumerationId), 'list'] as const,
+    enumerationValuesList: (metahubId: string, enumerationId: string, params?: { includeShared?: boolean }) =>
+        [
+            ...metahubsQueryKeys.enumerationValues(metahubId, enumerationId),
+            'list',
+            { includeShared: params?.includeShared ?? false }
+        ] as const,
 
     // Attributes scoped to a specific catalog
     attributes: (metahubId: string, hubId: string, catalogId: string) =>
@@ -321,7 +342,7 @@ export const metahubsQueryKeys = {
         metahubId: string,
         hubId: string,
         catalogId: string,
-        params?: PaginationParams & { locale?: string; scope?: AttributeListScope }
+        params?: PaginationParams & { locale?: string; scope?: AttributeListScope; includeShared?: boolean }
     ) => {
         const normalized = {
             limit: params?.limit ?? 100,
@@ -330,7 +351,8 @@ export const metahubsQueryKeys = {
             sortOrder: params?.sortOrder ?? 'desc',
             search: params?.search?.trim() || undefined,
             locale: params?.locale,
-            scope: params?.scope
+            scope: params?.scope,
+            includeShared: params?.includeShared ?? false
         }
         return [...metahubsQueryKeys.attributes(metahubId, hubId, catalogId), 'list', normalized] as const
     },
@@ -342,7 +364,7 @@ export const metahubsQueryKeys = {
     attributesListDirect: (
         metahubId: string,
         catalogId: string,
-        params?: PaginationParams & { locale?: string; scope?: AttributeListScope }
+        params?: PaginationParams & { locale?: string; scope?: AttributeListScope; includeShared?: boolean }
     ) => {
         const normalized = {
             limit: params?.limit ?? 100,
@@ -351,7 +373,8 @@ export const metahubsQueryKeys = {
             sortOrder: params?.sortOrder ?? 'desc',
             search: params?.search?.trim() || undefined,
             locale: params?.locale,
-            scope: params?.scope
+            scope: params?.scope,
+            includeShared: params?.includeShared ?? false
         }
         return [...metahubsQueryKeys.attributesDirect(metahubId, catalogId), 'list', normalized] as const
     },
@@ -448,7 +471,8 @@ export const invalidateHubsQueries = {
 }
 
 export const invalidateLayoutsQueries = {
-    all: (queryClient: QueryClient, metahubId: string) => queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.layoutsRoot(metahubId) }),
+    all: (queryClient: QueryClient, metahubId: string) =>
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.layoutsRoot(metahubId) }),
 
     lists: (queryClient: QueryClient, metahubId: string, catalogId?: string | null) =>
         queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.layoutsListBase(metahubId, catalogId) }),
