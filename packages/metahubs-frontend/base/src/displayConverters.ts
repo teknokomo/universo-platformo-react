@@ -60,7 +60,16 @@ export function toBranchDisplay(branch: MetahubBranch, locale = 'en'): MetahubBr
 
 /** Convert EnumerationValue to EnumerationValueDisplay for table rendering */
 export function toEnumerationValueDisplay(value: EnumerationValue, locale = 'en'): EnumerationValueDisplay {
-    return mapBaseVlcFields(value, locale)
+    const base = mapBaseVlcFields(value, locale)
+    return {
+        ...base,
+        sortOrder: value.effectiveSortOrder ?? value.sortOrder,
+        effectiveSortOrder: value.effectiveSortOrder,
+        isShared: value.isShared,
+        isActive: value.isActive,
+        isExcluded: value.isExcluded,
+        sharedBehavior: value.sharedBehavior
+    }
 }
 
 // ============ NAME-FALLBACK CONVERTERS ============
@@ -103,8 +112,14 @@ export function toEnumerationDisplay(enumeration: Enumeration, locale = 'en'): E
 export function toAttributeDisplay(attr: Attribute, locale = 'en'): AttributeDisplay {
     return {
         ...attr,
+        sortOrder: attr.effectiveSortOrder ?? attr.sortOrder,
+        effectiveSortOrder: attr.effectiveSortOrder,
         codename: getLocalizedContentText(ensureEntityCodenameContent(attr, locale, attr.codename), locale, attr.codename),
-        name: getVLCString(attr.name, locale)
+        name: getVLCString(attr.name, locale),
+        isShared: attr.isShared,
+        isActive: attr.isActive,
+        isExcluded: attr.isExcluded,
+        sharedBehavior: attr.sharedBehavior
     }
 }
 
@@ -112,8 +127,14 @@ export function toAttributeDisplay(attr: Attribute, locale = 'en'): AttributeDis
 export function toConstantDisplay(constant: Constant, locale = 'en'): ConstantDisplay {
     return {
         ...constant,
+        sortOrder: constant.effectiveSortOrder ?? constant.sortOrder,
+        effectiveSortOrder: constant.effectiveSortOrder,
         codename: getLocalizedContentText(ensureEntityCodenameContent(constant, locale, constant.codename), locale, constant.codename),
-        name: getVLCString(constant.name, locale)
+        name: getVLCString(constant.name, locale),
+        isShared: constant.isShared,
+        isActive: constant.isActive,
+        isExcluded: constant.isExcluded,
+        sharedBehavior: constant.sharedBehavior
     }
 }
 

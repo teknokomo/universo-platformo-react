@@ -4,17 +4,34 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useDebouncedSearch, usePaginated } from '@universo/template-mui'
 import { useSettingValue } from '../../settings/hooks/useSettings'
-import { metahubsQueryKeys } from '../../shared'
+import { metahubsQueryKeys, sortSharedEntityList } from '../../shared'
 import { getSetById } from '../../sets'
 import * as constantsApi from '../api'
 import { useMetahubHubs } from '../../hubs/hooks'
 import { toConstantDisplay } from '../../../types'
 import type { Constant } from '../../../types'
 
-export function useConstantListData() {
-    const { metahubId, hubId: hubIdParam, setId } = useParams<{ metahubId: string; hubId?: string; setId: string }>()
+type UseConstantListDataOptions = {
+    metahubId?: string
+    hubId?: string | null
+    setId?: string
+    resolveSetDetails?: boolean
+    includeSharedEntities?: boolean
+}
+
+export function useConstantListData(options: UseConstantListDataOptions = {}) {
+    const {
+        metahubId: routeMetahubId,
+        hubId: routeHubIdParam,
+        setId: routeSetId
+    } = useParams<{ metahubId: string; hubId?: string; setId: string }>()
     const { i18n } = useTranslation()
     const constantCodenameScope = useSettingValue<string>('sets.constantCodenameScope') ?? 'per-level'
+    const metahubId = options.metahubId ?? routeMetahubId
+    const hubIdParam = options.hubId ?? routeHubIdParam
+    const setId = options.setId ?? routeSetId
+    const resolveSetDetails = options.resolveSetDetails ?? true
+    const includeSharedEntities = options.includeSharedEntities ?? true
 
     const {
         data: setForHubResolution,
@@ -26,7 +43,7 @@ export function useConstantListData() {
             if (!metahubId || !setId) throw new Error('metahubId and setId are required')
             return getSetById(metahubId, setId)
         },
-        enabled: !!metahubId && !!setId && !hubIdParam
+        enabled: resolveSetDetails && !!metahubId && !!setId && !hubIdParam
     })
 
     const effectiveHubId = hubIdParam || setForHubResolution?.hubs?.[0]?.id
@@ -41,15 +58,31 @@ export function useConstantListData() {
             metahubId && setId
                 ? (params) =>
                       effectiveHubId
-                          ? metahubsQueryKeys.constantsList(metahubId, effectiveHubId, setId, { ...params, locale: i18n.language })
-                          : metahubsQueryKeys.constantsListDirect(metahubId, setId, { ...params, locale: i18n.language })
+                          ? metahubsQueryKeys.constantsList(metahubId, effectiveHubId, setId, {
+                                ...params,
+                                locale: i18n.language,
+                                includeShared: includeSharedEntities
+                            })
+                          : metahubsQueryKeys.constantsListDirect(metahubId, setId, {
+                                ...params,
+                                locale: i18n.language,
+                                includeShared: includeSharedEntities
+                            })
                 : () => ['empty'],
         queryFn:
             metahubId && setId
                 ? (params) =>
                       effectiveHubId
-                          ? constantsApi.listConstants(metahubId, effectiveHubId, setId, { ...params, locale: i18n.language })
-                          : constantsApi.listConstantsDirect(metahubId, setId, { ...params, locale: i18n.language })
+                          ? constantsApi.listConstants(metahubId, effectiveHubId, setId, {
+                                ...params,
+                                locale: i18n.language,
+                                includeShared: includeSharedEntities
+                            })
+                          : constantsApi.listConstantsDirect(metahubId, setId, {
+                                ...params,
+                                locale: i18n.language,
+                                includeShared: includeSharedEntities
+                            })
                 : async () => ({ items: [], pagination: { limit: 20, offset: 0, count: 0, total: 0, hasMore: false } }),
         initialLimit: 20,
         sortBy: 'sortOrder',
@@ -77,10 +110,7 @@ export function useConstantListData() {
 
     const constantsMap = useMemo(() => new Map((constants ?? []).map((constant) => [constant.id, constant])), [constants])
 
-    const sortedConstants = useMemo(
-        () => [...(constants ?? [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.id.localeCompare(b.id)),
-        [constants]
-    )
+    const sortedConstants = useMemo(() => sortSharedEntityList(constants ?? []), [constants])
     const orderMap = useMemo(() => new Map(sortedConstants.map((constant, index) => [constant.id, index])), [sortedConstants])
     const tableData = useMemo(
         () => sortedConstants.map((constant) => toConstantDisplay(constant, i18n.language)),
@@ -105,6 +135,7 @@ export function useConstantListData() {
         constantsMap,
         sortedConstants,
         orderMap,
-        tableData
+        tableData,
+        includeShared: includeSharedEntities
     }
 }

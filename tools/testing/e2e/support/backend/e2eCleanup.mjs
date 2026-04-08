@@ -80,29 +80,29 @@ export async function cleanupE2eRun({ quiet = false } = {}) {
         const explicitApplications = Array.isArray(manifest.createdApplications) ? manifest.createdApplications : []
         const applicationIds = new Set(explicitApplications.map((item) => item.id).filter(Boolean))
 
-        const searchedApps = await listApplications(api, {
-            limit: 200,
-            offset: 0,
-            search: manifest.runId
-        })
-
-        for (const item of searchedApps.items ?? []) {
-            if (item?.id) {
-                applicationIds.add(item.id)
-            }
-        }
-
-        for (const applicationId of applicationIds) {
+        if (applicationIds.size === 0) {
             try {
-                await deleteApplication(api, applicationId)
-                cleanupReport.deletedApplicationIds.push(applicationId)
-            } catch (error) {
-                cleanupReport.failures.push({
-                    phase: 'application-delete',
-                    resourceType: 'application',
-                    resourceId: applicationId,
-                    message: error instanceof Error ? error.message : String(error)
+                const searchedApps = await listApplications(api, {
+                    limit: 200,
+                    offset: 0,
+                    search: manifest.runId
                 })
+
+                for (const item of searchedApps.items ?? []) {
+                    if (item?.id) {
+                        applicationIds.add(item.id)
+                    }
+                }
+            } catch (error) {
+                if (applicationIds.size === 0) {
+                    throw error
+                }
+
+                if (!quiet) {
+                    console.warn(
+                        `[e2e-cleanup] Application discovery warning for ${manifest.runId}: ${error instanceof Error ? error.message : String(error)}`
+                    )
+                }
             }
         }
 
@@ -128,15 +128,29 @@ export async function cleanupE2eRun({ quiet = false } = {}) {
         const explicitMetahubs = Array.isArray(manifest.createdMetahubs) ? manifest.createdMetahubs : []
         const metahubIds = new Set(explicitMetahubs.map((item) => item.id).filter(Boolean))
 
-        const searched = await listMetahubs(api, {
-            limit: 200,
-            offset: 0,
-            search: manifest.runId
-        })
+        if (metahubIds.size === 0) {
+            try {
+                const searched = await listMetahubs(api, {
+                    limit: 200,
+                    offset: 0,
+                    search: manifest.runId
+                })
 
-        for (const item of searched.items ?? []) {
-            if (item?.id) {
-                metahubIds.add(item.id)
+                for (const item of searched.items ?? []) {
+                    if (item?.id) {
+                        metahubIds.add(item.id)
+                    }
+                }
+            } catch (error) {
+                if (metahubIds.size === 0) {
+                    throw error
+                }
+
+                if (!quiet) {
+                    console.warn(
+                        `[e2e-cleanup] Metahub discovery warning for ${manifest.runId}: ${error instanceof Error ? error.message : String(error)}`
+                    )
+                }
             }
         }
 
@@ -149,6 +163,22 @@ export async function cleanupE2eRun({ quiet = false } = {}) {
                     phase: 'metahub-delete',
                     resourceType: 'metahub',
                     resourceId: metahubId,
+                    message: error instanceof Error ? error.message : String(error)
+                })
+            }
+        }
+
+        // Delete applications after publication/metahub teardown so linked schemas,
+        // publication rows, and related runtime artifacts are already gone.
+        for (const applicationId of applicationIds) {
+            try {
+                await deleteApplication(api, applicationId)
+                cleanupReport.deletedApplicationIds.push(applicationId)
+            } catch (error) {
+                cleanupReport.failures.push({
+                    phase: 'application-delete',
+                    resourceType: 'application',
+                    resourceId: applicationId,
                     message: error instanceof Error ? error.message : String(error)
                 })
             }

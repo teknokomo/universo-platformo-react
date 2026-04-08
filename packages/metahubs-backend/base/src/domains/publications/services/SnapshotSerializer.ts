@@ -3,10 +3,13 @@ import stableStringify from 'json-stable-stringify'
 import type { EntityDefinition, FieldDefinition } from '@universo/schema-ddl'
 import {
     MetaEntityKind,
+    SHARED_OBJECT_KINDS,
     type CatalogSystemFieldsSnapshot,
     type EnumerationValueDefinition,
     type MetahubScriptDefinition,
     type MetahubSnapshotVersionEnvelope,
+    type SharedBehavior,
+    type SharedEntityKind,
     type VersionedLocalizedContent
 } from '@universo/types'
 import { serialization } from '@universo/utils'
@@ -20,6 +23,9 @@ import { MetahubScriptsService } from '../../scripts/services/MetahubScriptsServ
 import { CURRENT_STRUCTURE_VERSION, structureVersionToSemver } from '../../metahubs/services/structureVersions'
 import { generateTableName } from '../../ddl'
 import { getCodenameText } from '../../shared/codename'
+import { buildMergedSharedEntityList, type SharedEntityListItem } from '../../shared/mergedSharedEntityList'
+import { SharedContainerService } from '../../shared/services/SharedContainerService'
+import { SharedEntityOverridesService, type SharedEntityOverrideRow } from '../../shared/services/SharedEntityOverridesService'
 import { createLogger } from '../../../utils/logger'
 
 const log = createLogger('SnapshotSerializer')
@@ -35,6 +41,10 @@ export interface MetahubSnapshot {
     elements?: Record<string, MetaElementSnapshot[]>
     enumerationValues?: Record<string, MetaEnumerationValueSnapshot[]>
     constants?: Record<string, MetaConstantSnapshot[]>
+    sharedAttributes?: MetaFieldSnapshot[]
+    sharedConstants?: MetaConstantSnapshot[]
+    sharedEnumerationValues?: MetaEnumerationValueSnapshot[]
+    sharedEntityOverrides?: MetahubSharedEntityOverrideSnapshot[]
     systemFields?: Record<string, CatalogSystemFieldsSnapshot>
     scripts?: MetahubSnapshotScript[]
     /**
@@ -80,6 +90,16 @@ export interface MetahubCatalogLayoutSnapshot extends MetahubLayoutSnapshot {
 export interface MetahubSnapshotScript extends Omit<MetahubScriptDefinition, 'codename' | 'sourceCode'> {
     codename: SnapshotCodenameValue
     sourceCode?: string
+}
+
+export interface MetahubSharedEntityOverrideSnapshot {
+    id: string
+    entityKind: SharedEntityKind
+    sharedEntityId: string
+    targetObjectId: string
+    isExcluded: boolean
+    isActive: boolean | null
+    sortOrder: number | null
 }
 
 export interface MetahubLayoutZoneWidgetSnapshot {
@@ -194,11 +214,237 @@ export class SnapshotSerializer {
         private readonly hubsService?: MetahubHubsService, // Hub repository removed - hubs are now in isolated schemas (_mhb_hubs)
         private readonly enumerationValuesService?: MetahubEnumerationValuesService,
         private readonly constantsService?: MetahubConstantsService,
-        private readonly scriptsService?: MetahubScriptsService
+        private readonly scriptsService?: MetahubScriptsService,
+        private readonly sharedContainerService?: SharedContainerService,
+        private readonly sharedEntityOverridesService?: SharedEntityOverridesService
     ) {}
 
     private static toSnapshotCodenameValue(value: unknown): SnapshotCodenameValue {
         return typeof value === 'string' || (value && typeof value === 'object') ? (value as SnapshotCodenameValue) : ''
+    }
+
+    private static buildFieldSnapshots(attributes: SnapshotAttributeRecord[]): MetaFieldSnapshot[] {
+        const rootAttributes = attributes.filter((attribute) => !attribute.parentAttributeId)
+        const childAttributesByParent = new Map<string, SnapshotAttributeRecord[]>()
+
+        for (const attr of attributes) {
+            if (!attr.parentAttributeId) {
+                continue
+            }
+
+            const list = childAttributesByParent.get(attr.parentAttributeId) ?? []
+            list.push(attr)
+            childAttributesByParent.set(attr.parentAttributeId, list)
+        }
+
+        return rootAttributes.map((attr) => {
+            const resolvedTargetEntityId = attr.targetEntityId ?? undefined
+            const resolvedTargetEntityKind: MetaEntityKind | undefined = attr.targetEntityKind ?? undefined
+
+            const fieldDef: MetaFieldSnapshot = {
+                id: attr.id,
+                codename: SnapshotSerializer.toSnapshotCodenameValue(attr.codename),
+                dataType: attr.dataType,
+                isRequired: attr.isRequired,
+                isDisplayAttribute: attr.isDisplayAttribute ?? false,
+                targetEntityId: resolvedTargetEntityId,
+                targetEntityKind: resolvedTargetEntityKind,
+                targetConstantId: attr.targetConstantId ?? null,
+                presentation: {
+                    name: (attr.name || {}) as MetaFieldSnapshot['presentation']['name'],
+                    description: (attr.description || {}) as MetaFieldSnapshot['presentation']['description']
+                },
+                validationRules: attr.validationRules || {},
+                uiConfig: attr.uiConfig || {},
+                sortOrder: attr.sortOrder ?? 0
+            }
+
+            if (attr.dataType === 'TABLE') {
+                const children = childAttributesByParent.get(attr.id) ?? []
+                fieldDef.childFields = children.map((child) => ({
+                    id: child.id,
+                    codename: SnapshotSerializer.toSnapshotCodenameValue(child.codename),
+                    dataType: child.dataType,
+                    isRequired: child.isRequired,
+                    isDisplayAttribute: child.isDisplayAttribute ?? false,
+                    targetEntityId: child.targetEntityId ?? undefined,
+                    targetEntityKind: child.targetEntityKind ?? undefined,
+                    targetConstantId: child.targetConstantId ?? null,
+                    presentation: {
+                        name: (child.name || {}) as MetaFieldSnapshot['presentation']['name'],
+                        description: (child.description || {}) as MetaFieldSnapshot['presentation']['description']
+                    },
+                    validationRules: child.validationRules || {},
+                    uiConfig: child.uiConfig || {},
+                    sortOrder: child.sortOrder ?? 0,
+                    parentAttributeId: attr.id
+                }))
+            }
+
+            return fieldDef
+        })
+    }
+
+    private static mapConstantSnapshots(constants: SnapshotConstantRecord[], fallbackObjectId: string): MetaConstantSnapshot[] {
+        return constants.map((constant) => ({
+            id: constant.id,
+            objectId: constant.setId ?? fallbackObjectId,
+            codename: SnapshotSerializer.toSnapshotCodenameValue(constant.codename),
+            dataType: constant.dataType,
+            presentation: {
+                name: constant.name ?? {}
+            },
+            validationRules: (constant.validationRules ?? {}) as Record<string, unknown>,
+            uiConfig: (constant.uiConfig ?? {}) as Record<string, unknown>,
+            value: constant.value ?? null,
+            sortOrder: constant.sortOrder ?? 0
+        }))
+    }
+
+    private static mapEnumerationValueSnapshots(
+        values: SnapshotEnumerationValueRecord[],
+        fallbackObjectId: string
+    ): MetaEnumerationValueSnapshot[] {
+        return values.map((value) => ({
+            id: value.id,
+            objectId: value.objectId ?? fallbackObjectId,
+            codename: SnapshotSerializer.toSnapshotCodenameValue(value.codename),
+            presentation:
+                value.presentation && typeof value.presentation === 'object'
+                    ? value.presentation
+                    : {
+                          name: (value.name ?? {}) as EnumerationValueDefinition['presentation']['name'],
+                          description: (value.description ?? {}) as EnumerationValueDefinition['presentation']['description']
+                      },
+            sortOrder: value.sortOrder ?? 0,
+            isDefault: value.isDefault ?? false
+        }))
+    }
+
+    private static stripSharedMetadata<T extends object>(item: SharedEntityListItem<T>): T {
+        const { isShared, isActive, isExcluded, effectiveSortOrder, sharedBehavior, ...rawItem } = item
+        void isShared
+        void isActive
+        void isExcluded
+        void effectiveSortOrder
+        void sharedBehavior
+        return rawItem as T
+    }
+
+    private static resolveRuntimeSharedOverrides(
+        snapshot: MetahubSnapshot,
+        entityKind: SharedEntityKind,
+        targetObjectId: string
+    ): SharedEntityOverrideRow[] {
+        return (snapshot.sharedEntityOverrides ?? [])
+            .filter((override) => override.entityKind === entityKind && override.targetObjectId === targetObjectId)
+            .map((override) => ({
+                id: override.id,
+                entityKind: override.entityKind,
+                sharedEntityId: override.sharedEntityId,
+                targetObjectId: override.targetObjectId,
+                isExcluded: override.isExcluded,
+                isActive: override.isActive,
+                sortOrder: override.sortOrder,
+                version: 1
+            }))
+    }
+
+    public static materializeSharedEntitiesForRuntime(snapshot: MetahubSnapshot): MetahubSnapshot {
+        const sharedAttributes = snapshot.sharedAttributes ?? []
+        const sharedConstants = snapshot.sharedConstants ?? []
+        const sharedEnumerationValues = snapshot.sharedEnumerationValues ?? []
+        const sharedOverrides = snapshot.sharedEntityOverrides ?? []
+
+        if (
+            sharedAttributes.length === 0 &&
+            sharedConstants.length === 0 &&
+            sharedEnumerationValues.length === 0 &&
+            sharedOverrides.length === 0
+        ) {
+            return snapshot
+        }
+
+        const entities = Object.fromEntries(
+            Object.entries(snapshot.entities ?? {}).map(([entityId, entity]) => {
+                if (entity.kind !== MetaEntityKind.CATALOG || sharedAttributes.length === 0) {
+                    return [entityId, entity]
+                }
+
+                const mergedFields = buildMergedSharedEntityList({
+                    localItems: entity.fields ?? [],
+                    sharedItems: sharedAttributes,
+                    overrides: SnapshotSerializer.resolveRuntimeSharedOverrides(snapshot, 'attribute', entityId),
+                    getId: (item) => item.id,
+                    getSortOrder: (item) => item.sortOrder,
+                    getSharedBehavior: (item) =>
+                        ((item.uiConfig as Record<string, unknown> | undefined)?.sharedBehavior as SharedBehavior | undefined) ?? undefined,
+                    includeInactive: false
+                }).map((item) => SnapshotSerializer.stripSharedMetadata(item))
+
+                return [entityId, { ...entity, fields: mergedFields }]
+            })
+        )
+
+        const constantsByObjectId: Record<string, MetaConstantSnapshot[]> = { ...(snapshot.constants ?? {}) }
+        for (const entity of Object.values(snapshot.entities ?? {})) {
+            if (entity.kind !== MetaEntityKind.SET) {
+                continue
+            }
+
+            const localConstants = snapshot.constants?.[entity.id] ?? []
+            const mergedConstants = buildMergedSharedEntityList({
+                localItems: localConstants,
+                sharedItems: sharedConstants,
+                overrides: SnapshotSerializer.resolveRuntimeSharedOverrides(snapshot, 'constant', entity.id),
+                getId: (item) => item.id,
+                getSortOrder: (item) => item.sortOrder,
+                getSharedBehavior: (item) =>
+                    ((item.uiConfig as Record<string, unknown> | undefined)?.sharedBehavior as SharedBehavior | undefined) ?? undefined,
+                includeInactive: false
+            }).map((item) => SnapshotSerializer.stripSharedMetadata(item))
+
+            if (mergedConstants.length > 0) {
+                constantsByObjectId[entity.id] = mergedConstants
+            } else {
+                delete constantsByObjectId[entity.id]
+            }
+        }
+
+        const enumerationValuesByObjectId: Record<string, MetaEnumerationValueSnapshot[]> = {
+            ...(snapshot.enumerationValues ?? {})
+        }
+        for (const entity of Object.values(snapshot.entities ?? {})) {
+            if (entity.kind !== MetaEntityKind.ENUMERATION) {
+                continue
+            }
+
+            const localValues = snapshot.enumerationValues?.[entity.id] ?? []
+            const mergedValues = buildMergedSharedEntityList({
+                localItems: localValues,
+                sharedItems: sharedEnumerationValues,
+                overrides: SnapshotSerializer.resolveRuntimeSharedOverrides(snapshot, 'value', entity.id),
+                getId: (item) => item.id,
+                getSortOrder: (item) => item.sortOrder,
+                getSharedBehavior: (item) =>
+                    ((item.presentation as unknown as Record<string, unknown> | undefined)?.sharedBehavior as SharedBehavior | undefined) ??
+                    undefined,
+                includeInactive: false
+            }).map((item) => SnapshotSerializer.stripSharedMetadata(item))
+
+            if (mergedValues.length > 0) {
+                enumerationValuesByObjectId[entity.id] = mergedValues
+            } else {
+                delete enumerationValuesByObjectId[entity.id]
+            }
+        }
+
+        return {
+            ...snapshot,
+            entities,
+            constants: Object.keys(constantsByObjectId).length > 0 ? constantsByObjectId : undefined,
+            enumerationValues: Object.keys(enumerationValuesByObjectId).length > 0 ? enumerationValuesByObjectId : undefined
+        }
     }
 
     /**
@@ -221,27 +467,29 @@ export class SnapshotSerializer {
         const elementsByObject: Record<string, MetaElementSnapshot[]> = {}
         const enumerationValuesByObject: Record<string, MetaEnumerationValueSnapshot[]> = {}
         const constantsByObject: Record<string, MetaConstantSnapshot[]> = {}
+        const sharedAttributes: MetaFieldSnapshot[] = []
+        const sharedConstants: MetaConstantSnapshot[] = []
+        const sharedEnumerationValues: MetaEnumerationValueSnapshot[] = []
+        const sharedEntityOverrides: MetahubSharedEntityOverrideSnapshot[] = []
         const systemFieldsByObject: Record<string, CatalogSystemFieldsSnapshot> = {}
         const publishedScripts = this.scriptsService
-            ? (await this.scriptsService.listScripts(metahubId, { onlyActive: true }))
-                  .filter((script) => script.isActive)
-                  .map<MetahubSnapshotScript>((script) => ({
-                      id: script.id,
-                      codename: script.codename,
-                      presentation: script.presentation,
-                      attachedToKind: script.attachedToKind,
-                      attachedToId: script.attachedToId,
-                      moduleRole: script.moduleRole,
-                      sourceKind: script.sourceKind,
-                      sdkApiVersion: script.sdkApiVersion,
-                      sourceCode: script.sourceCode,
-                      manifest: script.manifest,
-                      serverBundle: script.serverBundle,
-                      clientBundle: script.clientBundle,
-                      checksum: script.checksum,
-                      isActive: script.isActive,
-                      config: script.config
-                  }))
+            ? (await this.scriptsService.listPublishedScripts(metahubId)).map<MetahubSnapshotScript>((script) => ({
+                  id: script.id,
+                  codename: script.codename,
+                  presentation: script.presentation,
+                  attachedToKind: script.attachedToKind,
+                  attachedToId: script.attachedToId,
+                  moduleRole: script.moduleRole,
+                  sourceKind: script.sourceKind,
+                  sdkApiVersion: script.sdkApiVersion,
+                  sourceCode: script.sourceCode,
+                  manifest: script.manifest,
+                  serverBundle: script.serverBundle,
+                  clientBundle: script.clientBundle,
+                  checksum: script.checksum,
+                  isActive: script.isActive,
+                  config: script.config
+              }))
             : []
 
         const objectIds = catalogs.map((catalog) => catalog.id)
@@ -256,6 +504,63 @@ export class SnapshotSerializer {
         }
 
         const hubs = await this.fetchAllHubs(metahubId)
+
+        if (this.sharedContainerService) {
+            const [sharedCatalogPoolId, sharedSetPoolId, sharedEnumerationPoolId] = await Promise.all([
+                this.sharedContainerService.findContainerObjectId(metahubId, SHARED_OBJECT_KINDS.SHARED_CATALOG_POOL),
+                this.sharedContainerService.findContainerObjectId(metahubId, SHARED_OBJECT_KINDS.SHARED_SET_POOL),
+                this.sharedContainerService.findContainerObjectId(metahubId, SHARED_OBJECT_KINDS.SHARED_ENUM_POOL)
+            ])
+
+            if (sharedCatalogPoolId) {
+                const allSharedAttributes = (await this.attributesService.findAllFlatForSnapshot(
+                    metahubId,
+                    sharedCatalogPoolId,
+                    undefined,
+                    'all'
+                )) as SnapshotAttributeRecord[]
+                sharedAttributes.push(
+                    ...SnapshotSerializer.buildFieldSnapshots(
+                        allSharedAttributes.filter((attribute) => attribute.system?.isSystem !== true)
+                    )
+                )
+            }
+
+            if (sharedSetPoolId && this.constantsService) {
+                sharedConstants.push(
+                    ...SnapshotSerializer.mapConstantSnapshots(
+                        (await this.constantsService.findAll(metahubId, sharedSetPoolId)) as SnapshotConstantRecord[],
+                        sharedSetPoolId
+                    )
+                )
+            }
+
+            if (sharedEnumerationPoolId && this.enumerationValuesService) {
+                sharedEnumerationValues.push(
+                    ...SnapshotSerializer.mapEnumerationValueSnapshots(
+                        (await this.enumerationValuesService.findAll(
+                            metahubId,
+                            sharedEnumerationPoolId
+                        )) as SnapshotEnumerationValueRecord[],
+                        sharedEnumerationPoolId
+                    )
+                )
+            }
+        }
+
+        if (this.sharedEntityOverridesService) {
+            sharedEntityOverrides.push(
+                ...(await this.sharedEntityOverridesService.findAll(metahubId)).map((override) => ({
+                    id: override.id,
+                    entityKind: override.entityKind,
+                    sharedEntityId: override.sharedEntityId,
+                    targetObjectId: override.targetObjectId,
+                    isExcluded: override.isExcluded,
+                    isActive: override.isActive,
+                    sortOrder: override.sortOrder
+                }))
+            )
+        }
 
         for (const hub of hubs) {
             const hubId = hub.id as string
@@ -287,16 +592,6 @@ export class SnapshotSerializer {
                 'all'
             )) as SnapshotAttributeRecord[]
             const businessAttributes = allAttributes.filter((attribute) => attribute.system?.isSystem !== true)
-            const rootAttributes = businessAttributes.filter((attribute) => !attribute.parentAttributeId)
-            const childAttributesByParent = new Map<string, SnapshotAttributeRecord[]>()
-
-            for (const attr of businessAttributes) {
-                if (attr.parentAttributeId) {
-                    const list = childAttributesByParent.get(attr.parentAttributeId) ?? []
-                    list.push(attr)
-                    childAttributesByParent.set(attr.parentAttributeId, list)
-                }
-            }
 
             systemFieldsByObject[catalog.id] = await this.attributesService.getCatalogSystemFieldsSnapshot(metahubId, catalog.id)
 
@@ -322,53 +617,7 @@ export class SnapshotSerializer {
                     isSingleHub: catalog.config?.isSingleHub ?? false,
                     isRequiredHub: catalog.config?.isRequiredHub ?? false
                 },
-                fields: rootAttributes.map((attr) => {
-                    const resolvedTargetEntityId = attr.targetEntityId ?? undefined
-                    const resolvedTargetEntityKind: MetaEntityKind | undefined = attr.targetEntityKind ?? undefined
-
-                    const fieldDef: MetaFieldSnapshot = {
-                        id: attr.id,
-                        codename: SnapshotSerializer.toSnapshotCodenameValue(attr.codename),
-                        dataType: attr.dataType,
-                        isRequired: attr.isRequired,
-                        isDisplayAttribute: attr.isDisplayAttribute ?? false,
-                        targetEntityId: resolvedTargetEntityId,
-                        targetEntityKind: resolvedTargetEntityKind,
-                        targetConstantId: attr.targetConstantId ?? null,
-                        presentation: {
-                            name: (attr.name || {}) as MetaFieldSnapshot['presentation']['name'],
-                            description: (attr.description || {}) as MetaFieldSnapshot['presentation']['description']
-                        },
-                        validationRules: attr.validationRules || {},
-                        uiConfig: attr.uiConfig || {},
-                        sortOrder: attr.sortOrder ?? 0
-                    }
-
-                    // Include child fields for TABLE attributes
-                    if (attr.dataType === 'TABLE') {
-                        const children = childAttributesByParent.get(attr.id) ?? []
-                        fieldDef.childFields = children.map((child) => ({
-                            id: child.id,
-                            codename: SnapshotSerializer.toSnapshotCodenameValue(child.codename),
-                            dataType: child.dataType,
-                            isRequired: child.isRequired,
-                            isDisplayAttribute: child.isDisplayAttribute ?? false,
-                            targetEntityId: child.targetEntityId ?? undefined,
-                            targetEntityKind: child.targetEntityKind ?? undefined,
-                            targetConstantId: child.targetConstantId ?? null,
-                            presentation: {
-                                name: (child.name || {}) as MetaFieldSnapshot['presentation']['name'],
-                                description: (child.description || {}) as MetaFieldSnapshot['presentation']['description']
-                            },
-                            validationRules: child.validationRules || {},
-                            uiConfig: child.uiConfig || {},
-                            sortOrder: child.sortOrder ?? 0,
-                            parentAttributeId: attr.id
-                        }))
-                    }
-
-                    return fieldDef
-                }),
+                fields: SnapshotSerializer.buildFieldSnapshots(businessAttributes),
                 hubs: hubIds
             }
         }
@@ -377,19 +626,7 @@ export class SnapshotSerializer {
             for (const set of sets) {
                 const constants = (await this.constantsService.findAll(metahubId, set.id)) as SnapshotConstantRecord[]
                 if (!constants.length) continue
-                constantsByObject[set.id] = constants.map((constant) => ({
-                    id: constant.id,
-                    objectId: constant.setId ?? set.id,
-                    codename: SnapshotSerializer.toSnapshotCodenameValue(constant.codename),
-                    dataType: constant.dataType,
-                    presentation: {
-                        name: constant.name ?? {}
-                    },
-                    validationRules: (constant.validationRules ?? {}) as Record<string, unknown>,
-                    uiConfig: (constant.uiConfig ?? {}) as Record<string, unknown>,
-                    value: constant.value ?? null,
-                    sortOrder: constant.sortOrder ?? 0
-                }))
+                constantsByObject[set.id] = SnapshotSerializer.mapConstantSnapshots(constants, set.id)
             }
         }
 
@@ -400,20 +637,7 @@ export class SnapshotSerializer {
                         metahubId,
                         enumeration.id
                     )) as unknown as SnapshotEnumerationValueRecord[]
-                    const normalizedValues: MetaEnumerationValueSnapshot[] = values.map((value) => ({
-                        id: value.id,
-                        objectId: value.objectId ?? enumeration.id,
-                        codename: SnapshotSerializer.toSnapshotCodenameValue(value.codename),
-                        presentation:
-                            value.presentation && typeof value.presentation === 'object'
-                                ? value.presentation
-                                : {
-                                      name: (value.name ?? {}) as EnumerationValueDefinition['presentation']['name'],
-                                      description: (value.description ?? {}) as EnumerationValueDefinition['presentation']['description']
-                                  },
-                        sortOrder: value.sortOrder ?? 0,
-                        isDefault: value.isDefault ?? false
-                    }))
+                    const normalizedValues = SnapshotSerializer.mapEnumerationValueSnapshots(values, enumeration.id)
                     return [enumeration.id, normalizedValues] as const
                 })
             )
@@ -473,12 +697,16 @@ export class SnapshotSerializer {
             versionEnvelope: {
                 structureVersion: versionEnvelope?.structureVersion ?? structureVersionToSemver(CURRENT_STRUCTURE_VERSION),
                 templateVersion: versionEnvelope?.templateVersion ?? null,
-                snapshotFormatVersion: 1
+                snapshotFormatVersion: 2
             },
             entities,
             elements: Object.keys(elementsByObject).length > 0 ? elementsByObject : undefined,
             enumerationValues: Object.keys(enumerationValuesByObject).length > 0 ? enumerationValuesByObject : undefined,
             constants: Object.keys(constantsByObject).length > 0 ? constantsByObject : undefined,
+            sharedAttributes: sharedAttributes.length > 0 ? sharedAttributes : undefined,
+            sharedConstants: sharedConstants.length > 0 ? sharedConstants : undefined,
+            sharedEnumerationValues: sharedEnumerationValues.length > 0 ? sharedEnumerationValues : undefined,
+            sharedEntityOverrides: sharedEntityOverrides.length > 0 ? sharedEntityOverrides : undefined,
             systemFields: Object.keys(systemFieldsByObject).length > 0 ? systemFieldsByObject : undefined,
             scripts: publishedScripts.length > 0 ? publishedScripts : undefined
         }
@@ -577,7 +805,7 @@ export class SnapshotSerializer {
             defaultVersionEnvelope: {
                 structureVersion: structureVersionToSemver(CURRENT_STRUCTURE_VERSION),
                 templateVersion: null,
-                snapshotFormatVersion: 1
+                snapshotFormatVersion: 2
             }
         })
     }

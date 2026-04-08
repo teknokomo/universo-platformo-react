@@ -164,11 +164,13 @@ const ApplicationRuntime = () => {
 
     const handledPageSurfaceRequestRef = useRef<string | null>(null)
     const suppressPageSurfaceOpenRef = useRef(false)
+    const pendingPageSurfaceCleanupRef = useRef(false)
 
     const handleFormSubmitSurface = useCallback(
         async (data: Record<string, unknown>) => {
             if (searchParams.get('surface') === 'page') {
                 suppressPageSurfaceOpenRef.current = true
+                pendingPageSurfaceCleanupRef.current = true
             }
             await state.handleFormSubmit(data)
         },
@@ -179,6 +181,7 @@ const ApplicationRuntime = () => {
         if (searchParams.get('surface') !== 'page') {
             handledPageSurfaceRequestRef.current = null
             suppressPageSurfaceOpenRef.current = false
+            pendingPageSurfaceCleanupRef.current = false
             return
         }
 
@@ -232,13 +235,19 @@ const ApplicationRuntime = () => {
         }
     }, [clearRuntimeFormParams, searchParams, showCreateButton, state])
 
-    const previousFormOpenRef = useRef(false)
     useEffect(() => {
-        if (previousFormOpenRef.current && !state.formOpen && searchParams.get('surface') === 'page') {
-            clearRuntimeFormParams()
+        if (searchParams.get('surface') !== 'page') {
+            pendingPageSurfaceCleanupRef.current = false
+            return
         }
-        previousFormOpenRef.current = state.formOpen
-    }, [clearRuntimeFormParams, searchParams, state.formOpen])
+
+        if (!pendingPageSurfaceCleanupRef.current || state.formOpen || state.isSubmitting) {
+            return
+        }
+
+        pendingPageSurfaceCleanupRef.current = false
+        clearRuntimeFormParams()
+    }, [clearRuntimeFormParams, searchParams, state.formOpen, state.isSubmitting])
 
     const runtimeState = useMemo(
         () => ({
@@ -326,6 +335,50 @@ const ApplicationRuntime = () => {
         [state.appData?.workspaceLimit, t]
     )
 
+    const pageSurfaceContent = useMemo(
+        () =>
+            activeFormSurface === 'page' && (runtimeState.formOpen || runtimeState.isSubmitting) ? (
+                <CrudDialogs
+                    state={runtimeState}
+                    locale={i18n.language}
+                    apiBaseUrl='/api/v1'
+                    applicationId={applicationId}
+                    catalogId={state.selectedCatalogId ?? state.activeCatalogId}
+                    surface='page'
+                    renderDelete={false}
+                    labels={{
+                        editTitle: t('app.editRow', 'Edit element'),
+                        createTitle: t('app.createRecordTitle', 'Create element'),
+                        saveText: t('app.save', 'Save'),
+                        createText: t('app.create', 'Create'),
+                        savingText: t('app.saving', 'Saving...'),
+                        creatingText: t('app.creating', 'Creating...'),
+                        cancelText: t('app.cancel', 'Cancel'),
+                        noFieldsText: t('app.noFields', 'No fields configured for this catalog.'),
+                        deleteTitle: t('app.deleteConfirmTitle', 'Delete element?'),
+                        deleteDescription: t(
+                            'app.deleteConfirmDescription',
+                            'This element will be permanently deleted. This action cannot be undone.'
+                        ),
+                        deleteText: t('app.delete', 'Delete'),
+                        deletingText: t('app.deleting', 'Deleting...'),
+                        copyTitle: t('app.copyTitle', 'Copy element'),
+                        copyText: t('app.copy', 'Copy'),
+                        copyingText: t('app.copying', 'Copying...')
+                    }}
+                />
+            ) : null,
+        [
+            activeFormSurface,
+            applicationId,
+            i18n.language,
+            runtimeState,
+            state.activeCatalogId,
+            state.selectedCatalogId,
+            t
+        ]
+    )
+
     const details = useMemo<DashboardDetailsSlot>(
         () => ({
             title: detailsTitle,
@@ -334,6 +387,7 @@ const ApplicationRuntime = () => {
             catalogCodename: state.appData?.catalog?.codename ?? null,
             apiBaseUrl: '/api/v1',
             banner: workspaceLimitBanner,
+            content: pageSurfaceContent,
             rows: state.rows,
             columns: state.columns,
             loading: state.isFetching,
@@ -366,6 +420,7 @@ const ApplicationRuntime = () => {
             state.pageSizeOptions,
             state.localeText,
             createActions,
+            pageSurfaceContent,
             workspaceLimitBanner
         ]
     )
@@ -403,6 +458,7 @@ const ApplicationRuntime = () => {
                 applicationId={applicationId}
                 catalogId={state.selectedCatalogId ?? state.activeCatalogId}
                 surface={activeFormSurface}
+                renderForm={activeFormSurface !== 'page'}
                 labels={{
                     editTitle: t('app.editRow', 'Edit element'),
                     createTitle: t('app.createRecordTitle', 'Create element'),

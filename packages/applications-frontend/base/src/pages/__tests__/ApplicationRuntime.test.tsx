@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, render, waitFor, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import ApplicationRuntime from '../ApplicationRuntime'
 
 const runtimeMocks = vi.hoisted(() => ({
@@ -47,14 +47,37 @@ vi.mock('@universo/apps-template-mui', async () => {
 
     return {
         ...actual,
-        AppsDashboard: ({ details }: { details?: { title?: string; actions?: ReactNode; banner?: ReactNode } }) => (
+        AppsDashboard: ({ details }: { details?: { title?: string; actions?: ReactNode; banner?: ReactNode; content?: ReactNode } }) => (
             <div data-testid='apps-dashboard'>
                 <div data-testid='apps-dashboard-banner'>{details?.banner}</div>
                 <div data-testid='apps-dashboard-title'>{details?.title}</div>
                 <div data-testid='apps-dashboard-actions'>{details?.actions}</div>
+                <div data-testid='apps-dashboard-content'>{details?.content}</div>
             </div>
         ),
-        CrudDialogs: ({ surface }: { surface?: 'dialog' | 'page' }) => <div data-testid='crud-dialogs-surface'>{surface ?? 'dialog'}</div>,
+        CrudDialogs: ({
+            state,
+            surface,
+            renderForm = true,
+            renderDelete = true
+        }: {
+            state?: { handleFormSubmit?: (data: Record<string, unknown>) => Promise<void> | void }
+            surface?: 'dialog' | 'page'
+            renderForm?: boolean
+            renderDelete?: boolean
+        }) => (
+            <>
+                {renderForm ? (
+                    <div data-testid='crud-dialogs-surface'>
+                        {surface ?? 'dialog'}
+                        <button data-testid='crud-dialogs-submit' onClick={() => void state?.handleFormSubmit?.({})} type='button'>
+                            submit
+                        </button>
+                    </div>
+                ) : null}
+                {renderDelete ? <div data-testid='crud-dialogs-delete'>delete</div> : null}
+            </>
+        ),
         RowActionsMenu: () => null,
         useCrudDashboard: (options: any) => {
             runtimeMocks.capturedCellRenderers = options.cellRenderers
@@ -120,11 +143,26 @@ function renderRuntimePage() {
     return renderRuntimePageAt('/applications/app-1/runtime')
 }
 
+function RuntimeLocationProbe() {
+    const location = useLocation()
+
+    return <div data-testid='runtime-location-search'>{location.search}</div>
+}
+
+function RuntimeRouteElement() {
+    return (
+        <>
+            <ApplicationRuntime />
+            <RuntimeLocationProbe />
+        </>
+    )
+}
+
 function renderRuntimePageAt(route: string) {
     return render(
         <MemoryRouter initialEntries={[route]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <Routes>
-                <Route path='/applications/:applicationId/runtime' element={<ApplicationRuntime />} />
+                <Route path='/applications/:applicationId/runtime' element={<RuntimeRouteElement />} />
             </Routes>
         </MemoryRouter>
     )
@@ -140,7 +178,7 @@ function RuntimeHarness({ route }: { route: string }) {
     return (
         <MemoryRouter initialEntries={[route]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <Routes>
-                <Route path='/applications/:applicationId/runtime' element={<ApplicationRuntime />} />
+                <Route path='/applications/:applicationId/runtime' element={<RuntimeRouteElement />} />
             </Routes>
         </MemoryRouter>
     )
@@ -258,7 +296,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
         expect(screen.queryByRole('button', { name: 'Create' })).not.toBeInTheDocument()
     })
 
-    it('switches CrudDialogs to page surface when createSurface is configured as page', async () => {
+    it('renders page-surface forms inside dashboard content when createSurface is configured as page', async () => {
         runtimeMocks.dashboardStateOverrides = {
             appData: {
                 zoneWidgets: { left: [], right: [], center: [] },
@@ -268,10 +306,11 @@ describe('ApplicationRuntime pending interaction safety', () => {
                     name: 'Details',
                     runtimeConfig: { createSurface: 'page' }
                 }
-            }
+            },
+            formOpen: false
         }
 
-        renderRuntimePage()
+        renderRuntimeHarness('/applications/app-1/runtime')
 
         expect(screen.getByTestId('crud-dialogs-surface')).toHaveTextContent('dialog')
 
@@ -279,18 +318,52 @@ describe('ApplicationRuntime pending interaction safety', () => {
         await user.click(screen.getByRole('button', { name: 'Create' }))
 
         await waitFor(() => {
-            expect(screen.getByTestId('crud-dialogs-surface')).toHaveTextContent('page')
+            expect(runtimeMocks.handleOpenCreate).toHaveBeenCalledTimes(1)
         })
-        expect(runtimeMocks.handleOpenCreate).toHaveBeenCalledTimes(1)
+
+        runtimeMocks.dashboardStateOverrides = {
+            appData: {
+                zoneWidgets: { left: [], right: [], center: [] },
+                menus: [],
+                activeMenuId: null,
+                catalog: {
+                    name: 'Details',
+                    runtimeConfig: { createSurface: 'page' }
+                }
+            },
+            formOpen: true
+        }
+
+        act(() => {
+            runtimeMocks.triggerRerender?.()
+        })
+
+        await waitFor(() => {
+            expect(screen.getByTestId('apps-dashboard-content')).toHaveTextContent('page')
+        })
+        expect(screen.getAllByTestId('crud-dialogs-surface')).toHaveLength(1)
+        expect(screen.getByTestId('apps-dashboard-content')).toContainElement(screen.getByTestId('crud-dialogs-surface'))
     })
 
     it('derives page surface from URL search params on direct navigation', async () => {
-        renderRuntimePageAt('/applications/app-1/runtime?surface=page&mode=create')
+        renderRuntimeHarness('/applications/app-1/runtime?surface=page&mode=create')
 
         await waitFor(() => {
-            expect(screen.getByTestId('crud-dialogs-surface')).toHaveTextContent('page')
+            expect(runtimeMocks.handleOpenCreate).toHaveBeenCalledTimes(1)
         })
-        expect(runtimeMocks.handleOpenCreate).toHaveBeenCalledTimes(1)
+
+        runtimeMocks.dashboardStateOverrides = {
+            formOpen: true
+        }
+
+        act(() => {
+            runtimeMocks.triggerRerender?.()
+        })
+
+        await waitFor(() => {
+            expect(screen.getByTestId('apps-dashboard-content')).toHaveTextContent('page')
+        })
+        expect(screen.getByTestId('apps-dashboard-content')).toContainElement(screen.getByTestId('crud-dialogs-surface'))
     })
 
     it('does not reopen an already-consumed create page surface after the form closes', async () => {
@@ -389,7 +462,21 @@ describe('ApplicationRuntime pending interaction safety', () => {
 
         await waitFor(() => {
             expect(runtimeMocks.handleOpenCreate).toHaveBeenCalledTimes(1)
-            expect(screen.getByTestId('crud-dialogs-surface')).toHaveTextContent('page')
+        })
+
+        runtimeMocks.dashboardStateOverrides = {
+            appData: catalogOneData,
+            formOpen: true,
+            activeCatalogId: 'catalog-1',
+            selectedCatalogId: 'catalog-1'
+        }
+
+        act(() => {
+            runtimeMocks.triggerRerender?.()
+        })
+
+        await waitFor(() => {
+            expect(screen.getByTestId('apps-dashboard-content')).toHaveTextContent('page')
         })
 
         runtimeMocks.handleOpenCreate.mockClear()
@@ -415,7 +502,80 @@ describe('ApplicationRuntime pending interaction safety', () => {
             expect(runtimeMocks.handleCloseForm).toHaveBeenCalledTimes(1)
             expect(screen.getByTestId('crud-dialogs-surface')).toHaveTextContent('dialog')
         })
+        expect(screen.getByTestId('apps-dashboard-content')).toBeEmptyDOMElement()
         expect(runtimeMocks.handleOpenCreate).not.toHaveBeenCalled()
+    })
+
+    it('keeps page-surface content mounted until submit settles and then clears URL params', async () => {
+        const pageSurfaceAppData = {
+            zoneWidgets: { left: [], right: [], center: [] },
+            menus: [],
+            activeMenuId: null,
+            catalog: {
+                name: 'Details',
+                runtimeConfig: { createSurface: 'page' }
+            }
+        }
+
+        runtimeMocks.dashboardStateOverrides = {
+            appData: pageSurfaceAppData,
+            formOpen: false,
+            isSubmitting: false
+        }
+
+        renderRuntimeHarness('/applications/app-1/runtime?surface=page&mode=create')
+
+        await waitFor(() => {
+            expect(runtimeMocks.handleOpenCreate).toHaveBeenCalledTimes(1)
+        })
+
+        runtimeMocks.dashboardStateOverrides = {
+            appData: pageSurfaceAppData,
+            formOpen: true,
+            isSubmitting: false
+        }
+
+        act(() => {
+            runtimeMocks.triggerRerender?.()
+        })
+
+        await waitFor(() => {
+            expect(screen.getByTestId('apps-dashboard-content')).toHaveTextContent('page')
+        })
+        expect(screen.getByTestId('runtime-location-search')).toHaveTextContent('?surface=page&mode=create')
+
+        const user = userEvent.setup()
+        await user.click(screen.getByTestId('crud-dialogs-submit'))
+
+        runtimeMocks.dashboardStateOverrides = {
+            appData: pageSurfaceAppData,
+            formOpen: false,
+            isSubmitting: true
+        }
+
+        act(() => {
+            runtimeMocks.triggerRerender?.()
+        })
+
+        await waitFor(() => {
+            expect(screen.getByTestId('apps-dashboard-content')).toHaveTextContent('page')
+        })
+        expect(screen.getByTestId('runtime-location-search')).toHaveTextContent('?surface=page&mode=create')
+
+        runtimeMocks.dashboardStateOverrides = {
+            appData: pageSurfaceAppData,
+            formOpen: false,
+            isSubmitting: false
+        }
+
+        act(() => {
+            runtimeMocks.triggerRerender?.()
+        })
+
+        await waitFor(() => {
+            expect(screen.getByTestId('runtime-location-search')).toBeEmptyDOMElement()
+        })
+        expect(screen.getByTestId('apps-dashboard-content')).toBeEmptyDOMElement()
     })
 
     it('blocks inline BOOLEAN mutation attempts for pending rows', async () => {

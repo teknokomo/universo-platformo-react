@@ -30,10 +30,12 @@ import {
     syncCodenamePayloadText,
     syncOptionalCodenamePayloadText
 } from '../../shared/codenamePayload'
-import { type EnumerationCopyOptions, MetaEntityKind } from '@universo/types'
+import { type EnumerationCopyOptions, MetaEntityKind, SHARED_OBJECT_KINDS } from '@universo/types'
 
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 const { normalizeEnumerationCopyOptions } = validation
+const isEnumerationContextKind = (kind: unknown): boolean =>
+    kind === MetaEntityKind.ENUMERATION || kind === SHARED_OBJECT_KINDS.SHARED_ENUM_POOL
 
 // ---------------------------------------------------------------------------
 // Types
@@ -386,6 +388,7 @@ const createEnumerationValueSchema = z
         description: optionalLocalizedInputSchema.optional(),
         namePrimaryLocale: z.string().optional(),
         descriptionPrimaryLocale: z.string().optional(),
+        presentation: z.record(z.unknown()).optional(),
         sortOrder: z.number().int().optional(),
         isDefault: z.boolean().optional()
     })
@@ -398,6 +401,7 @@ const updateEnumerationValueSchema = z
         description: optionalLocalizedInputSchema.optional(),
         namePrimaryLocale: z.string().optional(),
         descriptionPrimaryLocale: z.string().optional(),
+        presentation: z.record(z.unknown()).optional(),
         sortOrder: z.number().int().optional(),
         isDefault: z.boolean().optional(),
         expectedVersion: z.number().int().positive().optional()
@@ -417,6 +421,7 @@ const copyEnumerationValueSchema = z
         description: optionalLocalizedInputSchema.optional(),
         namePrimaryLocale: z.string().optional(),
         descriptionPrimaryLocale: z.string().optional(),
+        presentation: z.record(z.unknown()).optional(),
         isDefault: z.boolean().optional()
     })
     .strict()
@@ -424,9 +429,14 @@ const copyEnumerationValueSchema = z
 const reorderValueSchema = z
     .object({
         valueId: z.string().uuid(),
-        newSortOrder: z.number().int().min(1)
+        newSortOrder: z.number().int().min(1),
+        mergedOrderIds: z.array(z.string().uuid()).min(1).optional()
     })
     .strict()
+
+const listValuesQuerySchema = z.object({
+    includeShared: z.preprocess((val) => val === 'true' || val === true, z.boolean()).default(false)
+})
 
 // ---------------------------------------------------------------------------
 // Hub enrichment helper
@@ -889,7 +899,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
         if (!userId) return
 
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || enumeration.kind !== MetaEntityKind.ENUMERATION) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
@@ -1148,7 +1158,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
         if (!userId) return
 
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || enumeration.kind !== MetaEntityKind.ENUMERATION) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
@@ -1311,7 +1321,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
         if (!userId) return
 
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || enumeration.kind !== MetaEntityKind.ENUMERATION) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
@@ -1483,7 +1493,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
         if (!userId) return
 
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || enumeration.kind !== MetaEntityKind.ENUMERATION) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
@@ -1504,7 +1514,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
         if (!userId) return
 
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || enumeration.kind !== MetaEntityKind.ENUMERATION) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
@@ -1568,7 +1578,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
         if (!userId) return
 
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || enumeration.kind !== MetaEntityKind.ENUMERATION) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
@@ -1647,7 +1657,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
         if (!userId) return
 
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId, { includeDeleted: true })
-        if (!enumeration || enumeration.kind !== MetaEntityKind.ENUMERATION) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
@@ -1678,12 +1688,19 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
         if (!userId) return
 
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || enumeration.kind !== MetaEntityKind.ENUMERATION) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
-        const items = await valuesService.findAll(metahubId, enumerationId, userId)
-        return res.json({ items, total: items.length })
+        const parsed = listValuesQuerySchema.safeParse(req.query)
+        if (!parsed.success) {
+            return res.status(400).json({ error: 'Invalid query', details: parsed.error.flatten() })
+        }
+
+        const items = parsed.data.includeShared
+            ? await valuesService.findAllMerged(metahubId, enumerationId, userId)
+            : await valuesService.findAll(metahubId, enumerationId, userId)
+        return res.json({ items, total: items.length, meta: { includeShared: parsed.data.includeShared } })
     }
 
     // ─── GET VALUE BY ID ───────────────────────────────────────────────────────
@@ -1695,7 +1712,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
         if (!userId) return
 
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || enumeration.kind !== MetaEntityKind.ENUMERATION) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
@@ -1716,7 +1733,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
         if (!userId) return
 
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || enumeration.kind !== MetaEntityKind.ENUMERATION) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
@@ -1747,7 +1764,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
         if (!userId) return
 
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || enumeration.kind !== MetaEntityKind.ENUMERATION) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
@@ -1756,7 +1773,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
             return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
         }
 
-        const { codename, name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale, isDefault } = parsed.data
+        const { codename, name, description, presentation, sortOrder, namePrimaryLocale, descriptionPrimaryLocale, isDefault } = parsed.data
 
         const {
             style: codenameStyle,
@@ -1814,6 +1831,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
                     codename: codenamePayload,
                     name: nameVlc,
                     description: descriptionVlc,
+                    presentation,
                     sortOrder,
                     isDefault,
                     createdBy: userId
@@ -1839,7 +1857,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
         if (!userId) return
 
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || enumeration.kind !== MetaEntityKind.ENUMERATION) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
@@ -1853,8 +1871,17 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
             return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
         }
 
-        const { codename, name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale, isDefault, expectedVersion } =
-            parsed.data
+        const {
+            codename,
+            name,
+            description,
+            presentation,
+            sortOrder,
+            namePrimaryLocale,
+            descriptionPrimaryLocale,
+            isDefault,
+            expectedVersion
+        } = parsed.data
 
         const patch: Record<string, unknown> = {
             updatedBy: userId,
@@ -1907,6 +1934,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
             }
         }
 
+        if (presentation !== undefined) patch.presentation = presentation
         if (sortOrder !== undefined) patch.sortOrder = sortOrder
         if (isDefault !== undefined) patch.isDefault = isDefault
 
@@ -1931,7 +1959,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
         if (!userId) return
 
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || enumeration.kind !== MetaEntityKind.ENUMERATION) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
@@ -1960,7 +1988,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
         if (!userId) return
 
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || enumeration.kind !== MetaEntityKind.ENUMERATION) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
@@ -1970,13 +1998,15 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
         }
 
         try {
-            const updated = await valuesService.reorderValue(
-                metahubId,
-                enumerationId,
-                parsed.data.valueId,
-                parsed.data.newSortOrder,
-                userId
-            )
+            const updated = parsed.data.mergedOrderIds
+                ? await valuesService.reorderValueMergedOrder(
+                      metahubId,
+                      enumerationId,
+                      parsed.data.valueId,
+                      parsed.data.mergedOrderIds,
+                      userId
+                  )
+                : await valuesService.reorderValue(metahubId, enumerationId, parsed.data.valueId, parsed.data.newSortOrder, userId)
             return res.json(updated)
         } catch (error) {
             if (error instanceof Error && error.message === 'Enumeration value not found') {
@@ -1995,7 +2025,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
         if (!userId) return
 
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || enumeration.kind !== MetaEntityKind.ENUMERATION) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
@@ -2089,6 +2119,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
                         name: copyName,
                         description: copyDescription,
                         sortOrder: (sourceValue.sortOrder ?? 0) + 1,
+                        presentation: parsed.data.presentation,
                         isDefault: parsed.data.isDefault === true,
                         createdBy: userId
                     },
@@ -2118,7 +2149,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
         if (!userId) return
 
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || enumeration.kind !== MetaEntityKind.ENUMERATION) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 

@@ -8,11 +8,16 @@ import { EntityFormDialog } from '@universo/template-mui'
 
 import { scriptsApi } from '../../scripts/api/scriptsApi'
 import { getVLCString } from '../../../types'
+import LayoutWidgetSharedBehaviorFields, {
+    getSharedBehaviorFromWidgetConfig,
+    setSharedBehaviorInWidgetConfig
+} from './LayoutWidgetSharedBehaviorFields'
 
 export interface QuizWidgetEditorDialogProps {
     open: boolean
     metahubId: string
     config?: QuizWidgetConfig | null
+    showSharedBehavior?: boolean
     onSave: (config: QuizWidgetConfig) => void
     onCancel: () => void
 }
@@ -87,9 +92,17 @@ const buildQuizWidgetConfig = (draft: QuizWidgetDraft): QuizWidgetConfig => {
     }
 }
 
-export default function QuizWidgetEditorDialog({ open, metahubId, config, onSave, onCancel }: QuizWidgetEditorDialogProps) {
+export default function QuizWidgetEditorDialog({
+    open,
+    metahubId,
+    config,
+    showSharedBehavior = false,
+    onSave,
+    onCancel
+}: QuizWidgetEditorDialogProps) {
     const { t } = useTranslation(['metahubs', 'common'])
     const [draft, setDraft] = useState<QuizWidgetDraft>(() => createDraft(config))
+    const [sharedBehaviorValue, setSharedBehaviorValue] = useState(() => getSharedBehaviorFromWidgetConfig(config))
 
     useEffect(() => {
         if (!open) {
@@ -97,6 +110,7 @@ export default function QuizWidgetEditorDialog({ open, metahubId, config, onSave
         }
 
         setDraft(createDraft(config))
+        setSharedBehaviorValue(getSharedBehaviorFromWidgetConfig(config))
     }, [open, config])
 
     const scriptsQuery = useQuery({
@@ -153,7 +167,7 @@ export default function QuizWidgetEditorDialog({ open, metahubId, config, onSave
             descriptionLabel={t('common:fields.description', 'Description')}
             hideDefaultFields
             onClose={onCancel}
-            onSave={() => onSave(buildQuizWidgetConfig(draft))}
+            onSave={() => onSave(setSharedBehaviorInWidgetConfig(buildQuizWidgetConfig(draft), sharedBehaviorValue) as QuizWidgetConfig)}
             saveButtonText={t('common:save', 'Save')}
             cancelButtonText={t('common:cancel', 'Cancel')}
             extraFields={() => (
@@ -274,6 +288,13 @@ export default function QuizWidgetEditorDialog({ open, metahubId, config, onSave
                         minRows={2}
                         fullWidth
                     />
+
+                    {showSharedBehavior ? (
+                        <LayoutWidgetSharedBehaviorFields
+                            value={{ sharedBehavior: sharedBehaviorValue }}
+                            onChange={(nextValue) => setSharedBehaviorValue(getSharedBehaviorFromWidgetConfig(nextValue))}
+                        />
+                    ) : null}
                 </Stack>
             )}
         />

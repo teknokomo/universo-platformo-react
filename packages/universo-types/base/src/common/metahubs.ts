@@ -2,6 +2,7 @@
 // Keep runtime-safe values for validation and enum-like usage.
 
 import type { VersionedLocalizedContent } from './admin'
+import type { SharedBehavior } from './shared'
 import type { ScriptAttachmentKind } from './scripts'
 
 /**
@@ -741,6 +742,7 @@ export interface MenuWidgetConfig {
     bindToHub?: boolean
     /** Hub ID used when direct binding is enabled. */
     boundHubId?: string | null
+    sharedBehavior?: SharedBehavior
     items: MenuWidgetConfigItem[]
 }
 
@@ -790,6 +792,7 @@ export interface ColumnsContainerColumn {
 export interface ColumnsContainerConfig {
     /** Ordered array of columns. Widths should sum to 12 for a balanced row. */
     columns: ColumnsContainerColumn[]
+    sharedBehavior?: SharedBehavior
 }
 
 export interface QuizWidgetConfig {
@@ -801,6 +804,7 @@ export interface QuizWidgetConfig {
     submitMethodName?: string
     emptyStateTitle?: string
     emptyStateDescription?: string
+    sharedBehavior?: SharedBehavior
 }
 
 // ========= Menu item kinds (used by MenuWidgetConfig) =========
@@ -814,7 +818,7 @@ export type MetahubMenuItemKind = (typeof METAHUB_MENU_ITEM_KINDS)[number]
 export type MetahubTemplateSchemaVersion = 'metahub-template/v1'
 
 /** Snapshot envelope version used for metahub export/publication snapshots. */
-export type MetahubSnapshotFormatVersion = 1
+export type MetahubSnapshotFormatVersion = 1 | 2
 
 /**
  * Unified version envelope that separates:

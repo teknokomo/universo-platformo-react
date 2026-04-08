@@ -12,7 +12,7 @@ import {
     confirmOptimisticCreate
 } from '@universo/template-mui'
 import { makePendingMarkers } from '@universo/utils'
-import { metahubsQueryKeys, invalidateAttributesQueries } from '../../shared'
+import { applyMergedSharedEntityOrder, metahubsQueryKeys, invalidateAttributesQueries } from '../../shared'
 import * as attributesApi from '../api'
 import type {
     AttributeMutationError,
@@ -514,6 +514,7 @@ export function useReorderAttribute() {
             attributeId,
             newSortOrder,
             newParentAttributeId,
+            mergedOrderIds,
             autoRenameCodename
         }: ReorderAttributeParams) => {
             if (hubId) {
@@ -524,6 +525,7 @@ export function useReorderAttribute() {
                     attributeId,
                     newSortOrder,
                     newParentAttributeId,
+                    mergedOrderIds,
                     autoRenameCodename
                 )
                 return response.data
@@ -534,6 +536,7 @@ export function useReorderAttribute() {
                 attributeId,
                 newSortOrder,
                 newParentAttributeId,
+                mergedOrderIds,
                 autoRenameCodename
             )
             return response.data
@@ -615,6 +618,18 @@ export function useReorderAttribute() {
                 const reorderUpdater = (old: Record<string, unknown> | undefined) => {
                     if (!old || !Array.isArray((old as Record<string, unknown> & { items?: unknown[] }).items)) return old
                     const items = [...(old as Record<string, unknown> & { items: Record<string, unknown>[] }).items]
+
+                    if (Array.isArray(variables.mergedOrderIds) && variables.mergedOrderIds.length > 0) {
+                        return {
+                            ...old,
+                            items: applyMergedSharedEntityOrder(items, variables.mergedOrderIds).map((item, idx) => ({
+                                ...item,
+                                sortOrder: idx + 1,
+                                effectiveSortOrder: idx + 1
+                            }))
+                        }
+                    }
+
                     const fromIndex = items.findIndex((i) => (i as Record<string, unknown>).id === variables.attributeId)
                     if (fromIndex === -1) return old
                     let toIndex = items.findIndex((i) => ((i as Record<string, unknown>).sortOrder ?? 0) === variables.newSortOrder)

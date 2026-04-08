@@ -96,7 +96,10 @@ if (!userId) return
 -   **SDK surface layout**: `@universo/extension-sdk` now keeps a stable root authoring import while physically splitting the source-only SDK into `types`, `decorators`, `ExtensionScript`, `registry`, `widget`, and `apis/*` modules.
 -   **Explicit dual-target rule**: shared script methods use the explicit `server_and_client` target via `@AtServerAndClient()`; undecorated helpers stay private, lifecycle handlers remain server-only, and runtime client/public-RPC filtering must use the shared target helpers instead of direct `'client'` / `'server'` equality checks.
 -   **Authoring scope**: v1 authoring is limited to `embedded` sources. Future `external` and `visual` seams remain explicit but are not enabled in the design-time UI or backend validation path.
+-   **Common scripts authoring seam**: `@universo/metahubs-frontend` now reuses `EntityScriptsTab` directly for the Common page via `attachedToKind='general'` and `attachedToId=null`; this mode is editable without saving a concrete entity id and is locked to the `library` module role.
+-   **Fail-closed scope seam**: `MetahubScriptsService` is the server-side source of truth for Common/shared-library scope compatibility: `general` requires `library`, new `library` authoring outside Common/general is rejected, and unchanged legacy out-of-scope rows are preserved only for no-scope-transition maintenance updates.
 -   **Compiler boundary**: embedded script compilation is SDK-only. `@universo/scripting-engine` now rejects unsupported static imports plus `require()`, dynamic `import()`, and `import.meta` before bundling, leaving `@universo/extension-sdk` as the only supported authoring import surface.
+-   **Publication ordering seam**: `MetahubScriptsService.listPublishedScripts()` now preloads active shared-library sources once, validates `general/library` rows in topological `@shared/*` dependency order, recompiles only consumer scripts that import shared libraries, and keeps library rows out of runtime `snapshot.scripts`.
 -   **SDK compatibility boundary**: `sdkApiVersion` is enforced as a real shared contract rather than informational metadata. The current supported set is explicitly `1.0.0`, and unsupported or mismatched record/manifest metadata now fails during compilation, metahub authoring, publication/runtime normalization, and runtime script loading.
 -   **Benchmark seam**: reproducible benchmark evidence now lives in `@universo/scripting-engine`; the latest recorded proof is `coldStartMs 7.13`, `meanMs 1.596`, `p95Ms 2.127`.
 -   **Payload contract**: runtime script list payloads must not expose executable bundle bodies. Applications backend serves client bundles through a dedicated cacheable endpoint, while `serverBundle` remains backend-only.
@@ -134,12 +137,44 @@ if (!userId) return
 -   **Design-time storage**: `_mhb_layouts` now scopes catalog layouts through `catalog_id` and links them to a global source through `base_layout_id`; catalog-owned widgets remain in `_mhb_widgets`, and sparse inherited-widget deltas live in `_mhb_catalog_widget_overrides`.
 -   **Behavior-config seam**: the selected layout stores `showCreateButton`, `searchMode`, and `createSurface` / `editSurface` / `copySurface` as a nested `catalogBehavior` block inside layout `config`, reusing the existing catalog runtime setting shape. The global layout is the default catalog baseline until a catalog-specific layout exists; catalog object `runtimeConfig` is no longer the canonical behavior source for this flow.
 -   **Catalog CRUD/API seam**: metahubs frontend catalog payloads/types and metahubs backend catalog create/update/copy/get flows no longer expose `runtimeConfig`; legacy persisted `config.runtimeConfig` is explicitly stripped during update/copy so behavior ownership stays fully in layout `catalogBehavior`.
--   **Inherited-widget contract**: catalog layout widget payloads expose `isInherited`; inherited widgets remain draggable and toggleable, but config edits, deletion, and direct reassignment fail closed in the backend service layer.
+-   **Inherited-widget contract**: catalog layout widget payloads expose `isInherited`; inherited config stays read-only, and inherited drag/toggle/exclude behavior is gated by base-widget `config.sharedBehavior` (`positionLocked`, `canDeactivate`, `canExclude`). Global layout widget editing now exposes those three behavior toggles for menu/columns/quiz widgets plus a generic behavior-only dialog for widgets without dedicated config editors.
 -   **Sparse config/materialization seam**: design-time catalog layouts strip dashboard widget-visibility booleans from stored config so catalog layouts remain sparse overlays rather than copied full-config forks. Publication/runtime materialization reconstructs those booleans from effective widget placement when flattening rows into `_app_layouts`.
 -   **Snapshot export seam**: `attachLayoutsToSnapshot()` now serializes the full design-time global/catalog layout set and filters override rows to exported catalog layouts, while `defaultLayoutId` still resolves from the active/default global baseline for runtime consumers.
 -   **Embedded authoring seam**: the catalog dialog Layout tab now renders a pure embedded layout manager with no legacy fallback form, no standalone page-shell gutters, and shared adaptive-search toolbar behavior from `ViewHeader`.
 -   **Publication/runtime seam**: snapshot export and application sync flatten merged catalog layouts into ordinary `catalog_id`-scoped `_app_layouts` and `_app_widgets` rows. Inherited override config is not materialized at runtime; inherited widgets always use base widget config.
 -   **Frontend cache seam**: because the shared QueryClient keeps layout data fresh for 5 minutes, global layout config/widget mutations must invalidate the whole layouts root so cached inherited catalog layout views do not stay stale inside one SPA session.
+
+#### 3.2.10 Shared Snapshot V2 Runtime Materialization Contract (2026-04-07)
+-   **Snapshot export surface**: metahub/publication snapshot export now emits `sharedAttributes`, `sharedConstants`, `sharedEnumerationValues`, and `sharedEntityOverrides` in addition to the existing local entity sections; serializer call sites must pass `SharedContainerService` and `SharedEntityOverridesService` or the shared sections will be omitted.
+-   **Snapshot format version**: the shared-entity export/import seam now uses `versionEnvelope.snapshotFormatVersion = 2`. Backward compatibility is preserved by treating the shared sections as optional during import/materialization, so older v1 snapshots without those sections still restore correctly.
+-   **Runtime flattening seam**: publication runtime loading and publication-controller DDL/runtime sync must call `SnapshotSerializer.materializeSharedEntitiesForRuntime(...)` before `deserializeSnapshot(...)` and `enrichDefinitionsWithSetConstants(...)`. The raw publication snapshot remains stored separately for integrity/history, but runtime/schema consumers must use the materialized view.
+-   **Application sync hash seam**: applications-backend sync/release-bundle flows that consume the materialized runtime snapshot must hash that materialized snapshot rather than reuse the stored raw publication snapshot hash, because shared flattening changes the executable snapshot shape.
+-   **Applications runtime id-scoping seam**: applications-backend now normalizes the materialized publication runtime source before diff/sync, scoping repeated shared field ids per target entity, scoping repeated shared enumeration value ids per target enumeration object, and rewriting predefined element REF->enumeration ids to the scoped runtime ids when duplicates exist across targets.
+-   **Import seam**: `SnapshotRestoreService.restoreFromSnapshot(...)` now recreates the three virtual shared containers (`shared-catalog-pool`, `shared-set-pool`, `shared-enumeration-pool`), restores shared attrs/constants/values into those containers, and remaps `_mhb_shared_entity_overrides` to the restored target/shared entity ids.
+-   **Hash seam**: canonical publication snapshot hash normalization now includes all four shared sections, so checksum/envelope validation changes when shared export content drifts.
+-   **Validation seam**: after changing exported snapshot-format helpers in `@universo/types`, rebuild that package before downstream focused backend builds because `@universo/metahubs-backend` may resolve the built type declarations during package-local compilation.
+
+#### 3.2.11 Request-Scoped Shared Override Transaction Contract (2026-04-07)
+-   **Explicit runner seam**: `SharedEntityOverridesService.upsertOverride(...)` now accepts an explicit `db` runner so request-scoped Common/shared override routes can reuse the current request executor and parent mutation flows can reuse their active `tx`.
+-   **RLS safety rule**: request-scoped metahub routes must pass the request executor through that seam instead of reopening nested savepoints for override upserts, and parent merged-order flows must pass their active transaction runner for the same reason.
+-   **Regression seam**: focused service coverage now proves the explicit-runner path does not call `exec.transaction()` again.
+-   **Closure proof**: the final Chromium `metahub-shared-common.spec.ts` flow is green after this runner reuse plus the runtime hash alignment, confirming the shipped Common/shared override/browser contract end to end.
+
+#### 3.2.12 Shared Exclusion Save Cycle And Container Ensure Contract (2026-04-07)
+-   **Dialog-state seam**: `SharedEntitySettingsFields` now keeps exclusion toggles in local form state under `_sharedExcludedTargetIds` instead of writing override rows immediately. Shared attribute/constant/value save handlers sync only the changed `isExcluded` states after a successful entity save.
+-   **Locking seam**: when `sharedBehavior.canExclude` is turned off inside the same dialog, the UI trims newly added exclusions back to the currently persisted excluded set so the follow-up sync cannot add locked exclusions after the behavior flag is saved.
+-   **Legacy scripting seam**: backend script updates now preserve legacy stored `global` rows when the current UI resubmits the unchanged metahub-scoped role as normalized `library`.
+-   **Shared container authoring seam**: `GET /shared-containers` is now read-only and returns only existing virtual pool ids; Common/shared authoring explicitly ensures missing pool ids through `POST /shared-containers/ensure` before embedding shared entity CRUD surfaces.
+
+#### 3.2.13 Routed Attribute Move Ownership Contract (2026-04-08)
+-   **Controller seam**: `PATCH /metahub/:metahubId/catalog/:catalogId/attribute/:attributeId/move` must load the attribute first and return `404` unless `attribute.catalogId === catalogId` before delegating to `moveAttribute(...)`.
+-   **Service seam**: `MetahubAttributesService.moveAttribute(...)` must query the current and refreshed rows with `id + object_id + ACTIVE` filters, not by bare `id`, so direct callers cannot reorder foreign-catalog or shared-pool rows through a mismatched routed object id.
+-   **Consistency rule**: attribute move must preserve the same routed-object ownership expectations already enforced by update, delete, and reorder.
+-   **Regression seam**: focused route coverage must include foreign-catalog ids and shared-pool ids for the move endpoint so merged/shared list work cannot silently reopen the vulnerability.
+
+#### 3.2.14 Package-Scoped Formatting And Lint Verification Nuance (2026-04-08)
+-   **Prettier cwd seam**: `pnpm --filter <package> exec prettier` runs from the package root, so workspace-root-relative file paths fail with `No files matching the pattern were found`. For explicit workspace-root-relative file lists, run `pnpm exec prettier --write ...` from the repository root instead.
+-   **Lint verification seam**: the metahubs backend/frontend package lint commands fail only on error-level findings; warning-only output still exits `0`. Post-QA closure for this repository therefore has to distinguish release-blocking lint errors from the broader warning backlog when validating a narrow remediation surface.
 
 #### 3.3 Runtime DDL Utilities (schema-ddl)
 -   **Package**: `@universo/schema-ddl` provides shared runtime DDL logic (schema generation, migrations, snapshots).
@@ -259,6 +294,11 @@ if (!userId) return
 - `@universo/rest-docs` now regenerates `src/openapi/index.yml` from live backend route files through `scripts/generate-openapi-source.js` before package validation and build.
 - The package is authoritative for current path and method inventory, but payload schemas remain generic unless promoted from stable backend contracts.
 - GitBook API-reference pages now link to the standalone interactive docs flow and document `pnpm --filter @universo/rest-docs build` plus `start` as the canonical launch path.
+
+### Backend focused test wrapper note (Updated 2026-04-08)
+- `@universo/*-backend` package `test` scripts invoke `tools/testing/backend/run-jest.cjs --config ...` rather than calling Jest or Vitest directly.
+- Focused backend runs must pass test file paths positionally after `--`, for example `pnpm --filter @universo/metahubs-backend test -- src/tests/...`.
+- The Vitest-style `--run` flag is invalid for these backend package scripts; when more control is needed, call `node tools/testing/backend/run-jest.cjs --config <jest-config> <paths>` directly.
 
 ## UPDL Core System (v0.21.0-alpha)
 ### High-Level Abstract Nodes ✅ **COMPLETE**

@@ -2,6 +2,7 @@ import { type Page } from '@playwright/test'
 import { createLocalizedContent } from '@universo/utils'
 import { expect, test } from '../../fixtures/test'
 import { createLoggedInBrowserContext } from '../../support/browser/auth'
+import { waitForSettledMutationResponse } from '../../support/browser/network'
 import {
     disposeBootstrapApiContext,
     createBootstrapApiContext,
@@ -152,8 +153,10 @@ test('@flow @permission admin can manage roles, users, and locales from browser 
         await roleDialog.getByLabel('Name').first().fill(roleName)
         await roleDialog.getByLabel('Code Name').first().fill(roleCodename)
 
-        const createRoleRequest = page.waitForResponse(
-            (response) => response.request().method() === 'POST' && /\/api\/v1\/admin\/roles$/.test(response.url())
+        const createRoleRequest = waitForSettledMutationResponse(
+            page,
+            (response) => response.request().method() === 'POST' && /\/api\/v1\/admin\/roles$/.test(response.url()),
+            { label: 'Creating admin role' }
         )
         await roleDialog.getByRole('button', { name: 'Create' }).click()
         const createRoleResponse = await createRoleRequest
@@ -173,8 +176,10 @@ test('@flow @permission admin can manage roles, users, and locales from browser 
 
         const grantAllToggle = page.getByRole('switch', { name: 'Grant all permissions' })
         await grantAllToggle.check()
-        const savePermissionsRequest = page.waitForResponse(
-            (response) => response.request().method() === 'PATCH' && new RegExp(`/api/v1/admin/roles/${roleId}$`).test(response.url())
+        const savePermissionsRequest = waitForSettledMutationResponse(
+            page,
+            (response) => response.request().method() === 'PATCH' && new RegExp(`/api/v1/admin/roles/${roleId}$`).test(response.url()),
+            { label: 'Saving role permissions' }
         )
         await page.getByRole('button', { name: 'Save permissions' }).click()
         await savePermissionsRequest
@@ -211,8 +216,10 @@ test('@flow @permission admin can manage roles, users, and locales from browser 
         await userDialog.getByLabel('Comment').fill(`Created by Playwright RBAC coverage for ${runManifest.runId}`)
         await selectRoleInUserDialog(page, superUserRole.id, 'Super User')
 
-        const createUserRequest = page.waitForResponse(
-            (response) => response.request().method() === 'POST' && /\/api\/v1\/admin\/global-users\/create-user$/.test(response.url())
+        const createUserRequest = waitForSettledMutationResponse(
+            page,
+            (response) => response.request().method() === 'POST' && /\/api\/v1\/admin\/global-users\/create-user$/.test(response.url()),
+            { label: 'Creating admin user' }
         )
         await userDialog.getByRole('button', { name: 'Create' }).click()
         const createUserResponse = await createUserRequest
@@ -311,8 +318,10 @@ test('@flow @permission admin can manage roles, users, and locales from browser 
         await localeDialog.getByLabel('Native Name').fill(localeNativeName)
         await localeDialog.getByLabel('Name').first().fill(localeNativeName)
 
-        const createLocaleRequest = page.waitForResponse(
-            (response) => response.request().method() === 'POST' && /\/api\/v1\/admin\/locales$/.test(response.url())
+        const createLocaleRequest = waitForSettledMutationResponse(
+            page,
+            (response) => response.request().method() === 'POST' && /\/api\/v1\/admin\/locales$/.test(response.url()),
+            { label: 'Creating locale' }
         )
         await localeDialog.getByRole('button', { name: 'Create' }).click()
         await createLocaleRequest

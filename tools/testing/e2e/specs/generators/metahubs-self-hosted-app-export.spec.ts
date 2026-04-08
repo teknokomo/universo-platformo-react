@@ -20,6 +20,7 @@ import {
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub, recordCreatedApplication } from '../../support/backend/run-manifest.mjs'
 import { repoRoot } from '../../support/env/load-e2e-env.mjs'
+import { SHARED_OBJECT_KINDS } from '@universo/types'
 import { buildVLC, createLocalizedContent, validateSnapshotEnvelope } from '@universo/utils'
 import {
     SELF_HOSTED_APP_CANONICAL_METAHUB,
@@ -28,6 +29,7 @@ import {
     SELF_HOSTED_APP_PUBLICATION,
     SELF_HOSTED_APP_SCREENSHOTS_DIRNAME,
     SELF_HOSTED_APP_SECTIONS,
+    SELF_HOSTED_APP_SHARED_ENTITIES,
     SELF_HOSTED_APP_SETTINGS_LAYOUT,
     SELF_HOSTED_APP_SETTINGS_BASELINE,
     assertSelfHostedAppEnvelopeContract,
@@ -223,6 +225,74 @@ async function seedSettingsBaseline(api: ApiContext, metahubId: string, catalogI
     }
 }
 
+async function ensureSharedContainers(api: ApiContext, metahubId: string) {
+    const response = await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahubId}/shared-containers/ensure`)
+    expect(response.ok).toBe(true)
+    const payload = await response.json()
+    return Array.isArray(payload?.items) ? payload.items : []
+}
+
+async function seedSharedEntities(api: ApiContext, metahubId: string, sectionMap: Record<string, string>) {
+    const sharedContainers = await ensureSharedContainers(api, metahubId)
+    const sharedCatalogContainerId = sharedContainers.find((item) => item?.kind === SHARED_OBJECT_KINDS.SHARED_CATALOG_POOL)?.objectId
+    const sharedSetContainerId = sharedContainers.find((item) => item?.kind === SHARED_OBJECT_KINDS.SHARED_SET_POOL)?.objectId
+    const sharedEnumerationContainerId = sharedContainers.find((item) => item?.kind === SHARED_OBJECT_KINDS.SHARED_ENUM_POOL)?.objectId
+
+    expect(typeof sharedCatalogContainerId).toBe('string')
+    expect(typeof sharedSetContainerId).toBe('string')
+    expect(typeof sharedEnumerationContainerId).toBe('string')
+
+    const sharedAttribute = await createMetahubAttribute(api, metahubId, sharedCatalogContainerId, {
+        codename: buildVLC(
+            SELF_HOSTED_APP_SHARED_ENTITIES.attribute.codename.en,
+            SELF_HOSTED_APP_SHARED_ENTITIES.attribute.codename.ru
+        ),
+        name: SELF_HOSTED_APP_SHARED_ENTITIES.attribute.name,
+        namePrimaryLocale: 'en',
+        dataType: 'STRING',
+        isRequired: false
+    })
+
+    const sharedAttributeId = sharedAttribute?.data?.id ?? sharedAttribute?.id
+    expect(typeof sharedAttributeId).toBe('string')
+
+    const sharedConstantResponse = await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahubId}/set/${sharedSetContainerId}/constants`, {
+        codename: buildVLC(
+            SELF_HOSTED_APP_SHARED_ENTITIES.constant.codename.en,
+            SELF_HOSTED_APP_SHARED_ENTITIES.constant.codename.ru
+        ),
+        name: SELF_HOSTED_APP_SHARED_ENTITIES.constant.name,
+        namePrimaryLocale: 'en',
+        dataType: 'STRING',
+        value: 'shared-fixture-value'
+    })
+    expect(sharedConstantResponse.status).toBeLessThan(300)
+
+    const sharedValueResponse = await sendWithCsrf(
+        api,
+        'POST',
+        `/api/v1/metahub/${metahubId}/enumeration/${sharedEnumerationContainerId}/values`,
+        {
+            codename: buildVLC(
+                SELF_HOSTED_APP_SHARED_ENTITIES.enumerationValue.codename.en,
+                SELF_HOSTED_APP_SHARED_ENTITIES.enumerationValue.codename.ru
+            ),
+            name: SELF_HOSTED_APP_SHARED_ENTITIES.enumerationValue.name,
+            namePrimaryLocale: 'en',
+            isDefault: false
+        }
+    )
+    expect(sharedValueResponse.status).toBeLessThan(300)
+
+    const overrideResponse = await sendWithCsrf(api, 'PATCH', `/api/v1/metahub/${metahubId}/shared-entity-overrides`, {
+        entityKind: 'attribute',
+        sharedEntityId: sharedAttributeId,
+        targetObjectId: sectionMap[SELF_HOSTED_APP_SHARED_ENTITIES.attribute.excludedCatalogSectionCodename],
+        isExcluded: true
+    })
+    expect(overrideResponse.status).toBeLessThan(300)
+}
+
 /* ────── Constants ────── */
 
 const FIXTURES_DIR = path.resolve(repoRoot, 'tools', 'fixtures')
@@ -315,6 +385,8 @@ test.describe('Metahubs Self-Hosted App Export', () => {
         }
 
         expect(Object.keys(sectionMap).length).toBe(SELF_HOSTED_APP_SECTIONS.length)
+
+        await seedSharedEntities(api, metahubId, sectionMap)
 
         const defaultLayoutId = await applyEnhancedLayoutConfig(api, metahubId)
 

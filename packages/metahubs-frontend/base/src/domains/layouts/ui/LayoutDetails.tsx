@@ -50,6 +50,8 @@ import { getVLCString, normalizeLocale } from '../../../types'
 import MenuWidgetEditorDialog from './MenuWidgetEditorDialog'
 import ColumnsContainerEditorDialog from './ColumnsContainerEditorDialog'
 import QuizWidgetEditorDialog from './QuizWidgetEditorDialog'
+import WidgetBehaviorEditorDialog from './WidgetBehaviorEditorDialog'
+import { getSharedBehaviorFromWidgetConfig } from './LayoutWidgetSharedBehaviorFields'
 
 type AddWidgetMenuState = {
     anchorEl: HTMLElement | null
@@ -77,6 +79,12 @@ type QuizEditorState = {
     zone: DashboardLayoutZone | null
     widgetId: string | null
     config: QuizWidgetConfig | null
+}
+
+type WidgetBehaviorEditorState = {
+    open: boolean
+    widgetId: string | null
+    config: Record<string, unknown> | null
 }
 
 const EMPTY_ZONE_WIDGETS: MetahubLayoutZoneWidget[] = []
@@ -137,6 +145,7 @@ function SortableWidgetChip({
         >
             <IconButton
                 size='small'
+                data-testid={`layout-widget-drag-${id}`}
                 disabled={!draggable}
                 sx={{ cursor: draggable ? 'grab' : 'default' }}
                 {...attributes}
@@ -239,6 +248,11 @@ export default function LayoutDetails() {
     const [menuEditor, setMenuEditor] = useState<MenuEditorState>({ open: false, zone: null, widgetId: null, config: null })
     const [columnsEditor, setColumnsEditor] = useState<ColumnsEditorState>({ open: false, zone: null, widgetId: null, config: null })
     const [quizEditor, setQuizEditor] = useState<QuizEditorState>({ open: false, zone: null, widgetId: null, config: null })
+    const [widgetBehaviorEditor, setWidgetBehaviorEditor] = useState<WidgetBehaviorEditorState>({
+        open: false,
+        widgetId: null,
+        config: null
+    })
     const [viewSettingsSaving, setViewSettingsSaving] = useState(false)
 
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
@@ -265,11 +279,11 @@ export default function LayoutDetails() {
     })
 
     const cachedMetahub = metahubId ? queryClient.getQueryData<Metahub>(metahubsQueryKeys.detail(metahubId)) : undefined
-    const canManageLayouts =
-        (metahubDetailsQuery.data?.permissions ?? cachedMetahub?.permissions)?.manageMetahub === true
+    const canManageLayouts = (metahubDetailsQuery.data?.permissions ?? cachedMetahub?.permissions)?.manageMetahub === true
     const layout = layoutQuery.data as MetahubLayout | undefined
     const zoneWidgets = zoneWidgetsQuery.data ?? EMPTY_ZONE_WIDGETS
     const widgetCatalog = widgetCatalogQuery.data ?? EMPTY_WIDGET_CATALOG
+    const isGlobalLayout = layout?.catalogId == null
     const uiLocale = normalizeLocale(i18n.language)
     const layoutName = layout ? getVLCString(layout.name, uiLocale) || getVLCString(layout.name, 'en') || layout.templateKey : ''
     const catalogBehaviorConfig = useMemo(
@@ -459,6 +473,9 @@ export default function LayoutDetails() {
 
         const currentItem = zoneWidgets.find((item) => item.id === activeWidgetId)
         if (!currentItem) return
+        if (currentItem.isInherited && getSharedBehaviorFromWidgetConfig(currentItem.config).positionLocked) {
+            return
+        }
 
         let targetZone = currentItem.zone
         let targetIndex = 0
@@ -523,6 +540,10 @@ export default function LayoutDetails() {
 
     const handleRemoveWidget = async (widgetId: string) => {
         if (!metahubId || !layoutId || !canManageLayouts) return
+        const currentItem = zoneWidgets.find((item) => item.id === widgetId)
+        if (currentItem?.isInherited && !getSharedBehaviorFromWidgetConfig(currentItem.config).canExclude) {
+            return
+        }
         try {
             await layoutsApi.removeLayoutZoneWidget(metahubId, layoutId, widgetId)
             await persistAndRefresh()
@@ -547,6 +568,10 @@ export default function LayoutDetails() {
 
     const handleToggleWidgetActive = async (widgetId: string, isActive: boolean) => {
         if (!metahubId || !layoutId || !canManageLayouts) return
+        const currentItem = zoneWidgets.find((item) => item.id === widgetId)
+        if (currentItem?.isInherited && !getSharedBehaviorFromWidgetConfig(currentItem.config).canDeactivate) {
+            return
+        }
 
         const zoneWidgetsKey = metahubsQueryKeys.layoutZoneWidgets(metahubId, layoutId)
         const previousData = queryClient.getQueryData<MetahubLayoutZoneWidget[]>(zoneWidgetsKey)
@@ -644,7 +669,9 @@ export default function LayoutDetails() {
                                                 })
                                             }
                                         >
-                                            <MenuItem value='page-local'>{t('catalogs.runtime.searchModePageLocal', 'Page-local')}</MenuItem>
+                                            <MenuItem value='page-local'>
+                                                {t('catalogs.runtime.searchModePageLocal', 'Page-local')}
+                                            </MenuItem>
                                             <MenuItem value='server'>{t('catalogs.runtime.searchModeServer', 'Server')}</MenuItem>
                                         </Select>
                                     </FormControl>
@@ -840,48 +867,69 @@ export default function LayoutDetails() {
                                                                 const isColumnsContainer = item.widgetKey === 'columnsContainer'
                                                                 const isQuizWidget = item.widgetKey === 'quizWidget'
                                                                 const isInheritedWidget = item.isInherited === true
-                                                                const canManageWidget = canManageLayouts && !isInheritedWidget
-                                                                const openEditor = isMenuWidget
-                                                                    ? () =>
-                                                                          setMenuEditor({
-                                                                              open: true,
-                                                                              zone,
-                                                                              widgetId: item.id,
-                                                                              config: (item.config as MenuWidgetConfig) ?? null
-                                                                          })
-                                                                    : isColumnsContainer
-                                                                    ? () =>
-                                                                          setColumnsEditor({
-                                                                              open: true,
-                                                                              zone,
-                                                                              widgetId: item.id,
-                                                                              config: (item.config as ColumnsContainerConfig) ?? null
-                                                                          })
-                                                                    : isQuizWidget
-                                                                    ? () =>
-                                                                          setQuizEditor({
-                                                                              open: true,
-                                                                              zone,
-                                                                              widgetId: item.id,
-                                                                              config: (item.config as QuizWidgetConfig) ?? null
-                                                                          })
-                                                                    : undefined
+                                                                const sharedBehavior = getSharedBehaviorFromWidgetConfig(item.config)
+                                                                const canDragWidget =
+                                                                    canManageLayouts &&
+                                                                    (!isInheritedWidget || !sharedBehavior.positionLocked)
+                                                                const canToggleWidget =
+                                                                    canManageLayouts && (!isInheritedWidget || sharedBehavior.canDeactivate)
+                                                                const canRemoveWidget =
+                                                                    canManageLayouts && (!isInheritedWidget || sharedBehavior.canExclude)
+                                                                const openEditor =
+                                                                    !isInheritedWidget && isMenuWidget
+                                                                        ? () =>
+                                                                              setMenuEditor({
+                                                                                  open: true,
+                                                                                  zone,
+                                                                                  widgetId: item.id,
+                                                                                  config: (item.config as MenuWidgetConfig) ?? null
+                                                                              })
+                                                                        : !isInheritedWidget && isColumnsContainer
+                                                                        ? () =>
+                                                                              setColumnsEditor({
+                                                                                  open: true,
+                                                                                  zone,
+                                                                                  widgetId: item.id,
+                                                                                  config: (item.config as ColumnsContainerConfig) ?? null
+                                                                              })
+                                                                        : !isInheritedWidget && isQuizWidget
+                                                                        ? () =>
+                                                                              setQuizEditor({
+                                                                                  open: true,
+                                                                                  zone,
+                                                                                  widgetId: item.id,
+                                                                                  config: (item.config as QuizWidgetConfig) ?? null
+                                                                              })
+                                                                        : !isInheritedWidget && isGlobalLayout
+                                                                        ? () =>
+                                                                              setWidgetBehaviorEditor({
+                                                                                  open: true,
+                                                                                  widgetId: item.id,
+                                                                                  config:
+                                                                                      item.config &&
+                                                                                      typeof item.config === 'object' &&
+                                                                                      !Array.isArray(item.config)
+                                                                                          ? { ...(item.config as Record<string, unknown>) }
+                                                                                          : {}
+                                                                              })
+                                                                        : undefined
+                                                                const canEditWidget = canManageLayouts && Boolean(openEditor)
                                                                 return (
                                                                     <SortableWidgetChip
                                                                         key={item.id}
                                                                         id={item.id}
                                                                         label={getWidgetChipLabel(item)}
                                                                         isActive={item.isActive}
-                                                                        draggable={canManageLayouts}
+                                                                        draggable={canDragWidget}
                                                                         onRemove={
-                                                                            canManageWidget
+                                                                            canRemoveWidget
                                                                                 ? () => void handleRemoveWidget(item.id)
                                                                                 : undefined
                                                                         }
-                                                                        onClick={canManageWidget ? openEditor : undefined}
-                                                                        onEdit={canManageWidget ? openEditor : undefined}
+                                                                        onClick={canEditWidget ? openEditor : undefined}
+                                                                        onEdit={canEditWidget ? openEditor : undefined}
                                                                         onToggleActive={
-                                                                            canManageLayouts
+                                                                            canToggleWidget
                                                                                 ? (active) => void handleToggleWidgetActive(item.id, active)
                                                                                 : undefined
                                                                         }
@@ -890,18 +938,18 @@ export default function LayoutDetails() {
                                                                                 ? t('layouts.details.inheritedBadge', 'Inherited')
                                                                                 : undefined
                                                                         }
-                                                                        editTooltip={
-                                                                            canManageWidget && (isMenuWidget || isColumnsContainer || isQuizWidget)
-                                                                                ? t('common:actions.edit')
+                                                                        editTooltip={canEditWidget ? t('common:actions.edit') : undefined}
+                                                                        removeTooltip={
+                                                                            canRemoveWidget
+                                                                                ? isInheritedWidget
+                                                                                    ? t('layouts.actions.exclude', 'Exclude')
+                                                                                    : t('common:actions.delete')
                                                                                 : undefined
                                                                         }
-                                                                        removeTooltip={
-                                                                            canManageWidget ? t('common:actions.delete') : undefined
-                                                                        }
                                                                         toggleActiveTooltip={
-                                                                            canManageLayouts && item.isActive
+                                                                            canToggleWidget && item.isActive
                                                                                 ? t('layouts.actions.deactivate', 'Deactivate')
-                                                                                : canManageLayouts
+                                                                                : canToggleWidget
                                                                                 ? t('layouts.actions.activate', 'Activate')
                                                                                 : undefined
                                                                         }
@@ -967,6 +1015,7 @@ export default function LayoutDetails() {
                 open={menuEditor.open}
                 metahubId={metahubId}
                 config={menuEditor.config ?? undefined}
+                showSharedBehavior={isGlobalLayout}
                 onSave={async (config) => {
                     const zone = menuEditor.zone
                     const widgetId = menuEditor.widgetId
@@ -1005,6 +1054,7 @@ export default function LayoutDetails() {
             <ColumnsContainerEditorDialog
                 open={columnsEditor.open}
                 config={columnsEditor.config ?? undefined}
+                showSharedBehavior={isGlobalLayout}
                 onSave={async (config) => {
                     const zone = columnsEditor.zone
                     const widgetId = columnsEditor.widgetId
@@ -1041,6 +1091,7 @@ export default function LayoutDetails() {
                 open={quizEditor.open}
                 metahubId={metahubId}
                 config={quizEditor.config ?? undefined}
+                showSharedBehavior={isGlobalLayout}
                 onSave={async (config) => {
                     const zone = quizEditor.zone
                     const widgetId = quizEditor.widgetId
@@ -1071,6 +1122,24 @@ export default function LayoutDetails() {
                     }
                 }}
                 onCancel={() => setQuizEditor({ open: false, zone: null, widgetId: null, config: null })}
+            />
+
+            <WidgetBehaviorEditorDialog
+                open={widgetBehaviorEditor.open}
+                config={widgetBehaviorEditor.config ?? undefined}
+                onSave={async (config) => {
+                    const widgetId = widgetBehaviorEditor.widgetId
+                    if (!widgetId || !metahubId || !layoutId) return
+                    try {
+                        const response = await layoutsApi.updateLayoutZoneWidgetConfig(metahubId, layoutId, widgetId, config)
+                        upsertZoneWidgetInCache(response.data.item)
+                        await persistAndRefresh()
+                        setWidgetBehaviorEditor({ open: false, widgetId: null, config: null })
+                    } catch (e: unknown) {
+                        notifyError(t, enqueueSnackbar, e)
+                    }
+                }}
+                onCancel={() => setWidgetBehaviorEditor({ open: false, widgetId: null, config: null })}
             />
         </MainCard>
     )

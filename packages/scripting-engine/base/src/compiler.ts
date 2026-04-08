@@ -1,6 +1,6 @@
 import { createHash } from 'crypto'
 import { parse } from 'acorn'
-import { build } from 'esbuild'
+import { build, type Plugin } from 'esbuild'
 import * as ts from 'typescript'
 import {
     DEFAULT_SCRIPT_MODULE_ROLE,
@@ -12,8 +12,10 @@ import {
     resolveScriptSdkApiVersion,
     type CompiledScriptArtifact,
     type ScriptCompilationInput,
+    type ScriptCompilationLibraryInput,
     type ScriptManifest,
     type ScriptMethodManifest,
+    type ScriptModuleRole,
     type ScriptMethodTarget
 } from '@universo/types'
 
@@ -54,6 +56,25 @@ const METHOD_DECORATORS = {
 } as const
 
 const ALLOWED_SCRIPT_IMPORTS = new Set(['@universo/extension-sdk'])
+const SHARED_LIBRARY_IMPORT_PREFIX = '@shared/'
+const ROOT_SHARED_LIBRARY_NODE = '__root__'
+
+const isSharedLibraryImport = (value: string): boolean => value.startsWith(SHARED_LIBRARY_IMPORT_PREFIX)
+
+const extractSharedLibraryCodename = (value: string): string | null => {
+    if (!isSharedLibraryImport(value)) {
+        return null
+    }
+
+    const codename = value.slice(SHARED_LIBRARY_IMPORT_PREFIX.length).trim()
+    if (!/^[a-z][a-z0-9-]*$/.test(codename)) {
+        throw new Error(`Invalid shared library codename: "${codename}"`)
+    }
+
+    return codename
+}
+
+const isAllowedScriptImport = (value: string): boolean => ALLOWED_SCRIPT_IMPORTS.has(value) || isSharedLibraryImport(value)
 
 const getDecorators = (node: ts.Node): readonly ts.Decorator[] => {
     if (!ts.canHaveDecorators(node)) {
@@ -114,22 +135,32 @@ const resolveTarget = (decorators: readonly ts.Decorator[]): ScriptMethodTarget 
     return 'server'
 }
 
-const findScriptClass = (sourceFile: ts.SourceFile): ts.ClassDeclaration => {
+const resolveExtendedBaseClassName = (node: ts.ClassDeclaration): string | null => {
+    const heritageClause = node.heritageClauses?.find((clause) => clause.token === ts.SyntaxKind.ExtendsKeyword)
+    const baseType = heritageClause?.types[0]
+    if (!baseType) {
+        return null
+    }
+
+    const expression = baseType.expression
+    if (ts.isIdentifier(expression)) {
+        return expression.text
+    }
+
+    return null
+}
+
+const findScriptClass = (sourceFile: ts.SourceFile, moduleRole: ScriptModuleRole): ts.ClassDeclaration => {
     let firstClass: ts.ClassDeclaration | null = null
-    let extensionClass: ts.ClassDeclaration | null = null
+    let preferredClass: ts.ClassDeclaration | null = null
+    const preferredBaseClassName = moduleRole === 'library' ? 'SharedLibraryScript' : 'ExtensionScript'
 
     const visit = (node: ts.Node): void => {
         if (ts.isClassDeclaration(node)) {
             firstClass ??= node
 
-            const heritageClause = node.heritageClauses?.find((clause) => clause.token === ts.SyntaxKind.ExtendsKeyword)
-            const extendsExtensionScript = heritageClause?.types.some((typeNode) => {
-                const expression = typeNode.expression
-                return ts.isIdentifier(expression) && expression.text === 'ExtensionScript'
-            })
-
-            if (extendsExtensionScript) {
-                extensionClass = node
+            if (resolveExtendedBaseClassName(node) === preferredBaseClassName) {
+                preferredClass = node
             }
         }
 
@@ -138,7 +169,7 @@ const findScriptClass = (sourceFile: ts.SourceFile): ts.ClassDeclaration => {
 
     visit(sourceFile)
 
-    const selectedClass = extensionClass ?? firstClass
+    const selectedClass = preferredClass ?? firstClass
 
     if (!selectedClass) {
         throw new Error('Script source must contain a class declaration')
@@ -148,6 +179,54 @@ const findScriptClass = (sourceFile: ts.SourceFile): ts.ClassDeclaration => {
 }
 
 const normalizeImportSpecifier = (value: string): string => value.trim()
+
+const collectStaticImportSpecifiers = (sourceFile: ts.SourceFile): string[] => {
+    const imports = new Set<string>()
+
+    const addImport = (value: string) => {
+        imports.add(normalizeImportSpecifier(value))
+    }
+
+    const visit = (node: ts.Node): void => {
+        if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
+            addImport(node.moduleSpecifier.text)
+        } else if (ts.isExportDeclaration(node) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
+            addImport(node.moduleSpecifier.text)
+        } else if (
+            ts.isImportEqualsDeclaration(node) &&
+            ts.isExternalModuleReference(node.moduleReference) &&
+            ts.isStringLiteral(node.moduleReference.expression)
+        ) {
+            addImport(node.moduleReference.expression.text)
+        } else if (ts.isImportTypeNode(node)) {
+            const argument = node.argument
+
+            if (ts.isLiteralTypeNode(argument) && ts.isStringLiteral(argument.literal)) {
+                addImport(argument.literal.text)
+            }
+        }
+
+        ts.forEachChild(node, visit)
+    }
+
+    visit(sourceFile)
+
+    return [...imports].sort()
+}
+
+export const extractSharedScriptImports = (sourceCode: string): string[] => {
+    const sourceFile = ts.createSourceFile('extension-script.ts', sourceCode, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
+    const sharedImports = new Set<string>()
+
+    for (const importSpecifier of collectStaticImportSpecifiers(sourceFile)) {
+        const codename = extractSharedLibraryCodename(importSpecifier)
+        if (codename) {
+            sharedImports.add(codename)
+        }
+    }
+
+    return [...sharedImports].sort()
+}
 
 const collectBindingIdentifiers = (name: ts.BindingName): string[] => {
     if (ts.isIdentifier(name)) {
@@ -380,7 +459,7 @@ const validateScriptSource = (sourceFile: ts.SourceFile): void => {
 
     const addImport = (value: string) => {
         const normalized = normalizeImportSpecifier(value)
-        if (!ALLOWED_SCRIPT_IMPORTS.has(normalized)) {
+        if (!isAllowedScriptImport(normalized)) {
             unsupportedImports.add(normalized)
         }
     }
@@ -447,18 +526,126 @@ const validateScriptSource = (sourceFile: ts.SourceFile): void => {
     if (violations.length > 0) {
         throw new Error(
             `Embedded script source contains unsupported module-loading patterns (${violations.join('; ')}). ` +
-                `Only ${[...ALLOWED_SCRIPT_IMPORTS].join(', ')} imports are supported.`
+                `Only ${[...ALLOWED_SCRIPT_IMPORTS].join(', ')} and ${SHARED_LIBRARY_IMPORT_PREFIX}* imports are supported.`
         )
     }
+}
+
+const isThisCtxAccess = (node: ts.PropertyAccessExpression): boolean => {
+    if (ts.isThis(node.expression) && node.name.text === 'ctx') {
+        return true
+    }
+
+    let current: ts.Expression = node.expression
+    while (ts.isPropertyAccessExpression(current)) {
+        if (ts.isThis(current.expression) && current.name.text === 'ctx') {
+            return true
+        }
+        current = current.expression
+    }
+
+    return false
+}
+
+const validateLibraryScriptSource = (sourceFile: ts.SourceFile, selectedClass: ts.ClassDeclaration): void => {
+    const forbiddenDecorators = new Set<string>()
+    let hasCtxAccess = false
+
+    const selectedClassBaseName = resolveExtendedBaseClassName(selectedClass)
+    if (selectedClassBaseName === 'ExtensionScript') {
+        throw new Error('Library scripts cannot extend ExtensionScript. Use SharedLibraryScript or a plain helper class instead.')
+    }
+
+    if (selectedClassBaseName && selectedClassBaseName !== 'SharedLibraryScript') {
+        throw new Error('Library scripts can extend only SharedLibraryScript or a plain helper class.')
+    }
+
+    const visit = (node: ts.Node): void => {
+        for (const decorator of getDecorators(node)) {
+            const decoratorName = getDecoratorName(decorator)
+            if (decoratorName && Object.values(METHOD_DECORATORS).includes(decoratorName as (typeof METHOD_DECORATORS)[keyof typeof METHOD_DECORATORS])) {
+                forbiddenDecorators.add(decoratorName)
+            }
+        }
+
+        if (ts.isPropertyAccessExpression(node) && isThisCtxAccess(node)) {
+            hasCtxAccess = true
+        }
+
+        ts.forEachChild(node, visit)
+    }
+
+    visit(sourceFile)
+
+    if (forbiddenDecorators.size > 0) {
+        throw new Error(`Library scripts cannot use runtime decorators: ${[...forbiddenDecorators].sort().join(', ')}`)
+    }
+
+    if (hasCtxAccess) {
+        throw new Error('Library scripts cannot access this.ctx or runtime-bound SDK APIs.')
+    }
+}
+
+const resolveSharedLibraryDependencyOrder = (input: ScriptCompilationInput): string[] => {
+    const moduleRole = normalizeScriptModuleRole(input.moduleRole ?? DEFAULT_SCRIPT_MODULE_ROLE)
+    const sharedLibrarySources = new Map<string, string>()
+
+    for (const [codename, library] of Object.entries(input.sharedLibraries ?? {})) {
+        sharedLibrarySources.set(codename, library.sourceCode)
+    }
+
+    const rootNode = moduleRole === 'library' ? input.codename : ROOT_SHARED_LIBRARY_NODE
+    sharedLibrarySources.set(rootNode, input.sourceCode)
+
+    const visited = new Set<string>()
+    const visiting: string[] = []
+    const ordered: string[] = []
+
+    const visit = (codename: string): void => {
+        if (visited.has(codename)) {
+            return
+        }
+
+        const cycleStartIndex = visiting.indexOf(codename)
+        if (cycleStartIndex >= 0) {
+            const cycle = [...visiting.slice(cycleStartIndex), codename].map((item) =>
+                item === ROOT_SHARED_LIBRARY_NODE ? input.codename : item
+            )
+            throw new Error(`Circular @shared imports detected: ${cycle.join(' -> ')}`)
+        }
+
+        const sourceCode = sharedLibrarySources.get(codename)
+        if (!sourceCode) {
+            throw new Error(`Shared library "${SHARED_LIBRARY_IMPORT_PREFIX}${codename}" not found in metahub`)
+        }
+
+        visiting.push(codename)
+        for (const dependency of extractSharedScriptImports(sourceCode)) {
+            visit(dependency)
+        }
+        visiting.pop()
+
+        visited.add(codename)
+        ordered.push(codename)
+    }
+
+    visit(rootNode)
+
+    return ordered.filter((codename) => codename !== rootNode)
 }
 
 const analyzeScriptSource = (input: ScriptCompilationInput): ScriptAnalysis => {
     const sdkApiVersion = resolveScriptSdkApiVersion({
         sdkApiVersion: input.sdkApiVersion ?? DEFAULT_SCRIPT_SDK_API_VERSION
     })
+    const moduleRole = normalizeScriptModuleRole(input.moduleRole ?? DEFAULT_SCRIPT_MODULE_ROLE)
     const sourceFile = ts.createSourceFile('extension-script.ts', input.sourceCode, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
     validateScriptSource(sourceFile)
-    const selectedClass = findScriptClass(sourceFile)
+    resolveSharedLibraryDependencyOrder(input)
+    const selectedClass = findScriptClass(sourceFile, moduleRole)
+    if (moduleRole === 'library') {
+        validateLibraryScriptSource(sourceFile, selectedClass)
+    }
     const topLevelBindings = collectTopLevelRuntimeBindings(sourceFile, selectedClass)
     const methods: DecoratedMethod[] = []
     const manifestMethods: ScriptMethodManifest[] = []
@@ -519,9 +706,9 @@ const analyzeScriptSource = (input: ScriptCompilationInput): ScriptAnalysis => {
         manifest: {
             className: selectedClass.name?.text ?? 'ExtensionScriptModule',
             sdkApiVersion,
-            moduleRole: normalizeScriptModuleRole(input.moduleRole ?? DEFAULT_SCRIPT_MODULE_ROLE),
+            moduleRole,
             sourceKind: normalizeScriptSourceKind(input.sourceKind ?? DEFAULT_SCRIPT_SOURCE_KIND),
-            capabilities: normalizeScriptCapabilities(input.moduleRole ?? DEFAULT_SCRIPT_MODULE_ROLE, input.capabilities),
+            capabilities: normalizeScriptCapabilities(moduleRole, input.capabilities),
             methods: manifestMethods
         },
         methods
@@ -559,7 +746,39 @@ const applyBundleTransform = (sourceCode: string, methods: readonly DecoratedMet
     return transformed
 }
 
-const bundleSource = async (sourceCode: string, platform: 'node' | 'browser'): Promise<string> => {
+const createSharedLibraryPlugin = (sharedLibraries?: Record<string, ScriptCompilationLibraryInput>): Plugin => ({
+    name: 'universo-shared-library',
+    setup(buildApi) {
+        buildApi.onResolve({ filter: /^@shared\// }, (args) => ({
+            path: args.path,
+            namespace: 'universo-shared-library'
+        }))
+
+        buildApi.onLoad({ filter: /.*/, namespace: 'universo-shared-library' }, async (args) => {
+            const codename = extractSharedLibraryCodename(args.path)
+            if (!codename) {
+                throw new Error(`Unsupported shared library import: ${args.path}`)
+            }
+
+            const library = sharedLibraries?.[codename]
+            if (!library) {
+                throw new Error(`Shared library "${args.path}" not found in metahub`)
+            }
+
+            return {
+                contents: library.sourceCode,
+                loader: 'ts',
+                resolveDir: process.cwd()
+            }
+        })
+    }
+})
+
+const bundleSource = async (
+    sourceCode: string,
+    platform: 'node' | 'browser',
+    sharedLibraries?: Record<string, ScriptCompilationLibraryInput>
+): Promise<string> => {
     const result = await build({
         stdin: {
             contents: sourceCode,
@@ -573,6 +792,7 @@ const bundleSource = async (sourceCode: string, platform: 'node' | 'browser'): P
         format: 'cjs',
         target: 'es2022',
         logLevel: 'silent',
+        plugins: [createSharedLibraryPlugin(sharedLibraries)],
         tsconfigRaw: {
             compilerOptions: {
                 experimentalDecorators: true,
@@ -600,7 +820,10 @@ export const compileScriptSource = async (input: ScriptCompilationInput): Promis
     const serverSource = applyBundleTransform(input.sourceCode, analysis.methods, 'server')
     const clientSource = applyBundleTransform(input.sourceCode, analysis.methods, 'client')
 
-    const [serverBundle, clientBundle] = await Promise.all([bundleSource(serverSource, 'node'), bundleSource(clientSource, 'browser')])
+    const [serverBundle, clientBundle] = await Promise.all([
+        bundleSource(serverSource, 'node', input.sharedLibraries),
+        bundleSource(clientSource, 'browser', input.sharedLibraries)
+    ])
 
     const checksum = createHash('sha256').update(JSON.stringify(analysis.manifest)).update(serverBundle).update(clientBundle).digest('hex')
 

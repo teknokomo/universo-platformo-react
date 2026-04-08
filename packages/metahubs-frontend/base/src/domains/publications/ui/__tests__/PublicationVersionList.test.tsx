@@ -50,7 +50,15 @@ vi.mock('@universo/template-mui', async (importOriginal) => {
                     {primaryAction.label}
                 </button>
             ) : null,
-        EmptyListState: ({ title, description, action }: { title: string; description?: string; action?: { label: string; onClick: () => void } }) => (
+        EmptyListState: ({
+            title,
+            description,
+            action
+        }: {
+            title: string
+            description?: string
+            action?: { label: string; onClick: () => void }
+        }) => (
             <div>
                 <div>{title}</div>
                 {description ? <div>{description}</div> : null}

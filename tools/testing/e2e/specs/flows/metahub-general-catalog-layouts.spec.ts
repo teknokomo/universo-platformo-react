@@ -1,4 +1,4 @@
-import type { Locator, Page, Response } from '@playwright/test'
+import type { Locator, Page, Response, TestInfo } from '@playwright/test'
 import { createLocalizedContent } from '@universo/utils'
 import { expect, test } from '../../fixtures/test'
 import {
@@ -56,6 +56,14 @@ type LayoutListResponse = {
 
 type RuntimeMutationResponse = {
     id?: string
+}
+
+async function captureProofScreenshot(page: Page, testInfo: TestInfo, name: string) {
+    await page.screenshot({
+        path: testInfo.outputPath(name),
+        fullPage: true,
+        animations: 'disabled'
+    })
 }
 
 async function parseJsonResponse<T>(response: Response, label: string): Promise<T> {
@@ -174,7 +182,7 @@ async function clickCatalogMenuItem(page: import('@playwright/test').Page, catal
 test('@flow @combined metahub General and catalog-specific layouts drive runtime widget materialization and page surfaces', async ({
     page,
     runManifest
-}) => {
+}, testInfo) => {
     test.setTimeout(300_000)
 
     const api = await createLoggedInApiContext({
@@ -316,7 +324,7 @@ test('@flow @combined metahub General and catalog-specific layouts drive runtime
         await expect(page.getByTestId(`layout-widget-inherited-${detailsTitleWidget.id}`)).toBeVisible()
         await expect(page.getByTestId(`layout-widget-toggle-${detailsTitleWidget.id}`)).toBeVisible()
         await expect(page.getByTestId(`layout-widget-edit-${detailsTitleWidget.id}`)).toHaveCount(0)
-        await expect(page.getByTestId(`layout-widget-remove-${detailsTitleWidget.id}`)).toHaveCount(0)
+        await expect(page.getByTestId(`layout-widget-remove-${detailsTitleWidget.id}`)).toBeVisible()
 
         const publication = await createPublication(api, metahub.id, {
             name: { en: publicationName },
@@ -385,12 +393,16 @@ test('@flow @combined metahub General and catalog-specific layouts drive runtime
 
         const createRequest = page.waitForResponse(
             (response) =>
-                response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows`)
+                response.request().method() === 'POST' &&
+                response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows`) &&
+                response.ok()
         )
         await page.getByTestId(applicationSelectors.runtimeCreateButton).click()
         await expect(page).toHaveURL(/surface=page&mode=create/)
         await expect(page.getByRole('dialog', { name: 'Create element' })).toHaveCount(0)
+        await expect(page.getByRole('grid')).toHaveCount(0)
         await fillRuntimeStringField(page.locator('body'), attributeLabel, createdValue)
+        await captureProofScreenshot(page, testInfo, 'general-runtime-page-surface-create.png')
         await submitRuntimeSurface(page, 'Create element', 'Create')
 
         const createResponse = await createRequest
@@ -410,15 +422,17 @@ test('@flow @combined metahub General and catalog-specific layouts drive runtime
         await page.getByRole('menuitem', { name: 'Edit' }).click()
         await expect(page).toHaveURL(new RegExp(`surface=page&mode=edit&rowId=${createdRow.id}`))
         await expect(page.getByRole('dialog', { name: 'Edit element' })).toHaveCount(0)
+        await expect(page.getByRole('grid')).toHaveCount(0)
         await fillRuntimeStringField(page.locator('body'), attributeLabel, updatedValue)
 
         const editRequest = page.waitForResponse(
             (response) =>
                 response.request().method() === 'PATCH' &&
-                response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows/${createdRow.id}`)
+                response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows/${createdRow.id}`) &&
+                response.ok()
         )
         await submitRuntimeSurface(page, 'Edit element', 'Save')
-        expect((await editRequest).ok()).toBe(true)
+        await editRequest
 
         await expect(page).not.toHaveURL(/surface=page/)
         await waitForRuntimeDialogToClose(page, 'Edit element')
@@ -431,11 +445,14 @@ test('@flow @combined metahub General and catalog-specific layouts drive runtime
         await page.getByRole('menuitem', { name: 'Copy' }).click()
         await expect(page).toHaveURL(new RegExp(`surface=page&mode=copy&rowId=${createdRow.id}`))
         await expect(page.getByRole('dialog', { name: 'Copy element' })).toHaveCount(0)
+        await expect(page.getByRole('grid')).toHaveCount(0)
         await fillRuntimeStringField(page.locator('body'), attributeLabel, copiedValue)
 
         const copyRequest = page.waitForResponse(
             (response) =>
-                response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows`)
+                response.request().method() === 'POST' &&
+                response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows`) &&
+                response.ok()
         )
         await submitRuntimeSurface(page, 'Copy element', 'Copy')
 

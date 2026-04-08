@@ -14,7 +14,7 @@ A **snapshot envelope** is a self-contained JSON file that includes:
 
 - **kind**: `metahub_snapshot_bundle`
 - **bundleVersion**: `1` (for forward compatibility)
-- **snapshot**: the full metahub state — catalogs, attributes, elements, constants, enumerations, enum values, sets, hubs
+- **snapshot**: the full metahub state — entities, layouts, scripts, shared attributes/constants/values, and shared override rows
 - **snapshotHash**: SHA-256 integrity hash computed from normalized snapshot data
 
 ## Exporting
@@ -58,10 +58,16 @@ metahub snapshot without going through publication versions.
   "bundleVersion": 1,
   "exportedAt": "2026-04-03T12:00:00.000Z",
   "snapshot": {
-    "version": 1,
-    "metahubId": "uuid",
+    "versionEnvelope": {
+      "structureVersion": "0.1.0",
+      "templateVersion": null,
+      "snapshotFormatVersion": 2
+    },
     "entities": { ... },
-    "systemFields": { ... }
+    "sharedAttributes": [ ... ],
+    "sharedConstants": [ ... ],
+    "sharedEnumerationValues": [ ... ],
+    "sharedEntityOverrides": [ ... ]
   },
   "snapshotHash": "sha256-hex-string"
 }
@@ -76,6 +82,13 @@ metahub snapshot without going through publication versions.
 | `exportedAt` | `string` | ISO 8601 export timestamp |
 | `snapshot` | `object` | Full metahub state data |
 | `snapshotHash` | `string` | SHA-256 hash of normalized snapshot |
+
+## Shared Authoring Data
+
+- `sharedAttributes`, `sharedConstants`, and `sharedEnumerationValues` preserve the Common-section shared pools.
+- `sharedEntityOverrides` preserves per-target exclusions, inactive overrides, and sparse sort-order changes.
+- Publication runtime loading materializes those shared sections before application sync and runtime deserialization.
+- Snapshot import recreates the shared containers first and then remaps shared override targets to the restored objects.
 
 ## Security Considerations
 

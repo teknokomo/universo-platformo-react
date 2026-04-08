@@ -1,16 +1,21 @@
 import type { DbExecutor, SqlQueryable } from '@universo/utils/database'
 import { queryMany, queryOne, queryOneOrThrow } from '@universo/utils/database'
 import { qSchemaTable, qSchema } from '@universo/database'
+import { SHARED_ENTITY_KIND_TO_POOL_KIND, type SharedBehavior } from '@universo/types'
 import { MetahubSchemaService } from './MetahubSchemaService'
 import { incrementVersion, updateWithVersionCheck } from '../../../utils/optimisticLock'
 import { codenamePrimaryTextSql, ensureCodenameValue } from '../../shared/codename'
 import { MetahubNotFoundError } from '../../shared/domainErrors'
+import { buildMergedSharedEntityList, planMergedSharedEntityOrder } from '../../shared/mergedSharedEntityList'
+import { SharedEntityOverridesService } from '../../shared/services/SharedEntityOverridesService'
+import { SharedContainerService } from '../../shared/services/SharedContainerService'
 
 interface EnumerationValueCreateInput {
     enumerationId: string
     codename: unknown
     name: unknown
     description?: unknown
+    presentation?: Record<string, unknown>
     sortOrder?: number
     isDefault?: boolean
     createdBy?: string | null
@@ -20,6 +25,7 @@ interface EnumerationValueUpdateInput {
     codename?: unknown
     name?: unknown
     description?: unknown
+    presentation?: Record<string, unknown>
     sortOrder?: number
     isDefault?: boolean
     expectedVersion?: number
@@ -29,27 +35,84 @@ interface EnumerationValueUpdateInput {
 const defaultConstraintCache = new Set<string>()
 const ACTIVE = `_upl_deleted = false AND _mhb_deleted = false`
 
+type MetahubEnumerationValueRecord = {
+    id: string
+    objectId: string
+    codename: ReturnType<typeof ensureCodenameValue>
+    name: unknown
+    description: unknown
+    presentation: Record<string, unknown> | undefined
+    sortOrder: number
+    isDefault: boolean
+    createdAt: unknown
+    updatedAt: unknown
+    version: number
+}
+
 /**
  * Service for enumeration values stored in `_mhb_values`.
  */
 export class MetahubEnumerationValuesService {
     constructor(private readonly exec: DbExecutor, private readonly schemaService: MetahubSchemaService) {}
 
+    private async listRowsByObjectId(schemaName: string, objectId: string, db: SqlQueryable): Promise<Record<string, unknown>[]> {
+        const qt = qSchemaTable(schemaName, '_mhb_values')
+        return queryMany<Record<string, unknown>>(
+            db,
+            `SELECT * FROM ${qt}
+             WHERE object_id = $1 AND ${ACTIVE}
+             ORDER BY sort_order ASC, _upl_created_at ASC`,
+            [objectId]
+        )
+    }
+
     async findAll(metahubId: string, enumerationId: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const qt = qSchemaTable(schemaName, '_mhb_values')
 
         return this.exec.transaction(async (tx: SqlQueryable) => {
             await this.ensureSequentialSortOrderInTransaction(schemaName, enumerationId, tx)
-            const rows = await queryMany<Record<string, unknown>>(
-                tx,
-                `SELECT * FROM ${qt}
-                 WHERE object_id = $1 AND ${ACTIVE}
-                 ORDER BY sort_order ASC, _upl_created_at ASC`,
-                [enumerationId]
-            )
+            const rows = await this.listRowsByObjectId(schemaName, enumerationId, tx)
             return rows.map(this.mapRow)
         })
+    }
+
+    async findAllMerged(metahubId: string, enumerationId: string, userId?: string, db?: SqlQueryable) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const run = async (runner: SqlQueryable) => {
+            await this.ensureSequentialSortOrderInTransaction(schemaName, enumerationId, runner)
+
+            const sharedContainerService = new SharedContainerService(this.exec, this.schemaService)
+            const sharedEnumerationId = await sharedContainerService.findContainerObjectId(
+                metahubId,
+                SHARED_ENTITY_KIND_TO_POOL_KIND.value,
+                userId,
+                runner
+            )
+            const sharedOverridesService = new SharedEntityOverridesService(this.exec, this.schemaService)
+            const overrides = await sharedOverridesService.findByTargetObject(metahubId, 'value', enumerationId, userId, runner)
+
+            const localItems = (await this.listRowsByObjectId(schemaName, enumerationId, runner)).map(this.mapRow)
+            const sharedItems = sharedEnumerationId
+                ? (await this.listRowsByObjectId(schemaName, sharedEnumerationId, runner)).map(this.mapRow)
+                : []
+
+            return buildMergedSharedEntityList({
+                localItems,
+                sharedItems,
+                overrides,
+                getId: (item) => item.id,
+                getSortOrder: (item) => item.sortOrder,
+                getSharedBehavior: (item) =>
+                    ((item.presentation as Record<string, unknown> | undefined)?.sharedBehavior as SharedBehavior | undefined) ?? undefined,
+                includeInactive: true
+            })
+        }
+
+        if (db) {
+            return run(db)
+        }
+
+        return this.exec.transaction((tx: SqlQueryable) => run(tx))
     }
 
     async countByObjectId(metahubId: string, enumerationId: string, userId?: string): Promise<number> {
@@ -135,7 +198,11 @@ export class MetahubEnumerationValuesService {
                 [
                     data.enumerationId,
                     JSON.stringify(codename),
-                    JSON.stringify({ name: data.name, description: data.description }),
+                    JSON.stringify({
+                        ...((data.presentation ?? {}) as Record<string, unknown>),
+                        name: data.name,
+                        description: data.description
+                    }),
                     nextSortOrder,
                     data.isDefault ?? false,
                     new Date(),
@@ -169,10 +236,11 @@ export class MetahubEnumerationValuesService {
             }
             if (data.sortOrder !== undefined) updateData.sort_order = data.sortOrder
 
-            if (data.name !== undefined || data.description !== undefined) {
+            if (data.name !== undefined || data.description !== undefined || data.presentation !== undefined) {
                 const currentPresentation = (current.presentation as Record<string, unknown>) ?? {}
                 updateData.presentation = JSON.stringify({
                     ...currentPresentation,
+                    ...(data.presentation ?? {}),
                     ...(data.name !== undefined ? { name: data.name } : {}),
                     ...(data.description !== undefined ? { description: data.description } : {})
                 })
@@ -232,6 +300,17 @@ export class MetahubEnumerationValuesService {
                  RETURNING id`,
                 [new Date(), userId ?? null, id]
             )
+            const [parentObject] = await tx.query<{ kind?: string }>(
+                `SELECT kind
+                 FROM ${qSchemaTable(schemaName, '_mhb_objects')}
+                 WHERE id = $1
+                 LIMIT 1`,
+                [row.object_id]
+            )
+            if (parentObject?.kind === SHARED_ENTITY_KIND_TO_POOL_KIND.value) {
+                const sharedOverridesService = new SharedEntityOverridesService(this.exec, this.schemaService)
+                await sharedOverridesService.cleanupForDeletedEntity(metahubId, 'value', id, userId, tx)
+            }
             await this.ensureSequentialSortOrderInTransaction(schemaName, row.object_id as string, tx)
         })
     }
@@ -355,6 +434,52 @@ export class MetahubEnumerationValuesService {
         })
     }
 
+    async reorderValueMergedOrder(metahubId: string, enumerationId: string, valueId: string, orderedMovableIds: string[], userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_values')
+
+        return this.exec.transaction(async (tx: SqlQueryable) => {
+            const items = await this.findAllMerged(metahubId, enumerationId, userId, tx)
+            const current = items.find((item) => item.id === valueId)
+            if (!current) {
+                throw new MetahubNotFoundError('Enumeration value', valueId)
+            }
+
+            const assignments = planMergedSharedEntityOrder(items, orderedMovableIds)
+            const now = new Date()
+
+            for (const assignment of assignments.localSortOrders) {
+                await tx.query(
+                    `UPDATE ${qt}
+                     SET sort_order = $1, _upl_updated_at = $2, _upl_updated_by = $3
+                     WHERE id = $4
+                     RETURNING id`,
+                    [assignment.sortOrder, now, userId ?? null, assignment.id]
+                )
+            }
+
+            const sharedOverridesService = new SharedEntityOverridesService(this.exec, this.schemaService)
+            for (const assignment of assignments.sharedSortOrders) {
+                await sharedOverridesService.upsertOverride({
+                    metahubId,
+                    entityKind: 'value',
+                    sharedEntityId: assignment.id,
+                    targetObjectId: enumerationId,
+                    sortOrder: assignment.sortOrder,
+                    userId,
+                    db: tx
+                })
+            }
+
+            const updatedItems = await this.findAllMerged(metahubId, enumerationId, userId, tx)
+            const updated = updatedItems.find((item) => item.id === valueId)
+            if (!updated) {
+                throw new MetahubNotFoundError('Enumeration value', valueId)
+            }
+            return updated
+        })
+    }
+
     async getDefaultValue(metahubId: string, enumerationId: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_values')
@@ -368,14 +493,15 @@ export class MetahubEnumerationValuesService {
         return row ? this.mapRow(row) : null
     }
 
-    private mapRow(row: Record<string, unknown>) {
+    private mapRow(row: Record<string, unknown>): MetahubEnumerationValueRecord {
         const presentation = row.presentation as Record<string, unknown> | null
         return {
-            id: row.id,
-            objectId: row.object_id,
+            id: row.id as string,
+            objectId: row.object_id as string,
             codename: ensureCodenameValue(row.codename),
             name: presentation?.name ?? {},
             description: presentation?.description ?? {},
+            presentation: presentation ?? undefined,
             sortOrder: (row.sort_order as number) ?? 0,
             isDefault: (row.is_default as boolean) ?? false,
             createdAt: row._upl_created_at,

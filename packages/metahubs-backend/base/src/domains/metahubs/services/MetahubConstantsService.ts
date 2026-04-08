@@ -5,15 +5,45 @@ import { MetahubSchemaService } from './MetahubSchemaService'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
 import { buildCodenameAttempt, CODENAME_RETRY_MAX_ATTEMPTS } from '../../shared/codenameStyleHelper'
 import { toJsonbValue } from '../../shared/jsonb'
-import type { ConstantDataType } from '@universo/types'
+import { SHARED_ENTITY_KIND_TO_POOL_KIND, type ConstantDataType, type SharedBehavior } from '@universo/types'
 import { codenamePrimaryTextSql, ensureCodenameValue, getCodenameText } from '../../shared/codename'
 import { MetahubNotFoundError, MetahubValidationError, MetahubConflictError } from '../../shared/domainErrors'
+import { buildMergedSharedEntityList, planMergedSharedEntityOrder } from '../../shared/mergedSharedEntityList'
+import { SharedEntityOverridesService } from '../../shared/services/SharedEntityOverridesService'
+import { SharedContainerService } from '../../shared/services/SharedContainerService'
 
 const ALLOWED_CONSTANT_TYPES: ConstantDataType[] = ['STRING', 'NUMBER', 'BOOLEAN', 'DATE']
 const ACTIVE = `_upl_deleted = false AND _mhb_deleted = false`
 
+type MetahubConstantRecord = {
+    id: string
+    setId: string
+    codename: ReturnType<typeof ensureCodenameValue>
+    dataType: ConstantDataType
+    sortOrder: number
+    value: unknown
+    name: unknown
+    description: unknown
+    validationRules: unknown
+    uiConfig: unknown
+    version: number
+    createdAt: unknown
+    updatedAt: unknown
+}
+
 export class MetahubConstantsService {
     constructor(private exec: DbExecutor, private schemaService: MetahubSchemaService) {}
+
+    private async listRowsByObjectId(schemaName: string, objectId: string, db: SqlQueryable): Promise<Record<string, unknown>[]> {
+        const qt = qSchemaTable(schemaName, '_mhb_constants')
+        return queryMany<Record<string, unknown>>(
+            db,
+            `SELECT * FROM ${qt}
+             WHERE object_id = $1 AND ${ACTIVE}
+             ORDER BY sort_order ASC, _upl_created_at ASC`,
+            [objectId]
+        )
+    }
 
     private async getNextSortOrder(schemaName: string, objectId: string, db?: SqlQueryable): Promise<number> {
         const qt = qSchemaTable(schemaName, '_mhb_constants')
@@ -60,15 +90,47 @@ export class MetahubConstantsService {
 
     async findAll(metahubId: string, setId: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const qt = qSchemaTable(schemaName, '_mhb_constants')
-        const rows = await queryMany<Record<string, unknown>>(
-            this.exec,
-            `SELECT * FROM ${qt}
-             WHERE object_id = $1 AND ${ACTIVE}
-             ORDER BY sort_order ASC, _upl_created_at ASC`,
-            [setId]
-        )
+        const rows = await this.listRowsByObjectId(schemaName, setId, this.exec)
         return rows.map((row) => this.mapRowToConstant(row))
+    }
+
+    async findAllMerged(metahubId: string, setId: string, userId?: string, db?: SqlQueryable) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const run = async (runner: SqlQueryable) => {
+            await this.ensureSequentialSortOrder(schemaName, setId, runner)
+
+            const sharedContainerService = new SharedContainerService(this.exec, this.schemaService)
+            const sharedSetId = await sharedContainerService.findContainerObjectId(
+                metahubId,
+                SHARED_ENTITY_KIND_TO_POOL_KIND.constant,
+                userId,
+                runner
+            )
+            const sharedOverridesService = new SharedEntityOverridesService(this.exec, this.schemaService)
+            const overrides = await sharedOverridesService.findByTargetObject(metahubId, 'constant', setId, userId, runner)
+
+            const localItems = (await this.listRowsByObjectId(schemaName, setId, runner)).map((row) => this.mapRowToConstant(row))
+            const sharedItems = sharedSetId
+                ? (await this.listRowsByObjectId(schemaName, sharedSetId, runner)).map((row) => this.mapRowToConstant(row))
+                : []
+
+            return buildMergedSharedEntityList({
+                localItems,
+                sharedItems,
+                overrides,
+                getId: (item) => item.id,
+                getSortOrder: (item) => item.sortOrder,
+                getSharedBehavior: (item) =>
+                    ((item.uiConfig as Record<string, unknown> | undefined)?.sharedBehavior as SharedBehavior | undefined) ?? undefined,
+                includeInactive: true
+            })
+        }
+
+        if (db) {
+            return run(db)
+        }
+
+        return this.exec.transaction((tx: SqlQueryable) => run(tx))
     }
 
     async findById(metahubId: string, id: string, userId?: string, db?: SqlQueryable, options?: { includeDeleted?: boolean }) {
@@ -227,6 +289,17 @@ export class MetahubConstantsService {
                  RETURNING id`,
                 [new Date(), userId ?? null, id]
             )
+            const [parentObject] = await tx.query<{ kind?: string }>(
+                `SELECT kind
+                 FROM ${qSchemaTable(schemaName, '_mhb_objects')}
+                 WHERE id = $1
+                 LIMIT 1`,
+                [existing.object_id]
+            )
+            if (parentObject?.kind === SHARED_ENTITY_KIND_TO_POOL_KIND.constant) {
+                const sharedOverridesService = new SharedEntityOverridesService(this.exec, this.schemaService)
+                await sharedOverridesService.cleanupForDeletedEntity(metahubId, 'constant', id, userId, tx)
+            }
             await this.ensureSequentialSortOrder(schemaName, existing.object_id as string, tx)
         })
     }
@@ -300,6 +373,44 @@ export class MetahubConstantsService {
                 constantId
             ])
             return this.mapRowToConstant(updated!)
+        })
+    }
+
+    async reorderConstantMergedOrder(metahubId: string, setId: string, constantId: string, orderedMovableIds: string[], userId?: string) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_constants')
+
+        return this.exec.transaction(async (tx: SqlQueryable) => {
+            const items = await this.findAllMerged(metahubId, setId, userId, tx)
+            const current = items.find((item) => item.id === constantId)
+            if (!current) {
+                throw new MetahubNotFoundError('Constant', constantId)
+            }
+
+            const assignments = planMergedSharedEntityOrder(items, orderedMovableIds)
+            for (const assignment of assignments.localSortOrders) {
+                await tx.query(`UPDATE ${qt} SET sort_order = $1 WHERE id = $2 RETURNING id`, [assignment.sortOrder, assignment.id])
+            }
+
+            const sharedOverridesService = new SharedEntityOverridesService(this.exec, this.schemaService)
+            for (const assignment of assignments.sharedSortOrders) {
+                await sharedOverridesService.upsertOverride({
+                    metahubId,
+                    entityKind: 'constant',
+                    sharedEntityId: assignment.id,
+                    targetObjectId: setId,
+                    sortOrder: assignment.sortOrder,
+                    userId,
+                    db: tx
+                })
+            }
+
+            const updatedItems = await this.findAllMerged(metahubId, setId, userId, tx)
+            const updated = updatedItems.find((item) => item.id === constantId)
+            if (!updated) {
+                throw new MetahubNotFoundError('Constant', constantId)
+            }
+            return updated
         })
     }
 
@@ -401,14 +512,14 @@ export class MetahubConstantsService {
         }
     }
 
-    private mapRowToConstant(row: Record<string, unknown>) {
+    private mapRowToConstant(row: Record<string, unknown>): MetahubConstantRecord {
         const presentation = row.presentation as Record<string, unknown> | null
         return {
-            id: row.id,
-            setId: row.object_id,
+            id: row.id as string,
+            setId: row.object_id as string,
             codename: ensureCodenameValue(row.codename),
-            dataType: row.data_type,
-            sortOrder: row.sort_order,
+            dataType: row.data_type as ConstantDataType,
+            sortOrder: row.sort_order as number,
             value: row.value_json ?? null,
             name: presentation?.name,
             description: presentation?.description,

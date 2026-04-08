@@ -61,6 +61,8 @@ import { MetahubEnumerationValuesService } from '../services/MetahubEnumerationV
 import { MetahubConstantsService } from '../services/MetahubConstantsService'
 import { MetahubScriptsService } from '../../scripts/services/MetahubScriptsService'
 import { SnapshotSerializer } from '../../publications/services/SnapshotSerializer'
+import { SharedContainerService } from '../../shared/services/SharedContainerService'
+import { SharedEntityOverridesService } from '../../shared/services/SharedEntityOverridesService'
 import { attachLayoutsToSnapshot } from '../../shared/snapshotLayouts'
 import { createPoolSnapshotRestoreService } from '../../ddl'
 import type { MetahubSnapshotTransportEnvelope } from '@universo/types'
@@ -1940,7 +1942,9 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                 hubsService,
                 enumerationValuesService,
                 constantsService,
-                scriptsService
+                scriptsService,
+                new SharedContainerService(exec, schemaService),
+                new SharedEntityOverridesService(exec, schemaService)
             )
             const canonicalPublicationSnapshot = await serializer.serializeMetahub(metahub.id, {
                 structureVersion:
@@ -2080,7 +2084,9 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             hubsService,
             enumerationValuesService,
             constantsService,
-            scriptsService
+            scriptsService,
+            new SharedContainerService(exec, schemaService),
+            new SharedEntityOverridesService(exec, schemaService)
         )
 
         const snapshot = await serializer.serializeMetahub(metahubId, {

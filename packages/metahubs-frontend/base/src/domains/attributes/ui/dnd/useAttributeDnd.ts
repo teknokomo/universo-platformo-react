@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import type { DragStartEvent, DragEndEvent, DragOverEvent } from '@dnd-kit/core'
 import type { Attribute } from '../../../../types'
+import { isSharedEntityMovable, isSharedEntityRow, reorderSharedEntityIds } from '../../../shared/sharedEntityList'
 
 export interface ContainerInfo {
     id: string // 'root' | `child-${parentId}`
@@ -25,7 +26,8 @@ interface UseAttributeDndOptions {
         attributeId: string,
         newSortOrder: number,
         newParentAttributeId?: string | null,
-        currentParentAttributeId?: string | null
+        currentParentAttributeId?: string | null,
+        mergedOrderIds?: string[]
     ) => Promise<void>
     onValidateTransfer?: (attribute: Attribute, targetParentId: string | null, targetContainerItemCount: number) => Promise<boolean>
 }
@@ -295,7 +297,19 @@ export function useAttributeDnd({
                 if (oldIndex === -1 || overItem === -1 || oldIndex === overItem) return
 
                 const newSortOrder = items[overItem].sortOrder ?? overItem + 1
-                await onReorder(String(active.id), newSortOrder)
+                const hasSharedRows = items.some((item) => isSharedEntityRow(item))
+                const mergedOrderIds = hasSharedRows
+                    ? reorderSharedEntityIds(
+                          items.map((item) => item.id),
+                          String(active.id),
+                          String(over.id)
+                      ).filter((id) => {
+                          const item = items.find((entry) => entry.id === id)
+                          return item ? isSharedEntityMovable(item) : false
+                      })
+                    : undefined
+
+                await onReorder(String(active.id), newSortOrder, undefined, undefined, mergedOrderIds)
             } else {
                 // Cross-list transfer
                 if (!isCrossListAllowed(activeContainer, overContainer)) return

@@ -1,6 +1,7 @@
 import type { Locator, Page, Response } from '@playwright/test'
 import { createLocalizedContent } from '@universo/utils'
 import { expect, test } from '../../fixtures/test'
+import { waitForSettledMutationResponse } from '../../support/browser/network'
 import {
     createLoggedInApiContext,
     createMetahub,
@@ -266,9 +267,10 @@ test('@flow @combined application runtime rows support browser create, edit, cop
         await expect(createDialog).toBeVisible()
         await fillRuntimeStringField(createDialog, attributeLabel, createdValue)
 
-        const createRequest = page.waitForResponse(
-            (response) =>
-                response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows`)
+        const createRequest = waitForSettledMutationResponse(
+            page,
+            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows`),
+            { label: 'Creating runtime row' }
         )
         await createDialog.getByTestId(entityDialogSelectors.submitButton).click()
 
@@ -290,10 +292,12 @@ test('@flow @combined application runtime rows support browser create, edit, cop
         await expect(editDialog).toBeVisible()
         await fillRuntimeStringField(editDialog, attributeLabel, updatedValue)
 
-        const editRequest = page.waitForResponse(
+        const editRequest = waitForSettledMutationResponse(
+            page,
             (response) =>
                 response.request().method() === 'PATCH' &&
-                response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows/${createdRow.id}`)
+                response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows/${createdRow.id}`),
+            { label: 'Editing runtime row' }
         )
         await editDialog.getByTestId(entityDialogSelectors.submitButton).click()
 
@@ -311,9 +315,10 @@ test('@flow @combined application runtime rows support browser create, edit, cop
         await expect(copyDialog).toBeVisible()
         await fillRuntimeStringField(copyDialog, attributeLabel, copiedValue)
 
-        const copyRequest = page.waitForResponse(
-            (response) =>
-                response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows`)
+        const copyRequest = waitForSettledMutationResponse(
+            page,
+            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows`),
+            { label: 'Copying runtime row' }
         )
         await copyDialog.getByTestId(entityDialogSelectors.submitButton).click()
 

@@ -127,7 +127,7 @@ export function useUpdateLayout() {
                 metahubsQueryKeys.layouts(variables.metahubId, resolveLayoutCatalogId(variables.catalogId)),
                 variables.layoutId,
                 {
-                serverEntity: data ?? null
+                    serverEntity: data ?? null
                 }
             )
             if (data) {
@@ -152,11 +152,7 @@ export function useUpdateLayout() {
                 queryKeysToInvalidate.push(metahubsQueryKeys.layoutsRoot(variables.metahubId))
             }
 
-            safeInvalidateQueriesInactive(
-                queryClient,
-                ['layouts'],
-                ...queryKeysToInvalidate
-            )
+            safeInvalidateQueriesInactive(queryClient, ['layouts'], ...queryKeysToInvalidate)
         }
     })
 }

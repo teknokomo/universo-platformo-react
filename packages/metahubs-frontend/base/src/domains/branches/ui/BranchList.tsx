@@ -49,7 +49,7 @@ import {
 import { useBranchListData } from '../hooks/useBranchListData'
 import { useViewPreference } from '../../../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../../../constants/storage'
-import { metahubsQueryKeys, invalidateBranchesQueries } from '../../shared'
+import { invalidateBranchesQueries } from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { BRANCH_COPY_OPTION_KEYS } from '@universo/types'
 import type { MetahubBranch, MetahubBranchDisplay, BranchLocalizedPayload } from '../../../types'

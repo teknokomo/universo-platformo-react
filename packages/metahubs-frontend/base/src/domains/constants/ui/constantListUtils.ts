@@ -9,6 +9,7 @@ export type ConstantFormValues = {
     codenameTouched?: boolean
     dataType: ConstantDataType
     validationRules: Record<string, unknown>
+    uiConfig?: Record<string, unknown>
     value: unknown
     _editingEntityId?: string | null
 }
@@ -19,6 +20,7 @@ export const DEFAULT_FORM_VALUES: ConstantFormValues = {
     codenameTouched: false,
     dataType: 'STRING',
     validationRules: { maxLength: 10, localized: false, versioned: false },
+    uiConfig: {},
     value: null,
     _editingEntityId: null
 }
@@ -73,6 +75,7 @@ export const buildInitialFormValues = (
             codenameTouched: true,
             dataType: source.dataType,
             validationRules: (source.validationRules as Record<string, unknown>) ?? {},
+            uiConfig: (source.uiConfig as Record<string, unknown>) ?? {},
             value: source.value ?? null,
             _editingEntityId: source.id
         }
@@ -84,6 +87,7 @@ export const buildInitialFormValues = (
         codenameTouched: false,
         dataType: source.dataType,
         validationRules: (source.validationRules as Record<string, unknown>) ?? {},
+        uiConfig: (source.uiConfig as Record<string, unknown>) ?? {},
         value: source.value ?? null,
         _editingEntityId: null
     }

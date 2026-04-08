@@ -420,6 +420,31 @@ const mhbCatalogWidgetOverrides: SystemTableDef = {
     ]
 }
 
+const mhbSharedEntityOverrides: SystemTableDef = {
+    name: '_mhb_shared_entity_overrides',
+    description: 'Per-target overrides for shared entity visibility, active state, and ordering',
+    columns: [
+        { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+        { name: 'entity_kind', type: 'string', length: 20, nullable: false },
+        { name: 'shared_entity_id', type: 'uuid', nullable: false },
+        { name: 'target_object_id', type: 'uuid', nullable: false },
+        { name: 'is_excluded', type: 'boolean', nullable: false, defaultTo: false },
+        { name: 'is_active', type: 'boolean', nullable: true },
+        { name: 'sort_order', type: 'integer', nullable: true }
+    ],
+    foreignKeys: [{ column: 'target_object_id', referencesTable: '_mhb_objects', referencesColumn: 'id', onDelete: 'CASCADE' }],
+    indexes: [
+        { name: 'idx_mhb_shared_entity_overrides_target', columns: ['target_object_id'] },
+        { name: 'idx_mhb_shared_entity_overrides_entity', columns: ['entity_kind', 'shared_entity_id'] },
+        {
+            name: 'idx_mhb_shared_entity_overrides_unique_active',
+            columns: ['entity_kind', 'shared_entity_id', 'target_object_id'],
+            unique: true,
+            where: '_upl_deleted = false AND _mhb_deleted = false'
+        }
+    ]
+}
+
 const SCRIPT_SCOPE_NULL_ATTACHMENT_UUID = '00000000-0000-0000-0000-000000000000'
 
 const mhbScriptsV2: SystemTableDef = {
@@ -490,6 +515,7 @@ export const SYSTEM_TABLES_V1: SystemTableDef[] = [
     mhbLayouts,
     mhbWidgets,
     mhbCatalogWidgetOverrides,
+    mhbSharedEntityOverrides,
     mhbMigrations
 ]
 

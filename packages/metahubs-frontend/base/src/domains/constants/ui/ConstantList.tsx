@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState, type ChangeEvent } from 'react'
+import { alpha, type Theme } from '@mui/material/styles'
 import { Box, Chip, Stack, Tabs, Tab, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useQueryClient } from '@tanstack/react-query'
@@ -30,7 +31,17 @@ import {
 } from '@universo/utils'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
 import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
-import { metahubsQueryKeys } from '../../shared'
+import {
+    invalidateConstantsQueries,
+    isSharedEntityActive,
+    isSharedEntityMovable,
+    isSharedEntityRow,
+    metahubsQueryKeys,
+    reorderSharedEntityIds,
+    useUpsertSharedEntityOverride
+} from '../../shared'
+import SharedEntitySettingsFields from '../../shared/ui/SharedEntitySettingsFields'
+import { readSharedExcludedTargetIdsField, syncSharedEntityExclusions } from '../../shared/sharedEntityExclusions'
 import { useCopyConstant, useCreateConstant, useDeleteConstant, useMoveConstant, useReorderConstant, useUpdateConstant } from '../hooks'
 import { useConstantListData } from '../hooks/useConstantListData'
 import constantActions from './ConstantActions'
@@ -58,11 +69,34 @@ import {
     isValidDateTimeString,
     renderConstantValue
 } from './constantListUtils'
-import type { ConstantFormValues } from './constantListUtils'
 
 type GenericFormValues = Record<string, unknown>
 
-const ConstantList = () => {
+const DIALOG_SAVE_CANCEL = { __dialogCancelled: true } as const
+
+type ConstantListContentProps = {
+    metahubId?: string
+    hubId?: string | null
+    setId?: string
+    sharedEntityMode?: boolean
+    title?: string | null
+    emptyTitle?: string
+    emptyDescription?: string
+    renderPageShell?: boolean
+    showSettingsTab?: boolean
+}
+
+export const ConstantListContent = ({
+    metahubId: metahubIdProp,
+    hubId: hubIdProp,
+    setId: setIdProp,
+    sharedEntityMode = false,
+    title,
+    emptyTitle,
+    emptyDescription,
+    renderPageShell = true,
+    showSettingsTab = true
+}: ConstantListContentProps = {}) => {
     const { t, i18n } = useTranslation('metahubs')
     const { t: tc } = useCommonTranslations()
     const { enqueueSnackbar } = useSnackbar()
@@ -87,8 +121,15 @@ const ConstantList = () => {
         constantsMap,
         sortedConstants,
         orderMap,
-        tableData
-    } = useConstantListData()
+        tableData,
+        includeShared
+    } = useConstantListData({
+        metahubId: metahubIdProp,
+        hubId: hubIdProp,
+        setId: setIdProp,
+        resolveSetDetails: showSettingsTab,
+        includeSharedEntities: !sharedEntityMode
+    })
 
     const { dialogs, openCreate, openEdit, openCopy, openDelete, openConflict, close } = useListDialogs<Constant>()
     const editingConstant = dialogs.edit.item
@@ -119,6 +160,7 @@ const ConstantList = () => {
     const deleteConstantMutation = useDeleteConstant()
     const moveConstantMutation = useMoveConstant()
     const reorderConstantMutation = useReorderConstant()
+    const upsertSharedEntityOverrideMutation = useUpsertSharedEntityOverride()
     const boolValueLabels = useMemo(
         () => ({
             boolTrue: t('constants.value.boolTrue', 'True'),
@@ -328,6 +370,7 @@ const ConstantList = () => {
                 name: nameInput ?? {},
                 namePrimaryLocale,
                 validationRules: (values.validationRules as Record<string, unknown> | undefined) ?? {},
+                uiConfig: (values.uiConfig as Record<string, unknown> | undefined) ?? undefined,
                 value: values.value
             }
         },
@@ -341,8 +384,9 @@ const ConstantList = () => {
 
             try {
                 const payload = buildPayload(values)
+                const sharedExcludedTargetIds = readSharedExcludedTargetIdsField(values)
                 if (editingConstant) {
-                    updateConstantMutation.mutate({
+                    await updateConstantMutation.mutateAsync({
                         metahubId,
                         hubId: effectiveHubId,
                         setId,
@@ -352,8 +396,16 @@ const ConstantList = () => {
                             expectedVersion: editingConstant.version
                         }
                     })
+                    if (sharedEntityMode && sharedExcludedTargetIds !== undefined) {
+                        await syncSharedEntityExclusions({
+                            metahubId,
+                            entityKind: 'constant',
+                            sharedEntityId: editingConstant.id,
+                            excludedTargetIds: sharedExcludedTargetIds
+                        })
+                    }
                 } else if (copySource) {
-                    copyConstantMutation.mutate({
+                    await copyConstantMutation.mutateAsync({
                         metahubId,
                         hubId: effectiveHubId,
                         setId,
@@ -361,7 +413,7 @@ const ConstantList = () => {
                         data: payload
                     })
                 } else {
-                    createConstantMutation.mutate({
+                    await createConstantMutation.mutateAsync({
                         metahubId,
                         hubId: effectiveHubId,
                         setId,
@@ -383,7 +435,7 @@ const ConstantList = () => {
                             patch: buildPayload(values)
                         }
                     })
-                    return
+                    throw DIALOG_SAVE_CANCEL
                 }
 
                 const responseMessage = extractResponseMessage(error)
@@ -404,6 +456,8 @@ const ConstantList = () => {
             editingConstant,
             effectiveHubId,
             metahubId,
+            close,
+            openConflict,
             setId,
             t,
             updateConstantMutation
@@ -438,8 +492,19 @@ const ConstantList = () => {
             const { active, over } = event
             if (!over || active.id === over.id) return
 
-            const overConstant = sortedConstants.find((constant) => constant.id === String(over.id))
+            const overConstant = tableData.find((constant) => constant.id === String(over.id))
             if (!overConstant) return
+
+            const mergedOrderIds = includeShared
+                ? reorderSharedEntityIds(
+                      tableData.map((constant) => constant.id),
+                      String(active.id),
+                      String(over.id)
+                  ).filter((id) => {
+                      const row = tableData.find((constant) => constant.id === id)
+                      return row ? isSharedEntityMovable(row) : false
+                  })
+                : undefined
 
             try {
                 await reorderConstantMutation.mutateAsync({
@@ -447,7 +512,8 @@ const ConstantList = () => {
                     hubId: effectiveHubId,
                     setId,
                     constantId: String(active.id),
-                    newSortOrder: overConstant.sortOrder ?? 1
+                    newSortOrder: overConstant.sortOrder ?? 1,
+                    mergedOrderIds
                 })
                 enqueueSnackbar(t('constants.reorderSuccess', 'Constant order updated'), { variant: 'success' })
             } catch (error: unknown) {
@@ -455,7 +521,7 @@ const ConstantList = () => {
                 enqueueSnackbar(message, { variant: 'error' })
             }
         },
-        [effectiveHubId, enqueueSnackbar, metahubId, reorderConstantMutation, setId, sortedConstants, t]
+        [effectiveHubId, enqueueSnackbar, includeShared, metahubId, reorderConstantMutation, setId, tableData, t]
     )
 
     const renderDragOverlay = useCallback(
@@ -484,6 +550,61 @@ const ConstantList = () => {
         [tableData]
     )
 
+    const hasSharedRows = useMemo(() => includeShared && tableData.some((row) => isSharedEntityRow(row)), [includeShared, tableData])
+
+    const firstLocalRowId = useMemo(() => {
+        if (!hasSharedRows) return null
+        return tableData.find((row) => !isSharedEntityRow(row))?.id ?? null
+    }, [hasSharedRows, tableData])
+
+    const getConstantRowSx = useCallback(
+        (row: ConstantDisplay) => {
+            if (!hasSharedRows) return undefined
+
+            const isShared = isSharedEntityRow(row)
+            const isInactive = isShared && !isSharedEntityActive(row)
+            const isFirstLocalRow = row.id === firstLocalRowId
+
+            if (!isShared && !isFirstLocalRow) {
+                return undefined
+            }
+
+            return (theme: Theme) => ({
+                ...(isShared
+                    ? {
+                          backgroundColor: alpha(theme.palette.info.main, isInactive ? 0.1 : 0.06)
+                      }
+                    : null),
+                ...(isInactive
+                    ? {
+                          opacity: 0.78
+                      }
+                    : null),
+                ...(isFirstLocalRow
+                    ? {
+                          '& td, & th': {
+                              borderTop: `2px solid ${alpha(theme.palette.info.main, 0.2)}`
+                          }
+                      }
+                    : null)
+            })
+        },
+        [firstLocalRowId, hasSharedRows]
+    )
+
+    const isConstantRowDragDisabled = useCallback(
+        (row: ConstantDisplay) => hasSharedRows && isSharedEntityRow(row) && !isSharedEntityMovable(row),
+        [hasSharedRows]
+    )
+
+    const constantActionDescriptors = useMemo(
+        () =>
+            includeShared
+                ? constantActions.filter((descriptor) => descriptor.id !== 'move-up' && descriptor.id !== 'move-down')
+                : constantActions,
+        [includeShared]
+    )
+
     const columns = useMemo(
         () => [
             {
@@ -499,7 +620,17 @@ const ConstantList = () => {
                 width: '24%',
                 align: 'left' as const,
                 render: (row: ConstantDisplay) => (
-                    <Typography sx={{ fontSize: 14, fontWeight: 500, wordBreak: 'break-word' }}>{row.name || '—'}</Typography>
+                    <Stack spacing={0.5}>
+                        <Stack direction='row' spacing={0.75} alignItems='center' flexWrap='wrap' useFlexGap>
+                            <Typography sx={{ fontSize: 14, fontWeight: 500, wordBreak: 'break-word' }}>{row.name || '—'}</Typography>
+                            {includeShared && isSharedEntityRow(row) ? (
+                                <Chip label={t('metahubs:shared.list.badge', 'Shared')} size='small' color='info' variant='outlined' />
+                            ) : null}
+                            {includeShared && isSharedEntityRow(row) && !isSharedEntityActive(row) ? (
+                                <Chip label={t('metahubs:shared.list.inactive', 'Inactive')} size='small' variant='outlined' />
+                            ) : null}
+                        </Stack>
+                    </Stack>
                 )
             },
             {
@@ -532,7 +663,7 @@ const ConstantList = () => {
                 )
             }
         ],
-        [boolValueLabels, dataTypeLabels, i18n.language, t, tc]
+        [boolValueLabels, dataTypeLabels, firstLocalRowId, hasSharedRows, i18n.language, includeShared, t, tc]
     )
 
     const createActionContext = useCallback(
@@ -562,6 +693,34 @@ const ConstantList = () => {
         [constantsMap, handleMove, openCopy, openDelete, openEdit, orderMap, sortedConstants.length]
     )
 
+    const handleSharedConstantOverride = useCallback(
+        async (row: ConstantDisplay, patch: { isExcluded?: boolean; isActive?: boolean | null }, successMessage: string) => {
+            if (!metahubId || !setId) return
+
+            try {
+                await upsertSharedEntityOverrideMutation.mutateAsync({
+                    metahubId,
+                    data: {
+                        entityKind: 'constant',
+                        sharedEntityId: row.id,
+                        targetObjectId: setId,
+                        ...patch
+                    }
+                })
+                await invalidateConstantsQueries.all(queryClient, metahubId, setId, effectiveHubId ?? undefined)
+                enqueueSnackbar(successMessage, { variant: 'success' })
+            } catch (error: unknown) {
+                const message =
+                    extractResponseMessage(error) ??
+                    (error instanceof Error
+                        ? error.message
+                        : t('metahubs:shared.list.messages.actionError', 'Failed to update shared entity state'))
+                enqueueSnackbar(message, { variant: 'error' })
+            }
+        },
+        [effectiveHubId, enqueueSnackbar, metahubId, queryClient, setId, t, upsertSharedEntityOverrideMutation]
+    )
+
     if (!metahubId || !setId) {
         return (
             <EmptyListState
@@ -579,54 +738,49 @@ const ConstantList = () => {
         copyConstantMutation.isPending ||
         updateConstantMutation.isPending ||
         deleteConstantMutation.isPending
+    const contentOffsetSx = renderPageShell ? { xs: -1.5, md: -2 } : 0
 
-    return (
-        <MainCard
-            sx={{ maxWidth: '100%', width: '100%' }}
-            contentSX={{ px: 0, py: 0 }}
-            disableContentPadding
-            disableHeader
-            border={false}
-            shadow={false}
-        >
-            <ExistingCodenamesProvider entities={codenameEntities}>
-                {setResolutionError ? (
-                    <EmptyListState
-                        image={APIEmptySVG}
-                        imageAlt='Set not found'
-                        title={t('errors.notFound', 'Not found')}
-                        description={t('constants.setNotFound', 'Set not found')}
-                    />
-                ) : error ? (
-                    <EmptyListState
-                        image={APIEmptySVG}
-                        imageAlt='Connection error'
-                        title={t('errors.connectionFailed', 'Connection failed')}
-                        description={t('errors.pleaseTryLater', 'Please try later')}
-                    />
-                ) : (
-                    <Stack flexDirection='column' sx={{ gap: 1 }}>
-                        <ViewHeader
-                            title={t('constants.title', 'Constants')}
-                            search
-                            searchValue={searchValue}
-                            searchPlaceholder={t('constants.searchPlaceholder', 'Search constants...')}
-                            onSearchChange={(event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-                                handleSearchChange(event.target.value)
-                            }
-                        >
-                            <ToolbarControls
-                                primaryAction={{
-                                    label: tc('create', 'Create'),
-                                    onClick: () => {
-                                        setDialogError(null)
-                                        openCreate()
-                                    },
-                                    startIcon: <AddRoundedIcon />
-                                }}
-                            />
-                        </ViewHeader>
+    const content = (
+        <ExistingCodenamesProvider entities={codenameEntities}>
+            {setResolutionError ? (
+                <EmptyListState
+                    image={APIEmptySVG}
+                    imageAlt='Set not found'
+                    title={t('errors.notFound', 'Not found')}
+                    description={t('constants.setNotFound', 'Set not found')}
+                />
+            ) : error ? (
+                <EmptyListState
+                    image={APIEmptySVG}
+                    imageAlt='Connection error'
+                    title={t('errors.connectionFailed', 'Connection failed')}
+                    description={t('errors.pleaseTryLater', 'Please try later')}
+                />
+            ) : (
+                <Stack flexDirection='column' sx={{ gap: 1 }}>
+                    <ViewHeader
+                        title={title === undefined ? t('constants.title', 'Constants') : title}
+                        search
+                        searchValue={searchValue}
+                        searchPlaceholder={t('constants.searchPlaceholder', 'Search constants...')}
+                        onSearchChange={(event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+                            handleSearchChange(event.target.value)
+                        }
+                        controlsAlign={renderPageShell ? 'start' : 'end'}
+                    >
+                        <ToolbarControls
+                            primaryAction={{
+                                label: tc('create', 'Create'),
+                                onClick: () => {
+                                    setDialogError(null)
+                                    openCreate()
+                                },
+                                startIcon: <AddRoundedIcon />
+                            }}
+                        />
+                    </ViewHeader>
 
+                    {showSettingsTab ? (
                         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
                             <Tabs
                                 value='constants'
@@ -646,103 +800,157 @@ const ConstantList = () => {
                                 <Tab value='settings' label={t('settings.title')} />
                             </Tabs>
                         </Box>
+                    ) : null}
 
-                        {!isBusy && tableData.length === 0 ? (
-                            <EmptyListState
-                                image={APIEmptySVG}
-                                imageAlt='No constants'
-                                title={t('constants.empty', 'No constants yet')}
-                                description={t('constants.emptyDescription', 'Create constants to store reusable typed values')}
-                            />
-                        ) : (
-                            <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
-                                <FlowListTable<ConstantDisplay>
-                                    data={tableData}
-                                    customColumns={columns}
-                                    onPendingInteractionAttempt={(row: ConstantDisplay) => handlePendingConstantInteraction(row.id)}
-                                    sortableRows
-                                    sortableItemIds={sortedConstants.map((constant) => constant.id)}
-                                    dragHandleAriaLabel={t('constants.dnd.dragHandle', 'Drag to reorder')}
-                                    dragDisabled={isBusy}
-                                    onSortableDragEnd={handleSortableDragEnd}
-                                    renderDragOverlay={renderDragOverlay}
-                                    renderActions={(row: ConstantDisplay) => (
+                    {!isBusy && tableData.length === 0 ? (
+                        <EmptyListState
+                            image={APIEmptySVG}
+                            imageAlt='No constants'
+                            title={emptyTitle ?? t('constants.empty', 'No constants yet')}
+                            description={
+                                emptyDescription ?? t('constants.emptyDescription', 'Create constants to store reusable typed values')
+                            }
+                        />
+                    ) : (
+                        <Box sx={{ mx: contentOffsetSx }}>
+                            <FlowListTable<ConstantDisplay>
+                                data={tableData}
+                                customColumns={columns}
+                                onPendingInteractionAttempt={(row: ConstantDisplay) => handlePendingConstantInteraction(row.id)}
+                                sortableRows
+                                sortableItemIds={tableData.map((constant) => constant.id)}
+                                dragHandleAriaLabel={t('constants.dnd.dragHandle', 'Drag to reorder')}
+                                dragDisabled={isBusy}
+                                getRowSx={getConstantRowSx}
+                                isRowDragDisabled={isConstantRowDragDisabled}
+                                onSortableDragEnd={handleSortableDragEnd}
+                                renderDragOverlay={renderDragOverlay}
+                                renderActions={(row: ConstantDisplay) => {
+                                    const sharedRowDescriptors: typeof constantActionDescriptors = []
+
+                                    if (includeShared && isSharedEntityRow(row) && row.sharedBehavior?.canDeactivate !== false) {
+                                        const isActive = isSharedEntityActive(row)
+                                        sharedRowDescriptors.push({
+                                            id: isActive ? 'deactivate' : 'activate',
+                                            labelKey: isActive ? 'shared.list.actions.deactivate' : 'shared.list.actions.activate',
+                                            order: 10,
+                                            onSelect: async () => {
+                                                await handleSharedConstantOverride(
+                                                    row,
+                                                    { isActive: isActive ? false : null },
+                                                    isActive
+                                                        ? t(
+                                                              'metahubs:shared.list.messages.deactivated',
+                                                              'Shared entity disabled for this target'
+                                                          )
+                                                        : t(
+                                                              'metahubs:shared.list.messages.activated',
+                                                              'Shared entity enabled for this target'
+                                                          )
+                                                )
+                                            }
+                                        })
+                                    }
+
+                                    if (includeShared && isSharedEntityRow(row) && row.sharedBehavior?.canExclude !== false) {
+                                        sharedRowDescriptors.push({
+                                            id: 'exclude',
+                                            labelKey: 'shared.list.actions.exclude',
+                                            order: 20,
+                                            tone: 'danger',
+                                            dividerBefore: sharedRowDescriptors.length > 0,
+                                            onSelect: async () => {
+                                                await handleSharedConstantOverride(
+                                                    row,
+                                                    { isExcluded: true },
+                                                    t('metahubs:shared.list.messages.excluded', 'Shared entity excluded from this target')
+                                                )
+                                            }
+                                        })
+                                    }
+
+                                    const descriptors =
+                                        includeShared && isSharedEntityRow(row) ? sharedRowDescriptors : constantActionDescriptors
+
+                                    return descriptors.length === 0 ? null : (
                                         <BaseEntityMenu<ConstantDisplay, ConstantLocalizedPayload>
                                             entity={row}
                                             entityKind='constant'
-                                            descriptors={constantActions}
+                                            descriptors={descriptors}
                                             namespace='metahubs'
                                             menuButtonLabelKey='flowList:menu.button'
                                             i18nInstance={i18n}
                                             createContext={createActionContext}
                                         />
-                                    )}
-                                />
-                            </Box>
-                        )}
-                        {!isLoading && tableData.length > 0 && (
-                            <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
-                                <PaginationControls
-                                    pagination={paginationResult.pagination}
-                                    actions={paginationResult.actions}
-                                    isLoading={paginationResult.isLoading}
-                                    rowsPerPageOptions={[10, 20, 50, 100]}
-                                    namespace='common'
-                                />
-                            </Box>
-                        )}
-                    </Stack>
-                )}
+                                    )
+                                }}
+                            />
+                        </Box>
+                    )}
+                    {!isLoading && tableData.length > 0 && (
+                        <Box sx={{ mx: contentOffsetSx, mt: 2 }}>
+                            <PaginationControls
+                                pagination={paginationResult.pagination}
+                                actions={paginationResult.actions}
+                                isLoading={paginationResult.isLoading}
+                                rowsPerPageOptions={[10, 20, 50, 100]}
+                                namespace='common'
+                            />
+                        </Box>
+                    )}
+                </Stack>
+            )}
 
-                <EntityFormDialog
-                    key={`constant-form-${dialogMode}-${editingConstant?.id ?? copySource?.id ?? 'new'}-${editingConstant?.version ?? 0}`}
-                    open={isDialogOpen}
-                    mode={dialogMode}
-                    title={
-                        dialogMode === 'edit'
-                            ? t('constants.editDialog.title', 'Edit Constant')
-                            : dialogMode === 'copy'
-                            ? t('constants.copyDialog.title', 'Copy Constant')
-                            : t('constants.createDialog.title', 'Create Constant')
-                    }
-                    nameLabel={tc('fields.name', 'Name')}
-                    saveButtonText={
-                        dialogMode === 'edit'
-                            ? tc('actions.save', 'Save')
-                            : dialogMode === 'copy'
-                            ? t('constants.copy.action', 'Copy')
-                            : tc('actions.create', 'Create')
-                    }
-                    savingButtonText={
-                        dialogMode === 'edit'
-                            ? tc('actions.saving', 'Saving...')
-                            : dialogMode === 'copy'
-                            ? t('constants.copy.actionLoading', 'Copying...')
-                            : tc('actions.creating', 'Creating...')
-                    }
-                    cancelButtonText={tc('actions.cancel', 'Cancel')}
-                    loading={createConstantMutation.isPending || copyConstantMutation.isPending || updateConstantMutation.isPending}
-                    error={dialogError || undefined}
-                    onClose={() => {
-                        close('create')
-                        close('edit')
-                        close('copy')
-                        setDialogError(null)
-                    }}
-                    onSave={handleSave}
-                    hideDefaultFields
-                    initialExtraValues={initialFormValues}
-                    tabs={({
-                        values,
-                        setValue,
-                        isLoading: formLoading,
-                        errors
-                    }: {
-                        values: Record<string, unknown>
-                        setValue: (name: string, value: unknown) => void
-                        isLoading: boolean
-                        errors: Record<string, string>
-                    }): TabConfig[] => [
+            <EntityFormDialog
+                key={`constant-form-${dialogMode}-${editingConstant?.id ?? copySource?.id ?? 'new'}-${editingConstant?.version ?? 0}`}
+                open={isDialogOpen}
+                mode={dialogMode}
+                title={
+                    dialogMode === 'edit'
+                        ? t('constants.editDialog.title', 'Edit Constant')
+                        : dialogMode === 'copy'
+                        ? t('constants.copyDialog.title', 'Copy Constant')
+                        : t('constants.createDialog.title', 'Create Constant')
+                }
+                nameLabel={tc('fields.name', 'Name')}
+                saveButtonText={
+                    dialogMode === 'edit'
+                        ? tc('actions.save', 'Save')
+                        : dialogMode === 'copy'
+                        ? t('constants.copy.action', 'Copy')
+                        : tc('actions.create', 'Create')
+                }
+                savingButtonText={
+                    dialogMode === 'edit'
+                        ? tc('actions.saving', 'Saving...')
+                        : dialogMode === 'copy'
+                        ? t('constants.copy.actionLoading', 'Copying...')
+                        : tc('actions.creating', 'Creating...')
+                }
+                cancelButtonText={tc('actions.cancel', 'Cancel')}
+                loading={createConstantMutation.isPending || copyConstantMutation.isPending || updateConstantMutation.isPending}
+                error={dialogError || undefined}
+                onClose={() => {
+                    close('create')
+                    close('edit')
+                    close('copy')
+                    setDialogError(null)
+                }}
+                onSave={handleSave}
+                hideDefaultFields
+                initialExtraValues={initialFormValues}
+                tabs={({
+                    values,
+                    setValue,
+                    isLoading: formLoading,
+                    errors
+                }: {
+                    values: Record<string, unknown>
+                    setValue: (name: string, value: unknown) => void
+                    isLoading: boolean
+                    errors: Record<string, string>
+                }): TabConfig[] => {
+                    const tabs: TabConfig[] = [
                         {
                             id: 'general',
                             label: t('constants.tabs.general', 'General'),
@@ -804,161 +1012,216 @@ const ConstantList = () => {
                                 />
                             )
                         }
-                    ]}
-                    validate={validateForm}
-                    canSave={canSaveForm}
-                />
+                    ]
 
-                <ConfirmDeleteDialog
-                    open={dialogs.delete.open}
-                    title={t('constants.deleteDialog.title', 'Delete Constant')}
-                    description={t('constants.deleteDialog.message', 'Are you sure you want to delete this constant?')}
-                    confirmButtonText={tc('actions.delete', 'Delete')}
-                    deletingButtonText={tc('actions.deleting', 'Deleting...')}
-                    cancelButtonText={tc('actions.cancel', 'Cancel')}
-                    onCancel={() => close('delete')}
-                    onConfirm={() => {
-                        if (!dialogs.delete.item || !metahubId || !setId) return
-                        deleteConstantMutation.mutate(
-                            {
-                                metahubId,
-                                hubId: effectiveHubId,
-                                setId,
-                                constantId: dialogs.delete.item.id
-                            },
-                            {
-                                onError: (error: unknown) => {
-                                    const message =
-                                        extractResponseMessage(error) ||
-                                        (error instanceof Error ? error.message : t('constants.deleteError', 'Failed to delete constant'))
-                                    enqueueSnackbar(message, { variant: 'error' })
-                                }
-                            }
-                        )
-                    }}
-                    loading={deleteConstantMutation.isPending}
-                />
+                    if (sharedEntityMode) {
+                        tabs.push({
+                            id: 'presentation',
+                            label: t('constants.tabs.presentation', 'Presentation'),
+                            content: (
+                                <SharedEntitySettingsFields
+                                    metahubId={metahubId}
+                                    entityKind='constant'
+                                    sharedEntityId={dialogMode === 'edit' ? editingConstant?.id : null}
+                                    storageField='uiConfig'
+                                    section='behavior'
+                                    values={values}
+                                    setValue={setValue}
+                                    isLoading={formLoading}
+                                />
+                            )
+                        })
+                        tabs.push({
+                            id: 'exclusions',
+                            label: t('metahubs:shared.exclusions.tab', 'Exclusions'),
+                            content: (
+                                <SharedEntitySettingsFields
+                                    metahubId={metahubId}
+                                    entityKind='constant'
+                                    sharedEntityId={dialogMode === 'edit' ? editingConstant?.id : null}
+                                    storageField='uiConfig'
+                                    section='exclusions'
+                                    values={values}
+                                    setValue={setValue}
+                                    isLoading={formLoading}
+                                />
+                            )
+                        })
+                    }
 
-                <ConflictResolutionDialog
-                    open={dialogs.conflict.open}
-                    conflict={(dialogs.conflict.data as { conflict?: ConflictInfo })?.conflict ?? null}
-                    onCancel={() => {
-                        close('conflict')
-                        if (metahubId && setId) {
-                            if (effectiveHubId) {
-                                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.constants(metahubId, effectiveHubId, setId) })
-                            } else {
-                                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.constantsDirect(metahubId, setId) })
-                            }
-                            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allConstantCodenames(metahubId, setId) })
-                        }
-                    }}
-                    onOverwrite={async () => {
-                        const pendingUpdate = (dialogs.conflict.data as { pendingUpdate?: { id: string; patch: ConstantLocalizedPayload } })
-                            ?.pendingUpdate
-                        if (!pendingUpdate || !metahubId || !setId) return
-                        await updateConstantMutation.mutateAsync({
+                    return tabs
+                }}
+                validate={validateForm}
+                canSave={canSaveForm}
+            />
+
+            <ConfirmDeleteDialog
+                open={dialogs.delete.open}
+                title={t('constants.deleteDialog.title', 'Delete Constant')}
+                description={t('constants.deleteDialog.message', 'Are you sure you want to delete this constant?')}
+                confirmButtonText={tc('actions.delete', 'Delete')}
+                deletingButtonText={tc('actions.deleting', 'Deleting...')}
+                cancelButtonText={tc('actions.cancel', 'Cancel')}
+                onCancel={() => close('delete')}
+                onConfirm={() => {
+                    if (!dialogs.delete.item || !metahubId || !setId) return
+                    deleteConstantMutation.mutate(
+                        {
                             metahubId,
                             hubId: effectiveHubId,
                             setId,
-                            constantId: pendingUpdate.id,
-                            data: pendingUpdate.patch
-                        })
-                        close('conflict')
-                    }}
-                    isLoading={updateConstantMutation.isPending}
-                />
-
-                {/* Settings edit dialog overlay for parent set */}
-                {setForHubResolution &&
-                    setId &&
-                    (() => {
-                        const setDisplay: SetDisplayWithHub = {
-                            id: setForHubResolution.id,
-                            metahubId: setForHubResolution.metahubId,
-                            codename: setForHubResolution.codename,
-                            name: getVLCString(setForHubResolution.name, preferredVlcLocale) || setForHubResolution.codename,
-                            description: getVLCString(setForHubResolution.description, preferredVlcLocale) || '',
-                            isSingleHub: setForHubResolution.isSingleHub,
-                            isRequiredHub: setForHubResolution.isRequiredHub,
-                            sortOrder: setForHubResolution.sortOrder,
-                            createdAt: setForHubResolution.createdAt,
-                            updatedAt: setForHubResolution.updatedAt,
-                            hubId: effectiveHubId || undefined,
-                            hubs: setForHubResolution.hubs?.map((h) => ({
-                                id: h.id,
-                                name: typeof h.name === 'string' ? h.name : h.codename || '',
-                                codename: h.codename || ''
-                            }))
+                            constantId: dialogs.delete.item.id
+                        },
+                        {
+                            onError: (error: unknown) => {
+                                const message =
+                                    extractResponseMessage(error) ||
+                                    (error instanceof Error ? error.message : t('constants.deleteError', 'Failed to delete constant'))
+                                enqueueSnackbar(message, { variant: 'error' })
+                            }
                         }
-                        const setMap = new Map<string, MetahubSet>([[setForHubResolution.id, setForHubResolution]])
-                        const settingsCtx = {
-                            entity: setDisplay,
-                            entityKind: 'set' as const,
-                            t,
-                            setMap,
-                            metahubId,
-                            currentHubId: effectiveHubId || null,
-                            uiLocale: preferredVlcLocale,
-                            api: {
-                                updateEntity: (id: string, patch: SetLocalizedPayload) => {
-                                    if (!metahubId) return
-                                    updateSetMutation.mutate({
-                                        metahubId,
-                                        setId: id,
-                                        data: { ...patch, expectedVersion: setForHubResolution.version }
+                    )
+                }}
+                loading={deleteConstantMutation.isPending}
+            />
+
+            <ConflictResolutionDialog
+                open={dialogs.conflict.open}
+                conflict={(dialogs.conflict.data as { conflict?: ConflictInfo })?.conflict ?? null}
+                onCancel={() => {
+                    close('conflict')
+                    if (metahubId && setId) {
+                        if (effectiveHubId) {
+                            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.constants(metahubId, effectiveHubId, setId) })
+                        } else {
+                            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.constantsDirect(metahubId, setId) })
+                        }
+                        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allConstantCodenames(metahubId, setId) })
+                    }
+                }}
+                onOverwrite={async () => {
+                    const pendingUpdate = (dialogs.conflict.data as { pendingUpdate?: { id: string; patch: ConstantLocalizedPayload } })
+                        ?.pendingUpdate
+                    if (!pendingUpdate || !metahubId || !setId) return
+                    await updateConstantMutation.mutateAsync({
+                        metahubId,
+                        hubId: effectiveHubId,
+                        setId,
+                        constantId: pendingUpdate.id,
+                        data: pendingUpdate.patch
+                    })
+                    close('conflict')
+                }}
+                isLoading={updateConstantMutation.isPending}
+            />
+
+            {showSettingsTab &&
+                setForHubResolution &&
+                setId &&
+                (() => {
+                    const setDisplay: SetDisplayWithHub = {
+                        id: setForHubResolution.id,
+                        metahubId: setForHubResolution.metahubId,
+                        codename: setForHubResolution.codename,
+                        name: getVLCString(setForHubResolution.name, preferredVlcLocale) || setForHubResolution.codename,
+                        description: getVLCString(setForHubResolution.description, preferredVlcLocale) || '',
+                        isSingleHub: setForHubResolution.isSingleHub,
+                        isRequiredHub: setForHubResolution.isRequiredHub,
+                        sortOrder: setForHubResolution.sortOrder,
+                        createdAt: setForHubResolution.createdAt,
+                        updatedAt: setForHubResolution.updatedAt,
+                        hubId: effectiveHubId || undefined,
+                        hubs: setForHubResolution.hubs?.map((h) => ({
+                            id: h.id,
+                            name: typeof h.name === 'string' ? h.name : h.codename || '',
+                            codename: h.codename || ''
+                        }))
+                    }
+                    const setMap = new Map<string, MetahubSet>([[setForHubResolution.id, setForHubResolution]])
+                    const settingsCtx = {
+                        entity: setDisplay,
+                        entityKind: 'set' as const,
+                        t,
+                        setMap,
+                        metahubId,
+                        currentHubId: effectiveHubId || null,
+                        uiLocale: preferredVlcLocale,
+                        api: {
+                            updateEntity: (id: string, patch: SetLocalizedPayload) => {
+                                if (!metahubId) return
+                                updateSetMutation.mutate({
+                                    metahubId,
+                                    setId: id,
+                                    data: { ...patch, expectedVersion: setForHubResolution.version }
+                                })
+                            }
+                        },
+                        helpers: {
+                            refreshList: () => {
+                                if (metahubId && setId) {
+                                    void queryClient.invalidateQueries({
+                                        queryKey: metahubsQueryKeys.setDetail(metahubId, setId)
+                                    })
+                                    void queryClient.invalidateQueries({
+                                        queryKey: metahubsQueryKeys.allSets(metahubId)
+                                    })
+                                    void queryClient.invalidateQueries({
+                                        queryKey: ['breadcrumb', 'set-standalone', metahubId, setId]
                                     })
                                 }
                             },
-                            helpers: {
-                                refreshList: () => {
-                                    if (metahubId && setId) {
-                                        void queryClient.invalidateQueries({
-                                            queryKey: metahubsQueryKeys.setDetail(metahubId, setId)
-                                        })
-                                        void queryClient.invalidateQueries({
-                                            queryKey: metahubsQueryKeys.allSets(metahubId)
-                                        })
-                                        // Invalidate breadcrumb queries so page title refreshes immediately
-                                        void queryClient.invalidateQueries({
-                                            queryKey: ['breadcrumb', 'set-standalone', metahubId, setId]
-                                        })
-                                    }
-                                },
-                                enqueueSnackbar: (payload: {
-                                    message: string
-                                    options?: { variant?: 'default' | 'error' | 'success' | 'warning' | 'info' }
-                                }) => {
-                                    if (payload?.message) enqueueSnackbar(payload.message, payload.options)
-                                }
+                            enqueueSnackbar: (payload: {
+                                message: string
+                                options?: { variant?: 'default' | 'error' | 'success' | 'warning' | 'info' }
+                            }) => {
+                                if (payload?.message) enqueueSnackbar(payload.message, payload.options)
                             }
                         }
-                        return (
-                            <EntityFormDialog
-                                open={editDialogOpen}
-                                mode='edit'
-                                title={t('sets.editTitle', 'Edit Set')}
-                                nameLabel={tc('fields.name', 'Name')}
-                                descriptionLabel={tc('fields.description', 'Description')}
-                                saveButtonText={tc('actions.save', 'Save')}
-                                savingButtonText={tc('actions.saving', 'Saving...')}
-                                cancelButtonText={tc('actions.cancel', 'Cancel')}
-                                hideDefaultFields
-                                initialExtraValues={buildSetInitialValues(settingsCtx)}
-                                tabs={buildSetFormTabs(settingsCtx, allHubs, setId)}
-                                validate={(values) => validateSetForm(settingsCtx, values)}
-                                canSave={canSaveSetForm}
-                                onSave={(data) => {
-                                    const payload = setToPayload(data)
-                                    settingsCtx.api.updateEntity(setForHubResolution.id, payload)
-                                }}
-                                onClose={() => setEditDialogOpen(false)}
-                            />
-                        )
-                    })()}
-            </ExistingCodenamesProvider>
+                    }
+                    return (
+                        <EntityFormDialog
+                            open={editDialogOpen}
+                            mode='edit'
+                            title={t('sets.editTitle', 'Edit Set')}
+                            nameLabel={tc('fields.name', 'Name')}
+                            descriptionLabel={tc('fields.description', 'Description')}
+                            saveButtonText={tc('actions.save', 'Save')}
+                            savingButtonText={tc('actions.saving', 'Saving...')}
+                            cancelButtonText={tc('actions.cancel', 'Cancel')}
+                            hideDefaultFields
+                            initialExtraValues={buildSetInitialValues(settingsCtx)}
+                            tabs={buildSetFormTabs(settingsCtx, allHubs, setId)}
+                            validate={(values) => validateSetForm(settingsCtx, values)}
+                            canSave={canSaveSetForm}
+                            onSave={(data) => {
+                                const payload = setToPayload(data)
+                                settingsCtx.api.updateEntity(setForHubResolution.id, payload)
+                            }}
+                            onClose={() => setEditDialogOpen(false)}
+                        />
+                    )
+                })()}
+        </ExistingCodenamesProvider>
+    )
+
+    if (!renderPageShell) {
+        return content
+    }
+
+    return (
+        <MainCard
+            sx={{ maxWidth: '100%', width: '100%' }}
+            contentSX={{ px: 0, py: 0 }}
+            disableContentPadding
+            disableHeader
+            border={false}
+            shadow={false}
+        >
+            {content}
         </MainCard>
     )
 }
+
+const ConstantList = () => <ConstantListContent />
 
 export default ConstantList

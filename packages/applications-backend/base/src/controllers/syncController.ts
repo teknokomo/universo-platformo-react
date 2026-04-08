@@ -389,11 +389,10 @@ export function createSyncController(
         })
       }
 
-      const { snapshot, snapshotHash } = syncContext
+      const { snapshot, snapshotHash, entities: executableCatalogDefs } = syncContext
       if (!snapshot || typeof snapshot !== 'object' || !snapshot.entities || typeof snapshot.entities !== 'object') {
         return res.status(400).json({ error: 'Invalid publication snapshot' })
       }
-      const executableCatalogDefs = resolveExecutablePayloadEntities(snapshot)
 
       const { generator, migrator, migrationManager } = getApplicationSyncDdlServices()
 

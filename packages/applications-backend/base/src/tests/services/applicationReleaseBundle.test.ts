@@ -9,6 +9,7 @@ import {
     resolveApplicationReleaseSnapshotHash,
     validateApplicationReleaseBundleArtifacts
 } from '../../services/applicationReleaseBundle'
+import { createLoadPublishedApplicationSyncContext } from '../../services/applicationSyncContracts'
 
 const createCodenameVlc = (primary: string, secondary?: string) => ({
     _schema: '1',
@@ -383,7 +384,12 @@ describe('applicationReleaseBundle', () => {
                     elements: [],
                     enumerationValues: [],
                     constants: [],
+                    sharedAttributes: [],
+                    sharedConstants: [],
+                    sharedEnumerationValues: [],
+                    sharedEntityOverrides: [],
                     systemFields: [],
+                    scripts: [],
                     layouts: [
                         {
                             id: 'layout-1',
@@ -405,6 +411,8 @@ describe('applicationReleaseBundle', () => {
                             isActive: true
                         }
                     ],
+                    catalogLayouts: [],
+                    catalogLayoutWidgetOverrides: [],
                     defaultLayoutId: null,
                     layoutConfig: {}
                 }) ?? ''
@@ -468,6 +476,200 @@ describe('applicationReleaseBundle', () => {
                 })
             })
         ])
+    })
+
+    it('scopes repeated publication field ids per entity inside executable payloads', () => {
+        const repeatedFieldId = '019d69aa-f50d-77ca-988f-619e9d46670c'
+        const sharedField = {
+            id: repeatedFieldId,
+            codename: createCodenameVlc('SharedTitle', 'ОбщийЗаголовок'),
+            dataType: 'STRING',
+            isRequired: false,
+            isDisplayAttribute: false,
+            presentation: { name: {} },
+            validationRules: {},
+            uiConfig: {},
+            sortOrder: 1
+        }
+
+        const repeatedFieldSnapshot = {
+            versionEnvelope: {
+                structureVersion: '53.0.0',
+                templateVersion: null,
+                snapshotFormatVersion: 1 as const
+            },
+            entities: {
+                'catalog-alpha': {
+                    id: 'catalog-alpha',
+                    codename: createCodenameVlc('alpha', 'альфа'),
+                    kind: 'catalog',
+                    presentation: { name: {} },
+                    config: {},
+                    fields: [sharedField]
+                },
+                'catalog-beta': {
+                    id: 'catalog-beta',
+                    codename: createCodenameVlc('beta', 'бета'),
+                    kind: 'catalog',
+                    presentation: { name: {} },
+                    config: {},
+                    fields: [sharedField]
+                }
+            },
+            elements: {},
+            layouts: []
+        }
+
+        const bundle = createApplicationReleaseBundle({
+            applicationId: 'application-1',
+            applicationKey: 'products-app',
+            releaseVersion: 'publication-version-1',
+            sourceKind: 'publication',
+            snapshot: repeatedFieldSnapshot,
+            snapshotHash: calculateCanonicalApplicationReleaseSnapshotHash(repeatedFieldSnapshot, 'publication')
+        })
+
+        const bootstrapEntities = bundle.bootstrap.payload.entities
+        const bootstrapFieldIds = bootstrapEntities.flatMap((entity) => entity.fields.map((field) => field.id))
+        const incrementalFieldIds = bundle.incrementalMigration.payload.entities.flatMap((entity) =>
+            entity.fields.map((field) => field.id)
+        )
+
+        expect(new Set(bootstrapFieldIds).size).toBe(bootstrapFieldIds.length)
+        expect(new Set(incrementalFieldIds).size).toBe(incrementalFieldIds.length)
+
+        expect(bootstrapEntities).toEqual([
+            expect.objectContaining({
+                id: 'catalog-alpha',
+                fields: [expect.objectContaining({ codename: 'SharedTitle' })]
+            }),
+            expect.objectContaining({
+                id: 'catalog-beta',
+                fields: [expect.objectContaining({ codename: 'SharedTitle' })]
+            })
+        ])
+        expect(bootstrapEntities[0]?.fields[0]?.id).not.toBe(repeatedFieldId)
+        expect(bootstrapEntities[1]?.fields[0]?.id).not.toBe(repeatedFieldId)
+        expect(bootstrapEntities[0]?.fields[0]?.id).not.toBe(bootstrapEntities[1]?.fields[0]?.id)
+    })
+
+    it('scopes repeated shared enumeration value ids per target object and rewrites element refs', async () => {
+        const duplicateValueId = '019d6a25-9427-72a1-856b-56205dffad46'
+        const loadSyncContext = createLoadPublishedApplicationSyncContext(async () => ({
+            publicationId: 'publication-1',
+            publicationVersionId: 'publication-version-1',
+            snapshotHash: 'stale-runtime-hash',
+            publicationSnapshot: {},
+            entities: [],
+            snapshot: {
+                versionEnvelope: {
+                    structureVersion: '53.0.0',
+                    templateVersion: null,
+                    snapshotFormatVersion: 1
+                },
+                entities: {
+                    'catalog-main': {
+                        id: 'catalog-main',
+                        codename: createCodenameVlc('Main', 'Главная'),
+                        kind: 'catalog',
+                        presentation: { name: {} },
+                        config: {},
+                        fields: [
+                            {
+                                id: 'field-status-a',
+                                codename: createCodenameVlc('StatusA', 'СтатусА'),
+                                dataType: 'REF',
+                                isRequired: false,
+                                targetEntityId: 'enum-a',
+                                targetEntityKind: 'enumeration',
+                                presentation: { name: {} },
+                                validationRules: {},
+                                uiConfig: {},
+                                sortOrder: 1
+                            },
+                            {
+                                id: 'field-status-b',
+                                codename: createCodenameVlc('StatusB', 'СтатусБ'),
+                                dataType: 'REF',
+                                isRequired: false,
+                                targetEntityId: 'enum-b',
+                                targetEntityKind: 'enumeration',
+                                presentation: { name: {} },
+                                validationRules: {},
+                                uiConfig: {},
+                                sortOrder: 2
+                            }
+                        ]
+                    },
+                    'enum-a': {
+                        id: 'enum-a',
+                        codename: createCodenameVlc('EnumA', 'ПеречислениеА'),
+                        kind: 'enumeration',
+                        presentation: { name: {} },
+                        config: {},
+                        fields: []
+                    },
+                    'enum-b': {
+                        id: 'enum-b',
+                        codename: createCodenameVlc('EnumB', 'ПеречислениеБ'),
+                        kind: 'enumeration',
+                        presentation: { name: {} },
+                        config: {},
+                        fields: []
+                    }
+                },
+                enumerationValues: {
+                    'enum-a': [
+                        {
+                            id: duplicateValueId,
+                            codename: createCodenameVlc('Open', 'Открыто'),
+                            presentation: { name: {} },
+                            sortOrder: 1,
+                            isDefault: true
+                        }
+                    ],
+                    'enum-b': [
+                        {
+                            id: duplicateValueId,
+                            codename: createCodenameVlc('Open', 'Открыто'),
+                            presentation: { name: {} },
+                            sortOrder: 1,
+                            isDefault: true
+                        }
+                    ]
+                },
+                elements: {
+                    'catalog-main': [
+                        {
+                            id: 'row-1',
+                            sortOrder: 1,
+                            data: {
+                                StatusA: duplicateValueId,
+                                StatusB: { id: duplicateValueId }
+                            }
+                        }
+                    ]
+                }
+            }
+        }))
+
+        const syncContext = await loadSyncContext({} as never, 'publication-1')
+        if (!syncContext) {
+            throw new Error('Expected normalized sync context to be available')
+        }
+
+        const enumAId = syncContext.snapshot.enumerationValues?.['enum-a']?.[0]?.id
+        const enumBId = syncContext.snapshot.enumerationValues?.['enum-b']?.[0]?.id
+        const elementData = syncContext.snapshot.elements?.['catalog-main']?.[0] as { data?: Record<string, unknown> } | undefined
+
+        expect(enumAId).toBeDefined()
+        expect(enumBId).toBeDefined()
+        expect(enumAId).not.toBe(duplicateValueId)
+        expect(enumBId).not.toBe(duplicateValueId)
+        expect(enumAId).not.toBe(enumBId)
+        expect(elementData?.data?.StatusA).toBe(enumAId)
+        expect((elementData?.data?.StatusB as { id?: string } | undefined)?.id).toBe(enumBId)
+        expect(syncContext.snapshotHash).not.toBe('stale-runtime-hash')
     })
 
     it('flattens TABLE child fields and enriches set constants inside executable payload entities', () => {

@@ -59,6 +59,10 @@ const mocks = vi.hoisted(() => ({
     enqueueSnackbar: vi.fn(),
     t: (key: string, fallback?: string) => fallback ?? key,
     nextId: 1,
+    attributesApi: {
+        reorderAttribute: vi.fn(),
+        reorderAttributeDirect: vi.fn()
+    },
     hubsApi: {
         createHub: vi.fn(),
         updateHub: vi.fn(),
@@ -75,6 +79,10 @@ const mocks = vi.hoisted(() => ({
         updateCatalog: vi.fn(),
         deleteCatalog: vi.fn(),
         reorderCatalog: vi.fn()
+    },
+    constantsApi: {
+        reorderConstant: vi.fn(),
+        reorderConstantDirect: vi.fn()
     },
     setsApi: {
         createSetAtMetahub: vi.fn(),
@@ -98,7 +106,8 @@ const mocks = vi.hoisted(() => ({
         createEnumerationValue: vi.fn(),
         updateEnumerationValue: vi.fn(),
         deleteEnumerationValue: vi.fn(),
-        copyEnumerationValue: vi.fn()
+        copyEnumerationValue: vi.fn(),
+        reorderEnumerationValue: vi.fn()
     },
     layoutsApi: {
         createLayout: vi.fn(),
@@ -316,21 +325,26 @@ vi.mock('@universo/template-mui', () => ({
     })
 }))
 
+vi.mock('../../attributes/api', () => mocks.attributesApi)
 vi.mock('../../hubs/api', () => mocks.hubsApi)
 vi.mock('../../catalogs/api', () => mocks.catalogsApi)
+vi.mock('../../constants/api', () => mocks.constantsApi)
 vi.mock('../../sets/api', () => mocks.setsApi)
 vi.mock('../../enumerations/api', () => mocks.enumerationsApi)
 vi.mock('../../layouts/api', () => mocks.layoutsApi)
 vi.mock('../../publications/api', () => mocks.publicationsApi)
 
+import * as attributeHooks from '../../attributes/hooks/mutations'
 import * as hubHooks from '../../hubs/hooks/mutations'
 import * as catalogHooks from '../../catalogs/hooks/mutations'
 import * as setHooks from '../../sets/hooks/mutations'
+import * as constantHooks from '../../constants/hooks/mutations'
 import * as enumerationHooks from '../../enumerations/hooks/mutations'
 import * as layoutHooks from '../../layouts/hooks/mutations'
 import * as publicationHooks from '../../publications/hooks/mutations'
 import { metahubsQueryKeys } from '../queryKeys'
 
+type ReorderAttributeParams = Parameters<ReturnType<typeof attributeHooks.useReorderAttribute>['mutate']>[0]
 type CreateHubParams = Parameters<ReturnType<typeof hubHooks.useCreateHub>['mutate']>[0]
 type UpdateHubParams = Parameters<ReturnType<typeof hubHooks.useUpdateHub>['mutate']>[0]
 type CopyHubParams = Parameters<ReturnType<typeof hubHooks.useCopyHub>['mutate']>[0]
@@ -338,12 +352,14 @@ type CopyCatalogParams = Parameters<ReturnType<typeof catalogHooks.useCopyCatalo
 type CreateSetParams = Parameters<ReturnType<typeof setHooks.useCreateSetAtMetahub>['mutate']>[0]
 type UpdateSetParams = Parameters<ReturnType<typeof setHooks.useUpdateSetAtMetahub>['mutate']>[0]
 type CopySetParams = Parameters<ReturnType<typeof setHooks.useCopySet>['mutate']>[0]
+type ReorderConstantParams = Parameters<ReturnType<typeof constantHooks.useReorderConstant>['mutate']>[0]
 type CreateEnumerationParams = Parameters<ReturnType<typeof enumerationHooks.useCreateEnumerationAtMetahub>['mutate']>[0]
 type UpdateEnumerationParams = Parameters<ReturnType<typeof enumerationHooks.useUpdateEnumerationAtMetahub>['mutate']>[0]
 type CopyEnumerationParams = Parameters<ReturnType<typeof enumerationHooks.useCopyEnumeration>['mutate']>[0]
 type CreateEnumerationValueParams = Parameters<ReturnType<typeof enumerationHooks.useCreateEnumerationValue>['mutate']>[0]
 type UpdateEnumerationValueParams = Parameters<ReturnType<typeof enumerationHooks.useUpdateEnumerationValue>['mutate']>[0]
 type CopyEnumerationValueParams = Parameters<ReturnType<typeof enumerationHooks.useCopyEnumerationValue>['mutate']>[0]
+type ReorderEnumerationValueParams = Parameters<ReturnType<typeof enumerationHooks.useReorderEnumerationValue>['mutate']>[0]
 type CreateLayoutParams = Parameters<ReturnType<typeof layoutHooks.useCreateLayout>['mutate']>[0]
 type UpdateLayoutParams = Parameters<ReturnType<typeof layoutHooks.useUpdateLayout>['mutate']>[0]
 type CopyLayoutParams = Parameters<ReturnType<typeof layoutHooks.useCopyLayout>['mutate']>[0]
@@ -886,6 +902,163 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         await waitFor(() => {
             expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Enumeration value copied', { variant: 'success' })
         })
+    })
+
+    it('keeps locked shared constants fixed while optimistically reordering merged local rows', async () => {
+        const metahubId = 'metahub-constants'
+        const hubId = 'hub-1'
+        const setId = 'set-1'
+        const listKey = metahubsQueryKeys.constantsList(metahubId, hubId, setId, { includeShared: true })
+        const reorderRequest = createPromiseController<{ data: { id: string } }>()
+
+        mocks.constantsApi.reorderConstant.mockReturnValue(reorderRequest.promise)
+
+        const queryClient = createTestQueryClient()
+        queryClient.setQueryData(listKey, {
+            items: [
+                {
+                    id: 'constant-shared',
+                    sortOrder: 1,
+                    effectiveSortOrder: 1,
+                    isShared: true,
+                    sharedBehavior: { canDeactivate: true, canExclude: true, positionLocked: true }
+                },
+                { id: 'constant-local-1', sortOrder: 2, effectiveSortOrder: 2 },
+                { id: 'constant-local-2', sortOrder: 3, effectiveSortOrder: 3 }
+            ],
+            pagination: { total: 3 }
+        })
+
+        let reorderConstant: ReturnType<typeof constantHooks.useReorderConstant> | undefined
+
+        function Probe() {
+            reorderConstant = constantHooks.useReorderConstant()
+            return null
+        }
+
+        render(createElement(QueryClientProvider, { client: queryClient }, createElement(Probe)))
+
+        act(() => {
+            reorderConstant!.mutate({
+                metahubId,
+                hubId,
+                setId,
+                constantId: 'constant-local-2',
+                newSortOrder: 2,
+                mergedOrderIds: ['constant-local-2', 'constant-local-1']
+            } as ReorderConstantParams)
+        })
+
+        await waitFor(() => {
+            const data = queryClient.getQueryData<{ items: Array<Record<string, unknown>> }>(listKey)
+            expect(data?.items.map((item) => item.id)).toEqual(['constant-shared', 'constant-local-2', 'constant-local-1'])
+        })
+
+        reorderRequest.resolve({ data: { id: 'constant-local-2' } })
+    })
+
+    it('keeps locked shared attributes fixed while optimistically reordering merged local rows', async () => {
+        const metahubId = 'metahub-attributes'
+        const hubId = 'hub-1'
+        const catalogId = 'catalog-1'
+        const listKey = metahubsQueryKeys.attributesList(metahubId, hubId, catalogId, { includeShared: true })
+        const reorderRequest = createPromiseController<{ data: { id: string } }>()
+
+        mocks.attributesApi.reorderAttribute.mockReturnValue(reorderRequest.promise)
+
+        const queryClient = createTestQueryClient()
+        queryClient.setQueryData(listKey, {
+            items: [
+                {
+                    id: 'attribute-shared',
+                    sortOrder: 1,
+                    effectiveSortOrder: 1,
+                    isShared: true,
+                    sharedBehavior: { canDeactivate: true, canExclude: true, positionLocked: true }
+                },
+                { id: 'attribute-local-1', sortOrder: 2, effectiveSortOrder: 2 },
+                { id: 'attribute-local-2', sortOrder: 3, effectiveSortOrder: 3 }
+            ],
+            pagination: { total: 3 }
+        })
+
+        let reorderAttribute: ReturnType<typeof attributeHooks.useReorderAttribute> | undefined
+
+        function Probe() {
+            reorderAttribute = attributeHooks.useReorderAttribute()
+            return null
+        }
+
+        render(createElement(QueryClientProvider, { client: queryClient }, createElement(Probe)))
+
+        act(() => {
+            reorderAttribute!.mutate({
+                metahubId,
+                hubId,
+                catalogId,
+                attributeId: 'attribute-local-2',
+                newSortOrder: 2,
+                mergedOrderIds: ['attribute-local-2', 'attribute-local-1']
+            } as ReorderAttributeParams)
+        })
+
+        await waitFor(() => {
+            const data = queryClient.getQueryData<{ items: Array<Record<string, unknown>> }>(listKey)
+            expect(data?.items.map((item) => item.id)).toEqual(['attribute-shared', 'attribute-local-2', 'attribute-local-1'])
+        })
+
+        reorderRequest.resolve({ data: { id: 'attribute-local-2' } })
+    })
+
+    it('keeps locked shared enumeration values fixed while optimistically reordering merged local rows', async () => {
+        const metahubId = 'metahub-enum-values-reorder'
+        const enumerationId = 'enum-merged'
+        const listKey = metahubsQueryKeys.enumerationValuesList(metahubId, enumerationId, { includeShared: true })
+        const reorderRequest = createPromiseController<{ data: { id: string } }>()
+
+        mocks.enumerationsApi.reorderEnumerationValue.mockReturnValue(reorderRequest.promise)
+
+        const queryClient = createTestQueryClient()
+        queryClient.setQueryData(listKey, {
+            items: [
+                {
+                    id: 'value-shared',
+                    sortOrder: 1,
+                    effectiveSortOrder: 1,
+                    isShared: true,
+                    sharedBehavior: { canDeactivate: true, canExclude: true, positionLocked: true }
+                },
+                { id: 'value-local-1', sortOrder: 2, effectiveSortOrder: 2 },
+                { id: 'value-local-2', sortOrder: 3, effectiveSortOrder: 3 }
+            ],
+            pagination: { total: 3 }
+        })
+
+        let reorderValue: ReturnType<typeof enumerationHooks.useReorderEnumerationValue> | undefined
+
+        function Probe() {
+            reorderValue = enumerationHooks.useReorderEnumerationValue()
+            return null
+        }
+
+        render(createElement(QueryClientProvider, { client: queryClient }, createElement(Probe)))
+
+        act(() => {
+            reorderValue!.mutate({
+                metahubId,
+                enumerationId,
+                valueId: 'value-local-2',
+                newSortOrder: 2,
+                mergedOrderIds: ['value-local-2', 'value-local-1']
+            } as ReorderEnumerationValueParams)
+        })
+
+        await waitFor(() => {
+            const data = queryClient.getQueryData<{ items: Array<Record<string, unknown>> }>(listKey)
+            expect(data?.items.map((item) => item.id)).toEqual(['value-shared', 'value-local-2', 'value-local-1'])
+        })
+
+        reorderRequest.resolve({ data: { id: 'value-local-2' } })
     })
 
     it('applies optimistic state for layout mutations and updates breadcrumb caches', async () => {

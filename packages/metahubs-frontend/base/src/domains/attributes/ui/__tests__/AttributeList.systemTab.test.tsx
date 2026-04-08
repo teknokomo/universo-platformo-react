@@ -133,15 +133,30 @@ vi.mock('@universo/template-mui', async () => {
         PaginationControls: () => null,
         FlowListTable: ({
             data,
-            renderActions
+            customColumns,
+            renderActions,
+            getRowSx,
+            isRowDragDisabled
         }: {
             data: Array<{ id: string; name?: string; codename?: string }>
+            customColumns?: Array<{
+                id: string
+                render?: (row: { id: string; name?: string; codename?: string }, index: number) => React.ReactNode
+            }>
             renderActions?: (row: { id: string; name?: string; codename?: string }) => React.ReactNode
+            getRowSx?: (row: { id: string; name?: string; codename?: string }, index: number) => unknown
+            isRowDragDisabled?: (row: { id: string; name?: string; codename?: string }, index: number) => boolean
         }) => (
             <div data-testid='flow-list-table'>
-                {data.map((row) => (
-                    <div key={row.id}>
-                        <div>{row.name ?? row.codename}</div>
+                {data.map((row, index) => (
+                    <div key={row.id} data-testid={`row-${row.id}`}>
+                        {customColumns && customColumns.length > 0 ? (
+                            customColumns.map((column) => <div key={column.id}>{column.render?.(row, index)}</div>)
+                        ) : (
+                            <div>{row.name ?? row.codename}</div>
+                        )}
+                        {getRowSx?.(row, index) ? <div>row-styled</div> : null}
+                        {isRowDragDisabled?.(row, index) ? <div>drag-disabled</div> : null}
                         {renderActions?.(row)}
                     </div>
                 ))}
@@ -176,7 +191,7 @@ vi.mock('@universo/template-mui', async () => {
             if (visible.length === 0) return null
 
             return (
-                <div data-testid='base-entity-menu'>
+                <div data-testid='base-entity-menu' data-entity-id={entity.id}>
                     {visible.map((descriptor) => (
                         <span key={descriptor.id}>{descriptor.id}</span>
                     ))}
@@ -222,6 +237,7 @@ vi.mock('../../shared', async () => {
             items: [],
             pagination: { limit: 1000, offset: 0, count: 0, total: 0, hasMore: false }
         })),
+        useUpsertSharedEntityOverride: () => ({ mutateAsync: vi.fn(), isPending: false }),
         invalidateAttributesQueries: {
             all: vi.fn(),
             allCodenames: vi.fn()
@@ -235,7 +251,7 @@ vi.mock('../../../components', () => ({
 
 vi.mock('./AttributeActions', () => ({
     __esModule: true,
-    default: []
+    default: [{ id: 'edit' }, { id: 'move-up' }, { id: 'move-down' }]
 }))
 
 vi.mock('./AttributeFormFields', () => ({
@@ -365,5 +381,91 @@ describe('AttributeList system tab', () => {
             keepPreviousDataOnQueryKeyChange: false
         })
         expect(goToPageMock).toHaveBeenCalledWith(1)
+    })
+
+    it('renders shared rows as read-only and keeps local rows editable in merged views', async () => {
+        usePaginatedMock.mockReturnValue({
+            data: [
+                {
+                    id: 'attr-shared-1',
+                    catalogId: 'catalog-1',
+                    codename: 'shared_name',
+                    name: { version: 1, locales: { en: { content: 'Shared Name' } } },
+                    description: null,
+                    dataType: 'STRING',
+                    validationRules: {},
+                    uiConfig: {},
+                    isRequired: false,
+                    isDisplayAttribute: false,
+                    sortOrder: 1,
+                    effectiveSortOrder: 1,
+                    isShared: true,
+                    isActive: false,
+                    sharedBehavior: {
+                        canDeactivate: true,
+                        canExclude: true,
+                        positionLocked: true
+                    },
+                    createdAt: '2026-03-16T00:00:00.000Z',
+                    updatedAt: '2026-03-16T00:00:00.000Z'
+                },
+                {
+                    id: 'attr-local-1',
+                    catalogId: 'catalog-1',
+                    codename: 'local_name',
+                    name: { version: 1, locales: { en: { content: 'Local Name' } } },
+                    description: null,
+                    dataType: 'STRING',
+                    validationRules: {},
+                    uiConfig: {},
+                    isRequired: false,
+                    isDisplayAttribute: false,
+                    sortOrder: 2,
+                    createdAt: '2026-03-16T00:00:00.000Z',
+                    updatedAt: '2026-03-16T00:00:00.000Z'
+                }
+            ],
+            isLoading: false,
+            error: null,
+            meta: {
+                totalAll: 2,
+                limit: 100,
+                limitReached: false,
+                childSearchMatchParentIds: [],
+                platformSystemAttributesPolicy: {
+                    allowConfiguration: true,
+                    forceCreate: true,
+                    ignoreMetahubSettings: true
+                }
+            },
+            pagination: { totalItems: 2, page: 1, limit: 20, totalPages: 1, hasNextPage: false, hasPrevPage: false },
+            actions: { setSearch: vi.fn(), goToPage: goToPageMock }
+        })
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/catalog/catalog-1/attributes']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/catalog/:catalogId/attributes' element={<AttributeList />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        expect(await screen.findByText('Shared Name')).toBeInTheDocument()
+        expect(screen.getByText('Shared')).toBeInTheDocument()
+        expect(screen.getByText('Inactive')).toBeInTheDocument()
+        expect(screen.queryByText('Local')).not.toBeInTheDocument()
+
+        const sharedRow = screen.getByTestId('row-attr-shared-1')
+        const localRow = screen.getByTestId('row-attr-local-1')
+
+        expect(sharedRow).toHaveTextContent('drag-disabled')
+        expect(sharedRow).not.toHaveTextContent('edit')
+        expect(sharedRow).toHaveTextContent('activate')
+        expect(sharedRow).toHaveTextContent('exclude')
+
+        expect(localRow).toHaveTextContent('row-styled')
+        expect(localRow).toHaveTextContent('edit')
+        expect(localRow).not.toHaveTextContent('move-up')
+        expect(localRow).not.toHaveTextContent('move-down')
     })
 })

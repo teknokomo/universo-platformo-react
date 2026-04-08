@@ -1,11 +1,13 @@
 import type { DbExecutor, SqlQueryable } from '@universo/utils/database'
 import { queryMany, queryOne, queryOneOrThrow } from '@universo/utils/database'
 import { qSchemaTable } from '@universo/database'
+import { SHARED_OBJECT_KINDS } from '@universo/types'
 import { generateTableName } from '../../ddl'
 import { MetahubSchemaService } from './MetahubSchemaService'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
 import { codenamePrimaryTextSql, ensureCodenameValue } from '../../shared/codename'
 import { MetahubNotFoundError } from '../../shared/domainErrors'
+import { SharedEntityOverridesService } from '../../shared/services/SharedEntityOverridesService'
 
 /**
  * Options for querying objects
@@ -15,6 +17,8 @@ interface QueryOptions {
     includeDeleted?: boolean
     /** Only return soft-deleted records (trash view) */
     onlyDeleted?: boolean
+    /** Include internal virtual shared containers. */
+    includeVirtualContainers?: boolean
 }
 
 type MetahubObjectKind = 'catalog' | 'set' | 'enumeration' | 'hub' | 'document'
@@ -70,6 +74,15 @@ export class MetahubObjectsService {
         return ''
     }
 
+    private buildVirtualContainerSql(options: QueryOptions = {}, alias = ''): string {
+        if (options.includeVirtualContainers) {
+            return ''
+        }
+
+        const prefix = alias ? `${alias}.` : ''
+        return ` AND COALESCE((${prefix}config->>'isVirtualContainer')::boolean, false) = false`
+    }
+
     private buildSortOrderLockKey(schemaName: string, kind: MetahubObjectKind): string {
         return `mhb-objects-sort:${schemaName}:${kind}`
     }
@@ -116,11 +129,12 @@ export class MetahubObjectsService {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_objects')
         const softDelete = this.buildSoftDeleteSql(options)
+        const virtualContainer = this.buildVirtualContainerSql(options)
 
         const rows = await queryMany<Record<string, unknown>>(
             this.exec,
             `SELECT * FROM ${qt}
-             WHERE kind = $1${softDelete}
+               WHERE kind = $1${softDelete}${virtualContainer}
              ORDER BY COALESCE((config->>'sortOrder')::int, 0) ASC,
                       _upl_created_at ASC,
                       id ASC`,
@@ -133,10 +147,13 @@ export class MetahubObjectsService {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_objects')
         const softDelete = this.buildSoftDeleteSql(options)
+        const virtualContainer = this.buildVirtualContainerSql(options)
 
-        const result = await queryOne<{ count: string }>(this.exec, `SELECT COUNT(*) AS count FROM ${qt} WHERE kind = $1${softDelete}`, [
-            kind
-        ])
+        const result = await queryOne<{ count: string }>(
+            this.exec,
+            `SELECT COUNT(*) AS count FROM ${qt} WHERE kind = $1${softDelete}${virtualContainer}`,
+            [kind]
+        )
         return result ? parseInt(result.count, 10) : 0
     }
 
@@ -168,10 +185,11 @@ export class MetahubObjectsService {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_objects')
         const softDelete = this.buildSoftDeleteSql(options)
+        const virtualContainer = this.buildVirtualContainerSql(options)
 
         const row = await queryOne<Record<string, unknown>>(
             this.exec,
-            `SELECT * FROM ${qt} WHERE ${codenamePrimaryTextSql('codename')} = $1 AND kind = $2${softDelete} LIMIT 1`,
+            `SELECT * FROM ${qt} WHERE ${codenamePrimaryTextSql('codename')} = $1 AND kind = $2${softDelete}${virtualContainer} LIMIT 1`,
             [codename, kind]
         )
         return row ? this.normalizeObjectRow(row) : null
@@ -324,7 +342,9 @@ export class MetahubObjectsService {
         }
         if (input.name !== undefined || input.description !== undefined) {
             updateData.presentation = stripUndefinedEntries({
-                ...(existing.presentation && typeof existing.presentation === 'object' ? (existing.presentation as Record<string, unknown>) : {}),
+                ...(existing.presentation && typeof existing.presentation === 'object'
+                    ? (existing.presentation as Record<string, unknown>)
+                    : {}),
                 ...(input.name !== undefined ? { name: input.name } : {}),
                 ...(input.description !== undefined ? { description: input.description } : {})
             })
@@ -408,6 +428,8 @@ export class MetahubObjectsService {
         const qt = qSchemaTable(schemaName, '_mhb_objects')
         const now = new Date()
 
+        const existing = await queryOne<{ id: string; kind: string }>(this.exec, `SELECT id, kind FROM ${qt} WHERE id = $1 LIMIT 1`, [id])
+
         const rows = await this.exec.query<{ id: string }>(
             `UPDATE ${qt}
              SET _mhb_deleted = TRUE,
@@ -422,6 +444,18 @@ export class MetahubObjectsService {
 
         if (rows.length < 1) {
             throw new MetahubNotFoundError('Object', id)
+        }
+
+        if (
+            existing?.kind === 'catalog' ||
+            existing?.kind === 'set' ||
+            existing?.kind === 'enumeration' ||
+            existing?.kind === SHARED_OBJECT_KINDS.SHARED_CATALOG_POOL ||
+            existing?.kind === SHARED_OBJECT_KINDS.SHARED_SET_POOL ||
+            existing?.kind === SHARED_OBJECT_KINDS.SHARED_ENUM_POOL
+        ) {
+            const sharedOverridesService = new SharedEntityOverridesService(this.exec, this.schemaService)
+            await sharedOverridesService.cleanupForDeletedTargetObject(metahubId, id, userId)
         }
     }
 
@@ -456,6 +490,8 @@ export class MetahubObjectsService {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_objects')
 
+        const existing = await queryOne<{ id: string; kind: string }>(this.exec, `SELECT id, kind FROM ${qt} WHERE id = $1 LIMIT 1`, [id])
+
         const rows = await this.exec.query<{ id: string }>(
             `DELETE FROM ${qt}
              WHERE id = $1 AND _upl_deleted = false
@@ -465,6 +501,18 @@ export class MetahubObjectsService {
 
         if (rows.length < 1) {
             throw new MetahubNotFoundError('Object', id)
+        }
+
+        if (
+            existing?.kind === 'catalog' ||
+            existing?.kind === 'set' ||
+            existing?.kind === 'enumeration' ||
+            existing?.kind === SHARED_OBJECT_KINDS.SHARED_CATALOG_POOL ||
+            existing?.kind === SHARED_OBJECT_KINDS.SHARED_SET_POOL ||
+            existing?.kind === SHARED_OBJECT_KINDS.SHARED_ENUM_POOL
+        ) {
+            const sharedOverridesService = new SharedEntityOverridesService(this.exec, this.schemaService)
+            await sharedOverridesService.purgeDeletedTargetOverrides(metahubId, id, userId)
         }
     }
 

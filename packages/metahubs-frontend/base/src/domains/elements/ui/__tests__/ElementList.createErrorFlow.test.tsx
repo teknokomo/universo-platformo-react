@@ -341,7 +341,7 @@ vi.mock('@universo/utils', () => ({
     hasAxiosResponse: (error: unknown) => {
         return error !== null && typeof error === 'object' && 'response' in error
     },
-    createLocalizedContent: (locale: string = 'en', content: unknown = '') => ({
+    createLocalizedContent: (locale = 'en', content: unknown = '') => ({
         _schema: '1',
         _primary: locale,
         locales: { [locale]: { content, version: 1, isActive: true, createdAt: '', updatedAt: '' } }
@@ -364,7 +364,7 @@ vi.mock('@universo/utils/vlc', () => ({
     getVLCString: () => '',
     getVLCPrimaryString: () => '',
     isLocalizedContent: () => false,
-    createLocalizedContent: (locale: string = 'en', content: unknown = '') => ({
+    createLocalizedContent: (locale = 'en', content: unknown = '') => ({
         _schema: '1',
         _primary: locale,
         locales: { [locale]: { content, version: 1, isActive: true, createdAt: '', updatedAt: '' } }

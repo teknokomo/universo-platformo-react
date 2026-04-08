@@ -18,7 +18,7 @@ import { validateListQuery } from '../../shared/queryParams'
 import { MetahubNotFoundError } from '../../shared/domainErrors'
 import { ensureMetahubAccess } from '../../shared/guards'
 import { resolveUserId } from '../../shared/routeAuth'
-import type { createMetahubHandlerFactory, MetahubHandlerContext } from '../../shared/createMetahubHandler'
+import type { createMetahubHandlerFactory } from '../../shared/createMetahubHandler'
 import {
     getCodenameSettings,
     codenameErrorMessage,

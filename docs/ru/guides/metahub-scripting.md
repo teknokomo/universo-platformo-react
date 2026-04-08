@@ -13,8 +13,8 @@ description: Подробное v1-руководство по созданию,
 
 - добавлять серверную логику, которая реагирует на runtime-события;
 - отдавать клиентский код для widget и интерактивного UI;
-- разделять read-only metadata helpers между сценариями редактирования и выполнения;
-- прикреплять настраиваемую логику к поверхностям проектирования metahub и entity.
+- разделять переиспользуемые helper-ы раздела Common через модули `general/library` и импорты `@shared/<codename>`;
+- прикреплять настраиваемую логику к Common, уровню metahub и entity-level поверхностям проектирования.
 
 ## Поддерживаемый контракт
 
@@ -22,15 +22,15 @@ description: Подробное v1-руководство по созданию,
 | --- | --- |
 | Source kind | В интерфейсе включено только встроенное редактирование `embedded`. |
 | SDK compatibility | Поддерживается только `sdkApiVersion = 1.0.0`. |
-| Imports | Разрешены только импорты из `@universo/extension-sdk`. |
-| Roles | `module`, `lifecycle`, `widget` и `global`. |
-| Attachment scopes | Metahub, hub, catalog, set, enumeration и attribute. |
+| Imports | `@universo/extension-sdk` разрешён всегда; consumer scripts также могут импортировать Common libraries через `@shared/<codename>`. |
+| Roles | `module`, `lifecycle`, `widget` и `library`. |
+| Attachment scopes | `general` в Common только для `library`, плюс metahub, hub, catalog, set, enumeration и attribute для исполняемых consumer-ов. |
 | Client runtime | Browser Worker runtime с fail-closed fallback, если Worker недоступен или выполнение вышло за лимит времени. |
 | Server runtime | Выполнение в пуле `isolated-vm` на стороне applications backend. |
 
 ## Порядок создания
 
-1. Откройте вкладку Scripts у metahub или у конкретной attached entity.
+1. Откройте вкладку Scripts в Common для shared libraries или у metahub / конкретной attached entity для consumer-ов.
 2. Создайте новый script и выберите module role до редактирования кода.
 3. Оставьте source kind как Embedded и объявляйте только те capability, которые реально нужны script-у.
 4. Экспортируйте класс, который наследует `ExtensionScript`.
@@ -46,16 +46,25 @@ description: Подробное v1-руководство по созданию,
 | `widget` | Интерактивные виджеты, например виджет квиза. | Черновики widget по умолчанию получают client RPC capability, необходимый runtime bridge. |
 | `module` | Общие модули бизнес-логики. | Используйте для runtime-хелперов, не связанных с widget. |
 | `lifecycle` | Серверные хуки, реагирующие на события. | Lifecycle-handlers никогда не вызываются через публичный runtime RPC. |
-| `global` | Вспомогательная логика между разными областями. | Держите capability минимальными и явными. |
+| `library` | Общие helper-ы раздела Common. | Libraries работают только на импорт, должны оставаться чистыми и не могут объявлять decorators или runtime ctx access. |
+
+## Shared Library Contract
+
+- Скрипты library создаются только из Common -> Scripts со scope привязки `general`.
+- `general` и `library` неразделимы: Common отклоняет любую другую роль для `general`, а новый authoring `library` отклоняется вне Common/general.
+- Libraries компилируются для dependency resolution и validation до сборки consumer scripts.
+- Consumer scripts импортируют их через `@shared/<codename>` и сохраняют обычные scope-specific правила привязки.
+- Libraries не раскрываются как прямые runtime entrypoints, RPC targets или lifecycle-handlers.
+- Удаление, смена codename и циклы `@shared/*` завершаются fail-closed до того, как publication сможет отгрузить сломанный dependency graph.
 
 ## Поток publication и выполнения
 
-1. Design-time-скрипты живут в metahub storage и редактируются из вкладки Scripts.
-2. Генерация publication сериализует метаданные скрипта, исходный код и скомпилированные runtime-бандлы в snapshot publication.
-3. Синхронизация application копирует опубликованный контракт в `_app_scripts`.
-4. List-endpoints runtime возвращают только метаданные и никогда не встраивают исполняемые бандлы.
+1. Design-time scripts живут в metahub storage и редактируются из вкладки Scripts.
+2. Генерация publication валидирует и компилирует shared libraries в topological dependency order, а затем сериализует метаданные script, исходный код и скомпилированные runtime bundles в snapshot publication.
+3. Синхронизация application копирует опубликованный контракт consumer scripts в `_app_scripts`, а shared-library material остаётся доступным только через скомпилированные consumer-ы.
+4. List-endpoints runtime возвращают только metadata опубликованных consumer scripts и никогда не встраивают исполняемые bundles.
 5. Клиентский код загружается из отдельного endpoint-а client bundle.
-6. Серверные вызовы идут через route вызова runtime-скрипта и остаются под проверками capability.
+6. Серверные вызовы идут через route вызова runtime-script и остаются под проверками capability.
 
 ## Семантика декораторов
 

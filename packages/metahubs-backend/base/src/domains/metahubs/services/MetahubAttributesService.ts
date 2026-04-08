@@ -6,11 +6,14 @@ import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimis
 import {
     AttributeDataType,
     TABLE_CHILD_DATA_TYPES,
+    SHARED_ENTITY_KIND_TO_POOL_KIND,
     type CatalogAttributeSystemMetadata,
     type CatalogSystemFieldKey,
     type CatalogSystemFieldState,
     type CatalogSystemFieldsSnapshot,
-    type PlatformSystemAttributesPolicy
+    type PlatformSystemAttributesPolicy,
+    type VersionedLocalizedContent,
+    type SharedBehavior
 } from '@universo/types'
 import {
     deriveApplicationLifecycleContract,
@@ -29,17 +32,58 @@ import {
 } from '../../shared/platformSystemAttributesPolicy'
 import { codenamePrimaryTextSql, ensureCodenameValue, getCodenameText } from '../../shared/codename'
 import { MetahubDomainError, MetahubNotFoundError, MetahubValidationError, MetahubConflictError } from '../../shared/domainErrors'
+import { buildMergedSharedEntityList, planMergedSharedEntityOrder, type SharedEntityListItem } from '../../shared/mergedSharedEntityList'
+import { SharedEntityOverridesService } from '../../shared/services/SharedEntityOverridesService'
+import { SharedContainerService } from '../../shared/services/SharedContainerService'
 import { mhbSoftDelete } from '../../../persistence/metahubsQueryHelpers'
 
 const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 type AttributeScope = 'business' | 'system' | 'all'
 const RESERVED_CATALOG_SYSTEM_CODENAMES = new Set(getReservedCatalogSystemFieldCodenames())
 
+type MetahubAttributeRecord = {
+    id: string
+    catalogId: string
+    codename: string
+    dataType: AttributeDataType
+    isRequired: boolean
+    isDisplayAttribute: boolean
+    targetEntityId: string | null
+    targetEntityKind: string | null
+    targetConstantId: string | null
+    parentAttributeId: string | null
+    sortOrder: number
+    name: VersionedLocalizedContent<string> | undefined
+    description: VersionedLocalizedContent<string> | undefined
+    validationRules: Record<string, unknown> | undefined
+    uiConfig: Record<string, unknown> | undefined
+    system: CatalogAttributeSystemMetadata
+    version: number
+    createdAt: unknown
+    updatedAt: unknown
+}
+
 /**
  * Service to manage Metahub Attributes stored in isolated schemas (_mhb_attributes).
  */
 export class MetahubAttributesService {
     constructor(private exec: DbExecutor, private schemaService: MetahubSchemaService) {}
+
+    private async listRootRowsByObjectId(
+        schemaName: string,
+        objectId: string,
+        scope: AttributeScope,
+        db: SqlQueryable
+    ): Promise<Record<string, unknown>[]> {
+        const qt = qSchemaTable(schemaName, '_mhb_attributes')
+        return queryMany(
+            db,
+            `SELECT * FROM ${qt}
+             WHERE object_id = $1 AND parent_attribute_id IS NULL AND ${this.getScopeCondition(scope)} AND ${ACTIVE}
+             ORDER BY sort_order ASC, _upl_created_at ASC`,
+            [objectId]
+        )
+    }
 
     private getScopeCondition(scope: AttributeScope = 'business'): string {
         if (scope === 'system') return 'is_system = true'
@@ -235,16 +279,65 @@ export class MetahubAttributesService {
      */
     async findAll(metahubId: string, objectId: string, userId?: string, scope: AttributeScope = 'business', db?: SqlQueryable) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const qt = qSchemaTable(schemaName, '_mhb_attributes')
-        const rows = await queryMany(
-            db ?? this.exec,
-            `SELECT * FROM ${qt}
-             WHERE object_id = $1 AND parent_attribute_id IS NULL AND ${this.getScopeCondition(scope)} AND ${ACTIVE}
-             ORDER BY sort_order ASC, _upl_created_at ASC`,
-            [objectId]
-        )
+        const rows = await this.listRootRowsByObjectId(schemaName, objectId, scope, db ?? this.exec)
 
         return rows.map((row) => this.mapRowToAttribute(row))
+    }
+
+    async findAllMerged(metahubId: string, objectId: string, userId?: string, scope: AttributeScope = 'business', db?: SqlQueryable) {
+        if (scope !== 'business') {
+            return this.findAll(metahubId, objectId, userId, scope, db)
+        }
+
+        return this.findAllBusinessMerged(metahubId, objectId, userId, db)
+    }
+
+    private async findAllBusinessMerged(
+        metahubId: string,
+        objectId: string,
+        userId?: string,
+        db?: SqlQueryable
+    ): Promise<SharedEntityListItem<MetahubAttributeRecord>[]> {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const run = async (runner: SqlQueryable) => {
+            await this._ensureSequentialSortOrder(metahubId, objectId, runner, userId, null)
+
+            const sharedContainerService = new SharedContainerService(this.exec, this.schemaService)
+            const sharedCatalogId = await sharedContainerService.findContainerObjectId(
+                metahubId,
+                SHARED_ENTITY_KIND_TO_POOL_KIND.attribute,
+                userId,
+                runner
+            )
+            const sharedOverridesService = new SharedEntityOverridesService(this.exec, this.schemaService)
+            const overrides = await sharedOverridesService.findByTargetObject(metahubId, 'attribute', objectId, userId, runner)
+
+            const localItems = (await this.listRootRowsByObjectId(schemaName, objectId, 'business', runner)).map((row) =>
+                this.mapRowToAttribute(row)
+            )
+            const sharedItems = sharedCatalogId
+                ? (await this.listRootRowsByObjectId(schemaName, sharedCatalogId, 'business', runner)).map((row) =>
+                      this.mapRowToAttribute(row)
+                  )
+                : []
+
+            return buildMergedSharedEntityList({
+                localItems,
+                sharedItems,
+                overrides,
+                getId: (item) => item.id,
+                getSortOrder: (item) => item.sortOrder,
+                getSharedBehavior: (item) =>
+                    ((item.uiConfig as Record<string, unknown> | undefined)?.sharedBehavior as SharedBehavior | undefined) ?? undefined,
+                includeInactive: true
+            })
+        }
+
+        if (db) {
+            return run(db)
+        }
+
+        return this.exec.transaction((tx: SqlQueryable) => run(tx))
     }
 
     /**
@@ -1047,6 +1140,18 @@ export class MetahubAttributesService {
             if (!deleted) {
                 throw new MetahubNotFoundError('Attribute', id)
             }
+
+            const [parentObject] = await tx.query<{ kind?: string }>(
+                `SELECT kind
+                 FROM ${qSchemaTable(schemaName, '_mhb_objects')}
+                 WHERE id = $1
+                 LIMIT 1`,
+                [attribute?.objectId]
+            )
+            if (parentObject?.kind === SHARED_ENTITY_KIND_TO_POOL_KIND.attribute) {
+                const sharedOverridesService = new SharedEntityOverridesService(this.exec, this.schemaService)
+                await sharedOverridesService.cleanupForDeletedEntity(metahubId, 'attribute', id, userId, tx)
+            }
         }
 
         if (db) {
@@ -1063,7 +1168,11 @@ export class MetahubAttributesService {
 
         return this.exec.transaction(async (tx: SqlQueryable) => {
             // Fetch current attribute to know its parent scope
-            const current = await queryOne<Record<string, unknown>>(tx, `SELECT * FROM ${qt} WHERE id = $1`, [attributeId])
+            const current = await queryOne<Record<string, unknown>>(
+                tx,
+                `SELECT * FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE} LIMIT 1`,
+                [attributeId, objectId]
+            )
             if (!current) throw new MetahubNotFoundError('Attribute', attributeId)
             if (current.is_system === true)
                 throw new MetahubDomainError({
@@ -1078,7 +1187,11 @@ export class MetahubAttributesService {
             await this._ensureSequentialSortOrder(metahubId, objectId, tx, userId, parentAttributeId)
 
             // Re-fetch after reordering
-            const refreshed = await queryOneOrThrow<Record<string, unknown>>(tx, `SELECT * FROM ${qt} WHERE id = $1`, [attributeId])
+            const refreshed = await queryOneOrThrow<Record<string, unknown>>(
+                tx,
+                `SELECT * FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE} LIMIT 1`,
+                [attributeId, objectId]
+            )
             const currentOrder = refreshed.sort_order as number
 
             // Find neighbor among siblings only
@@ -1101,7 +1214,10 @@ export class MetahubAttributesService {
             }
 
             // Fetch updated
-            const updated = await queryOneOrThrow(tx, `SELECT * FROM ${qt} WHERE id = $1`, [attributeId])
+            const updated = await queryOneOrThrow(tx, `SELECT * FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE} LIMIT 1`, [
+                attributeId,
+                objectId
+            ])
             return this.mapRowToAttribute(updated)
         })
     }
@@ -1235,6 +1351,50 @@ export class MetahubAttributesService {
             )
             if (!updated) throw new MetahubNotFoundError('Attribute', attributeId)
             return this.mapRowToAttribute(updated)
+        })
+    }
+
+    async reorderAttributeMergedOrder(
+        metahubId: string,
+        objectId: string,
+        attributeId: string,
+        orderedMovableIds: string[],
+        userId?: string
+    ) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_attributes')
+
+        return this.exec.transaction(async (tx: SqlQueryable) => {
+            const items = await this.findAllBusinessMerged(metahubId, objectId, userId, tx)
+            const current = items.find((item) => item.id === attributeId)
+            if (!current) {
+                throw new MetahubNotFoundError('Attribute', attributeId)
+            }
+
+            const assignments = planMergedSharedEntityOrder(items, orderedMovableIds)
+            for (const assignment of assignments.localSortOrders) {
+                await tx.query(`UPDATE ${qt} SET sort_order = $1 WHERE id = $2`, [assignment.sortOrder, assignment.id])
+            }
+
+            const sharedOverridesService = new SharedEntityOverridesService(this.exec, this.schemaService)
+            for (const assignment of assignments.sharedSortOrders) {
+                await sharedOverridesService.upsertOverride({
+                    metahubId,
+                    entityKind: 'attribute',
+                    sharedEntityId: assignment.id,
+                    targetObjectId: objectId,
+                    sortOrder: assignment.sortOrder,
+                    userId,
+                    db: tx
+                })
+            }
+
+            const updatedItems = await this.findAllBusinessMerged(metahubId, objectId, userId, tx)
+            const updated = updatedItems.find((item) => item.id === attributeId)
+            if (!updated) {
+                throw new MetahubNotFoundError('Attribute', attributeId)
+            }
+            return updated
         })
     }
 
@@ -1573,27 +1733,28 @@ export class MetahubAttributesService {
         return Number.isFinite(parsed) ? parsed + 1 : 1
     }
 
-    private mapRowToAttribute = (row: any) => {
+    private mapRowToAttribute = (row: any): MetahubAttributeRecord => {
+        const presentation = row.presentation as Record<string, unknown> | null | undefined
         return {
-            id: row.id,
-            catalogId: row.object_id,
+            id: row.id as string,
+            catalogId: row.object_id as string,
             codename: getCodenameText(row.codename),
-            dataType: row.data_type,
-            isRequired: row.is_required,
-            isDisplayAttribute: row.is_display_attribute ?? false,
+            dataType: row.data_type as AttributeDataType,
+            isRequired: row.is_required as boolean,
+            isDisplayAttribute: (row.is_display_attribute as boolean | null | undefined) ?? false,
             // Polymorphic reference fields
-            targetEntityId: row.target_object_id,
-            targetEntityKind: row.target_object_kind,
-            targetConstantId: row.target_constant_id ?? null,
+            targetEntityId: (row.target_object_id as string | null | undefined) ?? null,
+            targetEntityKind: (row.target_object_kind as string | null | undefined) ?? null,
+            targetConstantId: (row.target_constant_id as string | null | undefined) ?? null,
             // TABLE parent reference
-            parentAttributeId: row.parent_attribute_id ?? null,
-            sortOrder: row.sort_order,
-            name: row.presentation?.name,
-            description: row.presentation?.description,
-            validationRules: row.validation_rules,
-            uiConfig: row.ui_config,
+            parentAttributeId: (row.parent_attribute_id as string | null | undefined) ?? null,
+            sortOrder: row.sort_order as number,
+            name: (presentation?.name as VersionedLocalizedContent<string> | undefined) ?? undefined,
+            description: (presentation?.description as VersionedLocalizedContent<string> | undefined) ?? undefined,
+            validationRules: (row.validation_rules as Record<string, unknown> | undefined) ?? undefined,
+            uiConfig: (row.ui_config as Record<string, unknown> | undefined) ?? undefined,
             system: this.getSystemMetadata(row),
-            version: row._upl_version || 1,
+            version: (row._upl_version as number) || 1,
             createdAt: row._upl_created_at,
             updatedAt: row._upl_updated_at
         }

@@ -3,7 +3,12 @@ import { Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogCont
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { CompactListTable, type TableColumn } from '@universo/template-mui'
-import { mergeDialogPaperProps, mergeDialogSx, resolveDialogMaxWidth, useDialogPresentation } from '@universo/template-mui/components/dialogs'
+import {
+    mergeDialogPaperProps,
+    mergeDialogSx,
+    resolveDialogMaxWidth,
+    useDialogPresentation
+} from '@universo/template-mui/components/dialogs'
 import type { Hub } from '../types'
 import { getVLCString } from '../types'
 import { getBlockingCatalogs, type BlockingHubObject } from '../domains/hubs'

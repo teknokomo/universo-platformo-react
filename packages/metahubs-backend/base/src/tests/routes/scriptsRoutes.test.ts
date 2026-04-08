@@ -117,7 +117,10 @@ describe('Scripts Routes', () => {
     const buildApp = () => {
         const app = express()
         app.use(express.json())
-        app.use('/', createScriptsRoutes(ensureAuth, () => mockExec as never, mockRateLimiter, mockRateLimiter))
+        app.use(
+            '/',
+            createScriptsRoutes(ensureAuth, () => mockExec as never, mockRateLimiter, mockRateLimiter)
+        )
         app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
             res.status(500).json({ error: error.message })
         })
@@ -174,7 +177,8 @@ describe('Scripts Routes', () => {
                 attachedToId: '018f8a78-7b8f-7c1d-a111-222233334498',
                 moduleRole: 'widget',
                 sourceKind: 'embedded',
-                sourceCode: "import { ExtensionScript } from '@universo/extension-sdk'\nexport default class QuizWidget extends ExtensionScript {}"
+                sourceCode:
+                    "import { ExtensionScript } from '@universo/extension-sdk'\nexport default class QuizWidget extends ExtensionScript {}"
             })
             .expect(201)
 

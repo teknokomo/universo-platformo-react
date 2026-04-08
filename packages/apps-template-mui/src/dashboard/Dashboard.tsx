@@ -20,6 +20,7 @@ export interface DashboardDetailsSlot {
     catalogCodename?: string | null
     apiBaseUrl?: string
     banner?: React.ReactNode
+    content?: React.ReactNode
     rows: Array<Record<string, unknown> & { id: string }>
     columns: GridColDef[]
     loading?: boolean

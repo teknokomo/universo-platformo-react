@@ -1,5 +1,6 @@
 import { createLocalizedContent } from '@universo/utils'
 import { test, expect } from '../../fixtures/test'
+import { waitForSettledMutationResponse } from '../../support/browser/network'
 import { expectHeightsAligned, expectLeftEdgeAligned, expectRightEdgeAligned } from '../../support/browser/spacing'
 import {
     createLoggedInApiContext,
@@ -228,9 +229,10 @@ test.describe('Application Runtime View Settings', () => {
             await expectHeightsAligned(page.getByTestId(applicationSelectors.runtimeCreateButton), cardViewButton, 2)
             await expectHeightsAligned(page.getByTestId(applicationSelectors.runtimeCreateButton), listViewButton, 2)
 
-            const createAlphaRequest = page.waitForResponse(
-                (response) =>
-                    response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows`)
+            const createAlphaRequest = waitForSettledMutationResponse(
+                page,
+                (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows`),
+                { label: 'Creating alpha runtime row' }
             )
             await page.getByTestId(applicationSelectors.runtimeCreateButton).click()
             const createAlphaDialog = page.getByRole('dialog', { name: 'Create element' })
@@ -240,9 +242,10 @@ test.describe('Application Runtime View Settings', () => {
             expect((await createAlphaRequest).ok()).toBe(true)
             await expect(page.getByText(alphaTitle)).toBeVisible({ timeout: 30_000 })
 
-            const createBetaRequest = page.waitForResponse(
-                (response) =>
-                    response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows`)
+            const createBetaRequest = waitForSettledMutationResponse(
+                page,
+                (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows`),
+                { label: 'Creating beta runtime row' }
             )
             await page.getByTestId(applicationSelectors.runtimeCreateButton).click()
             const createBetaDialog = page.getByRole('dialog', { name: 'Create element' })

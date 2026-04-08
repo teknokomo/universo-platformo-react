@@ -6,6 +6,7 @@ import type {
     MetahubSnapshotVersionEnvelope,
     VersionedLocalizedContent
 } from '@universo/types'
+import { normalizePublishedApplicationRuntimeSource } from './publishedApplicationRuntimeSnapshot'
 
 export type SnapshotCodenameValue = string | VersionedLocalizedContent<string>
 
@@ -23,6 +24,28 @@ export interface SnapshotEnumerationValueDefinition extends Omit<EnumerationValu
     codename: SnapshotCodenameValue
 }
 
+export interface SnapshotConstantDefinition {
+    id: string
+    objectId?: string | null
+    codename: SnapshotCodenameValue
+    dataType: string
+    presentation?: Record<string, unknown>
+    validationRules?: Record<string, unknown>
+    uiConfig?: Record<string, unknown>
+    value?: unknown
+    sortOrder?: number | null
+}
+
+export interface SnapshotSharedEntityOverrideDefinition {
+    id: string
+    entityKind: 'attribute' | 'constant' | 'value'
+    sharedEntityId: string
+    targetObjectId: string
+    isExcluded: boolean
+    isActive: boolean | null
+    sortOrder: number | null
+}
+
 export interface SnapshotScriptDefinition extends Omit<ApplicationScriptDefinition, 'codename'> {
     codename: SnapshotCodenameValue
     sourceCode?: string
@@ -34,6 +57,10 @@ export interface PublishedApplicationSnapshot {
     elements?: Record<string, unknown[]>
     enumerationValues?: Record<string, SnapshotEnumerationValueDefinition[]>
     constants?: Record<string, unknown[]>
+    sharedAttributes?: SnapshotFieldDefinition[]
+    sharedConstants?: SnapshotConstantDefinition[]
+    sharedEnumerationValues?: SnapshotEnumerationValueDefinition[]
+    sharedEntityOverrides?: SnapshotSharedEntityOverrideDefinition[]
     scripts?: SnapshotScriptDefinition[]
     layouts?: unknown[]
     layoutZoneWidgets?: unknown[]
@@ -68,5 +95,8 @@ export type LoadPublishedApplicationSyncContext = (
 export function createLoadPublishedApplicationSyncContext(
     loadPublishedPublicationRuntimeSource: LoadPublishedPublicationRuntimeSource
 ): LoadPublishedApplicationSyncContext {
-    return async (executor, publicationId) => loadPublishedPublicationRuntimeSource(executor, publicationId)
+    return async (executor, publicationId) => {
+        const source = await loadPublishedPublicationRuntimeSource(executor, publicationId)
+        return source ? normalizePublishedApplicationRuntimeSource(source) : null
+    }
 }

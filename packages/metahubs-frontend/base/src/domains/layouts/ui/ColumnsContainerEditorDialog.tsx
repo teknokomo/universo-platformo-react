@@ -11,6 +11,10 @@ import type { ColumnsContainerConfig, ColumnsContainerColumn, DashboardLayoutWid
 import { DASHBOARD_LAYOUT_WIDGETS } from '@universo/types'
 import { EntityFormDialog } from '@universo/template-mui'
 import { generateUuidV7 } from '@universo/utils'
+import LayoutWidgetSharedBehaviorFields, {
+    getSharedBehaviorFromWidgetConfig,
+    setSharedBehaviorInWidgetConfig
+} from './LayoutWidgetSharedBehaviorFields'
 
 // ---------------------------------------------------------------------------
 // Props
@@ -20,6 +24,7 @@ export interface ColumnsContainerEditorDialogProps {
     open: boolean
     /** Current widget config (null when creating a new columnsContainer). */
     config?: ColumnsContainerConfig | null
+    showSharedBehavior?: boolean
     onSave: (config: ColumnsContainerConfig) => void
     onCancel: () => void
 }
@@ -149,11 +154,18 @@ function SortableColumnRow({
 // Main Dialog
 // ---------------------------------------------------------------------------
 
-export default function ColumnsContainerEditorDialog({ open, config, onSave, onCancel }: ColumnsContainerEditorDialogProps) {
+export default function ColumnsContainerEditorDialog({
+    open,
+    config,
+    showSharedBehavior = false,
+    onSave,
+    onCancel
+}: ColumnsContainerEditorDialogProps) {
     const { t } = useTranslation(['metahubs', 'common'])
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
 
     const [columns, setColumns] = useState<ColumnsContainerColumn[]>([])
+    const [sharedBehaviorValue, setSharedBehaviorValue] = useState(() => getSharedBehaviorFromWidgetConfig(config))
 
     // Snapshot of columns at dialog open for dirty tracking
     const initialSnapshotRef = useRef<string>('')
@@ -163,7 +175,9 @@ export default function ColumnsContainerEditorDialog({ open, config, onSave, onC
         if (open) {
             const initial = config?.columns ? cloneColumns(config.columns) : makeDefaultConfig().columns
             setColumns(initial)
-            initialSnapshotRef.current = JSON.stringify(initial)
+            const initialSharedBehavior = getSharedBehaviorFromWidgetConfig(config)
+            setSharedBehaviorValue(initialSharedBehavior)
+            initialSnapshotRef.current = JSON.stringify({ columns: initial, sharedBehavior: initialSharedBehavior })
         }
     }, [open, config])
 
@@ -178,7 +192,10 @@ export default function ColumnsContainerEditorDialog({ open, config, onSave, onC
 
     const totalWidth = useMemo(() => columns.reduce((sum, c) => sum + c.width, 0), [columns])
 
-    const isDirty = useMemo(() => JSON.stringify(columns) !== initialSnapshotRef.current, [columns])
+    const isDirty = useMemo(
+        () => JSON.stringify({ columns, sharedBehavior: sharedBehaviorValue }) !== initialSnapshotRef.current,
+        [columns, sharedBehaviorValue]
+    )
 
     const handleAddColumn = useCallback(() => {
         if (columns.length >= MAX_COLUMNS) return
@@ -248,8 +265,8 @@ export default function ColumnsContainerEditorDialog({ open, config, onSave, onC
             ...c,
             widgets: c.widgets.filter((w) => w.widgetKey !== 'columnsContainer')
         }))
-        onSave({ columns: sanitized })
-    }, [columns, totalWidth, onSave])
+        onSave(setSharedBehaviorInWidgetConfig({ columns: sanitized }, sharedBehaviorValue) as ColumnsContainerConfig)
+    }, [columns, onSave, sharedBehaviorValue, totalWidth])
 
     return (
         <EntityFormDialog
@@ -312,6 +329,13 @@ export default function ColumnsContainerEditorDialog({ open, config, onSave, onC
                     <Button size='small' startIcon={<AddRoundedIcon />} onClick={handleAddColumn} disabled={columns.length >= MAX_COLUMNS}>
                         {t('layouts.columnsEditor.addColumn', 'Add column')}
                     </Button>
+
+                    {showSharedBehavior ? (
+                        <LayoutWidgetSharedBehaviorFields
+                            value={{ sharedBehavior: sharedBehaviorValue }}
+                            onChange={(nextValue) => setSharedBehaviorValue(getSharedBehaviorFromWidgetConfig(nextValue))}
+                        />
+                    ) : null}
                 </Stack>
             )}
         />

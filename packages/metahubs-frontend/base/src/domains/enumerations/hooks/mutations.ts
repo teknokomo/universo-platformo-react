@@ -16,6 +16,7 @@ import {
 import { makePendingMarkers } from '@universo/utils'
 import {
     applyOptimisticCreateToQueryKeyPrefixes,
+    applyMergedSharedEntityOrder,
     applyOptimisticReorder,
     collectMetahubCopyQueryKeyPrefixes,
     confirmOptimisticCreateInQueryKeyPrefixes,
@@ -629,8 +630,8 @@ export function useReorderEnumerationValue() {
 
     return useMutation({
         mutationKey: ['enumerationValues', 'reorder'],
-        mutationFn: async ({ metahubId, enumerationId, valueId, newSortOrder }: ReorderEnumerationValueParams) => {
-            const response = await enumerationsApi.reorderEnumerationValue(metahubId, enumerationId, valueId, newSortOrder)
+        mutationFn: async ({ metahubId, enumerationId, valueId, newSortOrder, mergedOrderIds }: ReorderEnumerationValueParams) => {
+            const response = await enumerationsApi.reorderEnumerationValue(metahubId, enumerationId, valueId, newSortOrder, mergedOrderIds)
             return response.data
         },
         onMutate: async (variables) => {
@@ -646,6 +647,18 @@ export function useReorderEnumerationValue() {
             queryClient.setQueriesData<Record<string, unknown>>({ queryKey: baseKey }, (old) => {
                 if (!old || !Array.isArray((old as Record<string, unknown> & { items?: unknown[] }).items)) return old
                 const items = [...(old as Record<string, unknown> & { items: Record<string, unknown>[] }).items]
+
+                if (Array.isArray(variables.mergedOrderIds) && variables.mergedOrderIds.length > 0) {
+                    return {
+                        ...old,
+                        items: applyMergedSharedEntityOrder(items, variables.mergedOrderIds).map((item, idx) => ({
+                            ...item,
+                            sortOrder: idx + 1,
+                            effectiveSortOrder: idx + 1
+                        }))
+                    }
+                }
+
                 const fromIndex = items.findIndex((i) => (i as Record<string, unknown>).id === variables.valueId)
                 if (fromIndex === -1) return old
 

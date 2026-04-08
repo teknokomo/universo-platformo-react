@@ -13,6 +13,7 @@ const request = require('supertest') as typeof import('supertest')
 import { createMockDbExecutor } from '../utils/dbMocks'
 import { createConstantsRoutes } from '../../domains/constants/routes/constantsRoutes'
 import { testCodenameVlc } from '../utils/codenameTestHelpers'
+import { SHARED_OBJECT_KINDS } from '@universo/types'
 
 const mockEnsureMetahubAccess = jest.fn()
 
@@ -23,6 +24,7 @@ jest.mock('../../domains/shared/guards', () => ({
 
 const mockConstantsService = {
     findAll: jest.fn(),
+    findAllMerged: jest.fn(),
     countByObjectId: jest.fn(),
     findById: jest.fn(),
     findByCodename: jest.fn(),
@@ -31,6 +33,7 @@ const mockConstantsService = {
     delete: jest.fn(),
     moveConstant: jest.fn(),
     reorderConstant: jest.fn(),
+    reorderConstantMergedOrder: jest.fn(),
     findAttributeReferenceBlockersByConstant: jest.fn()
 }
 
@@ -111,6 +114,7 @@ describe('Constants Routes', () => {
         mockObjectsService.findById.mockResolvedValue(activeSet)
 
         mockConstantsService.findAll.mockResolvedValue([])
+        mockConstantsService.findAllMerged.mockResolvedValue([])
         mockConstantsService.countByObjectId.mockResolvedValue(0)
         mockConstantsService.findById.mockResolvedValue(null)
         mockConstantsService.findByCodename.mockResolvedValue(null)
@@ -119,6 +123,7 @@ describe('Constants Routes', () => {
         mockConstantsService.delete.mockResolvedValue(undefined)
         mockConstantsService.moveConstant.mockResolvedValue({})
         mockConstantsService.reorderConstant.mockResolvedValue({ id: 'constant-1', sortOrder: 2 })
+        mockConstantsService.reorderConstantMergedOrder.mockResolvedValue({ id: 'constant-1', effectiveSortOrder: 2, isShared: true })
         mockConstantsService.findAttributeReferenceBlockersByConstant.mockResolvedValue(false)
     })
 
@@ -141,6 +146,48 @@ describe('Constants Routes', () => {
         expect(response.body.items).toHaveLength(1)
         expect(response.body.pagination).toMatchObject({ total: 1, limit: 100, offset: 0 })
         expect(response.body.meta).toMatchObject({ totalAll: 1, limitReached: false })
+    })
+
+    it('GET /metahub/:metahubId/set/:setId/constants accepts shared set pool context ids', async () => {
+        mockObjectsService.findById.mockResolvedValueOnce({
+            id: 'shared-set-pool-1',
+            kind: SHARED_OBJECT_KINDS.SHARED_SET_POOL,
+            codename: 'shared-constants',
+            config: { hubs: [] }
+        })
+
+        const app = buildApp()
+        await request(app).get('/metahub/metahub-1/set/shared-set-pool-1/constants').expect(200)
+
+        expect(mockConstantsService.findAll).toHaveBeenCalledWith('metahub-1', 'shared-set-pool-1', 'test-user-id')
+        expect(mockConstantsService.countByObjectId).not.toHaveBeenCalled()
+    })
+
+    it('GET /metahub/:metahubId/set/:setId/constants uses merged read when includeShared=true', async () => {
+        mockConstantsService.findAllMerged.mockResolvedValue([
+            {
+                id: 'shared-constant-1',
+                setId: 'shared-pool-1',
+                codename: 'SharedTaxRate',
+                name: { en: 'Shared Tax Rate' },
+                sortOrder: 1,
+                effectiveSortOrder: 1,
+                isShared: true,
+                isActive: true,
+                isExcluded: false,
+                sharedBehavior: { canDeactivate: true, canExclude: true, positionLocked: false },
+                createdAt: '2026-03-04T10:00:00.000Z',
+                updatedAt: '2026-03-04T10:00:00.000Z'
+            }
+        ])
+
+        const app = buildApp()
+        const response = await request(app).get('/metahub/metahub-1/set/set-1/constants?includeShared=true').expect(200)
+
+        expect(response.body.items[0]).toMatchObject({ id: 'shared-constant-1', isShared: true, effectiveSortOrder: 1 })
+        expect(response.body.meta).toMatchObject({ includeShared: true })
+        expect(mockConstantsService.findAllMerged).toHaveBeenCalledWith('metahub-1', 'set-1', 'test-user-id')
+        expect(mockConstantsService.findAll).not.toHaveBeenCalled()
     })
 
     it('POST /metahub/:metahubId/set/:setId/constants creates NUMBER constant with parsed numeric value', async () => {
@@ -178,6 +225,57 @@ describe('Constants Routes', () => {
             'test-user-id'
         )
         expect(response.body).toMatchObject({ id: 'constant-1', codename: 'TaxRate' })
+    })
+
+    it('POST /metahub/:metahubId/set/:setId/constants preserves uiConfig.sharedBehavior when provided', async () => {
+        mockConstantsService.create.mockResolvedValue({
+            id: 'constant-1',
+            setId: 'set-1',
+            codename: 'WelcomeText',
+            dataType: 'STRING',
+            value: 'Hello',
+            uiConfig: {
+                sharedBehavior: {
+                    canDeactivate: true,
+                    canExclude: false,
+                    positionLocked: true
+                }
+            }
+        })
+
+        const app = buildApp()
+        const response = await request(app)
+            .post('/metahub/metahub-1/set/set-1/constants')
+            .send({
+                codename: testCodenameVlc('welcome-text'),
+                dataType: 'STRING',
+                name: 'Welcome Text',
+                value: 'Hello',
+                uiConfig: {
+                    sharedBehavior: {
+                        canDeactivate: true,
+                        canExclude: false,
+                        positionLocked: true
+                    }
+                }
+            })
+            .expect(201)
+
+        expect(mockConstantsService.create).toHaveBeenCalledWith(
+            'metahub-1',
+            expect.objectContaining({
+                setId: 'set-1',
+                uiConfig: {
+                    sharedBehavior: {
+                        canDeactivate: true,
+                        canExclude: false,
+                        positionLocked: true
+                    }
+                }
+            }),
+            'test-user-id'
+        )
+        expect(response.body).toMatchObject({ id: 'constant-1', codename: 'WelcomeText' })
     })
 
     it('PATCH /metahub/:metahubId/set/:setId/constants/reorder rejects unknown payload fields via strict schema', async () => {
@@ -231,6 +329,27 @@ describe('Constants Routes', () => {
             2,
             'test-user-id'
         )
+    })
+
+    it('PATCH /metahub/:metahubId/set/:setId/constants/reorder calls merged reorder service when mergedOrderIds are provided', async () => {
+        const app = buildApp()
+        await request(app)
+            .patch('/metahub/metahub-1/set/set-1/constants/reorder')
+            .send({
+                constantId: '11111111-1111-1111-1111-111111111111',
+                newSortOrder: 2,
+                mergedOrderIds: ['11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222']
+            })
+            .expect(200)
+
+        expect(mockConstantsService.reorderConstantMergedOrder).toHaveBeenCalledWith(
+            'metahub-1',
+            'set-1',
+            '11111111-1111-1111-1111-111111111111',
+            ['11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222'],
+            'test-user-id'
+        )
+        expect(mockConstantsService.reorderConstant).not.toHaveBeenCalled()
     })
 
     it('DELETE /metahub/:metahubId/set/:setId/constant/:constantId blocks deletion when attribute references exist', async () => {

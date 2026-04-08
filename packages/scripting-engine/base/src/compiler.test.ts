@@ -1,14 +1,23 @@
 import { describe, expect, it } from 'vitest'
 import { compileScriptSource } from './compiler'
 
-const createInput = (sourceCode: string) => ({
+const createInput = (sourceCode: string, overrides: Record<string, unknown> = {}) => ({
     codename: 'quiz-widget',
     moduleRole: 'widget' as const,
     sourceKind: 'embedded' as const,
     sdkApiVersion: '1.0.0',
     capabilities: ['metadata.read', 'rpc.client'] as const,
-    sourceCode
+    sourceCode,
+    ...overrides
 })
+
+const createLibraryInput = (sourceCode: string, overrides: Record<string, unknown> = {}) =>
+    createInput(sourceCode, {
+        codename: 'shared-helpers',
+        moduleRole: 'library',
+        capabilities: ['metadata.read'],
+        ...overrides
+    })
 
 const VALID_SOURCE = `import { ExtensionScript, AtClient, AtServer } from '@universo/extension-sdk'
 
@@ -79,6 +88,15 @@ export default class SpaceQuizScript extends ExtensionScript {
             correct: true,
             explanation: question?.explanation ?? ''
         }
+    }
+}
+`
+
+const VALID_LIBRARY_SOURCE = `import { SharedLibraryScript } from '@universo/extension-sdk'
+
+export default class SharedHelpers extends SharedLibraryScript {
+    static formatValue(value: string) {
+        return value.trim().toUpperCase()
     }
 }
 `
@@ -182,5 +200,121 @@ export default class ExampleScript extends ExtensionScript {
         expect(artifact.clientBundle).not.toContain('iron oxide')
         expect(artifact.clientBundle).not.toContain('correctOptionIds')
         expect(artifact.clientBundle).toContain('callServerMethod')
+    })
+
+    it('compiles pure shared libraries and keeps them decorator-free', async () => {
+        const artifact = await compileScriptSource(createLibraryInput(VALID_LIBRARY_SOURCE))
+
+        expect(artifact.manifest.moduleRole).toBe('library')
+        expect(artifact.manifest.methods).toEqual([])
+        expect(artifact.serverBundle).toContain('formatValue')
+        expect(artifact.clientBundle).toContain('formatValue')
+    })
+
+    it('bundles @shared imports from the provided metahub library map', async () => {
+        const artifact = await compileScriptSource(
+            createInput(
+                `import { ExtensionScript, AtServer } from '@universo/extension-sdk'
+import SharedHelpers from '@shared/shared-helpers'
+
+export default class ExampleScript extends ExtensionScript {
+    @AtServer()
+    async submit() {
+        return SharedHelpers.formatValue('  ok  ')
+    }
+}
+`,
+                {
+                    sharedLibraries: {
+                        'shared-helpers': {
+                            codename: 'shared-helpers',
+                            sourceCode: VALID_LIBRARY_SOURCE
+                        }
+                    }
+                }
+            )
+        )
+
+        expect(artifact.serverBundle).toContain('formatValue')
+        expect(artifact.serverBundle).not.toContain("from '@shared/shared-helpers'")
+        expect(artifact.serverBundle).not.toContain('require("@shared/shared-helpers")')
+    })
+
+    it('rejects library scripts that use runtime decorators', async () => {
+        await expect(
+            compileScriptSource(
+                createLibraryInput(`import { SharedLibraryScript, AtServer } from '@universo/extension-sdk'
+
+export default class SharedHelpers extends SharedLibraryScript {
+    @AtServer()
+    async submit() {
+        return { ok: true }
+    }
+}
+`)
+            )
+        ).rejects.toThrow(/cannot use runtime decorators/i)
+    })
+
+    it('rejects library scripts that access runtime ctx state', async () => {
+        await expect(
+            compileScriptSource(
+                createLibraryInput(`import { SharedLibraryScript } from '@universo/extension-sdk'
+
+export default class SharedHelpers extends SharedLibraryScript {
+    static readState() {
+        return this.ctx.metadata.getAttachedEntity()
+    }
+}
+`)
+            )
+        ).rejects.toThrow(/cannot access this.ctx/i)
+    })
+
+    it('rejects circular @shared imports', async () => {
+        await expect(
+            compileScriptSource(
+                createInput(
+                    `import { ExtensionScript, AtServer } from '@universo/extension-sdk'
+import SharedA from '@shared/shared-a'
+
+export default class ExampleScript extends ExtensionScript {
+    @AtServer()
+    async submit() {
+        return SharedA.value()
+    }
+}
+`,
+                    {
+                        sharedLibraries: {
+                            'shared-a': {
+                                codename: 'shared-a',
+                                sourceCode: `import { SharedLibraryScript } from '@universo/extension-sdk'
+import SharedB from '@shared/shared-b'
+
+export default class SharedA extends SharedLibraryScript {
+    static value() {
+        return SharedB.value()
+    }
+}
+`
+                            },
+                            'shared-b': {
+                                codename: 'shared-b',
+                                sourceCode: `import { SharedLibraryScript } from '@universo/extension-sdk'
+import SharedA from '@shared/shared-a'
+
+export default class SharedB extends SharedLibraryScript {
+    static value() {
+        return SharedA.value()
+    }
+}
+`
+                            }
+                        }
+                    }
+                )
+            )
+        ).rejects.toThrow(/circular @shared imports/i)
     })
 })

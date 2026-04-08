@@ -214,6 +214,9 @@ export const getBlockingEnumerationReferences = async (
 export interface EnumerationValuesResponse {
     items: EnumerationValue[]
     total: number
+    meta?: {
+        includeShared?: boolean
+    }
 }
 
 export interface EnumerationValueBlockingReferencesResponse {
@@ -223,8 +226,16 @@ export interface EnumerationValueBlockingReferencesResponse {
     blockingElements: unknown[]
 }
 
-export const listEnumerationValues = async (metahubId: string, enumerationId: string): Promise<EnumerationValuesResponse> => {
-    const response = await apiClient.get<EnumerationValuesResponse>(`/metahub/${metahubId}/enumeration/${enumerationId}/values`)
+export const listEnumerationValues = async (
+    metahubId: string,
+    enumerationId: string,
+    params?: { includeShared?: boolean }
+): Promise<EnumerationValuesResponse> => {
+    const response = await apiClient.get<EnumerationValuesResponse>(`/metahub/${metahubId}/enumeration/${enumerationId}/values`, {
+        params: {
+            includeShared: params?.includeShared
+        }
+    })
     return response.data
 }
 
@@ -260,8 +271,18 @@ export const moveEnumerationValue = (metahubId: string, enumerationId: string, v
 /**
  * Reorder an enumeration value via DnD to a new sort_order position.
  */
-export const reorderEnumerationValue = (metahubId: string, enumerationId: string, valueId: string, newSortOrder: number) =>
-    apiClient.patch<EnumerationValue>(`/metahub/${metahubId}/enumeration/${enumerationId}/values/reorder`, { valueId, newSortOrder })
+export const reorderEnumerationValue = (
+    metahubId: string,
+    enumerationId: string,
+    valueId: string,
+    newSortOrder: number,
+    mergedOrderIds?: string[]
+) =>
+    apiClient.patch<EnumerationValue>(`/metahub/${metahubId}/enumeration/${enumerationId}/values/reorder`, {
+        valueId,
+        newSortOrder,
+        ...(Array.isArray(mergedOrderIds) && mergedOrderIds.length > 0 && { mergedOrderIds })
+    })
 
 export const deleteEnumerationValue = (metahubId: string, enumerationId: string, valueId: string) =>
     apiClient.delete<void>(`/metahub/${metahubId}/enumeration/${enumerationId}/value/${valueId}`)

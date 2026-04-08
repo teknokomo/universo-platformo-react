@@ -53,6 +53,7 @@ vi.mock('../../../metahubs/hooks', () => ({
 vi.mock('../MenuWidgetEditorDialog', () => ({ default: () => null }))
 vi.mock('../ColumnsContainerEditorDialog', () => ({ default: () => null }))
 vi.mock('../QuizWidgetEditorDialog', () => ({ default: () => null }))
+vi.mock('../WidgetBehaviorEditorDialog', () => ({ default: () => null }))
 
 import LayoutDetails from '../LayoutDetails'
 
@@ -96,12 +97,29 @@ describe('LayoutDetails inherited widget contract', () => {
 
         listLayoutZoneWidgets.mockResolvedValue([
             {
-                id: 'widget-inherited',
+                id: 'widget-inherited-locked',
                 layoutId: 'layout-1',
                 zone: 'left',
                 widgetKey: 'menuWidget',
                 sortOrder: 1,
-                config: { title: 'Catalogs' },
+                config: {
+                    title: 'Catalogs',
+                    sharedBehavior: {
+                        canDeactivate: false,
+                        canExclude: false,
+                        positionLocked: true
+                    }
+                },
+                isActive: true,
+                isInherited: true
+            },
+            {
+                id: 'widget-inherited-flexible',
+                layoutId: 'layout-1',
+                zone: 'top',
+                widgetKey: 'header',
+                sortOrder: 1,
+                config: {},
                 isActive: true,
                 isInherited: true
             },
@@ -119,11 +137,12 @@ describe('LayoutDetails inherited widget contract', () => {
 
         getLayoutZoneWidgetsCatalog.mockResolvedValue([
             { key: 'menuWidget', allowedZones: ['left', 'right'], multiInstance: false },
+            { key: 'header', allowedZones: ['top'], multiInstance: false },
             { key: 'columnsContainer', allowedZones: ['left', 'center', 'right'], multiInstance: true }
         ])
     })
 
-    it('keeps inherited widgets draggable and toggleable but hides edit/delete actions', async () => {
+    it('shows only the inherited widget controls allowed by sharedBehavior', async () => {
         const queryClient = new QueryClient({
             defaultOptions: {
                 queries: { retry: false },
@@ -142,13 +161,20 @@ describe('LayoutDetails inherited widget contract', () => {
         )
 
         await waitFor(() => {
-            expect(screen.getByTestId('layout-widget-widget-inherited')).toBeInTheDocument()
+            expect(screen.getByTestId('layout-widget-widget-inherited-locked')).toBeInTheDocument()
         })
 
-        expect(screen.getByTestId('layout-widget-inherited-widget-inherited')).toBeInTheDocument()
-        expect(screen.getByTestId('layout-widget-toggle-widget-inherited')).toBeInTheDocument()
-        expect(screen.queryByTestId('layout-widget-edit-widget-inherited')).not.toBeInTheDocument()
-        expect(screen.queryByTestId('layout-widget-remove-widget-inherited')).not.toBeInTheDocument()
+        expect(screen.getByTestId('layout-widget-inherited-widget-inherited-locked')).toBeInTheDocument()
+        expect(screen.getByTestId('layout-widget-drag-widget-inherited-locked')).toBeDisabled()
+        expect(screen.queryByTestId('layout-widget-toggle-widget-inherited-locked')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('layout-widget-edit-widget-inherited-locked')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('layout-widget-remove-widget-inherited-locked')).not.toBeInTheDocument()
+
+        expect(screen.getByTestId('layout-widget-inherited-widget-inherited-flexible')).toBeInTheDocument()
+        expect(screen.getByTestId('layout-widget-drag-widget-inherited-flexible')).not.toBeDisabled()
+        expect(screen.getByTestId('layout-widget-toggle-widget-inherited-flexible')).toBeInTheDocument()
+        expect(screen.getByTestId('layout-widget-remove-widget-inherited-flexible')).toBeInTheDocument()
+        expect(screen.queryByTestId('layout-widget-edit-widget-inherited-flexible')).not.toBeInTheDocument()
 
         expect(screen.getByTestId('layout-widget-edit-widget-owned')).toBeInTheDocument()
         expect(screen.getByTestId('layout-widget-remove-widget-owned')).toBeInTheDocument()

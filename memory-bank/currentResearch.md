@@ -1,5 +1,78 @@
 # Current Research
 
+## 2026-04-08: Post-QA lint closure for the Shared/Common wave
+
+- Research outcome implemented: after the earlier product/security remediations were closed, the only remaining QA blocker was red package lint in the touched Shared/Common backend/frontend files.
+- Confirmed root cause: the release gate was the error-level Prettier/ESLint drift in the touched metahubs files. The broader warning-only backlog was real but was not the blocker that kept this implementation wave open.
+- Implemented fix: root-level Prettier on the confirmed blocker files plus package `eslint --fix` restored green lint exits for both metahubs packages.
+- Closure validation: `@universo/metahubs-backend` lint passed, `@universo/metahubs-frontend` lint passed, focused backend routes passed (`35/35`), focused frontend tests passed (`18/18`), and root `pnpm build` passed (`30 successful`, `30 total`, `EXIT:0`).
+- No open research thread remains for the lint-closure seam.
+
+## 2026-04-08: Attribute move ownership remediation closure
+
+- Research outcome implemented: the only blocking post-QA defect left in the Shared/Common wave was a fail-open attribute move seam. The route accepted a routed catalog id plus an arbitrary attribute id, and the service loaded the current row by bare id even though the request was scoped to a specific catalog.
+- Implemented fix: the attribute move controller now returns `404` unless the loaded attribute belongs to the routed catalog, and `MetahubAttributesService.moveAttribute(...)` now requires `id + object_id + active row` on the initial fetch and the follow-up re-reads.
+- Closure validation: focused attributes routes passed (`22/22`), neighboring constants routes passed (`11/11`), neighboring enumerations routes passed (`17/17`), the canonical Shared/Common Chromium wrapper flow passed (`4 passed`, `4.2m`), and root `pnpm build` remained green (`30 successful`, `27 cached`).
+- No open research thread remains for the attribute move ownership seam.
+
+## 2026-04-08: Strict E2E runner finalization cleanup closure
+
+- Research outcome implemented: the remaining post-QA cleanup issue was infrastructure noise, not residual state. Under strict `runner-finalize` full reset, route-level manifest cleanup was redundant and only triggered false publication/application delete failures plus savepoint/RLS error logs before the already successful authoritative reset.
+- Confirmed root cause: the Common/shared Chromium wrapper flow was functionally green after the settled-response Playwright fix, but `run-playwright-suite.mjs` still executed `cleanupE2eRun()` first and therefore hit backend delete-route savepoint noise that the subsequent full reset then cleaned anyway.
+- Implemented fix: strict finalization now skips route-level manifest/API cleanup entirely and relies on the post-stop full reset as the only teardown authority in that mode; non-strict/manual flows keep the old manifest-cleanup path.
+- Closure validation: the focused Shared/Common Chromium wrapper run now ends cleanly (`4 passed`, `3.9m`) with only server shutdown plus `[e2e-full-reset] Completed reset for runner-finalize`, and the canonical root `pnpm build` remained green (`30 successful`, `30 cached`).
+- No open research thread remains for the strict finalization cleanup seam.
+
+## 2026-04-08: Shared/Common QA closure sync
+
+- Research outcome: the final QA follow-up did not uncover additional product-code gaps in the Shared/Common, imported connector, or runtime page-surface waves. The only remaining issue was stale closure state in memory-bank.
+- Revalidated current-tree evidence: root `pnpm build` passed, focused metahubs/applications frontend/backend suites passed, and the proof screenshots for Common toolbar alignment, RU Shared badge/list state, and runtime page-surface create state are still present in `test-results/`.
+- Verified tooling nuance: backend package `test` scripts run through `tools/testing/backend/run-jest.cjs` and accept positional test paths; the Vitest-style `--run` flag is invalid for those package scripts.
+- No open research thread remains for this wave.
+
+## 2026-04-08: Imported connector schema-sync duplicate seams closed
+
+- Research outcome implemented: the imported self-hosted connector failure was a two-step application-runtime identifier reuse problem, not raw fixture corruption. The first live 500 came from repeated shared field ids across multiple target entities in `_app_attributes`; after that fix landed, the remaining live 500 came from repeated shared enumeration value ids across multiple target enumeration objects in `_app_values` seeding.
+- Confirmed narrowing: the committed raw fixture and the direct runtime-materialized fixture bundle were clean under the new executable-payload checks. The remaining collisions only surfaced on the imported publication runtime path that applications-backend consumes for diff/sync.
+- Implemented fix: `resolveExecutablePayloadEntities(...)` now scopes repeated shared field ids per target entity, and the normalized publication runtime source now scopes repeated shared enumeration value ids per target enumeration object while rewriting predefined catalog-element REF payloads to the scoped ids.
+- Validation: focused `applicationReleaseBundle.test.ts` passed (`14 / 14`), the imported snapshot connector Chromium flow passed (`2 passed`, `1.3m`), and the canonical root `pnpm build` completed green after rebuilding `@universo/applications-backend`.
+- No open research thread remains for the connector schema-sync duplicate seam.
+
+## 2026-04-07: Remaining shared/Common QA contract gap remediation
+
+- Research outcome implemented: the last open QA findings were real contract mismatches, not missing compilation/tests. Shared exclusion checkboxes still wrote override rows before the parent dialog was saved, legacy `global` metahub scripts could fail when the UI resubmitted the normalized `library` role, and `GET /shared-containers` still created virtual containers from a nominally read-only route.
+- Implemented fix: `SharedEntitySettingsFields` now stores exclusion state locally and shared attribute/constant/value save handlers sync only the changed exclusion flags after successful save; `MetahubScriptsService` now preserves legacy `global` rows when the unchanged metahub scope is resubmitted as normalized `library`; `GET /shared-containers` now lists existing pools only, while Common/shared authoring explicitly calls `POST /shared-containers/ensure` when it needs concrete ids.
+- Closure validation: focused metahubs-frontend regressions passed (`4 files / 19 tests`), focused metahubs-backend regressions passed (`3 suites / 27 tests`), and the canonical root `pnpm build` completed green (`30 successful`, `26 cached`, `58.468s`).
+- No open research thread remains for this remediation batch.
+
+## 2026-04-07: Residual QA closure for shared/Common docs, route coverage, and runner cleanup
+
+- Research outcome implemented: the remaining post-QA gaps were narrow and verified. The public REST API docs still described the wrong scripts detail path/method, shared entity override routing still lacked direct controller-level `400/403` coverage, and the Common/shared Chromium flow still ended with runner-level manifest cleanup failure even though the browser scenarios were green.
+- Implemented fix: EN/RU `rest-api.md` now mirror the live `GET/PATCH/DELETE /metahub/{metahubId}/script/{scriptId}` router contract, `sharedEntityOverridesRoutes.test.ts` now locks the missing invalid-input and forbidden-access seams, and `e2eCleanup.mjs` now treats orphan-discovery list calls as best-effort when the manifest already contains explicit resource ids.
+- Closure validation: focused metahubs-backend route tests passed (`12/12`), the EN/RU API reference pair stayed line-for-line aligned (`48/48`), the Common/shared Chromium flow passed twice (`4 passed`, `3.7m`) without leaving the run manifest behind, `pnpm docs:i18n:check` stayed green, and the canonical root `pnpm build` completed green (`30 successful`, `27 cached`, `22.196s`).
+- No open research thread remains for this residual-gap closure batch.
+
+## 2026-04-07: Shared Common fail-closed closure remediation
+
+- Research outcome implemented: the reopened QA seams were real and narrow. The Common/shared scripting UI already constrained authoring correctly, but the backend still allowed illegal `general` or `library` scope transitions, the browser flow lacked the negative dependency scenarios, and the touched EN/RU docs did not yet describe the operator-facing fail-closed rules explicitly.
+- Implemented fix: `MetahubScriptsService` now enforces the `general/library` contract fail closed on create/update while preserving unchanged legacy out-of-scope rows, `EntityScriptsTab` prefers structured backend conflict messages, and the Common/shared Chromium flow now covers delete-in-use, codename-rename conflict, and circular `@shared/*` failures.
+- Closure validation: focused metahubs-backend service tests passed (`16/16`), focused metahubs-frontend scripts-tab tests passed (`10/10`), `metahub-shared-common.spec.ts` passed in Chromium (`4 passed`, `4.0m`), `pnpm run docs:i18n:check` completed without errors, and the canonical root `pnpm build` completed green (`30 successful`, `25 cached`, `1m12.288s`).
+- No open research thread remains for this remediation wave.
+
+## 2026-04-07: Shared Common final closure
+
+- Research outcome implemented: the last closure defects were request-scoped shared override mutation/savepoint coupling, publication-backed application-sync hash mismatch after shared runtime materialization, and stale browser expectations in the final Common/shared Playwright file.
+- Implemented fix: `SharedEntityOverridesService` now reuses explicit request/parent runners, publication-backed runtime sync now hashes the materialized runtime snapshot that applications actually consume, and the Chromium browser flow now asserts the real disabled Library role, async exclusion mutation, runtime create response, and quiz completion UI contracts.
+- Closure validation: focused shared override service tests passed (`3/3`), focused runtime-source tests passed (`4/4`), `pnpm run build:e2e` passed, `metahub-shared-common.spec.ts` passed (`3 passed`, `3.3m`), and the canonical root `pnpm build` completed green (`30 successful`, `25 cached`, `1m39.093s`).
+- No open research thread remains for the shared Common closure.
+
+## 2026-04-07: Widget shared-behavior closure for inherited catalog widgets
+
+- Research outcome implemented: the remaining Phase 6 defect was not just missing button hiding. Global widgets had no consistent `sharedBehavior` editor path, inherited widget UI still allowed forbidden drag/toggle actions, and backend resolver/mutation seams still trusted sparse overrides that should have been locked by the base widget.
+- Implemented fix: global layout widget editors now persist `sharedBehavior` through menu/columns/quiz editors plus a generic behavior-only dialog; `LayoutDetails` gates inherited drag/toggle/exclude affordances through base-widget `sharedBehavior`; `MetahubLayoutsService` now ignores stale forbidden overrides, reuses `is_deleted_override` for inherited exclusion, and rejects forbidden inherited move/toggle/exclude writes fail closed.
+- Closure validation: focused metahubs frontend inherited-widget tests passed (`2/2`), focused metahubs-backend `MetahubLayoutsService` tests passed (`11/11`), `@universo/metahubs-frontend` and `@universo/metahubs-backend` built successfully, and the canonical root `pnpm build` finished green (`30 successful`, `0 cached`, `3m46.335s`).
+- No open research thread remains for the widget shared-behavior wave.
+
 ## 2026-04-07: Layout-owned catalog behavior contract closure
 
 - Research outcome implemented: the reopened QA defect was a contract split, not a runtime-resolution bug. Applications runtime already resolved behavior from layout `catalogBehavior`, but metahubs catalog authoring/API/tests still carried legacy `runtimeConfig`.

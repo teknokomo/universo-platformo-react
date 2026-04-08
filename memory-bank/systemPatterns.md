@@ -1,5 +1,69 @@
 # System Patterns
 > **Note**: Reusable architectural patterns and best practices. For completed work -> progress.md. For current tasks -> tasks.md.
+## Routed Entity Move Ownership Pattern (IMPORTANT)
+**Rule**: Any routed move/up-down mutation for design-time entities must verify routed-container ownership in both the controller and the service. A bare entity id is never sufficient when lists can surface merged shared rows or when a caller can submit foreign ids directly.
+**Required**:
+- The controller must load the entity first and return `404` unless it belongs to the routed catalog/set/enumeration before delegating to a move service.
+- The service must still fail closed by querying the current row with `id + object_id + active-row` filters on the initial fetch and the final re-reads after normalization/swap logic.
+- Preserve the same ownership contract across update, delete, reorder, and move seams so one mutation route cannot become looser than the others.
+- Keep focused route regressions for foreign-container ids and shared-pool ids whenever a list can expose merged shared rows.
+**Detection**: `rg "attribute/:attributeId/move|moveAttribute\(|constant/:constantId/move|moveValue\(" packages/metahubs-backend`
+**Why**: QA found that the attribute move path accepted a routed catalog id plus a foreign/shared attribute id and could mutate sort order outside the intended container. Closing the controller seam alone was not enough; the service also has to distrust bare ids.
+## Shared Container Read/Ensure Split Pattern (IMPORTANT)
+**Rule**: Shared virtual container discovery must stay read-only; container creation belongs to an explicit ensure/write path.
+**Required**:
+- `GET /metahub/:metahubId/shared-containers` must return only already existing shared pool ids and must not lazily insert missing rows.
+- Any authoring surface that needs concrete shared container ids up front, such as the Common page embedding shared Attributes / Constants / Values, must explicitly call the write path `POST /metahub/:metahubId/shared-containers/ensure`.
+- Keep the ensure path idempotent and continue using `SharedContainerService.resolveAllContainerObjectIds(...)` there.
+- Route coverage should prove that GET uses the read-only lookup while POST performs the explicit ensure.
+**Detection**: `rg "shared-containers|ensureContainers|findAllContainerObjectIds|resolveAllContainerObjectIds" packages/metahubs-backend packages/metahubs-frontend`
+**Why**: QA found that the original `GET /shared-containers` route was silently mutating metahub state by lazily creating missing virtual containers. Splitting read vs ensure paths removes the writeful-GET contract without breaking Common/shared authoring.
+## Shared Entity Exclusions Save-Cycle Pattern (IMPORTANT)
+**Rule**: Shared entity exclusion toggles in edit dialogs must behave like the rest of the entity form and commit only on the parent dialog save path.
+**Required**:
+- `SharedEntitySettingsFields` may read current overrides for initial state, but it must store checkbox edits in local form state instead of mutating override rows immediately.
+- Shared attribute, constant, and enumeration value save handlers must sync only the changed `isExcluded` states after the entity save succeeds.
+- When `sharedBehavior.canExclude` is turned off in the same dialog, trim unsavable newly added exclusions before save so the follow-up override sync cannot fail on new locked exclusions.
+- Keep focused frontend helper/component coverage for the local state and diff-sync contract.
+**Detection**: `rg "_sharedExcludedTargetIds|syncSharedEntityExclusions|SharedEntitySettingsFields" packages/metahubs-frontend`
+**Why**: QA found that exclusion checkboxes were bypassing the dialog save/cancel lifecycle and persisting override rows immediately. Moving exclusions into form state restores expected dialog behavior and makes Cancel reliable again.
+## Shared Entity Presentation/Exclusions IA Pattern (IMPORTANT)
+**Rule**: Shared entity dialogs must keep shared behavior controls inside the existing `Presentation` tab and use a dedicated `Exclusions` tab only for target-selection behavior.
+**Required**:
+- Do not reintroduce a dedicated `Shared` tab for shared attributes, constants, or enumeration values.
+- Keep the three shared behavior toggles rendered through `SharedEntitySettingsFields section='behavior'` under the existing `Presentation` tab.
+- Render exclusions through `SharedEntitySettingsFields section='exclusions'` inside a dedicated `Exclusions` tab.
+- Keep EN/RU tab labels and panel copy aligned so shared constants and values do not silently fall back to English labels.
+- Update focused browser and component coverage whenever the tab structure changes so Common/shared authoring keeps matching the shipped information architecture.
+**Detection**: `rg "section='behavior'|section='exclusions'|shared\.exclusions\.tab|tabs\.presentation" packages/metahubs-frontend tools/testing/e2e`
+**Why**: The reopened Common/shared QA pass showed that the dedicated Shared tab and mixed inline behavior/exclusion controls no longer matched the intended authoring flow. Preserving the Presentation + Exclusions split reduces the chance of future dialog regressions.
+## Embedded Common List Chrome Pattern (IMPORTANT)
+**Rule**: Shell-less pages embedded under the Common tab shell must align their search/action controls to the right cluster and neutralize standalone-page spacing assumptions instead of relying on nested page chrome.
+**Required**:
+- Use `ViewHeader.controlsAlign='end'` for embedded Common list surfaces that do not own a standalone title region.
+- Keep embedded list/table wrappers on explicit content-offset styles instead of reusing standalone negative-margin spacing inside the Common shell.
+- Apply the shell-less alignment/offset seam consistently across Layouts, Attributes, Constants, and Values when `renderPageShell={false}` or equivalent embedded mode is active.
+- Prefer the shared header/content seam over per-page CSS hacks so future Common tabs inherit the same layout contract.
+**Detection**: `rg "controlsAlign|contentOffsetSx|renderPageShell" packages/metahubs-frontend packages/universo-template-mui`
+**Why**: Post-import QA found that standalone list spacing leaked into the Common shell, leaving search/actions misaligned and some embedded surfaces horizontally overflowing. The shared alignment/offset contract fixes the root cause without reintroducing nested page shells.
+## E2E Manifest Cleanup Best-Effort Discovery Pattern (IMPORTANT)
+**Rule**: Browser-run cleanup should treat manifest-recorded resource ids as the primary teardown contract and search-based orphan discovery only as a best-effort augmentation.
+**Required**:
+- When the run manifest already contains explicit application or metahub ids, cleanup may continue using those ids even if search-based discovery endpoints fail during teardown.
+- Search-based discovery warnings must not turn a green browser run into a failed finalization when the manifest already provides enough ids for deterministic cleanup.
+- Keep the explicit manifest resources authoritative so successful runs remove `tools/testing/e2e/.artifacts/run-manifest.json` and do not emit runner-level `Manifest cleanup warning` noise.
+- Preserve the separate full-reset path as the heavy recovery tool for truly incomplete or crashed runs.
+**Detection**: `grep -n "Application discovery warning|Metahub discovery warning|Manifest cleanup warning" tools/testing/e2e/support/backend/e2eCleanup.mjs tools/testing/e2e/run-playwright-suite.mjs`
+**Why**: The Common/shared Chromium flow was already functionally green, but finalization still failed because cleanup treated search-based orphan discovery as mandatory even when the manifest already had exact resource ids. Making discovery best-effort preserves deterministic teardown without widening product-code scope.
+## Strict Full-Reset Finalization Pattern (IMPORTANT)
+**Rule**: Wrapper-managed E2E runs in strict full-reset mode must not execute route-level manifest/API cleanup during finalization; the post-stop full reset is the only teardown authority in that lifecycle.
+**Required**:
+- When strict full-reset mode is enabled, `run-playwright-suite.mjs` should stop the owned server and then call the destructive full reset without first invoking `cleanupE2eRun()`.
+- Keep manifest/API cleanup for non-strict or manual-debug flows where no authoritative full reset will run afterward.
+- A green strict-mode tail should contain the test summary, normal server shutdown, and `[e2e-full-reset] Completed...`, not route-level delete/savepoint noise.
+- Preserve the pre-start and post-stop full-reset lifecycle as the source of truth for project-empty E2E state.
+**Detection**: `rg "cleanupE2eRun|runFullReset|fullResetEnabled" tools/testing/e2e/run-playwright-suite.mjs`
+**Why**: QA proved that strict mode already removes all project-owned schemas, auth users, and local artifacts through the full reset. Running route-level delete APIs first only reintroduced false savepoint/RLS errors and noisy cleanup tails after otherwise green Playwright runs.
 ## Layout-Owned Catalog Runtime Behavior Pattern (IMPORTANT)
 **Rule**: Catalog runtime create/edit/copy/search behavior must be owned by layout config, not by a separate catalog fallback form or by catalog object `runtimeConfig` fallback during runtime resolution.
 **Required**:
@@ -27,6 +91,15 @@
 - Cover the parity seam with focused regressions so missing context cannot silently drop Scripts or the catalog Layout manager from one dialog entrypoint only.
 **Detection**: `rg "metahubId:.*actionContext|Scripts|Layout" packages/metahubs-frontend/base/src/domains/**`
 **Why**: The nested entity `Settings` dialogs were rendering an older tab set because the shared builders only enabled Scripts/Layout tabs when `metahubId` was present in the action context.
+## Shared Entity Settings Storage Split Pattern (IMPORTANT)
+**Rule**: Shared entity dialogs must reuse one frontend Shared settings component, but they must write `sharedBehavior` back through the entity-specific storage field that already owns the rest of the entity presentation config.
+**Required**:
+- Reuse `SharedEntitySettingsFields` for shared attributes, constants, and enumeration values instead of duplicating per-entity toggle/exclusion UIs.
+- Persist shared attribute and constant settings through `uiConfig.sharedBehavior`.
+- Persist shared enumeration value settings through `presentation.sharedBehavior` and keep the backend controller/service contract aligned so create/update/copy flows round-trip that field.
+- Keep per-target exclusions on the shared override routes/hooks rather than embedding exclusion flags directly in entity payloads.
+**Detection**: `rg "SharedEntitySettingsFields|storageField='uiConfig'|storageField='presentation'|presentation\.sharedBehavior" packages/metahubs-frontend packages/metahubs-backend`
+**Why**: The shared dialog controls were intentionally unified across entity types, but enumeration values already store authoring presentation under `presentation` while attributes/constants use `uiConfig`. Preserving that split avoids a second configuration model while keeping one reusable Shared tab.
 ## Single-Shell Embedded Page Reuse Pattern (IMPORTANT)
 **Rule**: When a parent page embeds an existing list/detail page inside its own tabbed shell, extract a shell-less content component and keep the standalone page as a thin wrapper; never nest full page chrome inside another page shell.
 **Required**:
@@ -45,6 +118,44 @@
 - Global layout config/widget mutations in `LayoutDetails` and the shared layouts mutation hooks must invalidate `metahubsQueryKeys.layoutsRoot(metahubId)` so cached inherited catalog layout views are marked stale under the shared 5-minute QueryClient cache.
 **Detection**: `rg "attachLayoutsToSnapshot|layoutsRoot\(|invalidateLayoutsQueries\.all|safeInvalidateQueriesInactive" packages/metahubs-backend packages/metahubs-frontend`
 **Why**: QA found two linked seams: active-only snapshot export could drop authoring layouts while still serializing override rows, and per-layout React Query invalidation left inherited catalog views stale after base global layout mutations.
+## Shared Snapshot V2 Runtime Materialization Pattern (IMPORTANT)
+**Rule**: Shared design-time entities may be exported/imported as first-class snapshot sections, but runtime and schema-sync consumers must continue to see one flattened ordinary snapshot surface.
+**Required**:
+- Export shared attrs/constants/values plus shared override rows as dedicated snapshot v2 sections instead of copying them into local entity sections at authoring time.
+- Materialize those shared sections through `SnapshotSerializer.materializeSharedEntitiesForRuntime(...)` before any runtime/schema consumer calls `deserializeSnapshot(...)` or `enrichDefinitionsWithSetConstants(...)`.
+- When an applications-backend sync/release-bundle flow consumes the materialized runtime snapshot, compute `snapshotHash` from that materialized snapshot instead of reusing the stored raw publication snapshot hash; otherwise bundle validation can fail even when the publication itself is valid.
+- Keep the raw publication snapshot available separately for integrity/history paths; do not overwrite the stored publication source with the runtime-materialized view.
+- Snapshot import must recreate the three virtual shared containers and remap shared override rows to the restored target/shared entity ids.
+- Treat the shared snapshot sections as optional during import/materialization so older snapshots without them remain valid.
+**Detection**: `rg "materializeSharedEntitiesForRuntime|sharedAttributes|sharedConstants|sharedEnumerationValues|sharedEntityOverrides" packages/metahubs-backend packages/applications-backend`
+**Why**: The shared-entity authoring model needs first-class snapshot fidelity, but the application runtime and DDL sync paths were already built around one flattened snapshot contract. Materializing shared sections at the publication/runtime seam preserves both requirements without inventing a second runtime model.
+## Application Runtime Shared Identifier Scoping Pattern (IMPORTANT)
+**Rule**: Applications-backend must scope any shared design-time identifiers that become duplicated across multiple runtime targets before browser diff, schema metadata sync, or runtime seed steps consume the publication runtime source.
+**Required**:
+- Repeated shared field ids materialized into multiple runtime entities must be remapped deterministically per target entity before `_app_attributes` metadata sync runs.
+- Repeated shared enumeration value ids materialized into multiple runtime enumeration objects must be remapped deterministically per target object before `_app_values` sync runs.
+- When enumeration value ids are remapped, predefined catalog-element REF payloads in the same normalized runtime snapshot must also rewrite their stored ids according to the field target enumeration object so seeded runtime data stays consistent.
+- Browser diff and actual schema sync must consume the same normalized application sync context/entities instead of recomputing a divergent raw executable entity list in controller code.
+**Detection**: `rg "publishedApplicationRuntimeSnapshot|createLoadPublishedApplicationSyncContext|Duplicate enumeration value id in snapshot|resolveExecutablePayloadEntities" packages/applications-backend`
+**Why**: The imported self-hosted connector flow regressed twice on live data: first via duplicated shared field ids in `_app_attributes`, then via duplicated shared enumeration value ids in `_app_values`. The durable fix is to normalize the applications runtime source once at the boundary and keep diff/sync on that same scoped identifier contract.
+## Request-Scoped Shared Override Runner Reuse Pattern (IMPORTANT)
+**Rule**: Shared override mutation helpers must reuse an explicit caller runner inside request-scoped RLS routes and parent transactions instead of reopening nested savepoints for simple upserts.
+**Required**:
+- Shared override helpers such as `SharedEntityOverridesService.upsertOverride(...)` must accept an explicit `db` / `SqlQueryable` runner.
+- Metahub request handlers already running on request-scoped executors should pass the request executor through that explicit runner seam.
+- Parent mutation flows already inside `exec.transaction(...)` must pass their active `tx` into the shared override helper instead of falling back to the service-level executor.
+- Keep focused regression coverage that proves the explicit-runner path does not call `exec.transaction()` again.
+**Detection**: `rg "upsertOverride\(|db: exec|db: tx" packages/metahubs-backend`
+**Why**: The final Common/shared closure exposed a real request-scoped RLS failure where reopening nested savepoints for shared override writes caused brittle transaction behavior during browser flows. Reusing the caller runner keeps request and parent-transaction lifetimes aligned.
+## General/Common Shared Library Fail-Closed Pattern (IMPORTANT)
+**Rule**: The shared-library scripting seam is valid only for `attachedToKind='general'` with `moduleRole='library'`; any new out-of-scope `library` authoring or non-library Common script authoring must fail closed at the backend service layer.
+**Required**:
+- Enforce the scope/module-role compatibility in `MetahubScriptsService` create and update paths, not only through frontend defaults.
+- Reject `general` scripts whose persisted role is not `library` and reject new `library` scripts outside the Common/general scope.
+- Preserve unchanged legacy out-of-scope rows only for no-scope-transition edits so source-only maintenance does not silently coerce old data into a new stored contract.
+- Keep dependency-sensitive delete, codename-rename, and circular `@shared/*` failure modes covered by focused service tests and the shipped Common/shared browser flow.
+**Detection**: `rg "assertScopeModuleRoleCompatibility|moduleRole.*library|attachedToKind.*general|@shared/" packages/metahubs-backend packages/metahubs-frontend tools/testing/e2e`
+**Why**: QA found that the authoring UI already constrained Common/shared libraries correctly, but the backend still accepted illegal create/update combinations. The durable contract is server-side fail-closed validation plus regression coverage for dependency-sensitive shared-library failure modes.
 ## Runtime Startup Catalog Resolution Pattern (IMPORTANT)
 **Rule**: When runtime opens without an explicit `catalogId`, the preferred startup catalog may be inferred only from the global default or active runtime layout, never from a catalog-scoped runtime layout.
 **Required**:
@@ -55,14 +166,17 @@
 **Detection**: `rg "resolvePreferredCatalogIdFromGlobalMenu|catalog_id IS NULL|loadRuntimeSelectedLayout" packages/applications-backend`
 **Why**: The General/catalog-layout feature already flattened catalog layouts into runtime rows, but QA found that the implicit startup path could still derive its preferred catalog from a catalog-scoped runtime layout. Constraining that lookup to the global layout scope preserves deterministic root navigation while keeping explicit catalog runtime selection unchanged.
 ## Catalog Layout Inherited Widget Contract Pattern (IMPORTANT)
-**Rule**: Catalog layouts must expose inherited base-layout widgets as read-only config surfaces while still allowing move/toggle overrides through the sparse overlay model, and publication/runtime flows must flatten the merged result into ordinary layout/widget rows.
+**Rule**: Catalog layouts must expose inherited base-layout widgets as read-only config surfaces while gating inherited move/toggle/exclude overrides through the base widget `config.sharedBehavior` contract, and publication/runtime flows must flatten the merged result into ordinary layout/widget rows.
 **Required**:
 - Return `isInherited` for inherited catalog-layout widgets so the shared editor can distinguish inherited vs catalog-owned rows.
-- Reject inherited widget config edits, removal, and direct reassignment at the backend service layer; only move/toggle operations may create or update sparse override rows.
+- Global/base layout widget editors must persist `sharedBehavior` inside widget `config`, including a generic behavior-only editor path for widgets without specialized config dialogs.
+- Reject inherited widget config edits and direct reassignment at the backend service layer.
+- Allow inherited remove/exclude, toggle, and move overrides only when `sharedBehavior.canExclude`, `sharedBehavior.canDeactivate`, and `!sharedBehavior.positionLocked` permit them; forbidden inherited override writes must fail closed server-side.
 - Keep catalog-owned widgets in the existing `_mhb_widgets` table and store inherited-widget deltas only in `_mhb_catalog_widget_overrides`; do not add a runtime override table.
+- Reuse `_mhb_catalog_widget_overrides.is_deleted_override` for inherited exclusion and ignore or clear stale forbidden override fields when the base widget now locks that behavior.
 - Ignore inherited override config during snapshot export and application sync so inherited runtime widgets always materialize with base widget config.
 **Detection**: `rg "isInherited|_mhb_catalog_widget_overrides|Inherited widgets cannot" packages/metahubs-backend packages/metahubs-frontend packages/applications-backend`
-**Why**: The broader General/catalog-layout feature already shipped, but QA found that inherited widgets were still config-editable in the shared editor. Preserving this contract prevents future layout refactors from silently turning inherited widgets into mutable copies or runtime-config drift.
+**Why**: The broader General/catalog-layout feature already shipped, but the inherited-widget contract regressed again once shared/global entity behavior work reached widgets. Preserving the sharedBehavior-gated override model prevents future layout refactors from silently reopening locked inherited controls or reintroducing runtime-config drift.
 ## MUI Select JSDOM Geometry Pattern (IMPORTANT)
 **Rule**: Frontend jsdom tests that open MUI `Select` / `Menu` / `Popover` surfaces must provide a stable non-zero anchor geometry instead of tolerating noisy `anchorEl` warnings.
 **Required**:

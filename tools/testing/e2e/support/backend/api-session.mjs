@@ -887,8 +887,19 @@ export async function getCatalogElement(api, metahubId, catalogId, elementId) {
     return response.json()
 }
 
-export async function listEnumerationValues(api, metahubId, enumerationId) {
-    const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/enumeration/${enumerationId}/values`, { method: 'GET' })
+export async function listEnumerationValues(api, metahubId, enumerationId, params = {}) {
+    const query = new URLSearchParams()
+
+    for (const [key, value] of Object.entries(params)) {
+        if (value === undefined || value === null || value === '') {
+            continue
+        }
+
+        query.set(key, String(value))
+    }
+
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+    const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/enumeration/${enumerationId}/values${suffix}`, { method: 'GET' })
     if (!response.ok) {
         throw await buildError(response, `Listing values for enumeration ${enumerationId} in metahub ${metahubId}`)
     }

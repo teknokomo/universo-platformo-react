@@ -125,9 +125,13 @@ export const TargetEntitySelector = ({
     })
     const { data: constantsData, isLoading: isLoadingConstants } = useQuery({
         queryKey: targetEntityId
-            ? metahubsQueryKeys.constantsListDirect(metahubId, targetEntityId, { ...listParams, locale: uiLocale })
+            ? metahubsQueryKeys.constantsListDirect(metahubId, targetEntityId, {
+                  ...listParams,
+                  locale: uiLocale,
+                  includeShared: true
+              })
             : ['metahubs', 'constants', 'empty'],
-        queryFn: () => listConstantsDirect(metahubId, targetEntityId!, { ...listParams, locale: uiLocale }),
+        queryFn: () => listConstantsDirect(metahubId, targetEntityId!, { ...listParams, locale: uiLocale, includeShared: true }),
         enabled: !!metahubId && targetEntityKind === 'set' && !!targetEntityId,
         staleTime: 30000 // 30 seconds
     })

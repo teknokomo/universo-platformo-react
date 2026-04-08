@@ -142,7 +142,29 @@ vi.mock('../../../shared', () => ({
     metahubsQueryKeys: {
         enumerationValuesList: () => ['enumerationValues'],
         enumerationDetail: () => ['detail'],
-        hubsList: () => ['hubs']
+        hubsList: () => ['hubs'],
+        enumerationValues: () => ['enumerationValues']
+    },
+    sortSharedEntityList: <T extends { sortOrder?: number | null; effectiveSortOrder?: number | null; id: string }>(items: T[]) =>
+        [...items].sort((left, right) => {
+            const leftOrder =
+                typeof left.effectiveSortOrder === 'number' ? left.effectiveSortOrder : left.sortOrder ?? Number.MAX_SAFE_INTEGER
+            const rightOrder =
+                typeof right.effectiveSortOrder === 'number' ? right.effectiveSortOrder : right.sortOrder ?? Number.MAX_SAFE_INTEGER
+            return leftOrder - rightOrder || left.id.localeCompare(right.id)
+        }),
+    isSharedEntityRow: (value: { isShared?: boolean } | null | undefined) => value?.isShared === true,
+    isSharedEntityMovable: (value: { isShared?: boolean; sharedBehavior?: { positionLocked?: boolean } | null } | null | undefined) =>
+        value?.isShared !== true || value?.sharedBehavior?.positionLocked !== true,
+    isSharedEntityActive: (value: { isActive?: boolean } | null | undefined) => value?.isActive !== false,
+    reorderSharedEntityIds: (orderedIds: string[], activeId: string, overId: string) => {
+        const fromIndex = orderedIds.indexOf(activeId)
+        const toIndex = orderedIds.indexOf(overId)
+        if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return orderedIds
+        const nextIds = [...orderedIds]
+        const [movedId] = nextIds.splice(fromIndex, 1)
+        nextIds.splice(toIndex, 0, movedId)
+        return nextIds
     }
 }))
 

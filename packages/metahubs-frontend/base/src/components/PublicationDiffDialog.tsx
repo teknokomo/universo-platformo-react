@@ -19,7 +19,12 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import { useTranslation } from 'react-i18next'
-import { mergeDialogPaperProps, mergeDialogSx, resolveDialogMaxWidth, useDialogPresentation } from '@universo/template-mui/components/dialogs'
+import {
+    mergeDialogPaperProps,
+    mergeDialogSx,
+    resolveDialogMaxWidth,
+    useDialogPresentation
+} from '@universo/template-mui/components/dialogs'
 import { usePublicationDiff, type Publication } from '../domains/publications'
 import { getVLCString } from '../types'
 

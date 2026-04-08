@@ -2,8 +2,8 @@ import type { ConstantCopyOptions } from '@universo/types'
 import type { Constant, ConstantLocalizedPayload, PaginatedResponse, PaginationParams } from '../../../types'
 import { apiClient } from '../../shared'
 
-type ConstantsListParams = PaginationParams & { locale?: string }
-type ConstantsListMeta = { totalAll?: number; limit?: number; limitReached?: boolean }
+type ConstantsListParams = PaginationParams & { locale?: string; includeShared?: boolean }
+type ConstantsListMeta = { totalAll?: number; limit?: number; limitReached?: boolean; includeShared?: boolean }
 type ConstantsListResponse = PaginatedResponse<Constant> & { meta?: ConstantsListMeta }
 
 const mapListResponse = (response: {
@@ -34,7 +34,8 @@ const buildListParams = (params?: ConstantsListParams) => ({
     sortBy: params?.sortBy,
     sortOrder: params?.sortOrder,
     search: params?.search,
-    locale: params?.locale
+    locale: params?.locale,
+    includeShared: params?.includeShared
 })
 
 export const listConstants = async (
@@ -94,16 +95,31 @@ export const moveConstant = (metahubId: string, hubId: string, setId: string, co
 export const moveConstantDirect = (metahubId: string, setId: string, constantId: string, direction: 'up' | 'down') =>
     apiClient.patch<Constant>(`/metahub/${metahubId}/set/${setId}/constant/${constantId}/move`, { direction })
 
-export const reorderConstant = (metahubId: string, hubId: string, setId: string, constantId: string, newSortOrder: number) =>
+export const reorderConstant = (
+    metahubId: string,
+    hubId: string,
+    setId: string,
+    constantId: string,
+    newSortOrder: number,
+    mergedOrderIds?: string[]
+) =>
     apiClient.patch<Constant>(`/metahub/${metahubId}/hub/${hubId}/set/${setId}/constants/reorder`, {
         constantId,
-        newSortOrder
+        newSortOrder,
+        ...(Array.isArray(mergedOrderIds) && mergedOrderIds.length > 0 && { mergedOrderIds })
     })
 
-export const reorderConstantDirect = (metahubId: string, setId: string, constantId: string, newSortOrder: number) =>
+export const reorderConstantDirect = (
+    metahubId: string,
+    setId: string,
+    constantId: string,
+    newSortOrder: number,
+    mergedOrderIds?: string[]
+) =>
     apiClient.patch<Constant>(`/metahub/${metahubId}/set/${setId}/constants/reorder`, {
         constantId,
-        newSortOrder
+        newSortOrder,
+        ...(Array.isArray(mergedOrderIds) && mergedOrderIds.length > 0 && { mergedOrderIds })
     })
 
 export type ConstantCopyInput = Partial<ConstantLocalizedPayload> & Partial<ConstantCopyOptions>

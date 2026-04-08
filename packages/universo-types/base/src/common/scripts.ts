@@ -1,9 +1,9 @@
 import type { VersionedLocalizedContent } from './admin'
 
-export const SCRIPT_ATTACHMENT_KINDS = ['metahub', 'catalog', 'hub', 'set', 'enumeration', 'attribute'] as const
+export const SCRIPT_ATTACHMENT_KINDS = ['metahub', 'catalog', 'hub', 'set', 'enumeration', 'attribute', 'general'] as const
 export type ScriptAttachmentKind = (typeof SCRIPT_ATTACHMENT_KINDS)[number]
 
-export const SCRIPT_MODULE_ROLES = ['module', 'lifecycle', 'widget', 'global'] as const
+export const SCRIPT_MODULE_ROLES = ['module', 'lifecycle', 'widget', 'library'] as const
 export type ScriptModuleRole = (typeof SCRIPT_MODULE_ROLES)[number]
 
 export const SCRIPT_SOURCE_KINDS = ['embedded', 'external', 'visual'] as const
@@ -49,18 +49,22 @@ const SCRIPT_ALLOWED_CAPABILITIES_BY_ROLE: Record<ScriptModuleRole, readonly Scr
     module: ['records.read', 'records.write', 'metadata.read', 'lifecycle'],
     lifecycle: ['records.read', 'records.write', 'metadata.read', 'lifecycle'],
     widget: ['metadata.read', 'rpc.client'],
-    global: ['metadata.read']
+    library: ['metadata.read']
 }
 
 const SCRIPT_DEFAULT_CAPABILITIES_BY_ROLE: Record<ScriptModuleRole, readonly ScriptCapability[]> = {
     module: ['records.read', 'metadata.read'],
     lifecycle: ['records.read', 'records.write', 'metadata.read', 'lifecycle'],
     widget: ['metadata.read', 'rpc.client'],
-    global: ['metadata.read']
+    library: ['metadata.read']
 }
 
 export const normalizeScriptModuleRole = (value: unknown): ScriptModuleRole =>
-    SCRIPT_MODULE_ROLES.includes(value as ScriptModuleRole) ? (value as ScriptModuleRole) : DEFAULT_SCRIPT_MODULE_ROLE
+    value === 'global' || value === 'library'
+        ? 'library'
+        : SCRIPT_MODULE_ROLES.includes(value as ScriptModuleRole)
+        ? (value as ScriptModuleRole)
+        : DEFAULT_SCRIPT_MODULE_ROLE
 
 export const normalizeScriptSourceKind = (value: unknown): ScriptSourceKind =>
     SCRIPT_SOURCE_KINDS.includes(value as ScriptSourceKind) ? (value as ScriptSourceKind) : DEFAULT_SCRIPT_SOURCE_KIND
@@ -186,6 +190,12 @@ export interface ScriptCompilationInput {
     moduleRole?: ScriptModuleRole
     sourceKind?: ScriptSourceKind
     capabilities?: ScriptCapability[]
+    sharedLibraries?: Record<string, ScriptCompilationLibraryInput>
+}
+
+export interface ScriptCompilationLibraryInput {
+    codename: string
+    sourceCode: string
 }
 
 export interface CompiledScriptArtifact {

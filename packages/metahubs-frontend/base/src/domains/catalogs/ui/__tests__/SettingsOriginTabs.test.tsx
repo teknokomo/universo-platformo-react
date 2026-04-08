@@ -88,7 +88,11 @@ describe('Settings-origin shared form tabs', () => {
     })
 
     it('renders the catalog layout manager and scripts tab when the edit context carries metahubId', () => {
-        const tabs = buildCatalogFormTabs(createCatalogContext('metahub-1'), [baseHub] as never[], 'catalog-1')({
+        const tabs = buildCatalogFormTabs(
+            createCatalogContext('metahub-1'),
+            [baseHub] as never[],
+            'catalog-1'
+        )({
             values: {},
             setValue: vi.fn(),
             isLoading: false,
@@ -111,7 +115,11 @@ describe('Settings-origin shared form tabs', () => {
     })
 
     it('still renders the catalog layout manager when metahubId is available on the edited entity', () => {
-        const tabs = buildCatalogFormTabs(createCatalogContext(null), [baseHub] as never[], 'catalog-1')({
+        const tabs = buildCatalogFormTabs(
+            createCatalogContext(null),
+            [baseHub] as never[],
+            'catalog-1'
+        )({
             values: {},
             setValue: vi.fn(),
             isLoading: false,
@@ -134,13 +142,21 @@ describe('Settings-origin shared form tabs', () => {
     })
 
     it('includes scripts tabs for set and enumeration edit contexts when metahubId is present', () => {
-        const setTabs = buildSetFormTabs(createSetContext('metahub-1'), [baseHub] as never[], 'set-1')({
+        const setTabs = buildSetFormTabs(
+            createSetContext('metahub-1'),
+            [baseHub] as never[],
+            'set-1'
+        )({
             values: {},
             setValue: vi.fn(),
             isLoading: false,
             errors: {}
         })
-        const enumerationTabs = buildEnumerationFormTabs(createEnumerationContext('metahub-1'), [baseHub] as never[], 'enumeration-1')({
+        const enumerationTabs = buildEnumerationFormTabs(
+            createEnumerationContext('metahub-1'),
+            [baseHub] as never[],
+            'enumeration-1'
+        )({
             values: {},
             setValue: vi.fn(),
             isLoading: false,

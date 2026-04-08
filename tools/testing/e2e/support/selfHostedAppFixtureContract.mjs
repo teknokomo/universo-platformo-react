@@ -93,6 +93,43 @@ export const SELF_HOSTED_APP_PUBLICATION = {
     }
 }
 
+export const SELF_HOSTED_APP_SHARED_ENTITIES = {
+    attribute: {
+        name: {
+            en: 'Shared Title',
+            ru: 'Общий заголовок'
+        },
+        codename: {
+            en: 'shared_title',
+            ru: 'shared_title'
+        },
+        includedCatalogSectionCodename: 'catalogs',
+        excludedCatalogSectionCodename: 'settings'
+    },
+    constant: {
+        name: {
+            en: 'Shared Constant',
+            ru: 'Общая константа'
+        },
+        codename: {
+            en: 'shared_constant',
+            ru: 'shared_constant'
+        },
+        targetSetSectionCodename: 'sets'
+    },
+    enumerationValue: {
+        name: {
+            en: 'Shared Status',
+            ru: 'Общий статус'
+        },
+        codename: {
+            en: 'shared_status',
+            ru: 'shared_status'
+        },
+        targetEnumerationSectionCodename: 'enumerations'
+    }
+}
+
 export const SELF_HOSTED_APP_SECTIONS = [
     {
         codename: 'metahubs',
@@ -194,6 +231,10 @@ export const SELF_HOSTED_APP_SECTIONS = [
         }
     }
 ]
+
+export function findSelfHostedAppSection(sectionCodename) {
+    return SELF_HOSTED_APP_SECTIONS.find((section) => section.codename === sectionCodename) ?? null
+}
 
 const ATTRIBUTE_LABELS = {
     name: { en: 'Name', ru: 'Название' },
@@ -511,6 +552,55 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
         if (!isLocalizedCodenameObject(script?.codename) || !readCodenameText(script?.codename)) {
             errors.push(`Script ${String(script?.id || '<unknown>')} must keep codename as a localized snapshot object`)
         }
+    }
+
+    const sharedAttributes = Array.isArray(envelope?.snapshot?.sharedAttributes) ? envelope.snapshot.sharedAttributes : []
+    const sharedConstants = Array.isArray(envelope?.snapshot?.sharedConstants) ? envelope.snapshot.sharedConstants : []
+    const sharedEnumerationValues = Array.isArray(envelope?.snapshot?.sharedEnumerationValues)
+        ? envelope.snapshot.sharedEnumerationValues
+        : []
+    const sharedEntityOverrides = Array.isArray(envelope?.snapshot?.sharedEntityOverrides) ? envelope.snapshot.sharedEntityOverrides : []
+
+    const canonicalSharedAttribute = sharedAttributes.find(
+        (item) =>
+            readCodenameText(item?.codename) === SELF_HOSTED_APP_SHARED_ENTITIES.attribute.codename.en ||
+            readLocalizedText(item?.presentation?.name, 'en') === SELF_HOSTED_APP_SHARED_ENTITIES.attribute.name.en
+    )
+    if (!canonicalSharedAttribute) {
+        errors.push('Self-hosted app fixture must include the canonical shared attribute')
+    }
+
+    const canonicalSharedConstant = sharedConstants.find(
+        (item) =>
+            readCodenameText(item?.codename) === SELF_HOSTED_APP_SHARED_ENTITIES.constant.codename.en ||
+            readLocalizedText(item?.presentation?.name, 'en') === SELF_HOSTED_APP_SHARED_ENTITIES.constant.name.en
+    )
+    if (!canonicalSharedConstant) {
+        errors.push('Self-hosted app fixture must include the canonical shared constant')
+    }
+
+    const canonicalSharedEnumerationValue = sharedEnumerationValues.find(
+        (item) =>
+            readCodenameText(item?.codename) === SELF_HOSTED_APP_SHARED_ENTITIES.enumerationValue.codename.en ||
+            readLocalizedText(item?.presentation?.name, 'en') === SELF_HOSTED_APP_SHARED_ENTITIES.enumerationValue.name.en
+    )
+    if (!canonicalSharedEnumerationValue) {
+        errors.push('Self-hosted app fixture must include the canonical shared enumeration value')
+    }
+
+    const excludedCatalogSection = findSelfHostedAppSection(SELF_HOSTED_APP_SHARED_ENTITIES.attribute.excludedCatalogSectionCodename)
+    const excludedCatalogEntity = excludedCatalogSection ? findSectionEntity(entities, excludedCatalogSection) : null
+    if (
+        canonicalSharedAttribute &&
+        excludedCatalogEntity &&
+        !sharedEntityOverrides.some(
+            (override) =>
+                override?.sharedEntityId === canonicalSharedAttribute.id &&
+                override?.targetObjectId === excludedCatalogEntity.id &&
+                override?.isExcluded === true
+        )
+    ) {
+        errors.push('Self-hosted app fixture must exclude the canonical shared attribute from the Settings catalog')
     }
 
     const layouts = Array.isArray(envelope?.snapshot?.layouts) ? envelope.snapshot.layouts : []

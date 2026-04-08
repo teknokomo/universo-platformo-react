@@ -1,6 +1,7 @@
 import { createLocalizedContent } from '@universo/utils'
 import { expect, test } from '../../fixtures/test'
 import { createLoggedInApiContext, createMetahub, disposeApiContext, listMetahubSettings } from '../../support/backend/api-session.mjs'
+import { waitForSettledMutationResponse } from '../../support/browser/network'
 import { expectHorizontalEdgesAligned } from '../../support/browser/spacing'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { pageSpacingSelectors } from '../../support/selectors/contracts'
@@ -54,8 +55,10 @@ test('@flow metahub settings persist codename style updates from the browser set
         await expect(saveButton).toBeVisible()
         await expect(saveButton).toBeEnabled()
 
-        const saveRequest = page.waitForResponse(
-            (response) => response.request().method() === 'PUT' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/settings`)
+        const saveRequest = waitForSettledMutationResponse(
+            page,
+            (response) => response.request().method() === 'PUT' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/settings`),
+            { label: 'Saving metahub settings' }
         )
 
         await saveButton.click()
@@ -122,8 +125,10 @@ test('@flow metahub settings expose and persist common dialog preferences', asyn
         await expect(saveButton).toBeVisible()
         await expect(saveButton).toBeEnabled()
 
-        const saveRequest = page.waitForResponse(
-            (response) => response.request().method() === 'PUT' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/settings`)
+        const saveRequest = waitForSettledMutationResponse(
+            page,
+            (response) => response.request().method() === 'PUT' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/settings`),
+            { label: 'Saving common dialog settings' }
         )
 
         await saveButton.click()

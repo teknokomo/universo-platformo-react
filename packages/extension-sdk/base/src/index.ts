@@ -1,6 +1,7 @@
 export * from './types'
 export * from './decorators'
 export * from './ExtensionScript'
+export * from './SharedLibraryScript'
 export * from './registry'
 export * from './widget'
 export * from './apis/records'

@@ -1,6 +1,7 @@
 import type { Locator, Response } from '@playwright/test'
 import { createLocalizedContent } from '@universo/utils'
 import { expect, test } from '../../fixtures/test'
+import { waitForSettledMutationResponse } from '../../support/browser/network'
 import {
     createMetahubBranch,
     createLoggedInApiContext,
@@ -173,9 +174,10 @@ test('@flow @combined metahub branches support browser create copy default activ
         await expect(createDialog).toBeVisible()
         await fillNameAndCodename(createDialog, { name: branchName, codename: branchCodename })
 
-        const createBranchResponse = page.waitForResponse(
+        const createBranchResponse = waitForSettledMutationResponse(
+            page,
             (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/branches`),
-            { timeout: 90_000 }
+            { timeout: 90_000, label: 'Creating branch' }
         )
         await createDialog.getByTestId(entityDialogSelectors.submitButton).click()
         await expect(createDialog).toHaveCount(0)
@@ -190,10 +192,12 @@ test('@flow @combined metahub branches support browser create copy default activ
         expect((await getMetahubBranch(api, metahub.id, createdBranch.id)).id).toBe(createdBranch.id)
 
         await page.getByTestId(buildEntityMenuTriggerSelector('branch', createdBranch.id)).click()
-        const setDefaultResponse = page.waitForResponse(
+        const setDefaultResponse = waitForSettledMutationResponse(
+            page,
             (response) =>
                 response.request().method() === 'POST' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/branch/${createdBranch.id}/default`)
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/branch/${createdBranch.id}/default`),
+            { label: 'Setting default branch' }
         )
         await page.getByTestId(buildEntityMenuItemSelector('branch', 'setDefault', createdBranch.id)).click()
         const setDefaultResult = await setDefaultResponse
@@ -206,10 +210,12 @@ test('@flow @combined metahub branches support browser create copy default activ
         )
 
         await page.getByTestId(buildEntityMenuTriggerSelector('branch', createdBranch.id)).click()
-        const activateResponse = page.waitForResponse(
+        const activateResponse = waitForSettledMutationResponse(
+            page,
             (response) =>
                 response.request().method() === 'POST' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/branch/${createdBranch.id}/activate`)
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/branch/${createdBranch.id}/activate`),
+            { label: 'Activating branch' }
         )
         await page.getByTestId(buildEntityMenuItemSelector('branch', 'activate', createdBranch.id)).click()
         const activateResult = await activateResponse
@@ -232,9 +238,10 @@ test('@flow @combined metahub branches support browser create copy default activ
         await expect(copyDialog).toBeVisible()
         await fillNameAndCodename(copyDialog, { name: copiedBranchName, codename: copiedBranchCodename })
 
-        const copyBranchResponse = page.waitForResponse(
+        const copyBranchResponse = waitForSettledMutationResponse(
+            page,
             (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/branches`),
-            { timeout: 90_000 }
+            { timeout: 90_000, label: 'Copying branch' }
         )
         await copyDialog.getByTestId(entityDialogSelectors.submitButton).click()
         await expect(copyDialog).toHaveCount(0)
@@ -256,10 +263,12 @@ test('@flow @combined metahub branches support browser create copy default activ
 
         const deleteDialog = page.getByRole('dialog', { name: 'Delete branch' })
         await expect(deleteDialog).toBeVisible()
-        const deleteBranchResponse = page.waitForResponse(
+        const deleteBranchResponse = waitForSettledMutationResponse(
+            page,
             (response) =>
                 response.request().method() === 'DELETE' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/branch/${copiedBranch.id}`)
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/branch/${copiedBranch.id}`),
+            { label: 'Deleting branch' }
         )
         await deleteDialog.getByRole('button', { name: 'Delete' }).click()
 

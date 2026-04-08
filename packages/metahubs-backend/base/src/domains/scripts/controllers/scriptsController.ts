@@ -13,13 +13,10 @@ import { MetahubValidationError } from '../../shared/domainErrors'
 
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 
-const optionalBooleanFromQuery = z.preprocess(
-    (value) => {
-        if (value === undefined) return undefined
-        return value === 'true' || value === true
-    },
-    z.boolean().optional()
-)
+const optionalBooleanFromQuery = z.preprocess((value) => {
+    if (value === undefined) return undefined
+    return value === 'true' || value === true
+}, z.boolean().optional())
 
 const localizedInputSchema = z.union([z.string().min(1), z.record(z.string().min(1))])
 
@@ -103,10 +100,7 @@ const buildPresentation = (input: {
     }
 }
 
-const mergePresentation = (
-    existing: { name: unknown; description?: unknown },
-    input: z.infer<typeof updateScriptSchema>
-) => {
+const mergePresentation = (existing: { name: unknown; description?: unknown }, input: z.infer<typeof updateScriptSchema>) => {
     const existingName = existing.name && typeof existing.name === 'object' ? (existing.name as Record<string, unknown>) : {}
     const nextNameInput = input.name ? sanitizeLocalizedInput(toLocalizedRecord(input.name)) : undefined
     const namePrimaryLocale =
@@ -134,11 +128,8 @@ const mergePresentation = (
     return { name, description }
 }
 
-const normalizeAttachmentId = (
-    attachedToKind: ScriptAttachmentKind,
-    attachedToId?: string | null
-): string | null | undefined => {
-    if (attachedToKind === 'metahub') {
+const normalizeAttachmentId = (attachedToKind: ScriptAttachmentKind, attachedToId?: string | null): string | null | undefined => {
+    if (attachedToKind === 'metahub' || attachedToKind === 'general') {
         return null
     }
     return attachedToId ?? null
