@@ -32,9 +32,9 @@
 - [x] Re-run the relevant focused tests and the canonical verification needed before pushing.
 	- Note: Prefer touched-package validation first, then finish with the full root `pnpm build` because the user requested full verification before sending files back to the PR.
 	- Outcome: focused reruns passed for the five originally reported flow specs and for the later `codename-mode` + `snapshot-import-quiz-runtime` seams, and the final repository-recommended `pnpm run test:e2e:agent` pass is green with `45 passed`.
-- [ ] Push the follow-up commit(s) to PR #755 and sync memory-bank closure state.
+- [x] Push the follow-up commit(s) to PR #755 and sync memory-bank closure state.
 	- Note: After a green validation stack, push back to `feature/gh754-common-shared-tabs`, then update `activeContext.md`, `progress.md`, and this ledger with the actual review outcome.
-	- Success condition: PR #755 contains the follow-up commit set and memory-bank reflects the post-review state.
+	- Outcome: commit `d5358c3c1` (`fix(e2e): stabilize GH755 review follow-up`) is pushed to `feature/gh754-common-shared-tabs`, so PR #755 now contains the accepted review fix, the E2E contract repairs, and the quiz snapshot integrity refresh.
 
 ## Completed Session: 2026-04-08 Post-QA Lint Closure Remediation
 

@@ -4,19 +4,20 @@
 
 ---
 
-## Current Focus: PR Review Follow-up For GH755
+## Current Focus: Shared/Common GH755 Follow-up Closed
 
-- Goal: wait window is complete; inspect PR #755 feedback and implement only the fixes that survive codebase and documentation QA review.
-- Branch context: active work must stay on `feature/gh754-common-shared-tabs`, because PR #755 already points at that branch.
-- Base state to preserve: the Shared/Common wave is currently green on this branch, including backend/frontend lint, focused backend route coverage (`35/35`), focused frontend coverage (`18/18`), and the canonical root `pnpm build` (`30 successful`, `30 total`, `EXIT:0`).
-- Change policy: only accept review suggestions that are confirmed by current source behavior, tests, or authoritative documentation and that do not break the routed-object ownership contract, settled-response Playwright waits, or the runtime/publication shared-id and `general/library` fail-closed scripting contracts.
-- Review triage result: only the two Copilot inline comments on `tools/testing/e2e/support/backend/e2eCleanup.mjs` were actionable; the Gemini review explicitly reported no additional issues.
-- Verification status: the accepted cleanup discovery fix plus the broader E2E follow-ups are implemented and validated. The confirmed flow regressions were stale UI-contract expectations (`admin-instance-settings`, `metahub-layouts`, `metahub-settings`), an asynchronous metahub-list refresh seam in `codename-mode`, and a stale integrity hash in the canonical quiz snapshot fixture surfaced by `snapshot-import-quiz-runtime`. The final repository-recommended `pnpm run test:e2e:agent` pass is green (`45 passed`).
+- Goal: keep the branch state aligned with the now-pushed PR #755 follow-up and avoid reopening the accepted cleanup/E2E fixes without a new request.
+- Branch context: `feature/gh754-common-shared-tabs` now includes the pushed follow-up commit `d5358c3c1` with the accepted review fix and the green-validation repair set.
+- Closure evidence: the only accepted PR-review fix was the `e2eCleanup.mjs` discovery hardening, and the final repository-recommended `pnpm run test:e2e:agent` pass is green (`45 passed`) after the stale E2E contract updates, codename-mode stabilization, and quiz snapshot hash refresh.
+- Constraints to preserve for future work:
+	1. Keep manifest cleanup authoritative while still merging best-effort metahub/application discovery by `runId`.
+	2. Keep the current shipped labels/default tabs used by the repaired E2E specs (`Metahubs` tab in admin settings, `Common` page heading for layouts, `Popup window type` / `Non-modal windows` for metahub common dialog settings).
+	3. Keep the canonical quiz snapshot fixture hash in sync with the serialized snapshot payload and fail fast when it drifts.
 
 ## Immediate Next Steps
 
-- Commit and push the validated follow-up set to `feature/gh754-common-shared-tabs` so PR #755 picks up the bot-fix, the E2E contract repairs, and the quiz snapshot hash refresh.
-- After push, collapse this active context back to an idle/awaiting-next-task state.
+- Wait for the next user instruction.
+- If independent verification is requested again, start from the green `pnpm run test:e2e:agent` baseline before broadening scope.
 
 ## References
 
