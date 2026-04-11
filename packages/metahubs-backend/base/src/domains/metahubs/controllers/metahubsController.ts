@@ -60,6 +60,9 @@ import { MetahubElementsService } from '../services/MetahubElementsService'
 import { MetahubEnumerationValuesService } from '../services/MetahubEnumerationValuesService'
 import { MetahubConstantsService } from '../services/MetahubConstantsService'
 import { MetahubScriptsService } from '../../scripts/services/MetahubScriptsService'
+import { EntityTypeService } from '../../entities/services/EntityTypeService'
+import { ActionService } from '../../entities/services/ActionService'
+import { EventBindingService } from '../../entities/services/EventBindingService'
 import { SnapshotSerializer } from '../../publications/services/SnapshotSerializer'
 import { SharedContainerService } from '../../shared/services/SharedContainerService'
 import { SharedEntityOverridesService } from '../../shared/services/SharedEntityOverridesService'
@@ -1935,6 +1938,9 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             const enumerationValuesService = new MetahubEnumerationValuesService(exec, schemaService)
             const constantsService = new MetahubConstantsService(exec, schemaService)
             const scriptsService = new MetahubScriptsService(exec, schemaService)
+            const entityTypeService = new EntityTypeService(exec, schemaService)
+            const actionService = new ActionService(exec, schemaService, entityTypeService)
+            const eventBindingService = new EventBindingService(exec, schemaService, entityTypeService)
             const serializer = new SnapshotSerializer(
                 objectsService,
                 attributesService,
@@ -1944,7 +1950,10 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                 constantsService,
                 scriptsService,
                 new SharedContainerService(exec, schemaService),
-                new SharedEntityOverridesService(exec, schemaService)
+                new SharedEntityOverridesService(exec, schemaService),
+                entityTypeService,
+                actionService,
+                eventBindingService
             )
             const canonicalPublicationSnapshot = await serializer.serializeMetahub(metahub.id, {
                 structureVersion:
@@ -2077,6 +2086,9 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
         const constantsService = new MetahubConstantsService(exec, schemaService)
         const scriptsService = new MetahubScriptsService(exec, schemaService)
 
+        const entityTypeService = new EntityTypeService(exec, schemaService)
+        const actionService = new ActionService(exec, schemaService, entityTypeService)
+        const eventBindingService = new EventBindingService(exec, schemaService, entityTypeService)
         const serializer = new SnapshotSerializer(
             objectsService,
             attributesService,
@@ -2086,7 +2098,10 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             constantsService,
             scriptsService,
             new SharedContainerService(exec, schemaService),
-            new SharedEntityOverridesService(exec, schemaService)
+            new SharedEntityOverridesService(exec, schemaService),
+            entityTypeService,
+            actionService,
+            eventBindingService
         )
 
         const snapshot = await serializer.serializeMetahub(metahubId, {

@@ -184,6 +184,60 @@ describe('EntityFormDialog', () => {
         })
     })
 
+    it('keeps async hydration enabled for internal underscore-prefixed fields', async () => {
+        const AsyncDialogHost = () => {
+            const [initialExtraValues, setInitialExtraValues] = React.useState<Record<string, unknown>>({ nameVlc: null })
+
+            React.useEffect(() => {
+                setInitialExtraValues({
+                    nameVlc: {
+                        _schema: 'v1',
+                        _primary: 'en',
+                        locales: {
+                            en: { content: 'Server hydrated value' }
+                        }
+                    }
+                })
+            }, [])
+
+            return (
+                <EntityFormDialog
+                    open
+                    title='Edit Publication'
+                    hideDefaultFields
+                    nameLabel='Name'
+                    descriptionLabel='Description'
+                    initialExtraValues={initialExtraValues}
+                    tabs={({ values, setValue }) => [
+                        {
+                            id: 'general',
+                            label: 'General',
+                            content: (
+                                <>
+                                    <div data-testid='name-value'>{String(values.nameVlc?.locales?.en?.content ?? 'empty')}</div>
+                                    <button type='button' onClick={() => setValue('_codenameConfig', { style: 'pascal-case' })}>
+                                        Sync internal config
+                                    </button>
+                                </>
+                            )
+                        }
+                    ]}
+                    onClose={() => undefined}
+                    onSave={() => undefined}
+                />
+            )
+        }
+
+        const user = userEvent.setup()
+        render(<AsyncDialogHost />)
+
+        await user.click(screen.getByRole('button', { name: 'Sync internal config' }))
+
+        await waitFor(() => {
+            expect(screen.getByTestId('name-value')).toHaveTextContent('Server hydrated value')
+        })
+    })
+
     it('shows fullscreen and reset controls when dialog presentation is enabled with a stored custom size', async () => {
         window.localStorage.setItem('universo:dialog-presentation:metahub-1:size', JSON.stringify({ width: 720, height: 540 }))
 
@@ -281,7 +335,7 @@ describe('EntityFormDialog', () => {
                     storageScopeKey: 'strict-modal-attention'
                 }}
             >
-                <DialogPresentationHarness onClose={() => closeCalls += 1} />
+                <DialogPresentationHarness onClose={() => (closeCalls += 1)} />
             </DialogPresentationProvider>
         )
 

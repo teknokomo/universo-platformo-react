@@ -24,16 +24,16 @@ export function ConflictResolutionDialog({
     isLoading = false
 }: ConflictResolutionDialogProps) {
     const { t } = useTranslation()
+    const presentation = useDialogPresentation({ open, onClose: onCancel, fallbackMaxWidth: 'sm', isBusy: isLoading })
 
     if (!conflict) return null
 
     const formattedDate = conflict.updatedAt ? new Date(conflict.updatedAt).toLocaleString() : t('common:unknown', 'Unknown')
 
-    // Display email (uuid) format if available
-    const updatedByEmail = (conflict as any).updatedByEmail
+    const updatedByEmailValue = (conflict as { updatedByEmail?: unknown }).updatedByEmail
+    const updatedByEmail = typeof updatedByEmailValue === 'string' ? updatedByEmailValue : null
     const updatedByUuid = conflict.updatedBy
     const updatedBy = updatedByEmail ? `${updatedByEmail} (${updatedByUuid})` : updatedByUuid || t('common:unknown', 'Unknown')
-    const presentation = useDialogPresentation({ open, onClose: onCancel, fallbackMaxWidth: 'sm', isBusy: isLoading })
     const titleNode = (
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>

@@ -23,6 +23,7 @@ const ENUMERATION_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { ENUMER
 const SET_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { SET?: MetaEntityKind }).SET ?? 'set') as MetaEntityKind
 const HUB_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { HUB?: MetaEntityKind }).HUB ?? 'hub') as MetaEntityKind
 const DEFAULT_DDL_STATEMENT_TIMEOUT_MS = 120_000
+const ENTITY_KIND_DB_LENGTH = 64
 
 const createCodenameVLC = (primaryLocale: string, codename: string): VersionedLocalizedContent<string> => {
     const timestamp = new Date(0).toISOString()
@@ -627,7 +628,7 @@ export class SchemaGenerator {
             console.log(`[SchemaGenerator] Creating _app_objects...`)
             await knex.schema.withSchema(schemaName).createTable('_app_objects', (table) => {
                 table.uuid('id').primary()
-                table.string('kind', 20).notNullable()
+                table.string('kind', ENTITY_KIND_DB_LENGTH).notNullable()
                 table.jsonb('codename').notNullable()
                 table.string('table_name', 255).notNullable()
                 table.jsonb('presentation').notNullable().defaultTo('{}')
@@ -682,6 +683,11 @@ export class SchemaGenerator {
             console.log(`[SchemaGenerator] _app_objects created`)
         }
 
+        await knex.raw(`
+            ALTER TABLE "${schemaName}"."_app_objects"
+            ALTER COLUMN "kind" TYPE VARCHAR(${ENTITY_KIND_DB_LENGTH})
+        `)
+
         const hasAttributes = capabilities.includeAttributes ? await knex.schema.withSchema(schemaName).hasTable('_app_attributes') : true
         console.log(`[SchemaGenerator] _app_attributes enabled=${capabilities.includeAttributes} exists: ${hasAttributes}`)
 
@@ -699,7 +705,7 @@ export class SchemaGenerator {
                 table.boolean('is_display_attribute').notNullable().defaultTo(false)
                 // Polymorphic reference: target entity ID and kind
                 table.uuid('target_object_id').nullable()
-                table.string('target_object_kind', 20).nullable() // 'catalog', 'document', 'hub', etc.
+                table.string('target_object_kind', ENTITY_KIND_DB_LENGTH).nullable() // 'catalog', 'document', 'hub', etc.
                 // Self-reference: parent TABLE attribute ID for child attributes
                 table.uuid('parent_attribute_id').nullable()
                 table.jsonb('presentation').notNullable().defaultTo('{}')
@@ -753,6 +759,13 @@ export class SchemaGenerator {
             })
 
             // Partial unique indexes for codename uniqueness (scoped by parent/root and soft-delete status)
+
+            if (capabilities.includeAttributes) {
+                await knex.raw(`
+                        ALTER TABLE "${schemaName}"."_app_attributes"
+                        ALTER COLUMN "target_object_kind" TYPE VARCHAR(${ENTITY_KIND_DB_LENGTH})
+                    `)
+            }
             await knex.raw(`
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_app_attributes_object_codename_root_active
                 ON "${schemaName}"._app_attributes (object_id, ${SchemaGenerator.runtimeCodenameTextSql('codename')})
@@ -1016,7 +1029,7 @@ export class SchemaGenerator {
                 table.uuid('id').primary()
                 table.string('codename', 100).notNullable()
                 table.jsonb('presentation').notNullable().defaultTo('{}')
-                table.string('attached_to_kind', 40).notNullable()
+                table.string('attached_to_kind', ENTITY_KIND_DB_LENGTH).notNullable()
                 table.uuid('attached_to_id').nullable()
                 table.string('module_role', 40).notNullable()
                 table.string('source_kind', 40).notNullable()
@@ -1072,6 +1085,11 @@ export class SchemaGenerator {
             `)
             console.log(`[SchemaGenerator] _app_scripts created`)
         }
+
+        await knex.raw(`
+            ALTER TABLE "${schemaName}"."_app_scripts"
+            ALTER COLUMN "attached_to_kind" TYPE VARCHAR(${ENTITY_KIND_DB_LENGTH})
+        `)
 
         if (!hasSettings) {
             console.log(`[SchemaGenerator] Creating _app_settings...`)

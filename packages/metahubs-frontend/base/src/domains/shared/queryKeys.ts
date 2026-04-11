@@ -1,4 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
+import type { TemplateDefinitionType } from '@universo/types'
 import type { SharedEntityKind } from '@universo/types'
 import { PaginationParams } from '../../types'
 
@@ -23,7 +24,12 @@ export const metahubsQueryKeys = {
 
     // ============ TEMPLATES ============
     templates: () => [...metahubsQueryKeys.all, 'templates'] as const,
-    templatesList: () => [...metahubsQueryKeys.templates(), 'list'] as const,
+    templatesList: (params?: { definitionType?: TemplateDefinitionType }) => {
+        const normalized = {
+            definitionType: params?.definitionType ?? 'metahub_template'
+        }
+        return [...metahubsQueryKeys.templates(), 'list', normalized] as const
+    },
     templateDetail: (templateId: string) => [...metahubsQueryKeys.templates(), 'detail', templateId] as const,
 
     lists: () => [...metahubsQueryKeys.all, 'list'] as const,
@@ -76,6 +82,47 @@ export const metahubsQueryKeys = {
 
     blockingBranchUsers: (metahubId: string, branchId: string) =>
         [...metahubsQueryKeys.branchDetail(metahubId, branchId), 'blockingUsers'] as const,
+
+    // Entity types scoped to a specific metahub
+    entityTypes: (metahubId: string) => [...metahubsQueryKeys.detail(metahubId), 'entityTypes'] as const,
+
+    entityTypesList: (metahubId: string, params?: PaginationParams & { includeBuiltins?: boolean }) => {
+        const normalized = {
+            limit: params?.limit ?? 100,
+            offset: params?.offset ?? 0,
+            sortBy: params?.sortBy ?? 'updated',
+            sortOrder: params?.sortOrder ?? 'desc',
+            search: params?.search?.trim() || undefined,
+            includeBuiltins: params?.includeBuiltins ?? true
+        }
+        return [...metahubsQueryKeys.entityTypes(metahubId), 'list', normalized] as const
+    },
+
+    entityTypeDetail: (metahubId: string, entityTypeId: string) =>
+        [...metahubsQueryKeys.entityTypes(metahubId), 'detail', entityTypeId] as const,
+
+    // Generic custom entities scoped to a specific metahub
+    entities: (metahubId: string, kind: string) => [...metahubsQueryKeys.detail(metahubId), 'entities', kind] as const,
+
+    entitiesList: (
+        metahubId: string,
+        params: PaginationParams & { kind: string; locale?: string; includeDeleted?: boolean; onlyDeleted?: boolean }
+    ) => {
+        const normalized = {
+            kind: params.kind,
+            limit: params.limit ?? 100,
+            offset: params.offset ?? 0,
+            sortBy: params.sortBy ?? 'updated',
+            sortOrder: params.sortOrder ?? 'desc',
+            search: params.search?.trim() || undefined,
+            locale: params.locale,
+            includeDeleted: params.includeDeleted ?? false,
+            onlyDeleted: params.onlyDeleted ?? false
+        }
+        return [...metahubsQueryKeys.entities(metahubId, normalized.kind), 'list', normalized] as const
+    },
+
+    entityDetail: (metahubId: string, entityId: string) => [...metahubsQueryKeys.detail(metahubId), 'entity', entityId] as const,
 
     // Hubs scoped to a specific metahub
     hubs: (metahubId: string) => [...metahubsQueryKeys.detail(metahubId), 'hubs'] as const,
@@ -490,6 +537,30 @@ export const invalidateBranchesQueries = {
 
     detail: (queryClient: QueryClient, metahubId: string, branchId: string) =>
         queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.branchDetail(metahubId, branchId) })
+}
+
+export const invalidateEntityTypesQueries = {
+    all: (queryClient: QueryClient, metahubId: string) =>
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.entityTypes(metahubId) }),
+
+    lists: (queryClient: QueryClient, metahubId: string, includeBuiltins?: boolean) =>
+        queryClient.invalidateQueries({
+            queryKey: metahubsQueryKeys.entityTypesList(metahubId, includeBuiltins === undefined ? undefined : { includeBuiltins })
+        }),
+
+    detail: (queryClient: QueryClient, metahubId: string, entityTypeId: string) =>
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.entityTypeDetail(metahubId, entityTypeId) })
+}
+
+export const invalidateEntitiesQueries = {
+    all: (queryClient: QueryClient, metahubId: string, kind: string) =>
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.entities(metahubId, kind) }),
+
+    lists: (queryClient: QueryClient, metahubId: string, kind: string) =>
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.entitiesList(metahubId, { kind }) }),
+
+    detail: (queryClient: QueryClient, metahubId: string, entityId: string) =>
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.entityDetail(metahubId, entityId) })
 }
 
 export const invalidateCatalogsQueries = {

@@ -19,8 +19,6 @@ import {
     FlowListTable,
     gridSpacing,
     useConfirm,
-    LocalizedInlineField,
-    useCodenameAutoFillVlc,
     EntitySelectionPanel,
     revealPendingEntityFeedback,
     useListDialogs
@@ -51,103 +49,14 @@ import { getVLCString } from '../../../types'
 import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
 import { ensureLocalizedContent, extractLocalizedInput, hasPrimaryContent } from '../../../utils/localizedInput'
-import { EnumerationDeleteDialog, CodenameField, HubSelectionPanel, ExistingCodenamesProvider } from '../../../components'
+import { EnumerationDeleteDialog, HubSelectionPanel, ExistingCodenamesProvider } from '../../../components'
 import enumerationActions, { EnumerationDisplayWithHub } from './EnumerationActions'
 import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
+import GeneralTabFields from '../../shared/ui/GeneralTabFields'
 import type { EnumerationFormValues, EnumerationMenuBaseContext, ConfirmSpec } from './enumerationListUtils'
 import { DIALOG_SAVE_CANCEL, extractResponseStatus, extractResponseMessage, toEnumerationWithHubsDisplay } from './enumerationListUtils'
 
 type GenericFormValues = Record<string, unknown>
-
-type GeneralTabFieldsProps = {
-    values: GenericFormValues
-    setValue: (name: string, value: unknown) => void
-    isLoading: boolean
-    errors: Record<string, string>
-    uiLocale: string
-    nameLabel: string
-    descriptionLabel: string
-    codenameLabel: string
-    codenameHelper: string
-}
-
-/**
- * General tab content component with name, description, codename fields
- */
-const GeneralTabFields = ({
-    values,
-    setValue,
-    isLoading,
-    errors,
-    uiLocale,
-    nameLabel,
-    descriptionLabel,
-    codenameLabel,
-    codenameHelper
-}: GeneralTabFieldsProps) => {
-    const codenameConfig = useCodenameConfig()
-    const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
-    const descriptionVlc = (values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
-    const codename = (values.codename as VersionedLocalizedContent<string> | null | undefined) ?? null
-    const codenameTouched = Boolean(values.codenameTouched)
-    useCodenameAutoFillVlc({
-        codename,
-        codenameTouched,
-        nameVlc,
-        deriveCodename: (nameContent) =>
-            sanitizeCodenameForStyle(
-                nameContent,
-                codenameConfig.style,
-                codenameConfig.alphabet,
-                codenameConfig.allowMixed,
-                codenameConfig.autoConvertMixedAlphabets
-            ),
-        setValue: setValue as (field: 'codename' | 'codenameTouched', value: VersionedLocalizedContent<string> | null | boolean) => void
-    })
-
-    return (
-        <Stack spacing={2}>
-            <LocalizedInlineField
-                mode='localized'
-                label={nameLabel}
-                required
-                disabled={isLoading}
-                value={nameVlc}
-                onChange={(next: VersionedLocalizedContent<string> | null) => setValue('nameVlc', next)}
-                error={errors.nameVlc || null}
-                helperText={errors.nameVlc}
-                uiLocale={uiLocale}
-            />
-
-            <LocalizedInlineField
-                mode='localized'
-                label={descriptionLabel}
-                disabled={isLoading}
-                value={descriptionVlc}
-                onChange={(next: VersionedLocalizedContent<string> | null) => setValue('descriptionVlc', next)}
-                uiLocale={uiLocale}
-                multiline
-                rows={2}
-            />
-
-            <Divider />
-
-            <CodenameField
-                value={codename}
-                onChange={(value) => setValue('codename', value)}
-                touched={codenameTouched}
-                onTouchedChange={(touched: boolean) => setValue('codenameTouched', touched)}
-                onDuplicateStatusChange={(dup) => setValue('_hasCodenameDuplicate', dup)}
-                uiLocale={uiLocale}
-                label={codenameLabel}
-                helperText={codenameHelper}
-                error={errors.codename}
-                disabled={isLoading}
-                required
-            />
-        </Stack>
-    )
-}
 
 const EnumerationListContent = () => {
     const codenameConfig = useCodenameConfig()

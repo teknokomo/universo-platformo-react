@@ -1,5 +1,6 @@
 import { Router, Request, Response, RequestHandler } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
+import { TEMPLATE_DEFINITION_TYPES, type TemplateDefinitionType } from '@universo/types'
 import { listActiveTemplatesForCatalog, findTemplateByIdNotDeleted, listTemplateVersions } from '../../../persistence'
 import type { SqlQueryable } from '../../../persistence'
 
@@ -18,6 +19,15 @@ export function createTemplatesRoutes(
     const router = Router({ mergeParams: true })
     router.use(ensureAuth)
 
+    const resolveDefinitionType = (req: Request): TemplateDefinitionType | undefined => {
+        const raw = Array.isArray(req.query.definitionType) ? req.query.definitionType[0] : req.query.definitionType
+        if (typeof raw !== 'string' || raw.trim().length === 0) {
+            return undefined
+        }
+
+        return TEMPLATE_DEFINITION_TYPES.find((value) => value === raw)
+    }
+
     const asyncHandler =
         (fn: (req: Request, res: Response) => Promise<any>): RequestHandler =>
         (req, res, next) => {
@@ -28,13 +38,21 @@ export function createTemplatesRoutes(
     router.get(
         '/templates',
         readLimiter,
-        asyncHandler(async (_req, res) => {
+        asyncHandler(async (req, res) => {
             const exec = getDbExecutor()
-            const templates = await listActiveTemplatesForCatalog(exec)
+            const rawDefinitionType = Array.isArray(req.query.definitionType) ? req.query.definitionType[0] : req.query.definitionType
+            const definitionType = resolveDefinitionType(req)
+
+            if (typeof rawDefinitionType === 'string' && rawDefinitionType.trim().length > 0 && !definitionType) {
+                return res.status(400).json({ error: 'Invalid definitionType' })
+            }
+
+            const templates = await listActiveTemplatesForCatalog(exec, { definitionType })
 
             const result = templates.map((t) => ({
                 id: t.id,
                 codename: t.codename,
+                definitionType: t.definitionType,
                 name: t.name,
                 description: t.description,
                 icon: t.icon,
@@ -67,10 +85,14 @@ export function createTemplatesRoutes(
             }
 
             const versions = await listTemplateVersions(exec, template.id)
+            const activeVersion = template.activeVersionId
+                ? versions.find((version) => version.id === template.activeVersionId) ?? null
+                : null
 
             return res.json({
                 id: template.id,
                 codename: template.codename,
+                definitionType: template.definitionType,
                 name: template.name,
                 description: template.description,
                 icon: template.icon,
@@ -78,6 +100,7 @@ export function createTemplatesRoutes(
                 isActive: template.isActive,
                 sortOrder: template.sortOrder,
                 activeVersionId: template.activeVersionId,
+                activeVersionManifest: activeVersion?.manifestJson ?? null,
                 versions: versions.map((v) => ({
                     id: v.id,
                     versionNumber: v.versionNumber,

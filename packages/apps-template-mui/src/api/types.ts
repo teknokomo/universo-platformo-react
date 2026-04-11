@@ -12,13 +12,18 @@ export interface CrudDataAdapter {
     queryKeyPrefix: readonly unknown[]
 
     /** Fetch paginated list of rows including schema, menus, etc. */
-    fetchList(params: { limit: number; offset: number; locale: string; catalogId?: string }): Promise<AppDataResponse>
+    fetchList(params: { limit: number; offset: number; locale: string; catalogId?: string; sectionId?: string }): Promise<AppDataResponse>
 
     /** Fetch a single row (raw data, for edit forms). */
     fetchRow(rowId: string, catalogId?: string): Promise<Record<string, unknown>>
 
     /** Fetch TABLE child rows for a source row (used to prefill copy form). */
-    fetchTabularRows?(params: { parentRowId: string; attributeId: string; catalogId?: string }): Promise<Array<Record<string, unknown>>>
+    fetchTabularRows?(params: {
+        parentRowId: string
+        attributeId: string
+        catalogId?: string
+        sectionId?: string
+    }): Promise<Array<Record<string, unknown>>>
 
     /** Create a new row. Returns the created row. */
     createRow(data: Record<string, unknown>, catalogId?: string): Promise<Record<string, unknown>>
@@ -30,10 +35,10 @@ export interface CrudDataAdapter {
     deleteRow(rowId: string, catalogId?: string): Promise<void>
 
     /** Copy a row. */
-    copyRow(rowId: string, data?: { copyChildTables?: boolean; catalogId?: string }): Promise<Record<string, unknown>>
+    copyRow(rowId: string, data?: { copyChildTables?: boolean; catalogId?: string; sectionId?: string }): Promise<Record<string, unknown>>
 
     /** Persist a complete runtime row order for catalogs that explicitly support reordering. */
-    reorderRows?(params: { catalogId?: string; orderedRowIds: string[] }): Promise<void>
+    reorderRows?(params: { catalogId?: string; sectionId?: string; orderedRowIds: string[] }): Promise<void>
 }
 
 /**

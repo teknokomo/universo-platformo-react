@@ -50,7 +50,10 @@ export function StandardDialog({
     ) : (
         title
     )
-    const mergedPaperProps = mergeDialogPaperProps({ sx: { borderRadius: 1 } }, mergeDialogPaperProps(paperProps, presentation.dialogProps.PaperProps))
+    const mergedPaperProps = mergeDialogPaperProps(
+        { sx: { borderRadius: 1 } },
+        mergeDialogPaperProps(paperProps, presentation.dialogProps.PaperProps)
+    )
 
     return (
         <Dialog

@@ -9,7 +9,7 @@ import StarOutlineIcon from '@mui/icons-material/StarOutline'
 import { Checkbox, FormControlLabel, Stack } from '@mui/material'
 import type { ActionDescriptor, ActionContext, TabConfig } from '@universo/template-mui'
 import { notifyError } from '@universo/template-mui'
-import type { VersionedLocalizedContent, MetaEntityKind } from '@universo/types'
+import type { VersionedLocalizedContent, EntityKind } from '@universo/types'
 import type { Attribute, AttributeDisplay, AttributeLocalizedPayload, AttributeValidationRules } from '../../../types'
 import { getVLCString } from '../../../types'
 import { normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
@@ -177,7 +177,7 @@ const canSaveAttributeForm = (values: GenericFormValues) => {
 
 const sanitizeAttributeUiConfig = (
     dataType: AttributeLocalizedPayload['dataType'],
-    targetEntityKind: MetaEntityKind | null | undefined,
+    targetEntityKind: EntityKind | null | undefined,
     sourceUiConfig: Record<string, unknown>,
     isRequired: boolean
 ): Record<string, unknown> => {
@@ -239,7 +239,7 @@ const toPayload = (values: GenericFormValues): AttributeLocalizedPayload & Recor
     const isDisplayAttribute = Boolean(values.isDisplayAttribute)
     const validationRules = values.validationRules as AttributeValidationRules | undefined
     const targetEntityId = (values.targetEntityId as string | null | undefined) ?? undefined
-    const targetEntityKind = (values.targetEntityKind as MetaEntityKind | null | undefined) ?? undefined
+    const targetEntityKind = (values.targetEntityKind as EntityKind | null | undefined) ?? undefined
     const targetConstantId =
         dataType === 'REF' && targetEntityKind === 'set' ? (values.targetConstantId as string | null | undefined) ?? null : undefined
     const sourceUiConfig = (values.uiConfig as Record<string, unknown> | undefined) ?? {}

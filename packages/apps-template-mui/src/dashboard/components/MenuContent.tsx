@@ -69,8 +69,22 @@ export default function MenuContent({ menu }: MenuContentProps) {
                                 ? { component: 'a' as const, href: item.href, target: '_self', rel: 'noreferrer' }
                                 : {})}
                             onClick={() => {
-                                if (item.kind === 'catalog' && item.catalogId && menu?.onSelectCatalog) {
-                                    menu.onSelectCatalog(item.catalogId)
+                                if (item.kind !== 'catalog' && item.kind !== 'section') {
+                                    return
+                                }
+
+                                const targetSectionId = item.sectionId ?? item.catalogId
+                                if (!targetSectionId) {
+                                    return
+                                }
+
+                                if (menu?.onSelectSection) {
+                                    menu.onSelectSection(targetSectionId)
+                                    return
+                                }
+
+                                if (menu?.onSelectCatalog) {
+                                    menu.onSelectCatalog(targetSectionId)
                                 }
                             }}
                         >

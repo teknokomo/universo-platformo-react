@@ -1,7 +1,7 @@
 import type { DbExecutor, SqlQueryable } from '@universo/utils/database'
 import { queryMany, queryOne, queryOneOrThrow } from '@universo/utils/database'
 import { qSchemaTable } from '@universo/database'
-import { SHARED_OBJECT_KINDS } from '@universo/types'
+import { SHARED_OBJECT_KINDS, isEnabledComponentConfig, type ComponentManifest } from '@universo/types'
 import { generateTableName } from '../../ddl'
 import { MetahubSchemaService } from './MetahubSchemaService'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
@@ -21,10 +21,20 @@ interface QueryOptions {
     includeVirtualContainers?: boolean
 }
 
-type MetahubObjectKind = 'catalog' | 'set' | 'enumeration' | 'hub' | 'document'
+const BUILTIN_METAHUB_OBJECT_KINDS = ['catalog', 'set', 'enumeration', 'hub', 'document'] as const
+
+type BuiltinMetahubObjectKind = (typeof BUILTIN_METAHUB_OBJECT_KINDS)[number]
+export type MetahubObjectKind = BuiltinMetahubObjectKind | (string & {})
+
+const isBuiltinMetahubObjectKind = (kind: string): kind is BuiltinMetahubObjectKind =>
+    BUILTIN_METAHUB_OBJECT_KINDS.includes(kind as BuiltinMetahubObjectKind)
 
 const stripUndefinedEntries = (value: Record<string, unknown>) =>
     Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined)) as Record<string, unknown>
+
+const normalizeKinds = (kinds: readonly string[]): string[] => [
+    ...new Set(kinds.map((kind) => String(kind).trim()).filter((kind) => kind.length > 0))
+]
 
 export type MetahubObjectRow = {
     id: string
@@ -83,7 +93,7 @@ export class MetahubObjectsService {
         return ` AND COALESCE((${prefix}config->>'isVirtualContainer')::boolean, false) = false`
     }
 
-    private buildSortOrderLockKey(schemaName: string, kind: MetahubObjectKind): string {
+    private buildSortOrderLockKey(schemaName: string, kind: string): string {
         return `mhb-objects-sort:${schemaName}:${kind}`
     }
 
@@ -91,12 +101,12 @@ export class MetahubObjectsService {
      * Serialize sort-order mutations per object kind.
      * Uses transaction-scoped advisory lock, auto-released on commit/rollback.
      */
-    private async acquireSortOrderLock(db: SqlQueryable, schemaName: string, kind: MetahubObjectKind): Promise<void> {
+    private async acquireSortOrderLock(db: SqlQueryable, schemaName: string, kind: string): Promise<void> {
         const lockKey = this.buildSortOrderLockKey(schemaName, kind)
         await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [lockKey])
     }
 
-    private async getNextSortOrder(schemaName: string, kind: MetahubObjectKind, db?: SqlQueryable): Promise<number> {
+    private async getNextSortOrder(schemaName: string, kind: string, db?: SqlQueryable): Promise<number> {
         const runner = db ?? this.exec
         const qt = qSchemaTable(schemaName, '_mhb_objects')
 
@@ -116,16 +126,66 @@ export class MetahubObjectsService {
         return maxSortOrder + 1
     }
 
+    private async resolveGeneratedTableName(schemaName: string, kind: string, objectId: string, db: SqlQueryable): Promise<string | null> {
+        if (kind === 'catalog' || kind === 'document') {
+            return generateTableName(objectId, kind)
+        }
+
+        if (isBuiltinMetahubObjectKind(kind)) {
+            return null
+        }
+
+        const qt = qSchemaTable(schemaName, '_mhb_entity_type_definitions')
+        const row = await queryOne<{ components: unknown }>(
+            db,
+            `SELECT components FROM ${qt} WHERE kind_key = $1 AND _upl_deleted = false AND _mhb_deleted = false LIMIT 1`,
+            [kind]
+        )
+        const components = row?.components as ComponentManifest | undefined
+        if (!components || !isEnabledComponentConfig(components.physicalTable)) {
+            return null
+        }
+
+        return generateTableName(objectId, kind, components.physicalTable.prefix)
+    }
+
     async findAll(metahubId: string, userId?: string, options: QueryOptions = {}): Promise<MetahubObjectRow[]> {
         return this.findAllByKind(metahubId, 'catalog', userId, options)
     }
 
-    async findAllByKind(
+    async findAllByKinds(
         metahubId: string,
-        kind: MetahubObjectKind,
+        kinds: readonly string[],
         userId?: string,
         options: QueryOptions = {}
     ): Promise<MetahubObjectRow[]> {
+        const normalizedKinds = normalizeKinds(kinds)
+        if (normalizedKinds.length === 0) {
+            return []
+        }
+
+        if (normalizedKinds.length === 1) {
+            return this.findAllByKind(metahubId, normalizedKinds[0], userId, options)
+        }
+
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_objects')
+        const softDelete = this.buildSoftDeleteSql(options)
+        const virtualContainer = this.buildVirtualContainerSql(options)
+
+        const rows = await queryMany<Record<string, unknown>>(
+            this.exec,
+            `SELECT * FROM ${qt}
+               WHERE kind = ANY($1::text[])${softDelete}${virtualContainer}
+             ORDER BY COALESCE((config->>'sortOrder')::int, 0) ASC,
+                      _upl_created_at ASC,
+                      id ASC`,
+            [normalizedKinds]
+        )
+        return rows.map((row) => this.normalizeObjectRow(row))
+    }
+
+    async findAllByKind(metahubId: string, kind: string, userId?: string, options: QueryOptions = {}): Promise<MetahubObjectRow[]> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_objects')
         const softDelete = this.buildSoftDeleteSql(options)
@@ -143,7 +203,7 @@ export class MetahubObjectsService {
         return rows.map((row) => this.normalizeObjectRow(row))
     }
 
-    async countByKind(metahubId: string, kind: MetahubObjectKind, userId?: string, options: QueryOptions = {}): Promise<number> {
+    async countByKind(metahubId: string, kind: string, userId?: string, options: QueryOptions = {}): Promise<number> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_objects')
         const softDelete = this.buildSoftDeleteSql(options)
@@ -157,12 +217,19 @@ export class MetahubObjectsService {
         return result ? parseInt(result.count, 10) : 0
     }
 
-    async findById(metahubId: string, id: string, userId?: string, options: QueryOptions = {}): Promise<MetahubObjectRow | null> {
+    async findById(
+        metahubId: string,
+        id: string,
+        userId?: string,
+        options: QueryOptions = {},
+        db?: SqlQueryable
+    ): Promise<MetahubObjectRow | null> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_objects')
         const softDelete = this.buildSoftDeleteSql(options)
+        const runner = db ?? this.exec
 
-        const row = await queryOne<Record<string, unknown>>(this.exec, `SELECT * FROM ${qt} WHERE id = $1${softDelete} LIMIT 1`, [id])
+        const row = await queryOne<Record<string, unknown>>(runner, `SELECT * FROM ${qt} WHERE id = $1${softDelete} LIMIT 1`, [id])
         return row ? this.normalizeObjectRow(row) : null
     }
 
@@ -175,20 +242,59 @@ export class MetahubObjectsService {
         return this.findByCodenameAndKind(metahubId, codename, 'catalog', userId, options)
     }
 
+    async findByCodenameInKinds(
+        metahubId: string,
+        codename: string,
+        kinds: readonly string[],
+        userId?: string,
+        options: QueryOptions = {},
+        db?: SqlQueryable
+    ): Promise<MetahubObjectRow | null> {
+        const normalizedKinds = normalizeKinds(kinds)
+        if (normalizedKinds.length === 0) {
+            return null
+        }
+
+        if (normalizedKinds.length === 1) {
+            return this.findByCodenameAndKind(metahubId, codename, normalizedKinds[0], userId, options, db)
+        }
+
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_objects')
+        const softDelete = this.buildSoftDeleteSql(options)
+        const virtualContainer = this.buildVirtualContainerSql(options)
+        const runner = db ?? this.exec
+
+        const row = await queryOne<Record<string, unknown>>(
+            runner,
+            `SELECT * FROM ${qt}
+             WHERE ${codenamePrimaryTextSql('codename')} = $1
+               AND kind = ANY($2::text[])${softDelete}${virtualContainer}
+             ORDER BY COALESCE((config->>'sortOrder')::int, 0) ASC,
+                      _upl_created_at ASC,
+                      id ASC
+             LIMIT 1`,
+            [codename, normalizedKinds]
+        )
+        return row ? this.normalizeObjectRow(row) : null
+    }
+
     async findByCodenameAndKind(
         metahubId: string,
         codename: string,
-        kind: MetahubObjectKind,
+        kind: string,
         userId?: string,
-        options: QueryOptions = {}
+        options: QueryOptions = {},
+        db?: SqlQueryable
     ): Promise<MetahubObjectRow | null> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_objects')
         const softDelete = this.buildSoftDeleteSql(options)
         const virtualContainer = this.buildVirtualContainerSql(options)
+        const runner = db ?? this.exec
 
         const row = await queryOne<Record<string, unknown>>(
-            this.exec,
+            runner,
             `SELECT * FROM ${qt} WHERE ${codenamePrimaryTextSql('codename')} = $1 AND kind = $2${softDelete}${virtualContainer} LIMIT 1`,
             [codename, kind]
         )
@@ -197,8 +303,9 @@ export class MetahubObjectsService {
 
     async createObject(
         metahubId: string,
-        kind: MetahubObjectKind,
+        kind: string,
         input: {
+            id?: string
             codename: unknown
             name: any // VLC
             description?: any // VLC
@@ -231,22 +338,30 @@ export class MetahubObjectsService {
                 description: input.description
             })
             const configJson = JSON.stringify(config)
+            const explicitId = typeof input.id === 'string' && input.id.trim().length > 0 ? input.id.trim() : null
 
             const created = await queryOneOrThrow<MetahubObjectRow>(
                 tx,
-                `INSERT INTO ${qt}
-                    (kind, codename, table_name, presentation, config,
-                     _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
-                 VALUES ($1, $2::jsonb, NULL, $3::jsonb, $4::jsonb, $5, $6, $5, $6)
-                 RETURNING *`,
-                [kind, JSON.stringify(codename), presentation, configJson, now, input.createdBy ?? null]
+                explicitId
+                    ? `INSERT INTO ${qt}
+                        (id, kind, codename, table_name, presentation, config,
+                         _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
+                     VALUES ($1, $2, $3::jsonb, NULL, $4::jsonb, $5::jsonb, $6, $7, $6, $7)
+                     RETURNING *`
+                    : `INSERT INTO ${qt}
+                        (kind, codename, table_name, presentation, config,
+                         _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
+                     VALUES ($1, $2::jsonb, NULL, $3::jsonb, $4::jsonb, $5, $6, $5, $6)
+                     RETURNING *`,
+                explicitId
+                    ? [explicitId, kind, JSON.stringify(codename), presentation, configJson, now, input.createdBy ?? null]
+                    : [kind, JSON.stringify(codename), presentation, configJson, now, input.createdBy ?? null]
             )
 
             const createdId = created.id
 
-            // Physical runtime tables are only required for catalog/document kinds.
-            if (kind === 'catalog' || kind === 'document') {
-                const tableName = generateTableName(created.id, kind)
+            const tableName = await this.resolveGeneratedTableName(schemaName, kind, created.id, tx)
+            if (tableName) {
                 await tx.query(`UPDATE ${qt} SET table_name = $1 WHERE id = $2`, [tableName, created.id])
             }
 
@@ -315,7 +430,7 @@ export class MetahubObjectsService {
     async updateObject(
         metahubId: string,
         id: string,
-        kind: MetahubObjectKind,
+        kind: string,
         input: {
             codename?: unknown
             name?: any
@@ -324,9 +439,11 @@ export class MetahubObjectsService {
             updatedBy?: string | null
             expectedVersion?: number
         },
-        userId?: string
+        userId?: string,
+        db?: SqlQueryable
     ) {
-        const existing = await this.findById(metahubId, id, userId)
+        const runner = db ?? this.exec
+        const existing = await this.findById(metahubId, id, userId, {}, runner)
         if (!existing || existing.kind !== kind) {
             throw new MetahubNotFoundError(kind, id)
         }
@@ -338,37 +455,41 @@ export class MetahubObjectsService {
         }
 
         if (input.codename !== undefined) {
-            updateData.codename = ensureCodenameValue(input.codename)
+            updateData.codename = JSON.stringify(ensureCodenameValue(input.codename))
         }
         if (input.name !== undefined || input.description !== undefined) {
-            updateData.presentation = stripUndefinedEntries({
-                ...(existing.presentation && typeof existing.presentation === 'object'
-                    ? (existing.presentation as Record<string, unknown>)
-                    : {}),
-                ...(input.name !== undefined ? { name: input.name } : {}),
-                ...(input.description !== undefined ? { description: input.description } : {})
-            })
+            updateData.presentation = JSON.stringify(
+                stripUndefinedEntries({
+                    ...(existing.presentation && typeof existing.presentation === 'object'
+                        ? (existing.presentation as Record<string, unknown>)
+                        : {}),
+                    ...(input.name !== undefined ? { name: input.name } : {}),
+                    ...(input.description !== undefined ? { description: input.description } : {})
+                })
+            )
         }
         if (input.config !== undefined) {
-            updateData.config = stripUndefinedEntries({
-                ...(existing.config && typeof existing.config === 'object' ? (existing.config as Record<string, unknown>) : {}),
-                ...(input.config as Record<string, unknown>)
-            })
+            updateData.config = JSON.stringify(
+                stripUndefinedEntries({
+                    ...(existing.config && typeof existing.config === 'object' ? (existing.config as Record<string, unknown>) : {}),
+                    ...(input.config as Record<string, unknown>)
+                })
+            )
         }
 
         if (input.expectedVersion !== undefined) {
             return updateWithVersionCheck({
-                executor: this.exec,
+                executor: runner,
                 schemaName,
                 tableName: '_mhb_objects',
                 entityId: id,
-                entityType: kind,
+                entityType: isBuiltinMetahubObjectKind(kind) ? kind : 'entity',
                 expectedVersion: input.expectedVersion,
                 updateData
             })
         }
 
-        return incrementVersion(this.exec, schemaName, '_mhb_objects', id, updateData)
+        return incrementVersion(runner, schemaName, '_mhb_objects', id, updateData)
     }
 
     async updateCatalog(
@@ -423,14 +544,15 @@ export class MetahubObjectsService {
      * Soft deletes a catalog object at the metahub level.
      * Sets _mhb_deleted=true, _mhb_deleted_at=now(), _mhb_deleted_by=userId
      */
-    async delete(metahubId: string, id: string, userId?: string) {
+    async delete(metahubId: string, id: string, userId?: string, db?: SqlQueryable) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_objects')
         const now = new Date()
+        const runner = db ?? this.exec
 
-        const existing = await queryOne<{ id: string; kind: string }>(this.exec, `SELECT id, kind FROM ${qt} WHERE id = $1 LIMIT 1`, [id])
+        const existing = await queryOne<{ id: string; kind: string }>(runner, `SELECT id, kind FROM ${qt} WHERE id = $1 LIMIT 1`, [id])
 
-        const rows = await this.exec.query<{ id: string }>(
+        const rows = await runner.query<{ id: string }>(
             `UPDATE ${qt}
              SET _mhb_deleted = TRUE,
                  _mhb_deleted_at = $1,
@@ -455,18 +577,19 @@ export class MetahubObjectsService {
             existing?.kind === SHARED_OBJECT_KINDS.SHARED_ENUM_POOL
         ) {
             const sharedOverridesService = new SharedEntityOverridesService(this.exec, this.schemaService)
-            await sharedOverridesService.cleanupForDeletedTargetObject(metahubId, id, userId)
+            await sharedOverridesService.cleanupForDeletedTargetObject(metahubId, id, userId, runner)
         }
     }
 
     /**
      * Restores a soft-deleted catalog object (metahub level).
      */
-    async restore(metahubId: string, id: string, userId?: string) {
+    async restore(metahubId: string, id: string, userId?: string, db?: SqlQueryable) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_objects')
+        const runner = db ?? this.exec
 
-        const rows = await this.exec.query<{ id: string }>(
+        const rows = await runner.query<{ id: string }>(
             `UPDATE ${qt}
              SET _mhb_deleted = FALSE,
                  _mhb_deleted_at = NULL,
@@ -486,15 +609,16 @@ export class MetahubObjectsService {
     /**
      * Permanently deletes a catalog object (use with caution).
      */
-    async permanentDelete(metahubId: string, id: string, userId?: string) {
+    async permanentDelete(metahubId: string, id: string, userId?: string, db?: SqlQueryable) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_objects')
+        const runner = db ?? this.exec
 
-        const existing = await queryOne<{ id: string; kind: string }>(this.exec, `SELECT id, kind FROM ${qt} WHERE id = $1 LIMIT 1`, [id])
+        const existing = await queryOne<{ id: string; kind: string }>(runner, `SELECT id, kind FROM ${qt} WHERE id = $1 LIMIT 1`, [id])
 
-        const rows = await this.exec.query<{ id: string }>(
+        const rows = await runner.query<{ id: string }>(
             `DELETE FROM ${qt}
-             WHERE id = $1 AND _upl_deleted = false
+             WHERE id = $1 AND _upl_deleted = false AND _mhb_deleted = true
              RETURNING id`,
             [id]
         )
@@ -512,7 +636,7 @@ export class MetahubObjectsService {
             existing?.kind === SHARED_OBJECT_KINDS.SHARED_ENUM_POOL
         ) {
             const sharedOverridesService = new SharedEntityOverridesService(this.exec, this.schemaService)
-            await sharedOverridesService.purgeDeletedTargetOverrides(metahubId, id, userId)
+            await sharedOverridesService.purgeDeletedTargetOverrides(metahubId, id, userId, runner)
         }
     }
 
@@ -523,16 +647,15 @@ export class MetahubObjectsService {
         return this.findAll(metahubId, userId, { onlyDeleted: true })
     }
 
+    async findDeletedByKinds(metahubId: string, kinds: readonly string[], userId?: string) {
+        return this.findAllByKinds(metahubId, kinds, userId, { onlyDeleted: true })
+    }
+
     async findDeletedByKind(metahubId: string, kind: MetahubObjectKind, userId?: string) {
         return this.findAllByKind(metahubId, kind, userId, { onlyDeleted: true })
     }
 
-    private async ensureSequentialSortOrderByKind(
-        schemaName: string,
-        kind: MetahubObjectKind,
-        db: SqlQueryable,
-        updatedBy?: string
-    ): Promise<void> {
+    private async ensureSequentialSortOrderByKind(schemaName: string, kind: string, db: SqlQueryable, updatedBy?: string): Promise<void> {
         const qt = qSchemaTable(schemaName, '_mhb_objects')
 
         const rows = await queryMany<{ id: string; config: Record<string, unknown> | null }>(
@@ -569,7 +692,7 @@ export class MetahubObjectsService {
         }
     }
 
-    async reorderByKind(metahubId: string, kind: MetahubObjectKind, objectId: string, newSortOrder: number, userId?: string): Promise<any> {
+    async reorderByKind(metahubId: string, kind: string, objectId: string, newSortOrder: number, userId?: string): Promise<any> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_objects')
 

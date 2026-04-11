@@ -534,6 +534,307 @@
             }
         }
     },
+    "entities": {
+        "title": "Entities",
+        "description": "Manage built-in ECAE entity types and author custom kinds for the generic entity runtime surface.",
+        "searchPlaceholder": "Search entity types...",
+        "banner": "Built-in types remain read-only. Custom entity types created here are available through the generic entity APIs and are the first frontend authoring slice of the ECAE rollout.",
+        "empty": "No entity types yet",
+        "emptyDescription": "Create the first custom entity type to start modelling ECAE objects.",
+        "noSearchResults": "No entity types found",
+        "noSearchResultsDescription": "Try a different search query or clear the filter.",
+        "noDescription": "No description",
+        "loadError": "Failed to load entity types",
+        "noManagePermission": "You do not have permission to manage entity types for this metahub.",
+        "systemManaged": "System managed",
+        "componentsCount_one": "{{count}} component",
+        "componentsCount_other": "{{count}} components",
+        "actions": {
+            "create": "Create entity type",
+            "instances": "Instances"
+        },
+        "tabs": {
+            "general": "General",
+            "components": "Components",
+            "advanced": "Advanced"
+        },
+        "fields": {
+            "codenameHelper": "Stable codename used for generic entity routes and references",
+            "noPreset": "No preset",
+            "presetHelper": "Reusable presets are sourced from the existing template registry. Selecting one prefills the create dialog but still lets you review and change every field before save.",
+            "presetLoadError": "Failed to load the selected preset. You can choose a different preset or continue editing manually.",
+            "presetManifestError": "The selected template does not expose a valid entity preset manifest.",
+            "kindKey": "Kind key",
+            "kindKeyHelper": "Lowercase identifier used in generic entity APIs",
+            "iconName": "Icon name",
+            "iconNameHelper": "Tabler icon export name used by downstream surfaces",
+            "tabs": "Tabs",
+            "tabsHelper": "Comma or newline separated tab identifiers, for example general, scripts",
+            "tabsHelperStructured": "Choose which authoring tabs should be exposed for this entity type. General is always enabled.",
+            "sidebarSection": "Sidebar section",
+            "sidebarSectionHelper": "Controls where future menus may place this entity type",
+            "published": "Publish to dynamic menu",
+            "publishedHelper": "Only published custom entity types appear in the dynamic metahub menu zone.",
+            "components": "Components JSON",
+            "componentsHelper": "Full ComponentManifest JSON. Dependency rules are validated before save.",
+            "componentsHelperStructured": "Use guided toggles for the current Zerocode scope. Dependency-sensitive components are enabled and pruned automatically.",
+            "customTabs": "Additional tabs",
+            "customTabsHelper": "Optional extra tab identifiers, separated by commas or new lines. Structured toggles above cover the current supported tabs.",
+            "presentation": "Presentation JSON",
+            "presentationHelper": "Optional presentation metadata stored with the entity type",
+            "config": "Config JSON",
+            "configHelper": "Optional backend config object stored with the entity type"
+        },
+        "columns": {
+            "kindKey": "Kind key",
+            "source": "Source",
+            "sidebarSection": "Section",
+            "published": "Menu",
+            "components": "Components",
+            "updatedAt": "Updated"
+        },
+        "badges": {
+            "builtin": "Built-in",
+            "custom": "Custom",
+            "published": "Published",
+            "hidden": "Hidden"
+        },
+        "sidebarSections": {
+            "objects": "Objects",
+            "admin": "Admin"
+        },
+        "tabOptions": {
+            "general": "General",
+            "hubs": "Hubs",
+            "layout": "Layout",
+            "scripts": "Scripts"
+        },
+        "components": {
+            "dataSchema": "Data schema",
+            "dataSchemaHelper": "Enables attribute-driven modeling and generated value editors for the entity type.",
+            "maxAttributes": "Maximum attributes",
+            "predefinedElements": "Predefined elements",
+            "predefinedElementsHelper": "Reuses the existing predefined-element flows for catalog-compatible presets and other seeded entity types.",
+            "maxElements": "Maximum predefined elements",
+            "hubAssignment": "Hub assignment",
+            "hubAssignmentHelper": "Allows the entity instances page to reuse the shared hub-assignment controls and Catalogs-style tabs.",
+            "singleHub": "Single hub only",
+            "requiredHub": "Require at least one hub",
+            "hierarchy": "Hierarchy",
+            "hierarchyHelper": "Adds parent-child structure support on top of the entity data schema.",
+            "supportsFolders": "Allow folders",
+            "nestedCollections": "Nested collections",
+            "nestedCollectionsHelper": "Allows the entity schema to define repeating child collections inside the same type.",
+            "maxCollections": "Maximum nested collections",
+            "relations": "Relations",
+            "relationsHelper": "Enables reference attributes and relation-aware runtime behaviors for the entity type.",
+            "allowedRelationTypes": "Allowed relation types",
+            "allowedRelationTypesHelper": "Comma-separated relation kinds, for example manyToOne.",
+            "actions": "Actions",
+            "actionsHelper": "Enables object-scoped actions for ECAE lifecycle orchestration.",
+            "events": "Events",
+            "eventsHelper": "Allows lifecycle event bindings on top of the action contract.",
+            "scripting": "Scripting",
+            "scriptingHelper": "Exposes the existing EntityScriptsTab for script attachments and reuse.",
+            "layoutConfig": "Layout config",
+            "layoutConfigHelper": "Enables Catalog-compatible layout configuration and the dedicated layout authoring tab.",
+            "runtimeBehavior": "Runtime behavior",
+            "runtimeBehaviorHelper": "Publishes layout-aware runtime behavior so the generic application surfaces can render this entity type.",
+            "physicalTable": "Physical table",
+            "physicalTableHelper": "Creates a dedicated runtime table for publication and application sync pipelines.",
+            "tablePrefix": "Table prefix",
+            "tablePrefixHelper": "Prefix used when the runtime DDL pipeline generates a managed table name.",
+            "enumerationValues": "Enumeration values",
+            "enumerationValuesHelper": "Keeps the type compatible with enumeration-style value registries.",
+            "constants": "Constants",
+            "constantsHelper": "Keeps the type compatible with set-style constant registries."
+        },
+        "createDialog": {
+            "title": "Create Entity Type"
+        },
+        "editDialog": {
+            "title": "Edit Entity Type"
+        },
+        "deleteDialog": {
+            "title": "Delete Entity Type",
+            "description": "Delete custom entity type \"{{name}}\"? Existing built-in types cannot be deleted."
+        },
+        "validation": {
+            "kindKeyRequired": "Kind key is required",
+            "kindKeyInvalid": "Kind key must start with a letter and use only lowercase letters, digits, dots, underscores, or hyphens",
+            "kindKeyDuplicate": "Another custom entity type already uses this kind key",
+            "codenameRequired": "Codename is required",
+            "codenameInvalid": "Codename contains invalid characters",
+            "iconNameRequired": "Icon name is required",
+            "tabsRequired": "At least one tab is required",
+            "componentsInvalid": "Components must be a valid JSON object",
+            "presentationInvalid": "Presentation must be a valid JSON object",
+            "configInvalid": "Config must be a valid JSON object"
+        },
+        "instances": {
+            "title": "{{name}} instances",
+            "description": "Manage {{name}} instances for custom kind {{kindKey}}.",
+            "catalogCompatibleBanner": "This page reuses the Catalogs authoring contract for a catalog-compatible custom kind, including catalog copy options, layouts, and scripts.",
+            "searchPlaceholder": "Search entity instances...",
+            "banner": "This page authors design-time instances for the selected custom entity kind without replacing the legacy catalog/set/enumeration management surfaces.",
+            "noManagePermission": "You do not have permission to manage entity instances for this metahub.",
+            "scriptsUnavailable": "Scripts remain unavailable for custom entity kinds until the generic script attachment contract is widened beyond the current fixed attachment kinds.",
+            "typeLoadError": "Failed to load the custom entity type definition",
+            "loadError": "Failed to load entity instances",
+            "customOnly": "Custom entity type not found",
+            "customOnlyDescription": "Generic entity instance authoring is available only for custom entity kinds that still exist in the current metahub.",
+            "empty": "No entity instances yet",
+            "emptyDescription": "Create the first instance to start authoring this custom entity kind.",
+            "noSearchResults": "No entity instances found",
+            "noSearchResultsDescription": "Try a different search query or clear the filter.",
+            "badges": {
+                "deleted": "Deleted"
+            },
+            "filters": {
+                "showDeleted": "Show deleted"
+            },
+            "actions": {
+                "create": "Create entity"
+            },
+            "tabs": {
+                "hubs": "Hubs",
+                "attributes": "Attributes",
+                "actions": "Actions",
+                "events": "Events"
+            },
+            "columns": {
+                "sortOrder": "#",
+                "hubs": "Hubs",
+                "status": "Status"
+            },
+            "hubs": {
+                "addButton": "Add",
+                "dialogTitle": "Select hubs",
+                "empty": "No hubs selected",
+                "noAvailable": "No hubs available",
+                "requiredLabel": "Hub required",
+                "requiredEnabledHelp": "The entity must be linked to at least one hub",
+                "requiredDisabledHelp": "The entity can exist without hub links",
+                "singleLabel": "Single hub only",
+                "singleEnabledHelp": "The entity can only be linked to one hub",
+                "singleDisabledHelp": "The entity can be linked to multiple hubs"
+            },
+            "attributes": {
+                "emptyTitle": "No attributes"
+            },
+            "layouts": {
+                "emptyTitle": "No layouts"
+            },
+            "automation": {
+                "actions": {
+                    "saveFirst": "Save this entity first to manage actions.",
+                    "description": "Actions describe reusable automation steps for this entity instance. Script actions can be bound to lifecycle events in the Events tab.",
+                    "loadError": "Failed to load actions",
+                    "listTitle": "Configured actions",
+                    "newAction": "New action",
+                    "loading": "Loading actions...",
+                    "empty": "No actions configured yet.",
+                    "editTitle": "Edit action",
+                    "createTitle": "Create action",
+                    "noScript": "No script",
+                    "noScriptsAvailable": "No scripts are attached to this entity yet. Add one in the Scripts tab or switch this action to the built-in type.",
+                    "deleteAction": "Delete action",
+                    "updateAction": "Update action",
+                    "createAction": "Create action",
+                    "updateSuccess": "Action updated",
+                    "createSuccess": "Action created",
+                    "updateError": "Failed to update action",
+                    "createError": "Failed to create action",
+                    "deleteSuccess": "Action deleted",
+                    "deleteError": "Failed to delete action",
+                    "type": {
+                        "script": "Script",
+                        "builtin": "Builtin"
+                    },
+                    "fields": {
+                        "name": "Action name",
+                        "codename": "Action codename",
+                        "actionType": "Action type",
+                        "script": "Script",
+                        "scriptPlaceholder": "Select a script",
+                        "sortOrder": "Sort order",
+                        "config": "Action config"
+                    },
+                    "validation": {
+                        "codenameRequired": "Action codename is required.",
+                        "scriptRequired": "Select a script for script actions."
+                    }
+                },
+                "events": {
+                    "saveFirst": "Save this entity first to manage event bindings.",
+                    "description": "Event bindings connect lifecycle events to configured actions. Use priorities to control execution order when multiple bindings target the same event.",
+                    "loadError": "Failed to load event bindings",
+                    "listTitle": "Configured event bindings",
+                    "newBinding": "New binding",
+                    "loading": "Loading event bindings...",
+                    "empty": "No event bindings configured yet.",
+                    "active": "Active",
+                    "inactive": "Inactive",
+                    "priority": "Priority",
+                    "editTitle": "Edit event binding",
+                    "createTitle": "Create event binding",
+                    "noActionsAvailable": "No actions are available yet. Create an action in the Actions tab before binding lifecycle events.",
+                    "deleteBinding": "Delete binding",
+                    "updateBinding": "Update binding",
+                    "createBinding": "Create binding",
+                    "updateSuccess": "Event binding updated",
+                    "createSuccess": "Event binding created",
+                    "updateError": "Failed to update event binding",
+                    "createError": "Failed to create event binding",
+                    "deleteSuccess": "Event binding deleted",
+                    "deleteError": "Failed to delete event binding",
+                    "fields": {
+                        "eventName": "Event name",
+                        "action": "Linked action",
+                        "actionPlaceholder": "Select an action",
+                        "priority": "Priority",
+                        "isActive": "Binding is active",
+                        "config": "Binding config"
+                    },
+                    "validation": {
+                        "eventRequired": "Select an event name.",
+                        "actionRequired": "Select an action to bind."
+                    }
+                }
+            },
+            "createDialog": {
+                "title": "Create Entity"
+            },
+            "editDialog": {
+                "title": "Edit Entity"
+            },
+            "copyDialog": {
+                "title": "Copy Entity",
+                "copying": "Copying..."
+            },
+            "deleteDialog": {
+                "title": "Delete Entity",
+                "description": "Delete entity \"{{name}}\"? You can restore it later while deleted items are visible."
+            },
+            "catalogCompatibleDeleteDialog": {
+                "description": "Delete catalog \"{{name}}\"? You can restore it later while deleted items are visible."
+            },
+            "deletePermanentDialog": {
+                "title": "Delete Entity Permanently",
+                "description": "Permanently delete entity \"{{name}}\"? This action cannot be undone.",
+                "deleting": "Deleting permanently..."
+            },
+            "catalogCompatibleDeletePermanentDialog": {
+                "title": "Delete Catalog Permanently",
+                "description": "Permanently delete catalog \"{{name}}\"? This action cannot be undone.",
+                "deleting": "Deleting permanently..."
+            },
+            "validation": {
+                "hubRequired": "At least one hub is required",
+                "singleHubInvalid": "Single hub entities cannot be linked to multiple hubs"
+            }
+        }
+    },
     "hubs": {
         "title": "Hubs",
         "description": "Data containers that define the structure of your metahub",
@@ -695,6 +996,9 @@
                 "actionError": "Failed to update shared entity state"
             }
         }
+    },
+    "documents": {
+        "title": "Documents"
     },
     "catalogs": {
         "title": "Catalogs",

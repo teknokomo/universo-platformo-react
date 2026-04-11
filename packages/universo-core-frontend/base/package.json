@@ -50,7 +50,7 @@
         "dev": "vite",
         "start": "vite",
         "prebuild": "node scripts/sync-supported-langs.mjs",
-        "build": "vite build",
+        "build": "NODE_OPTIONS='--max-old-space-size=8192' vite build",
         "clean": "rimraf build",
         "nuke": "rimraf build node_modules .turbo"
     },

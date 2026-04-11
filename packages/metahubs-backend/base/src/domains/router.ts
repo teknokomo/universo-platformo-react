@@ -21,6 +21,10 @@ import { createPublicationsRoutes } from './publications/routes/publicationsRout
 import { createApplicationMigrationsRoutes } from './applications/routes/applicationMigrationsRoutes'
 import { createSettingsRoutes } from './settings/routes/settingsRoutes'
 import { createSharedEntityOverridesRoutes } from './shared/routes/sharedEntityOverridesRoutes'
+import { createEntityTypesRoutes } from './entities/routes/entityTypesRoutes'
+import { createActionsRoutes } from './entities/routes/actionsRoutes'
+import { createEventBindingsRoutes } from './entities/routes/eventBindingsRoutes'
+import { createEntityInstancesRoutes } from './entities/routes/entityInstancesRoutes'
 import { isMetahubDomainError } from './shared/domainErrors'
 
 const log = createLogger('Metahubs')
@@ -91,6 +95,10 @@ export function createMetahubsServiceRoutes(ensureAuth: RequestHandler, getDbExe
     router.use('/', createLayoutsRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createScriptsRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createSharedEntityOverridesRoutes(ensureAuth, getDbExecutor, read, write))
+    router.use('/', createEntityTypesRoutes(ensureAuth, getDbExecutor, read, write))
+    router.use('/', createEntityInstancesRoutes(ensureAuth, getDbExecutor, read, write))
+    router.use('/', createActionsRoutes(ensureAuth, getDbExecutor, read, write))
+    router.use('/', createEventBindingsRoutes(ensureAuth, getDbExecutor, read, write))
 
     // Settings (metahub-level configuration)
     router.use('/', createSettingsRoutes(ensureAuth, getDbExecutor, read, write))
@@ -163,6 +171,10 @@ export { createElementsRoutes } from './elements/routes/elementsRoutes'
 export { createLayoutsRoutes } from './layouts/routes/layoutsRoutes'
 export { createScriptsRoutes } from './scripts/routes/scriptsRoutes'
 export { createSharedEntityOverridesRoutes } from './shared/routes/sharedEntityOverridesRoutes'
+export { createEntityTypesRoutes } from './entities/routes/entityTypesRoutes'
+export { createEntityInstancesRoutes } from './entities/routes/entityInstancesRoutes'
+export { createActionsRoutes } from './entities/routes/actionsRoutes'
+export { createEventBindingsRoutes } from './entities/routes/eventBindingsRoutes'
 export { createTemplatesRoutes } from './templates/routes/templatesRoutes'
 export { createPublicMetahubsRoutes } from './metahubs/routes/publicMetahubsRoutes'
 export { createMetahubMigrationsRoutes } from './metahubs/routes/metahubMigrationsRoutes'

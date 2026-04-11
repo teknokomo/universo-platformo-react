@@ -1,18 +1,16 @@
-import { useEffect } from 'react'
-import { Checkbox, Divider, FormControlLabel, Stack } from '@mui/material'
+import { Checkbox, FormControlLabel, Stack } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
-import { LocalizedInlineField, useCodenameAutoFillVlc, notifyError } from '@universo/template-mui'
+import { notifyError } from '@universo/template-mui'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { normalizeSetCopyOptions } from '@universo/utils'
 import type { MetahubSet, MetahubSetDisplay, SetLocalizedPayload, Hub } from '../../../types'
 import { getVLCString } from '../../../types'
 import { SetWithHubs } from '../api'
-import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
-import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
+import { normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
 import type { CodenameConfig } from '../../settings/hooks/useCodenameConfig'
 
 const DEFAULT_CC: CodenameConfig = {
@@ -33,8 +31,9 @@ import {
     hasPrimaryContent,
     normalizeLocale
 } from '../../../utils/localizedInput'
-import { CodenameField, HubSelectionPanel } from '../../../components'
+import { HubSelectionPanel } from '../../../components'
 import { createScriptsTab } from '../../scripts/ui/EntityScriptsTab'
+import GeneralTabFields from '../../shared/ui/GeneralTabFields'
 
 /**
  * Extended SetDisplay type that includes hubId for AllSetsList context
@@ -234,92 +233,6 @@ export const toPayload = (
     }
 }
 
-/**
- * General tab content component for edit dialog
- */
-const GeneralTabFields = ({
-    values,
-    setValue,
-    isLoading,
-    errors,
-    t,
-    uiLocale,
-    editingEntityId
-}: {
-    values: SetFormValues
-    setValue: SetFormSetValue
-    isLoading: boolean
-    errors?: Record<string, string>
-    t: ActionContext<SetDisplayWithHub, SetLocalizedPayload>['t']
-    uiLocale?: string
-    editingEntityId?: string | null
-}) => {
-    const fieldErrors = errors ?? {}
-    const codenameConfig = useCodenameConfig()
-    useEffect(() => {
-        setValue('_codenameConfig', codenameConfig)
-    }, [codenameConfig, setValue])
-    const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
-    const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
-    const codename = (values.codename as VersionedLocalizedContent<string> | null | undefined) ?? null
-    const codenameTouched = Boolean(values.codenameTouched)
-    useCodenameAutoFillVlc({
-        codename,
-        codenameTouched,
-        nameVlc,
-        deriveCodename: (nameContent) =>
-            sanitizeCodenameForStyle(
-                nameContent,
-                codenameConfig.style,
-                codenameConfig.alphabet,
-                codenameConfig.allowMixed,
-                codenameConfig.autoConvertMixedAlphabets
-            ),
-        setValue: setValue as (field: 'codename' | 'codenameTouched', value: VersionedLocalizedContent<string> | null | boolean) => void
-    })
-
-    return (
-        <Stack spacing={2}>
-            <LocalizedInlineField
-                mode='localized'
-                label={t('common:fields.name')}
-                required
-                disabled={isLoading}
-                value={values.nameVlc ?? null}
-                onChange={(next: VersionedLocalizedContent<string> | null) => setValue('nameVlc', next)}
-                error={fieldErrors.nameVlc || null}
-                helperText={fieldErrors.nameVlc}
-                uiLocale={uiLocale as string}
-            />
-            <LocalizedInlineField
-                mode='localized'
-                label={t('common:fields.description')}
-                disabled={isLoading}
-                value={descriptionVlc ?? null}
-                onChange={(next: VersionedLocalizedContent<string> | null) => setValue('descriptionVlc', next)}
-                uiLocale={uiLocale as string}
-                multiline
-                rows={2}
-            />
-            <Divider />
-            <CodenameField
-                value={codename}
-                onChange={(value) => setValue('codename', value)}
-                touched={codenameTouched}
-                onTouchedChange={(touched: boolean) => setValue('codenameTouched', touched)}
-                onDuplicateStatusChange={(dup) => setValue('_hasCodenameDuplicate', dup)}
-                uiLocale={uiLocale as string}
-                label={t('sets.codename', 'Codename')}
-                helperText={t('sets.codenameHelper', 'Unique identifier')}
-                error={fieldErrors.codename}
-                disabled={isLoading}
-                required
-                editingEntityId={editingEntityId}
-            />
-        </Stack>
-    )
-}
-
 const SetCopyOptionsTab = ({
     values,
     setValue,
@@ -377,8 +290,11 @@ export const buildFormTabs = (ctx: ActionContext<SetDisplayWithHub, SetLocalized
                         setValue={setValue}
                         isLoading={isFormLoading}
                         errors={errors}
-                        t={ctx.t}
                         uiLocale={ctx.uiLocale as string}
+                        nameLabel={ctx.t('common:fields.name', 'Name')}
+                        descriptionLabel={ctx.t('common:fields.description', 'Description')}
+                        codenameLabel={ctx.t('sets.codename', 'Codename')}
+                        codenameHelper={ctx.t('sets.codenameHelper', 'Unique identifier')}
                         editingEntityId={editingEntityId}
                     />
                 )

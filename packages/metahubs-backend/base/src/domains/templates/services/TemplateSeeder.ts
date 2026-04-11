@@ -1,6 +1,6 @@
 import { createHash } from 'crypto'
 import stableStringify from 'json-stable-stringify'
-import type { MetahubTemplateManifest } from '@universo/types'
+import type { TemplateDefinitionManifest, TemplateDefinitionType } from '@universo/types'
 import type { DbExecutor } from '@universo/utils'
 import {
     findTemplateByCodename,
@@ -12,8 +12,8 @@ import {
     getMaxTemplateVersionNumber
 } from '../../../persistence'
 import type { SqlQueryable, TemplateRow } from '../../../persistence'
-import { validateTemplateManifest } from './TemplateManifestValidator'
-import { builtinTemplates } from '../data'
+import { validateEntityTypePresetManifest, validateTemplateManifest } from './TemplateManifestValidator'
+import { builtinTemplateDefinitions } from '../data'
 
 export interface TemplateSeederLogger {
     info(message: string, ...meta: unknown[]): void
@@ -29,7 +29,7 @@ export interface TemplateSeederOptions {
  * Calculates SHA-256 hash of a template manifest for deduplication.
  * Uses json-stable-stringify for deterministic serialization.
  */
-function calculateManifestHash(manifest: MetahubTemplateManifest): string {
+function calculateManifestHash(manifest: TemplateDefinitionManifest): string {
     const payload = stableStringify(manifest)
     if (payload === undefined) {
         throw new Error('Failed to stringify manifest for hash calculation')
@@ -53,16 +53,19 @@ export class TemplateSeeder {
         const logger = this.options.logger ?? console
         const stats = { created: 0, updated: 0, skipped: 0, errors: 0 }
 
-        for (const manifest of builtinTemplates) {
+        for (const seed of builtinTemplateDefinitions) {
             try {
-                // Validate manifest structure
-                validateTemplateManifest(manifest)
+                if (seed.definitionType === 'entity_type_preset') {
+                    validateEntityTypePresetManifest(seed.manifest)
+                } else {
+                    validateTemplateManifest(seed.manifest)
+                }
 
-                const result = await this.seedTemplate(manifest)
+                const result = await this.seedTemplate(seed.definitionType, seed.manifest)
                 stats[result]++
             } catch (error) {
                 stats.errors++
-                logger.error(`[TemplateSeeder] Error seeding template "${manifest.codename}":`, error)
+                logger.error(`[TemplateSeeder] Error seeding template "${seed.manifest.codename}":`, error)
                 if (this.options.failFast) {
                     throw error
                 }
@@ -74,20 +77,27 @@ export class TemplateSeeder {
         )
     }
 
-    private async seedTemplate(manifest: MetahubTemplateManifest): Promise<'created' | 'updated' | 'skipped'> {
+    private async seedTemplate(
+        definitionType: TemplateDefinitionType,
+        manifest: TemplateDefinitionManifest
+    ): Promise<'created' | 'updated' | 'skipped'> {
         const hash = calculateManifestHash(manifest)
 
         // Look up existing template by codename (excluding soft-deleted)
         const existing = await findTemplateByCodename(this.executor, manifest.codename)
 
         if (!existing) {
-            return this.createNewTemplate(manifest, hash)
+            return this.createNewTemplate(definitionType, manifest, hash)
         }
 
         return this.updateTemplateIfChanged(existing, manifest, hash)
     }
 
-    private async createNewTemplate(manifest: MetahubTemplateManifest, hash: string): Promise<'created'> {
+    private async createNewTemplate(
+        definitionType: TemplateDefinitionType,
+        manifest: TemplateDefinitionManifest,
+        hash: string
+    ): Promise<'created'> {
         return this.executor.transaction(async (tx: SqlQueryable) => {
             // Create template record
             const savedTemplate = await createTemplate(tx, {
@@ -95,6 +105,7 @@ export class TemplateSeeder {
                 name: manifest.name,
                 description: manifest.description,
                 icon: manifest.meta?.icon ?? null,
+                definitionType,
                 isSystem: true,
                 isActive: true,
                 sortOrder: 0,
@@ -124,7 +135,7 @@ export class TemplateSeeder {
 
     private async updateTemplateIfChanged(
         existing: TemplateRow,
-        manifest: MetahubTemplateManifest,
+        manifest: TemplateDefinitionManifest,
         hash: string
     ): Promise<'updated' | 'skipped'> {
         // Check if active version has the same hash

@@ -525,6 +525,59 @@ describe('RuntimeScriptsService', () => {
         )
     })
 
+    it('preserves custom attachment kinds for runtime lifecycle dispatch', async () => {
+        const { executor, txExecutor } = createMockDbExecutor()
+        const service = new RuntimeScriptsService(engine as never)
+        const binding = createRecordBinding({
+            object: {
+                kind: 'document'
+            }
+        })
+        const createdRow = { id: 'row-1', name: 'Document A' }
+
+        jest.spyOn(service as never as { resolveRecordBinding: () => Promise<unknown> }, 'resolveRecordBinding').mockResolvedValue(binding)
+        jest.spyOn(
+            service as never as { buildWritableColumnValues: () => Promise<unknown> },
+            'buildWritableColumnValues'
+        ).mockResolvedValue([{ column: 'name', value: 'Document A' }])
+        jest.spyOn(service as never as { getRecordById: () => Promise<unknown> }, 'getRecordById').mockResolvedValue(createdRow)
+        const dispatchLifecycleEventSpy = jest.spyOn(service, 'dispatchLifecycleEvent').mockResolvedValue()
+
+        txExecutor.query.mockResolvedValueOnce([{ id: 'row-1' }])
+
+        await (
+            service as never as {
+                createRecord: (params: Record<string, unknown>) => Promise<Record<string, unknown>>
+            }
+        ).createRecord({
+            executor,
+            applicationId: 'application-1',
+            schemaName: 'app_runtime_test',
+            currentWorkspaceId: null,
+            currentUserId: 'user-1',
+            permissions: { createContent: true },
+            entityCodename: 'documents',
+            data: { name: 'Document A' }
+        })
+
+        expect(dispatchLifecycleEventSpy).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({
+                attachmentKind: 'document',
+                executor: txExecutor,
+                payload: expect.objectContaining({ eventName: 'beforeCreate' })
+            })
+        )
+        expect(dispatchLifecycleEventSpy).toHaveBeenNthCalledWith(
+            2,
+            expect.objectContaining({
+                attachmentKind: 'document',
+                executor,
+                payload: expect.objectContaining({ eventName: 'afterCreate' })
+            })
+        )
+    })
+
     it('runs Record API hard deletes with beforeDelete and afterDelete lifecycle parity', async () => {
         const { executor, txExecutor } = createMockDbExecutor()
         const service = new RuntimeScriptsService(engine as never)

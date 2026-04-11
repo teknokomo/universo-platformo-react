@@ -6,7 +6,7 @@
 
 # Universo Platformo React
 
-[![Version](https://img.shields.io/badge/version-0.58.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
+[![Version](https://img.shields.io/badge/version-0.59.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
 [![License: Omsk Open License](https://img.shields.io/badge/license-Omsk%20Open%20License-green)](LICENSE.md)
 
 **Внимание, пожалуйста, прочитайте это внимательно.**
@@ -63,7 +63,7 @@ Universo Platformo React — это текущая эталонная реали
 
 ## Текущий статус
 
-**Текущая версия**: 0.57.0-alpha (апрель 2026). Проект остаётся в альфа-стадии и готовится к более стабильной бета-фазе.
+**Текущая версия**: 0.59.0-alpha (апрель 2026). Проект остаётся в альфа-стадии и готовится к более стабильной бета-фазе.
 
 ## Технологический стек
 

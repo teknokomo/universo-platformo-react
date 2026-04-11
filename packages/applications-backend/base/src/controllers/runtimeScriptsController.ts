@@ -1,12 +1,20 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
 import type { DbExecutor } from '@universo/utils'
-import { SCRIPT_ATTACHMENT_KINDS } from '@universo/types'
+import { isScriptAttachmentKind, type ScriptAttachmentKind } from '@universo/types'
 import { createQueryHelper, resolveRuntimeSchema } from '../shared/runtimeHelpers'
 import { RuntimeScriptsService } from '../services/runtimeScriptsService'
 
+const scriptAttachmentKindSchema = z
+    .string()
+    .trim()
+    .min(1)
+    .max(64)
+    .refine((value) => isScriptAttachmentKind(value), { message: 'Invalid script attachment kind' })
+    .transform((value): ScriptAttachmentKind => value)
+
 const listRuntimeScriptsQuerySchema = z.object({
-    attachedToKind: z.enum(SCRIPT_ATTACHMENT_KINDS).optional(),
+    attachedToKind: scriptAttachmentKindSchema.optional(),
     attachedToId: z.string().uuid().optional()
 })
 
@@ -44,7 +52,7 @@ export function createRuntimeScriptsController(getDbExecutor: () => DbExecutor) 
         const items = await scriptsService.listClientScripts({
             executor: ctx.manager,
             schemaName: ctx.schemaName,
-            attachedToKind: parsedQuery.data.attachedToKind,
+            attachedToKind: parsedQuery.data.attachedToKind ?? undefined,
             attachedToId: parsedQuery.data.attachedToId ?? undefined
         })
 

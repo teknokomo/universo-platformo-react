@@ -1,6 +1,6 @@
 import type { DbExecutor, SqlQueryable } from '@universo/utils'
 import { qColumn, qSchema, qSchemaTable, qTable } from '@universo/database'
-import { generateChildTableName, generateTableName, type EntityDefinition } from '@universo/schema-ddl'
+import { generateChildTableName, resolveEntityTableName, type EntityDefinition } from '@universo/schema-ddl'
 import { ApplicationMembershipState, type VersionedLocalizedContent } from '@universo/types'
 
 const WORKSPACES_TABLE = '_app_workspaces'
@@ -478,11 +478,11 @@ export async function ensureApplicationRuntimeWorkspaceSchema(
 
     const scopedTableNames = new Set<string>()
     for (const entity of input.entities) {
-        if (entity.kind !== 'catalog') {
+        if (entity.kind === 'hub' || entity.kind === 'set' || entity.kind === 'enumeration') {
             continue
         }
 
-        scopedTableNames.add(generateTableName(entity.id, entity.kind))
+        scopedTableNames.add(resolveEntityTableName(entity))
         for (const field of entity.fields) {
             if (field.dataType === 'TABLE') {
                 scopedTableNames.add(generateChildTableName(field.id))

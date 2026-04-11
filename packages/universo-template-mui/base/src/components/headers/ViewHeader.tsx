@@ -274,12 +274,20 @@ const ViewHeader: React.FC<ViewHeaderProps> = ({
                                 flexShrink: 0,
                                 flex:
                                     adaptiveSearch || controlsWrap
-                                        ? { xs: '1 1 auto', sm: adaptiveSearch ? '0 0 auto' : '1 1 220px', md: adaptiveSearch ? '1 1 220px' : undefined }
+                                        ? {
+                                              xs: '1 1 auto',
+                                              sm: adaptiveSearch ? '0 0 auto' : '1 1 220px',
+                                              md: adaptiveSearch ? '1 1 220px' : undefined
+                                          }
                                         : undefined,
                                 minWidth: adaptiveSearch || controlsWrap ? 0 : undefined,
                                 width:
                                     adaptiveSearch || controlsWrap
-                                        ? { xs: 'auto', sm: adaptiveSearch ? 'auto' : '100%', md: adaptiveSearch ? 'min(100%, 260px)' : 'auto' }
+                                        ? {
+                                              xs: 'auto',
+                                              sm: adaptiveSearch ? 'auto' : '100%',
+                                              md: adaptiveSearch ? 'min(100%, 260px)' : 'auto'
+                                          }
                                         : undefined
                             }}
                         >

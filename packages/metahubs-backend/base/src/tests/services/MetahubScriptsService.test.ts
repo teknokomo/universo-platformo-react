@@ -5,6 +5,7 @@ const mockFindStoredMetahubScriptById = jest.fn()
 const mockInsertStoredMetahubScript = jest.fn()
 const mockListStoredMetahubScripts = jest.fn()
 const mockIncrementVersion = jest.fn()
+const mockListCustomTypes = jest.fn()
 
 jest.mock('@universo/scripting-engine', () => ({
     compileScriptSource: (...args: unknown[]) => mockCompileScriptSource(...args),
@@ -29,6 +30,13 @@ jest.mock('../../domains/scripts/services/scriptsStore', () => {
         insertStoredMetahubScript: (...args: unknown[]) => mockInsertStoredMetahubScript(...args)
     }
 })
+
+jest.mock('../../domains/entities/services/EntityTypeService', () => ({
+    __esModule: true,
+    EntityTypeService: jest.fn().mockImplementation(() => ({
+        listCustomTypes: (...args: unknown[]) => mockListCustomTypes(...args)
+    }))
+}))
 
 import { MetahubScriptsService } from '../../domains/scripts/services/MetahubScriptsService'
 
@@ -95,6 +103,7 @@ describe('MetahubScriptsService', () => {
         mockFindStoredMetahubScriptByScope.mockResolvedValue(null)
         mockFindStoredMetahubScriptById.mockResolvedValue(createStoredScriptRow())
         mockListStoredMetahubScripts.mockResolvedValue([])
+        mockListCustomTypes.mockResolvedValue([])
         mockCompileScriptSource.mockResolvedValue({
             manifest: {
                 className: 'QuizWidgetScript',
@@ -210,6 +219,60 @@ describe('MetahubScriptsService', () => {
                 attachedToKind: 'general',
                 attachedToId: null,
                 moduleRole: 'library'
+            })
+        )
+    })
+
+    it('accepts catalog script attachments for catalog-compatible custom entity kinds', async () => {
+        mockListCustomTypes.mockResolvedValue([
+            {
+                kindKey: 'custom.catalog-v2',
+                config: {
+                    compatibility: {
+                        legacyObjectKind: 'catalog'
+                    }
+                }
+            }
+        ])
+        ;(executor.query as jest.Mock).mockResolvedValueOnce([{ id: 'catalog-v2-1' }])
+        mockInsertStoredMetahubScript.mockResolvedValueOnce(
+            createStoredScriptRow({
+                attached_to_kind: 'catalog',
+                attached_to_id: 'catalog-v2-1',
+                module_role: 'module'
+            })
+        )
+
+        await service.createScript(
+            'metahub-1',
+            {
+                codename: 'CatalogRules',
+                presentation: {
+                    name: {
+                        _primary: 'en',
+                        locales: {
+                            en: { content: 'Catalog rules' }
+                        }
+                    }
+                },
+                attachedToKind: 'catalog',
+                attachedToId: 'catalog-v2-1',
+                moduleRole: 'module',
+                sourceCode: 'export default class CatalogRules {}'
+            },
+            'user-1'
+        )
+
+        expect(executor.query).toHaveBeenCalledWith(expect.stringContaining('kind = ANY($2::text[])'), [
+            'catalog-v2-1',
+            ['catalog', 'custom.catalog-v2']
+        ])
+        expect(mockInsertStoredMetahubScript).toHaveBeenCalledWith(
+            expect.anything(),
+            schemaName,
+            expect.objectContaining({
+                attachedToKind: 'catalog',
+                attachedToId: 'catalog-v2-1'
             })
         )
     })

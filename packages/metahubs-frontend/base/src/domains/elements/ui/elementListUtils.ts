@@ -1,4 +1,5 @@
 import type { ActionContext } from '@universo/template-mui'
+import type { EntityKind } from '@universo/types'
 import type { HubElementDisplay, VersionedLocalizedContent } from '../../../types'
 import { getVLCString } from '../../../types'
 import { hasAxiosResponse } from '@universo/utils'
@@ -11,7 +12,7 @@ export type ElementOption = {
 }
 
 export type RefTargetDescriptor = {
-    kind: 'catalog' | 'enumeration' | 'set'
+    kind: EntityKind
     targetId: string
     targetConstantId?: string | null
     setConstantLabel?: string | null

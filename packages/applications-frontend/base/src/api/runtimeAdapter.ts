@@ -21,44 +21,49 @@ export function createRuntimeAdapter(applicationId: string): CrudDataAdapter {
     return {
         queryKeyPrefix: applicationsQueryKeys.runtimeAll(applicationId),
 
-        fetchList: ({ limit, offset, locale, catalogId }) =>
+        fetchList: ({ limit, offset, locale, catalogId, sectionId }) =>
             getApplicationRuntime(applicationId, {
                 limit,
                 offset,
                 locale,
-                catalogId
+                catalogId,
+                sectionId
             }) as Promise<AppDataResponse>,
 
-        fetchRow: (rowId, catalogId) => getApplicationRuntimeRow({ applicationId, rowId, catalogId }),
+        fetchRow: (rowId, catalogId) => getApplicationRuntimeRow({ applicationId, rowId, catalogId, sectionId: catalogId }),
 
-        fetchTabularRows: async ({ parentRowId, attributeId, catalogId }) => {
-            if (!catalogId) return []
+        fetchTabularRows: async ({ parentRowId, attributeId, catalogId, sectionId }) => {
+            const resolvedSectionId = sectionId ?? catalogId
+            if (!resolvedSectionId) return []
             return listApplicationRuntimeTabularRows({
                 applicationId,
                 rowId: parentRowId,
                 attributeId,
-                catalogId
+                catalogId: resolvedSectionId,
+                sectionId: resolvedSectionId
             })
         },
 
-        createRow: (data, catalogId) => createApplicationRuntimeRow({ applicationId, data, catalogId }),
+        createRow: (data, catalogId) => createApplicationRuntimeRow({ applicationId, data, catalogId, sectionId: catalogId }),
 
-        updateRow: (rowId, data, catalogId) => updateApplicationRuntimeRow({ applicationId, rowId, data, catalogId }),
+        updateRow: (rowId, data, catalogId) => updateApplicationRuntimeRow({ applicationId, rowId, data, catalogId, sectionId: catalogId }),
 
-        deleteRow: (rowId, catalogId) => deleteApplicationRuntimeRow({ applicationId, rowId, catalogId }),
+        deleteRow: (rowId, catalogId) => deleteApplicationRuntimeRow({ applicationId, rowId, catalogId, sectionId: catalogId }),
 
         copyRow: (rowId, data) =>
             copyApplicationRuntimeRow({
                 applicationId,
                 rowId,
                 catalogId: data?.catalogId,
+                sectionId: data?.sectionId ?? data?.catalogId,
                 copyChildTables: data?.copyChildTables
             }),
 
-        reorderRows: ({ catalogId, orderedRowIds }) =>
+        reorderRows: ({ catalogId, sectionId, orderedRowIds }) =>
             reorderApplicationRuntimeRows({
                 applicationId,
                 catalogId,
+                sectionId,
                 orderedRowIds
             })
     }

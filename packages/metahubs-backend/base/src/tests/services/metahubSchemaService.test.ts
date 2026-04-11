@@ -141,7 +141,13 @@ describe('MetahubSchemaService (read_only mode)', () => {
             '_mhb_settings',
             '_mhb_layouts',
             '_mhb_widgets',
-            '_mhb_migrations'
+            '_mhb_catalog_widget_overrides',
+            '_mhb_shared_entity_overrides',
+            '_mhb_migrations',
+            '_mhb_scripts',
+            '_mhb_entity_type_definitions',
+            '_mhb_actions',
+            '_mhb_event_bindings'
         ])
 
         const exec = setupExec(CURRENT_STRUCTURE_VERSION)

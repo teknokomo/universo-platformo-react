@@ -5,26 +5,17 @@
  * during application schema sync operations.
  */
 
-import {
-    generateTableName,
-    generateColumnName,
-    generateChildTableName,
-    type EntityDefinition
-} from '@universo/schema-ddl'
+import { resolveEntityTableName, generateColumnName, generateChildTableName, type EntityDefinition } from '@universo/schema-ddl'
 import { AttributeDataType } from '@universo/types'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
-import {
-    type ApplicationSyncQueryBuilder,
-    type ApplicationSyncTransaction,
-    getApplicationSyncKnex
-} from '../../ddl'
+import { type ApplicationSyncQueryBuilder, type ApplicationSyncTransaction, getApplicationSyncKnex } from '../../ddl'
 import {
     type EnumerationSyncRow,
     type SnapshotEnumerationValue,
     type EntityField,
     type SnapshotElementRow,
     ENUMERATION_KIND,
-    REF_DATA_TYPE,
+    REF_DATA_TYPE
 } from './syncTypes'
 import {
     isRecord,
@@ -33,13 +24,12 @@ import {
     normalizeReferenceId,
     resolveEntityLifecycleContract,
     applyDynamicRuntimeActiveRowFilter,
-    extractSetConstantRefConfig,
     resolveSetReferenceId,
     normalizeChildFieldValue,
     resolveCatalogSeedingOrder,
     validateNumericValue,
     resolveFieldDefaultEnumValueId,
-    normalizeSnapshotCodenameValue,
+    normalizeSnapshotCodenameValue
 } from './syncHelpers'
 
 // --- Element seeding ---
@@ -73,7 +63,7 @@ export async function seedPredefinedElements(
             const entity = entityMap.get(objectId)
             if (!entity) continue
 
-            const tableName = generateTableName(entity.id, entity.kind)
+            const tableName = resolveEntityTableName(entity)
             // Build field map: codename -> { columnName, field definition }
             // Exclude TABLE-type fields (no physical column) and child fields (belong to tabular tables)
             const fieldByCodename = new Map<string, { columnName: string; field: EntityField }>(
@@ -245,7 +235,7 @@ export async function remapStaleEnumerationReferences(options: {
     const catalogEntities = Object.values(snapshot.entities ?? {}).filter((entity) => entity.kind === 'catalog')
 
     for (const entity of catalogEntities) {
-        const tableName = generateTableName(entity.id, entity.kind)
+        const tableName = resolveEntityTableName(entity)
         const lifecycleContract = resolveEntityLifecycleContract(entity as unknown as EntityDefinition)
         if (!knownTables.has(tableName)) {
             const exists = await trx.schema.withSchema(schemaName).hasTable(tableName)
@@ -480,4 +470,3 @@ export async function syncEnumerationValues(
         await knex.transaction(applySync)
     }
 }
-

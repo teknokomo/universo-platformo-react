@@ -8,7 +8,7 @@
 import { createKnexExecutor } from '@universo/database'
 import {
     generateSchemaName,
-    generateTableName,
+    resolveEntityTableName,
     generateMigrationName,
     type DDLServices,
     type SchemaChange,
@@ -19,10 +19,7 @@ import { ApplicationSchemaStatus, AttributeDataType } from '@universo/types'
 import type { DbExecutor } from '@universo/utils'
 import { updateApplicationSyncFields } from '../../persistence/applicationsStore'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
-import {
-    buildInstalledReleaseMetadataFromBundle,
-    type ApplicationReleaseBundle
-} from '../../services/applicationReleaseBundle'
+import { buildInstalledReleaseMetadataFromBundle } from '../../services/applicationReleaseBundle'
 import { persistApplicationSchemaSyncState } from '../../services/ApplicationSchemaSyncStateStore'
 import { persistConnectorSyncTouch } from '../../services/ConnectorSyncTouchStore'
 import {
@@ -30,22 +27,17 @@ import {
     persistWorkspaceSeedTemplate,
     syncWorkspaceSeededElementsForAllActiveWorkspaces
 } from '../../services/applicationWorkspaces'
-import {
-    type ApplicationSyncTransaction,
-    getApplicationSyncDdlServices,
-    getApplicationSyncKnex
-} from '../../ddl'
+import { type ApplicationSyncTransaction, getApplicationSyncDdlServices, getApplicationSyncKnex } from '../../ddl'
 import { TARGET_APP_STRUCTURE_VERSION } from '../../constants'
 import {
     type SyncableApplicationRecord,
     type ApplicationSchemaSyncSource,
     type DiffStructuredChange,
     type DiffTableDetails,
-    type DiffTableFieldDetails,
     type EntityField,
     type SnapshotElementRow,
     type SnapshotEnumerationValue,
-    ENUMERATION_KIND,
+    ENUMERATION_KIND
 } from './syncTypes'
 import {
     isRecord,
@@ -56,9 +48,8 @@ import {
     toStructuralSchemaSnapshot,
     normalizeReferenceId,
     resolveLocalizedPreviewText,
-    extractSetConstantRefConfig,
     resolveSetConstantPreviewValue,
-    resolveElementPreviewLabel,
+    resolveElementPreviewLabel
 } from './syncHelpers'
 import { seedPredefinedElements, syncEnumerationValues } from './syncSeeding'
 import {
@@ -67,7 +58,7 @@ import {
     persistSeedWarnings,
     hasDashboardLayoutConfigChanges,
     hasPublishedLayoutsChanges,
-    hasPublishedWidgetsChanges,
+    hasPublishedWidgetsChanges
 } from './syncLayoutPersistence'
 import { hasPublishedScriptsChanges, persistPublishedScripts } from './syncScriptPersistence'
 
@@ -760,7 +751,7 @@ export function buildCreateTableDetails(options: {
             return {
                 id: entity.id,
                 codename: entity.codename,
-                tableName: generateTableName(entity.id, entity.kind),
+                tableName: resolveEntityTableName(entity),
                 fields,
                 predefinedElementsCount: predefinedElements.length,
                 predefinedElementsPreview: predefinedElements.slice(0, 50)
@@ -867,4 +858,3 @@ export async function runPublishedApplicationRuntimeSync(options: {
 
     return { seedWarnings }
 }
-

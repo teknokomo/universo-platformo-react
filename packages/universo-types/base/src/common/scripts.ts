@@ -1,7 +1,25 @@
 import type { VersionedLocalizedContent } from './admin'
 
 export const SCRIPT_ATTACHMENT_KINDS = ['metahub', 'catalog', 'hub', 'set', 'enumeration', 'attribute', 'general'] as const
-export type ScriptAttachmentKind = (typeof SCRIPT_ATTACHMENT_KINDS)[number]
+export type KnownScriptAttachmentKind = (typeof SCRIPT_ATTACHMENT_KINDS)[number]
+export type ScriptAttachmentKind = KnownScriptAttachmentKind | (string & {})
+
+export const SCRIPT_ATTACHMENT_KIND_PATTERN = /^[a-z][a-z0-9._-]{0,63}$/
+
+export const isKnownScriptAttachmentKind = (value: unknown): value is KnownScriptAttachmentKind =>
+    typeof value === 'string' && SCRIPT_ATTACHMENT_KINDS.includes(value as KnownScriptAttachmentKind)
+
+export const isScriptAttachmentKind = (value: unknown): value is ScriptAttachmentKind =>
+    typeof value === 'string' && SCRIPT_ATTACHMENT_KIND_PATTERN.test(value.trim())
+
+export const normalizeScriptAttachmentKind = (value: unknown): ScriptAttachmentKind | null => {
+    if (typeof value !== 'string') {
+        return null
+    }
+
+    const normalized = value.trim()
+    return SCRIPT_ATTACHMENT_KIND_PATTERN.test(normalized) ? (normalized as ScriptAttachmentKind) : null
+}
 
 export const SCRIPT_MODULE_ROLES = ['module', 'lifecycle', 'widget', 'library'] as const
 export type ScriptModuleRole = (typeof SCRIPT_MODULE_ROLES)[number]

@@ -2,16 +2,17 @@ import type { Knex } from 'knex'
 import stableStringify from 'json-stable-stringify'
 import { createKnexExecutor } from '@universo/database'
 import type { PlatformMigrationFile } from '@universo/migrations-core'
-import { builtinTemplates } from '../../domains/templates/data'
+import { builtinTemplateDefinitions } from '../../domains/templates/data'
 import { seedTemplates } from '../../domains/templates/services/TemplateSeeder'
 
 const builtinTemplateSeedChecksumSource =
     stableStringify({
         kind: 'builtin-metahub-template-seed-migration',
-        templates: builtinTemplates.map((template) => ({
-            codename: template.codename,
-            version: template.version,
-            minStructureVersion: template.minStructureVersion
+        templates: builtinTemplateDefinitions.map((template) => ({
+            definitionType: template.definitionType,
+            codename: template.manifest.codename,
+            version: template.manifest.version,
+            minStructureVersion: template.manifest.minStructureVersion
         }))
     }) ?? 'builtin-metahub-template-seed-migration'
 

@@ -1,5 +1,170 @@
 # System Patterns
 > **Note**: Reusable architectural patterns and best practices. For completed work -> progress.md. For current tasks -> tasks.md.
+## Entities Workspace Live-Row Resolution And Namespaced i18n Pattern (IMPORTANT)
+**Rule**: `EntitiesWorkspace` display and action handlers must resolve the current entity definition from live state and must tolerate built-in `namespace:key` UI labels coming through the consolidated metahubs namespace.
+**Required**:
+- Resolve action targets through the current entity-type map plus `kindKey` fallback; do not trust `row.raw` to exist on list/table rows when opening edit or delete flows.
+- Keep the three-dots delete action aligned with the legacy danger-group contract so shared menu affordances remain consistent between `EntitiesWorkspace` and legacy Catalog surfaces.
+- When a built-in entity type carries a `ui.nameKey` or `ui.descriptionKey` in `namespace:key` form, retry translation through an explicit namespace/key split before falling back to the raw string.
+- Keep focused frontend coverage proving both seams: list-view actions still work when rows omit `raw`, and built-in Documents labels render localized text instead of raw translation keys.
+**Detection**: `rg "resolveEntityTypeForAction|namespaceSeparatorIndex|documents.title|group: 'danger'" packages/metahubs-frontend/base/src/domains/entities`
+**Why**: The 2026-04-11 post-rebuild QA closure found two real shipped-surface drifts that package builds alone did not catch: list-view menu actions could open a blank dialog when table rows omitted `raw`, and built-in Documents rows leaked `metahubs:documents.title` because the consolidated namespace path needed an explicit namespace/key fallback.
+
+## Catalog-Compatible Entity Route Ownership Pattern (IMPORTANT)
+**Rule**: Catalog-compatible entity authoring may reuse the legacy catalog UI components, but navigation must stay on the entity-based route tree whenever the current route carries `:kindKey`.
+**Required**:
+- Build catalog authoring links through one route-aware helper that prefers `/metahub/:metahubId/entities/:kindKey/instance/:catalogId/{attributes|system|elements}` over legacy `/catalog/:catalogId/*` paths when `kindKey` is present.
+- Keep `CatalogList`, `AttributeList`, `ElementList`, and blocking-reference dialogs aligned to that same helper so row links, pending-navigation fallbacks, tabs, and blocking-reference links cannot drift between route trees.
+- Register entity detail routes for `attributes`, `system`, and `elements` in the core frontend instead of relying on a legacy redirect after the list click.
+- Recognize the known `custom.catalog-v2` route as catalog-compatible before entity-type metadata finishes loading so the page does not flash the generic entity shell first.
+**Detection**: `rg "buildCatalogAuthoringPath|entities/:kindKey/instance/:catalogId/(attributes|system|elements)|custom.catalog-v2" packages/metahubs-frontend packages/universo-core-frontend`
+**Why**: The 2026-04-10 isolated-route recovery found that the earlier shared-surface closure still hardwired catalog-compatible entity navigation back into legacy `/catalog/:id/*` routes and briefly rendered the generic entity shell before delegating. The durable contract is UI reuse with entity-route ownership, not legacy-route fallback.
+## Shared GeneralTabFields Explicit Label Pattern (IMPORTANT)
+**Rule**: Every caller that mounts `GeneralTabFields` must pass explicit localized `nameLabel`, `descriptionLabel`, `codenameLabel`, and `codenameHelper` props from its own translation scope; do not rely on implicit defaults inside the shared field component.
+**Required**:
+- Treat `GeneralTabFields` as a presentational shell only: the caller owns visible copy and accessibility labels for all shared localized inputs.
+- Keep legacy action builders (`CatalogActions`, `EnumerationActions`, `SetActions`) aligned with list/workspace call sites whenever `GeneralTabFields` prop requirements change.
+- Preserve real browser coverage on legacy copy/edit flows that still target `getByLabel('Name')` / `getByLabel('Codename')`, because the current build stack can miss these stale JSX call-site mismatches until runtime.
+- When visual proof compares catalog-compatible and legacy dialogs, compare only the actually shared edit surface (General panel plus shared affordances); whole-dialog edit equality is too strict because the entity shell intentionally adds extra edit-only affordances.
+**Detection**: `rg "<GeneralTabFields|nameLabel=|descriptionLabel=|codenameLabel=|codenameHelper=" packages/metahubs-frontend/base/src tools/testing/e2e`
+**Why**: The 2026-04-10 final parity verification found that stale legacy action call sites were still rendering `GeneralTabFields` without the explicit label props introduced by the shared-field refactor. The result was silent loss of accessible labels in the real browser copy dialog even though focused package builds still passed.
+## Shared Template Shell Auth Client Pattern (IMPORTANT)
+**Rule**: Shared route-bound shell queries inside `@universo/template-mui` must use the auth-aware client from `@universo/auth-frontend`, not raw `fetch` and not a feature-package-specific API client.
+**Required**:
+- Shared shell components should read `client` and `loading` from `useAuth()` and route typed resource loading through a small `client.get(...)` helper instead of duplicating ad-hoc request logic.
+- Route-bound React Query hooks must gate request execution on both the required route params and `!authLoading` so shell queries do not fire before auth bootstrap completes.
+- `@universo/template-mui` must remain domain-neutral: do not import metahub/application feature-package API clients into shared shell code just to avoid `fetch`.
+- Keep focused regression coverage proving that `MenuContent` metahub detail and published-menu requests go through the authenticated client seam.
+**Detection**: `rg "loadMenuResource|useAuth\(|client.get|fetch\(" packages/universo-template-mui/base/src/components/dashboard`
+**Why**: The post-QA closure pass found that raw `fetch` in shared shell code bypassed the established auth/interceptor seam and weakened package boundaries. The durable fix is one shared auth-client pattern inside template-mui rather than per-domain request exceptions.
+## Published Custom Entity Menu Contract Pattern (IMPORTANT)
+**Rule**: The metahub shell must derive published custom-kind navigation from the existing entity-type list metadata plus the metahub-details permission seam; do not hardcode per-kind sidebar entries or bypass permission-aware filtering in the shell.
+**Required**:
+- Custom entity-type list responses must expose `published` so shell consumers can derive the dynamic menu zone without an extra metadata fetch contract.
+- Shared template-mui menu entries must support either `titleKey` or a raw `title`, and all shared renderers must resolve labels through the same helper instead of assuming every item is translation-key-backed.
+- `getMetahubMenuItems(...)` must filter authoring-only entries through `manageMetahub` / `manageMembers`, keep `Access` separately gated through `manageMembers`, and compact dividers after permission filtering.
+- Published custom-kind links must be inserted after the legacy built-in object items and before `Publications`, `Migrations`, `Access`, and `Settings` so coexistence-first navigation stays stable.
+- Browser coverage should target the sidebar link role explicitly when the same custom entity name can also appear inside the entities table.
+**Detection**: `rg "published.*entity-types|resolveTemplateMenuLabel|getMetahubMenuItems|metahub-entity-" packages/metahubs-backend packages/universo-template-mui tools/testing/e2e`
+**Why**: Phase 3.2 QA remediation showed that the durable contract spans backend metadata exposure, shared shell label resolution, permission-aware filtering, insertion order, and real browser navigation. Keeping it as one pattern reduces the chance that future snapshot/runtime work reintroduces hardcoded object menus or ambiguous browser proofs.
+## Read-Only Entity Definition Access Pattern (IMPORTANT)
+**Rule**: Entity-type definitions that back the shipped read-only entity surfaces must stay membership-readable, while entity-type writes remain gated by `manageMetahub`.
+**Required**:
+- `GET /metahub/:metahubId/entity-types` and `GET /metahub/:metahubId/entity-type/:entityTypeId` must rely on ordinary metahub membership access so read-only `EntitiesWorkspace` and `EntityInstanceList` shells can resolve their definitions.
+- `POST`, `PATCH`, and `DELETE` entity-type routes must continue requiring `manageMetahub`; do not widen authoring mutations just because the read contract became member-readable.
+- Frontend read-only entity surfaces may remain visible to members without `manageMetahub`, but create/edit/delete/instances affordances must stay hidden in that state.
+- Keep focused backend route coverage and frontend read-only coverage in lockstep so mocked UI assumptions cannot drift from the backend authorization seam again.
+**Detection**: `rg "entityTypesController|entity-type|manageMetahub|noManagePermission|EntityInstanceList" packages/metahubs-backend packages/metahubs-frontend`
+**Why**: The post-parity QA pass found a real backend/frontend mismatch: the UI already exposed read-only entity shells to ordinary members, but backend entity-type reads still required `manageMetahub`, which caused 403s on the shipped surface. Preserving the membership-readable definition contract prevents future entity/runtime refactors from reintroducing that drift.
+## Entity Authoring Visible Name Pattern (IMPORTANT)
+**Rule**: Entity-type authoring lists must render a visible human-readable primary name and fall back to `kindKey`; the primary `Name` column must never render blank just because the stored display field is absent or derived from a translated builtin key.
+**Required**:
+- Build display rows through one helper that resolves builtin translation keys and custom names/codenames into a single visible `name` field.
+- Render the primary list/table name cell explicitly with `row.name || row.kindKey` so newly created custom kinds stay visible immediately after save.
+- Keep focused browser coverage asserting that the newly created custom entity type is visible by its display name on the shipped `EntitiesWorkspace` list surface.
+**Detection**: `rg "buildEntityTypeDisplayRow|row.name \|\| row.kindKey|metahub-entities-workspace\.spec" packages/metahubs-frontend tools/testing/e2e`
+**Why**: Phase 2.9 browser validation exposed a real product bug where the create flow persisted correctly but the list view appeared empty because the primary `Name` column rendered no text. The fallback-visible-name rule prevents that regression from reappearing.
+## Structured Entity Builder Checkbox Accessibility Pattern (IMPORTANT)
+**Rule**: Structured builder toggles in `EntitiesWorkspace` must render actual checkbox semantics, not aliased switch semantics, because the authoring contract and the focused validation stack both depend on checkbox roles.
+**Required**:
+- Use MUI `Checkbox` for authoring-tab toggles, the publish-to-menu control, and component toggles in the structured builder UI.
+- Do not alias `Switch` as `Checkbox` or otherwise emit `role="switch"` for these multi-select authoring controls.
+- Keep focused frontend coverage asserting checkbox roles for `Publish to dynamic menu`, authoring-tab toggles, and component toggles.
+- Keep the workspace/publication Playwright proofs in the validation chain whenever the builder surface changes.
+**Detection**: `rg "Publish to dynamic menu|Switch as Checkbox|<Checkbox|EntitiesWorkspace" packages/metahubs-frontend tools/testing/e2e`
+**Why**: The restored builder UI still failed the browser and RTL proof until the runtime controls switched from aliased MUI `Switch` semantics to real `Checkbox` semantics. Preserving that accessibility contract reduces the chance that future builder refactors silently regress the validated surface.
+## Reusable Entity Preset Template Registry Pattern (IMPORTANT)
+**Rule**: Reusable cross-metahub entity presets must extend the existing metahub template registry/versioning flow through `definition_type='entity_type_preset'`; do not introduce a second preset store or a one-off preset transport.
+**Required**:
+- Persist reusable entity presets through the existing `cat_templates` + `doc_template_versions` seam and keep builtin seeding on the shared `TemplateSeeder` / migration-checksum path.
+- Expose `definitionType` on template summaries and expose the typed `activeVersionManifest` on template detail responses so preset consumers can fetch active manifests without duplicating version-selection logic.
+- Validate entity preset manifests through the shared template validator layer, including component dependency rules, instead of accepting untyped JSON in the entity authoring flow.
+- Reuse the existing frontend templates query/UI seam (`useTemplates`, `useTemplateDetail`, `TemplateSelector`) and apply preset data as a create-mode form patch; preset selection must not silently mutate edit-mode entities.
+**Detection**: `rg "entity_type_preset|activeVersionManifest|EntityTypePresetSelector|TemplateSeeder" packages/metahubs-backend packages/metahubs-frontend packages/universo-types`
+**Why**: Phase 2.7b proved that the durable seam already existed in the template registry. Reusing it keeps preset versioning, validation, and seeding aligned with builtin templates instead of splitting metahub-wide reusable definitions across multiple storage models.
+## Custom-Only Generic Entity Route Gating Pattern (IMPORTANT)
+**Rule**: The first generic entity-instance CRUD surface must remain custom-kind-only until the coexistence compatibility layer proves that built-in catalogs/sets/enumerations can reuse the shared object foundation without bypassing their existing policy, copy, and runtime contracts.
+**Required**:
+- Resolve routed kinds through `EntityTypeResolver` and reject built-in kinds fail closed on the generic entity routes.
+- Keep legacy built-in object routes as the source of truth until the later compatibility and service-genericization phases explicitly widen the shared surface.
+- Let `MetahubObjectsService` accept generic kind strings and transaction runners so shared CRUD code can grow underneath legacy adapters without forcing an early route cutover.
+- Keep focused route coverage proving both the custom-kind happy path and the built-in rejection path.
+**Detection**: `rg "entityInstancesRoutes|Generic entity routes currently support custom entity kinds only|findByCodenameAndKind\(|updateObject\(" packages/metahubs-backend`
+**Why**: The first Phase 2.5 implementation already has enough shared object plumbing to expose generic CRUD, but built-in design-time objects still have extra policy/copy/runtime behavior. Preserving the custom-only gate prevents the new routes from accidentally becoming a bypass around those legacy seams.
+## Component-Gated Generic Entity Instance Tabs Pattern (IMPORTANT)
+**Rule**: Generic custom-entity instance authoring must compose its dialog tabs from the resolved entity-type component manifest and reuse only the authoring seams that are already object-scoped; unsupported components must fail closed with an explicit notice instead of exposing a fake tab.
+**Required**:
+- Reuse one `EntityFormDialog` surface for create/edit/copy flows and build tabs from the resolved entity-type definition instead of hardcoding catalog-era assumptions into a second generic dialog stack.
+- Show `hubs` only when `hubAssignment` is enabled and the entity UI requests the tab; show embedded `attributes` only in edit mode when `dataSchema` is enabled; show embedded `layout` only in edit mode when `layoutConfig` is enabled.
+- Show `scripts` only in edit mode when `scripting` is enabled and the entity UI requests the tab; reuse `EntityScriptsTab` with the saved object id as the attachment owner.
+- Show `actions` and `events` only in edit mode when the corresponding components are enabled; reuse the same dialog shell and existing object-scoped backend routes instead of inventing a second automation authoring surface.
+- Keep catalog-compatible kinds on the reused `CatalogList` surface when the route already delegates there; do not widen the generic automation tabs onto catalog-compatible routes unless route ownership changes first.
+- Keep create/copy dialogs intentionally smaller than edit dialogs: automation tabs depend on an already persisted object id and must not appear on unsaved entity flows.
+- Preserve a distinct route and view-preference storage key for the instance surface and keep the primary in-product entry path in `EntitiesWorkspace` so type authoring and instance authoring remain separate concerns.
+- Keep focused frontend coverage proving the create-vs-edit tab-composition contract, and keep browser proof on the generic custom-entity flow proving script → action → event-binding authoring end to end.
+**Detection**: `rg "showScriptsUnavailableNotice|buildFormTabs|ENTITY_INSTANCE_DISPLAY_STYLE|entities.actions.instances|CatalogList|isCatalogCompatibleMode|EntityInstanceList" packages/metahubs-frontend packages/universo-core-frontend`
+**Why**: Phase 3.1 established the component-gated dialog-composition seam, and the 2026-04-11 residual ECAE closure completed the object-scoped automation authoring surface on top of it. The durable contract is now edit-only Scripts/Actions/Events reuse on saved objects, not a temporary scripts-unavailable warning, and the same closure confirmed that catalog-compatible routes do not mount those generic tabs because they delegate to `CatalogList` first.
+## Design-Time Child Copy And Object-Scoped System Attribute Pattern (IMPORTANT)
+**Rule**: Reuse one shared helper for design-time child copy and one object-scoped system-attribute seam before widening any more built-in design-time routes onto the generic entity foundation.
+**Required**:
+- Keep `MetahubAttributesService` object-facing for new shared code through `listObjectSystemAttributes(...)`, `getObjectSystemFieldsSnapshot(...)`, and `ensureObjectSystemAttributes(...)`, while preserving catalog-named wrappers as compatibility aliases.
+- Keep `listCatalogSystemAttributes(...)` / `getCatalogSystemFieldsSnapshot(...)` aligned with `listObjectSystemAttributes(...)` / `getObjectSystemFieldsSnapshot(...)` for the same object id; the legacy catalog wrappers are compatibility aliases, not a second policy interpretation.
+- Route legacy catalog/set/enumeration copy flows through `copyDesignTimeObjectChildren(...)` for shared attribute/element/constant/value copy behavior instead of maintaining three separate controller-local copy implementations.
+- Let generic custom-entity copy derive child-copy breadth from enabled design-time components (`dataSchema`, `predefinedElements`, `constants`, `enumerationValues`) instead of exposing built-in kinds or hardcoding per-kind copy branches.
+- Keep legacy built-in routes authoritative even when they reuse the shared helper underneath; helper reuse is an internal seam, not a route-surface widening.
+- When catalog copy needs `_upl_*` reseeding, pass the shared platform-system-attribute policy through the object-scoped adapter instead of reimplementing catalog-only policy logic in the helper.
+**Detection**: `rg "copyDesignTimeObjectChildren|ensureObjectSystemAttributes|copyEnumerationValues|copyConstants" packages/metahubs-backend`
+**Why**: Phase 2.5c showed that the safe genericization step was not broad layout/service renaming. The durable reusable seam is shared child-copy orchestration plus object-scoped policy reuse, and the later Phase 3.8 parity proof showed that the legacy wrapper reads must stay exact compatibility aliases instead of drifting into a second policy path.
+## Legacy Built-in Compatibility Helper Pattern (IMPORTANT)
+**Rule**: When legacy built-in catalog/set/enumeration routes begin sharing the generic object foundation, extract only the low-risk delete/detach/reorder control flow into internal helpers while keeping each legacy route responsible for its own policy checks, blocker lookups, and public HTTP contract.
+**Required**:
+- Keep legacy built-in routes authoritative even after helper extraction; shared helpers may orchestrate not-found, last-hub conflict, detach, reorder, blocker short-circuit, and final delete outcomes only.
+- Pass kind-specific policy checks and blocker lookups into the helper layer as closures instead of hardcoding catalog/set/enumeration governance inside the helper itself.
+- Preserve existing route-level response bodies/messages and optimistic-lock conflict mapping where a legacy route already exposes them.
+- Limit helper reuse in this coexistence phase to safety-path behavior that is already structurally shared; wider service genericization stays a separate Phase 2.5c gate.
+**Detection**: `rg "legacyBuiltinObjectCompatibility|executeBlockedDelete|executeHubScopedDelete|executeLegacyReorder" packages/metahubs-backend`
+**Why**: Phase 2.5b proved that built-ins can reuse shared delete/detach/reorder flow beneath their legacy endpoints without opening a policy bypass. The helper-first pattern reduces duplication while keeping catalog/set/enumeration-specific governance and copy/runtime contracts intact.
+## Catalog-Compatible Generic Mutation Parity Pattern (IMPORTANT)
+**Rule**: When a custom entity kind explicitly opts into catalog compatibility, the generic entity-instance backend and frontend must reuse the legacy catalog ACL and policy seams instead of treating the surface as ordinary `manageMetahub`-only generic authoring.
+**Required**:
+- Resolve catalog-compatible kinds before mutation permission checks and map create/update/copy/restore/reorder to `editContent`, while delete/permanent-delete stay on `deleteContent`.
+- Reuse the legacy catalog settings/policy gates for generic catalog-compatible copy/delete/permanent-delete flows, including `catalogs.allowCopy`, `catalogs.allowDelete`, and blocking-reference safety.
+- Keep the generic entity routes custom-kind-only; catalog compatibility is a behavior/policy adapter, not permission to expose built-in kinds through the generic route surface.
+- `EntityInstanceList` must mirror the same split on the frontend, respect catalog settings for action visibility, reuse `CatalogDeleteDialog` for blocked deletes, and fail closed while settings data is still loading.
+- Preserve focused backend/frontend regressions for the negative paths so future refactors cannot silently reopen the parity drift.
+**Detection**: `rg "catalogCompatibility|catalogs\\.allowCopy|catalogs\\.allowDelete|CatalogDeleteDialog|useEntityPermissions\('catalogs'\)|editContent|deleteContent" packages/metahubs-backend packages/metahubs-frontend`
+**Why**: The 2026-04-10 QA closure found that catalog-compatible custom kinds had drifted from legacy catalog governance: the generic surface narrowed authoring to `manageMetahub` and bypassed legacy copy/delete safety. Locking the adapter contract preserves strict parity without reopening the generic built-in route gate.
+## Generic Entity Deleted Detail Read Pattern (IMPORTANT)
+**Rule**: Generic custom-entity detail reads must remain active-row-only by default; any flow that needs to inspect a soft-deleted row must opt in explicitly through `includeDeleted=true` instead of widening the default `GET /entity/:entityId` contract.
+**Required**:
+- Keep the default detail controller path calling `MetahubObjectsService.findById(metahubId, entityId, userId)` with no deleted-row widening.
+- Parse `includeDeleted` as an explicit query flag and forward `{ includeDeleted: true }` to `findById(...)` only when a caller intentionally needs deleted-state visibility, such as restore or deleted-row verification flows.
+- Preserve focused route coverage proving both seams: the legacy/default detail call shape and the explicit deleted-row path.
+- Keep browser lifecycle proofs using the explicit deleted-read seam for soft-delete and restore polling; permanent-delete checks should continue asserting the default `404` contract.
+**Detection**: `rg "includeDeleted|getById = async|findById\(metahubId, entityId, userId|metahub-entities-workspace\.spec" packages/metahubs-backend tools/testing/e2e`
+**Why**: The 2026-04-10 generator/QA-gap closure exposed a real mismatch: the browser lifecycle proof needed to inspect soft-deleted catalog-compatible rows, but the default generic detail route correctly hid them. Preserving the explicit opt-in seam prevents future refactors from silently widening ordinary detail reads while still supporting deleted-state workflows.
+## Generic Entity Copy Insert-Retry Pattern (IMPORTANT)
+**Rule**: Generic custom-entity copy must preserve the legacy codename retry contract across the actual insert path, not only during preflight codename availability checks.
+**Required**:
+- When copy generates a codename automatically, retry `buildCodenameAttempt(...)` candidates across actual `createObject(...)` / `mutationService.run(...)` unique conflicts on `idx_mhb_objects_kind_codename_active`.
+- Treat preflight `findByCodenameAndKind(...)` checks as an optimization only; they do not replace insert-time retry handling under concurrent copy races.
+- User-supplied copy codenames still get a single final attempt and should fail closed with `409` if the same unique constraint fires after the preflight check.
+- Keep focused route regressions for both retry-success and exhausted-retry paths so future refactors cannot collapse the behavior back to a single preflight-only check.
+- Preserve the transaction-aware lifecycle split: retrying copy is safe because `before*` hooks execute inside the failed transaction and `after*` hooks run only after a successful commit.
+**Detection**: `rg "buildCopyCodename|idx_mhb_objects_kind_codename_active|retries copy after codename unique violation|exhausting generated codename retries" packages/metahubs-backend`
+**Why**: The 2026-04-10 residual QA hardening pass found that generic entity copy could still fail under concurrent codename races even though it prechecked availability. Matching the legacy insert-retry behavior removes that concurrency gap without widening built-in route exposure.
+## Transaction-Aware ECAE Lifecycle Dispatch Pattern (IMPORTANT)
+**Rule**: Generic entity lifecycle dispatch must stay split across transaction boundaries for create/update/delete/copy: `before*` events execute inside the mutation transaction, but `after*` events execute only after a successful commit.
+**Required**:
+- Keep object-owned Actions and Event Bindings behind component-manifest gates resolved from the entity-type definition for the owning object kind.
+- `EntityMutationService` must call `EntityEventRouter` with the active transaction runner for `before*` hooks so validation or pre-write guards can fail the write atomically.
+- Generic create must also route through `EntityMutationService`; resolve the committed object id from the mutation result before `afterCreate` dispatch instead of bypassing the lifecycle boundary with a direct controller/service call.
+- When generic create allocates a pending object id ahead of persistence, that same id must become the persisted `_mhb_objects.id`; `beforeCreate` must never dispatch against a placeholder UUID that differs from the committed row id.
+- `after*` hooks must run only after the transaction resolves successfully and must not be wrapped in a nested callback-based pseudo-commit abstraction.
+- Event bindings must fail closed when they reference an action owned by a different object.
+- Backend unit tests that exercise schema-qualified entity/action/event services must use canonical metahub schema names because shared identifier helpers reject ad-hoc fake schema strings.
+**Detection**: `rg "EntityMutationService|EntityEventRouter|createEntity\(|createObject\(|_mhb_actions|_mhb_event_bindings|mhb_[a-z0-9]+_b1" packages/metahubs-backend`
+**Why**: The first ECAE service pass proved that mixing post-commit dispatch into the transaction closure complicates typing and makes the lifecycle boundary harder to reason about. The 2026-04-11 QA-closure pass extended that same contract to generic create, and the subsequent PR #757 review triage closed the last id-drift seam by requiring preallocated create ids to become the persisted row id. The durable rule is explicit: pre-commit guards inside the transaction, post-commit side effects outside it, no controller-level bypass around `EntityMutationService`, and no placeholder create ids that diverge from the committed row.
 ## Routed Entity Move Ownership Pattern (IMPORTANT)
 **Rule**: Any routed move/up-down mutation for design-time entities must verify routed-container ownership in both the controller and the service. A bare entity id is never sufficient when lists can surface merged shared rows or when a caller can submit foreign ids directly.
 **Required**:
@@ -75,6 +240,24 @@
 - Keep the catalog dialog Layout tab as a pure embedded layout manager; do not reintroduce a separate fallback-runtime form there.
 **Detection**: `rg "catalogBehavior|resolveCatalogLayoutBehaviorConfig|buildDashboardWidgetVisibilityConfig|runtimeConfig" packages/universo-utils packages/applications-backend packages/metahubs-backend packages/metahubs-frontend`
 **Why**: QA found that the earlier implementation still behaved too much like a copied catalog fallback model: runtime behavior was partially resolved from legacy catalog settings, catalog CRUD/UI still preserved `runtimeConfig`, catalog layouts stored copied widget-visibility booleans, and the catalog dialog still exposed an outdated fallback form. The stable contract is now layout-owned behavior plus sparse catalog storage with runtime materialization.
+## Runtime Section Alias Compatibility Pattern (IMPORTANT)
+**Rule**: The generic runtime wave must expose `section*` identifiers as the primary shared contract while keeping the legacy `catalog*` fields alive until the remaining builder/runtime surfaces are migrated.
+**Required**:
+- Return `section`, `sections`, and `activeSectionId` alongside `catalog`, `catalogs`, and `activeCatalogId` from runtime/backend responses instead of replacing the legacy fields in one pass.
+- Accept optional `sectionId` in frontend/shared runtime helpers, query keys, adapters, and mutations, but continue resolving backend payload/query `catalogId` values from `sectionId ?? catalogId` until the backend route vocabulary can change safely.
+- Prefer section identifiers in menu mapping, runtime selection state, and page-surface create/edit/copy flows whenever both alias families are present.
+- Keep generic runtime copy and empty/fallback messaging section-oriented so new custom-type/runtime surfaces do not leak catalog-only wording.
+**Detection**: `rg "sectionId \?\? catalogId|activeSectionId|sections|kind: 'section'|workspace limit for this section" packages/applications-backend packages/applications-frontend packages/apps-template-mui`
+**Why**: Phase 3.5 genericization turned the runtime identifier contract into a cross-package compatibility seam: applications-backend still speaks catalog ids internally, while applications-frontend and apps-template-mui now need generic section terminology for custom entity/runtime work. Preserving both alias families reduces the chance that later builder/runtime phases break existing catalog flows or reintroduce catalog-only assumptions into the generic surface.
+## Runtime Parent-Row Mutation Permission Pattern (IMPORTANT)
+**Rule**: Runtime parent-row mutations must fail closed on the permission that matches the mutation type before any runtime catalog, attribute, or table query begins.
+**Required**:
+- Gate inline parent-row cell PATCH and bulk row PATCH through `editContent`.
+- Gate create and copy flows through `createContent`, delete through `deleteContent`, and row reorder through `editContent`.
+- Keep the permission check immediately after `resolveRuntimeSchema(...)` so denied requests do not touch runtime catalogs, attributes, or business tables.
+- Preserve focused route coverage for the inline PATCH guard because the parent-row permission contract already differs between create/copy and delete.
+**Detection**: `rg "updateCell = async|bulkUpdateRow = async|ensureRuntimePermission\(res, ctx, 'editContent'\)|runtime/rows/.*/copy|runtime/rows/reorder" packages/applications-backend`
+**Why**: The post-closure QA follow-up found that inline runtime PATCH had drifted from the rest of the parent-row mutation surface and was missing the explicit `editContent` guard present on adjacent edit/delete/create/reorder flows. Locking the guard order reduces the chance that future runtime refactors reopen that controller inconsistency.
 ## Imported Fixture Playwright Timeout Pattern (IMPORTANT)
 **Rule**: Browser flows that import a full metahub fixture and then create an application schema must opt into an explicit extended Playwright timeout instead of relying on the default 60-second test budget.
 **Required**:

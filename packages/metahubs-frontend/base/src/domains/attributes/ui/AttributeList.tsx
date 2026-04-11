@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { alpha, type Theme } from '@mui/material/styles'
 import { Box, Skeleton, Stack, Typography, Chip, Alert, Tooltip, Tabs, Tab, IconButton } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -102,6 +102,7 @@ import {
     sanitizeAttributeUiConfig,
     getDataTypeColor
 } from './attributeListUtils'
+import { buildCatalogAuthoringPath } from '../../catalogs/ui/catalogRoutePaths'
 
 type GenericFormValues = Record<string, unknown>
 
@@ -148,6 +149,7 @@ export const AttributeListContent = ({
     allowSystemTab = true
 }: AttributeListContentProps = {}) => {
     const navigate = useNavigate()
+    const { kindKey } = useParams<{ kindKey?: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
 
@@ -198,14 +200,15 @@ export const AttributeListContent = ({
 
     const buildCatalogTabPath = useCallback(
         (tab: Extract<CatalogTab, 'attributes' | 'system' | 'elements'>) => {
-            if (!metahubId || !catalogId) return ''
-            const suffix = tab === 'system' ? 'system' : tab
-            if (hubIdParam) {
-                return `/metahub/${metahubId}/hub/${hubIdParam}/catalog/${catalogId}/${suffix}`
-            }
-            return `/metahub/${metahubId}/catalog/${catalogId}/${suffix}`
+            return buildCatalogAuthoringPath({
+                metahubId,
+                hubId: hubIdParam,
+                kindKey,
+                catalogId,
+                tab
+            })
         },
-        [catalogId, hubIdParam, metahubId]
+        [catalogId, hubIdParam, kindKey, metahubId]
     )
 
     useEffect(() => {

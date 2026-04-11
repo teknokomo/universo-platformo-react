@@ -147,13 +147,31 @@ export function createTabularPartAdapter(params: TabularPartAdapterParams): Crud
                 enumOptions: f.enumOptions
             }))
 
+            const runtimeSection = {
+                id: resolvedCatalogId,
+                codename: '',
+                tableName: '',
+                name: ''
+            }
+
             return {
-                catalog: { id: resolvedCatalogId, codename: '', tableName: '', name: '' },
-                catalogs: [],
+                section: runtimeSection,
+                sections: [runtimeSection],
+                activeSectionId: resolvedCatalogId,
+                catalog: runtimeSection,
+                catalogs: [runtimeSection],
+                activeCatalogId: resolvedCatalogId,
                 columns,
                 rows: json.items,
                 pagination: { total: json.total, limit, offset },
-                menus: []
+                layoutConfig: {},
+                zoneWidgets: {
+                    left: [],
+                    right: [],
+                    center: []
+                },
+                menus: [],
+                activeMenuId: null
             }
         },
 
@@ -206,8 +224,8 @@ export function createTabularPartAdapter(params: TabularPartAdapterParams): Crud
             if (!res.ok) throw new Error(await extractError(res, 'Delete tabular row failed'))
         },
 
-        async copyRow(rowId: string, data?: { catalogId?: string }): Promise<Record<string, unknown>> {
-            const resolvedCatalogId = data?.catalogId ?? catalogId
+        async copyRow(rowId: string, data?: { catalogId?: string; sectionId?: string }): Promise<Record<string, unknown>> {
+            const resolvedCatalogId = data?.sectionId ?? data?.catalogId ?? catalogId
             const copyUrl = `${url(resolvedCatalogId, rowId)}/copy`
             const res = await fetchWithCsrf(apiBaseUrl, copyUrl, { method: 'POST' })
             if (!res.ok) throw new Error(await extractError(res, 'Copy tabular row failed'))

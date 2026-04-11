@@ -33,6 +33,9 @@ import type {
     ReorderCatalogParams
 } from './mutationTypes'
 
+const invalidateCatalogCompatibilityEntityQueries = (queryClient: ReturnType<typeof useQueryClient>, metahubId: string) =>
+    safeInvalidateQueriesInactive(queryClient, ['entities'], [...metahubsQueryKeys.detail(metahubId), 'entities'])
+
 export function useCreateCatalogAtMetahub() {
     const queryClient = useQueryClient()
     const { enqueueSnackbar } = useSnackbar()
@@ -89,6 +92,7 @@ export function useCreateCatalogAtMetahub() {
                     metahubsQueryKeys.allCatalogs(variables.metahubId),
                     ...(variables.data.hubIds ?? []).map((hubId) => metahubsQueryKeys.catalogs(variables.metahubId, hubId))
                 )
+                invalidateCatalogCompatibilityEntityQueries(queryClient, variables.metahubId)
             }
         }
     })
@@ -153,6 +157,7 @@ export function useCreateCatalog() {
                 metahubsQueryKeys.catalogs(variables.metahubId, variables.hubId),
                 metahubsQueryKeys.allCatalogs(variables.metahubId)
             )
+            invalidateCatalogCompatibilityEntityQueries(queryClient, variables.metahubId)
         }
     })
 }
@@ -198,6 +203,7 @@ export function useUpdateCatalog() {
                 metahubsQueryKeys.hubs(variables.metahubId),
                 metahubsQueryKeys.detail(variables.metahubId)
             )
+            invalidateCatalogCompatibilityEntityQueries(queryClient, variables.metahubId)
         }
     })
 }
@@ -242,6 +248,7 @@ export function useUpdateCatalogAtMetahub() {
                 metahubsQueryKeys.hubs(variables.metahubId),
                 metahubsQueryKeys.detail(variables.metahubId)
             )
+            invalidateCatalogCompatibilityEntityQueries(queryClient, variables.metahubId)
         }
     })
 }
@@ -285,6 +292,7 @@ export function useDeleteCatalog() {
                 metahubsQueryKeys.hubs(variables.metahubId),
                 metahubsQueryKeys.detail(variables.metahubId)
             )
+            invalidateCatalogCompatibilityEntityQueries(queryClient, variables.metahubId)
             if (variables.hubId) {
                 safeInvalidateQueries(queryClient, ['catalogs'], metahubsQueryKeys.catalogs(variables.metahubId, variables.hubId))
             }
@@ -372,6 +380,7 @@ export function useCopyCatalog() {
                 queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allCatalogs(variables.metahubId), refetchType: 'inactive' })
                 queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.hubs(variables.metahubId), refetchType: 'inactive' })
                 queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(variables.metahubId), refetchType: 'inactive' })
+                invalidateCatalogCompatibilityEntityQueries(queryClient, variables.metahubId)
                 if (copiedCatalog && Array.isArray(copiedCatalog.hubs)) {
                     for (const hub of copiedCatalog.hubs as Array<{ id: string }>) {
                         queryClient.invalidateQueries({
@@ -434,6 +443,7 @@ export function useReorderCatalog() {
                 metahubsQueryKeys.hubs(variables.metahubId),
                 metahubsQueryKeys.detail(variables.metahubId)
             )
+            invalidateCatalogCompatibilityEntityQueries(queryClient, variables.metahubId)
             if (variables.hubId) {
                 safeInvalidateQueriesInactive(queryClient, ['catalogs'], metahubsQueryKeys.catalogs(variables.metahubId, variables.hubId))
             }

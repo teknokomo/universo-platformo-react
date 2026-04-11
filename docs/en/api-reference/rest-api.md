@@ -18,6 +18,20 @@ the removed legacy workspace taxonomy.
 Typical route groups include system health, auth, locales, profile, onboarding,
 applications, connectors, admin, public metahub, and metahub design-time APIs.
 
+## Generic Entity Authoring Endpoints
+
+- `GET /metahub/{metahubId}/entity-types` and `POST /metahub/{metahubId}/entity-types` list and create custom entity type definitions for the Entities workspace.
+- `GET /metahub/{metahubId}/entity-type/{entityTypeId}`, `PATCH /metahub/{metahubId}/entity-type/{entityTypeId}`, and `DELETE /metahub/{metahubId}/entity-type/{entityTypeId}` manage one custom entity type, including its publication flag.
+- `GET /metahub/{metahubId}/entities`, `POST /metahub/{metahubId}/entities`, and `POST /metahub/{metahubId}/entities/reorder` list, create, and reorder design-time instances for one custom kind.
+- `GET /metahub/{metahubId}/entity/{entityId}`, `PATCH /metahub/{metahubId}/entity/{entityId}`, `DELETE /metahub/{metahubId}/entity/{entityId}`, `POST /metahub/{metahubId}/entity/{entityId}/restore`, `DELETE /metahub/{metahubId}/entity/{entityId}/permanent`, and `POST /metahub/{metahubId}/entity/{entityId}/copy` manage one custom entity instance through the generic route surface.
+
+## Entity Automation Endpoints
+
+- `GET /metahub/{metahubId}/object/{objectId}/actions` and `POST /metahub/{metahubId}/object/{objectId}/actions` list and create object-owned entity actions.
+- `GET /metahub/{metahubId}/action/{actionId}`, `PATCH /metahub/{metahubId}/action/{actionId}`, and `DELETE /metahub/{metahubId}/action/{actionId}` read, update, and remove one action.
+- `GET /metahub/{metahubId}/object/{objectId}/event-bindings` and `POST /metahub/{metahubId}/object/{objectId}/event-bindings` list and create event bindings for one object.
+- `GET /metahub/{metahubId}/event-binding/{bindingId}`, `PATCH /metahub/{metahubId}/event-binding/{bindingId}`, and `DELETE /metahub/{metahubId}/event-binding/{bindingId}` read, update, and remove one binding.
+
 ## Interactive Documentation Source
 
 The interactive Swagger and OpenAPI presentation layer is provided by

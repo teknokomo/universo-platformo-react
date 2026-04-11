@@ -4,9 +4,7 @@ import type { DbExecutor, SqlQueryable } from '@universo/utils'
 import { localizedContent, validation, database } from '@universo/utils'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 const { normalizeCatalogCopyOptions, normalizeCodenameForStyle, isValidCodenameForStyle } = validation
-import { queryMany, queryOne } from '@universo/utils/database'
-import { qSchemaTable } from '@universo/database'
-import { type CatalogCopyOptions, type CatalogSystemFieldState, MetaEntityKind } from '@universo/types'
+import { type CatalogCopyOptions, MetaEntityKind } from '@universo/types'
 import { findMetahubById } from '../../../persistence'
 import { getRequestDbExecutor } from '../../../utils'
 import { getRequestDbSession } from '@universo/utils/database'
@@ -16,9 +14,10 @@ import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
 import { MetahubElementsService } from '../../metahubs/services/MetahubElementsService'
 import { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
+import { EntityTypeService } from '../../entities/services/EntityTypeService'
 import { validateListQuery } from '../../shared/queryParams'
 import { toTimestamp } from '../../shared/timestamps'
-import { MetahubValidationError, MetahubDomainError } from '../../shared/domainErrors'
+import { MetahubValidationError } from '../../shared/domainErrors'
 import { ensureMetahubAccess } from '../../shared/guards'
 import { resolveUserId } from '../../shared/routeAuth'
 import type { createMetahubHandlerFactory } from '../../shared/createMetahubHandler'
@@ -37,6 +36,13 @@ import {
 } from '../../shared/codenamePayload'
 import { getCodenameText } from '../../shared/codename'
 import { readPlatformSystemAttributesPolicy } from '../../shared'
+import { copyDesignTimeObjectChildren } from '../../entities/services/designTimeObjectChildrenCopy'
+import { executeBlockedDelete, executeHubScopedDelete } from '../../entities/services/legacyBuiltinObjectCompatibility'
+import {
+    createCatalogCompatibleKindSet,
+    findBlockingCatalogReferences,
+    resolveCatalogCompatibleKinds
+} from '../services/catalogCompatibility'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -52,6 +58,8 @@ type CatalogObjectRow = {
     id: string
     kind?: string
     codename: unknown
+    name?: unknown
+    description?: unknown
     presentation?: {
         name?: unknown
         description?: unknown
@@ -87,32 +95,6 @@ type CatalogListItemRow = {
     hubs: HubSummaryRow[]
 }
 
-type CatalogAttributeRow = {
-    id: string
-    codename?: string
-    data_type?: string
-    presentation?: unknown
-    validation_rules?: unknown
-    ui_config?: unknown
-    sort_order?: number
-    is_required?: boolean
-    is_display_attribute?: boolean
-    target_object_id?: string | null
-    target_object_kind?: string | null
-    target_constant_id?: string | null
-    parent_attribute_id?: string | null
-    is_system?: boolean
-    system_key?: string | null
-    is_system_managed?: boolean
-    is_system_enabled?: boolean
-}
-
-type CatalogElementRow = {
-    data?: unknown
-    sort_order?: number
-    owner_id?: string | null
-}
-
 type CopiedCatalogRow = {
     id: string
     codename: unknown
@@ -144,9 +126,10 @@ const mapHubSummary = (hub: Record<string, unknown>): HubSummaryRow => ({
 
 const mapHubSummaries = (hubs: Record<string, unknown>[]): HubSummaryRow[] => hubs.map(mapHubSummary)
 
-const isCatalogObject = (row: CatalogObjectRow | null | undefined): row is CatalogObjectRow => {
+const isCatalogObject = (row: CatalogObjectRow | null | undefined, compatibleKinds?: Set<string>): row is CatalogObjectRow => {
     if (!row) return false
-    return row.kind === undefined || row.kind === MetaEntityKind.CATALOG
+    const kind = typeof row.kind === 'string' && row.kind.length > 0 ? row.kind : MetaEntityKind.CATALOG
+    return compatibleKinds ? compatibleKinds.has(kind) : kind === MetaEntityKind.CATALOG
 }
 
 const getCatalogHubIds = (row: CatalogObjectRow): string[] => {
@@ -161,6 +144,13 @@ const getLocalizedPrimaryLocale = (value: unknown): string | undefined => {
     return typeof primaryLocale === 'string' && primaryLocale.length > 0 ? primaryLocale : undefined
 }
 
+const getCatalogPresentation = (row: Pick<CatalogObjectRow, 'presentation'>): Record<string, unknown> =>
+    row.presentation && typeof row.presentation === 'object' ? (row.presentation as Record<string, unknown>) : {}
+
+const getCatalogNameField = (row: CatalogObjectRow): unknown => row.name ?? getCatalogPresentation(row).name
+
+const getCatalogDescriptionField = (row: CatalogObjectRow): unknown => row.description ?? getCatalogPresentation(row).description
+
 const mapCatalogListItem = (
     row: CatalogObjectRow,
     metahubId: string,
@@ -170,8 +160,8 @@ const mapCatalogListItem = (
     id: row.id,
     metahubId,
     codename: row.codename,
-    name: row.presentation?.name || {},
-    description: row.presentation?.description || {},
+    name: getCatalogNameField(row) || {},
+    description: getCatalogDescriptionField(row) || {},
     isSingleHub: row.config?.isSingleHub || false,
     isRequiredHub: row.config?.isRequiredHub || false,
     sortOrder: row.config?.sortOrder || 0,
@@ -204,13 +194,6 @@ const buildDefaultCopyNameInput = (name: unknown): Record<string, string> => {
     }
     return result
 }
-
-const findBlockingCatalogReferences = async (
-    metahubId: string,
-    catalogId: string,
-    attributesService: MetahubAttributesService,
-    userId?: string
-) => attributesService.findCatalogReferenceBlockers(metahubId, catalogId, userId)
 
 const getLocalizedCandidates = (value: unknown): string[] => {
     if (!value || typeof value !== 'object') return []
@@ -380,8 +363,50 @@ const createDomainServices = (exec: DbExecutor, schemaService: MetahubSchemaServ
     const attributesService = new MetahubAttributesService(exec, schemaService)
     const elementsService = new MetahubElementsService(exec, schemaService, objectsService, attributesService)
     const settingsService = new MetahubSettingsService(exec, schemaService)
-    return { objectsService, hubsService, attributesService, elementsService, settingsService }
+    const entityTypeService = new EntityTypeService(exec, schemaService)
+    return { objectsService, hubsService, attributesService, elementsService, settingsService, entityTypeService }
 }
+
+const resolveCatalogObjectKind = (catalog: Pick<CatalogObjectRow, 'kind'>): string =>
+    typeof catalog.kind === 'string' && catalog.kind.length > 0 ? catalog.kind : MetaEntityKind.CATALOG
+
+const createCatalogLikeObject = (
+    objectsService: MetahubObjectsService,
+    metahubId: string,
+    kind: string,
+    input: {
+        codename: unknown
+        name: unknown
+        description?: unknown
+        config?: unknown
+        createdBy?: string | null
+    },
+    userId?: string,
+    db?: SqlQueryable
+) =>
+    kind === MetaEntityKind.CATALOG
+        ? objectsService.createCatalog(metahubId, input, userId, db)
+        : objectsService.createObject(metahubId, kind, input, userId, db)
+
+const updateCatalogLikeObject = (
+    objectsService: MetahubObjectsService,
+    metahubId: string,
+    catalogId: string,
+    kind: string,
+    input: {
+        codename?: unknown
+        name?: unknown
+        description?: unknown
+        config?: unknown
+        updatedBy?: string | null
+        expectedVersion?: number
+    },
+    userId?: string,
+    db?: SqlQueryable
+) =>
+    kind === MetaEntityKind.CATALOG
+        ? objectsService.updateCatalog(metahubId, catalogId, input, userId)
+        : objectsService.updateObject(metahubId, catalogId, kind, input, userId, db)
 
 // ---------------------------------------------------------------------------
 // Controller factory
@@ -392,7 +417,10 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
     // GET /metahub/:metahubId/catalogs
     // -----------------------------------------------------------------------
     const list = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {
-        const { objectsService, hubsService, attributesService, elementsService } = createDomainServices(exec, schemaService)
+        const { objectsService, hubsService, attributesService, elementsService, entityTypeService } = createDomainServices(
+            exec,
+            schemaService
+        )
 
         let validatedQuery
         try {
@@ -406,7 +434,8 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
 
         const { limit, offset, sortBy, sortOrder, search } = validatedQuery
 
-        const rawCatalogs = (await objectsService.findAll(metahubId, userId)) as CatalogObjectRow[]
+        const catalogCompatibleKinds = await resolveCatalogCompatibleKinds(entityTypeService, metahubId, userId)
+        const rawCatalogs = (await objectsService.findAllByKinds(metahubId, catalogCompatibleKinds, userId)) as CatalogObjectRow[]
         const catalogIds = rawCatalogs.map((row) => row.id)
 
         const [attributesCounts, elementsCounts] = await Promise.all([
@@ -462,8 +491,12 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
     // -----------------------------------------------------------------------
     const create = createHandler(
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
-            const { objectsService, hubsService, attributesService, settingsService } = createDomainServices(exec, schemaService)
+            const { objectsService, hubsService, attributesService, settingsService, entityTypeService } = createDomainServices(
+                exec,
+                schemaService
+            )
             const platformSystemAttributesPolicy = await readPlatformSystemAttributesPolicy(exec)
+            const catalogCompatibleKinds = await resolveCatalogCompatibleKinds(entityTypeService, metahubId, userId)
 
             const parsed = createCatalogSchema.safeParse(req.body)
             if (!parsed.success) {
@@ -495,7 +528,7 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                 })
             }
 
-            const existing = await objectsService.findByCodename(metahubId, normalizedCodename, userId)
+            const existing = await objectsService.findByCodenameInKinds(metahubId, normalizedCodename, catalogCompatibleKinds, userId)
             if (existing) {
                 return res.status(409).json({ error: 'Catalog with this codename already exists in this metahub' })
             }
@@ -585,8 +618,8 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                 id: created.id,
                 metahubId,
                 codename: created.codename,
-                name: created.presentation.name,
-                description: created.presentation.description,
+                name: getCatalogNameField(created as CatalogObjectRow) ?? {},
+                description: getCatalogDescriptionField(created as CatalogObjectRow) ?? null,
                 isSingleHub: created.config.isSingleHub,
                 isRequiredHub: created.config.isRequiredHub,
                 sortOrder: created.config.sortOrder,
@@ -605,10 +638,12 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
     const update = createHandler(
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
             const { catalogId } = req.params
-            const { objectsService, hubsService, settingsService } = createDomainServices(exec, schemaService)
+            const { objectsService, hubsService, settingsService, entityTypeService } = createDomainServices(exec, schemaService)
+            const catalogCompatibleKinds = await resolveCatalogCompatibleKinds(entityTypeService, metahubId, userId)
+            const catalogCompatibleKindSet = createCatalogCompatibleKindSet(catalogCompatibleKinds)
 
             const catalog = await objectsService.findById(metahubId, catalogId, userId)
-            if (!isCatalogObject(catalog)) {
+            if (!isCatalogObject(catalog, catalogCompatibleKindSet)) {
                 return res.status(404).json({ error: 'Catalog not found' })
             }
 
@@ -630,11 +665,12 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                 expectedVersion
             } = parsed.data
 
-            const currentPresentation = catalog.presentation || {}
+            const currentName = getCatalogNameField(catalog)
+            const currentDescription = getCatalogDescriptionField(catalog)
             const currentConfig = catalog.config || {}
 
-            let finalName = currentPresentation.name
-            let finalDescription = currentPresentation.description
+            let finalName = currentName
+            let finalDescription = currentDescription
             let finalCodename: unknown = catalog.codename
             let finalCodenameText = getCatalogCodenameText(catalog.codename)
 
@@ -675,7 +711,12 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                     })
                 }
                 if (normalizedCodename !== getCatalogCodenameText(catalog.codename)) {
-                    const existing = await objectsService.findByCodename(metahubId, normalizedCodename, userId)
+                    const existing = await objectsService.findByCodenameInKinds(
+                        metahubId,
+                        normalizedCodename,
+                        catalogCompatibleKinds,
+                        userId
+                    )
                     if (existing && existing.id !== catalogId) {
                         return res.status(409).json({ error: 'Catalog with this codename already exists in this metahub' })
                     }
@@ -699,7 +740,7 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                 if (Object.keys(sanitizedName).length === 0) {
                     return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
                 }
-                const primary = namePrimaryLocale ?? getLocalizedPrimaryLocale(currentPresentation.name) ?? 'en'
+                const primary = namePrimaryLocale ?? getLocalizedPrimaryLocale(currentName) ?? 'en'
                 const nameVlc = buildLocalizedContent(sanitizedName, primary, primary)
                 if (nameVlc) {
                     finalName = nameVlc
@@ -711,8 +752,8 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                 if (Object.keys(sanitizedDescription).length > 0) {
                     const primary =
                         descriptionPrimaryLocale ??
-                        getLocalizedPrimaryLocale(currentPresentation.description) ??
-                        getLocalizedPrimaryLocale(currentPresentation.name) ??
+                        getLocalizedPrimaryLocale(currentDescription) ??
+                        getLocalizedPrimaryLocale(currentName) ??
                         namePrimaryLocale ??
                         'en'
                     const descriptionVlc = buildLocalizedContent(sanitizedDescription, primary, primary)
@@ -740,9 +781,11 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                 }
             }
 
-            const updated = (await objectsService.updateCatalog(
+            const updated = (await updateCatalogLikeObject(
+                objectsService,
                 metahubId,
                 catalogId,
+                resolveCatalogObjectKind(catalog),
                 {
                     codename: finalCodenameText !== getCatalogCodenameText(catalog.codename) ? finalCodename : undefined,
                     name: finalName,
@@ -760,20 +803,23 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                 userId
             )) as CatalogObjectRow
 
+            const persistedUpdated = (await objectsService.findById(metahubId, updated.id, userId)) as CatalogObjectRow | null
+            const responseCatalog = persistedUpdated ?? updated
+
             const hubs = targetHubIds.length > 0 ? await hubsService.findByIds(metahubId, targetHubIds, userId) : []
 
             res.json({
-                id: updated.id,
+                id: responseCatalog.id,
                 metahubId,
-                codename: updated.codename,
-                name: updated.presentation?.name ?? {},
-                description: updated.presentation?.description,
-                isSingleHub: updated.config?.isSingleHub ?? false,
-                isRequiredHub: updated.config?.isRequiredHub ?? false,
-                sortOrder: updated.config?.sortOrder ?? 0,
-                version: updated._upl_version || 1,
-                createdAt: updated.created_at,
-                updatedAt: updated.updated_at,
+                codename: responseCatalog.codename,
+                name: getCatalogNameField(responseCatalog) ?? {},
+                description: getCatalogDescriptionField(responseCatalog) ?? null,
+                isSingleHub: responseCatalog.config?.isSingleHub ?? false,
+                isRequiredHub: responseCatalog.config?.isRequiredHub ?? false,
+                sortOrder: responseCatalog.config?.sortOrder ?? 0,
+                version: responseCatalog._upl_version || 1,
+                createdAt: responseCatalog.created_at,
+                updatedAt: responseCatalog.updated_at,
                 hubs: mapHubSummaries(hubs)
             })
         },
@@ -785,7 +831,10 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
     // -----------------------------------------------------------------------
     const listByHub = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {
         const { hubId } = req.params
-        const { objectsService, hubsService, attributesService, elementsService } = createDomainServices(exec, schemaService)
+        const { objectsService, hubsService, attributesService, elementsService, entityTypeService } = createDomainServices(
+            exec,
+            schemaService
+        )
 
         let validatedQuery
         try {
@@ -799,7 +848,8 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
 
         const { limit, offset, sortBy, sortOrder, search } = validatedQuery
 
-        const allCatalogs = (await objectsService.findAll(metahubId, userId)) as CatalogObjectRow[]
+        const catalogCompatibleKinds = await resolveCatalogCompatibleKinds(entityTypeService, metahubId, userId)
+        const allCatalogs = (await objectsService.findAllByKinds(metahubId, catalogCompatibleKinds, userId)) as CatalogObjectRow[]
 
         const hubCatalogs = allCatalogs.filter((cat) => getCatalogHubIds(cat).includes(hubId))
 
@@ -860,20 +910,28 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
         const exec = getRequestDbExecutor(req, getDbExecutor())
         const dbSession = getRequestDbSession(req)
         const schemaService = new MetahubSchemaService(exec)
-        const { objectsService } = createDomainServices(exec, schemaService)
+        const { objectsService, entityTypeService } = createDomainServices(exec, schemaService)
 
         const userId = resolveUserId(req)
         if (!userId) return res.status(401).json({ error: 'Unauthorized' })
         await ensureMetahubAccess(exec, userId, metahubId, 'editContent', dbSession)
+
+        const catalogCompatibleKinds = await resolveCatalogCompatibleKinds(entityTypeService, metahubId, userId)
+        const catalogCompatibleKindSet = createCatalogCompatibleKindSet(catalogCompatibleKinds)
 
         const parsed = reorderCatalogsSchema.safeParse(req.body)
         if (!parsed.success) {
             return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
         }
 
+        const catalog = await objectsService.findById(metahubId, parsed.data.catalogId, userId)
+        if (!isCatalogObject(catalog, catalogCompatibleKindSet)) {
+            return res.status(404).json({ error: 'Catalog not found' })
+        }
+
         const updated = await objectsService.reorderByKind(
             metahubId,
-            MetaEntityKind.CATALOG,
+            catalog.kind ?? MetaEntityKind.CATALOG,
             parsed.data.catalogId,
             parsed.data.newSortOrder,
             userId
@@ -889,10 +947,16 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
     // -----------------------------------------------------------------------
     const getByHub = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {
         const { hubId, catalogId } = req.params
-        const { objectsService, hubsService, attributesService, elementsService } = createDomainServices(exec, schemaService)
+        const { objectsService, hubsService, attributesService, elementsService, entityTypeService } = createDomainServices(
+            exec,
+            schemaService
+        )
+        const catalogCompatibleKindSet = createCatalogCompatibleKindSet(
+            await resolveCatalogCompatibleKinds(entityTypeService, metahubId, userId)
+        )
 
         const catalog = await objectsService.findById(metahubId, catalogId, userId)
-        if (!isCatalogObject(catalog)) {
+        if (!isCatalogObject(catalog, catalogCompatibleKindSet)) {
             return res.status(404).json({ error: 'Catalog not found' })
         }
 
@@ -917,8 +981,8 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
             id: catalog.id,
             metahubId,
             codename: catalog.codename,
-            name: catalog.presentation?.name ?? {},
-            description: catalog.presentation?.description,
+            name: getCatalogNameField(catalog) ?? {},
+            description: getCatalogDescriptionField(catalog) ?? null,
             isSingleHub: currentConfig.isSingleHub,
             isRequiredHub: currentConfig.isRequiredHub,
             sortOrder: currentConfig.sortOrder,
@@ -936,10 +1000,16 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
     // -----------------------------------------------------------------------
     const getById = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {
         const { catalogId } = req.params
-        const { objectsService, hubsService, attributesService, elementsService } = createDomainServices(exec, schemaService)
+        const { objectsService, hubsService, attributesService, elementsService, entityTypeService } = createDomainServices(
+            exec,
+            schemaService
+        )
+        const catalogCompatibleKindSet = createCatalogCompatibleKindSet(
+            await resolveCatalogCompatibleKinds(entityTypeService, metahubId, userId)
+        )
 
         const catalog = await objectsService.findById(metahubId, catalogId, userId)
-        if (!isCatalogObject(catalog)) {
+        if (!isCatalogObject(catalog, catalogCompatibleKindSet)) {
             return res.status(404).json({ error: 'Catalog not found' })
         }
 
@@ -959,8 +1029,8 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
             id: catalog.id,
             metahubId,
             codename: catalog.codename,
-            name: catalog.presentation?.name ?? {},
-            description: catalog.presentation?.description,
+            name: getCatalogNameField(catalog) ?? {},
+            description: getCatalogDescriptionField(catalog) ?? null,
             isSingleHub: currentConfig.isSingleHub,
             isRequiredHub: currentConfig.isRequiredHub,
             sortOrder: currentConfig.sortOrder,
@@ -992,10 +1062,15 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
         await ensureMetahubAccess(exec, userId, metahubId, 'editContent', dbSession)
 
         const schemaService = new MetahubSchemaService(exec)
-        const { objectsService, hubsService, attributesService, settingsService } = createDomainServices(exec, schemaService)
+        const { objectsService, hubsService, attributesService, settingsService, entityTypeService } = createDomainServices(
+            exec,
+            schemaService
+        )
+        const catalogCompatibleKinds = await resolveCatalogCompatibleKinds(entityTypeService, metahubId, userId)
+        const catalogCompatibleKindSet = createCatalogCompatibleKindSet(catalogCompatibleKinds)
 
         const sourceCatalog = await objectsService.findById(metahubId, catalogId, userId)
-        if (!sourceCatalog || sourceCatalog.kind !== MetaEntityKind.CATALOG) {
+        if (!isCatalogObject(sourceCatalog, catalogCompatibleKindSet)) {
             return res.status(404).json({ error: 'Catalog not found' })
         }
 
@@ -1011,23 +1086,22 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
             return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
         }
 
-        const sourcePresentation = sourceCatalog.presentation ?? {}
+        const sourceName = getCatalogNameField(sourceCatalog)
+        const sourceDescription = getCatalogDescriptionField(sourceCatalog)
         const sourceConfig = sourceCatalog.config ?? {}
 
-        const requestedName = parsed.data.name
-            ? sanitizeLocalizedInput(parsed.data.name)
-            : buildDefaultCopyNameInput(sourcePresentation.name)
+        const requestedName = parsed.data.name ? sanitizeLocalizedInput(parsed.data.name) : buildDefaultCopyNameInput(sourceName)
         if (Object.keys(requestedName).length === 0) {
             return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
         }
 
-        const sourceNamePrimary = sourcePresentation.name?._primary ?? 'en'
+        const sourceNamePrimary = getLocalizedPrimaryLocale(sourceName) ?? 'en'
         const nameVlc = buildLocalizedContent(requestedName, parsed.data.namePrimaryLocale, sourceNamePrimary)
         if (!nameVlc) {
             return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
         }
 
-        let descriptionVlc: unknown = sourcePresentation.description ?? null
+        let descriptionVlc: unknown = sourceDescription ?? null
         if (parsed.data.description !== undefined) {
             const sanitizedDescription = sanitizeLocalizedInput(parsed.data.description)
             if (Object.keys(sanitizedDescription).length > 0) {
@@ -1069,12 +1143,9 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
         })
 
         const schemaName = await schemaService.ensureSchema(metahubId, userId)
-        const attrQt = qSchemaTable(schemaName, '_mhb_attributes')
-        const elemQt = qSchemaTable(schemaName, '_mhb_elements')
 
         const createCatalogCopy = async (codename: string) => {
             return exec.transaction(async (trx: SqlQueryable) => {
-                const now = new Date()
                 const codenamePayloadForCopy = syncCodenamePayloadText(
                     parsed.data.codename ?? sourceCatalog.codename,
                     codenameFallbackPrimaryLocale,
@@ -1089,8 +1160,10 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                     ? sourceConfig.hubs.filter((value: unknown): value is string => typeof value === 'string')
                     : []
 
-                const updatedCatalog = (await objectsService.createCatalog(
+                const updatedCatalog = (await createCatalogLikeObject(
+                    objectsService,
                     metahubId,
+                    resolveCatalogObjectKind(sourceCatalog),
                     {
                         codename: codenamePayloadForCopy,
                         name: nameVlc,
@@ -1106,158 +1179,24 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                     trx
                 )) as CopiedCatalogRow
 
-                let copiedAttributesCount = 0
-                if (copyOptions.copyAttributes) {
-                    const sourceAttributes = await queryMany<CatalogAttributeRow>(
-                        trx,
-                        `SELECT * FROM ${attrQt}
-                         WHERE object_id = $1 AND _upl_deleted = false AND _mhb_deleted = false
-                         ORDER BY sort_order ASC, _upl_created_at ASC`,
-                        [catalogId]
-                    )
-
-                    const attributeIdMap = new Map<string, string>()
-                    const pendingAttributes = [...sourceAttributes]
-
-                    while (pendingAttributes.length > 0) {
-                        let progressed = false
-
-                        for (let index = 0; index < pendingAttributes.length; index += 1) {
-                            const sourceAttr = pendingAttributes[index]
-                            const sourceParentId = sourceAttr.parent_attribute_id as string | null
-
-                            if (sourceParentId && !attributeIdMap.has(sourceParentId)) {
-                                continue
-                            }
-
-                            const targetObjectId =
-                                sourceAttr.target_object_id && sourceAttr.target_object_id === catalogId
-                                    ? updatedCatalog.id
-                                    : sourceAttr.target_object_id
-
-                            const createdAttr = await queryOne<{ id: string }>(
-                                trx,
-                                `INSERT INTO ${attrQt}
-                                 (object_id, codename, data_type, presentation, validation_rules, ui_config,
-                                  sort_order, is_required, is_display_attribute, target_object_id, target_object_kind,
-                                  target_constant_id, parent_attribute_id, is_system, system_key, is_system_managed,
-                                  is_system_enabled, _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
-                                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $18, $19)
-                                 RETURNING id`,
-                                [
-                                    updatedCatalog.id,
-                                    sourceAttr.codename,
-                                    sourceAttr.data_type,
-                                    JSON.stringify(sourceAttr.presentation ?? {}),
-                                    JSON.stringify(sourceAttr.validation_rules ?? {}),
-                                    JSON.stringify(sourceAttr.ui_config ?? {}),
-                                    sourceAttr.sort_order ?? 0,
-                                    sourceAttr.is_required ?? false,
-                                    sourceAttr.is_display_attribute ?? false,
-                                    targetObjectId ?? null,
-                                    sourceAttr.target_object_kind ?? null,
-                                    sourceAttr.target_constant_id ?? null,
-                                    sourceParentId ? attributeIdMap.get(sourceParentId) ?? null : null,
-                                    sourceAttr.is_system ?? false,
-                                    sourceAttr.system_key ?? null,
-                                    sourceAttr.is_system_managed ?? false,
-                                    sourceAttr.is_system_enabled ?? true,
-                                    now,
-                                    userId ?? null
-                                ]
-                            )
-
-                            attributeIdMap.set(sourceAttr.id, createdAttr!.id)
-                            pendingAttributes.splice(index, 1)
-                            index -= 1
-                            copiedAttributesCount += 1
-                            progressed = true
-                        }
-
-                        if (!progressed) {
-                            throw new MetahubDomainError({
-                                message: 'Failed to copy catalog attributes hierarchy',
-                                statusCode: 500,
-                                code: 'COPY_ATTRIBUTES_FAILED'
-                            })
-                        }
-                    }
-                }
-
-                let sourceSystemStates: CatalogSystemFieldState[] | undefined
-                if (!copyOptions.copyAttributes) {
-                    const sourceSystemRows = await queryMany<Pick<CatalogAttributeRow, 'system_key' | 'is_system_enabled'>>(
-                        trx,
-                        `SELECT system_key, is_system_enabled
-                         FROM ${attrQt}
-                         WHERE object_id = $1
-                           AND is_system = true
-                           AND _upl_deleted = false
-                           AND _mhb_deleted = false
-                         ORDER BY sort_order ASC, _upl_created_at ASC`,
-                        [catalogId]
-                    )
-
-                    sourceSystemStates = sourceSystemRows.flatMap((row) =>
-                        typeof row.system_key === 'string'
-                            ? [
-                                  {
-                                      key: row.system_key as CatalogSystemFieldState['key'],
-                                      enabled: row.is_system_enabled !== false
-                                  }
-                              ]
-                            : []
-                    )
-                }
-
-                let copiedElementsCount = 0
-                if (copyOptions.copyElements) {
-                    const sourceElements = await queryMany<CatalogElementRow>(
-                        trx,
-                        `SELECT * FROM ${elemQt}
-                         WHERE object_id = $1 AND _upl_deleted = false AND _mhb_deleted = false
-                         ORDER BY sort_order ASC, _upl_created_at ASC`,
-                        [catalogId]
-                    )
-
-                    if (sourceElements.length > 0) {
-                        const placeholders: string[] = []
-                        const params: unknown[] = []
-                        let idx = 1
-                        for (const element of sourceElements) {
-                            placeholders.push(
-                                `($${idx}, $${idx + 1}, $${idx + 2}, $${idx + 3}, $${idx + 4}, $${idx + 5}, $${idx + 4}, $${idx + 5})`
-                            )
-                            params.push(
-                                updatedCatalog.id,
-                                JSON.stringify(element.data ?? {}),
-                                element.sort_order ?? 0,
-                                element.owner_id ?? null,
-                                now,
-                                userId ?? null
-                            )
-                            idx += 6
-                        }
-                        const insertedRows = await trx.query(
-                            `INSERT INTO ${elemQt}
-                             (object_id, data, sort_order, owner_id, _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
-                             VALUES ${placeholders.join(', ')}
-                             RETURNING id`,
-                            params
-                        )
-                        copiedElementsCount = insertedRows.length
-                    }
-                }
-
-                await attributesService.ensureCatalogSystemAttributes(metahubId, updatedCatalog.id, userId, trx, {
-                    states: sourceSystemStates,
-                    policy: platformSystemAttributesPolicy
+                const copyResult = await copyDesignTimeObjectChildren({
+                    metahubId,
+                    sourceObjectId: catalogId,
+                    targetObjectId: updatedCatalog.id,
+                    tx: trx,
+                    userId,
+                    schemaName,
+                    copyAttributes: copyOptions.copyAttributes,
+                    copyElements: copyOptions.copyElements,
+                    ensureObjectSystemAttributes: attributesService.ensureObjectSystemAttributes.bind(attributesService),
+                    platformSystemAttributesPolicy,
+                    attributeCopyFailureMessage: 'Failed to copy catalog attributes hierarchy'
                 })
 
                 return {
                     catalog: updatedCatalog,
-                    copiedAttributesCount,
-                    copiedElementsCount
+                    copiedAttributesCount: copyResult.attributesCopied,
+                    copiedElementsCount: copyResult.elementsCopied
                 }
             })
         }
@@ -1266,6 +1205,10 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
 
         for (let attempt = 1; attempt <= CODENAME_RETRY_MAX_ATTEMPTS; attempt += 1) {
             const codenameCandidate = buildCodenameAttempt(normalizedBaseCodename, attempt, codenameStyle)
+            const existing = await objectsService.findByCodenameInKinds(metahubId, codenameCandidate, catalogCompatibleKinds, userId)
+            if (existing) {
+                continue
+            }
             try {
                 copiedResult = await createCatalogCopy(codenameCandidate)
                 break
@@ -1295,8 +1238,8 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
             id: copiedCatalog.id,
             metahubId,
             codename: copiedCatalog.codename,
-            name: copiedCatalog.presentation?.name ?? {},
-            description: copiedCatalog.presentation?.description ?? null,
+            name: getCatalogNameField(copiedCatalog) ?? {},
+            description: getCatalogDescriptionField(copiedCatalog) ?? null,
             isSingleHub: copiedConfig.isSingleHub ?? false,
             isRequiredHub: copiedConfig.isRequiredHub ?? false,
             sortOrder: copiedConfig.sortOrder ?? 0,
@@ -1315,8 +1258,12 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
     const createByHub = createHandler(
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
             const { hubId } = req.params
-            const { objectsService, hubsService, attributesService, settingsService } = createDomainServices(exec, schemaService)
+            const { objectsService, hubsService, attributesService, settingsService, entityTypeService } = createDomainServices(
+                exec,
+                schemaService
+            )
             const platformSystemAttributesPolicy = await readPlatformSystemAttributesPolicy(exec)
+            const catalogCompatibleKinds = await resolveCatalogCompatibleKinds(entityTypeService, metahubId, userId)
 
             const hub = await hubsService.findById(metahubId, hubId, userId)
             if (!hub) {
@@ -1353,7 +1300,7 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                 })
             }
 
-            const existing = await objectsService.findByCodename(metahubId, normalizedCodename, userId)
+            const existing = await objectsService.findByCodenameInKinds(metahubId, normalizedCodename, catalogCompatibleKinds, userId)
             if (existing) {
                 return res.status(409).json({ error: 'Catalog with this codename already exists in this metahub' })
             }
@@ -1437,8 +1384,8 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                 id: catalog.id,
                 metahubId,
                 codename: catalog.codename,
-                name: catalog.presentation.name,
-                description: catalog.presentation.description,
+                name: getCatalogNameField(catalog as CatalogObjectRow) ?? {},
+                description: getCatalogDescriptionField(catalog as CatalogObjectRow) ?? null,
                 isSingleHub: catalog.config.isSingleHub,
                 isRequiredHub: catalog.config.isRequiredHub,
                 sortOrder: catalog.config.sortOrder,
@@ -1457,10 +1404,12 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
     const updateByHub = createHandler(
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
             const { hubId, catalogId } = req.params
-            const { objectsService, hubsService, settingsService } = createDomainServices(exec, schemaService)
+            const { objectsService, hubsService, settingsService, entityTypeService } = createDomainServices(exec, schemaService)
+            const catalogCompatibleKinds = await resolveCatalogCompatibleKinds(entityTypeService, metahubId, userId)
+            const catalogCompatibleKindSet = createCatalogCompatibleKindSet(catalogCompatibleKinds)
 
             const catalog = await objectsService.findById(metahubId, catalogId, userId)
-            if (!isCatalogObject(catalog)) {
+            if (!isCatalogObject(catalog, catalogCompatibleKindSet)) {
                 return res.status(404).json({ error: 'Catalog not found' })
             }
 
@@ -1487,11 +1436,12 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                 expectedVersion
             } = parsed.data
 
-            const currentPresentation = catalog.presentation || {}
+            const currentName = getCatalogNameField(catalog)
+            const currentDescription = getCatalogDescriptionField(catalog)
             const currentConfig = catalog.config || {}
 
-            let finalName = currentPresentation.name
-            let finalDescription = currentPresentation.description
+            let finalName = currentName
+            let finalDescription = currentDescription
             let finalCodename: unknown = catalog.codename
             let finalCodenameText = getCatalogCodenameText(catalog.codename)
             let targetHubIds = getCatalogHubIds(catalog)
@@ -1529,7 +1479,12 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                     })
                 }
                 if (normalizedCodename !== getCatalogCodenameText(catalog.codename)) {
-                    const existing = await objectsService.findByCodename(metahubId, normalizedCodename, userId)
+                    const existing = await objectsService.findByCodenameInKinds(
+                        metahubId,
+                        normalizedCodename,
+                        catalogCompatibleKinds,
+                        userId
+                    )
                     if (existing && existing.id !== catalogId) {
                         return res.status(409).json({ error: 'Catalog with this codename already exists' })
                     }
@@ -1551,7 +1506,7 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                 if (Object.keys(sanitizedName).length === 0) {
                     return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
                 }
-                const primary = namePrimaryLocale ?? getLocalizedPrimaryLocale(currentPresentation.name) ?? 'en'
+                const primary = namePrimaryLocale ?? getLocalizedPrimaryLocale(currentName) ?? 'en'
                 finalName = buildLocalizedContent(sanitizedName, primary, primary)
             }
 
@@ -1563,9 +1518,11 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                         : undefined
             }
 
-            const updated = (await objectsService.updateCatalog(
+            const updated = (await updateCatalogLikeObject(
+                objectsService,
                 metahubId,
                 catalogId,
+                resolveCatalogObjectKind(catalog),
                 {
                     codename: finalCodenameText !== getCatalogCodenameText(catalog.codename) ? finalCodename : undefined,
                     name: finalName,
@@ -1583,20 +1540,23 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
                 userId
             )) as CatalogObjectRow
 
+            const persistedUpdated = (await objectsService.findById(metahubId, updated.id, userId)) as CatalogObjectRow | null
+            const responseCatalog = persistedUpdated ?? updated
+
             const outputHubs = targetHubIds.length > 0 ? await hubsService.findByIds(metahubId, targetHubIds, userId) : []
 
             res.json({
-                id: updated.id,
+                id: responseCatalog.id,
                 metahubId,
-                codename: updated.codename,
-                name: updated.presentation?.name ?? {},
-                description: updated.presentation?.description,
-                isSingleHub: updated.config?.isSingleHub ?? false,
-                isRequiredHub: updated.config?.isRequiredHub ?? false,
-                sortOrder: updated.config?.sortOrder ?? 0,
-                version: updated._upl_version || 1,
-                createdAt: updated.created_at,
-                updatedAt: updated.updated_at,
+                codename: responseCatalog.codename,
+                name: getCatalogNameField(responseCatalog) ?? {},
+                description: getCatalogDescriptionField(responseCatalog) ?? null,
+                isSingleHub: responseCatalog.config?.isSingleHub ?? false,
+                isRequiredHub: responseCatalog.config?.isRequiredHub ?? false,
+                sortOrder: responseCatalog.config?.sortOrder ?? 0,
+                version: responseCatalog._upl_version || 1,
+                createdAt: responseCatalog.created_at,
+                updatedAt: responseCatalog.updated_at,
                 hubs: mapHubSummaries(outputHubs)
             })
         },
@@ -1608,10 +1568,13 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
     // -----------------------------------------------------------------------
     const getBlockingReferences = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {
         const { catalogId } = req.params
-        const { objectsService, attributesService } = createDomainServices(exec, schemaService)
+        const { objectsService, attributesService, entityTypeService } = createDomainServices(exec, schemaService)
+        const catalogCompatibleKindSet = createCatalogCompatibleKindSet(
+            await resolveCatalogCompatibleKinds(entityTypeService, metahubId, userId)
+        )
 
         const catalog = await objectsService.findById(metahubId, catalogId, userId)
-        if (!isCatalogObject(catalog)) {
+        if (!isCatalogObject(catalog, catalogCompatibleKindSet)) {
             return res.json({
                 catalogId,
                 blockingReferences: [],
@@ -1633,60 +1596,69 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
     const deleteByHub = createHandler(
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
             const { hubId, catalogId } = req.params
-            const { objectsService, attributesService, settingsService } = createDomainServices(exec, schemaService)
+            const { objectsService, attributesService, settingsService, entityTypeService } = createDomainServices(exec, schemaService)
+            const catalogCompatibleKindSet = createCatalogCompatibleKindSet(
+                await resolveCatalogCompatibleKinds(entityTypeService, metahubId, userId)
+            )
 
             const catalog = await objectsService.findById(metahubId, catalogId, userId)
-            if (!isCatalogObject(catalog)) {
-                return res.status(404).json({ error: 'Catalog not found' })
+            const entity = isCatalogObject(catalog, catalogCompatibleKindSet) ? catalog : null
+            const result = await executeHubScopedDelete({
+                entity,
+                entityLabel: 'Catalog',
+                notFoundMessage: 'Catalog not found',
+                notFoundInHubMessage: 'Catalog not found in this hub',
+                hubId,
+                forceDelete: req.query.force === 'true',
+                getHubIds: getCatalogHubIds,
+                isRequiredHub: (currentCatalog) => Boolean(currentCatalog.config?.isRequiredHub),
+                lastHubConflictMessage:
+                    'Cannot remove catalog from its last hub because it requires at least one hub association. Use force=true to delete the catalog entirely.',
+                beforeDelete: async () => {
+                    const allowDeleteRow = await settingsService.findByKey(metahubId, 'catalogs.allowDelete', userId)
+                    if (allowDeleteRow && allowDeleteRow.value?._value === false) {
+                        return {
+                            status: 403,
+                            body: { error: 'Deleting catalogs is disabled in metahub settings' }
+                        }
+                    }
+
+                    const blockingReferences = await findBlockingCatalogReferences(metahubId, catalogId, attributesService, userId)
+                    if (blockingReferences.length > 0) {
+                        return {
+                            status: 409,
+                            body: {
+                                error: 'Cannot delete catalog: it is referenced by attributes in other catalogs',
+                                blockingReferences
+                            }
+                        }
+                    }
+
+                    return null
+                },
+                detachFromHub: async (nextHubIds) => {
+                    await updateCatalogLikeObject(
+                        objectsService,
+                        metahubId,
+                        catalogId,
+                        resolveCatalogObjectKind(entity ?? { kind: MetaEntityKind.CATALOG }),
+                        {
+                            config: { ...(entity?.config ?? {}), hubs: nextHubIds },
+                            updatedBy: userId,
+                            expectedVersion: entity?._upl_version
+                        },
+                        userId
+                    )
+                },
+                detachedMessage: 'Catalog removed from hub',
+                deleteEntity: () => objectsService.delete(metahubId, catalogId, userId)
+            })
+
+            if (result.status === 204) {
+                return res.status(204).send()
             }
 
-            const currentConfig = catalog.config || {}
-            let currentHubIds: string[] = getCatalogHubIds(catalog)
-
-            if (!currentHubIds.includes(hubId)) {
-                return res.status(404).json({ error: 'Catalog not found in this hub' })
-            }
-
-            const forceDelete = req.query.force === 'true'
-            const willDeleteEntireCatalog = !(currentHubIds.length > 1 && !forceDelete)
-
-            if (willDeleteEntireCatalog) {
-                const allowDeleteRow = await settingsService.findByKey(metahubId, 'catalogs.allowDelete', userId)
-                if (allowDeleteRow && allowDeleteRow.value?._value === false) {
-                    return res.status(403).json({ error: 'Deleting catalogs is disabled in metahub settings' })
-                }
-            }
-
-            if (currentConfig.isRequiredHub && currentHubIds.length === 1 && !forceDelete) {
-                return res.status(409).json({
-                    error: 'Cannot remove catalog from its last hub because it requires at least one hub association. Use force=true to delete the catalog entirely.'
-                })
-            }
-
-            if (currentHubIds.length > 1 && !forceDelete) {
-                const newHubIds = currentHubIds.filter((id) => id !== hubId)
-                await objectsService.updateCatalog(
-                    metahubId,
-                    catalogId,
-                    {
-                        config: { ...currentConfig, hubs: newHubIds },
-                        updatedBy: userId,
-                        expectedVersion: catalog._upl_version
-                    },
-                    userId
-                )
-                res.status(200).json({ message: 'Catalog removed from hub', remainingHubs: newHubIds.length })
-            } else {
-                const blockingReferences = await findBlockingCatalogReferences(metahubId, catalogId, attributesService, userId)
-                if (blockingReferences.length > 0) {
-                    return res.status(409).json({
-                        error: 'Cannot delete catalog: it is referenced by attributes in other catalogs',
-                        blockingReferences
-                    })
-                }
-                await objectsService.delete(metahubId, catalogId, userId)
-                res.status(204).send()
-            }
+            return res.status(result.status).json(result.body)
         },
         { permission: 'deleteContent' }
     )
@@ -1697,29 +1669,45 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
     const deleteCatalog = createHandler(
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
             const { catalogId } = req.params
-            const { objectsService, attributesService, settingsService } = createDomainServices(exec, schemaService)
-
-            const allowDeleteRow = await settingsService.findByKey(metahubId, 'catalogs.allowDelete', userId)
-            if (allowDeleteRow && allowDeleteRow.value?._value === false) {
-                return res.status(403).json({ error: 'Deleting catalogs is disabled in metahub settings' })
-            }
-
+            const { objectsService, attributesService, settingsService, entityTypeService } = createDomainServices(exec, schemaService)
+            const catalogCompatibleKindSet = createCatalogCompatibleKindSet(
+                await resolveCatalogCompatibleKinds(entityTypeService, metahubId, userId)
+            )
             const catalog = await objectsService.findById(metahubId, catalogId, userId)
-            if (!isCatalogObject(catalog)) {
-                return res.status(404).json({ error: 'Catalog not found' })
+            const result = await executeBlockedDelete({
+                entity: isCatalogObject(catalog, catalogCompatibleKindSet) ? catalog : null,
+                entityLabel: 'Catalog',
+                notFoundMessage: 'Catalog not found',
+                beforeDelete: async () => {
+                    const allowDeleteRow = await settingsService.findByKey(metahubId, 'catalogs.allowDelete', userId)
+                    if (allowDeleteRow && allowDeleteRow.value?._value === false) {
+                        return {
+                            status: 403,
+                            body: { error: 'Deleting catalogs is disabled in metahub settings' }
+                        }
+                    }
+
+                    const blockingReferences = await findBlockingCatalogReferences(metahubId, catalogId, attributesService, userId)
+                    if (blockingReferences.length > 0) {
+                        return {
+                            status: 409,
+                            body: {
+                                error: 'Cannot delete catalog: it is referenced by attributes in other catalogs',
+                                blockingReferences
+                            }
+                        }
+                    }
+
+                    return null
+                },
+                deleteEntity: () => objectsService.delete(metahubId, catalogId, userId)
+            })
+
+            if (result.status === 204) {
+                return res.status(204).send()
             }
 
-            const blockingReferences = await findBlockingCatalogReferences(metahubId, catalogId, attributesService, userId)
-            if (blockingReferences.length > 0) {
-                return res.status(409).json({
-                    error: 'Cannot delete catalog: it is referenced by attributes in other catalogs',
-                    blockingReferences
-                })
-            }
-
-            await objectsService.delete(metahubId, catalogId, userId)
-
-            res.status(204).send()
+            return res.status(result.status).json(result.body)
         },
         { permission: 'deleteContent' }
     )
@@ -1728,16 +1716,17 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
     // GET /metahub/:metahubId/catalogs/trash
     // -----------------------------------------------------------------------
     const listTrash = createHandler(async ({ res, metahubId, userId, exec, schemaService }) => {
-        const { objectsService } = createDomainServices(exec, schemaService)
+        const { objectsService, entityTypeService } = createDomainServices(exec, schemaService)
+        const catalogCompatibleKinds = await resolveCatalogCompatibleKinds(entityTypeService, metahubId, userId)
 
-        const deletedCatalogs = await objectsService.findDeleted(metahubId, userId)
+        const deletedCatalogs = await objectsService.findDeletedByKinds(metahubId, catalogCompatibleKinds, userId)
 
         const items = (deletedCatalogs as CatalogObjectRow[]).map((row) => ({
             id: row.id,
             metahubId,
             codename: row.codename,
-            name: row.presentation?.name || {},
-            description: row.presentation?.description || {},
+            name: getCatalogNameField(row) || {},
+            description: getCatalogDescriptionField(row) || {},
             deletedAt: row.deleted_at,
             deletedBy: row.deleted_by
         }))
@@ -1751,11 +1740,25 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
     const restore = createHandler(
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
             const { catalogId } = req.params
-            const { objectsService } = createDomainServices(exec, schemaService)
+            const { objectsService, entityTypeService } = createDomainServices(exec, schemaService)
+            const catalogCompatibleKinds = await resolveCatalogCompatibleKinds(entityTypeService, metahubId, userId)
+            const catalogCompatibleKindSet = createCatalogCompatibleKindSet(catalogCompatibleKinds)
 
             const catalog = await objectsService.findById(metahubId, catalogId, userId, { onlyDeleted: true })
-            if (!isCatalogObject(catalog)) {
+            if (!isCatalogObject(catalog, catalogCompatibleKindSet)) {
                 return res.status(404).json({ error: 'Catalog not found in trash' })
+            }
+
+            const existing = await objectsService.findByCodenameInKinds(
+                metahubId,
+                getCatalogCodenameText(catalog.codename),
+                catalogCompatibleKinds,
+                userId
+            )
+            if (existing && existing.id !== catalogId) {
+                return res.status(409).json({
+                    error: 'Cannot restore catalog: codename already exists in this metahub'
+                })
             }
 
             try {
@@ -1780,29 +1783,45 @@ export function createCatalogsController(createHandler: ReturnType<typeof create
     const permanentDelete = createHandler(
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
             const { catalogId } = req.params
-            const { objectsService, attributesService, settingsService } = createDomainServices(exec, schemaService)
-
-            const allowDeleteRow = await settingsService.findByKey(metahubId, 'catalogs.allowDelete', userId)
-            if (allowDeleteRow && allowDeleteRow.value?._value === false) {
-                return res.status(403).json({ error: 'Deleting catalogs is disabled in metahub settings' })
-            }
-
+            const { objectsService, attributesService, settingsService, entityTypeService } = createDomainServices(exec, schemaService)
+            const catalogCompatibleKindSet = createCatalogCompatibleKindSet(
+                await resolveCatalogCompatibleKinds(entityTypeService, metahubId, userId)
+            )
             const catalog = await objectsService.findById(metahubId, catalogId, userId, { includeDeleted: true })
-            if (!isCatalogObject(catalog)) {
-                return res.status(404).json({ error: 'Catalog not found' })
+            const result = await executeBlockedDelete({
+                entity: isCatalogObject(catalog, catalogCompatibleKindSet) ? catalog : null,
+                entityLabel: 'Catalog',
+                notFoundMessage: 'Catalog not found',
+                beforeDelete: async () => {
+                    const allowDeleteRow = await settingsService.findByKey(metahubId, 'catalogs.allowDelete', userId)
+                    if (allowDeleteRow && allowDeleteRow.value?._value === false) {
+                        return {
+                            status: 403,
+                            body: { error: 'Deleting catalogs is disabled in metahub settings' }
+                        }
+                    }
+
+                    const blockingReferences = await findBlockingCatalogReferences(metahubId, catalogId, attributesService, userId)
+                    if (blockingReferences.length > 0) {
+                        return {
+                            status: 409,
+                            body: {
+                                error: 'Cannot delete catalog: it is referenced by attributes in other catalogs',
+                                blockingReferences
+                            }
+                        }
+                    }
+
+                    return null
+                },
+                deleteEntity: () => objectsService.permanentDelete(metahubId, catalogId, userId)
+            })
+
+            if (result.status === 204) {
+                return res.status(204).send()
             }
 
-            const blockingReferences = await findBlockingCatalogReferences(metahubId, catalogId, attributesService, userId)
-            if (blockingReferences.length > 0) {
-                return res.status(409).json({
-                    error: 'Cannot delete catalog: it is referenced by attributes in other catalogs',
-                    blockingReferences
-                })
-            }
-
-            await objectsService.permanentDelete(metahubId, catalogId, userId)
-
-            res.status(204).send()
+            return res.status(result.status).json(result.body)
         },
         { permission: 'deleteContent' }
     )

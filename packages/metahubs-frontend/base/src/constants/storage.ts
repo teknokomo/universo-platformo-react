@@ -29,6 +29,8 @@ export const STORAGE_KEYS = {
     SECTION_DISPLAY_STYLE: 'metahubsSectionDisplayStyle',
     /** Display style for Entities list (card/table) */
     ENTITY_DISPLAY_STYLE: 'metahubsEntityDisplayStyle',
+    /** Display style for generic entity instances list (card/table) */
+    ENTITY_INSTANCE_DISPLAY_STYLE: 'metahubsEntityInstanceDisplayStyle',
     /** Display style for Members list (card/table) */
     MEMBERS_DISPLAY_STYLE: 'metahubsMembersDisplayStyle'
 } as const

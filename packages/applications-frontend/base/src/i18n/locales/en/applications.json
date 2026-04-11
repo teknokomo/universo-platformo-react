@@ -174,7 +174,7 @@
             "create": "Create",
             "creating": "Creating...",
             "cancel": "Cancel",
-            "noFields": "No fields configured for this catalog.",
+            "noFields": "No fields configured for this section.",
             "deleteConfirmTitle": "Delete element?",
             "deleteConfirmDescription": "This element will be permanently deleted. This action cannot be undone.",
             "deleting": "Deleting...",
@@ -183,7 +183,7 @@
             "errorDelete": "Delete failed: {{message}}",
             "errorCopy": "Copy failed: {{message}}",
             "errorSchemaChanged": "Schema has changed since this form was opened. Please close and try again.",
-            "workspaceLimitReached": "The workspace limit for this catalog has been reached ({{current}} / {{max}})."
+            "workspaceLimitReached": "The workspace limit for this section has been reached ({{current}} / {{max}})."
         }
     },
     "connectors": {

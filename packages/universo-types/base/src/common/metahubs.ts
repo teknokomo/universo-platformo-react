@@ -2,6 +2,8 @@
 // Keep runtime-safe values for validation and enum-like usage.
 
 import type { VersionedLocalizedContent } from './admin'
+import type { ComponentManifest } from './entityComponents'
+import type { EntityTypeUIConfig } from './entityTypeDefinition'
 import type { SharedBehavior } from './shared'
 import type { ScriptAttachmentKind } from './scripts'
 
@@ -603,8 +605,16 @@ export const MetaEntityKind = _META_ENTITY_KIND_MAP
 // eslint-disable-next-line no-redeclare
 export type MetaEntityKind = (typeof _META_ENTITY_KIND_MAP)[keyof typeof _META_ENTITY_KIND_MAP]
 
+export const BuiltinEntityKinds = _META_ENTITY_KIND_MAP
+export type BuiltinEntityKind = MetaEntityKind
+export type EntityKind = BuiltinEntityKind | (string & {})
+
 /** Array of valid MetaEntityKind values for Zod validation */
 export const META_ENTITY_KINDS = Object.values(_META_ENTITY_KIND_MAP) as [MetaEntityKind, ...MetaEntityKind[]]
+
+const BUILTIN_ENTITY_KIND_SET = new Set<string>(META_ENTITY_KINDS)
+
+export const isBuiltinKind = (kind: string): kind is BuiltinEntityKind => BUILTIN_ENTITY_KIND_SET.has(kind)
 
 export interface MetaPresentation {
     name: VersionedLocalizedContent<string>
@@ -621,7 +631,7 @@ export interface MetaFieldDefinition {
     /** ID of the target entity for REF field type */
     targetEntityId?: string | null
     /** Kind of the target entity for REF field type (polymorphic discriminator) */
-    targetEntityKind?: MetaEntityKind | null
+    targetEntityKind?: EntityKind | null
     /** Target constant id for REF fields that point to `set` entities. */
     targetConstantId?: string | null
     presentation: MetaPresentation
@@ -635,7 +645,7 @@ export interface MetaFieldDefinition {
 
 export interface MetaEntityDefinition {
     id: string
-    kind: MetaEntityKind
+    kind: EntityKind
     codename: string
     presentation: MetaPresentation
     fields: MetaFieldDefinition[]
@@ -799,7 +809,7 @@ export interface QuizWidgetConfig {
     title?: string
     description?: string
     scriptCodename?: string | null
-    attachedToKind?: Extract<ScriptAttachmentKind, 'metahub' | 'catalog'>
+    attachedToKind?: ScriptAttachmentKind
     mountMethodName?: string
     submitMethodName?: string
     emptyStateTitle?: string
@@ -818,7 +828,7 @@ export type MetahubMenuItemKind = (typeof METAHUB_MENU_ITEM_KINDS)[number]
 export type MetahubTemplateSchemaVersion = 'metahub-template/v1'
 
 /** Snapshot envelope version used for metahub export/publication snapshots. */
-export type MetahubSnapshotFormatVersion = 1 | 2
+export type MetahubSnapshotFormatVersion = 1 | 2 | 3
 
 /**
  * Unified version envelope that separates:
@@ -1063,6 +1073,30 @@ export interface MetahubTemplateManifest {
     seed: MetahubTemplateSeed
 }
 
+export const TEMPLATE_DEFINITION_TYPES = ['metahub_template', 'entity_type_preset'] as const
+
+export type TemplateDefinitionType = (typeof TEMPLATE_DEFINITION_TYPES)[number]
+
+export interface EntityTypePresetManifest {
+    $schema: 'entity-type-preset/v1'
+    codename: string
+    version: string
+    minStructureVersion: string
+    name: VersionedLocalizedContent<string>
+    description?: VersionedLocalizedContent<string>
+    meta?: MetahubTemplateMeta
+    entityType: {
+        kindKey: string
+        codename?: VersionedLocalizedContent<string>
+        components: ComponentManifest
+        ui: EntityTypeUIConfig
+        presentation?: Record<string, unknown>
+        config?: Record<string, unknown>
+    }
+}
+
+export type TemplateDefinitionManifest = MetahubTemplateManifest | EntityTypePresetManifest
+
 /**
  * Entity creation toggles passed at metahub creation time.
  * Determines which default entities from the template seed are created.
@@ -1088,13 +1122,14 @@ export interface TemplateVersionSummaryDTO {
     id: string
     versionNumber: number
     versionLabel: string
-    changelog?: string | null
+    changelog?: VersionedLocalizedContent<string> | string | null
 }
 
 /** Template summary DTO (GET /templates response element). */
 export interface TemplateSummaryDTO {
     id: string
     codename: string
+    definitionType: TemplateDefinitionType
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
     icon?: string | null
@@ -1107,6 +1142,7 @@ export interface TemplateSummaryDTO {
 export interface TemplateDetailDTO extends Omit<TemplateSummaryDTO, 'activeVersion'> {
     isActive: boolean
     activeVersionId: string | null
+    activeVersionManifest: TemplateDefinitionManifest | null
     versions: Array<
         TemplateVersionSummaryDTO & {
             isActive: boolean

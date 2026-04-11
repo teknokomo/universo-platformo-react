@@ -1,10 +1,11 @@
 import { ScriptEngine } from '@universo/scripting-engine'
 import {
-    SCRIPT_ATTACHMENT_KINDS,
     canCallScriptMethodOverPublicRpc,
     hasScriptCapability,
     isClientScriptMethodTarget,
+    isScriptAttachmentKind,
     isServerScriptMethodTarget,
+    normalizeScriptAttachmentKind,
     normalizeScriptCapabilities,
     normalizeScriptModuleRole,
     normalizeScriptSourceKind,
@@ -166,7 +167,7 @@ const resolveRecordFieldKey = (attr: RuntimeScriptAttributeRow): string => {
 }
 
 const resolveLifecycleAttachmentKind = (kind: string): ScriptAttachmentKind | null =>
-    SCRIPT_ATTACHMENT_KINDS.includes(kind as ScriptAttachmentKind) ? (kind as ScriptAttachmentKind) : null
+    isScriptAttachmentKind(kind) ? normalizeScriptAttachmentKind(kind) : null
 
 const collectTouchedRecordAttributeIds = (attrs: RuntimeScriptAttributeRow[], payload: Record<string, unknown>): string[] => {
     const touched = new Set<string>()

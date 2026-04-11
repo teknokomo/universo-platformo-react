@@ -193,7 +193,9 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
     }, [open, normalizedInitialExtraValues, hasTouchedExtraValues])
 
     const handleExtraValueChange = useCallback((fieldName: string, value: any) => {
-        setHasTouchedExtraValues(true)
+        if (!fieldName.startsWith('_')) {
+            setHasTouchedExtraValues(true)
+        }
         setExtraValues((prev) => ({ ...prev, [fieldName]: value }))
     }, [])
 

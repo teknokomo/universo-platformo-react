@@ -4,13 +4,21 @@ import type { DbExecutor, SqlQueryable } from '@universo/utils'
 import { localizedContent, OptimisticLockError } from '@universo/utils'
 import { normalizeCodenameForStyle, isValidCodenameForStyle } from '@universo/utils/validation/codename'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
-import { AttributeDataType, ATTRIBUTE_DATA_TYPES, TABLE_CHILD_DATA_TYPES, MetaEntityKind, META_ENTITY_KINDS } from '@universo/types'
+import {
+    AttributeDataType,
+    ATTRIBUTE_DATA_TYPES,
+    TABLE_CHILD_DATA_TYPES,
+    isEnabledComponentConfig,
+    type EntityKind,
+    type ResolvedEntityType
+} from '@universo/types'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubEnumerationValuesService } from '../../metahubs/services/MetahubEnumerationValuesService'
 import { MetahubConstantsService } from '../../metahubs/services/MetahubConstantsService'
 import { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
+import { EntityTypeService } from '../../entities/services/EntityTypeService'
 import { ListQuerySchema } from '../../shared/queryParams'
 import { getRequestDbExecutor } from '../../../utils'
 import {
@@ -155,6 +163,12 @@ const uiConfigSchema = z
     .optional()
 
 const localizedInputSchema = z.union([z.string(), z.record(z.string())]).transform((val) => (typeof val === 'string' ? { en: val } : val))
+const targetEntityKindSchema = z
+    .string()
+    .trim()
+    .min(1)
+    .max(64)
+    .transform((value) => value as EntityKind)
 
 const createAttributeSchema = z
     .object({
@@ -163,7 +177,7 @@ const createAttributeSchema = z
         name: localizedInputSchema.optional(),
         namePrimaryLocale: z.string().optional(),
         targetEntityId: z.string().uuid().optional(),
-        targetEntityKind: z.enum(META_ENTITY_KINDS).optional(),
+        targetEntityKind: targetEntityKindSchema.optional(),
         targetConstantId: z.string().uuid().optional(),
         validationRules: validationRulesSchema,
         uiConfig: uiConfigSchema,
@@ -181,7 +195,7 @@ const updateAttributeSchema = z
         name: localizedInputSchema.optional(),
         namePrimaryLocale: z.string().optional(),
         targetEntityId: z.string().uuid().nullable().optional(),
-        targetEntityKind: z.enum(META_ENTITY_KINDS).nullable().optional(),
+        targetEntityKind: targetEntityKindSchema.nullable().optional(),
         targetConstantId: z.string().uuid().nullable().optional(),
         validationRules: validationRulesSchema,
         uiConfig: uiConfigSchema,
@@ -288,6 +302,86 @@ const normalizeMultilineUiConfig = (
     return { uiConfig: nextUiConfig }
 }
 
+const isReferenceableEntityType = (resolvedType: ResolvedEntityType | null | undefined) =>
+    Boolean(
+        resolvedType &&
+            (resolvedType.kindKey === ENUMERATION_KIND ||
+                resolvedType.kindKey === SET_KIND ||
+                isEnabledComponentConfig(resolvedType.components.dataSchema))
+    )
+
+const getMissingReferenceTargetMessage = (targetEntityKind: EntityKind): string => {
+    if (targetEntityKind === ENUMERATION_KIND) {
+        return 'Target enumeration not found'
+    }
+    if (targetEntityKind === SET_KIND) {
+        return 'Target set not found'
+    }
+    if (targetEntityKind === 'catalog') {
+        return 'Target catalog not found'
+    }
+    return 'Target entity not found'
+}
+
+const validateReferenceTarget = async ({
+    metahubId,
+    targetEntityId,
+    targetEntityKind,
+    targetConstantId,
+    userId,
+    objectsService,
+    constantsService,
+    entityTypeService
+}: {
+    metahubId: string
+    targetEntityId: string
+    targetEntityKind: EntityKind
+    targetConstantId?: string | null
+    userId?: string
+    objectsService: MetahubObjectsService
+    constantsService: MetahubConstantsService
+    entityTypeService: EntityTypeService
+}): Promise<{ error: string; details?: Record<string, unknown> } | null> => {
+    const resolvedType = await entityTypeService.resolveType(metahubId, targetEntityKind, userId)
+
+    if (!isReferenceableEntityType(resolvedType)) {
+        return {
+            error: 'Unsupported targetEntityKind for REF',
+            details: { targetEntityKind }
+        }
+    }
+
+    const targetEntity = await objectsService.findById(metahubId, targetEntityId, userId)
+    if (!targetEntity || targetEntity.kind !== targetEntityKind) {
+        return { error: getMissingReferenceTargetMessage(targetEntityKind) }
+    }
+
+    if (targetEntityKind === SET_KIND) {
+        if (!targetConstantId) {
+            return {
+                error: 'REF type with targetEntityKind=set requires targetConstantId'
+            }
+        }
+
+        const constantBelongsToSet = await constantsService.belongsToSet(metahubId, targetEntityId, targetConstantId, userId)
+        if (!constantBelongsToSet) {
+            return {
+                error: 'Target constant not found in selected set'
+            }
+        }
+
+        return null
+    }
+
+    if (targetConstantId !== undefined && targetConstantId !== null) {
+        return {
+            error: 'targetConstantId is only supported for targetEntityKind=set'
+        }
+    }
+
+    return null
+}
+
 // ---------------------------------------------------------------------------
 // Controller factory
 // ---------------------------------------------------------------------------
@@ -304,6 +398,7 @@ export function createAttributesController(_createHandler: CreateHandler, getDbE
             objectsService: new MetahubObjectsService(exec, schemaService),
             enumerationValuesService: new MetahubEnumerationValuesService(exec, schemaService),
             constantsService: new MetahubConstantsService(exec, schemaService),
+            entityTypeService: new EntityTypeService(exec, schemaService),
             schemaService,
             settingsService: new MetahubSettingsService(exec, schemaService)
         }
@@ -485,7 +580,8 @@ export function createAttributesController(_createHandler: CreateHandler, getDbE
     // ─── Create attribute ────────────────────────────────────────────────
     const create = async (req: Request, res: Response) => {
         const { metahubId, catalogId } = req.params
-        const { attributesService, objectsService, enumerationValuesService, constantsService, exec, settingsService } = services(req)
+        const { attributesService, objectsService, enumerationValuesService, constantsService, entityTypeService, exec, settingsService } =
+            services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
         if (!userId) return
 
@@ -582,50 +678,18 @@ export function createAttributesController(_createHandler: CreateHandler, getDbE
                     error: 'REF type requires targetEntityId and targetEntityKind'
                 })
             }
-            if (
-                resolvedTargetEntityKind !== MetaEntityKind.CATALOG &&
-                resolvedTargetEntityKind !== ENUMERATION_KIND &&
-                resolvedTargetEntityKind !== SET_KIND
-            ) {
-                return res.status(400).json({
-                    error: 'Unsupported targetEntityKind for REF',
-                    details: { targetEntityKind: resolvedTargetEntityKind }
-                })
-            }
-
-            const targetEntity = await objectsService.findById(metahubId, resolvedTargetEntityId, userId)
-            if (!targetEntity || targetEntity.kind !== resolvedTargetEntityKind) {
-                return res.status(400).json({
-                    error:
-                        resolvedTargetEntityKind === ENUMERATION_KIND
-                            ? 'Target enumeration not found'
-                            : resolvedTargetEntityKind === SET_KIND
-                            ? 'Target set not found'
-                            : 'Target catalog not found'
-                })
-            }
-
-            if (resolvedTargetEntityKind === SET_KIND) {
-                if (!resolvedTargetConstantId) {
-                    return res.status(400).json({
-                        error: 'REF type with targetEntityKind=set requires targetConstantId'
-                    })
-                }
-                const constantBelongsToSet = await constantsService.belongsToSet(
-                    metahubId,
-                    resolvedTargetEntityId,
-                    resolvedTargetConstantId,
-                    userId
-                )
-                if (!constantBelongsToSet) {
-                    return res.status(400).json({
-                        error: 'Target constant not found in selected set'
-                    })
-                }
-            } else if (resolvedTargetConstantId !== undefined && resolvedTargetConstantId !== null) {
-                return res.status(400).json({
-                    error: 'targetConstantId is only supported for targetEntityKind=set'
-                })
+            const referenceTargetError = await validateReferenceTarget({
+                metahubId,
+                targetEntityId: resolvedTargetEntityId,
+                targetEntityKind: resolvedTargetEntityKind,
+                targetConstantId: resolvedTargetConstantId,
+                userId,
+                objectsService,
+                constantsService,
+                entityTypeService
+            })
+            if (referenceTargetError) {
+                return res.status(400).json(referenceTargetError)
             }
         }
         if (dataType !== AttributeDataType.REF && resolvedTargetConstantId !== undefined) {
@@ -1047,7 +1111,8 @@ export function createAttributesController(_createHandler: CreateHandler, getDbE
     // ─── Update attribute ────────────────────────────────────────────────
     const update = async (req: Request, res: Response) => {
         const { metahubId, catalogId, attributeId } = req.params
-        const { attributesService, objectsService, enumerationValuesService, constantsService, exec, settingsService } = services(req)
+        const { attributesService, objectsService, enumerationValuesService, constantsService, entityTypeService, exec, settingsService } =
+            services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
         if (!userId) return
 
@@ -1230,48 +1295,23 @@ export function createAttributesController(_createHandler: CreateHandler, getDbE
                     })
                 }
 
-                if (
-                    effectiveTargetEntityKind !== MetaEntityKind.CATALOG &&
-                    effectiveTargetEntityKind !== ENUMERATION_KIND &&
-                    effectiveTargetEntityKind !== SET_KIND
-                ) {
-                    return res.status(400).json({
-                        error: 'Unsupported targetEntityKind for REF',
-                        details: { targetEntityKind: effectiveTargetEntityKind }
-                    })
-                }
+                effectiveTargetConstantId = resolvedTargetConstantId !== undefined ? resolvedTargetConstantId : effectiveTargetConstantId
 
-                const targetEntity = await objectsService.findById(metahubId, effectiveTargetEntityId, userId)
-                if (!targetEntity || targetEntity.kind !== effectiveTargetEntityKind) {
-                    return res.status(400).json({
-                        error:
-                            effectiveTargetEntityKind === ENUMERATION_KIND
-                                ? 'Target enumeration not found'
-                                : effectiveTargetEntityKind === SET_KIND
-                                ? 'Target set not found'
-                                : 'Target catalog not found'
-                    })
+                const referenceTargetError = await validateReferenceTarget({
+                    metahubId,
+                    targetEntityId: effectiveTargetEntityId,
+                    targetEntityKind: effectiveTargetEntityKind,
+                    targetConstantId: effectiveTargetConstantId,
+                    userId,
+                    objectsService,
+                    constantsService,
+                    entityTypeService
+                })
+                if (referenceTargetError) {
+                    return res.status(400).json(referenceTargetError)
                 }
 
                 if (effectiveTargetEntityKind === SET_KIND) {
-                    effectiveTargetConstantId =
-                        resolvedTargetConstantId !== undefined ? resolvedTargetConstantId : effectiveTargetConstantId
-                    if (!effectiveTargetConstantId) {
-                        return res.status(400).json({
-                            error: 'REF type with targetEntityKind=set requires targetConstantId'
-                        })
-                    }
-                    const constantBelongsToSet = await constantsService.belongsToSet(
-                        metahubId,
-                        effectiveTargetEntityId,
-                        effectiveTargetConstantId,
-                        userId
-                    )
-                    if (!constantBelongsToSet) {
-                        return res.status(400).json({
-                            error: 'Target constant not found in selected set'
-                        })
-                    }
                     if (resolvedTargetConstantId !== undefined) {
                         updateData.targetConstantId = resolvedTargetConstantId
                     } else if (resolvedTargetEntityId !== undefined || resolvedTargetEntityKind !== undefined) {
@@ -1779,7 +1819,8 @@ export function createAttributesController(_createHandler: CreateHandler, getDbE
     // ─── Create child attribute ──────────────────────────────────────────
     const createChild = async (req: Request, res: Response) => {
         const { metahubId, catalogId, attributeId } = req.params
-        const { attributesService, objectsService, enumerationValuesService, constantsService, exec, settingsService } = services(req)
+        const { attributesService, objectsService, enumerationValuesService, constantsService, entityTypeService, exec, settingsService } =
+            services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
         if (!userId) return
 
@@ -1854,50 +1895,18 @@ export function createAttributesController(_createHandler: CreateHandler, getDbE
                     error: 'REF type requires targetEntityId and targetEntityKind'
                 })
             }
-            if (
-                resolvedTargetEntityKind !== MetaEntityKind.CATALOG &&
-                resolvedTargetEntityKind !== ENUMERATION_KIND &&
-                resolvedTargetEntityKind !== SET_KIND
-            ) {
-                return res.status(400).json({
-                    error: 'Unsupported targetEntityKind for REF',
-                    details: { targetEntityKind: resolvedTargetEntityKind }
-                })
-            }
-
-            const targetEntity = await objectsService.findById(metahubId, resolvedTargetEntityId, userId)
-            if (!targetEntity || targetEntity.kind !== resolvedTargetEntityKind) {
-                return res.status(400).json({
-                    error:
-                        resolvedTargetEntityKind === ENUMERATION_KIND
-                            ? 'Target enumeration not found'
-                            : resolvedTargetEntityKind === SET_KIND
-                            ? 'Target set not found'
-                            : 'Target catalog not found'
-                })
-            }
-
-            if (resolvedTargetEntityKind === SET_KIND) {
-                if (!resolvedTargetConstantId) {
-                    return res.status(400).json({
-                        error: 'REF type with targetEntityKind=set requires targetConstantId'
-                    })
-                }
-                const constantBelongsToSet = await constantsService.belongsToSet(
-                    metahubId,
-                    resolvedTargetEntityId,
-                    resolvedTargetConstantId,
-                    userId
-                )
-                if (!constantBelongsToSet) {
-                    return res.status(400).json({
-                        error: 'Target constant not found in selected set'
-                    })
-                }
-            } else if (resolvedTargetConstantId !== undefined && resolvedTargetConstantId !== null) {
-                return res.status(400).json({
-                    error: 'targetConstantId is only supported for targetEntityKind=set'
-                })
+            const referenceTargetError = await validateReferenceTarget({
+                metahubId,
+                targetEntityId: resolvedTargetEntityId,
+                targetEntityKind: resolvedTargetEntityKind,
+                targetConstantId: resolvedTargetConstantId,
+                userId,
+                objectsService,
+                constantsService,
+                entityTypeService
+            })
+            if (referenceTargetError) {
+                return res.status(400).json(referenceTargetError)
             }
         }
         if (dataType !== AttributeDataType.REF && resolvedTargetConstantId !== undefined) {

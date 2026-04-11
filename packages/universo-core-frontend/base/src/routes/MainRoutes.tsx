@@ -44,6 +44,7 @@ const MetahubList = Loadable(lazy(() => import('@universo/metahubs-frontend').th
 const MetahubBoard = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubBoard }))))
 const PublicationList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.PublicationList }))))
 const BranchList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.BranchList }))))
+const EntitiesWorkspace = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.EntitiesWorkspace }))))
 const HubList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.HubList }))))
 const CatalogList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.CatalogList }))))
 const SetList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m: any) => ({ default: m.SetList }))))
@@ -55,11 +56,18 @@ const ElementList = Loadable(lazy(() => import('@universo/metahubs-frontend').th
 const MetahubCommon = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubCommon }))))
 const MetahubLayoutDetails = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubLayoutDetails }))))
 const MetahubMigrations = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubMigrations }))))
-const MetahubMigrationGuard = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubMigrationGuard }))))
+const MetahubMigrationGuard = Loadable(
+    lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubMigrationGuard })))
+)
 const MetahubMembers = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubMembers }))))
+const EntityInstanceList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.EntityInstanceList }))))
 const MetahubSettings = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m: any) => ({ default: m.MetahubSettings }))))
-const PublicationVersionList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m: any) => ({ default: m.PublicationVersionList }))))
-const PublicationApplicationList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m: any) => ({ default: m.PublicationApplicationList }))))
+const PublicationVersionList = Loadable(
+    lazy(() => import('@universo/metahubs-frontend').then((m: any) => ({ default: m.PublicationVersionList })))
+)
+const PublicationApplicationList = Loadable(
+    lazy(() => import('@universo/metahubs-frontend').then((m: any) => ({ default: m.PublicationApplicationList })))
+)
 
 const AdminBoard = Loadable(lazy(() => import('@universo/admin-frontend/pages/AdminBoard')))
 const InstanceList = Loadable(lazy(() => import('@universo/admin-frontend/pages/InstanceList')))
@@ -234,7 +242,13 @@ const MainRoutes = {
                 { path: 'migrations', element: <MetahubMigrations /> },
                 { path: 'branches', element: <BranchList /> },
                 { path: 'common', element: <MetahubCommon /> },
+                { path: 'entities', element: <EntitiesWorkspace /> },
+                { path: 'entities/:kindKey/instances', element: <EntityInstanceList /> },
                 { path: 'common/layouts/:layoutId', element: <MetahubLayoutDetails /> },
+                { path: 'entities/:kindKey/instance/:catalogId/layout/:layoutId', element: <MetahubLayoutDetails /> },
+                { path: 'entities/:kindKey/instance/:catalogId/attributes', element: <AttributeList /> },
+                { path: 'entities/:kindKey/instance/:catalogId/system', element: <AttributeList /> },
+                { path: 'entities/:kindKey/instance/:catalogId/elements', element: <ElementList /> },
                 { path: 'general', element: <Navigate to='../common' replace /> },
                 { path: 'general/layouts/:layoutId', element: <LegacyMetahubLayoutDetailsRedirect /> },
                 { path: 'catalog/:catalogId/layout/:layoutId', element: <MetahubLayoutDetails /> },

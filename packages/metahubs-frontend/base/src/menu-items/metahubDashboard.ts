@@ -1,5 +1,6 @@
 import {
     IconBuildingStore,
+    IconBox,
     IconHierarchy,
     IconUsersGroup,
     IconDatabase,
@@ -25,6 +26,7 @@ export interface MenuItem {
 
 const icons = {
     IconBuildingStore,
+    IconBox,
     IconHierarchy,
     IconUsersGroup,
     IconDatabase,
@@ -71,6 +73,14 @@ const metahubDashboard: MenuItem = {
             type: 'item',
             url: '/common',
             icon: icons.IconLayoutDashboard,
+            breadcrumbs: true
+        },
+        {
+            id: 'entities',
+            title: 'menu:entities',
+            type: 'item',
+            url: '/entities',
+            icon: icons.IconBox,
             breadcrumbs: true
         },
         {

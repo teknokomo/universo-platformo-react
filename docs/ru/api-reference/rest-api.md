@@ -18,6 +18,20 @@ https://your-instance.example.com/api/v1
 Обычно сюда входят группы маршрутов для system health, auth, locales, profile,
 onboarding, applications, connectors, admin, public metahub и metahub design-time API.
 
+## Generic Entity Authoring Endpoints
+
+- `GET /metahub/{metahubId}/entity-types` и `POST /metahub/{metahubId}/entity-types` перечисляют и создают определения custom entity type для workspace Entities.
+- `GET /metahub/{metahubId}/entity-type/{entityTypeId}`, `PATCH /metahub/{metahubId}/entity-type/{entityTypeId}` и `DELETE /metahub/{metahubId}/entity-type/{entityTypeId}` управляют одним custom entity type, включая его publication flag.
+- `GET /metahub/{metahubId}/entities`, `POST /metahub/{metahubId}/entities` и `POST /metahub/{metahubId}/entities/reorder` перечисляют, создают и переупорядочивают design-time instances для одного custom kind.
+- `GET /metahub/{metahubId}/entity/{entityId}`, `PATCH /metahub/{metahubId}/entity/{entityId}`, `DELETE /metahub/{metahubId}/entity/{entityId}`, `POST /metahub/{metahubId}/entity/{entityId}/restore`, `DELETE /metahub/{metahubId}/entity/{entityId}/permanent` и `POST /metahub/{metahubId}/entity/{entityId}/copy` управляют одним custom entity instance через generic route surface.
+
+## Entity Automation Endpoints
+
+- `GET /metahub/{metahubId}/object/{objectId}/actions` и `POST /metahub/{metahubId}/object/{objectId}/actions` перечисляют и создают object-owned entity actions.
+- `GET /metahub/{metahubId}/action/{actionId}`, `PATCH /metahub/{metahubId}/action/{actionId}` и `DELETE /metahub/{metahubId}/action/{actionId}` читают, обновляют и удаляют один action.
+- `GET /metahub/{metahubId}/object/{objectId}/event-bindings` и `POST /metahub/{metahubId}/object/{objectId}/event-bindings` перечисляют и создают event bindings для одного object.
+- `GET /metahub/{metahubId}/event-binding/{bindingId}`, `PATCH /metahub/{metahubId}/event-binding/{bindingId}` и `DELETE /metahub/{metahubId}/event-binding/{bindingId}` читают, обновляют и удаляют один binding.
+
 ## Источник интерактивной документации
 
 Слой интерактивного Swagger и OpenAPI поставляется пакетом

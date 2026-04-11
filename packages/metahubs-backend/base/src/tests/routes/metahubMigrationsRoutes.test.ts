@@ -255,7 +255,7 @@ describe('Metahub Migrations Routes', () => {
         expect(response.body.error).toContain('Could not acquire migration apply lock')
     })
 
-    it('returns structured migration plan payload for v1 baseline', async () => {
+    it('returns structured migration plan payload for a legacy v1 branch', async () => {
         const metahubId = 'metahub-3'
         const branchId = 'branch-3'
 
@@ -285,7 +285,7 @@ describe('Metahub Migrations Routes', () => {
             schemaName: 'mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b3',
             currentStructureVersion: '0.1.0',
             targetStructureVersion: CURRENT_STRUCTURE_VERSION_SEMVER,
-            structureUpgradeRequired: false,
+            structureUpgradeRequired: true,
             templateId: null,
             currentTemplateVersionId: null,
             targetTemplateVersionId: null,
@@ -370,7 +370,7 @@ describe('Metahub Migrations Routes', () => {
             id: branchId,
             metahubId,
             schemaName: 'mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b3_status',
-            structureVersion: 1
+            structureVersion: CURRENT_STRUCTURE_VERSION
         })
 
         const app = buildApp()

@@ -214,13 +214,14 @@ export interface ApplicationRuntimeColumn {
     id: string
     codename: string
     field: string
-    dataType: 'BOOLEAN' | 'STRING' | 'NUMBER' | 'DATE' | 'REF' | 'JSON'
+    dataType: 'BOOLEAN' | 'STRING' | 'NUMBER' | 'DATE' | 'REF' | 'JSON' | 'TABLE'
     headerName: string
     isRequired?: boolean
     validationRules?: Record<string, unknown>
     uiConfig?: Record<string, unknown>
     refTargetEntityId?: string | null
     refTargetEntityKind?: string | null
+    refTargetConstantId?: string | null
     refOptions?: Array<{
         id: string
         label: string
@@ -235,6 +236,7 @@ export interface ApplicationRuntimeColumn {
         isDefault?: boolean
         sortOrder?: number
     }>
+    childColumns?: ApplicationRuntimeColumn[]
 }
 
 export interface ApplicationRuntimeCatalog {
@@ -242,15 +244,18 @@ export interface ApplicationRuntimeCatalog {
     codename: string
     tableName: string
     name: string
+    runtimeConfig?: Record<string, unknown>
 }
 
 export interface ApplicationRuntimeMenuItem {
     id: string
-    kind: 'catalog' | 'catalogs_all' | 'link'
+    kind: 'catalog' | 'section' | 'catalogs_all' | 'hub' | 'link'
     title: string
     icon?: string | null
     href?: string | null
+    sectionId?: string | null
     catalogId?: string | null
+    hubId?: string | null
     sortOrder?: number
     isActive?: boolean
 }
@@ -265,6 +270,9 @@ export interface ApplicationRuntimeMenu {
 }
 
 export interface ApplicationRuntimeResponse {
+    section?: ApplicationRuntimeCatalog
+    sections?: ApplicationRuntimeCatalog[]
+    activeSectionId?: string
     catalog: ApplicationRuntimeCatalog
     catalogs?: ApplicationRuntimeCatalog[]
     activeCatalogId?: string

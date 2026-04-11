@@ -45,6 +45,595 @@
 | 0.22.0-alpha | 2025-07-27 | 0.22.0 Alpha — 2025-07-27 (Global Impulse) ⚡️    | Memory Bank, MMOOMM improvements                                                                    |
 | 0.21.0-alpha | 2025-07-20 | 0.21.0 Alpha — 2025-07-20 (Firm Resolve) 💪       | Handler refactoring, PlayCanvas stabilization                                                       |
 
+## 2026-04-11 Entities QA Closure Remediation
+
+## 2026-04-11 PR #757 Review Comment QA Triage
+
+Closed the actionable review-driven follow-up on top of the shipped Entities/ECAE branch without widening scope. The bot review raised one real create-path lifecycle risk and multiple indentation-only comments. The real risk was fixed by making the generic create path reuse the same preallocated object id for `beforeCreate`, persistence, and `afterCreate`, while the style comments were rejected after package-local codebase verification instead of being applied blindly.
+
+| Area | Resolution |
+| --- | --- |
+| Review triage | Public GitHub PR review data showed one substantive create-path concern and a batch of indentation comments. Package-local verification showed the indentation comments were not a reliable indicator for the touched metahubs-backend files. |
+| Lifecycle id consistency | `MetahubObjectsService.createObject(...)` now accepts an optional explicit id, and generic custom-entity create passes the preallocated pending UUID into persistence so `beforeCreate` and `afterCreate` can target the same persisted object id. |
+| Validation | Focused metahubs-backend coverage passed (`34/34`) across entity instance routes, lifecycle services, and object-service tests, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-backend test -- --runTestsByPath src/tests/routes/entityInstancesRoutes.test.ts src/tests/services/MetahubObjectsService.test.ts src/tests/services/EntityLifecycleServices.test.ts`
+- `pnpm build`
+
+Closed the remaining QA-closure seams around generic entity automation without widening scope beyond the shipped ECAE/Catalogs surface. This pass finished the real lifecycle path for generic create, verified the automation ACL question against the actual mounted surface, published the missing EN/RU authoring docs/assets, fixed the one compile-only regression the canonical build exposed, and finished on green backend/frontend/docs/browser/root-build evidence.
+
+| Area | Resolution |
+| --- | --- |
+| Generic create lifecycle parity | `entityInstancesController` now routes generic custom-entity create through `EntityMutationService`, and the service resolves the committed object id from the mutation result before `afterCreate` dispatch so lifecycle actions execute against the real created row. |
+| ACL and automation proof | Focused `EntityAutomationTab` coverage now locks save-first validation plus action/event authoring seams, while focused `EntityInstanceList` coverage still proves catalog-compatible routes delegate to `CatalogList` instead of mounting the generic automation tabs. |
+| Documentation closure | EN/RU `custom-entity-types` guides now document the save-first `Scripts -> Actions -> Events` workflow, explain the catalog-compatible routing nuance, and ship stable visual references under `docs/assets/entities/`. |
+| Validation and build-only fix | Focused metahubs backend coverage passed (`27/27`), focused metahubs frontend automation coverage passed (`12/12`), `pnpm docs:i18n:check` passed, `pnpm run build:e2e` completed green after fixing a missing `DbExecutor` type import in `EntityActionExecutionService`, the targeted Chromium automation flow passed (`2 passed`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-backend test -- --runTestsByPath src/tests/services/EntityLifecycleServices.test.ts src/tests/services/EntityActionExecutionService.test.ts src/tests/routes/entityInstancesRoutes.test.ts`
+- `pnpm --filter @universo/metahubs-frontend test -- --run src/domains/entities/ui/__tests__/EntityAutomationTab.test.tsx src/domains/entities/ui/__tests__/EntityInstanceList.test.tsx`
+- `pnpm docs:i18n:check`
+- `pnpm run build:e2e`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/metahub-entities-workspace.spec.ts --project chromium --grep "custom entity instances author scripts actions and events through the browser with custom attachment kinds"`
+- `pnpm build`
+
+## 2026-04-11 ECAE Residual Completion
+
+Closed the last explicitly tracked residual ECAE seams without widening scope beyond the already promised delivery wave. This pass stayed narrow and evidence-driven: route generic entity create through the lifecycle boundary, add edit-only object-scoped Actions and Events authoring to the generic custom-entity dialog, extend focused regression coverage, and prove the full script → action → event-binding path in the browser before closing on a green root build.
+
+| Area | Resolution |
+| --- | --- |
+| Generic create lifecycle parity | `entityInstancesController` now routes generic custom-entity create through `EntityMutationService`, and the service can resolve the after-commit object id from the mutation result so `afterCreate` dispatch targets the real created object row instead of a placeholder id. |
+| Generic entity automation authoring | `EntityInstanceList` now mounts edit-only `Actions` and `Events` tabs in the existing `EntityFormDialog`, backed by new frontend object-scoped API helpers for `_mhb_actions` and `_mhb_event_bindings`, while create/copy dialogs keep their intentionally smaller surface. |
+| Regression and browser proof | Focused frontend coverage now proves create vs edit tab composition, and the targeted Chromium `metahub-entities-workspace` flow now proves browser-authored script creation, action creation, event-binding creation, plus API-level persistence checks for the resulting object-owned automation rows. |
+| Validation | Focused metahubs backend tests passed (`25/25`), focused metahubs frontend dialog coverage passed (`7/7`), the targeted Chromium automation flow passed (`2 passed` including auth bootstrap), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-backend test -- --runTestsByPath src/tests/services/EntityLifecycleServices.test.ts src/tests/routes/entityInstancesRoutes.test.ts`
+- `pnpm --filter @universo/metahubs-frontend test -- --run src/domains/entities/ui/__tests__/EntityInstanceList.test.tsx`
+- `node tools/testing/e2e/run-playwright-suite.mjs --grep "custom entity instances author scripts actions and events through the browser"`
+- `pnpm build`
+
+## 2026-04-11 Entities QA Remediation Hardening
+
+Closed the remaining high-confidence QA defects that were still live after the broader Entities/Catalogs waves. This pass stayed narrow and evidence-driven: repair the real `ElementList` hook-order violation, harden design-time entity lifecycle semantics so post-commit `after*` failures cannot report false API failures, add a focused regression for the backend contract, and finish on a green canonical root build.
+
+| Area | Resolution |
+| --- | --- |
+| Frontend hook-order repair | `ElementList` now declares `buildCatalogTabPath` before the invalid/loading/error early returns, preserving stable React hook order while keeping the existing catalog-compatible tab navigation flow intact. |
+| Backend lifecycle hardening | `EntityMutationService` now routes post-commit `after*` dispatches through a dedicated fire-and-log helper, so mutations that have already committed return successfully even if a post-commit lifecycle handler later fails. |
+| Regression proof | Focused lifecycle service coverage now proves the mutation result still resolves successfully while the post-commit failure is logged, locking the non-blocking after-commit contract directly. |
+| Validation | Focused `EntityLifecycleServices` coverage passed (`3/3`), touched frontend/backend lint reruns returned to the warning-only backlog with no error-level failures, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-backend test -- --runTestsByPath src/tests/services/EntityLifecycleServices.test.ts`
+- `pnpm --filter @universo/metahubs-frontend lint`
+- `pnpm --filter @universo/metahubs-backend lint`
+- `pnpm build`
+
+## 2026-04-11 Entities Workspace Post-Rebuild QA Closure
+
+Closed the residual live defects that surfaced only after a clean rebuild, DB reset, and re-import of the committed self-hosted metahub snapshot. This pass stayed intentionally narrow: restore the last `EntitiesWorkspace` UX seams, harden the shared menu/edit path against missing row-level payloads, pluralize the Catalog V2 product strings everywhere they are user-facing, and refresh the generated fixture through the supported Playwright export path without changing codename or structure/template versions.
+
+| Area | Resolution |
+| --- | --- |
+| Entities page parity | `EntitiesWorkspace` no longer renders the obsolete top description, the info banner now uses tighter side spacing, the header CTA follows the shared `Create` contract, and built-in Documents rows resolve localized labels instead of leaking raw `metahubs:documents.title`. |
+| Shared menu and edit robustness | The three-dots menu now follows the legacy danger-group contract, and edit/delete handlers resolve the current entity definition from the live entity-type map so list-view actions still work when table rows omit or stale `raw` payloads. |
+| Product naming and fixture refresh | User-facing `Catalog V2` strings are now pluralized to `Catalogs V2` / `Каталоги V2` across presets, mocks, tests, Playwright flows, fixture contracts, and the regenerated `tools/fixtures/metahubs-self-hosted-app-snapshot.json`, while `custom.catalog-v2` and version metadata remain unchanged. |
+| Validation | Focused metahubs backend coverage passed (`24/24`), focused metahubs frontend coverage passed (`22/22`), `pnpm run build:e2e` completed green, the supported self-hosted generator rerun passed, the focused Chromium entities workspace flow passed (`4 passed`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/routes/templatesRoutes.test.ts src/tests/routes/entityInstancesRoutes.test.ts`
+- `pnpm --filter @universo/metahubs-frontend test -- --run src/domains/entities/ui/__tests__/EntitiesWorkspace.test.tsx src/domains/entities/ui/__tests__/entityTypePreset.test.ts src/domains/entities/ui/__tests__/EntityInstanceList.test.tsx src/domains/attributes/ui/__tests__/AttributeList.systemTab.test.tsx src/domains/elements/ui/__tests__/ElementList.settingsContinuity.test.tsx src/i18n/__tests__/index.test.ts`
+- `pnpm run build:e2e`
+- `node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "self-hosted app"`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/metahub-entities-workspace.spec.ts --project chromium`
+- `pnpm build`
+
+## 2026-04-11 Catalog V2 QA Closure Implementation
+
+Closed the user-reported post-QA defects on the shipped Catalog V2 shared surface without widening scope. This pass kept the route/storage model intact while restoring the remaining UX seams: `EntitiesWorkspace` now follows the shared three-dots action contract, catalog-compatible entity breadcrumbs continue through the instance and tab routes, built-in Documents labels resolve in both locales, and the focused browser proof now matches the real shared Catalogs contract instead of stale generic-entity expectations.
+
+| Area | Resolution |
+| --- | --- |
+| Shared action parity | `EntitiesWorkspace` now reuses `BaseEntityMenu` in both list and card modes, eliminating the custom icon-button cluster and locking the list-view edit path behind the same trigger/item contract already used by the browser suite. |
+| Breadcrumb and i18n closure | `NavbarBreadcrumbs` now resolves catalog-compatible entity-instance breadcrumbs through the standalone catalog name hook, continues tab labels for `attributes`, `system`, `elements`, and `layout`, and EN/RU metahubs locale bundles now include the missing built-in `documents.title` entry. |
+| Focused regression proof | Focused RTL now proves the shared list-view menu opens the populated edit dialog, the targeted workspace/browser flow now asserts entity-route breadcrumb continuation, and the publication/runtime flow now follows the real shared Catalogs contract (`Catalogs` heading, `Create` toolbar label, `Create Catalog` dialog, create mutation via `/catalogs`). |
+| Validation | Focused `@universo/metahubs-frontend` RTL passed (`5/5`), the canonical root `pnpm build` completed green (`30 successful`, `30 total`), both affected Chromium flow specs passed in isolation, and the combined targeted Chromium rerun passed (`5 passed`). |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-frontend test -- --run src/domains/entities/ui/__tests__/EntitiesWorkspace.test.tsx`
+- `pnpm build`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/metahub-entities-workspace.spec.ts --project chromium`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/metahub-entities-publication-runtime.spec.ts --project chromium`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/metahub-entities-workspace.spec.ts tools/testing/e2e/specs/flows/metahub-entities-publication-runtime.spec.ts --project chromium`
+
+## 2026-04-10 Catalog V2 Shared Surface Closure
+
+## 2026-04-10 Catalog V2 Entity Route Isolation Recovery
+
+Closed the user-reported Catalog V2 regression where the new entity-based catalog surface still fell back to the legacy catalog route tree after load. This pass kept the shared storage model intact but restored route ownership to Catalog V2 itself: list clicks, tab navigation, and blocking-reference links now stay inside the entity-based authoring routes instead of jumping into `/catalog/:id/*`.
+
+| Area | Resolution |
+| --- | --- |
+| Entity route ownership | Core frontend now registers entity detail routes for `attributes`, `system`, and `elements`, so Catalog V2 no longer depends on legacy catalog routes after the list click. |
+| Shared route-aware UI reuse | `CatalogList`, `AttributeList`, `ElementList`, and the catalog/set/enumeration blocking dialogs now resolve authoring links through one helper that prefers `/entities/:kindKey/instance/:catalogId/*` when the current route carries `kindKey`, while legacy catalog pages still keep their original paths. |
+| Catalog V2 first-paint behavior | `EntityInstanceList` now treats the known `custom.catalog-v2` route as catalog-compatible before entity-type metadata finishes loading, removing the brief generic entity-shell flash before the catalog-compatible UI appears. |
+| Validation | Focused `@universo/metahubs-frontend` Vitest coverage passed (`13/13`) across the touched entity/attribute/element route regressions, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-frontend test -- --run src/domains/entities/ui/__tests__/EntityInstanceList.test.tsx src/domains/attributes/ui/__tests__/AttributeList.systemTab.test.tsx src/domains/elements/ui/__tests__/ElementList.settingsContinuity.test.tsx`
+- `pnpm build`
+
+## 2026-04-10 Catalog V2 Shared Surface Closure
+
+Closed the residual post-QA Catalog V2 gaps without widening into a new ECAE phase. This pass kept scope tight: route catalog-compatible entity pages through the same authoring surface as legacy Catalogs, preserve localized preset labels in both EN and RU, restore read-only ACL behavior after the shared-surface switch, and refresh the committed self-hosted fixture through the supported generator path.
+
+| Area | Resolution |
+| --- | --- |
+| Shared Catalog V2 route parity | `EntityInstanceList` now delegates catalog-compatible kinds to `CatalogList`, so the dynamic Catalog V2 route mirrors the legacy Catalogs authoring surface instead of rendering a generic empty-state shell that only exposed `custom.catalog-v2` rows. |
+| Localized preset persistence | The `catalog-v2` preset now seeds localized `presentation.name` / `presentation.description`, entity-type form patches preserve both locales, persisted entity-type payloads keep localized presentation data, and dynamic menu rendering now prefers localized presentation labels before raw UI keys. |
+| Shared-surface ACL hardening | `CatalogList` now uses the metahub `editContent` / `deleteContent` permission seam to hide create/edit/copy/delete affordances, preventing the shared Catalog V2 surface from leaking authoring actions to read-only metahub members after the route delegation change. |
+| Generator and validation | Focused frontend tests passed, `pnpm run build:e2e` completed green, the focused workspace Playwright flow passed (`4 passed`), the focused visual parity spec passed (`2 passed`), and the supported generator reran successfully to refresh `tools/fixtures/metahubs-self-hosted-app-snapshot.json` with snapshot hash `2da40a60d9af46d3976be0233fbe2888118b8b81b58fdd2075fadee129660b00`. |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-frontend test -- src/domains/entities/ui/__tests__/EntityInstanceList.test.tsx src/domains/entities/ui/__tests__/entityTypePreset.test.ts`
+- `pnpm --filter @universo/template-mui test -- src/components/dashboard/__tests__/MenuContent.test.tsx`
+- `pnpm run build:e2e`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/metahub-entities-workspace.spec.ts`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/visual/metahub-catalogs-v2-parity.visual.spec.ts`
+- `node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "self-hosted app"`
+
+## 2026-04-10 ECAE Generator And Deleted-State QA Gap Closure
+
+Closed the last evidence-backed QA gap on the shipped Catalogs v2 parity surface. This pass stayed intentionally narrow: align the self-hosted fixture contract with the canonical backend structure-version source, restore a deleted-row detail seam for the focused catalog-compatible lifecycle proof without widening the default read contract, accept the new full-page-shell visual baselines, and finish on a green canonical root build.
+
+| Area | Resolution |
+| --- | --- |
+| Self-hosted fixture contract | `selfHostedAppFixtureContract.mjs` now resolves `CURRENT_STRUCTURE_VERSION_SEMVER` from metahubs-backend dist with a `0.4.0` fallback instead of hardcoding a stale legacy semver, and the regenerated committed self-hosted snapshot now carries `structureVersion: 0.4.0` plus `snapshot.entityTypeDefinitions['custom.catalog-v2']`. |
+| Deleted-detail route parity | Generic custom-entity detail reads stay active-row-only by default, but the controller now accepts explicit `includeDeleted=true` and forwards `{ includeDeleted: true }` to `MetahubObjectsService.findById(...)`, which preserves the default runtime/read contract while letting deleted-state and restore flows validate soft-deleted rows directly. |
+| Browser and visual proof closure | The focused `metahub-entities-workspace` browser proof now polls deleted/restore state through the explicit deleted-read seam, and the `metahub-catalogs-v2-parity` visual suite now includes committed Linux page-shell baselines for both legacy Catalogs and the catalog-compatible entity surface. |
+| Final validation | Focused backend route coverage passed (`21/21`), `pnpm run build:e2e` completed green, the focused lifecycle/browser proof passed (`2 passed`), the focused visual parity spec passed (`2 passed`), and the canonical root `pnpm build` completed green with explicit `EXIT:0`. |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/routes/entityInstancesRoutes.test.ts`
+- `pnpm run build:e2e`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/metahub-entities-workspace.spec.ts --project chromium --grep "preset-backed create flow"`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/visual/metahub-catalogs-v2-parity.visual.spec.ts --project chromium`
+- `pnpm build`
+
+## 2026-04-10 ECAE Final Closeout
+
+Closed the remaining end-of-session tooling and ledger debt after re-auditing the current ECAE tree. This pass verified that generic REF support, custom-entity scripting, and the stronger browser proof were already present on the shipped surface, then limited code changes to the residual TS6 `tsconfig` diagnostics before re-running canonical validation.
+
+| Area | Resolution |
+| --- | --- |
+| Verified shipped scope | Current-tree audit confirmed that generic REF support is already implemented across target selection, backend attribute validation, element editing, and focused regressions, while arbitrary custom-entity script attachments already flow through shared types, backend validation, frontend authoring, and runtime/application sync. |
+| TS6 toolchain closeout | The touched backend/types packages now declare explicit `rootDir`, and the touched frontend/backend package configs that still rely on `baseUrl` now carry a workspace-compatible `ignoreDeprecations: "5.0"` guard under `typescript ^5.8.3`, keeping editor diagnostics clean without breaking real builds or widening into a monorepo-wide config rewrite. |
+| Final validation | The patched `tsconfig` files are clean in editor diagnostics, and the canonical root `pnpm build` task completed successfully on the final patch set. |
+| Memory-bank sync | `tasks.md`, `activeContext.md`, and `techContext.md` now reflect that the remaining closeout scope was tooling plus ledger synchronization rather than unfinished product functionality. |
+
+### Validation
+
+- Editor diagnostics were rechecked on the touched package `tsconfig` files and returned clean.
+- `pnpm build`
+
+## 2026-04-10 ECAE Residual QA Hardening Closure
+
+Closed the remaining honest QA hardening seams on the already shipped strict-parity surface without pretending that future Phase 5 work was partially implemented. This pass stayed intentionally narrow: align generic entity copy with the legacy codename-retry contract, lock the catalog-compatible settings-loading seam on the frontend, add a real browser proof for read-only member access to catalog-compatible instances, and finish on a green canonical root build.
+
+| Area | Resolution |
+| --- | --- |
+| Generic copy retry parity | `entityInstancesController` now retries generated copy codenames across actual insert-time unique conflicts on `idx_mhb_objects_kind_codename_active`, matching the legacy copy-controller contract instead of relying on preflight availability checks alone. |
+| Frontend fail-closed loading proof | `EntityInstanceList` coverage now proves catalog-compatible copy/delete affordances stay hidden while settings-derived entity permissions are still loading, even when `editContent` / `deleteContent` are already present. |
+| Browser ACL proof | The targeted `metahub-entities-workspace` Playwright flow now proves an invited metahub member can open the catalog-compatible instances page read-only while create/edit/copy/delete affordances remain absent. |
+| Final validation | Focused metahubs backend route coverage passed (`20/20`), focused metahubs frontend `EntityInstanceList` coverage passed (`9/9`), the targeted Playwright member ACL rerun passed, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/routes/entityInstancesRoutes.test.ts`
+- `pnpm --filter @universo/metahubs-frontend test -- --run src/domains/entities/ui/__tests__/EntityInstanceList.test.tsx`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/metahub-entities-workspace.spec.ts --project chromium --grep "catalog-compatible entity instances stay read-only for metahub members"`
+- `pnpm build`
+
+## 2026-04-10 ECAE QA Policy And ACL Closure
+
+Closed the last QA-proven ACL/policy gap on the shipped Catalogs v2 surface without reopening the already validated ECAE delivery wave. This pass stayed intentionally narrow: restore legacy catalog policy parity for catalog-compatible generic mutations, restore the legacy `editContent`/`deleteContent` split on the generic catalog-compatible authoring surface, add direct negative-path regressions, and finish on a green canonical root build.
+
+| Area | Resolution |
+| --- | --- |
+| Backend catalog-compatible parity | Generic catalog-compatible copy/delete/permanent-delete now reuse the same legacy catalog settings and reference-blocking protections as legacy Catalogs, while create/update/copy/restore/reorder vs delete/permanent-delete enforce the matching `editContent` / `deleteContent` permission split instead of falling back to `manageMetahub` for everything. |
+| Frontend catalog-compatible parity | `EntityInstanceList` now mirrors the legacy catalog action model for catalog-compatible kinds, including settings-aware copy/delete visibility, `CatalogDeleteDialog` reuse for blocked deletes, restore/permanent-delete visibility parity, and fail-closed settings handling in `useEntityPermissions`. |
+| Focused regression proof | Focused backend route coverage now locks `catalogs.allowCopy`, `catalogs.allowDelete`, and blocking-reference negative paths, while focused frontend coverage proves editor-capable catalog-compatible authoring, delete-dialog reuse, and deleted-row restore/permanent-delete visibility semantics. |
+| Final validation | The focused metahubs backend suite passed (`18/18`), the focused metahubs frontend `EntityInstanceList` suite passed (`8/8`), touched package lint reruns returned to no new error-level debt, and the canonical root `pnpm build` completed green with explicit `EXIT:0`. |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/routes/entityInstancesRoutes.test.ts`
+- `pnpm --filter @universo/metahubs-frontend test -- --run src/domains/entities/ui/__tests__/EntityInstanceList.test.tsx`
+- `pnpm --filter @universo/metahubs-backend lint`
+- `pnpm --filter @universo/metahubs-frontend lint`
+- `pnpm build`
+
+## 2026-04-10 ECAE Final Parity Verification Closure
+
+Closed the last evidence-backed parity seam on the shipped Catalogs v2 surface after the final validation rerun exposed a stale shared-field accessibility regression in the legacy copy dialog. This pass stayed intentionally narrow: restore explicit labels on the shared General tab fields for the remaining legacy action dialogs, rebuild the served frontend bundle, strengthen the visual parity proof so it measures only the actually shared edit surface, and finish on a green canonical root build.
+
+| Area | Resolution |
+| --- | --- |
+| Legacy shared-field repair | `CatalogActions`, `EnumerationActions`, and `SetActions` now pass explicit `GeneralTabFields` labels/helpers again, restoring accessible `Name` / `Description` / `Codename` wiring for legacy copy/edit dialogs and unblocking the real browser copy flow. |
+| Browser proof closure | The focused `metahub-entities-workspace` and `metahub-entities-publication-runtime` Playwright flows reran green (`3/3` total), confirming the legacy catalog copy route now reaches the real `/catalog/:id/copy` mutation again on the compiled app bundle. |
+| Visual parity hardening | The Catalogs v2 visual parity spec now uses shared Playwright snapshots for the true whole-dialog create/copy parity surfaces and a shared General edit-panel snapshot for edit mode, explicitly tolerating the intentional additive `Attributes` tab and external delete affordance on the entity edit shell. |
+| Final validation | The touched frontend lint surface is clean, `pnpm run build:e2e` rebuilt the served frontend/backend bundle successfully, the focused visual spec set passed (`3/3`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+### Validation
+
+- `pnpm exec eslint packages/metahubs-frontend/base/src/domains/catalogs/ui/CatalogActions.tsx packages/metahubs-frontend/base/src/domains/enumerations/ui/EnumerationActions.tsx packages/metahubs-frontend/base/src/domains/sets/ui/SetActions.tsx`
+- `pnpm --filter @universo/metahubs-frontend build`
+- `pnpm run build:e2e`
+- `node tools/testing/e2e/run-playwright-suite.mjs specs/flows/metahub-entities-workspace.spec.ts specs/flows/metahub-entities-publication-runtime.spec.ts`
+- `node tools/testing/e2e/run-playwright-suite.mjs specs/visual/metahub-catalogs-v2-parity.visual.spec.ts specs/visual/metahub-entities-dialog.visual.spec.ts`
+- `pnpm build`
+
+## 2026-04-10 ECAE Read-Only Entity Contract Closure
+
+Closed the last QA-proven mismatch on the shipped strict-parity surface without widening into future Phase 5 scope. This pass aligned backend entity-type read access with the already shipped read-only entity UI contract, added focused regressions on both sides of the seam, cleaned the touched lint surface back to the warning-only backlog, and finished with a green canonical root build.
+
+| Area | Resolution |
+| --- | --- |
+| Backend read contract | `entityTypesController` now allows metahub members to load entity-type list/detail data needed by read-only surfaces, while create/update/delete remain gated by `manageMetahub`. |
+| Frontend regression sync | Focused entity read-only tests now continue showing the `EntitiesWorkspace` and `EntityInstanceList` shells for members without exposing create/edit/delete/instances affordances. |
+| Validation and lint closure | Focused backend/frontend tests passed, targeted Prettier repair removed the touched error-level lint failures, package lint reruns returned to the existing warning-only backlog (`0 errors`), and the canonical root `pnpm build` completed green. |
+| Scope integrity | The memory-bank closure sync keeps the strict parity wave honest while leaving Phase 5 explicitly deferred as future post-parity work. |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/routes/entitiesRoutes.test.ts`
+- `pnpm --filter @universo/metahubs-frontend test -- src/domains/entities/ui/__tests__/EntitiesWorkspace.test.tsx src/domains/entities/ui/__tests__/EntityInstanceList.test.tsx`
+- `pnpm --filter @universo/metahubs-backend lint`
+- `pnpm --filter @universo/metahubs-frontend lint`
+- `pnpm build`
+
+## 2026-04-09 ECAE Strict Catalogs v2 Parity Closure
+
+Closed the last strict acceptance seam that kept Catalogs v2 from being treated as honestly parity-complete with legacy Catalogs. This pass stayed narrow and evidence-driven: widen the backend compatibility pool for catalog-compatible custom kinds, switch the generic entity instance page into catalog semantics where the entity definition explicitly opts into legacy catalog compatibility, and prove the result through focused backend/frontend/browser validation before the canonical root build.
+
+| Area | Resolution |
+| --- | --- |
+| Backend catalog-compatible pool | Legacy catalog routes now accept catalog-compatible custom rows for list/get/update/reorder/delete flows, generic custom-entity copy accepts catalog-style `copyAttributes` / `copyElements` overrides, and script attachment validation resolves catalog-compatible custom rows behind the legacy `catalog` attachment kind. |
+| Frontend catalog mode | `EntityInstanceList` now detects catalog-compatible custom kinds and reuses catalog semantics for labels, copy options, scripts, and dialog behavior while keeping the generic restore/permanent-delete path intact. |
+| Focused parity proof | Focused backend route/service tests are green, the `EntityInstanceList` frontend regressions are green, the `metahub-entities-workspace` Playwright flow now proves create/edit/copy catalog-mode behavior plus RU navigation parity, and the `metahub-entities-publication-runtime` flow remains green for published runtime section resolution. |
+| Final validation | `pnpm run build:e2e` completed green and the canonical root `pnpm build` completed green (`30 successful`, `30 total`), leaving the strict parity patch set without known build regressions. |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/routes/catalogsRoutes.test.ts`
+- `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/routes/entityInstancesRoutes.test.ts src/tests/services/MetahubScriptsService.test.ts`
+- `pnpm --filter @universo/types build`
+- `pnpm --filter @universo/metahubs-backend build`
+- `pnpm --filter @universo/metahubs-frontend test -- --run src/domains/entities/ui/__tests__/EntityInstanceList.test.tsx`
+- `pnpm --filter @universo/metahubs-frontend build`
+- `pnpm run build:e2e`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/metahub-entities-publication-runtime.spec.ts`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/metahub-entities-workspace.spec.ts`
+- `pnpm build`
+
+## 2026-04-09 ECAE Phase 3.6-4 Final Closure
+
+Closed the remaining ECAE implementation wave end to end. This pass repaired the last builder accessibility contract, proved the repaired surface through focused frontend/build/browser evidence, added the missing Phase 3.8 compatibility proofs for legacy snapshot and adapter parity seams, shipped the EN/RU documentation set, and finished with a green canonical root build.
+
+| Area | Resolution |
+| --- | --- |
+| Structured builder closure | `EntitiesWorkspace` now uses the restored structured builder controls with real checkbox semantics for authoring tabs, publish-to-menu, and component toggles; the focused frontend regressions are green again (`5/5`). |
+| Browser and runtime proof | The focused `metahub-entities-workspace` and `metahub-entities-publication-runtime` Playwright flows are green (`2/2` each), confirming workspace authoring, dynamic menu publication, and runtime section rendering end to end. |
+| Phase 3.8 compatibility proof | Focused backend proofs now cover legacy snapshot restore when v3-only entity metadata sections are absent and verify that the legacy catalog-wrapper system-attribute reads stay aligned with the object-scoped adapters (`27/27`). |
+| Phase 4 docs and final validation | EN/RU architecture + custom entity guide pages now ship alongside updated REST API entries and summaries, the touched EN/RU doc pairs were line-count aligned manually, the repository-standard docs i18n check passed, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-frontend test -- src/domains/entities/ui/__tests__/EntitiesWorkspace.test.tsx src/domains/entities/ui/__tests__/entityTypePreset.test.ts`
+- `pnpm --filter @universo/metahubs-frontend build`
+- `pnpm run build:e2e`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/metahub-entities-workspace.spec.ts`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/metahub-entities-publication-runtime.spec.ts`
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/services/SnapshotRestoreService.test.ts src/tests/services/MetahubAttributesService.test.ts`
+- `pnpm docs:i18n:check`
+- `pnpm build`
+
+## 2026-04-09 ECAE QA Closure Follow-up
+
+Closed the two residual follow-up seams left after the Phase 3.3-3.5 QA verdict: the runtime parent-row inline PATCH controller now fails closed through the same `editContent` permission seam as the rest of the runtime mutation surface, and the long-term ECAE checklist no longer contradicts the already verified Phase 3.3-3.5 closure state.
+
+| Area | Resolution |
+| --- | --- |
+| Runtime parent-row edit guard | `applications-backend` `updateCell` now enforces `ensureRuntimePermission(..., 'editContent')` immediately after runtime schema resolution, preventing denied inline PATCH requests from touching runtime catalogs or business tables. |
+| Focused regression closure | The applications-backend route suite now includes a regression that temporarily disables `editor.editContent` and proves inline PATCH returns `403` before any runtime table query begins. |
+| Memory-bank closure sync | `tasks.md` now marks Phase 1, Phase 2.5c, and Phase 3.3-3.5 as complete in the canonical plan checklist, aligning the ledger with the already green closure evidence in `activeContext.md` and this progress log. |
+
+### Validation
+
+- `pnpm --filter @universo/applications-backend test -- src/tests/routes/applicationsRoutes.test.ts`
+- `pnpm build`
+
+## 2026-04-09 ECAE Phase 3.3-3.5 Closure
+
+Closed the snapshot/runtime genericization wave on top of the already validated Phase 3.2 entity shell. This pass finished the snapshot v3 closure, validated the custom-type DDL propagation path, and shipped the backward-compatible runtime `section*` alias contract across backend, frontend, and shared template-mui surfaces without dropping the legacy catalog fields yet.
+
+| Area | Resolution |
+| --- | --- |
+| Snapshot v3 closure | Snapshot serialize/restore now preserve v3 custom entity definitions, nested action/event data, and the legacy catalog system-field compatibility needed for safe restores. |
+| DDL custom-type pipeline | `@universo/schema-ddl`, metahub publication/runtime sync, and application workspace table-name resolution now validate the custom physical-table prefix and `table_name` propagation end to end. |
+| Runtime/shared contract genericization | `applications-backend`, `applications-frontend`, and `apps-template-mui` now expose `section`, `sections`, and `activeSectionId` alongside the legacy catalog fields; runtime helpers resolve backend payloads through `sectionId ?? catalogId`, and user-facing runtime copy now refers to sections instead of catalog-only wording. |
+| Regression, lint, and build closure | Focused runtime regressions passed, the touched-file lint surface was cleaned back to no new error-level debt, the touched package builds passed, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`, `30 cached`). |
+
+### Validation
+
+- `pnpm --filter @universo/apps-template-mui test -- --run src/hooks/__tests__/useCrudDashboard.test.tsx`
+- `pnpm --filter @universo/applications-frontend test -- --run src/pages/__tests__/ApplicationRuntime.test.tsx`
+- `pnpm --filter @universo/applications-backend test -- src/tests/routes/applicationsRoutes.test.ts`
+- `pnpm build`
+
+## 2026-04-09 ECAE Post-QA Closure Remediation
+
+Closed the remaining QA-proven debt on the shipped Phase 3.2 shell/dialog/entity surface before Phase 3.3 begins. This pass stayed intentionally narrow: fix the real shared-seam defects found during QA, tighten the touched lint surface back to `0 errors`, add regressions exactly where the evidence was missing, and revalidate through focused tests, package builds, and the canonical root build.
+
+| Area | Resolution |
+| --- | --- |
+| Shared shell auth seam | `@universo/template-mui` `MenuContent` no longer uses raw `fetch` for metahub/application shell resources; it now uses the shared auth-aware `useAuth().client` seam and keeps query enablement gated behind auth bootstrap. |
+| Shared dialog safety | `ConflictResolutionDialog` now keeps `useDialogPresentation(...)` on a stable hook order even when `conflict` toggles between `null` and a real payload, and the dialog test suite now locks the null → payload → null rerender path. |
+| Focused regression and lint closure | `MenuContent.test.tsx`, the new `ConflictResolutionDialog.test.tsx`, and entity instance regressions now cover the previously unproven QA seams; formatter drift was removed, touched entity files no longer carry local warning debt, and both touched-package lint runs returned to the repository's warning-only backlog (`0 errors`). |
+| Validation | Focused template-mui and metahubs-frontend tests passed, `@universo/template-mui` and `@universo/metahubs-frontend` builds passed, and the canonical root `pnpm build` completed green, closing the remediation wave without widening into Phase 3.3 work prematurely. |
+
+### Validation
+
+- `pnpm --filter @universo/template-mui lint`
+- `pnpm --filter @universo/metahubs-frontend lint`
+- `pnpm --filter @universo/template-mui test -- --runInBand src/components/dashboard/__tests__/MenuContent.test.tsx src/components/dialogs/__tests__/ConflictResolutionDialog.test.tsx`
+- `pnpm --filter @universo/metahubs-frontend test -- src/domains/entities/ui/__tests__/EntitiesWorkspace.test.tsx src/domains/entities/ui/__tests__/EntityInstanceList.test.tsx`
+- `pnpm --filter @universo/template-mui build`
+- `pnpm --filter @universo/metahubs-frontend build`
+- `pnpm build`
+
+## 2026-04-09 ECAE Phase 3.2 QA Remediation And Dynamic Published Menu
+
+Closed the first honest Phase 3.2 shell/navigation checkpoint on top of the shipped generic entity-instance surface. This pass stayed narrow and evidence-driven: repair the QA-proven permanent-delete and ACL gaps, expose published custom-kind metadata through the existing entity-type contract, ship the first dynamic published menu zone without regressing coexistence-first navigation, and prove the result in a real browser flow before widening into later snapshot/runtime work.
+
+| Area | Resolution |
+| --- | --- |
+| Permanent delete and backend metadata | Generic permanent delete now fails closed unless the custom entity row is already soft-deleted, and custom entity-type list responses now expose `published` so downstream shell consumers can derive published custom-kind navigation without a second metadata endpoint. |
+| Shell ACL and dynamic menu zone | The metahub shell now filters authoring-only entries through the existing metahub-details permission seam, keeps `Access` separately gated through `manageMembers`, resolves raw-title menu labels safely, and inserts published custom-kind links between the legacy built-in object cluster and the publications/admin cluster. |
+| Focused regressions and browser proof | Focused template-mui menu/config tests now cover permission filtering, divider compaction, and published custom-kind ordering, while the Playwright `metahub-entities-workspace` flow now proves that a preset-backed custom entity type appears as a sidebar link and opens `/entities/:kindKey/instances` in both EN and RU. |
+| Validation and build propagation | Focused backend/template-mui tests passed, touched package builds for `@universo/template-mui`, `@universo/metahubs-backend`, and `@universo/core-frontend` passed, and the canonical root `pnpm build` completed green after propagating the shell bundle change into the served frontend build. |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/services/EntityTypeService.test.ts src/tests/routes/entitiesRoutes.test.ts`
+- `pnpm --filter @universo/template-mui test -- src/navigation/__tests__/menuConfigs.test.ts src/components/dashboard/__tests__/MenuContent.test.tsx`
+- `pnpm --filter @universo/template-mui build`
+- `pnpm --filter @universo/metahubs-backend build`
+- `pnpm --filter @universo/core-frontend build`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/metahub-entities-workspace.spec.ts`
+- `pnpm build`
+
+## 2026-04-09 ECAE Phase 3.1 Generic Entity Instance UI
+
+Closed the first generic entity-instance authoring slice on top of the validated entity-type foundation. This pass stayed intentionally scoped to the metahub authoring surface: ship one custom-kind `EntityInstanceList` page, wire it into the real product, keep unsupported scripts fail-closed, and prove the new seams through focused frontend coverage plus the canonical root build.
+
+| Area | Resolution |
+| --- | --- |
+| Generic instance authoring surface | Added the first `EntityInstanceList` page for custom kinds with list/card view, create/edit/copy/delete/restore/permanent-delete flows, deleted-row visibility, optimistic-lock conflict handling, and dedicated view-mode persistence. |
+| Safe object-scoped reuse | Reused `EntityFormDialog`, `useListDialogs`, `GeneralTabFields`, config-backed hub assignment, and edit-only embedded attribute/layout surfaces where the existing object-id-backed seams were already safe; scripts stay explicitly gated behind a warning until the attachment contract is widened. |
+| Product integration | Exposed the page through metahubs exports and core frontend routes, added the direct `EntitiesWorkspace` instances action, and generalized `HubSelectionPanel` with label overrides so the hub-assignment UI no longer leaks catalog-specific wording. |
+| i18n, regressions, and validation | Added EN/RU `entities.instances.*` coverage, added focused tests for component-driven tab composition and workspace navigation, fixed the esbuild/vitest generic-arrow transform seam in the shared entity API helpers, and revalidated with passing focused tests, touched-package builds, and a green root `pnpm build`. |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-frontend test -- src/__tests__/exports.test.ts src/domains/entities/ui/__tests__/EntityInstanceList.test.tsx src/domains/entities/ui/__tests__/EntitiesWorkspace.test.tsx`
+- `pnpm --filter @universo/metahubs-frontend build`
+- `pnpm --filter @universo/core-frontend build`
+- `pnpm build`
+
+## 2026-04-09 ECAE Phase 2.9 Browser And Visual Validation
+
+Closed the browser-proof checkpoint for the shipped entity-type authoring slice before widening into Phase 3 runtime work. This pass stayed intentionally narrow: validate the real `Entities` workspace, preset-backed create dialog, backend persistence, RU parity, and screenshot stability on the already shipped authoring surface instead of inventing a premature generic runtime UI.
+
+| Area | Resolution |
+| --- | --- |
+| Focused browser coverage | Added a dedicated Playwright flow for `EntitiesWorkspace` preset-backed entity-type creation, backend-confirmed persistence, and EN/RU parity using the shipped `/metahub/:metahubId/entities` authoring route. |
+| Stable visual proof | Added a dedicated visual spec for the entity create dialog with a seeded preset and stabilized it by capturing the dialog after the preset selector loses focus, then refreshed the baseline to that non-focused state. |
+| Product repair from browser evidence | The focused flow surfaced a real UI defect: list view rendered a blank primary `Name` cell. `EntitiesWorkspace` now renders the primary name column explicitly with `row.name || row.kindKey`, so newly created custom types remain visible in list mode. |
+| Validation | Focused entity flow and visual checks passed after the repair and baseline refresh, and the canonical root `pnpm build` completed successfully, closing Phase 2.9 and moving the next checkpoint to Phase 3.1 generic entity instance UI. |
+
+### Validation
+
+- `pnpm run build:e2e`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/metahub-entities-workspace.spec.ts tools/testing/e2e/specs/visual/metahub-entities-dialog.visual.spec.ts`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/visual/metahub-entities-dialog.visual.spec.ts`
+- `pnpm build`
+
+## 2026-04-09 ECAE Phase 2.7b Reusable Entity Presets
+
+Completed the reusable entity preset checkpoint on top of the coexistence-first entity foundation without introducing a second preset store. This slice extends the existing metahub template registry so cross-metahub entity presets now reuse the same versioning, validation, and seeding seam as builtin metahub templates, and the `Entities` create dialog can safely prefill authoring state from those manifests.
+
+| Area | Resolution |
+| --- | --- |
+| Template registry contract | Added shared template definition typing for `entity_type_preset`, exposed `definitionType` on list responses, and exposed `activeVersionManifest` on template detail responses so preset consumers can fetch typed active manifests from the existing templates API. |
+| Builtin preset seeding | Added builtin entity preset manifests (`catalog-v2`, `document-workspace`, `constants-library`) and seeded them through the same `TemplateSeeder`, validator, and checksum-driven builtin-template migration path used by metahub templates. |
+| Entity authoring flow | Generalized the frontend templates hooks/query keys/selector components for `definitionType`, added `EntityTypePresetSelector`, and wired create-mode preset application into `EntitiesWorkspace` so preset manifests prefill dialog state without affecting edit mode or bypassing normal validation/save behavior. |
+| Validation and root-build stability | Focused backend/frontend regressions passed, touched-package lint stayed on the existing warning-only backlog (`0 errors`), and the canonical root `pnpm build` completed green after hardening `@universo/core-frontend` build memory with `NODE_OPTIONS='--max-old-space-size=8192'` for the Turbo workspace path. |
+
+### Validation
+
+- `pnpm --filter @universo/types build`
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/persistence/templatesStore.test.ts src/tests/services/templateManifestValidator.test.ts src/tests/routes/templatesRoutes.test.ts`
+- `pnpm --filter @universo/metahubs-backend lint`
+- `pnpm --filter @universo/metahubs-backend build`
+- `pnpm --filter @universo/metahubs-frontend lint`
+- `pnpm --filter @universo/metahubs-frontend test -- src/__tests__/exports.test.ts src/domains/shared/__tests__/queryKeys.test.ts src/domains/entities/ui/__tests__/entityTypePreset.test.ts`
+- `pnpm --filter @universo/metahubs-frontend build`
+- `pnpm --filter @universo/template-mui build`
+- `pnpm --filter @universo/core-frontend build`
+- `pnpm build`
+
+## 2026-04-09 ECAE Phase 2.6-2.8 Frontend Entity Foundation
+
+Completed the first validated frontend entity slice on top of the coexistence-first backend ECAE foundation. This checkpoint intentionally stopped at entity-type authoring and frontend integration seams: the new `Entities` workspace is reachable in the shipped shell, localized in EN/RU, covered by query-key smoke tests, and validated through touched-package checks plus the canonical root build.
+
+| Area | Resolution |
+| --- | --- |
+| Frontend API/hooks | Added the `domains/entities/api` and `domains/entities/hooks` surface with entity-type and generic entity query/mutation helpers aligned to the existing metahubs query-key architecture and invalidation helpers. |
+| Workspace routing/navigation | Wired the first `EntitiesWorkspace` through metahubs package exports, core frontend lazy routes, shared template-mui navigation, breadcrumbs, and external-module typing so entity-type authoring is reachable below `Common` without cross-package local imports. |
+| i18n and query-key closure | Added the shipped `metahubs.entities.*` EN/RU strings, exposed the `entities` namespace through the metahubs i18n consolidator, extended shared query-key smoke coverage for entity scopes/invalidators, and removed the unstable fallback-array hook warning in `EntitiesWorkspace`. |
+| Validation | `@universo/metahubs-frontend` lint returned to the warning-only backlog (`0 errors`), focused exports/query-key tests passed, `@universo/metahubs-frontend`, `@universo/template-mui`, and `@universo/core-frontend` builds passed, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`, `2m48.007s`). |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-frontend lint`
+- `pnpm --filter @universo/metahubs-frontend test -- src/__tests__/exports.test.ts src/domains/shared/__tests__/queryKeys.test.ts`
+- `pnpm --filter @universo/metahubs-frontend build`
+- `pnpm --filter @universo/template-mui build`
+- `pnpm --filter @universo/core-frontend build`
+- `pnpm build`
+
+## 2026-04-08 ECAE Phase 2.5c Design-Time Service Genericization
+
+Completed the first honest design-time genericization slice on top of the coexistence-first entity foundation. This checkpoint deliberately stopped short of broad layout-service rewrites and instead extracted the reusable seams that were already structurally shared: object-scoped system-attribute management and design-time child-copy orchestration.
+
+| Area | Resolution |
+| --- | --- |
+| Object-scoped policy seam | `MetahubAttributesService` now exposes `listObjectSystemAttributes(...)`, `getObjectSystemFieldsSnapshot(...)`, and `ensureObjectSystemAttributes(...)` while keeping the legacy catalog-named wrappers as compatibility aliases. |
+| Shared child-copy helper | Added `copyDesignTimeObjectChildren(...)` to centralize attribute, element, constant, and enumeration-value copy behavior plus optional system-attribute reseeding inside one transaction-aware helper. |
+| Legacy/generic copy reuse | Catalog, set, and enumeration legacy copy controllers now use the shared helper internally without changing their public route ownership or response contracts, and generic custom-entity copy now derives child-copy breadth from enabled design-time components. |
+| Validation | Focused backend regressions passed (`82/82`), `@universo/metahubs-backend` lint returned to the existing warning-only backlog (`0 errors`), `@universo/metahubs-backend` build passed, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/services/MetahubAttributesService.test.ts src/tests/services/designTimeObjectChildrenCopy.test.ts src/tests/routes/entityInstancesRoutes.test.ts src/tests/routes/catalogsRoutes.test.ts src/tests/routes/setsRoutes.test.ts src/tests/routes/enumerationsRoutes.test.ts`
+- `pnpm --filter @universo/metahubs-backend lint`
+- `pnpm --filter @universo/metahubs-backend build`
+- `pnpm build`
+
+## 2026-04-08 ECAE Phase 2.5b Legacy Built-in Compatibility Layer
+
+Completed the coexistence-first compatibility lift over the new generic entity foundation without widening built-in routes to the generic surface. This checkpoint keeps catalogs, sets, and enumerations on their legacy endpoints, but moves the structurally shared delete/detach/reorder safety semantics into internal helpers so later Phase 2.5c service genericization can build on one shared control-flow seam instead of three parallel copies.
+
+| Area | Resolution |
+| --- | --- |
+| Shared compatibility helper | Added `legacyBuiltinObjectCompatibility.ts` for shared blocked-delete, hub-detach, and reorder outcome handling while keeping kind-specific policy and blocker checks injected from legacy routes. |
+| Set and enumeration reuse | Legacy set and enumeration routes now reuse the shared helper layer for delete, hub detach, and reorder safety paths, preserving the existing optimistic-lock and not-found response contracts. |
+| Catalog safety lift | Catalog legacy routes now reuse the shared helper layer only for delete-by-hub, delete, and permanent-delete safety paths while preserving catalog-specific delete policy and blocker behavior. |
+| Validation | Focused backend helper + route regressions passed (`61/61`), `@universo/metahubs-backend` lint returned to the existing warning-only backlog (`0 errors`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/services/LegacyBuiltinObjectCompatibility.test.ts src/tests/routes/setsRoutes.test.ts src/tests/routes/enumerationsRoutes.test.ts src/tests/routes/catalogsRoutes.test.ts`
+- `pnpm --filter @universo/metahubs-backend exec eslint src/domains/entities/services/legacyBuiltinObjectCompatibility.ts src/domains/sets/controllers/setsController.ts src/domains/enumerations/controllers/enumerationsController.ts src/tests/services/LegacyBuiltinObjectCompatibility.test.ts --fix`
+- `pnpm --filter @universo/metahubs-backend lint && pnpm --filter @universo/metahubs-backend build`
+- `pnpm build`
+
+## 2026-04-08 ECAE Phase 2.5 Generic Entity CRUD Backend
+
+Completed the first generic entity-instance backend layer on top of the ECAE foundation while keeping the rollout coexistence-first. This checkpoint intentionally exposes the new CRUD surface only for custom DB-backed kinds, so legacy catalogs/sets/enumerations remain on their dedicated routes until the compatibility layer and service genericization phases prove the shared foundation safe for built-ins too.
+
+| Area | Resolution |
+| --- | --- |
+| Generic route surface | Added custom-only design-time entity instance routes/controllers for list, create, get, update, delete, restore, permanent delete, copy, and reorder under the standard metahubs auth/rate-limit/domain-error stack. |
+| Shared object seam | `MetahubObjectsService` now accepts generic kind strings and optional transaction runners on the mutation/read helpers needed by generic CRUD, so `EntityMutationService` can wrap update/delete/copy/restore flows without controller-owned transaction logic. |
+| Coexistence guard | Generic routes explicitly reject built-in kinds and keep catalogs/sets/enumerations on legacy paths for now, preserving coexistence-first rollout and avoiding premature policy/copy-flow bypasses. |
+| Validation | Focused generic route coverage passed (`9/9`), the combined ECAE service+route+resolver regression suite passed (`33/33`), `@universo/utils` build passed, `@universo/metahubs-backend` build passed, touched-file lint had `0 errors` (warning backlog only), and the canonical root `pnpm build` completed green after clearing an unrelated generated `packages/applications-backend/base/dist` cleanup blocker (`30 successful`, `30 total`). |
+
+### Validation
+
+- `pnpm --filter @universo/utils build`
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/services/EntityTypeService.test.ts src/tests/services/EntityActionService.test.ts src/tests/services/EventBindingService.test.ts src/tests/services/EntityLifecycleServices.test.ts src/tests/routes/entitiesRoutes.test.ts src/tests/routes/entityInstancesRoutes.test.ts src/tests/shared/entityTypeResolver.test.ts`
+- `pnpm --filter @universo/metahubs-backend build`
+- `pnpm --filter @universo/metahubs-backend exec eslint src/domains/entities/controllers/entityInstancesController.ts src/domains/entities/routes/entityInstancesRoutes.ts src/tests/routes/entityInstancesRoutes.test.ts src/domains/metahubs/services/MetahubObjectsService.ts src/domains/router.ts`
+- `rm -rf packages/applications-backend/base/dist && pnpm build`
+
+## 2026-04-08 ECAE Phase 2.4 Resolver DB Extension
+
+Completed the first shared-resolution bridge from the built-in registry to DB-backed custom entity kinds. This keeps future generic entity work from hardcoding built-ins only, while still avoiding repeated custom-type lookups inside the same resolver instance.
+
+| Area | Resolution |
+| --- | --- |
+| Shared resolver behavior | `EntityTypeResolver` is now async and can resolve built-in kinds from the code registry first, then fall through to `EntityTypeService` for custom DB-backed kinds when metahub context is available. |
+| Request-local caching | Added resolver-instance caching for repeated custom-kind lookups keyed by metahub/user/kind so genericized backend paths can reuse one resolved custom type inside the same request flow. |
+| Validation | Focused resolver tests passed (`5/5`), the combined ECAE service+route+resolver regression suite passed (`24/24`), `@universo/metahubs-backend` build passed, touched-file lint was clean, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/shared/entityTypeResolver.test.ts`
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/services/EntityTypeService.test.ts src/tests/services/EntityActionService.test.ts src/tests/services/EventBindingService.test.ts src/tests/services/EntityLifecycleServices.test.ts src/tests/routes/entitiesRoutes.test.ts src/tests/shared/entityTypeResolver.test.ts`
+- `pnpm --filter @universo/metahubs-backend build`
+- `pnpm --filter @universo/metahubs-backend exec eslint src/domains/shared/entityTypeResolver.ts src/tests/shared/entityTypeResolver.test.ts`
+- `pnpm build`
+
+## 2026-04-08 ECAE Phase 2.3 Backend Route Surface
+
+Completed the first HTTP exposure layer for the new entity/action/event backend foundation. This checkpoint keeps the rollout coexistence-first: it exposes the new ECAE services through standard metahub route/controller seams without yet widening into generic entity instance CRUD or runtime/publication genericization.
+
+| Area | Resolution |
+| --- | --- |
+| Entity type routes | Added CRUD routes/controllers for custom entity types plus paginated filtered listing of resolved entity types at `/metahub/:metahubId/entity-types` and `/metahub/:metahubId/entity-type/:entityTypeId`. |
+| Action and event routes | Added object-scoped routes/controllers for actions and event bindings, keeping route handlers thin and delegating validation/business rules to `ActionService` and `EventBindingService`. |
+| Router integration | Registered the new entity-type, action, and event-binding route factories in the top-level metahubs domain router so the new surface participates in the normal auth, rate-limit, and domain-error stack. |
+| Validation | Added focused route coverage for entity types, actions, and event bindings; the combined ECAE service+route regression suite passed (`19/19`), `@universo/metahubs-backend` build passed, package lint finished with `0 errors` (warning backlog only), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/services/EntityTypeService.test.ts src/tests/services/EntityActionService.test.ts src/tests/services/EventBindingService.test.ts src/tests/services/EntityLifecycleServices.test.ts src/tests/routes/entitiesRoutes.test.ts`
+- `pnpm --filter @universo/metahubs-backend build`
+- `pnpm --filter @universo/metahubs-backend lint`
+- `pnpm build`
+
+## 2026-04-08 ECAE Phase 2.2 Backend Service Foundation
+
+Completed the backend service foundation for the coexistence-first Entity-Component-Action-Event rollout. This milestone moved the new metahub entity/action/event logic out of planning-only state and into validated backend services, while keeping the next checkpoint explicitly limited to route/controller exposure rather than widening directly into runtime or frontend work.
+
+| Area | Resolution |
+| --- | --- |
+| Entity type backend | Added `EntityTypeService` for custom metahub entity-type CRUD/resolution on top of `_mhb_entity_type_definitions`, including built-in plus custom merge behavior and component-dependency validation. |
+| Action and event services | Added `ActionService` and `EventBindingService` for object-owned actions and same-object event bindings, with component-manifest gating, script existence checks, conflict validation, and optimistic-lock update support. |
+| Lifecycle orchestration | Added `EntityEventRouter` plus `EntityMutationService`, keeping `before*` dispatch inside the mutation transaction and `after*` dispatch only after a successful commit. |
+| Validation closure | Normalized the new focused backend tests to canonical metahub schema names, extended optimistic-lock entity typing for `entity_type` / `action` / `event_binding`, and closed the build-only typing gaps in the new services. |
+| Validation | Focused Phase 2.2 backend service tests passed (`11/11`), `@universo/utils` build passed, `@universo/metahubs-backend` build passed, package lint finished with `0 errors` (warning backlog only), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-backend test -- src/tests/services/EntityTypeService.test.ts src/tests/services/EntityActionService.test.ts src/tests/services/EventBindingService.test.ts src/tests/services/EntityLifecycleServices.test.ts`
+- `pnpm --filter @universo/utils build`
+- `pnpm --filter @universo/metahubs-backend build`
+- `pnpm --filter @universo/metahubs-backend lint`
+- `pnpm build`
+
+## 2026-04-08 Entity Architecture Plan QA Alignment
+
+Completed the planning-only architecture pass for the metahub Entity migration after two rounds of QA against both the original 9-point specification and the real repository seams, followed by a final seam-closure refinement pass. No implementation started in this milestone; the completed work is the corrected Draft v4 plan plus synchronized Memory Bank context so future IMPLEMENT work starts from the stricter coexistence-first contract instead of the earlier over-aggressive refactor framing.
+
+| Area | Resolution |
+| --- | --- |
+| Plan architecture | Promoted the plan from the earlier ECAE draft to a stricter Draft v3 that keeps legacy Catalogs/Sets/Enumerations alive while introducing the new `Entities` workspace, dynamic published sections, and `Catalogs v2` dogfooding. |
+| Service/runtime contract | Recorded that lifecycle dispatch must move through a transaction-aware `EntityMutationService`, and that runtime controllers, script attachments, widget config contracts, and snapshot transports still need explicit genericization rather than being treated as already entity-safe. |
+| Final seam coverage | Tightened the plan to Draft v4 by adding explicit `applications-frontend` runtime genericization, a design-time service genericization gate for catalog-centric backend services, the object-owned Actions/Events contract, the `EntityFormDialog` vs `DynamicEntityFormDialog` reuse rule, and mandatory reuse of the existing platform system-attribute governance helpers for Catalogs v2. |
+| Reuse-first completion | Added two further QA clarifications: reusable entity presets should extend the existing platform template registry/versioning flow in `metahubs`, and `apps-template-mui` runtime adapter/API contracts must be genericized together with page components so catalog naming does not remain baked into shared runtime abstractions. |
+| Scope correction | Moved the form-driven Zerocode MVP into current scope, while keeping advanced visual builders and richer no-code tooling in a future post-parity phase. |
+| Memory Bank sync | Updated `activeContext.md` and `tasks.md` to match Draft v4 so the repo memory now reflects coexistence-first rollout, current-scope Zerocode MVP, runtime/design-time seam coverage, and the `Entities` plus dynamic published-menu split. |
+
+### Validation
+
+- Manual QA pass against the plan file and audited repository seams.
+- Memory Bank synchronization completed for `activeContext.md`, `tasks.md`, and this progress entry.
+
 ## 2026-04-08 PR #755 Review Follow-up And E2E Recovery
 
 Closed the post-publish follow-up for PR #755 after the enforced 20-minute wait window, bot-review triage, and the user-requested requirement to keep repairing the branch until the repository-recommended E2E gate was fully green again. The actual accepted review fix stayed narrow in backend cleanup logic, but full validation also uncovered stale E2E expectations, a codename-mode list-refresh seam, and a stale quiz snapshot integrity hash that had to be repaired before the PR could be safely updated.

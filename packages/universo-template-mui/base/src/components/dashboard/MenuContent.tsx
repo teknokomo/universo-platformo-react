@@ -8,7 +8,9 @@ import Divider from '@mui/material/Divider'
 import { useQuery } from '@tanstack/react-query'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useAuth, type AuthClient } from '@universo/auth-frontend'
 import i18n from '@universo/i18n'
+import { getVLCString } from '@universo/utils'
 import { useHasGlobalAccess } from '@universo/store'
 import { resolveShellAccess } from '../../navigation/roleAccess'
 import {
@@ -17,7 +19,8 @@ import {
     getAdminMenuItems,
     getMetahubMenuItems,
     getApplicationMenuItems,
-    getInstanceMenuItems
+    getInstanceMenuItems,
+    resolveTemplateMenuLabel
 } from '../../navigation/menuConfigs'
 
 type ApplicationShellDetail = Record<string, unknown> & {
@@ -26,9 +29,47 @@ type ApplicationShellDetail = Record<string, unknown> & {
     schemaName?: string | null
 }
 
+type MetahubShellDetail = Record<string, unknown> & {
+    permissions?: {
+        manageMetahub?: boolean
+        manageMembers?: boolean
+    }
+}
+
+type MenuEntityTypeSummary = {
+    kindKey: string
+    source: 'builtin' | 'custom'
+    published?: boolean
+    codename?: unknown
+    presentation?: {
+        name?: unknown
+    }
+    ui?: {
+        iconName?: string | null
+        nameKey?: string | null
+        sidebarSection?: 'objects' | 'admin'
+    }
+}
+
+type MenuEntityTypesResponse = {
+    items?: MenuEntityTypeSummary[]
+}
+
+const resolveLocalizedText = (value: unknown): string | null => {
+    const locale = (i18n.resolvedLanguage || i18n.language || 'en').split(/[-_]/)[0].toLowerCase()
+    const localized = getVLCString(value as Parameters<typeof getVLCString>[0], locale).trim()
+    return localized.length > 0 ? localized : null
+}
+
+async function loadMenuResource<T>(client: AuthClient, path: string): Promise<T> {
+    const response = await client.get<T>(path)
+    return response.data
+}
+
 export default function MenuContent() {
     const { t } = useTranslation('menu', { i18n })
     const location = useLocation()
+    const { client, loading: authLoading } = useAuth()
 
     const { isSuperuser, canAccessAdminPanel, globalRoles, ability } = useHasGlobalAccess() as ReturnType<typeof useHasGlobalAccess> & {
         ability?: { can(action: string, subject: string): boolean } | null
@@ -43,28 +84,48 @@ export default function MenuContent() {
     const metahubMatch = location.pathname.match(/^\/metahub\/([^/]+)/)
     const metahubId = metahubMatch ? metahubMatch[1] : null
 
+    const metahubDetailQuery = useQuery<MetahubShellDetail>({
+        queryKey: metahubId ? ['metahubs', 'detail', metahubId] : ['metahubs', 'detail', 'missing-id'],
+        queryFn: () => loadMenuResource(client, `/metahub/${metahubId}`),
+        enabled: Boolean(metahubId) && !authLoading,
+        staleTime: 5 * 60 * 1000,
+        retry: 1,
+        refetchOnMount: false,
+        refetchOnWindowFocus: false
+    })
+
+    const canManageMetahub = metahubDetailQuery.data?.permissions?.manageMetahub === true
+    const canManageMembers = metahubDetailQuery.data?.permissions?.manageMembers === true
+
+    const metahubEntityTypesQuery = useQuery<MenuEntityTypesResponse>({
+        queryKey: metahubId
+            ? ['metahubs', 'detail', metahubId, 'entityTypes', 'publishedMenu']
+            : ['metahubs', 'detail', 'missing-id', 'entityTypes', 'publishedMenu'],
+        queryFn: () => loadMenuResource(client, `/metahub/${metahubId}/entity-types?includeBuiltins=false&limit=1000&offset=0`),
+        enabled: Boolean(metahubId) && !authLoading && canManageMetahub,
+        staleTime: 5 * 60 * 1000,
+        retry: 1,
+        refetchOnMount: false,
+        refetchOnWindowFocus: false
+    })
+
+    const publishedEntityTypes = (metahubEntityTypesQuery.data?.items ?? [])
+        .filter((item) => item.source === 'custom' && item.published === true)
+        .map((item) => ({
+            kindKey: item.kindKey,
+            title: resolveLocalizedText(item.presentation?.name) || item.ui?.nameKey?.trim() || resolveLocalizedText(item.codename) || item.kindKey,
+            iconName: item.ui?.iconName ?? null,
+            sidebarSection: item.ui?.sidebarSection ?? 'objects'
+        }))
+
     // Check if we're in an application admin context (/a/:id/admin...)
     const applicationAdminMatch = location.pathname.match(/^\/a\/([^/]+)\/admin(?:\/|$)/)
     const applicationId = applicationAdminMatch ? applicationAdminMatch[1] : null
 
     const applicationDetailQuery = useQuery<ApplicationShellDetail>({
         queryKey: applicationId ? ['applications', 'detail', applicationId] : ['applications', 'detail', 'missing-id'],
-        queryFn: async () => {
-            const response = await fetch(`/api/v1/applications/${applicationId}`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                credentials: 'include'
-            })
-
-            if (!response.ok) {
-                throw new Error(`Failed to load application detail for menu: ${response.status}`)
-            }
-
-            return (await response.json()) as ApplicationShellDetail
-        },
-        enabled: Boolean(applicationId),
+        queryFn: () => loadMenuResource(client, `/applications/${applicationId}`),
+        enabled: Boolean(applicationId) && !authLoading,
         staleTime: 5 * 60 * 1000,
         retry: 2,
         retryOnMount: true,
@@ -85,7 +146,11 @@ export default function MenuContent() {
               item.id === 'application-settings' ? !shouldHideApplicationSettingsItem : true
           )
         : metahubId
-        ? getMetahubMenuItems(metahubId)
+        ? getMetahubMenuItems(metahubId, {
+              canManageMetahub,
+              canManageMembers,
+              publishedEntityTypes
+          })
         : instanceId
         ? getInstanceMenuItems(instanceId)
         : rootMenuItems.filter((item) => shellAccess.visibility.rootMenuIds.includes(item.id))
@@ -118,7 +183,7 @@ export default function MenuContent() {
                         <ListItem key={item.id} disablePadding sx={{ display: 'block' }}>
                             <ListItemButton selected={isSelected} disabled={isApplicationSettingsDisabled} {...buttonProps}>
                                 <ListItemIcon>{<Icon size={20} stroke={1.5} />}</ListItemIcon>
-                                <ListItemText primary={t(item.titleKey)} />
+                                <ListItemText primary={resolveTemplateMenuLabel(item, t)} />
                             </ListItemButton>
                         </ListItem>
                     )
@@ -142,7 +207,7 @@ export default function MenuContent() {
                                             <ListItemIcon>
                                                 <Icon size={20} stroke={1.5} />
                                             </ListItemIcon>
-                                            <ListItemText primary={t(item.titleKey)} />
+                                            <ListItemText primary={resolveTemplateMenuLabel(item, t)} />
                                         </ListItemButton>
                                     </ListItem>
                                 )
@@ -158,7 +223,7 @@ export default function MenuContent() {
                                             <ListItemIcon>
                                                 <Icon size={20} stroke={1.5} />
                                             </ListItemIcon>
-                                            <ListItemText primary={t(item.titleKey)} />
+                                            <ListItemText primary={resolveTemplateMenuLabel(item, t)} />
                                         </ListItemButton>
                                     </ListItem>
                                 )

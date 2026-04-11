@@ -199,7 +199,12 @@ export function useDialogPresentationContext() {
     return useContext(DialogPresentationContext)
 }
 
-export function useDialogPresentation({ open, onClose, fallbackMaxWidth = 'sm', isBusy = false }: DialogPresentationHookOptions): DialogPresentationHookResult {
+export function useDialogPresentation({
+    open,
+    onClose,
+    fallbackMaxWidth = 'sm',
+    isBusy = false
+}: DialogPresentationHookOptions): DialogPresentationHookResult {
     const theme = useTheme()
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
     const presentation = useDialogPresentationContext()
@@ -313,7 +318,6 @@ export function useDialogPresentation({ open, onClose, fallbackMaxWidth = 'sm', 
 
         setCustomSize(nextSize)
         persistStoredDialogSize(storageKey, nextSize)
-
     }, [clearResizeDocumentState, storageKey])
 
     useEffect(() => {
@@ -425,10 +429,10 @@ export function useDialogPresentation({ open, onClose, fallbackMaxWidth = 'sm', 
                       height: viewportHeight
                   }
                 : resolvedHeight
-                  ? {
-                        height: `min(${viewportHeight}, ${resolvedHeight}px)`
-                    }
-                  : {})
+                ? {
+                      height: `min(${viewportHeight}, ${resolvedHeight}px)`
+                  }
+                : {})
         }
     }, [customSize, enabled, isFullscreen, presetWidth, showBlockedCloseFeedback, theme, viewportMargin])
 
@@ -464,35 +468,36 @@ export function useDialogPresentation({ open, onClose, fallbackMaxWidth = 'sm', 
         )
     }, [allowFullscreen, allowResize, clearCustomSize, enabled, hasCustomSize, isBusy, isFullscreen, titleActionLabels])
 
-    const resizeHandle = enabled && allowResize && !isFullscreen ? (
-        <Box
-            role='button'
-            aria-label={titleActionLabels.resizeHandle}
-            data-testid='dialog-resize-handle'
-            onMouseDown={handleResizeMouseDown}
-            sx={{
-                position: 'absolute',
-                right: 8,
-                bottom: 8,
-                width: 18,
-                height: 18,
-                cursor: 'nwse-resize',
-                borderBottom: (theme) => `2px solid ${theme.palette.divider}`,
-                borderRight: (theme) => `2px solid ${theme.palette.divider}`,
-                opacity: 0.9,
-                '&::before': {
-                    content: '""',
+    const resizeHandle =
+        enabled && allowResize && !isFullscreen ? (
+            <Box
+                role='button'
+                aria-label={titleActionLabels.resizeHandle}
+                data-testid='dialog-resize-handle'
+                onMouseDown={handleResizeMouseDown}
+                sx={{
                     position: 'absolute',
-                    right: 3,
-                    bottom: 3,
-                    width: 8,
-                    height: 8,
+                    right: 8,
+                    bottom: 8,
+                    width: 18,
+                    height: 18,
+                    cursor: 'nwse-resize',
                     borderBottom: (theme) => `2px solid ${theme.palette.divider}`,
-                    borderRight: (theme) => `2px solid ${theme.palette.divider}`
-                }
-            }}
-        />
-    ) : null
+                    borderRight: (theme) => `2px solid ${theme.palette.divider}`,
+                    opacity: 0.9,
+                    '&::before': {
+                        content: '""',
+                        position: 'absolute',
+                        right: 3,
+                        bottom: 3,
+                        width: 8,
+                        height: 8,
+                        borderBottom: (theme) => `2px solid ${theme.palette.divider}`,
+                        borderRight: (theme) => `2px solid ${theme.palette.divider}`
+                    }
+                }}
+            />
+        ) : null
 
     return {
         enabled,

@@ -4,6 +4,8 @@ import { QueryClient } from '@tanstack/react-query'
 import {
     invalidateAttributesQueries,
     invalidateCatalogsQueries,
+    invalidateEntitiesQueries,
+    invalidateEntityTypesQueries,
     invalidateHubsQueries,
     invalidateMetahubMembers,
     invalidateMetahubsQueries,
@@ -16,6 +18,15 @@ describe('queryKeys factories + invalidation helpers', () => {
     it('builds stable keys with normalized params', () => {
         expect(metahubsQueryKeys.all).toEqual(['metahubs'])
         expect(metahubsQueryKeys.lists()).toEqual(['metahubs', 'list'])
+        expect(metahubsQueryKeys.templates()).toEqual(['metahubs', 'templates'])
+        expect(metahubsQueryKeys.templatesList()).toEqual(['metahubs', 'templates', 'list', { definitionType: 'metahub_template' }])
+        expect(metahubsQueryKeys.templatesList({ definitionType: 'entity_type_preset' })).toEqual([
+            'metahubs',
+            'templates',
+            'list',
+            { definitionType: 'entity_type_preset' }
+        ])
+        expect(metahubsQueryKeys.templateDetail('template-1')).toEqual(['metahubs', 'templates', 'detail', 'template-1'])
 
         expect(metahubsQueryKeys.list()).toEqual([
             'metahubs',
@@ -58,6 +69,68 @@ describe('queryKeys factories + invalidation helpers', () => {
             'b1',
             'blockingUsers'
         ])
+
+        expect(metahubsQueryKeys.entityTypes('m1')).toEqual(['metahubs', 'detail', 'm1', 'entityTypes'])
+        expect(metahubsQueryKeys.entityTypesList('m1')).toEqual([
+            'metahubs',
+            'detail',
+            'm1',
+            'entityTypes',
+            'list',
+            { limit: 100, offset: 0, sortBy: 'updated', sortOrder: 'desc', search: undefined, includeBuiltins: true }
+        ])
+        expect(
+            metahubsQueryKeys.entityTypesList('m1', {
+                limit: 5,
+                offset: 10,
+                sortBy: 'created' as any,
+                sortOrder: 'asc' as any,
+                search: '  custom  ',
+                includeBuiltins: false
+            })
+        ).toEqual([
+            'metahubs',
+            'detail',
+            'm1',
+            'entityTypes',
+            'list',
+            { limit: 5, offset: 10, sortBy: 'created', sortOrder: 'asc', search: 'custom', includeBuiltins: false }
+        ])
+        expect(metahubsQueryKeys.entityTypeDetail('m1', 'et1')).toEqual(['metahubs', 'detail', 'm1', 'entityTypes', 'detail', 'et1'])
+
+        expect(metahubsQueryKeys.entities('m1', 'custom.product')).toEqual(['metahubs', 'detail', 'm1', 'entities', 'custom.product'])
+        expect(
+            metahubsQueryKeys.entitiesList('m1', {
+                kind: 'custom.product',
+                limit: 5,
+                offset: 1,
+                sortBy: 'created' as any,
+                sortOrder: 'asc' as any,
+                search: '  rec  ',
+                locale: 'ru',
+                includeDeleted: true,
+                onlyDeleted: false
+            })
+        ).toEqual([
+            'metahubs',
+            'detail',
+            'm1',
+            'entities',
+            'custom.product',
+            'list',
+            {
+                kind: 'custom.product',
+                limit: 5,
+                offset: 1,
+                sortBy: 'created',
+                sortOrder: 'asc',
+                search: 'rec',
+                locale: 'ru',
+                includeDeleted: true,
+                onlyDeleted: false
+            }
+        ])
+        expect(metahubsQueryKeys.entityDetail('m1', 'e1')).toEqual(['metahubs', 'detail', 'm1', 'entity', 'e1'])
 
         expect(metahubsQueryKeys.hubs('m1')).toEqual(['metahubs', 'detail', 'm1', 'hubs'])
         expect(metahubsQueryKeys.hubsList('m1', { limit: 5, search: 'Hub' })).toEqual([
@@ -140,7 +213,16 @@ describe('queryKeys factories + invalidation helpers', () => {
             'c1',
             'attributes',
             'list',
-            { limit: 100, offset: 0, sortBy: 'updated', sortOrder: 'desc', search: undefined, locale: undefined, scope: undefined }
+            {
+                limit: 100,
+                offset: 0,
+                sortBy: 'updated',
+                sortOrder: 'desc',
+                search: undefined,
+                locale: undefined,
+                scope: undefined,
+                includeShared: false
+            }
         ])
         expect(metahubsQueryKeys.attributesList('m1', 'h1', 'c1', { scope: 'system', locale: 'ru' })).toEqual([
             'metahubs',
@@ -154,7 +236,16 @@ describe('queryKeys factories + invalidation helpers', () => {
             'c1',
             'attributes',
             'list',
-            { limit: 100, offset: 0, sortBy: 'updated', sortOrder: 'desc', search: undefined, locale: 'ru', scope: 'system' }
+            {
+                limit: 100,
+                offset: 0,
+                sortBy: 'updated',
+                sortOrder: 'desc',
+                search: undefined,
+                locale: 'ru',
+                scope: 'system',
+                includeShared: false
+            }
         ])
         expect(metahubsQueryKeys.attributesDirect('m1', 'c1')).toEqual([
             'metahubs',
@@ -174,7 +265,16 @@ describe('queryKeys factories + invalidation helpers', () => {
             'c1',
             'attributes',
             'list',
-            { limit: 100, offset: 0, sortBy: 'created', sortOrder: 'desc', search: undefined, locale: undefined, scope: undefined }
+            {
+                limit: 100,
+                offset: 0,
+                sortBy: 'created',
+                sortOrder: 'desc',
+                search: undefined,
+                locale: undefined,
+                scope: undefined,
+                includeShared: false
+            }
         ])
         expect(metahubsQueryKeys.attributesListDirect('m1', 'c1', { scope: 'system' })).toEqual([
             'metahubs',
@@ -185,7 +285,16 @@ describe('queryKeys factories + invalidation helpers', () => {
             'c1',
             'attributes',
             'list',
-            { limit: 100, offset: 0, sortBy: 'updated', sortOrder: 'desc', search: undefined, locale: undefined, scope: 'system' }
+            {
+                limit: 100,
+                offset: 0,
+                sortBy: 'updated',
+                sortOrder: 'desc',
+                search: undefined,
+                locale: undefined,
+                scope: 'system',
+                includeShared: false
+            }
         ])
 
         expect(metahubsQueryKeys.elements('m1', 'h1', 'c1')).toEqual([
@@ -251,6 +360,14 @@ describe('queryKeys factories + invalidation helpers', () => {
 
         await invalidateMetahubMembers(queryClient, 'm1')
 
+        await invalidateEntityTypesQueries.all(queryClient, 'm1')
+        await invalidateEntityTypesQueries.lists(queryClient, 'm1', false)
+        await invalidateEntityTypesQueries.detail(queryClient, 'm1', 'et1')
+
+        await invalidateEntitiesQueries.all(queryClient, 'm1', 'custom.product')
+        await invalidateEntitiesQueries.lists(queryClient, 'm1', 'custom.product')
+        await invalidateEntitiesQueries.detail(queryClient, 'm1', 'e1')
+
         await invalidateHubsQueries.all(queryClient, 'm1')
         await invalidateHubsQueries.lists(queryClient, 'm1')
         await invalidateHubsQueries.detail(queryClient, 'm1', 'h1')
@@ -274,6 +391,14 @@ describe('queryKeys factories + invalidation helpers', () => {
         expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.detail('m1') })
 
         expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.members('m1') })
+
+        expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.entityTypes('m1') })
+        expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.entityTypesList('m1', { includeBuiltins: false }) })
+        expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.entityTypeDetail('m1', 'et1') })
+
+        expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.entities('m1', 'custom.product') })
+        expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.entitiesList('m1', { kind: 'custom.product' }) })
+        expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.entityDetail('m1', 'e1') })
 
         expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.hubs('m1') })
         expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.hubsList('m1') })

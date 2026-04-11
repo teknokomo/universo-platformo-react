@@ -1,10 +1,10 @@
 import { z } from 'zod'
 import { localizedContent } from '@universo/utils'
 import {
-    SCRIPT_ATTACHMENT_KINDS,
     SCRIPT_AUTHORING_SOURCE_KINDS,
     SCRIPT_CAPABILITIES,
     SCRIPT_MODULE_ROLES,
+    isScriptAttachmentKind,
     type ScriptAttachmentKind
 } from '@universo/types'
 import type { createMetahubHandlerFactory } from '../../shared/createMetahubHandler'
@@ -19,9 +19,16 @@ const optionalBooleanFromQuery = z.preprocess((value) => {
 }, z.boolean().optional())
 
 const localizedInputSchema = z.union([z.string().min(1), z.record(z.string().min(1))])
+const scriptAttachmentKindSchema = z
+    .string()
+    .trim()
+    .min(1)
+    .max(64)
+    .refine((value) => isScriptAttachmentKind(value), { message: 'Invalid script attachment kind' })
+    .transform((value): ScriptAttachmentKind => value)
 
 const listScriptsQuerySchema = z.object({
-    attachedToKind: z.enum(SCRIPT_ATTACHMENT_KINDS).optional(),
+    attachedToKind: scriptAttachmentKindSchema.optional(),
     attachedToId: z.string().uuid().optional(),
     onlyActive: optionalBooleanFromQuery
 })
@@ -33,7 +40,7 @@ const createScriptSchema = z
         description: z.union([localizedInputSchema, z.null()]).optional(),
         namePrimaryLocale: z.string().optional(),
         descriptionPrimaryLocale: z.string().optional(),
-        attachedToKind: z.enum(SCRIPT_ATTACHMENT_KINDS),
+        attachedToKind: scriptAttachmentKindSchema,
         attachedToId: z.string().uuid().nullable().optional(),
         moduleRole: z.enum(SCRIPT_MODULE_ROLES).optional(),
         sourceKind: z.enum(SCRIPT_AUTHORING_SOURCE_KINDS).optional(),
@@ -52,7 +59,7 @@ const updateScriptSchema = z
         description: z.union([localizedInputSchema, z.null()]).optional(),
         namePrimaryLocale: z.string().optional(),
         descriptionPrimaryLocale: z.string().optional(),
-        attachedToKind: z.enum(SCRIPT_ATTACHMENT_KINDS).optional(),
+        attachedToKind: scriptAttachmentKindSchema.optional(),
         attachedToId: z.string().uuid().nullable().optional(),
         moduleRole: z.enum(SCRIPT_MODULE_ROLES).optional(),
         sourceKind: z.enum(SCRIPT_AUTHORING_SOURCE_KINDS).optional(),
@@ -144,7 +151,14 @@ export function createScriptsController(createHandler: ReturnType<typeof createM
             }
 
             const scriptsService = new MetahubScriptsService(exec, schemaService)
-            const items = await scriptsService.listScripts(metahubId, parsed.data, userId)
+            const items = await scriptsService.listScripts(
+                metahubId,
+                {
+                    ...parsed.data,
+                    attachedToKind: parsed.data.attachedToKind ?? undefined
+                },
+                userId
+            )
             return res.json({ items })
         },
         { permission: 'manageMetahub' }
@@ -206,6 +220,8 @@ export function createScriptsController(createHandler: ReturnType<typeof createM
                 return res.status(404).json({ error: 'Script not found' })
             }
 
+            const attachedToKind = parsed.data.attachedToKind === undefined ? undefined : parsed.data.attachedToKind
+
             const updated = await scriptsService.updateScript(
                 metahubId,
                 req.params.scriptId,
@@ -215,10 +231,10 @@ export function createScriptsController(createHandler: ReturnType<typeof createM
                         parsed.data.name !== undefined || parsed.data.description !== undefined
                             ? mergePresentation(existing.presentation, parsed.data)
                             : undefined,
-                    attachedToKind: parsed.data.attachedToKind,
+                    attachedToKind,
                     attachedToId:
-                        parsed.data.attachedToKind !== undefined
-                            ? normalizeAttachmentId(parsed.data.attachedToKind, parsed.data.attachedToId)
+                        attachedToKind !== undefined
+                            ? normalizeAttachmentId(attachedToKind, parsed.data.attachedToId)
                             : parsed.data.attachedToId,
                     moduleRole: parsed.data.moduleRole,
                     sourceKind: parsed.data.sourceKind,

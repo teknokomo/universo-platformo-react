@@ -26,6 +26,100 @@ describe('MetahubObjectsService mutation fail-closed behavior', () => {
         jest.clearAllMocks()
         mockEnsureSchema.mockResolvedValue('mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
         mockQuery.mockResolvedValue([{ id: 'object-1' }])
+        mockExec.transaction.mockImplementation(async (callback: (tx: MockExecutor) => Promise<unknown>) => callback(mockExec))
+    })
+
+    it('assigns custom physical-table prefixes for custom runtime entity kinds on create', async () => {
+        mockQuery
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([{ max_sort_order: 0 }])
+            .mockResolvedValueOnce([
+                {
+                    id: 'object-custom-1',
+                    kind: 'customer_registry',
+                    codename: {
+                        _schema: '1',
+                        _primary: 'en',
+                        locales: { en: { content: 'customer_registry' } }
+                    },
+                    presentation: { name: { en: 'Customer Registry' }, description: {} },
+                    config: { sortOrder: 1 }
+                }
+            ])
+            .mockResolvedValueOnce([
+                {
+                    components: {
+                        dataSchema: { enabled: true },
+                        predefinedElements: false,
+                        hubAssignment: false,
+                        enumerationValues: false,
+                        constants: false,
+                        hierarchy: false,
+                        nestedCollections: false,
+                        relations: false,
+                        actions: false,
+                        events: false,
+                        scripting: false,
+                        layoutConfig: false,
+                        runtimeBehavior: { enabled: true },
+                        physicalTable: { enabled: true, prefix: 'cust' }
+                    }
+                }
+            ])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([{ id: 'object-custom-1', config: { sortOrder: 1 } }])
+            .mockResolvedValueOnce([
+                {
+                    id: 'object-custom-1',
+                    kind: 'customer_registry',
+                    codename: {
+                        _schema: '1',
+                        _primary: 'en',
+                        locales: { en: { content: 'customer_registry' } }
+                    },
+                    table_name: 'cust_objectcustom1',
+                    presentation: { name: { en: 'Customer Registry' }, description: {} },
+                    config: { sortOrder: 1 }
+                }
+            ])
+
+        await service.createObject(
+            'metahub-1',
+            'customer_registry',
+            {
+                id: 'object-custom-1',
+                codename: {
+                    _schema: '1',
+                    _primary: 'en',
+                    locales: { en: { content: 'customer_registry' } }
+                },
+                name: {
+                    _schema: '1',
+                    _primary: 'en',
+                    locales: { en: { content: 'Customer Registry' } }
+                },
+                description: {
+                    _schema: '1',
+                    _primary: 'en',
+                    locales: { en: { content: 'Runtime customer registry' } }
+                },
+                config: {}
+            },
+            'user-1'
+        )
+
+        expect(mockQuery.mock.calls).toEqual(
+            expect.arrayContaining([
+                expect.arrayContaining([
+                    expect.stringContaining('INSERT INTO "mhb_a1b2c3d4e5f67890abcdef1234567890_b1"."_mhb_objects"'),
+                    expect.arrayContaining(['object-custom-1', 'customer_registry'])
+                ]),
+                expect.arrayContaining([
+                    expect.stringContaining('UPDATE "mhb_a1b2c3d4e5f67890abcdef1234567890_b1"."_mhb_objects" SET table_name = $1'),
+                    ['cust_objectcustom1', 'object-custom-1']
+                ])
+            ])
+        )
     })
 
     it('soft-deletes only active metahub object rows', async () => {
@@ -68,7 +162,7 @@ describe('MetahubObjectsService mutation fail-closed behavior', () => {
 
         const [sql, params] = mockQuery.mock.calls[1]
         expect(sql).toContain('DELETE FROM "mhb_a1b2c3d4e5f67890abcdef1234567890_b1"."_mhb_objects"')
-        expect(sql).toContain('WHERE id = $1 AND _upl_deleted = false')
+        expect(sql).toContain('WHERE id = $1 AND _upl_deleted = false AND _mhb_deleted = true')
         expect(sql).toContain('RETURNING id')
         expect(params).toEqual(['object-1'])
     })
@@ -131,8 +225,8 @@ describe('MetahubObjectsService mutation fail-closed behavior', () => {
 
         const [sql, params] = mockQuery.mock.calls[0]
         expect(sql).toContain('UPDATE "mhb_a1b2c3d4e5f67890abcdef1234567890_b1"."_mhb_objects"')
-        expect(params[2]).toEqual({ name: localizedName })
-        expect(params[3]).toEqual({ hubs: [], isSingleHub: false, isRequiredHub: false, sortOrder: 3 })
+        expect(JSON.parse(params[2])).toEqual({ name: localizedName })
+        expect(JSON.parse(params[3])).toEqual({ hubs: [], isSingleHub: false, isRequiredHub: false, sortOrder: 3 })
     })
 
     it('filters virtual shared containers out of standard object lists and counts', async () => {

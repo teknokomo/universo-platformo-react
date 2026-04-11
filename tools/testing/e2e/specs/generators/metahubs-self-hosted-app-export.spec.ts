@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { test, expect } from '../../fixtures/test'
 import {
+    createMetahubEntityType,
     createLoggedInApiContext,
     createMetahub,
     createMetahubAttribute,
@@ -12,7 +13,10 @@ import {
     syncApplicationSchema,
     toggleLayoutZoneWidgetActive,
     disposeApiContext,
+    getTemplate,
     getLayout,
+    getMetahubEntityType,
+    listTemplates,
     listLayouts,
     listLayoutZoneWidgets,
     sendWithCsrf,
@@ -24,6 +28,7 @@ import { SHARED_OBJECT_KINDS } from '@universo/types'
 import { buildVLC, createLocalizedContent, validateSnapshotEnvelope } from '@universo/utils'
 import {
     SELF_HOSTED_APP_CANONICAL_METAHUB,
+    SELF_HOSTED_APP_CATALOG_V2_ENTITY_TYPE,
     SELF_HOSTED_APP_FIXTURE_FILENAME,
     SELF_HOSTED_APP_LAYOUT,
     SELF_HOSTED_APP_PUBLICATION,
@@ -40,6 +45,16 @@ import {
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 type SelfHostedAppSection = (typeof SELF_HOSTED_APP_SECTIONS)[number]
+
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
+const getResponseData = (payload: unknown): Record<string, unknown> => {
+    if (isRecord(payload?.data)) {
+        return payload.data
+    }
+
+    return isRecord(payload) ? payload : {}
+}
 
 async function waitForDefaultLayoutId(api: ApiContext, metahubId: string) {
     let layoutId: string | undefined
@@ -190,6 +205,51 @@ async function apiGet(api: ApiContext, urlPath: string) {
     })
 }
 
+async function getCatalogV2PresetEntityType(api: ApiContext) {
+    const templatesPayload = await listTemplates(api, {
+        definitionType: 'entity_type_preset'
+    })
+    const templateItems = Array.isArray(templatesPayload?.data) ? templatesPayload.data : []
+    const catalogV2Template = templateItems.find(
+        (template) => template?.codename === SELF_HOSTED_APP_CATALOG_V2_ENTITY_TYPE.templateCodename
+    )
+
+    expect(catalogV2Template?.id).toBeTruthy()
+
+    const templateDetail = await getTemplate(api, String(catalogV2Template.id))
+    const manifest = isRecord(templateDetail?.activeVersionManifest) ? templateDetail.activeVersionManifest : null
+    const entityType = manifest && isRecord(manifest.entityType) ? manifest.entityType : null
+
+    expect(entityType?.kindKey).toBe(SELF_HOSTED_APP_CATALOG_V2_ENTITY_TYPE.kindKey)
+
+    return entityType
+}
+
+async function seedCatalogV2EntityType(api: ApiContext, metahubId: string) {
+    const entityType = await getCatalogV2PresetEntityType(api)
+    const createdPayload = await createMetahubEntityType(api, metahubId, {
+        kindKey: String(entityType?.kindKey ?? ''),
+        codename: entityType?.codename,
+        presentation: isRecord(entityType?.presentation) ? entityType.presentation : {},
+        components: isRecord(entityType?.components) ? entityType.components : {},
+        ui: isRecord(entityType?.ui) ? entityType.ui : {},
+        config: isRecord(entityType?.config) ? entityType.config : {},
+        published: true
+    })
+
+    const createdEntityType = getResponseData(createdPayload)
+    const createdEntityTypeId = typeof createdEntityType.id === 'string' ? createdEntityType.id : undefined
+
+    expect(createdEntityType.kindKey).toBe(SELF_HOSTED_APP_CATALOG_V2_ENTITY_TYPE.kindKey)
+    expect(createdEntityTypeId).toBeTruthy()
+
+    const persistedEntityType = await getMetahubEntityType(api, metahubId, createdEntityTypeId)
+    expect(persistedEntityType?.kindKey).toBe(SELF_HOSTED_APP_CATALOG_V2_ENTITY_TYPE.kindKey)
+    expect(persistedEntityType?.published).toBe(true)
+
+    return persistedEntityType
+}
+
 /* ────── Self-hosted fixture catalog definitions ────── */
 
 const getSectionCreatePath = (metahubId: string, section: SelfHostedAppSection): string => {
@@ -304,7 +364,7 @@ test.describe('Metahubs Self-Hosted App Export', () => {
     let api: ApiContext
 
     test('@generator create metahubs self-hosted app, publish application, export snapshot', async ({ page, runManifest }) => {
-        test.setTimeout(300_000)
+        test.setTimeout(480_000)
         api = await createLoggedInApiContext({
             email: runManifest.testUser.email,
             password: runManifest.testUser.password,
@@ -385,6 +445,9 @@ test.describe('Metahubs Self-Hosted App Export', () => {
         }
 
         expect(Object.keys(sectionMap).length).toBe(SELF_HOSTED_APP_SECTIONS.length)
+
+        const catalogV2EntityType = await seedCatalogV2EntityType(api, metahubId)
+        expect(catalogV2EntityType?.kindKey).toBe(SELF_HOSTED_APP_CATALOG_V2_ENTITY_TYPE.kindKey)
 
         await seedSharedEntities(api, metahubId, sectionMap)
 

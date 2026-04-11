@@ -1,4 +1,4 @@
-import type { CodenameVLC, VersionedLocalizedContent, MetahubTemplateManifest } from '@universo/types'
+import type { CodenameVLC, VersionedLocalizedContent, TemplateDefinitionManifest, TemplateDefinitionType } from '@universo/types'
 import type { SqlQueryable, TemplateRow, TemplateVersionRow } from './types'
 import { uplFieldAliases } from './types'
 import { codenamePrimaryTextSql, ensureCodenameValue } from '../domains/shared/codename'
@@ -89,7 +89,18 @@ export interface TemplateCatalogItem extends TemplateRow {
     } | null
 }
 
-export async function listActiveTemplatesForCatalog(exec: SqlQueryable): Promise<TemplateCatalogItem[]> {
+export async function listActiveTemplatesForCatalog(
+    exec: SqlQueryable,
+    input: { definitionType?: TemplateDefinitionType } = {}
+): Promise<TemplateCatalogItem[]> {
+    const params: unknown[] = []
+    const conditions = ['t.is_active = true', 't._upl_deleted = false', 't._app_deleted = false']
+
+    if (input.definitionType) {
+        params.push(input.definitionType)
+        conditions.push(`t.definition_type = $${params.length}`)
+    }
+
     const rows = await exec.query<
         TemplateRow & {
             avId: string | null
@@ -106,9 +117,9 @@ export async function listActiveTemplatesForCatalog(exec: SqlQueryable): Promise
             av.changelog AS "avChangelog"
          FROM metahubs.cat_templates t
          LEFT JOIN metahubs.doc_template_versions av ON av.id = t.active_version_id
-         WHERE t.is_active = true AND t._upl_deleted = false AND t._app_deleted = false
+         WHERE ${conditions.join(' AND ')}
          ORDER BY t.sort_order ASC, t._upl_created_at ASC`,
-        []
+        params
     )
     return rows.map((r) => ({
         ...r,
@@ -195,6 +206,7 @@ export interface CreateTemplateInput {
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string> | null
     icon?: string | null
+    definitionType?: TemplateDefinitionType
     isSystem?: boolean
     isActive?: boolean
     sortOrder?: number
@@ -211,17 +223,18 @@ export async function createTemplate(exec: SqlQueryable, input: CreateTemplateIn
     const codename = ensureCodenameValue(input.codename)
     const rows = await exec.query<TemplateRow>(
         `INSERT INTO metahubs.cat_templates (
-            codename, name, description, icon,
+            codename, name, description, icon, definition_type,
             is_system, is_active, sort_order,
             _upl_created_by, _upl_updated_by
          )
-         VALUES ($1::jsonb, $2, $3, $4, $5, $6, $7, $8, $8)
+         VALUES ($1::jsonb, $2, $3, $4, $5, $6, $7, $8, $9, $9)
          RETURNING ${TEMPLATE_SELECT('metahubs.cat_templates')}`,
         [
             JSON.stringify(codename),
             JSON.stringify(input.name),
             input.description ? JSON.stringify(input.description) : null,
             input.icon ?? null,
+            input.definitionType ?? 'metahub_template',
             input.isSystem ?? false,
             input.isActive ?? true,
             input.sortOrder ?? 0,
@@ -329,7 +342,7 @@ export interface CreateTemplateVersionInput {
     versionNumber: number
     versionLabel: string
     minStructureVersion?: string
-    manifestJson: MetahubTemplateManifest
+    manifestJson: TemplateDefinitionManifest
     manifestHash: string
     isActive?: boolean
     changelog?: Record<string, unknown> | null

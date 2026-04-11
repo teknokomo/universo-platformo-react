@@ -6,7 +6,6 @@ import {
     DEFAULT_SCRIPT_SDK_API_VERSION,
     DEFAULT_SCRIPT_SOURCE_KIND,
     SCRIPT_AUTHORING_SOURCE_KINDS,
-    SCRIPT_ATTACHMENT_KINDS,
     type ScriptCapability,
     type MetahubScriptRecord,
     type ScriptAttachmentKind,
@@ -16,17 +15,20 @@ import {
     type ScriptModuleRole,
     type ScriptPresentation,
     type ScriptSourceKind,
+    isLegacyCompatibleObjectKind,
+    isScriptAttachmentKind,
     normalizeScriptCapabilities,
     normalizeScriptModuleRole,
     normalizeScriptSourceKind,
     resolveScriptSdkApiVersion
 } from '@universo/types'
-import { queryOne, type DbExecutor } from '@universo/utils/database'
+import { queryOne, type DbExecutor, type SqlQueryable } from '@universo/utils/database'
 import { isValidCodenameForStyle, normalizeCodenameForStyle } from '@universo/utils/validation/codename'
 import { incrementVersion } from '../../../utils/optimisticLock'
 import { getCodenameText } from '../../shared/codename'
 import { MetahubConflictError, MetahubNotFoundError, MetahubValidationError } from '../../shared/domainErrors'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
+import { EntityTypeService } from '../../entities/services/EntityTypeService'
 import {
     findStoredMetahubScriptByScope,
     findStoredMetahubScriptById,
@@ -73,6 +75,7 @@ export interface UpdateMetahubScriptInput {
 
 const ACTIVE_ATTACHMENT_CLAUSE = '_upl_deleted = false AND _mhb_deleted = false'
 const LEGACY_GLOBAL_SCRIPT_ROLE = 'global'
+const CATALOG_COMPATIBLE_KIND_KEY = 'custom.catalog-v2'
 
 const isGeneralAttachmentScope = (attachedToKind: ScriptAttachmentKind, attachedToId: string | null): boolean =>
     attachedToKind === 'general' && attachedToId === null
@@ -222,6 +225,9 @@ const isSharedLibraryScope = (
 
 const isLegacyGlobalScript = (row: Pick<StoredMetahubScriptRow, 'module_role'>): boolean =>
     String(row.module_role) === LEGACY_GLOBAL_SCRIPT_ROLE
+
+const isCatalogCompatibleEntityType = (entityType: { kindKey: string; config?: Record<string, unknown> | null }): boolean =>
+    entityType.kindKey === CATALOG_COMPATIBLE_KIND_KEY || isLegacyCompatibleObjectKind(entityType.config, 'catalog')
 
 const toSharedLibraryDependency = (script: MetahubScriptRecord) => ({
     id: script.id,
@@ -396,7 +402,15 @@ export class MetahubScriptsService {
 
     async getScriptById(metahubId: string, scriptId: string, userId?: string): Promise<MetahubScriptRecord | null> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const row = await findStoredMetahubScriptById(this.exec, schemaName, scriptId)
+        return this.getScriptByIdInSchema(schemaName, scriptId)
+    }
+
+    async getScriptByIdInSchema(
+        schemaName: string,
+        scriptId: string,
+        executor: SqlQueryable = this.exec
+    ): Promise<MetahubScriptRecord | null> {
+        const row = await findStoredMetahubScriptById(executor, schemaName, scriptId)
         return row ? normalizeScriptRow(row) : null
     }
 
@@ -635,7 +649,7 @@ export class MetahubScriptsService {
         attachedToKind: ScriptAttachmentKind,
         attachedToId: string | null
     ): Promise<string | null> {
-        if (!SCRIPT_ATTACHMENT_KINDS.includes(attachedToKind)) {
+        if (!isScriptAttachmentKind(attachedToKind)) {
             throw new MetahubValidationError('Unsupported script attachment kind')
         }
 
@@ -673,12 +687,13 @@ export class MetahubScriptsService {
                 [attachedToId]
             )
         } else {
+            const attachmentKinds = await this.resolveAttachmentObjectKinds(metahubId, attachedToKind)
             row = await queryOne<{ id: string }>(
                 this.exec,
                 `SELECT id FROM ${qSchemaTable(schemaName, '_mhb_objects')}
-                 WHERE id = $1 AND kind = $2 AND ${ACTIVE_ATTACHMENT_CLAUSE}
+                 WHERE id = $1 AND kind = ANY($2::text[]) AND ${ACTIVE_ATTACHMENT_CLAUSE}
                  LIMIT 1`,
-                [attachedToId, attachedToKind]
+                [attachedToId, attachmentKinds]
             )
         }
 
@@ -690,6 +705,17 @@ export class MetahubScriptsService {
         }
 
         return attachedToId
+    }
+
+    private async resolveAttachmentObjectKinds(metahubId: string, attachedToKind: ScriptAttachmentKind): Promise<string[]> {
+        if (attachedToKind !== 'catalog') {
+            return [attachedToKind]
+        }
+
+        const entityTypeService = new EntityTypeService(this.exec, this.schemaService)
+        const customTypes = await entityTypeService.listCustomTypes(metahubId)
+
+        return [attachedToKind, ...customTypes.filter(isCatalogCompatibleEntityType).map((entityType) => entityType.kindKey)]
     }
 
     private async findSharedLibraryDependents(

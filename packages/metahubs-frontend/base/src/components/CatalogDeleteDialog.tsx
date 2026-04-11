@@ -1,11 +1,13 @@
 import { useMemo } from 'react'
 import { Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
+import { useParams } from 'react-router-dom'
 import { BlockingEntitiesDeleteDialog, type BlockingEntitiesDeleteDialogLabels, type TableColumn } from '@universo/template-mui'
 import type { Catalog } from '../types'
 import { getVLCString } from '../types'
 import { getBlockingCatalogReferences, type BlockingCatalogReference } from '../domains/catalogs'
 import { metahubsQueryKeys } from '../domains/shared'
+import { buildCatalogAuthoringPath } from '../domains/catalogs/ui/catalogRoutePaths'
 
 export interface CatalogDeleteDialogProps {
     open: boolean
@@ -32,6 +34,7 @@ export const CatalogDeleteDialog = ({
     uiLocale = 'en'
 }: CatalogDeleteDialogProps) => {
     const { t } = useTranslation('metahubs')
+    const { kindKey } = useParams<{ kindKey?: string }>()
     const catalogId = catalog?.id ?? ''
 
     const labels: BlockingEntitiesDeleteDialogLabels = useMemo(
@@ -104,7 +107,13 @@ export const CatalogDeleteDialog = ({
         return { blockingEntities }
     }
 
-    const getBlockingEntityLink = (row: BlockingReferenceRow) => `/metahub/${metahubId}/catalog/${row.sourceCatalogId}/attributes`
+    const getBlockingEntityLink = (row: BlockingReferenceRow) =>
+        buildCatalogAuthoringPath({
+            metahubId,
+            catalogId: row.sourceCatalogId,
+            kindKey,
+            tab: 'attributes'
+        })
 
     return (
         <BlockingEntitiesDeleteDialog<Catalog, BlockingReferenceRow>

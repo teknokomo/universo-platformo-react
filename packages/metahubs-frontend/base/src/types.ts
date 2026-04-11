@@ -14,7 +14,7 @@ import type {
     VersionedLocalizedContent,
     AttributeDataType,
     ConstantDataType,
-    MetaEntityKind,
+    EntityKind,
     SharedBehavior,
     DashboardLayoutZone,
     DashboardLayoutWidgetKey,
@@ -502,7 +502,7 @@ export interface Attribute {
     dataType: AttributeDataType
     name: VersionedLocalizedContent<string>
     targetEntityId?: string | null
-    targetEntityKind?: MetaEntityKind | null
+    targetEntityKind?: EntityKind | null
     targetConstantId?: string | null
     validationRules: Record<string, unknown>
     uiConfig: Record<string, unknown>
@@ -530,7 +530,7 @@ export interface AttributeDisplay {
     dataType: AttributeDataType
     name: string
     targetEntityId?: string | null
-    targetEntityKind?: MetaEntityKind | null
+    targetEntityKind?: EntityKind | null
     targetConstantId?: string | null
     validationRules: Record<string, unknown>
     uiConfig: Record<string, unknown>
@@ -716,7 +716,7 @@ export interface AttributeLocalizedPayload {
     isDisplayAttribute?: boolean
     validationRules?: Record<string, unknown>
     targetEntityId?: string
-    targetEntityKind?: MetaEntityKind
+    targetEntityKind?: EntityKind
     targetConstantId?: string | null
     uiConfig?: Record<string, unknown>
     isEnabled?: boolean

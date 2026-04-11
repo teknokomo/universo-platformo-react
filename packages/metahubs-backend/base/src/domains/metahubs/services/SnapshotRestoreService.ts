@@ -46,6 +46,8 @@ export class SnapshotRestoreService {
 
     async restoreFromSnapshot(metahubId: string, snapshot: MetahubSnapshot, userId: string): Promise<void> {
         await this.knex.transaction(async (trx) => {
+            await this.restoreEntityTypeDefinitions(trx, snapshot, userId)
+
             // oldEntityId → newEntityId
             const entityIdMap = await this.restoreEntities(trx, snapshot, userId)
 
@@ -57,9 +59,46 @@ export class SnapshotRestoreService {
             const sharedEntityIdMaps = await this.restoreSharedEntities(trx, snapshot, entityIdMap, constantIdMap, userId)
             await this.restoreSharedEntityOverrides(trx, snapshot, entityIdMap, sharedEntityIdMaps, userId)
             await this.restoreElements(trx, snapshot, entityIdMap, userId)
-            await this.restoreScripts(trx, metahubId, snapshot, entityIdMap, attributeIdMap, userId)
+            const scriptIdMap = await this.restoreScripts(trx, metahubId, snapshot, entityIdMap, attributeIdMap, userId)
+            const actionIdMap = await this.restoreActions(trx, snapshot, entityIdMap, scriptIdMap, userId)
+            await this.restoreEventBindings(trx, snapshot, entityIdMap, actionIdMap, userId)
             await this.restoreLayouts(trx, snapshot, entityIdMap, userId)
         })
+    }
+
+    private async restoreEntityTypeDefinitions(qb: Knex.Transaction, snapshot: MetahubSnapshot, userId: string): Promise<void> {
+        const definitions = Object.values(snapshot.entityTypeDefinitions ?? {})
+        if (!definitions.length) {
+            return
+        }
+
+        const now = new Date()
+
+        for (const definition of definitions) {
+            await qb
+                .withSchema(this.schemaName)
+                .into('_mhb_entity_type_definitions')
+                .insert({
+                    kind_key: definition.kindKey,
+                    codename: ensureCodenameValue(definition.codename),
+                    presentation: definition.presentation ?? {},
+                    components: definition.components ?? {},
+                    ui_config: definition.ui ?? {},
+                    config: definition.config ?? {},
+                    is_builtin: definition.isBuiltin === true,
+                    _upl_created_at: now,
+                    _upl_created_by: userId,
+                    _upl_updated_at: now,
+                    _upl_updated_by: userId,
+                    _upl_version: 1,
+                    _upl_archived: false,
+                    _upl_deleted: false,
+                    _upl_locked: false,
+                    _mhb_published: definition.published === true,
+                    _mhb_archived: false,
+                    _mhb_deleted: false
+                })
+        }
     }
 
     private createSharedEntityIdMaps(): SharedEntityIdMaps {
@@ -286,9 +325,10 @@ export class SnapshotRestoreService {
         const now = new Date()
         const entities = snapshot.entities ?? {}
 
-        // Check if we need platform system attributes policy (for catalogs)
-        const hasCatalogs = Object.values(entities).some((e) => e.kind === 'catalog')
-        const platformPolicy = hasCatalogs ? await readPlatformSystemAttributesPolicyWithKnex(qb) : undefined
+        const needsSystemAttributeSeed = Object.entries(entities).some(
+            ([oldId, entity]) => entity.kind === 'catalog' || Boolean(snapshot.systemFields?.[oldId])
+        )
+        const platformPolicy = needsSystemAttributeSeed ? await readPlatformSystemAttributesPolicyWithKnex(qb) : undefined
 
         // Sort: hubs first (they may be referenced by catalogs/sets/enumerations via config.hubs)
         const sortedEntries = Object.entries(entities).sort(([, a], [, b]) => {
@@ -305,7 +345,7 @@ export class SnapshotRestoreService {
                 .insert({
                     kind: entity.kind,
                     codename: ensureCodenameValue(entity.codename),
-                    table_name: null,
+                    table_name: entity.tableName ?? entity.physicalTableName ?? null,
                     presentation: entity.presentation ?? { name: {}, description: {} },
                     config,
                     _upl_created_at: now,
@@ -324,9 +364,9 @@ export class SnapshotRestoreService {
 
             entityIdMap.set(oldId, inserted.id)
 
-            // Seed system attributes for catalogs
-            if (entity.kind === 'catalog') {
-                const systemFieldsSnap = snapshot.systemFields?.[oldId]
+            const systemFieldsSnap = snapshot.systemFields?.[oldId]
+            const shouldSeedSystemAttributes = entity.kind === 'catalog' || Boolean(systemFieldsSnap)
+            if (shouldSeedSystemAttributes) {
                 await ensureCatalogSystemAttributesSeed(qb, this.schemaName, inserted.id, userId, {
                     states: systemFieldsSnap?.fields,
                     policy: platformPolicy
@@ -630,13 +670,14 @@ export class SnapshotRestoreService {
         entityIdMap: Map<string, string>,
         attributeIdMap: Map<string, string>,
         userId: string
-    ): Promise<void> {
+    ): Promise<Map<string, string>> {
         const scripts = (snapshot.scripts ?? []) as SnapshotScript[]
         const now = new Date()
+        const scriptIdMap = new Map<string, string>()
 
         await qb.withSchema(this.schemaName).from('_mhb_scripts').del()
 
-        if (!scripts.length) return
+        if (!scripts.length) return scriptIdMap
 
         for (const script of scripts) {
             const attachedToId = this.resolveScriptAttachmentId(script, metahubId, entityIdMap, attributeIdMap)
@@ -651,7 +692,7 @@ export class SnapshotRestoreService {
                 continue
             }
 
-            await qb
+            const [inserted] = await qb
                 .withSchema(this.schemaName)
                 .into('_mhb_scripts')
                 .insert({
@@ -681,6 +722,130 @@ export class SnapshotRestoreService {
                     _mhb_archived: false,
                     _mhb_deleted: false
                 })
+                .returning('id')
+
+            if (typeof script.id === 'string' && inserted?.id) {
+                scriptIdMap.set(script.id, inserted.id)
+            }
+        }
+
+        return scriptIdMap
+    }
+
+    private async restoreActions(
+        qb: Knex.Transaction,
+        snapshot: MetahubSnapshot,
+        entityIdMap: Map<string, string>,
+        scriptIdMap: Map<string, string>,
+        userId: string
+    ): Promise<Map<string, string>> {
+        const actionIdMap = new Map<string, string>()
+        const now = new Date()
+
+        for (const [oldEntityId, entity] of Object.entries(snapshot.entities ?? {})) {
+            const actions = entity.actions ?? []
+            if (!actions.length) {
+                continue
+            }
+
+            const newEntityId = entityIdMap.get(oldEntityId)
+            if (!newEntityId) {
+                log.warn(`Entity ${oldEntityId} not found in entityIdMap, skipping actions`)
+                continue
+            }
+
+            for (const action of actions) {
+                const scriptId = action.scriptId ? scriptIdMap.get(action.scriptId) ?? null : null
+                if (action.actionType === 'script' && action.scriptId && !scriptId) {
+                    log.warn(`Action ${action.id} references missing script ${action.scriptId}, skipping restore`)
+                    continue
+                }
+
+                const [inserted] = await qb
+                    .withSchema(this.schemaName)
+                    .into('_mhb_actions')
+                    .insert({
+                        object_id: newEntityId,
+                        codename: ensureCodenameValue(action.codename),
+                        presentation: action.presentation ?? {},
+                        action_type: action.actionType,
+                        script_id: scriptId,
+                        config: action.config ?? {},
+                        sort_order: action.sortOrder ?? 0,
+                        _upl_created_at: now,
+                        _upl_created_by: userId,
+                        _upl_updated_at: now,
+                        _upl_updated_by: userId,
+                        _upl_version: 1,
+                        _upl_archived: false,
+                        _upl_deleted: false,
+                        _upl_locked: false,
+                        _mhb_published: false,
+                        _mhb_archived: false,
+                        _mhb_deleted: false
+                    })
+                    .returning('id')
+
+                if (inserted?.id) {
+                    actionIdMap.set(action.id, inserted.id)
+                }
+            }
+        }
+
+        return actionIdMap
+    }
+
+    private async restoreEventBindings(
+        qb: Knex.Transaction,
+        snapshot: MetahubSnapshot,
+        entityIdMap: Map<string, string>,
+        actionIdMap: Map<string, string>,
+        userId: string
+    ): Promise<void> {
+        const now = new Date()
+
+        for (const [oldEntityId, entity] of Object.entries(snapshot.entities ?? {})) {
+            const eventBindings = entity.eventBindings ?? []
+            if (!eventBindings.length) {
+                continue
+            }
+
+            const newEntityId = entityIdMap.get(oldEntityId)
+            if (!newEntityId) {
+                log.warn(`Entity ${oldEntityId} not found in entityIdMap, skipping event bindings`)
+                continue
+            }
+
+            for (const binding of eventBindings) {
+                const newActionId = actionIdMap.get(binding.actionId)
+                if (!newActionId) {
+                    log.warn(`Event binding ${binding.id} references missing action ${binding.actionId}, skipping restore`)
+                    continue
+                }
+
+                await qb
+                    .withSchema(this.schemaName)
+                    .into('_mhb_event_bindings')
+                    .insert({
+                        object_id: newEntityId,
+                        event_name: binding.eventName,
+                        action_id: newActionId,
+                        priority: binding.priority ?? 0,
+                        is_active: binding.isActive !== false,
+                        config: binding.config ?? {},
+                        _upl_created_at: now,
+                        _upl_created_by: userId,
+                        _upl_updated_at: now,
+                        _upl_updated_by: userId,
+                        _upl_version: 1,
+                        _upl_archived: false,
+                        _upl_deleted: false,
+                        _upl_locked: false,
+                        _mhb_published: false,
+                        _mhb_archived: false,
+                        _mhb_deleted: false
+                    })
+            }
         }
     }
 

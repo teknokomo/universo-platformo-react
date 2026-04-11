@@ -473,17 +473,21 @@ export class MetahubAttributesService {
         return row ? this.mapRowToAttribute(row) : null
     }
 
-    async listCatalogSystemAttributes(metahubId: string, catalogId: string, userId?: string, db?: SqlQueryable) {
-        return this.findAll(metahubId, catalogId, userId, 'system', db)
+    async listObjectSystemAttributes(metahubId: string, objectId: string, userId?: string, db?: SqlQueryable) {
+        return this.findAll(metahubId, objectId, userId, 'system', db)
     }
 
-    async getCatalogSystemFieldsSnapshot(
+    async listCatalogSystemAttributes(metahubId: string, catalogId: string, userId?: string, db?: SqlQueryable) {
+        return this.listObjectSystemAttributes(metahubId, catalogId, userId, db)
+    }
+
+    async getObjectSystemFieldsSnapshot(
         metahubId: string,
-        catalogId: string,
+        objectId: string,
         userId?: string,
         db?: SqlQueryable
     ): Promise<CatalogSystemFieldsSnapshot> {
-        const attributes = await this.listCatalogSystemAttributes(metahubId, catalogId, userId, db)
+        const attributes = await this.listObjectSystemAttributes(metahubId, objectId, userId, db)
         const states: CatalogSystemFieldState[] = attributes
             .filter((attribute) => attribute.system?.isSystem && attribute.system.systemKey)
             .map((attribute) => ({
@@ -495,6 +499,15 @@ export class MetahubAttributesService {
             fields: normalized,
             lifecycleContract: deriveApplicationLifecycleContract(normalized)
         }
+    }
+
+    async getCatalogSystemFieldsSnapshot(
+        metahubId: string,
+        catalogId: string,
+        userId?: string,
+        db?: SqlQueryable
+    ): Promise<CatalogSystemFieldsSnapshot> {
+        return this.getObjectSystemFieldsSnapshot(metahubId, catalogId, userId, db)
     }
 
     private resolveCatalogSystemToggleState(
@@ -556,9 +569,9 @@ export class MetahubAttributesService {
         return validation.normalized
     }
 
-    async ensureCatalogSystemAttributes(
+    async ensureObjectSystemAttributes(
         metahubId: string,
-        catalogId: string,
+        objectId: string,
         userId?: string,
         db?: SqlQueryable,
         optionsOrStates?:
@@ -577,7 +590,7 @@ export class MetahubAttributesService {
         const existingRows = await queryMany<Record<string, unknown>>(
             runner,
             `SELECT * FROM ${qt} WHERE object_id = $1 AND is_system = true AND ${ACTIVE}`,
-            [catalogId]
+            [objectId]
         )
         const existingByKey = new Map<string, Record<string, unknown>>()
         for (const row of existingRows) {
@@ -634,7 +647,7 @@ export class MetahubAttributesService {
                  VALUES ($1, $2::jsonb, $3, $4::jsonb, '{}'::jsonb, '{}'::jsonb, $5, false, false, null, null, null,
                          null, true, $6, true, $7, $8, $9, $8, $9)`,
                 [
-                    catalogId,
+                    objectId,
                     JSON.stringify(ensureCodenameValue(seed.codename)),
                     seed.dataType,
                     presentation,
@@ -647,7 +660,22 @@ export class MetahubAttributesService {
             )
         }
 
-        return this.listCatalogSystemAttributes(metahubId, catalogId, userId, runner)
+        return this.listObjectSystemAttributes(metahubId, objectId, userId, runner)
+    }
+
+    async ensureCatalogSystemAttributes(
+        metahubId: string,
+        catalogId: string,
+        userId?: string,
+        db?: SqlQueryable,
+        optionsOrStates?:
+            | CatalogSystemFieldState[]
+            | {
+                  states?: CatalogSystemFieldState[]
+                  policy?: import('@universo/types').PlatformSystemAttributesPolicy
+              }
+    ) {
+        return this.ensureObjectSystemAttributes(metahubId, catalogId, userId, db, optionsOrStates)
     }
 
     /**

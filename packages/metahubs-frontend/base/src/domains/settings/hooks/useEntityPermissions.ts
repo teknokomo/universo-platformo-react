@@ -26,8 +26,8 @@ interface EntityPermissions {
  * Hook to check entity-level permissions (allowCopy / allowDelete)
  * based on metahub settings.
  *
- * Returns `{ allowCopy: true, allowDelete: true }` by default (while loading
- * or when settings are absent) to avoid blocking the UI unnecessarily.
+ * Returns a fail-closed result while settings are loading or absent so action
+ * menus never expose copy/delete affordances before the effective policy is known.
  *
  * @param entityType - The entity type to check ('hubs' | 'catalogs' | 'sets' | 'enumerations')
  */
@@ -35,7 +35,7 @@ export const useEntityPermissions = (entityType: EntityType): EntityPermissions 
     const { data, isLoading } = useSettings()
 
     if (!data) {
-        return { allowCopy: true, allowDelete: true, allowAttachExistingEntities: true, allowHubNesting: true, isLoading }
+        return { allowCopy: false, allowDelete: false, allowAttachExistingEntities: false, allowHubNesting: false, isLoading }
     }
 
     const copyKey = `${entityType}.allowCopy`

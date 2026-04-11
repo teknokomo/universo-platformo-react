@@ -46,13 +46,18 @@ jest.mock('../../domains/ddl', () => ({
 
 const mockObjectsService = {
     findAll: jest.fn(),
+    findAllByKinds: jest.fn(),
     findById: jest.fn(),
     findByCodename: jest.fn(),
+    findByCodenameInKinds: jest.fn(),
     createCatalog: jest.fn(),
+    createObject: jest.fn(),
     createEnumeration: jest.fn(),
     updateCatalog: jest.fn(),
+    updateObject: jest.fn(),
     delete: jest.fn(),
     findDeleted: jest.fn(),
+    findDeletedByKinds: jest.fn(),
     restore: jest.fn(),
     permanentDelete: jest.fn(),
     reorderByKind: jest.fn()
@@ -66,7 +71,8 @@ const mockHubsService = {
 const mockAttributesService = {
     countByObjectIds: jest.fn(),
     findCatalogReferenceBlockers: jest.fn(),
-    ensureCatalogSystemAttributes: jest.fn(async () => [])
+    ensureCatalogSystemAttributes: jest.fn(async () => []),
+    ensureObjectSystemAttributes: jest.fn(async () => [])
 }
 
 const mockElementsService = {
@@ -117,6 +123,15 @@ const mockSettingsService = {
 jest.mock('../../domains/settings/services/MetahubSettingsService', () => ({
     __esModule: true,
     MetahubSettingsService: jest.fn().mockImplementation(() => mockSettingsService)
+}))
+
+const mockEntityTypeService = {
+    listCustomTypes: jest.fn()
+}
+
+jest.mock('../../domains/entities/services/EntityTypeService', () => ({
+    __esModule: true,
+    EntityTypeService: jest.fn().mockImplementation(() => mockEntityTypeService)
 }))
 
 describe('Catalogs Routes', () => {
@@ -191,8 +206,10 @@ describe('Catalogs Routes', () => {
         jest.clearAllMocks()
 
         mockObjectsService.findAll.mockResolvedValue([])
+        mockObjectsService.findAllByKinds.mockResolvedValue([])
         mockObjectsService.findById.mockResolvedValue(null)
         mockObjectsService.findByCodename.mockResolvedValue(null)
+        mockObjectsService.findByCodenameInKinds.mockResolvedValue(null)
         mockObjectsService.createCatalog.mockResolvedValue({
             id: 'catalog-copy-id',
             codename: 'ProductsCopy',
@@ -205,9 +222,24 @@ describe('Catalogs Routes', () => {
             _upl_created_at: '2026-02-26T00:00:00.000Z',
             _upl_updated_at: '2026-02-26T00:00:00.000Z'
         })
+        mockObjectsService.createObject.mockResolvedValue({
+            id: 'catalog-copy-id',
+            kind: 'custom.catalog-v2',
+            codename: 'ProductsCopy',
+            presentation: {
+                name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Products (copy)' } } },
+                description: null
+            },
+            config: { hubs: [], isSingleHub: false, isRequiredHub: false, sortOrder: 6 },
+            _upl_version: 1,
+            _upl_created_at: '2026-02-26T00:00:00.000Z',
+            _upl_updated_at: '2026-02-26T00:00:00.000Z'
+        })
         mockObjectsService.updateCatalog.mockResolvedValue(null)
+        mockObjectsService.updateObject.mockResolvedValue(null)
         mockObjectsService.delete.mockResolvedValue(undefined)
         mockObjectsService.findDeleted.mockResolvedValue([])
+        mockObjectsService.findDeletedByKinds.mockResolvedValue([])
         mockObjectsService.restore.mockResolvedValue(undefined)
         mockObjectsService.permanentDelete.mockResolvedValue(undefined)
         mockObjectsService.reorderByKind.mockResolvedValue({
@@ -222,6 +254,7 @@ describe('Catalogs Routes', () => {
         mockAttributesService.findCatalogReferenceBlockers.mockResolvedValue([])
 
         mockElementsService.countByObjectIds.mockResolvedValue(new Map<string, number>())
+        mockEntityTypeService.listCustomTypes.mockResolvedValue([])
         mockFindMetahubById.mockResolvedValue({ id: 'test-metahub-id' })
         mockEnsureMetahubAccess.mockResolvedValue({ metahubId: 'test-metahub-id' })
         mockEnsureSchema.mockResolvedValue('mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
@@ -234,7 +267,7 @@ describe('Catalogs Routes', () => {
             const response = await request(app).get('/metahub/test-metahub-id/catalogs').expect(200)
 
             expect(response.body).toMatchObject({ items: [], pagination: { total: 0 } })
-            expect(mockObjectsService.findAll).toHaveBeenCalledWith('test-metahub-id', 'test-user-id')
+            expect(mockObjectsService.findAllByKinds).toHaveBeenCalledWith('test-metahub-id', ['catalog'], 'test-user-id')
         })
 
         it('accepts sortBy=sortOrder query parameter', async () => {
@@ -261,7 +294,7 @@ describe('Catalogs Routes', () => {
                 }
             ]
 
-            mockObjectsService.findAll.mockResolvedValue(rawCatalogs)
+            mockObjectsService.findAllByKinds.mockResolvedValue(rawCatalogs)
             mockAttributesService.countByObjectIds.mockResolvedValue(new Map([['catalog-1', 2]]))
             mockElementsService.countByObjectIds.mockResolvedValue(new Map([['catalog-1', 5]]))
             mockHubsService.findByIds.mockResolvedValue([{ id: 'hub-1', name: { en: 'Hub 1' }, codename: 'hub-1' }])
@@ -286,10 +319,58 @@ describe('Catalogs Routes', () => {
                 }
             ])
         })
+
+        it('includes catalog-compatible custom kinds in the legacy catalog list', async () => {
+            mockEntityTypeService.listCustomTypes.mockResolvedValue([
+                {
+                    kindKey: 'custom.catalog-v2',
+                    config: {
+                        compatibility: {
+                            legacyObjectKind: 'catalog'
+                        }
+                    }
+                }
+            ])
+
+            mockObjectsService.findAllByKinds.mockResolvedValue([
+                {
+                    id: 'catalog-v2-1',
+                    kind: 'custom.catalog-v2',
+                    codename: 'products-v2',
+                    presentation: { name: { en: 'Products V2' }, description: { en: 'Compatibility catalog' } },
+                    config: { hubs: [], isSingleHub: false, isRequiredHub: false, sortOrder: 4 },
+                    _upl_version: 2,
+                    created_at: new Date('2026-02-11T00:00:00.000Z'),
+                    updated_at: new Date('2026-02-11T00:00:00.000Z')
+                }
+            ])
+
+            const app = buildApp()
+            const response = await request(app).get('/metahub/test-metahub-id/catalogs').expect(200)
+
+            expect(response.body.items).toHaveLength(1)
+            expect(response.body.items[0]).toMatchObject({
+                id: 'catalog-v2-1',
+                codename: 'products-v2',
+                sortOrder: 4
+            })
+            expect(mockObjectsService.findAllByKinds).toHaveBeenCalledWith(
+                'test-metahub-id',
+                ['catalog', 'custom.catalog-v2'],
+                'test-user-id'
+            )
+        })
     })
 
     describe('PATCH /metahub/:metahubId/catalogs/reorder', () => {
         it('reorders catalog and returns updated sort order', async () => {
+            mockObjectsService.findById.mockResolvedValueOnce({
+                id: '22222222-2222-4222-8222-222222222222',
+                kind: 'catalog',
+                codename: 'products',
+                config: { sortOrder: 1 }
+            })
+
             const app = buildApp()
             const response = await request(app)
                 .patch('/metahub/test-metahub-id/catalogs/reorder')
@@ -313,10 +394,7 @@ describe('Catalogs Routes', () => {
         })
 
         it('returns 404 when catalog is not found for reorder', async () => {
-            const { MetahubNotFoundError } = require('../../domains/shared/domainErrors')
-            mockObjectsService.reorderByKind.mockRejectedValueOnce(
-                new MetahubNotFoundError('catalog', '22222222-2222-4222-8222-222222222222')
-            )
+            mockObjectsService.findById.mockResolvedValueOnce(null)
 
             const app = buildApp()
             const response = await request(app)
@@ -327,8 +405,7 @@ describe('Catalogs Routes', () => {
                 })
                 .expect(404)
 
-            expect(response.body.error).toBe('catalog not found')
-            expect(response.body.code).toBe('NOT_FOUND')
+            expect(response.body.error).toBe('Catalog not found')
         })
     })
 
@@ -385,7 +462,7 @@ describe('Catalogs Routes', () => {
         })
 
         it('rejects duplicate codename', async () => {
-            mockObjectsService.findByCodename.mockResolvedValue({ id: 'existing' })
+            mockObjectsService.findByCodenameInKinds.mockResolvedValue({ id: 'existing' })
 
             const app = buildApp()
             const response = await request(app)
@@ -527,6 +604,77 @@ describe('Catalogs Routes', () => {
     })
 
     describe('PATCH /metahub/:metahubId/catalog/:catalogId', () => {
+        it('updates a catalog-compatible custom entity through the legacy catalog route', async () => {
+            mockEntityTypeService.listCustomTypes.mockResolvedValue([
+                {
+                    kindKey: 'custom.catalog-v2',
+                    config: {
+                        compatibility: {
+                            legacyObjectKind: 'catalog'
+                        }
+                    }
+                }
+            ])
+
+            mockObjectsService.findById.mockResolvedValueOnce({
+                id: 'catalog-v2-1',
+                kind: 'custom.catalog-v2',
+                codename: 'products-v2',
+                presentation: { name: { en: 'Products V2' }, description: { en: 'Compatibility catalog' } },
+                config: { hubs: [], isSingleHub: false, isRequiredHub: false, sortOrder: 3 },
+                _upl_version: 2,
+                created_at: new Date('2026-02-11T00:00:00.000Z'),
+                updated_at: new Date('2026-02-11T00:00:00.000Z')
+            })
+            mockObjectsService.updateObject.mockResolvedValueOnce({
+                id: 'catalog-v2-1',
+                kind: 'custom.catalog-v2',
+                codename: 'products-v2',
+                presentation: { name: { en: 'Products V2 Updated' }, description: { en: 'Updated through legacy route' } },
+                config: { hubs: [], isSingleHub: false, isRequiredHub: false, sortOrder: 3 },
+                _upl_version: 3,
+                created_at: new Date('2026-02-11T00:00:00.000Z'),
+                updated_at: new Date('2026-02-12T00:00:00.000Z')
+            })
+
+            const app = buildApp()
+            const response = await request(app)
+                .patch('/metahub/test-metahub-id/catalog/catalog-v2-1')
+                .send({
+                    name: { en: 'Products V2 Updated' },
+                    description: { en: 'Updated through legacy route' }
+                })
+                .expect(200)
+
+            expect(response.body).toMatchObject({
+                id: 'catalog-v2-1',
+                name: { en: 'Products V2 Updated' },
+                description: { en: 'Updated through legacy route' }
+            })
+            expect(mockObjectsService.updateObject).toHaveBeenCalledWith(
+                'test-metahub-id',
+                'catalog-v2-1',
+                'custom.catalog-v2',
+                expect.objectContaining({
+                    name: expect.objectContaining({
+                        _primary: 'en',
+                        locales: expect.objectContaining({
+                            en: expect.objectContaining({ content: 'Products V2 Updated' })
+                        })
+                    }),
+                    description: expect.objectContaining({
+                        _primary: 'en',
+                        locales: expect.objectContaining({
+                            en: expect.objectContaining({ content: 'Updated through legacy route' })
+                        })
+                    })
+                }),
+                'test-user-id',
+                undefined
+            )
+            expect(mockObjectsService.updateCatalog).not.toHaveBeenCalled()
+        })
+
         it('rejects legacy runtimeConfig when updating a catalog', async () => {
             mockObjectsService.findById.mockResolvedValueOnce({
                 id: 'catalog-1',
@@ -906,7 +1054,7 @@ describe('Catalogs Routes', () => {
             expect(response.body.attributesCount).toBe(0)
             expect(response.body.elementsCount).toBe(0)
             expect(mockObjectsService.createCatalog).toHaveBeenCalled()
-            expect(mockAttributesService.ensureCatalogSystemAttributes).toHaveBeenCalledWith(
+            expect(mockAttributesService.ensureObjectSystemAttributes).toHaveBeenCalledWith(
                 'test-metahub-id',
                 'catalog-copy-id',
                 'test-user-id',
@@ -924,6 +1072,77 @@ describe('Catalogs Routes', () => {
                     }
                 }
             )
+        })
+
+        it('copies a catalog-compatible custom entity through the legacy catalog route', async () => {
+            mockEntityTypeService.listCustomTypes.mockResolvedValue([
+                {
+                    kindKey: 'custom.catalog-v2',
+                    config: {
+                        compatibility: {
+                            legacyObjectKind: 'catalog'
+                        }
+                    }
+                }
+            ])
+
+            mockObjectsService.findById.mockResolvedValueOnce({
+                id: 'catalog-v2-1',
+                kind: 'custom.catalog-v2',
+                codename: testCodenameVlc('products-v2'),
+                presentation: {
+                    name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Products V2' } } },
+                    description: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Compatibility catalog' } } }
+                },
+                config: { hubs: [], isSingleHub: false, isRequiredHub: false, sortOrder: 5 }
+            })
+
+            mockObjectsService.createObject.mockResolvedValueOnce({
+                id: 'catalog-v2-copy-id',
+                kind: 'custom.catalog-v2',
+                codename: 'ProductsV2Copy',
+                presentation: {
+                    name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Products V2 (copy)' } } },
+                    description: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Compatibility catalog' } } }
+                },
+                config: { hubs: [], isSingleHub: false, isRequiredHub: false, sortOrder: 6 },
+                _upl_version: 1,
+                _upl_created_at: '2026-02-26T00:00:00.000Z',
+                _upl_updated_at: '2026-02-26T00:00:00.000Z'
+            })
+
+            const trx = createCatalogCopyTransactionTrx()
+            ;(mockExec.transaction as jest.Mock).mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) =>
+                callback(trx)
+            )
+
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/test-metahub-id/catalog/catalog-v2-1/copy')
+                .send({
+                    codename: testCodenameVlc('products-v2-copy'),
+                    copyAttributes: false,
+                    copyElements: false
+                })
+                .expect(201)
+
+            expect(response.body).toMatchObject({
+                id: 'catalog-v2-copy-id',
+                codename: 'ProductsV2Copy'
+            })
+            expect(mockObjectsService.createObject).toHaveBeenCalledWith(
+                'test-metahub-id',
+                'custom.catalog-v2',
+                expect.objectContaining({
+                    config: expect.objectContaining({
+                        hubs: [],
+                        runtimeConfig: undefined
+                    })
+                }),
+                'test-user-id',
+                trx
+            )
+            expect(mockObjectsService.createCatalog).not.toHaveBeenCalled()
         })
 
         it('copies attributes and elements by default when options are omitted', async () => {
@@ -974,7 +1193,7 @@ describe('Catalogs Routes', () => {
             expect(response.body.elementsCount).toBe(1)
             // trx.query called: SELECT attrs (1) + INSERT per attr (1) + SELECT elems (1) + INSERT elems (1) = 4
             expect(trx.query).toHaveBeenCalledTimes(4)
-            expect(mockAttributesService.ensureCatalogSystemAttributes).toHaveBeenCalledWith(
+            expect(mockAttributesService.ensureObjectSystemAttributes).toHaveBeenCalledWith(
                 'test-metahub-id',
                 'catalog-copy-id',
                 'test-user-id',

@@ -236,4 +236,19 @@ describe('ElementList settings continuity', () => {
         await user.click(screen.getByRole('tab', { name: 'System' }))
         expect(navigateMock).toHaveBeenCalledWith('/metahub/metahub-1/catalog/catalog-1/system')
     })
+
+    it('routes the System tab within the Catalogs V2 entity route tree', async () => {
+        const user = userEvent.setup()
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/custom.catalog-v2/instance/catalog-1/elements']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instance/:catalogId/elements' element={<ElementList />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        await user.click(await screen.findByRole('tab', { name: 'System' }))
+        expect(navigateMock).toHaveBeenCalledWith('/metahub/metahub-1/entities/custom.catalog-v2/instance/catalog-1/system')
+    })
 })

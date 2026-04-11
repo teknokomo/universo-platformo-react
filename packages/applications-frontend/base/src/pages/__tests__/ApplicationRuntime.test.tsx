@@ -86,6 +86,7 @@ vi.mock('@universo/apps-template-mui', async () => {
                     zoneWidgets: { left: [], right: [], center: [] },
                     menus: [],
                     activeMenuId: null,
+                    section: { name: 'Details', codename: 'details' },
                     catalog: { name: 'Details' }
                 },
                 isLoading: false,
@@ -101,6 +102,9 @@ vi.mock('@universo/apps-template-mui', async () => {
                 pageSizeOptions: [10, 25, 50, 100],
                 localeText: undefined,
                 handlePendingInteractionAttempt: runtimeMocks.handlePendingInteractionAttempt,
+                activeSectionId: 'catalog-1',
+                selectedSectionId: 'catalog-1',
+                onSelectSection: vi.fn(),
                 activeCatalogId: 'catalog-1',
                 selectedCatalogId: 'catalog-1',
                 onSelectCatalog: vi.fn(),
@@ -274,8 +278,44 @@ describe('ApplicationRuntime pending interaction safety', () => {
         renderRuntimePage()
 
         expect(screen.getByTestId('apps-dashboard-banner')).toHaveTextContent(
-            'The workspace limit for this catalog has been reached (2 / 2).'
+            'The workspace limit for this section has been reached (2 / 2).'
         )
+    })
+
+    it('prefers section aliases for dashboard title and inline mutation targeting', async () => {
+        runtimeMocks.dashboardStateOverrides = {
+            appData: {
+                zoneWidgets: { left: [], right: [], center: [] },
+                menus: [],
+                activeMenuId: null,
+                section: { name: 'Orders', codename: 'orders' },
+                catalog: { name: 'Legacy Catalog' }
+            },
+            activeSectionId: 'section-9',
+            selectedSectionId: 'section-9',
+            activeCatalogId: 'catalog-legacy',
+            selectedCatalogId: 'catalog-legacy'
+        }
+
+        renderRuntimePage()
+
+        expect(screen.getByTestId('apps-dashboard-title')).toHaveTextContent('Orders')
+
+        await waitFor(() => {
+            expect(runtimeMocks.capturedCellRenderers?.BOOLEAN).toBeTypeOf('function')
+        })
+
+        const user = userEvent.setup()
+        renderBooleanCell('row-2')
+
+        await user.click(screen.getByRole('checkbox'))
+
+        expect(runtimeMocks.mutate).toHaveBeenCalledWith({
+            rowId: 'row-2',
+            field: 'isEnabled',
+            value: true,
+            sectionId: 'section-9'
+        })
     })
 
     it('hides the create action when the catalog runtime config disables it', () => {
@@ -394,7 +434,10 @@ describe('ApplicationRuntime pending interaction safety', () => {
         }
 
         view.rerender(
-            <MemoryRouter initialEntries={['/applications/app-1/runtime?surface=page&mode=create']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <MemoryRouter
+                initialEntries={['/applications/app-1/runtime?surface=page&mode=create']}
+                future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+            >
                 <Routes>
                     <Route path='/applications/:applicationId/runtime' element={<ApplicationRuntime />} />
                 </Routes>
@@ -408,7 +451,10 @@ describe('ApplicationRuntime pending interaction safety', () => {
         }
 
         view.rerender(
-            <MemoryRouter initialEntries={['/applications/app-1/runtime?surface=page&mode=create']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <MemoryRouter
+                initialEntries={['/applications/app-1/runtime?surface=page&mode=create']}
+                future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+            >
                 <Routes>
                     <Route path='/applications/:applicationId/runtime' element={<ApplicationRuntime />} />
                 </Routes>
@@ -445,6 +491,11 @@ describe('ApplicationRuntime pending interaction safety', () => {
             zoneWidgets: { left: [], right: [], center: [] },
             menus: [],
             activeMenuId: null,
+            section: {
+                name: 'Catalog One',
+                codename: 'catalog-one',
+                runtimeConfig: { createSurface: 'page' }
+            },
             catalog: {
                 name: 'Catalog One',
                 runtimeConfig: { createSurface: 'page' }
@@ -454,6 +505,8 @@ describe('ApplicationRuntime pending interaction safety', () => {
         runtimeMocks.dashboardStateOverrides = {
             appData: catalogOneData,
             formOpen: false,
+            activeSectionId: 'catalog-1',
+            selectedSectionId: 'catalog-1',
             activeCatalogId: 'catalog-1',
             selectedCatalogId: 'catalog-1'
         }
@@ -467,6 +520,8 @@ describe('ApplicationRuntime pending interaction safety', () => {
         runtimeMocks.dashboardStateOverrides = {
             appData: catalogOneData,
             formOpen: true,
+            activeSectionId: 'catalog-1',
+            selectedSectionId: 'catalog-1',
             activeCatalogId: 'catalog-1',
             selectedCatalogId: 'catalog-1'
         }
@@ -484,12 +539,19 @@ describe('ApplicationRuntime pending interaction safety', () => {
         runtimeMocks.dashboardStateOverrides = {
             appData: {
                 ...catalogOneData,
+                section: {
+                    name: 'Catalog Two',
+                    codename: 'catalog-two',
+                    runtimeConfig: { createSurface: 'page' }
+                },
                 catalog: {
                     name: 'Catalog Two',
                     runtimeConfig: { createSurface: 'page' }
                 }
             },
             formOpen: true,
+            activeSectionId: 'catalog-2',
+            selectedSectionId: 'catalog-2',
             activeCatalogId: 'catalog-2',
             selectedCatalogId: 'catalog-2'
         }
@@ -612,7 +674,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
             rowId: 'row-1',
             field: 'isEnabled',
             value: true,
-            catalogId: 'catalog-1'
+            sectionId: 'catalog-1'
         })
     })
 })

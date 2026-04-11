@@ -1,5 +1,22 @@
 import { SnapshotSerializer } from '../../domains/publications/services/SnapshotSerializer'
 
+const createCustomTypeComponents = () => ({
+    dataSchema: { enabled: true },
+    predefinedElements: { enabled: true },
+    hubAssignment: false,
+    enumerationValues: false,
+    constants: false,
+    hierarchy: false,
+    nestedCollections: false,
+    relations: false,
+    actions: { enabled: true },
+    events: { enabled: true },
+    scripting: false,
+    layoutConfig: false,
+    runtimeBehavior: false,
+    physicalTable: { enabled: true, prefix: 'cust' }
+})
+
 const createCodenameVlc = (primary: string, secondary?: string) => ({
     _schema: '1',
     _primary: 'en',
@@ -220,7 +237,7 @@ describe('SnapshotSerializer system field propagation', () => {
 
         const exportedSnapshot = await serializer.serializeMetahub('metahub-1')
 
-        expect(exportedSnapshot.versionEnvelope.snapshotFormatVersion).toBe(2)
+        expect(exportedSnapshot.versionEnvelope.snapshotFormatVersion).toBe(3)
         expect(exportedSnapshot.sharedAttributes).toHaveLength(1)
         expect(exportedSnapshot.sharedConstants).toHaveLength(1)
         expect(exportedSnapshot.sharedEnumerationValues).toHaveLength(1)
@@ -301,5 +318,155 @@ describe('SnapshotSerializer system field propagation', () => {
         expect(runtimeSnapshot.entities['catalog-1'].fields.map((field) => field.id)).toEqual(['shared-field-1', 'local-field-1'])
         expect(runtimeSnapshot.constants?.['set-1']?.map((constant) => constant.id)).toEqual(['shared-constant-1', 'local-constant-1'])
         expect(runtimeSnapshot.enumerationValues?.['enum-1']?.map((value) => value.id)).toEqual(['local-value-1'])
+    })
+
+    it('serializes custom entity definitions and nested action/event metadata in snapshot v3', async () => {
+        const objectsService = {
+            findAllByKind: jest.fn(async (_metahubId: string, kind: string) => {
+                if (kind === 'customer_registry') {
+                    return [
+                        {
+                            id: 'custom-object-1',
+                            kind: 'customer_registry',
+                            codename: createCodenameVlc('customer_registry'),
+                            table_name: 'cust_customer_registry',
+                            presentation: { name: { en: 'Customer Registry' }, description: {} },
+                            config: { hubs: [] }
+                        }
+                    ]
+                }
+
+                return []
+            })
+        }
+        const attributesService = {
+            findAllFlatForSnapshot: jest.fn(async () => [
+                {
+                    id: 'custom-field-1',
+                    codename: createCodenameVlc('display_name'),
+                    dataType: 'STRING',
+                    isRequired: true,
+                    isDisplayAttribute: true,
+                    targetEntityId: null,
+                    targetEntityKind: null,
+                    targetConstantId: null,
+                    name: { en: 'Display name' },
+                    description: {},
+                    validationRules: {},
+                    uiConfig: {},
+                    sortOrder: 1,
+                    parentAttributeId: null,
+                    system: { isSystem: false }
+                }
+            ]),
+            listObjectSystemAttributes: jest.fn(async () => []),
+            getObjectSystemFieldsSnapshot: jest.fn(async () => ({ fields: [], lifecycleContract: null }))
+        }
+        const elementsService = {
+            findAllByObjectIds: jest.fn(async () => [
+                {
+                    id: 'element-1',
+                    objectId: 'custom-object-1',
+                    data: { code: 'A' },
+                    sortOrder: 0
+                }
+            ])
+        }
+        const entityTypeService = {
+            listCustomTypes: jest.fn(async () => [
+                {
+                    id: 'type-1',
+                    kindKey: 'customer_registry',
+                    isBuiltin: false,
+                    components: createCustomTypeComponents(),
+                    ui: {
+                        iconName: 'IconUsers',
+                        tabs: ['general'],
+                        sidebarSection: 'objects',
+                        nameKey: 'metahubs:entities.customerRegistry'
+                    },
+                    codename: createCodenameVlc('customer_registry'),
+                    presentation: { name: { en: 'Customer Registry' }, description: {} },
+                    config: { publishedSection: true },
+                    published: true
+                }
+            ])
+        }
+        const actionService = {
+            listByObjectId: jest.fn(async () => [
+                {
+                    id: 'action-1',
+                    codename: createCodenameVlc('sync_customer'),
+                    presentation: { name: { en: 'Sync customer' } },
+                    actionType: 'script',
+                    scriptId: 'script-1',
+                    config: { mode: 'sync' },
+                    sortOrder: 2
+                }
+            ])
+        }
+        const eventBindingService = {
+            listByObjectId: jest.fn(async () => [
+                {
+                    id: 'binding-1',
+                    eventName: 'afterCreate',
+                    actionId: 'action-1',
+                    priority: 5,
+                    isActive: true,
+                    config: { trigger: 'runtime' }
+                }
+            ])
+        }
+
+        const serializer = new SnapshotSerializer(
+            objectsService as never,
+            attributesService as never,
+            elementsService as never,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            entityTypeService as never,
+            actionService as never,
+            eventBindingService as never
+        )
+
+        const snapshot = await serializer.serializeMetahub('metahub-1')
+        const runtimeEntities = serializer.deserializeSnapshot(snapshot)
+
+        expect(snapshot.versionEnvelope.snapshotFormatVersion).toBe(3)
+        expect(snapshot.entityTypeDefinitions?.customer_registry).toMatchObject({
+            id: 'type-1',
+            kindKey: 'customer_registry',
+            published: true,
+            components: expect.objectContaining({
+                dataSchema: { enabled: true },
+                actions: { enabled: true },
+                events: { enabled: true }
+            })
+        })
+        expect(snapshot.entities['custom-object-1']).toMatchObject({
+            kind: 'customer_registry',
+            tableName: 'cust_customer_registry',
+            actions: [
+                expect.objectContaining({
+                    id: 'action-1',
+                    actionType: 'script',
+                    scriptId: 'script-1'
+                })
+            ],
+            eventBindings: [
+                expect.objectContaining({
+                    id: 'binding-1',
+                    eventName: 'afterCreate',
+                    actionId: 'action-1'
+                })
+            ]
+        })
+        expect(runtimeEntities).toHaveLength(1)
+        expect(runtimeEntities[0].kind).toBe('customer_registry')
+        expect(runtimeEntities[0].physicalTableName).toBe('cust_customer_registry')
     })
 })

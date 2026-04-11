@@ -2,8 +2,6 @@ import type { Request, Response } from 'express'
 import { z } from 'zod'
 import { validateListQuery } from '../../shared/queryParams'
 import { getRequestDbSession, getRequestDbExecutor, type DbExecutor, type SqlQueryable } from '../../../utils'
-import { queryMany } from '@universo/utils/database'
-import { qSchemaTable } from '@universo/database'
 import { findMetahubById } from '../../../persistence'
 import { ensureMetahubAccess, createEnsureMetahubRouteAccess } from '../../shared/guards'
 import { resolveUserId } from '../../shared/routeAuth'
@@ -31,6 +29,12 @@ import {
     syncOptionalCodenamePayloadText
 } from '../../shared/codenamePayload'
 import { type EnumerationCopyOptions, MetaEntityKind, SHARED_OBJECT_KINDS } from '@universo/types'
+import {
+    executeBlockedDelete,
+    executeHubScopedDelete,
+    executeLegacyReorder
+} from '../../entities/services/legacyBuiltinObjectCompatibility'
+import { copyDesignTimeObjectChildren } from '../../entities/services/designTimeObjectChildrenCopy'
 
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 const { normalizeEnumerationCopyOptions } = validation
@@ -87,13 +91,6 @@ type EnumerationListItemRow = {
 
 type LocalizedPrimaryCarrier = {
     _primary?: unknown
-}
-
-type EnumerationValueRow = {
-    codename?: unknown
-    presentation?: unknown
-    sort_order?: number
-    is_default?: boolean
 }
 
 type CopiedEnumerationRow = {
@@ -758,11 +755,9 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
         })
 
         const schemaName = await schemaService.ensureSchema(metahubId, userId)
-        const valuesQt = qSchemaTable(schemaName, '_mhb_values')
 
         const createEnumerationCopy = async (codename: string) => {
             return exec.transaction(async (trx: SqlQueryable) => {
-                const now = new Date()
                 const codenamePayloadForCopy = syncCodenamePayloadText(
                     parsed.data.codename ?? sourceEnumeration.codename,
                     codenameFallbackPrimaryLocale,
@@ -793,55 +788,19 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
                     trx
                 )) as CopiedEnumerationRow
 
-                let copiedValuesCount = 0
-                if (copyOptions.copyValues) {
-                    const sourceValues = await queryMany<EnumerationValueRow>(
-                        trx,
-                        `SELECT codename, presentation, sort_order, is_default
-             FROM ${valuesQt}
-             WHERE object_id = $1 AND _upl_deleted = false AND _mhb_deleted = false
-             ORDER BY sort_order ASC, _upl_created_at ASC`,
-                        [enumerationId]
-                    )
-
-                    if (sourceValues.length > 0) {
-                        const placeholders: string[] = []
-                        const params: unknown[] = []
-                        let idx = 1
-                        for (const value of sourceValues) {
-                            placeholders.push(
-                                `($${idx}, $${idx + 1}, $${idx + 2}, $${idx + 3}, $${idx + 4}, $${idx + 5}, $${idx + 6}, $${idx + 7}, $${
-                                    idx + 8
-                                })`
-                            )
-                            params.push(
-                                createdEnumeration.id,
-                                value.codename,
-                                JSON.stringify(value.presentation ?? {}),
-                                value.sort_order ?? 0,
-                                value.is_default ?? false,
-                                now,
-                                userId ?? null,
-                                now,
-                                userId ?? null
-                            )
-                            idx += 9
-                        }
-                        const insertedRows = await trx.query(
-                            `INSERT INTO ${valuesQt}
-               (object_id, codename, presentation, sort_order, is_default,
-                _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
-               VALUES ${placeholders.join(', ')}
-               RETURNING id`,
-                            params
-                        )
-                        copiedValuesCount = insertedRows.length
-                    }
-                }
+                const copyResult = await copyDesignTimeObjectChildren({
+                    metahubId,
+                    sourceObjectId: enumerationId,
+                    targetObjectId: createdEnumeration.id,
+                    tx: trx,
+                    userId,
+                    schemaName,
+                    copyEnumerationValues: copyOptions.copyValues
+                })
 
                 return {
                     enumeration: createdEnumeration,
-                    copiedValuesCount
+                    copiedValuesCount: copyResult.valuesCopied
                 }
             })
         }
@@ -1129,24 +1088,23 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
             return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
         }
 
-        try {
-            const updated = await objectsService.reorderByKind(
-                metahubId,
-                MetaEntityKind.ENUMERATION,
-                parsed.data.enumerationId,
-                parsed.data.newSortOrder,
-                userId
-            )
-            return res.json({
-                id: updated.id,
-                sortOrder: updated.config?.sortOrder ?? 0
-            })
-        } catch (error: unknown) {
-            if (error instanceof Error && error.message === 'enumeration not found') {
-                return res.status(404).json({ error: 'Enumeration not found' })
-            }
-            throw error
-        }
+        const result = await executeLegacyReorder({
+            entityLabel: 'Enumeration',
+            notFoundErrorMessage: 'enumeration not found',
+            notFoundResponseMessage: 'Enumeration not found',
+            reorderEntity: () =>
+                objectsService.reorderByKind(
+                    metahubId,
+                    MetaEntityKind.ENUMERATION,
+                    parsed.data.enumerationId,
+                    parsed.data.newSortOrder,
+                    userId
+                ),
+            getId: (updated) => updated.id,
+            getSortOrder: (updated) => updated.config?.sortOrder ?? 0
+        })
+
+        return res.status(result.status).json(result.body)
     }
 
     // ─── GET BY ID ──────────────────────────────────────────────────────────────
@@ -1514,59 +1472,61 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
         if (!userId) return
 
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
-            return res.status(404).json({ error: 'Enumeration not found' })
+        const result = await executeHubScopedDelete({
+            entity: enumeration && isEnumerationContextKind(enumeration.kind) ? enumeration : null,
+            entityLabel: 'Enumeration',
+            notFoundMessage: 'Enumeration not found',
+            notFoundInHubMessage: 'Enumeration not found in this hub',
+            hubId,
+            forceDelete: req.query.force === 'true',
+            getHubIds: getEnumerationHubIds,
+            isRequiredHub: (currentEnumeration) => Boolean(currentEnumeration.config?.isRequiredHub),
+            lastHubConflictMessage:
+                'Cannot remove enumeration from its last hub because it requires at least one hub association. Use force=true to delete the enumeration entirely.',
+            beforeDelete: async () => {
+                const allowDeleteRow = await settingsService.findByKey(metahubId, 'enumerations.allowDelete', userId)
+                const allowDelete = allowDeleteRow ? (allowDeleteRow.value as { _value: boolean })._value !== false : true
+                if (!allowDelete) {
+                    return {
+                        status: 403,
+                        body: { error: 'Deleting enumerations is disabled by metahub settings' }
+                    }
+                }
+
+                const refs = await findBlockingEnumerationReferences(metahubId, enumerationId, attributesService, userId)
+                if (refs.length > 0) {
+                    return {
+                        status: 409,
+                        body: {
+                            error: 'Cannot delete enumeration: it is referenced by attributes',
+                            blockingReferences: refs
+                        }
+                    }
+                }
+
+                return null
+            },
+            detachFromHub: async (nextHubIds) => {
+                await objectsService.updateEnumeration(
+                    metahubId,
+                    enumerationId,
+                    {
+                        config: { hubs: nextHubIds },
+                        updatedBy: userId,
+                        expectedVersion: enumeration?._upl_version
+                    },
+                    userId
+                )
+            },
+            detachedMessage: 'Enumeration removed from hub',
+            deleteEntity: () => objectsService.delete(metahubId, enumerationId, userId)
+        })
+
+        if (result.status === 204) {
+            return res.status(204).send()
         }
 
-        const currentConfig = enumeration.config || {}
-        const currentHubIds: string[] = currentConfig.hubs || []
-
-        if (!currentHubIds.includes(hubId)) {
-            return res.status(404).json({ error: 'Enumeration not found in this hub' })
-        }
-
-        const forceDelete = req.query.force === 'true'
-        const willDeleteEntireEnumeration = !(currentHubIds.length > 1 && !forceDelete)
-
-        if (willDeleteEntireEnumeration) {
-            const allowDeleteRow = await settingsService.findByKey(metahubId, 'enumerations.allowDelete', userId)
-            const allowDelete = allowDeleteRow ? (allowDeleteRow.value as { _value: boolean })._value !== false : true
-            if (!allowDelete) {
-                return res.status(403).json({ error: 'Deleting enumerations is disabled by metahub settings' })
-            }
-        }
-
-        if (currentConfig.isRequiredHub && currentHubIds.length === 1 && !forceDelete) {
-            return res.status(409).json({
-                error: 'Cannot remove enumeration from its last hub because it requires at least one hub association. Use force=true to delete the enumeration entirely.'
-            })
-        }
-
-        if (currentHubIds.length > 1 && !forceDelete) {
-            const newHubIds = currentHubIds.filter((id) => id !== hubId)
-            await objectsService.updateEnumeration(
-                metahubId,
-                enumerationId,
-                {
-                    config: { hubs: newHubIds },
-                    updatedBy: userId,
-                    expectedVersion: enumeration._upl_version
-                },
-                userId
-            )
-            return res.status(200).json({ message: 'Enumeration removed from hub', remainingHubs: newHubIds.length })
-        }
-
-        const refs = await findBlockingEnumerationReferences(metahubId, enumerationId, attributesService, userId)
-        if (refs.length > 0) {
-            return res.status(409).json({
-                error: 'Cannot delete enumeration: it is referenced by attributes',
-                blockingReferences: refs
-            })
-        }
-
-        await objectsService.delete(metahubId, enumerationId, userId)
-        return res.status(204).send()
+        return res.status(result.status).json(result.body)
     }
 
     // ─── DELETE ─────────────────────────────────────────────────────────────────
@@ -1578,26 +1538,41 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
         if (!userId) return
 
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
-            return res.status(404).json({ error: 'Enumeration not found' })
+        const result = await executeBlockedDelete({
+            entity: enumeration && isEnumerationContextKind(enumeration.kind) ? enumeration : null,
+            entityLabel: 'Enumeration',
+            notFoundMessage: 'Enumeration not found',
+            beforeDelete: async () => {
+                const allowDeleteRow = await settingsService.findByKey(metahubId, 'enumerations.allowDelete', userId)
+                const allowDelete = allowDeleteRow ? (allowDeleteRow.value as { _value: boolean })._value !== false : true
+                if (!allowDelete) {
+                    return {
+                        status: 403,
+                        body: { error: 'Deleting enumerations is disabled by metahub settings' }
+                    }
+                }
+
+                const refs = await findBlockingEnumerationReferences(metahubId, enumerationId, attributesService, userId)
+                if (refs.length > 0) {
+                    return {
+                        status: 409,
+                        body: {
+                            error: 'Cannot delete enumeration: it is referenced by attributes',
+                            blockingReferences: refs
+                        }
+                    }
+                }
+
+                return null
+            },
+            deleteEntity: () => objectsService.delete(metahubId, enumerationId, userId)
+        })
+
+        if (result.status === 204) {
+            return res.status(204).send()
         }
 
-        const allowDeleteRow = await settingsService.findByKey(metahubId, 'enumerations.allowDelete', userId)
-        const allowDelete = allowDeleteRow ? (allowDeleteRow.value as { _value: boolean })._value !== false : true
-        if (!allowDelete) {
-            return res.status(403).json({ error: 'Deleting enumerations is disabled by metahub settings' })
-        }
-
-        const refs = await findBlockingEnumerationReferences(metahubId, enumerationId, attributesService, userId)
-        if (refs.length > 0) {
-            return res.status(409).json({
-                error: 'Cannot delete enumeration: it is referenced by attributes',
-                blockingReferences: refs
-            })
-        }
-
-        await objectsService.delete(metahubId, enumerationId, userId)
-        return res.status(204).send()
+        return res.status(result.status).json(result.body)
     }
 
     // ─── TRASH ──────────────────────────────────────────────────────────────────
@@ -1657,26 +1632,41 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
         if (!userId) return
 
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId, { includeDeleted: true })
-        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
-            return res.status(404).json({ error: 'Enumeration not found' })
+        const result = await executeBlockedDelete({
+            entity: enumeration && isEnumerationContextKind(enumeration.kind) ? enumeration : null,
+            entityLabel: 'Enumeration',
+            notFoundMessage: 'Enumeration not found',
+            beforeDelete: async () => {
+                const allowDeleteRow = await settingsService.findByKey(metahubId, 'enumerations.allowDelete', userId)
+                const allowDelete = allowDeleteRow ? (allowDeleteRow.value as { _value: boolean })._value !== false : true
+                if (!allowDelete) {
+                    return {
+                        status: 403,
+                        body: { error: 'Deleting enumerations is disabled by metahub settings' }
+                    }
+                }
+
+                const refs = await findBlockingEnumerationReferences(metahubId, enumerationId, attributesService, userId)
+                if (refs.length > 0) {
+                    return {
+                        status: 409,
+                        body: {
+                            error: 'Cannot delete enumeration: it is referenced by attributes',
+                            blockingReferences: refs
+                        }
+                    }
+                }
+
+                return null
+            },
+            deleteEntity: () => objectsService.permanentDelete(metahubId, enumerationId, userId)
+        })
+
+        if (result.status === 204) {
+            return res.status(204).send()
         }
 
-        const allowDeleteRow = await settingsService.findByKey(metahubId, 'enumerations.allowDelete', userId)
-        const allowDelete = allowDeleteRow ? (allowDeleteRow.value as { _value: boolean })._value !== false : true
-        if (!allowDelete) {
-            return res.status(403).json({ error: 'Deleting enumerations is disabled by metahub settings' })
-        }
-
-        const refs = await findBlockingEnumerationReferences(metahubId, enumerationId, attributesService, userId)
-        if (refs.length > 0) {
-            return res.status(409).json({
-                error: 'Cannot delete enumeration: it is referenced by attributes',
-                blockingReferences: refs
-            })
-        }
-
-        await objectsService.permanentDelete(metahubId, enumerationId, userId)
-        return res.status(204).send()
+        return res.status(result.status).json(result.body)
     }
 
     // ─── LIST VALUES ────────────────────────────────────────────────────────────

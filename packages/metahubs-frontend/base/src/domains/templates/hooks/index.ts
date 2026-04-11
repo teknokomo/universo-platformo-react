@@ -1,1 +1,1 @@
-export { useTemplates } from './useTemplates'
+export { useTemplateDetail, useTemplates } from './useTemplates'
