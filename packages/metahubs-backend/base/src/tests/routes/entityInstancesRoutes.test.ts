@@ -311,6 +311,8 @@ describe('Entity instance routes', () => {
             })
             .expect(201)
 
+        const createMutationInput = mockMutationService.run.mock.calls[0][0]
+
         expect(response.body.id).toBe('entity-2')
         expect(mockMutationService.run).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -323,7 +325,7 @@ describe('Entity instance routes', () => {
         expect(mockObjectsService.createObject).toHaveBeenCalledWith(
             'metahub-1',
             'custom-order',
-            expect.objectContaining({ config: { enabled: true } }),
+            expect.objectContaining({ id: createMutationInput.objectId, config: { enabled: true } }),
             'user-1',
             mockExec
         )

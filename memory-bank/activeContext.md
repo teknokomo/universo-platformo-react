@@ -4,10 +4,15 @@
 
 ---
 
-## Current Focus: Entities QA Closure Remediation Closed
+## Current Focus: PR #757 Review Comment QA Triage Closed
 
-- The 2026-04-11 entities QA closure pass is fully implemented and validated on the current tree.
-- Generic custom-entity `create` now crosses the same transaction-aware lifecycle boundary as update/delete/copy by routing through `EntityMutationService` with a result-resolved after-commit object id.
+- The 2026-04-11 PR review triage for GH757 is implemented and validated on the current branch.
+- Review outcome: one actionable backend lifecycle-risk comment was confirmed and fixed; the indentation comments were rejected after codebase verification because the touched metahubs-backend package already uses the same local indentation style and the bot cited a non-existent `.gemini/styleguide.md` path.
+- Generic custom-entity `create` now keeps the same preallocated UUID across `beforeCreate`, persistence, and `afterCreate` by passing the pending object id into `MetahubObjectsService.createObject(...)` instead of letting the database generate a different id.
+- Final validation for this triage pass is green: focused metahubs-backend coverage passed (`34/34`) and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- Branch context: on `feature/entity-component-architecture-metahub-entities` for PR #757 triage follow-up, not on `main`.
+
+- The 2026-04-11 entities QA closure pass remains fully implemented and validated on the current tree.
 - `EntityInstanceList` keeps the shipped object-scoped `Scripts`, `Actions`, and `Events` authoring flow on edit-only generic custom-entity dialogs, while create/copy dialogs remain intentionally minimal.
 - Catalog-compatible ACL alignment is now explicitly verified on the mounted surface: those routes delegate to `CatalogList` before the generic automation tabs mount, so no extra permission widening was required on the current tree.
 - EN/RU custom-entity workflow docs now include the save-first `Scripts -> Actions -> Events` authoring sequence, and stable GitBook-compatible visual assets now live under `docs/assets/entities/`.
@@ -19,7 +24,7 @@
 - Scope guard: Phase 5 remains explicitly marked as future post-parity work in the ECAE plan; this session closes the validated QA-closure defects instead of silently widening into a new product wave.
 
 - Goal: preserve the validated generic automation authoring contract, catalog-compatible route ownership, and strict acceptance parity between legacy Catalogs and Catalogs v2.
-- Branch context: on `main` — the broad ECAE surface is implemented and validated, and the last QA-proven catalog-compatible ACL/policy seam is now closed; future work should preserve this contract instead of reopening Phase 1-4 scope.
+- Branch context: on `feature/entity-component-architecture-metahub-entities` — the broad ECAE surface is implemented and validated, and the PR review follow-up has now closed the remaining create-path id-consistency seam without widening Phase 1-4 scope.
 - Architecture decision: Hybrid approach — Code Registry (5 built-in types, TypeScript-safe) + Data Definitions (custom types per metahub in `_mhb_entity_type_definitions`).
 - Component system: Pragmatic Component Registry — 10 declarative descriptors, with `relations` and `nestedCollections` reusing existing attribute/reference seams instead of inventing new system tables.
 - Rollout strategy: coexistence-first — legacy Catalogs/Sets/Enumerations stay live while the new `Entities` workspace and dynamic published sections (starting with `Catalogs v2`) are introduced.
@@ -49,6 +54,7 @@
 - Wait for QA mode or the next user-directed wave; this residual implementation pass is complete.
 - Preserve the edit-only automation authoring contract on generic custom entities when future dialog or entity-type builder work touches `EntityInstanceList`.
 - Preserve the create-path lifecycle boundary so future generic entity refactors do not bypass `EntityMutationService` again.
+- Preserve the explicit create-time object-id handoff so `beforeCreate`, the persisted row, and `afterCreate` cannot silently drift onto different ids again.
 
 ## Constraints to Preserve
 

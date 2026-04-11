@@ -305,6 +305,7 @@ export class MetahubObjectsService {
         metahubId: string,
         kind: string,
         input: {
+            id?: string
             codename: unknown
             name: any // VLC
             description?: any // VLC
@@ -337,15 +338,24 @@ export class MetahubObjectsService {
                 description: input.description
             })
             const configJson = JSON.stringify(config)
+            const explicitId = typeof input.id === 'string' && input.id.trim().length > 0 ? input.id.trim() : null
 
             const created = await queryOneOrThrow<MetahubObjectRow>(
                 tx,
-                `INSERT INTO ${qt}
-                    (kind, codename, table_name, presentation, config,
-                     _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
-                 VALUES ($1, $2::jsonb, NULL, $3::jsonb, $4::jsonb, $5, $6, $5, $6)
-                 RETURNING *`,
-                [kind, JSON.stringify(codename), presentation, configJson, now, input.createdBy ?? null]
+                explicitId
+                    ? `INSERT INTO ${qt}
+                        (id, kind, codename, table_name, presentation, config,
+                         _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
+                     VALUES ($1, $2, $3::jsonb, NULL, $4::jsonb, $5::jsonb, $6, $7, $6, $7)
+                     RETURNING *`
+                    : `INSERT INTO ${qt}
+                        (kind, codename, table_name, presentation, config,
+                         _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
+                     VALUES ($1, $2::jsonb, NULL, $3::jsonb, $4::jsonb, $5, $6, $5, $6)
+                     RETURNING *`,
+                explicitId
+                    ? [explicitId, kind, JSON.stringify(codename), presentation, configJson, now, input.createdBy ?? null]
+                    : [kind, JSON.stringify(codename), presentation, configJson, now, input.createdBy ?? null]
             )
 
             const createdId = created.id

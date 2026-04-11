@@ -6,6 +6,19 @@
 
 ## Current Task Ledger (Canonical)
 
+## Completed Session: 2026-04-11 PR #757 Review Comment QA Triage
+
+- [x] Gather unresolved PR review comments, issue comments, and file context for PR #757.
+    - Outcome: public GitHub review data confirmed one actionable backend lifecycle-risk comment and multiple package-local indentation comments from the bot review.
+- [x] Verify each reviewer suggestion against the current code and external documentation before changing code.
+    - Outcome: the high-priority create-path comment was validated against the generic entity controller/service flow plus PostgreSQL INSERT semantics, while the indentation comments were rejected because neighboring metahubs-backend controllers/services already use the same indentation style and the bot referenced a non-existent `.gemini/styleguide.md` path.
+- [x] Implement only the fixes that are confirmed correct and non-regressive for the shipped Entities/ECAE surface.
+    - Outcome: `MetahubObjectsService.createObject(...)` now accepts an optional explicit `id`, and generic custom-entity create passes the same preallocated UUID into persistence so `beforeCreate` and `afterCreate` can refer to the same persisted object id.
+- [x] Re-run focused validation for every touched surface and finish with the canonical root build if required by the final patch set.
+    - Outcome: focused metahubs-backend tests passed (`34/34`) across entity instance routes, lifecycle services, and object-service coverage, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- [x] Sync memory-bank status after the review-driven fixes are validated.
+    - Outcome: the review triage result, lifecycle-id consistency rule, and final validation evidence are now reflected in the current memory-bank state.
+
 ## Completed Session: 2026-04-11 Entities QA Closure Remediation
 
 - [x] Wire real lifecycle action execution through the generic entity mutation path.

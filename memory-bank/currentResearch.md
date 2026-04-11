@@ -1,5 +1,14 @@
 # Current Research
 
+## 2026-04-11: PR #757 review comment QA triage
+
+- Review outcome implemented: the PR bot comments reduced to one real backend lifecycle issue plus a batch of indentation-only comments.
+- Confirmed real issue: generic custom-entity create dispatched `beforeCreate` with a preallocated UUID that was not guaranteed to become the persisted `_mhb_objects.id`, so future lifecycle scripts could observe a mismatched object id across `beforeCreate` and `afterCreate`.
+- Implemented fix: `MetahubObjectsService.createObject(...)` now accepts an optional explicit id, and the generic create controller passes its preallocated pending UUID into persistence so create-time lifecycle events remain self-consistent.
+- Rejected comments: the indentation warnings were not applied because neighboring metahubs-backend controllers/services already use the same indentation style and the bot cited a non-existent `.gemini/styleguide.md` file rather than an actually present repository contract.
+- Closure validation: focused metahubs-backend tests passed (`34/34`) and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- No open research thread remains for the PR #757 review-triage seam.
+
 ## 2026-04-11: Entities automation closure remediation
 
 - Research outcome implemented: the remaining QA-closure work narrowed to three real seams only: generic create still needed to use the lifecycle boundary, the automation ACL suspicion needed verification against the actual mounted surface instead of a speculative permission patch, and the EN/RU operator docs still under-described the real authoring workflow.

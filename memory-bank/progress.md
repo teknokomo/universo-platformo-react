@@ -47,6 +47,21 @@
 
 ## 2026-04-11 Entities QA Closure Remediation
 
+## 2026-04-11 PR #757 Review Comment QA Triage
+
+Closed the actionable review-driven follow-up on top of the shipped Entities/ECAE branch without widening scope. The bot review raised one real create-path lifecycle risk and multiple indentation-only comments. The real risk was fixed by making the generic create path reuse the same preallocated object id for `beforeCreate`, persistence, and `afterCreate`, while the style comments were rejected after package-local codebase verification instead of being applied blindly.
+
+| Area | Resolution |
+| --- | --- |
+| Review triage | Public GitHub PR review data showed one substantive create-path concern and a batch of indentation comments. Package-local verification showed the indentation comments were not a reliable indicator for the touched metahubs-backend files. |
+| Lifecycle id consistency | `MetahubObjectsService.createObject(...)` now accepts an optional explicit id, and generic custom-entity create passes the preallocated pending UUID into persistence so `beforeCreate` and `afterCreate` can target the same persisted object id. |
+| Validation | Focused metahubs-backend coverage passed (`34/34`) across entity instance routes, lifecycle services, and object-service tests, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-backend test -- --runTestsByPath src/tests/routes/entityInstancesRoutes.test.ts src/tests/services/MetahubObjectsService.test.ts src/tests/services/EntityLifecycleServices.test.ts`
+- `pnpm build`
+
 Closed the remaining QA-closure seams around generic entity automation without widening scope beyond the shipped ECAE/Catalogs surface. This pass finished the real lifecycle path for generic create, verified the automation ACL question against the actual mounted surface, published the missing EN/RU authoring docs/assets, fixed the one compile-only regression the canonical build exposed, and finished on green backend/frontend/docs/browser/root-build evidence.
 
 | Area | Resolution |

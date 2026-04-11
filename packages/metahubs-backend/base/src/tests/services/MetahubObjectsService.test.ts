@@ -87,6 +87,7 @@ describe('MetahubObjectsService mutation fail-closed behavior', () => {
             'metahub-1',
             'customer_registry',
             {
+                id: 'object-custom-1',
                 codename: {
                     _schema: '1',
                     _primary: 'en',
@@ -109,6 +110,10 @@ describe('MetahubObjectsService mutation fail-closed behavior', () => {
 
         expect(mockQuery.mock.calls).toEqual(
             expect.arrayContaining([
+                expect.arrayContaining([
+                    expect.stringContaining('INSERT INTO "mhb_a1b2c3d4e5f67890abcdef1234567890_b1"."_mhb_objects"'),
+                    expect.arrayContaining(['object-custom-1', 'customer_registry'])
+                ]),
                 expect.arrayContaining([
                     expect.stringContaining('UPDATE "mhb_a1b2c3d4e5f67890abcdef1234567890_b1"."_mhb_objects" SET table_name = $1'),
                     ['cust_objectcustom1', 'object-custom-1']

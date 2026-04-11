@@ -530,6 +530,7 @@ export function createEntityInstancesController(createHandler: ReturnType<typeof
                     metahubId,
                     parsed.data.kind,
                     {
+                        id: pendingObjectId,
                         codename: payload,
                         name,
                         description,
