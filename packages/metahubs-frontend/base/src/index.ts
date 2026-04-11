@@ -8,6 +8,8 @@ import { PublicationVersionList as PublicationVersionListComponent } from './dom
 import { PublicationApplicationList as PublicationApplicationListComponent } from './domains/publications/ui/PublicationApplicationList'
 import BranchListComponent from './domains/branches/ui/BranchList'
 import MetahubMigrationsComponent from './domains/migrations/ui/MetahubMigrations'
+import EntitiesWorkspaceComponent from './domains/entities/ui/EntitiesWorkspace'
+import EntityInstanceListComponent from './domains/entities/ui/EntityInstanceList'
 import HubListComponent from './domains/hubs/ui/HubList'
 import CatalogListComponent from './domains/catalogs/ui/CatalogList'
 import EnumerationListComponent from './domains/enumerations/ui/EnumerationList'
@@ -36,6 +38,8 @@ export const PublicationApplicationList = withMetahubDialogSettings(PublicationA
 export const BranchList = withMetahubDialogSettings(BranchListComponent)
 export const MetahubMigrations = withMetahubDialogSettings(MetahubMigrationsComponent)
 export { default as MetahubMigrationGuard } from './domains/migrations/ui/MetahubMigrationGuard'
+export const EntitiesWorkspace = withMetahubDialogSettings(EntitiesWorkspaceComponent)
+export const EntityInstanceList = withMetahubDialogSettings(EntityInstanceListComponent)
 
 // New Hub/Catalog/Attribute/Element pages
 export const HubList = withMetahubDialogSettings(HubListComponent)

@@ -196,6 +196,41 @@ describe('Scripts Routes', () => {
         )
     })
 
+    it('accepts custom entity attachment kinds through the route schema', async () => {
+        mockCreateScript.mockResolvedValueOnce(
+            createScriptRecord({
+                attachedToKind: 'document',
+                attachedToId: '018f8a78-7b8f-7c1d-a111-222233334400'
+            })
+        )
+
+        const app = buildApp()
+
+        const response = await request(app)
+            .post('/metahub/metahub-1/scripts')
+            .send({
+                codename: 'document-widget',
+                name: 'Document widget',
+                attachedToKind: 'document',
+                attachedToId: '018f8a78-7b8f-7c1d-a111-222233334400',
+                moduleRole: 'widget',
+                sourceKind: 'embedded',
+                sourceCode:
+                    "import { ExtensionScript } from '@universo/extension-sdk'\nexport default class DocumentWidget extends ExtensionScript {}"
+            })
+            .expect(201)
+
+        expect(response.body.attachedToKind).toBe('document')
+        expect(mockCreateScript).toHaveBeenCalledWith(
+            'metahub-1',
+            expect.objectContaining({
+                attachedToKind: 'document',
+                attachedToId: '018f8a78-7b8f-7c1d-a111-222233334400'
+            }),
+            'user-1'
+        )
+    })
+
     it('rejects invalid create payloads before hitting the service layer', async () => {
         const app = buildApp()
 

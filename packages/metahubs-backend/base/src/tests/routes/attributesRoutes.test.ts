@@ -75,6 +75,14 @@ const mockObjectsService = {
     findById: jest.fn()
 }
 
+const mockConstantsService = {
+    belongsToSet: jest.fn()
+}
+
+const mockEntityTypeService = {
+    resolveType: jest.fn()
+}
+
 const mockEnumerationValuesService = {
     findById: jest.fn()
 }
@@ -106,6 +114,16 @@ jest.mock('../../domains/metahubs/services/MetahubEnumerationValuesService', () 
     MetahubEnumerationValuesService: jest.fn().mockImplementation(() => mockEnumerationValuesService)
 }))
 
+jest.mock('../../domains/metahubs/services/MetahubConstantsService', () => ({
+    __esModule: true,
+    MetahubConstantsService: jest.fn().mockImplementation(() => mockConstantsService)
+}))
+
+jest.mock('../../domains/entities/services/EntityTypeService', () => ({
+    __esModule: true,
+    EntityTypeService: jest.fn().mockImplementation(() => mockEntityTypeService)
+}))
+
 const mockSettingsService = {
     findByKey: jest.fn(async () => null),
     findAll: jest.fn(async () => [
@@ -126,6 +144,10 @@ jest.mock('../../domains/settings/services/MetahubSettingsService', () => ({
 }))
 
 describe('Attributes Routes', () => {
+    const resetMockCollection = (collection: Record<string, jest.Mock>) => {
+        Object.values(collection).forEach((mockFn) => mockFn.mockReset())
+    }
+
     const ensureAuth = (req: Request, _res: Response, next: NextFunction) => {
         ;(req as unknown as { user?: { id: string } }).user = { id: 'test-user-id' }
         next()
@@ -165,6 +187,12 @@ describe('Attributes Routes', () => {
 
     beforeEach(() => {
         jest.clearAllMocks()
+        resetMockCollection(mockAttributesService)
+        resetMockCollection(mockObjectsService)
+        resetMockCollection(mockConstantsService)
+        resetMockCollection(mockEntityTypeService)
+        resetMockCollection(mockEnumerationValuesService)
+        resetMockCollection(mockSettingsService)
         mockEnsureMetahubAccess.mockResolvedValue(undefined)
         mockAcquireAdvisoryLock.mockResolvedValue(true)
         mockReleaseAdvisoryLock.mockResolvedValue(undefined)
@@ -187,6 +215,29 @@ describe('Attributes Routes', () => {
         mockObjectsService.findById.mockResolvedValue({
             id: 'catalog-1',
             kind: 'catalog'
+        })
+        mockConstantsService.belongsToSet.mockResolvedValue(true)
+        mockSettingsService.findByKey.mockResolvedValue(null)
+        mockSettingsService.findAll.mockResolvedValue([
+            { key: 'general.codenameStyle', value: { _value: 'pascal-case' } },
+            { key: 'general.codenameAlphabet', value: { _value: 'en-ru' } },
+            { key: 'general.codenameAllowMixedAlphabets', value: { _value: false } },
+            { key: 'catalogs.attributeCodenameScope', value: { _value: 'per-level' } },
+            {
+                key: 'catalogs.allowedAttributeTypes',
+                value: { _value: ['STRING', 'NUMBER', 'BOOLEAN', 'DATE', 'REF', 'JSON', 'TABLE'] }
+            }
+        ])
+        mockEntityTypeService.resolveType.mockImplementation(async (_metahubId: string, kind: string) => {
+            if (kind === 'enumeration') {
+                return { kindKey: 'enumeration', components: { dataSchema: false } }
+            }
+
+            if (kind === 'catalog' || kind === 'set' || kind === 'document') {
+                return { kindKey: kind, components: { dataSchema: { enabled: true } } }
+            }
+
+            return null
         })
         mockAttributesService.reorderAttribute.mockResolvedValue({
             id: '11111111-1111-1111-1111-111111111111',
@@ -332,6 +383,49 @@ describe('Attributes Routes', () => {
                 expect.any(Object)
             )
             expect(response.body).toMatchObject({ id: 'attr-1', codename: 'Title' })
+        })
+
+        it('accepts REF targets backed by generic entity kinds with dataSchema enabled', async () => {
+            const documentId = '33333333-3333-4333-8333-333333333333'
+            mockObjectsService.findById
+                .mockResolvedValueOnce({ id: 'catalog-1', kind: 'catalog' })
+                .mockResolvedValueOnce({ id: documentId, kind: 'document' })
+            mockAttributesService.create.mockResolvedValueOnce({
+                id: 'attr-document-ref',
+                catalogId: 'catalog-1',
+                codename: 'OwnerDocument',
+                dataType: 'REF',
+                targetEntityId: documentId,
+                targetEntityKind: 'document',
+                validationRules: {},
+                uiConfig: {},
+                isRequired: false,
+                isDisplayAttribute: false
+            })
+
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/metahub-1/catalog/catalog-1/attributes')
+                .send({
+                    codename: testCodenameVlc('OwnerDocument'),
+                    dataType: 'REF',
+                    name: { en: 'Owner document' },
+                    targetEntityId: documentId,
+                    targetEntityKind: 'document'
+                })
+                .expect(201)
+
+            expect(mockEntityTypeService.resolveType).toHaveBeenCalledWith('metahub-1', 'document', 'test-user-id')
+            expect(mockAttributesService.create).toHaveBeenCalledWith(
+                'metahub-1',
+                expect.objectContaining({
+                    targetEntityId: documentId,
+                    targetEntityKind: 'document'
+                }),
+                'test-user-id',
+                expect.any(Object)
+            )
+            expect(response.body).toMatchObject({ id: 'attr-document-ref', targetEntityKind: 'document' })
         })
 
         it('fails closed when schema sync fails after attribute creation', async () => {

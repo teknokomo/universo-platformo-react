@@ -28,6 +28,8 @@ export interface HubSelectionPanelProps {
     uiLocale?: string
     /** Current hub context for quick re-link action */
     currentHubId?: string | null
+    /** Optional label overrides for non-catalog contexts. */
+    labelsOverride?: Partial<EntitySelectionLabels>
 }
 
 /**
@@ -48,7 +50,8 @@ export const HubSelectionPanel = ({
     disabled = false,
     error,
     uiLocale = 'en',
-    currentHubId = null
+    currentHubId = null,
+    labelsOverride
 }: HubSelectionPanelProps) => {
     const { t } = useTranslation(['metahubs', 'common'])
 
@@ -77,6 +80,14 @@ export const HubSelectionPanel = ({
         [t]
     )
 
+    const resolvedLabels = useMemo(
+        () => ({
+            ...labels,
+            ...(labelsOverride ?? {})
+        }),
+        [labels, labelsOverride]
+    )
+
     const getDisplayName = (hub: Hub): string => {
         return getVLCString(hub.name, uiLocale) || getVLCString(hub.name, 'en') || hub.codename
     }
@@ -103,7 +114,7 @@ export const HubSelectionPanel = ({
             onSelectionChange={onSelectionChange}
             getDisplayName={getDisplayName}
             getCodename={getCodename}
-            labels={labels}
+            labels={resolvedLabels}
             disabled={disabled}
             error={error}
             isRequired={isRequiredHub}

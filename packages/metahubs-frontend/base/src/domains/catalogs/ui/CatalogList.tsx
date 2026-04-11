@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, useParams, Link } from 'react-router-dom'
 import { Box, ButtonBase, Chip, Divider, Skeleton, Stack, Tab, Tabs, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
@@ -19,8 +19,6 @@ import {
     FlowListTable,
     gridSpacing,
     useConfirm,
-    LocalizedInlineField,
-    useCodenameAutoFillVlc,
     EntitySelectionPanel,
     revealPendingEntityFeedback,
     useListDialogs
@@ -53,8 +51,10 @@ import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameFor
 import { ensureLocalizedContent, extractLocalizedInput, hasPrimaryContent } from '../../../utils/localizedInput'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
 import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
-import { CatalogDeleteDialog, CodenameField, HubSelectionPanel, ExistingCodenamesProvider } from '../../../components'
+import { CatalogDeleteDialog, HubSelectionPanel, ExistingCodenamesProvider } from '../../../components'
 import catalogActions, { CatalogDisplayWithHub, CatalogLayoutTabFields } from './CatalogActions'
+import GeneralTabFields from '../../shared/ui/GeneralTabFields'
+import { useMetahubDetails } from '../../metahubs/hooks'
 import {
     type CatalogFormValues,
     type CatalogMenuBaseContext,
@@ -64,101 +64,11 @@ import {
     extractResponseMessage,
     toCatalogWithHubsDisplay
 } from './catalogListUtils'
-
-type GenericFormValues = Record<string, unknown>
-
-type GeneralTabFieldsProps = {
-    values: GenericFormValues
-    setValue: (name: string, value: unknown) => void
-    isLoading: boolean
-    errors: Record<string, string>
-    uiLocale: string
-    nameLabel: string
-    descriptionLabel: string
-    codenameLabel: string
-    codenameHelper: string
-}
-
-/**
- * General tab content component with name, description, codename fields
- */
-const GeneralTabFields = ({
-    values,
-    setValue,
-    isLoading,
-    errors,
-    uiLocale,
-    nameLabel,
-    descriptionLabel,
-    codenameLabel,
-    codenameHelper
-}: GeneralTabFieldsProps) => {
-    const codenameConfig = useCodenameConfig()
-    const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
-    const descriptionVlc = (values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
-    const codename = (values.codename as VersionedLocalizedContent<string> | null | undefined) ?? null
-    const codenameTouched = Boolean(values.codenameTouched)
-    useCodenameAutoFillVlc({
-        codename,
-        codenameTouched,
-        nameVlc,
-        deriveCodename: (nameContent) =>
-            sanitizeCodenameForStyle(
-                nameContent,
-                codenameConfig.style,
-                codenameConfig.alphabet,
-                codenameConfig.allowMixed,
-                codenameConfig.autoConvertMixedAlphabets
-            ),
-        setValue: setValue as (field: 'codename' | 'codenameTouched', value: VersionedLocalizedContent<string> | null | boolean) => void
-    })
-
-    return (
-        <Stack spacing={2}>
-            <LocalizedInlineField
-                mode='localized'
-                label={nameLabel}
-                required
-                disabled={isLoading}
-                value={nameVlc}
-                onChange={(next: VersionedLocalizedContent<string> | null) => setValue('nameVlc', next)}
-                error={errors.nameVlc || null}
-                helperText={errors.nameVlc}
-                uiLocale={uiLocale}
-            />
-
-            <LocalizedInlineField
-                mode='localized'
-                label={descriptionLabel}
-                disabled={isLoading}
-                value={descriptionVlc}
-                onChange={(next: VersionedLocalizedContent<string> | null) => setValue('descriptionVlc', next)}
-                uiLocale={uiLocale}
-                multiline
-                rows={2}
-            />
-
-            <Divider />
-
-            <CodenameField
-                value={codename}
-                onChange={(value) => setValue('codename', value)}
-                touched={codenameTouched}
-                onTouchedChange={(touched: boolean) => setValue('codenameTouched', touched)}
-                onDuplicateStatusChange={(dup) => setValue('_hasCodenameDuplicate', dup)}
-                uiLocale={uiLocale}
-                label={codenameLabel}
-                helperText={codenameHelper}
-                error={errors.codename}
-                disabled={isLoading}
-                required
-            />
-        </Stack>
-    )
-}
+import { buildCatalogAuthoringPath } from './catalogRoutePaths'
 
 const CatalogListContent = () => {
     const navigate = useNavigate()
+    const { kindKey } = useParams<{ kindKey?: string }>()
     const codenameConfig = useCodenameConfig()
     const preferredVlcLocale = useMetahubPrimaryLocale()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
@@ -187,6 +97,20 @@ const CatalogListContent = () => {
         allowDelete,
         allowAttachExistingEntities
     } = useCatalogListData()
+    const buildCatalogPath = useCallback(
+        (catalogId: string) =>
+            buildCatalogAuthoringPath({
+                metahubId,
+                hubId: isHubScoped ? hubId : null,
+                kindKey,
+                catalogId,
+                tab: 'attributes'
+            }),
+        [hubId, isHubScoped, kindKey, metahubId]
+    )
+    const metahubDetailsQuery = useMetahubDetails(metahubId ?? '', { enabled: Boolean(metahubId) })
+    const canEditCatalogs = metahubDetailsQuery.data?.permissions?.editContent === true
+    const canDeleteCatalogs = metahubDetailsQuery.data?.permissions?.deleteContent === true
 
     const { dialogs, openCreate, openDelete, openConflict, close } = useListDialogs<CatalogWithHubs>()
     const [view, setView] = useViewPreference(isHubScoped ? STORAGE_KEYS.CATALOG_DISPLAY_STYLE : STORAGE_KEYS.ALL_CATALOGS_DISPLAY_STYLE)
@@ -207,11 +131,12 @@ const CatalogListContent = () => {
     const filteredCatalogActions = useMemo(
         () =>
             catalogActions.filter((a) => {
-                if (a.id === 'copy' && !allowCopy) return false
-                if (a.id === 'delete' && !allowDelete) return false
+                if (a.id === 'edit' && !canEditCatalogs) return false
+                if (a.id === 'copy' && (!canEditCatalogs || !allowCopy)) return false
+                if (a.id === 'delete' && (!canDeleteCatalogs || !allowDelete)) return false
                 return true
             }),
-        [allowCopy, allowDelete]
+        [allowCopy, allowDelete, canDeleteCatalogs, canEditCatalogs]
     )
 
     const createCatalogMutation = useCreateCatalog()
@@ -236,12 +161,11 @@ const CatalogListContent = () => {
         if (!resolvedCatalog) return
 
         setPendingCatalogNavigation(null)
-        navigate(
-            isHubScoped && hubId
-                ? `/metahub/${metahubId}/hub/${hubId}/catalog/${resolvedCatalog.id}/attributes`
-                : `/metahub/${metahubId}/catalog/${resolvedCatalog.id}/attributes`
-        )
-    }, [hubId, isHubScoped, metahubId, navigate, pendingCatalogNavigation, sortedCatalogs])
+        const nextPath = buildCatalogPath(resolvedCatalog.id)
+        if (nextPath) {
+            navigate(nextPath)
+        }
+    }, [buildCatalogPath, navigate, pendingCatalogNavigation, sortedCatalogs])
 
     const handlePendingCatalogInteraction = useCallback(
         (pendingCatalogId: string) => {
@@ -443,9 +367,7 @@ const CatalogListContent = () => {
                 sortable: true,
                 sortAccessor: (row: CatalogWithHubsDisplay) => row.name?.toLowerCase() ?? '',
                 render: (row: CatalogWithHubsDisplay) => {
-                    const href = isHubScoped
-                        ? `/metahub/${metahubId}/hub/${hubId}/catalog/${row.id}/attributes`
-                        : `/metahub/${metahubId}/catalog/${row.id}/attributes`
+                    const href = buildCatalogPath(row.id)
                     return isPendingEntity(row) ? (
                         <ButtonBase
                             onClick={() => handlePendingCatalogInteraction(row.id)}
@@ -601,14 +523,7 @@ const CatalogListContent = () => {
                                 </Typography>
                             </ButtonBase>
                         ) : (
-                            <Link
-                                to={
-                                    isHubScoped
-                                        ? `/metahub/${metahubId}/hub/${hubId}/catalog/${row.id}/attributes`
-                                        : `/metahub/${metahubId}/catalog/${row.id}/attributes`
-                                }
-                                style={{ textDecoration: 'none', color: 'inherit' }}
-                            >
+                            <Link to={buildCatalogPath(row.id)} style={{ textDecoration: 'none', color: 'inherit' }}>
                                 <Typography
                                     sx={{
                                         fontSize: 14,
@@ -641,7 +556,7 @@ const CatalogListContent = () => {
         } else {
             return [...baseColumns, hubColumn, ...countColumns]
         }
-    }, [handlePendingCatalogInteraction, hubId, isHubScoped, metahubId, t, tc])
+    }, [buildCatalogPath, handlePendingCatalogInteraction, isHubScoped, t, tc])
 
     const createCatalogContext = useCallback(
         (baseContext: CatalogMenuBaseContext) => ({
@@ -968,11 +883,9 @@ const CatalogListContent = () => {
     }
 
     const goToCatalog = (catalog: CatalogWithHubs) => {
-        // Navigate based on mode: hub-scoped or catalog-centric
-        if (isHubScoped) {
-            navigate(`/metahub/${metahubId}/hub/${hubId}/catalog/${catalog.id}/attributes`)
-        } else {
-            navigate(`/metahub/${metahubId}/catalog/${catalog.id}/attributes`)
+        const nextPath = buildCatalogPath(catalog.id)
+        if (nextPath) {
+            navigate(nextPath)
         }
     }
 
@@ -1094,13 +1007,17 @@ const CatalogListContent = () => {
                                 onViewModeChange={(mode: string) => handleChange(null, mode)}
                                 cardViewTitle={tc('cardView')}
                                 listViewTitle={tc('listView')}
-                                primaryAction={{
-                                    label: tc('create'),
-                                    onClick: handleAddNew,
-                                    startIcon: <AddRoundedIcon />
-                                }}
+                                primaryAction={
+                                    canEditCatalogs
+                                        ? {
+                                              label: tc('create'),
+                                              onClick: handleAddNew,
+                                              startIcon: <AddRoundedIcon />
+                                          }
+                                        : undefined
+                                }
                                 primaryActionMenuItems={
-                                    showAttachExistingAction && hasAttachableExistingCatalogs
+                                    canEditCatalogs && showAttachExistingAction && hasAttachableExistingCatalogs
                                         ? [
                                               {
                                                   label: t('common:actions.add', 'Add'),
@@ -1232,11 +1149,7 @@ const CatalogListContent = () => {
                                                 onSortableDragEnd={handleSortableDragEnd}
                                                 renderDragOverlay={renderDragOverlay}
                                                 getRowLink={(row: CatalogWithHubsDisplay) =>
-                                                    row?.id
-                                                        ? isHubScoped
-                                                            ? `/metahub/${metahubId}/hub/${hubId}/catalog/${row.id}/attributes`
-                                                            : `/metahub/${metahubId}/catalog/${row.id}/attributes`
-                                                        : undefined
+                                                    row?.id ? buildCatalogPath(row.id) || undefined : undefined
                                                 }
                                                 onPendingInteractionAttempt={(row: CatalogWithHubsDisplay) =>
                                                     handlePendingCatalogInteraction(row.id)

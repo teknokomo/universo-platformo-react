@@ -8,11 +8,27 @@ import { listAllCatalogs } from '../../domains/catalogs/api'
 import { listAllEnumerations } from '../../domains/enumerations/api'
 import { listAllSets } from '../../domains/sets/api'
 import { listConstantsDirect } from '../../domains/constants/api'
+import { listEntityInstances } from '../../domains/entities/api/entityInstances'
+import { listEntityTypes } from '../../domains/entities/api/entityTypes'
 
 vi.mock('react-i18next', () => ({
     initReactI18next: { type: '3rdParty', init: vi.fn() },
     useTranslation: () => ({
-        t: (_key: string, fallback?: string) => fallback ?? _key
+        t: (_key: string, fallbackOrOptions?: string | { defaultValue?: string }, maybeOptions?: { defaultValue?: string }) => {
+            if (typeof fallbackOrOptions === 'string') {
+                return fallbackOrOptions
+            }
+
+            if (typeof fallbackOrOptions?.defaultValue === 'string') {
+                return fallbackOrOptions.defaultValue
+            }
+
+            if (typeof maybeOptions?.defaultValue === 'string') {
+                return maybeOptions.defaultValue
+            }
+
+            return _key
+        }
     })
 }))
 
@@ -30,6 +46,14 @@ vi.mock('../../domains/sets/api', () => ({
 
 vi.mock('../../domains/constants/api', () => ({
     listConstantsDirect: vi.fn()
+}))
+
+vi.mock('../../domains/entities/api/entityTypes', () => ({
+    listEntityTypes: vi.fn()
+}))
+
+vi.mock('../../domains/entities/api/entityInstances', () => ({
+    listEntityInstances: vi.fn()
 }))
 
 const createQueryClient = () =>
@@ -73,6 +97,43 @@ describe('TargetEntitySelector', () => {
             pagination: { limit: 100, offset: 0, total: 0, count: 0, hasMore: false }
         })
         vi.mocked(listConstantsDirect).mockResolvedValue({
+            items: [],
+            pagination: { limit: 100, offset: 0, total: 0, count: 0, hasMore: false }
+        })
+        vi.mocked(listEntityTypes).mockResolvedValue({
+            items: [
+                {
+                    kindKey: 'catalog',
+                    isBuiltin: true,
+                    components: { dataSchema: { enabled: true } },
+                    ui: { iconName: 'IconDatabase', tabs: [], sidebarSection: 'objects', nameKey: 'Catalog' },
+                    source: 'builtin'
+                },
+                {
+                    kindKey: 'enumeration',
+                    isBuiltin: true,
+                    components: { dataSchema: false },
+                    ui: { iconName: 'IconFiles', tabs: [], sidebarSection: 'objects', nameKey: 'Enumeration' },
+                    source: 'builtin'
+                },
+                {
+                    kindKey: 'set',
+                    isBuiltin: true,
+                    components: { dataSchema: { enabled: true } },
+                    ui: { iconName: 'IconFileText', tabs: [], sidebarSection: 'objects', nameKey: 'Set' },
+                    source: 'builtin'
+                },
+                {
+                    kindKey: 'document',
+                    isBuiltin: true,
+                    components: { dataSchema: { enabled: true } },
+                    ui: { iconName: 'IconLayoutDashboard', tabs: [], sidebarSection: 'objects', nameKey: 'Document' },
+                    source: 'builtin'
+                }
+            ],
+            pagination: { limit: 100, offset: 0, total: 4, count: 4, hasMore: false }
+        })
+        vi.mocked(listEntityInstances).mockResolvedValue({
             items: [],
             pagination: { limit: 100, offset: 0, total: 0, count: 0, hasMore: false }
         })
@@ -157,11 +218,53 @@ describe('TargetEntitySelector', () => {
             </QueryClientProvider>
         )
 
+        await waitFor(() => {
+            expect(listEntityTypes).toHaveBeenCalledWith('metahub-1', expect.objectContaining({ includeBuiltins: true, limit: 500 }))
+        })
+
         await user.click(screen.getByRole('combobox', { name: 'Target Entity Type' }))
-        await user.click(screen.getByRole('option', { name: 'Set' }))
+        await user.click(await screen.findByRole('option', { name: 'set' }))
 
         expect(onEntityKindChange).toHaveBeenCalledWith('set')
         expect(onEntityIdChange).toHaveBeenCalledWith(null)
         expect(onTargetConstantIdChange).toHaveBeenCalledWith(null)
+    })
+
+    it('loads generic entity instances for custom dataSchema-backed kinds', async () => {
+        vi.mocked(listEntityInstances).mockResolvedValueOnce({
+            items: [
+                {
+                    id: 'document-1',
+                    kind: 'document',
+                    codename: createVlc('owner-document'),
+                    name: createVlc('Owner document')
+                }
+            ],
+            pagination: { limit: 100, offset: 0, total: 1, count: 1, hasMore: false }
+        })
+
+        const queryClient = createQueryClient()
+        render(
+            <QueryClientProvider client={queryClient}>
+                <TargetEntitySelector
+                    metahubId='metahub-1'
+                    targetEntityKind='document'
+                    targetEntityId='document-1'
+                    onEntityKindChange={() => undefined}
+                    onEntityIdChange={() => undefined}
+                    onTargetConstantIdChange={() => undefined}
+                    uiLocale='ru'
+                />
+            </QueryClientProvider>
+        )
+
+        await waitFor(() => {
+            expect(listEntityInstances).toHaveBeenCalledWith(
+                'metahub-1',
+                expect.objectContaining({ kind: 'document', locale: 'ru', limit: 500 })
+            )
+        })
+
+        expect(screen.getByLabelText('Target Entity')).toBeInTheDocument()
     })
 })

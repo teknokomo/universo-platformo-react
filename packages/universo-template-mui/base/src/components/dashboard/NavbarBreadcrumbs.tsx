@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next'
 import i18n from '@universo/i18n'
 import { useLocation, NavLink } from 'react-router-dom'
 import { useAuth } from '@universo/auth-frontend'
+import { isLegacyCompatibleObjectKind } from '@universo/types'
 import { getVLCString } from '@universo/utils'
 import { useHasGlobalAccess } from '@universo/store'
 import {
@@ -58,6 +59,28 @@ type ApplicationShellDetail = Record<string, unknown> & {
     schemaName?: string | null
 }
 
+type BreadcrumbEntityTypeRecord = Record<string, unknown> & {
+    kindKey?: string | null
+    source?: string | null
+    codename?: unknown
+    config?: unknown
+    presentation?: { name?: unknown } | null
+    ui?: { nameKey?: string | null } | null
+}
+
+type BreadcrumbEntityTypesResponse = {
+    items?: BreadcrumbEntityTypeRecord[] | null
+}
+
+type BreadcrumbEntityDetail = Record<string, unknown> & {
+    name?: unknown
+    codename?: unknown
+}
+
+const CATALOG_COMPATIBLE_KIND_KEY = 'custom.catalog-v2'
+
+const truncateEntityBreadcrumbLabel = (value: string): string => (value.length > 36 ? `${value.slice(0, 33)}...` : value)
+
 export default function NavbarBreadcrumbs() {
     const { t } = useTranslation('menu', { i18n })
     const location = useLocation()
@@ -87,9 +110,101 @@ export default function NavbarBreadcrumbs() {
     // /metahub/:metahubId/catalog/:catalogId/layout/:layoutId
     const layoutDetailMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/(?:common\/layouts|general\/layouts|layouts)\/([^/]+)/)
     const catalogLayoutDetailMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/catalog\/([^/]+)\/layout\/([^/]+)/)
-    const layoutParentMetahubId = layoutDetailMatch ? layoutDetailMatch[1] : catalogLayoutDetailMatch ? catalogLayoutDetailMatch[1] : null
-    const layoutId = layoutDetailMatch ? layoutDetailMatch[2] : catalogLayoutDetailMatch ? catalogLayoutDetailMatch[3] : null
+    const entityLayoutDetailMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/entities\/[^/]+\/instance\/[^/]+\/layout\/([^/]+)/)
+    const layoutParentMetahubId = layoutDetailMatch
+        ? layoutDetailMatch[1]
+        : catalogLayoutDetailMatch
+        ? catalogLayoutDetailMatch[1]
+        : entityLayoutDetailMatch
+        ? entityLayoutDetailMatch[1]
+        : null
+    const layoutId = layoutDetailMatch
+        ? layoutDetailMatch[2]
+        : catalogLayoutDetailMatch
+        ? catalogLayoutDetailMatch[3]
+        : entityLayoutDetailMatch
+        ? entityLayoutDetailMatch[2]
+        : null
     const layoutName = useLayoutName(layoutParentMetahubId, layoutId)
+
+    const entityRouteMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/entities\/([^/]+)(?:\/|$)/)
+    const entityRouteMetahubId = entityRouteMatch ? entityRouteMatch[1] : null
+    const entityRouteKindSegment = entityRouteMatch ? entityRouteMatch[2] : null
+    const entityRouteKindKey = entityRouteKindSegment ? decodeURIComponent(entityRouteKindSegment) : null
+    const entityRouteDetailMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/entities\/[^/]+\/instance\/([^/]+)(?:\/|$)/)
+    const entityRouteEntityId = entityRouteDetailMatch ? entityRouteDetailMatch[2] : null
+    const entityTypeRouteQuery = useQuery<BreadcrumbEntityTypesResponse>({
+        queryKey:
+            entityRouteMetahubId && entityRouteKindKey
+                ? ['entity-types', 'breadcrumbs', entityRouteMetahubId, entityRouteKindKey]
+                : ['entity-types', 'breadcrumbs', 'missing-route'],
+        queryFn: async () => {
+            const response = await client.get<BreadcrumbEntityTypesResponse>(`/metahub/${entityRouteMetahubId}/entity-types`, {
+                params: {
+                    includeBuiltins: true,
+                    limit: 1000,
+                    offset: 0,
+                    search: entityRouteKindKey
+                }
+            })
+            return response.data
+        },
+        enabled: Boolean(entityRouteMetahubId && entityRouteKindKey) && !authLoading,
+        staleTime: 5 * 60 * 1000,
+        retry: 2,
+        retryOnMount: true,
+        refetchOnMount: 'always',
+        refetchOnWindowFocus: false
+    })
+    const matchedEntityType = (entityTypeRouteQuery.data?.items ?? []).find((item) => item.kindKey === entityRouteKindKey) ?? null
+    const isCatalogCompatibleEntityType = matchedEntityType
+        ? matchedEntityType.kindKey === CATALOG_COMPATIBLE_KIND_KEY || isLegacyCompatibleObjectKind(matchedEntityType.config, 'catalog')
+        : entityRouteKindKey === CATALOG_COMPATIBLE_KIND_KEY
+    const entityRouteCatalogName = useCatalogNameStandalone(entityRouteMetahubId, isCatalogCompatibleEntityType ? entityRouteEntityId : null)
+    const entityTypeBreadcrumbLabel = (() => {
+        if (isCatalogCompatibleEntityType) {
+            return t('catalogs')
+        }
+
+        if (!matchedEntityType) {
+            return entityRouteKindKey ? truncateEntityBreadcrumbLabel(entityRouteKindKey) : null
+        }
+
+        const uiNameKey = typeof matchedEntityType.ui?.nameKey === 'string' ? matchedEntityType.ui.nameKey.trim() : ''
+        const translatedUiLabel =
+            matchedEntityType.source === 'builtin' && uiNameKey.length > 0 ? t(uiNameKey, { defaultValue: uiNameKey }) : uiNameKey
+        const resolvedLabel =
+            extractLocalizedString(matchedEntityType.presentation?.name) ||
+            (translatedUiLabel && translatedUiLabel.trim().length > 0 ? translatedUiLabel.trim() : null) ||
+            extractLocalizedString(matchedEntityType.codename) ||
+            matchedEntityType.kindKey ||
+            entityRouteKindKey
+
+        return resolvedLabel ? truncateEntityBreadcrumbLabel(resolvedLabel) : null
+    })()
+    const entityRouteDetailQuery = useQuery<BreadcrumbEntityDetail>({
+        queryKey:
+            entityRouteMetahubId && entityRouteEntityId
+                ? ['entities', 'breadcrumbs', entityRouteMetahubId, entityRouteEntityId]
+                : ['entities', 'breadcrumbs', 'missing-detail'],
+        queryFn: async () => {
+            const response = await client.get<BreadcrumbEntityDetail>(`/metahub/${entityRouteMetahubId}/entity/${entityRouteEntityId}`)
+            return response.data
+        },
+        enabled: Boolean(entityRouteMetahubId && entityRouteEntityId) && !authLoading,
+        staleTime: 5 * 60 * 1000,
+        retry: 2,
+        retryOnMount: true,
+        refetchOnMount: 'always',
+        refetchOnWindowFocus: false
+    })
+    const entityInstanceBreadcrumbLabel = (() => {
+        const resolvedLabel =
+            (isCatalogCompatibleEntityType ? entityRouteCatalogName : null) ||
+            extractLocalizedString(entityRouteDetailQuery.data?.name) ||
+            extractLocalizedString(entityRouteDetailQuery.data?.codename)
+        return resolvedLabel ? truncateEntityBreadcrumbLabel(resolvedLabel) : null
+    })()
 
     // Extract applicationId from URL for dynamic name loading (application admin context)
     // Pattern: /a/:applicationId/admin/...
@@ -321,6 +436,38 @@ export default function NavbarBreadcrumbs() {
                     }
                 } else if (segments[2] === 'hubs') {
                     items.push({ label: t('hubs'), to: `/metahub/${segments[1]}/hubs` })
+                } else if (segments[2] === 'entities') {
+                    items.push({ label: t('entities'), to: `/metahub/${segments[1]}/entities` })
+
+                    if (segments[3] && (segments[4] === 'instances' || segments[4] === 'instance')) {
+                        items.push({
+                            label: entityTypeBreadcrumbLabel ?? truncateEntityBreadcrumbLabel(decodeURIComponent(segments[3])),
+                            to: `/metahub/${segments[1]}/entities/${segments[3]}/instances`
+                        })
+
+                        if (segments[4] === 'instance' && segments[5]) {
+                            items.push({
+                                label: entityInstanceBreadcrumbLabel ?? '...',
+                                to: `/metahub/${segments[1]}/entities/${segments[3]}/instance/${segments[5]}/attributes`
+                            })
+
+                            if (segments[6] === 'attributes') {
+                                items.push({ label: t('attributes'), to: location.pathname })
+                            } else if (segments[6] === 'system') {
+                                items.push({
+                                    label: i18n.t('metahubs:attributes.system.title', { defaultValue: 'System Attributes' }),
+                                    to: location.pathname
+                                })
+                            } else if (segments[6] === 'elements') {
+                                items.push({ label: t('elements'), to: location.pathname })
+                            } else if (segments[6] === 'layout' && segments[7]) {
+                                items.push({
+                                    label: layoutName ? truncateLayoutName(layoutName) : t('layouts'),
+                                    to: location.pathname
+                                })
+                            }
+                        }
+                    }
                 } else if (segments[2] === 'branches') {
                     items.push({ label: t('branches'), to: `/metahub/${segments[1]}/branches` })
                 } else if (segments[2] === 'settings') {

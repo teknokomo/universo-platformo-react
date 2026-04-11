@@ -3,6 +3,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 
+const navigateMock = vi.fn()
+
 type MockBaseEntity = {
     id?: string
 }
@@ -321,6 +323,14 @@ vi.mock('../../../utils/localizedInput', () => ({
     hasPrimaryContent: () => true
 }))
 
+vi.mock('react-router-dom', async () => {
+    const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
+    return {
+        ...actual,
+        useNavigate: () => navigateMock
+    }
+})
+
 import AttributeList from '../AttributeList'
 
 describe('AttributeList system tab', () => {
@@ -363,6 +373,21 @@ describe('AttributeList system tab', () => {
         expect(screen.queryByRole('button', { name: 'Create' })).not.toBeInTheDocument()
         expect(screen.getByRole('tab', { name: 'System' })).toBeInTheDocument()
         expect(screen.getByText('enable-system-field')).toBeInTheDocument()
+    })
+
+    it('keeps system redirects inside the Catalogs V2 entity route tree', async () => {
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/custom.catalog-v2/instance/catalog-1/attributes?tab=system']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instance/:catalogId/attributes' element={<AttributeList />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        expect(await screen.findByRole('heading', { name: 'System Attributes' })).toBeInTheDocument()
+        expect(navigateMock).toHaveBeenCalledWith('/metahub/metahub-1/entities/custom.catalog-v2/instance/catalog-1/system', {
+            replace: true
+        })
     })
 
     it('disables previous-query placeholder data for scoped attribute views', async () => {

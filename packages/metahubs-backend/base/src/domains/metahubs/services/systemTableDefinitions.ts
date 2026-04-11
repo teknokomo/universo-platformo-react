@@ -153,7 +153,7 @@ const mhbAttributes: SystemTableDef = {
         { name: 'is_system_managed', type: 'boolean', nullable: false, defaultTo: false },
         { name: 'is_system_enabled', type: 'boolean', nullable: false, defaultTo: true },
         { name: 'target_object_id', type: 'uuid', nullable: true },
-        { name: 'target_object_kind', type: 'string', length: 20, nullable: true },
+        { name: 'target_object_kind', type: 'string', length: 64, nullable: true },
         { name: 'parent_attribute_id', type: 'uuid', nullable: true }
     ],
     foreignKeys: [
@@ -425,7 +425,7 @@ const mhbSharedEntityOverrides: SystemTableDef = {
     description: 'Per-target overrides for shared entity visibility, active state, and ordering',
     columns: [
         { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
-        { name: 'entity_kind', type: 'string', length: 20, nullable: false },
+        { name: 'entity_kind', type: 'string', length: 64, nullable: false },
         { name: 'shared_entity_id', type: 'uuid', nullable: false },
         { name: 'target_object_id', type: 'uuid', nullable: false },
         { name: 'is_excluded', type: 'boolean', nullable: false, defaultTo: false },
@@ -454,7 +454,7 @@ const mhbScriptsV2: SystemTableDef = {
         { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
         { name: 'codename', type: 'jsonb', nullable: false, defaultTo: '{}' },
         { name: 'presentation', type: 'jsonb', nullable: false, defaultTo: '{}' },
-        { name: 'attached_to_kind', type: 'string', length: 40, nullable: false },
+        { name: 'attached_to_kind', type: 'string', length: 64, nullable: false },
         { name: 'attached_to_id', type: 'uuid', nullable: true },
         { name: 'module_role', type: 'string', length: 40, nullable: false },
         { name: 'source_kind', type: 'string', length: 40, nullable: false },
@@ -500,6 +500,87 @@ const mhbScripts: SystemTableDef = {
     ]
 }
 
+const mhbEntityTypeDefinitions: SystemTableDef = {
+    name: '_mhb_entity_type_definitions',
+    description: 'Custom entity-type blueprints stored per metahub branch',
+    columns: [
+        { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+        { name: 'kind_key', type: 'string', length: 64, nullable: false },
+        { name: 'codename', type: 'jsonb', nullable: false },
+        { name: 'presentation', type: 'jsonb', nullable: false, defaultTo: '{}' },
+        { name: 'components', type: 'jsonb', nullable: false },
+        { name: 'ui_config', type: 'jsonb', nullable: false, defaultTo: '{}' },
+        { name: 'config', type: 'jsonb', nullable: false, defaultTo: '{}' },
+        { name: 'is_builtin', type: 'boolean', nullable: false, defaultTo: false }
+    ],
+    indexes: [
+        {
+            name: 'idx_mhb_entity_type_definitions_kind_key_active',
+            columns: ['kind_key'],
+            unique: true,
+            where: '_upl_deleted = false AND _mhb_deleted = false'
+        }
+    ]
+}
+
+const mhbActions: SystemTableDef = {
+    name: '_mhb_actions',
+    description: 'Executable actions attached to design-time metahub objects',
+    columns: [
+        { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+        { name: 'object_id', type: 'uuid', nullable: false },
+        { name: 'codename', type: 'jsonb', nullable: false },
+        { name: 'presentation', type: 'jsonb', nullable: false, defaultTo: '{}' },
+        { name: 'action_type', type: 'string', length: 32, nullable: false },
+        { name: 'script_id', type: 'uuid', nullable: true },
+        { name: 'config', type: 'jsonb', nullable: false, defaultTo: '{}' },
+        { name: 'sort_order', type: 'integer', nullable: false, defaultTo: 0 }
+    ],
+    foreignKeys: [
+        { column: 'object_id', referencesTable: '_mhb_objects', referencesColumn: 'id', onDelete: 'CASCADE' },
+        { column: 'script_id', referencesTable: '_mhb_scripts', referencesColumn: 'id', onDelete: 'SET NULL' }
+    ],
+    indexes: [
+        { name: 'idx_mhb_actions_object_id', columns: ['object_id'] },
+        { name: 'idx_mhb_actions_script_id', columns: ['script_id'] },
+        { name: 'idx_mhb_actions_object_sort', columns: ['object_id', 'sort_order'] },
+        {
+            name: 'idx_mhb_actions_object_codename_active',
+            columns: ['object_id', codenamePrimaryTextSql('codename')],
+            unique: true,
+            where: '_upl_deleted = false AND _mhb_deleted = false'
+        }
+    ]
+}
+
+const mhbEventBindings: SystemTableDef = {
+    name: '_mhb_event_bindings',
+    description: 'Lifecycle event bindings that connect object events to actions',
+    columns: [
+        { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
+        { name: 'object_id', type: 'uuid', nullable: false },
+        { name: 'event_name', type: 'string', length: 64, nullable: false },
+        { name: 'action_id', type: 'uuid', nullable: false },
+        { name: 'priority', type: 'integer', nullable: false, defaultTo: 0 },
+        { name: 'is_active', type: 'boolean', nullable: false, defaultTo: true },
+        { name: 'config', type: 'jsonb', nullable: false, defaultTo: '{}' }
+    ],
+    foreignKeys: [
+        { column: 'object_id', referencesTable: '_mhb_objects', referencesColumn: 'id', onDelete: 'CASCADE' },
+        { column: 'action_id', referencesTable: '_mhb_actions', referencesColumn: 'id', onDelete: 'CASCADE' }
+    ],
+    indexes: [
+        { name: 'idx_mhb_event_bindings_action_id', columns: ['action_id'] },
+        { name: 'idx_mhb_event_bindings_object_event', columns: ['object_id', 'event_name'] },
+        {
+            name: 'idx_mhb_event_bindings_unique_active',
+            columns: ['object_id', 'event_name', 'action_id'],
+            unique: true,
+            where: '_upl_deleted = false AND _mhb_deleted = false'
+        }
+    ]
+}
+
 // ─── Version registry ────────────────────────────────────────────────────────
 
 /**
@@ -520,16 +601,18 @@ export const SYSTEM_TABLES_V1: SystemTableDef[] = [
 ]
 
 export const SYSTEM_TABLES_V2: SystemTableDef[] = [...SYSTEM_TABLES_V1, mhbScriptsV2]
-export const SYSTEM_TABLES: SystemTableDef[] = [...SYSTEM_TABLES_V1, mhbScripts]
+export const SYSTEM_TABLES_V3: SystemTableDef[] = [...SYSTEM_TABLES_V1, mhbScripts]
+export const SYSTEM_TABLES: SystemTableDef[] = [...SYSTEM_TABLES_V3, mhbEntityTypeDefinitions, mhbActions, mhbEventBindings]
 
 /**
  * Maps a structure version number to its table definitions.
  * Single-version registry — all schemas use the current table definitions.
  */
 export const SYSTEM_TABLE_VERSIONS: ReadonlyMap<number, readonly SystemTableDef[]> = new Map([
-    [1, SYSTEM_TABLES],
+    [1, SYSTEM_TABLES_V3],
     [2, SYSTEM_TABLES_V2],
-    [3, SYSTEM_TABLES]
+    [3, SYSTEM_TABLES_V3],
+    [4, SYSTEM_TABLES]
 ])
 
 export interface SystemStructureSnapshotTable {

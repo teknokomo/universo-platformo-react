@@ -81,12 +81,16 @@ export const applicationsQueryKeys = {
 
     migrationStatus: (applicationId: string) => [...applicationsQueryKeys.migrations(applicationId), 'status'] as const,
 
-    runtimeTable: (applicationId: string, params?: { limit?: number; offset?: number; locale?: string; catalogId?: string }) => {
+    runtimeTable: (
+        applicationId: string,
+        params?: { limit?: number; offset?: number; locale?: string; catalogId?: string; sectionId?: string }
+    ) => {
+        const resolvedSectionId = params?.sectionId ?? params?.catalogId
         const normalized = {
             limit: params?.limit ?? 50,
             offset: params?.offset ?? 0,
             locale: params?.locale ?? 'en',
-            catalogId: params?.catalogId ?? 'default'
+            catalogId: resolvedSectionId ?? 'default'
         }
         return [...applicationsQueryKeys.detail(applicationId), 'runtime', normalized] as const
     },

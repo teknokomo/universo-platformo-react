@@ -557,6 +557,20 @@ describe('SchemaGenerator', () => {
             expect(scopedIndexSql).toContain('codename')
         })
 
+        it('widens runtime kind-bearing columns for custom entity kinds', async () => {
+            await generator.ensureSystemTables('metahubs')
+
+            const rawSqlCalls = mockKnex.raw.mock.calls.map(([sql]) => String(sql))
+
+            expect(rawSqlCalls).toEqual(
+                expect.arrayContaining([
+                    expect.stringContaining('ALTER COLUMN "kind" TYPE VARCHAR(64)'),
+                    expect.stringContaining('ALTER COLUMN "target_object_kind" TYPE VARCHAR(64)'),
+                    expect.stringContaining('ALTER COLUMN "attached_to_kind" TYPE VARCHAR(64)')
+                ])
+            )
+        })
+
         it('rejects invalid capability combinations where widgets are enabled without layouts', async () => {
             await expect(
                 generator.ensureSystemTables('metahubs', undefined, {

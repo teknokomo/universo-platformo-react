@@ -1,10 +1,14 @@
 import type { ElementType } from 'react'
 import {
+    IconBox,
+    IconBolt,
     IconFiles,
     IconWorld,
     IconUser,
     IconFileText,
     IconUsers,
+    IconUsersGroup,
+    IconHierarchy,
     IconHierarchy3,
     IconBuildingStore,
     IconHistory,
@@ -12,7 +16,6 @@ import {
     IconSettings,
     IconLayoutDashboard,
     IconShield,
-    IconUsersGroup,
     IconUserShield,
     IconLanguage,
     IconApps,
@@ -23,12 +26,14 @@ export type TemplateMenuItem = TemplateMenuEntry | TemplateMenuDivider
 
 export interface TemplateMenuEntry {
     id: string
-    titleKey: string
+    titleKey?: string
+    title?: string
     url: string
     icon: ElementType
     type?: 'item'
     external?: boolean
     target?: string
+    requiredPermission?: 'manageMetahub' | 'manageMembers'
     chip?: {
         label: string
     }
@@ -37,6 +42,73 @@ export interface TemplateMenuEntry {
 export interface TemplateMenuDivider {
     id: string
     type: 'divider'
+}
+
+export const resolveTemplateMenuLabel = (
+    item: TemplateMenuEntry,
+    t: (key: string, options?: Record<string, unknown>) => string
+): string => {
+    if (typeof item.title === 'string' && item.title.trim().length > 0) {
+        return item.title
+    }
+
+    return item.titleKey ? t(item.titleKey, { defaultValue: item.titleKey }) : ''
+}
+
+export interface PublishedMetahubMenuEntityType {
+    kindKey: string
+    title: string
+    iconName?: string | null
+    sidebarSection?: 'objects' | 'admin'
+}
+
+const menuIconRegistry: Record<string, ElementType> = {
+    IconApps,
+    IconBolt,
+    IconBox,
+    IconBuildingStore,
+    IconDatabase,
+    IconFiles,
+    IconFileText,
+    IconGitBranch,
+    IconHierarchy,
+    IconHierarchy3,
+    IconHistory,
+    IconLayoutDashboard,
+    IconSettings,
+    IconUsers,
+    IconUsersGroup,
+    IconUserShield,
+    IconWorld
+}
+
+const resolveMenuIcon = (iconName?: string | null): ElementType => {
+    if (!iconName) {
+        return IconBox
+    }
+
+    return menuIconRegistry[iconName] ?? IconBox
+}
+
+const compactMenuDividers = (items: TemplateMenuItem[]): TemplateMenuItem[] => {
+    const compacted: TemplateMenuItem[] = []
+
+    for (const item of items) {
+        if (item.type === 'divider') {
+            const previous = compacted[compacted.length - 1]
+            if (!previous || previous.type === 'divider') {
+                continue
+            }
+        }
+
+        compacted.push(item)
+    }
+
+    if (compacted[compacted.length - 1]?.type === 'divider') {
+        compacted.pop()
+    }
+
+    return compacted
 }
 
 // Function to generate application menu items for a specific application
@@ -74,97 +146,150 @@ export const getApplicationMenuItems = (applicationId: string): TemplateMenuItem
 ]
 
 // Function to generate metahub menu items for a specific metahub
-export const getMetahubMenuItems = (metahubId: string): TemplateMenuItem[] => [
-    {
-        id: 'metahub-board',
-        titleKey: 'metahubboard',
-        url: `/metahub/${metahubId}`,
-        icon: IconBuildingStore,
-        type: 'item'
-    },
-    {
-        id: 'metahub-branches',
-        titleKey: 'branches',
-        url: `/metahub/${metahubId}/branches`,
-        icon: IconGitBranch,
-        type: 'item'
-    },
-    {
-        id: 'metahub-divider',
-        type: 'divider'
-    },
-    {
-        id: 'metahub-common',
-        titleKey: 'commonSection',
-        url: `/metahub/${metahubId}/common`,
-        icon: IconLayoutDashboard,
-        type: 'item'
-    },
-    {
-        id: 'metahub-hubs',
-        titleKey: 'hubs',
-        url: `/metahub/${metahubId}/hubs`,
-        icon: IconHierarchy3,
-        type: 'item'
-    },
-    {
-        id: 'metahub-catalogs',
-        titleKey: 'catalogs',
-        url: `/metahub/${metahubId}/catalogs`,
-        icon: IconDatabase,
-        type: 'item'
-    },
-    {
-        id: 'metahub-sets',
-        titleKey: 'sets',
-        url: `/metahub/${metahubId}/sets`,
-        icon: IconFileText,
-        type: 'item'
-    },
-    {
-        id: 'metahub-enumerations',
-        titleKey: 'enumerations',
-        url: `/metahub/${metahubId}/enumerations`,
-        icon: IconFiles,
-        type: 'item'
-    },
-    {
-        id: 'metahub-divider-secondary',
-        type: 'divider'
-    },
-    {
-        id: 'metahub-publications',
-        titleKey: 'publications',
-        url: `/metahub/${metahubId}/publications`,
-        icon: IconApps,
-        type: 'item'
-    },
-    {
-        id: 'metahub-migrations',
-        titleKey: 'migrations',
-        url: `/metahub/${metahubId}/migrations`,
-        icon: IconHistory,
-        type: 'item'
-    },
-    {
-        id: 'metahub-access',
-        titleKey: 'access',
-        url: `/metahub/${metahubId}/access`,
-        icon: IconUsers,
-        type: 'item'
-    },
-    {
-        id: 'metahub-divider-footer',
-        type: 'divider'
-    },
-    {
-        id: 'metahub-settings',
-        titleKey: 'settings',
-        url: `/metahub/${metahubId}/settings`,
-        icon: IconSettings,
-        type: 'item'
+export const getMetahubMenuItems = (
+    metahubId: string,
+    options?: {
+        canManageMetahub?: boolean
+        canManageMembers?: boolean
+        publishedEntityTypes?: PublishedMetahubMenuEntityType[]
     }
-]
+): TemplateMenuItem[] => {
+    const publishedObjectItems = (options?.publishedEntityTypes ?? [])
+        .filter((entityType) => (entityType.sidebarSection ?? 'objects') === 'objects')
+        .map<TemplateMenuItem>((entityType) => ({
+            id: `metahub-entity-${entityType.kindKey}`,
+            title: entityType.title,
+            url: `/metahub/${metahubId}/entities/${entityType.kindKey}/instances`,
+            icon: resolveMenuIcon(entityType.iconName),
+            type: 'item',
+            requiredPermission: 'manageMetahub'
+        }))
+
+    const items: TemplateMenuItem[] = [
+        {
+            id: 'metahub-board',
+            titleKey: 'metahubboard',
+            url: `/metahub/${metahubId}`,
+            icon: IconBuildingStore,
+            type: 'item'
+        },
+        {
+            id: 'metahub-branches',
+            titleKey: 'branches',
+            url: `/metahub/${metahubId}/branches`,
+            icon: IconGitBranch,
+            type: 'item',
+            requiredPermission: 'manageMetahub'
+        },
+        {
+            id: 'metahub-divider',
+            type: 'divider'
+        },
+        {
+            id: 'metahub-common',
+            titleKey: 'commonSection',
+            url: `/metahub/${metahubId}/common`,
+            icon: IconLayoutDashboard,
+            type: 'item',
+            requiredPermission: 'manageMetahub'
+        },
+        {
+            id: 'metahub-entities',
+            titleKey: 'entities',
+            url: `/metahub/${metahubId}/entities`,
+            icon: IconBox,
+            type: 'item',
+            requiredPermission: 'manageMetahub'
+        },
+        {
+            id: 'metahub-hubs',
+            titleKey: 'hubs',
+            url: `/metahub/${metahubId}/hubs`,
+            icon: IconHierarchy3,
+            type: 'item'
+        },
+        {
+            id: 'metahub-catalogs',
+            titleKey: 'catalogs',
+            url: `/metahub/${metahubId}/catalogs`,
+            icon: IconDatabase,
+            type: 'item'
+        },
+        {
+            id: 'metahub-sets',
+            titleKey: 'sets',
+            url: `/metahub/${metahubId}/sets`,
+            icon: IconFileText,
+            type: 'item'
+        },
+        {
+            id: 'metahub-enumerations',
+            titleKey: 'enumerations',
+            url: `/metahub/${metahubId}/enumerations`,
+            icon: IconFiles,
+            type: 'item'
+        },
+        ...publishedObjectItems,
+        {
+            id: 'metahub-divider-secondary',
+            type: 'divider'
+        },
+        {
+            id: 'metahub-publications',
+            titleKey: 'publications',
+            url: `/metahub/${metahubId}/publications`,
+            icon: IconApps,
+            type: 'item',
+            requiredPermission: 'manageMetahub'
+        },
+        {
+            id: 'metahub-migrations',
+            titleKey: 'migrations',
+            url: `/metahub/${metahubId}/migrations`,
+            icon: IconHistory,
+            type: 'item',
+            requiredPermission: 'manageMetahub'
+        },
+        {
+            id: 'metahub-access',
+            titleKey: 'access',
+            url: `/metahub/${metahubId}/access`,
+            icon: IconUsers,
+            type: 'item',
+            requiredPermission: 'manageMembers'
+        },
+        {
+            id: 'metahub-divider-footer',
+            type: 'divider'
+        },
+        {
+            id: 'metahub-settings',
+            titleKey: 'settings',
+            url: `/metahub/${metahubId}/settings`,
+            icon: IconSettings,
+            type: 'item',
+            requiredPermission: 'manageMetahub'
+        }
+    ]
+
+    const filtered = items.filter((item) => {
+        if (item.type === 'divider') {
+            return true
+        }
+
+        if (item.requiredPermission === 'manageMetahub') {
+            return options?.canManageMetahub === true
+        }
+
+        if (item.requiredPermission === 'manageMembers') {
+            return options?.canManageMembers === true
+        }
+
+        return true
+    })
+
+    return compactMenuDividers(filtered)
+}
 
 export const rootMenuItems: TemplateMenuItem[] = [
     {

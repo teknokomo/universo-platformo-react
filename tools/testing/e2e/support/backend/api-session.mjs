@@ -482,6 +482,81 @@ export async function listMetahubs(api, params = {}) {
     return response.json()
 }
 
+export async function listMetahubEntityTypes(api, metahubId, params = {}) {
+    const query = new URLSearchParams()
+
+    for (const [key, value] of Object.entries(params)) {
+        if (value === undefined || value === null || value === '') {
+            continue
+        }
+
+        query.set(key, String(value))
+    }
+
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+    const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/entity-types${suffix}`, {
+        method: 'GET'
+    })
+    if (!response.ok) {
+        throw await buildError(response, `Listing entity types for metahub ${metahubId}`)
+    }
+
+    return response.json()
+}
+
+export async function getMetahubEntityType(api, metahubId, entityTypeId) {
+    const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/entity-type/${entityTypeId}`, {
+        method: 'GET'
+    })
+    if (!response.ok) {
+        throw await buildError(response, `Fetching entity type ${entityTypeId} for metahub ${metahubId}`)
+    }
+
+    return response.json()
+}
+
+export async function createMetahubEntityType(api, metahubId, payload) {
+    const response = await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahubId}/entity-types`, payload)
+    if (!response.ok) {
+        throw await buildError(response, `Creating entity type in metahub ${metahubId}`)
+    }
+
+    return response.json()
+}
+
+export async function listTemplates(api, params = {}) {
+    const query = new URLSearchParams()
+
+    for (const [key, value] of Object.entries(params)) {
+        if (value === undefined || value === null || value === '') {
+            continue
+        }
+
+        query.set(key, String(value))
+    }
+
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+    const response = await fetchFromApi(api, `/api/v1/templates${suffix}`, {
+        method: 'GET'
+    })
+    if (!response.ok) {
+        throw await buildError(response, 'Listing metahub templates')
+    }
+
+    return response.json()
+}
+
+export async function getTemplate(api, templateId) {
+    const response = await fetchFromApi(api, `/api/v1/templates/${templateId}`, {
+        method: 'GET'
+    })
+    if (!response.ok) {
+        throw await buildError(response, `Fetching template ${templateId}`)
+    }
+
+    return response.json()
+}
+
 export async function listMetahubCatalogs(api, metahubId, params = {}) {
     const query = new URLSearchParams()
 

@@ -13,7 +13,7 @@ import Typography from '@mui/material/Typography'
 import Divider from '@mui/material/Divider'
 import { useTranslation } from 'react-i18next'
 
-import type { TemplateMenuItem } from '../../navigation/menuConfigs'
+import { resolveTemplateMenuLabel, type TemplateMenuItem } from '../../navigation/menuConfigs'
 
 const drawerWidth = 240
 
@@ -87,7 +87,7 @@ const TemplateSideMenu: React.FC<TemplateSideMenuProps> = ({ items }) => {
                                     <ListItemText
                                         primary={
                                             <Typography variant={selected ? 'h6' : 'body1'} color='inherit'>
-                                                {t(item.titleKey)}
+                                                {resolveTemplateMenuLabel(item, t)}
                                             </Typography>
                                         }
                                     />

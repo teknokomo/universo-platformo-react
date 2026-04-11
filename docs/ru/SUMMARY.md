@@ -48,6 +48,7 @@
 * [Структура монорепозитория](architecture/monorepo-structure.md)
 * [Архитектура бэкенда](architecture/backend.md)
 * [Архитектура фронтенда](architecture/frontend.md)
+* [Entity Component System](architecture/entity-component-system.md)
 * [Проектирование базы данных](architecture/database.md)
 * [Стандарт доступа к базе данных](architecture/database-access-standard.md)
 * [Аутентификация и авторизация](architecture/auth.md)
@@ -74,6 +75,7 @@
 
 * [Обзор](guides/README.md)
 * [Раздел Common](guides/general-section.md)
+* [Custom Entity Types](guides/custom-entity-types.md)
 * [Макеты каталогов](guides/catalog-layouts.md)
 * [Скрипты Metahub](guides/metahub-scripting.md)
 * [Туториал: приложение-квиз](guides/quiz-application-tutorial.md)

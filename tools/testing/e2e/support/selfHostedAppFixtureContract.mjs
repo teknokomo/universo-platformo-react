@@ -1,9 +1,27 @@
+import { createRequire } from 'node:module'
 import { METAHUB_SETTINGS_REGISTRY } from '@universo/types'
 import { buildVLC, computeSnapshotHash } from '@universo/utils'
 
+const require = createRequire(import.meta.url)
+
+const resolveSelfHostedAppStructureVersion = () => {
+    try {
+        const { CURRENT_STRUCTURE_VERSION_SEMVER } = require(
+            '../../../../packages/metahubs-backend/base/dist/domains/metahubs/services/structureVersions.js'
+        )
+        if (typeof CURRENT_STRUCTURE_VERSION_SEMVER === 'string' && CURRENT_STRUCTURE_VERSION_SEMVER.trim()) {
+            return CURRENT_STRUCTURE_VERSION_SEMVER
+        }
+    } catch {
+        // Fall back to the current validated baseline when the backend dist is not present yet.
+    }
+
+    return '0.4.0'
+}
+
 export const SELF_HOSTED_APP_FIXTURE_FILENAME = 'metahubs-self-hosted-app-snapshot.json'
 export const SELF_HOSTED_APP_SCREENSHOTS_DIRNAME = 'self-hosted-app'
-export const SELF_HOSTED_APP_STRUCTURE_VERSION = '0.1.0'
+export const SELF_HOSTED_APP_STRUCTURE_VERSION = resolveSelfHostedAppStructureVersion()
 
 export const SELF_HOSTED_APP_CANONICAL_METAHUB = {
     name: {
@@ -91,6 +109,28 @@ export const SELF_HOSTED_APP_PUBLICATION = {
         en: 'Initial release snapshot for the self-hosted app.',
         ru: 'Стартовый снимок релиза автономного приложения.'
     }
+}
+
+export const SELF_HOSTED_APP_CATALOG_V2_ENTITY_TYPE = {
+    templateCodename: 'catalog-v2',
+    kindKey: 'custom.catalog-v2',
+    codename: {
+        en: 'CatalogV2',
+        ru: 'CatalogV2'
+    },
+    ui: {
+        iconName: 'IconDatabase',
+        tabs: ['general', 'hubs', 'layout', 'scripts'],
+        sidebarSection: 'objects',
+        nameKey: 'Catalogs V2',
+        descriptionKey:
+            'Catalog-compatible custom entity with hubs, hierarchy, references, scripts, and publication-ready layout support.'
+    },
+    physicalTablePrefix: 'catx',
+    compatibility: {
+        legacyObjectKind: 'catalog'
+    },
+    published: true
 }
 
 export const SELF_HOSTED_APP_SHARED_ENTITIES = {
@@ -494,6 +534,73 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
     }
 
     const entities = Object.values(envelope?.snapshot?.entities ?? {})
+    const entityTypeDefinitions =
+        envelope?.snapshot?.entityTypeDefinitions && typeof envelope.snapshot.entityTypeDefinitions === 'object'
+            ? envelope.snapshot.entityTypeDefinitions
+            : {}
+    const catalogV2EntityType = entityTypeDefinitions[SELF_HOSTED_APP_CATALOG_V2_ENTITY_TYPE.kindKey]
+
+    if (!catalogV2EntityType || typeof catalogV2EntityType !== 'object') {
+        errors.push('Self-hosted app fixture must export the published Catalogs V2 custom entity definition')
+    } else {
+        if (catalogV2EntityType.isBuiltin === true) {
+            errors.push('Catalogs V2 custom entity definition must stay custom in the self-hosted app fixture')
+        }
+        if (catalogV2EntityType.published !== SELF_HOSTED_APP_CATALOG_V2_ENTITY_TYPE.published) {
+            errors.push('Catalogs V2 custom entity definition must remain published in the self-hosted app fixture')
+        }
+        if (readLocalizedText(catalogV2EntityType.codename, 'en') !== SELF_HOSTED_APP_CATALOG_V2_ENTITY_TYPE.codename.en) {
+            errors.push('Catalogs V2 custom entity definition is missing the canonical English codename locale')
+        }
+        if (readLocalizedText(catalogV2EntityType.codename, 'ru') !== SELF_HOSTED_APP_CATALOG_V2_ENTITY_TYPE.codename.ru) {
+            errors.push('Catalogs V2 custom entity definition is missing the canonical Russian codename locale')
+        }
+
+        const catalogV2Ui = catalogV2EntityType.ui && typeof catalogV2EntityType.ui === 'object' ? catalogV2EntityType.ui : {}
+        if (catalogV2Ui.iconName !== SELF_HOSTED_APP_CATALOG_V2_ENTITY_TYPE.ui.iconName) {
+            errors.push('Catalogs V2 custom entity definition icon drifted in the self-hosted app fixture')
+        }
+        if (catalogV2Ui.sidebarSection !== SELF_HOSTED_APP_CATALOG_V2_ENTITY_TYPE.ui.sidebarSection) {
+            errors.push('Catalogs V2 custom entity definition sidebar section drifted in the self-hosted app fixture')
+        }
+        if (catalogV2Ui.nameKey !== SELF_HOSTED_APP_CATALOG_V2_ENTITY_TYPE.ui.nameKey) {
+            errors.push('Catalogs V2 custom entity definition nameKey drifted in the self-hosted app fixture')
+        }
+        if (catalogV2Ui.descriptionKey !== SELF_HOSTED_APP_CATALOG_V2_ENTITY_TYPE.ui.descriptionKey) {
+            errors.push('Catalogs V2 custom entity definition descriptionKey drifted in the self-hosted app fixture')
+        }
+
+        const catalogV2Tabs = Array.isArray(catalogV2Ui.tabs) ? catalogV2Ui.tabs : []
+        if (JSON.stringify(catalogV2Tabs) !== JSON.stringify(SELF_HOSTED_APP_CATALOG_V2_ENTITY_TYPE.ui.tabs)) {
+            errors.push('Catalogs V2 custom entity definition tabs drifted in the self-hosted app fixture')
+        }
+
+        const catalogV2Components =
+            catalogV2EntityType.components && typeof catalogV2EntityType.components === 'object' ? catalogV2EntityType.components : {}
+        const catalogV2PhysicalTable =
+            catalogV2Components.physicalTable && typeof catalogV2Components.physicalTable === 'object'
+                ? catalogV2Components.physicalTable
+                : {}
+
+        if (catalogV2PhysicalTable.enabled !== true) {
+            errors.push('Catalogs V2 custom entity definition must keep the physicalTable component enabled')
+        }
+        if (catalogV2PhysicalTable.prefix !== SELF_HOSTED_APP_CATALOG_V2_ENTITY_TYPE.physicalTablePrefix) {
+            errors.push('Catalogs V2 custom entity definition physicalTable prefix drifted in the self-hosted app fixture')
+        }
+
+        const catalogV2Config =
+            catalogV2EntityType.config && typeof catalogV2EntityType.config === 'object' ? catalogV2EntityType.config : {}
+        const catalogV2Compatibility =
+            catalogV2Config.compatibility && typeof catalogV2Config.compatibility === 'object' ? catalogV2Config.compatibility : {}
+
+        if (
+            catalogV2Compatibility.legacyObjectKind !== SELF_HOSTED_APP_CATALOG_V2_ENTITY_TYPE.compatibility.legacyObjectKind
+        ) {
+            errors.push('Catalogs V2 custom entity definition legacy compatibility drifted in the self-hosted app fixture')
+        }
+    }
+
     if (entities.some((entity) => entity.kind === 'catalog' && (readCodenameText(entity?.codename) === 'Attributes' || readLocalizedText(entity.presentation?.name, 'en') === 'Attributes'))) {
         errors.push('Self-hosted app fixture still contains the deprecated standalone Attributes catalog')
     }

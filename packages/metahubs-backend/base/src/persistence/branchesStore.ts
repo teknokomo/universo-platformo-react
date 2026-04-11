@@ -2,6 +2,7 @@ import type { VersionedLocalizedContent } from '@universo/types'
 import type { SqlQueryable, MetahubBranchRow } from './types'
 import { uplFieldAliases, appFieldAliases } from './types'
 import { activeMetahubRowCondition } from './metahubsQueryHelpers'
+import { CURRENT_STRUCTURE_VERSION_SEMVER } from '../domains/metahubs/services/structureVersions'
 
 const normalizeSql = (value: string): string => value.replace(/\s+/g, ' ').trim()
 
@@ -193,7 +194,7 @@ export async function createBranch(exec: SqlQueryable, input: CreateBranchInput)
             resolveCodenameJson(input.codename),
             input.branchNumber,
             input.schemaName,
-            input.structureVersion ?? '0.1.0',
+            input.structureVersion ?? CURRENT_STRUCTURE_VERSION_SEMVER,
             input.lastTemplateVersionId ?? null,
             input.lastTemplateVersionLabel ?? null,
             input.lastTemplateSyncedAt ?? null,

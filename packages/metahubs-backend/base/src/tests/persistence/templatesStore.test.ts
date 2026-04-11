@@ -38,6 +38,7 @@ describe('templatesStore audit user normalization', () => {
             JSON.stringify(baseName),
             null,
             null,
+            'metahub_template',
             true,
             true,
             0,

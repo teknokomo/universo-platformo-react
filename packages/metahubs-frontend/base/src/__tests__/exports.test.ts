@@ -12,6 +12,8 @@ vi.mock('../domains/metahubs/ui/MetahubBoard', () => ({ default: () => null }))
 vi.mock('../domains/metahubs/ui/MetahubMembers', () => ({ default: () => null }))
 vi.mock('../domains/publications/ui/PublicationList', () => ({ default: () => null }))
 vi.mock('../domains/branches/ui/BranchList', () => ({ default: () => null }))
+vi.mock('../domains/entities/ui/EntitiesWorkspace', () => ({ default: () => null }))
+vi.mock('../domains/entities/ui/EntityInstanceList', () => ({ default: () => null }))
 vi.mock('../domains/hubs/ui/HubList', () => ({ default: () => null }))
 vi.mock('../domains/catalogs/ui/CatalogList', () => ({ default: () => null }))
 vi.mock('../domains/attributes/ui/AttributeList', () => ({ default: () => null }))
@@ -36,6 +38,8 @@ describe('metahubs-frontend entry exports', () => {
         expect(entry.MetahubMembers).toBeTruthy()
         expect(entry.PublicationList).toBeTruthy()
         expect(entry.BranchList).toBeTruthy()
+        expect(entry.EntitiesWorkspace).toBeTruthy()
+        expect(entry.EntityInstanceList).toBeTruthy()
         expect(entry.HubList).toBeTruthy()
         expect(entry.CatalogList).toBeTruthy()
         expect(entry.AttributeList).toBeTruthy()
@@ -54,6 +58,7 @@ describe('metahubs-frontend entry exports', () => {
         expect(metahubDashboard.type).toBe('group')
         expect(Array.isArray(metahubDashboard.children)).toBe(true)
         expect(metahubDashboard.children?.length).toBeGreaterThan(0)
+        expect(metahubDashboard.children?.some((item) => item.id === 'entities')).toBe(true)
     })
 
     it('metahubs translations helper returns en/ru and falls back', async () => {
@@ -75,6 +80,7 @@ describe('metahubs-frontend entry exports', () => {
         expect((en as any).catalogs.runtime.showSearch).toBe('Search/filter bar')
         expect((en as any).catalogs.runtime.createSurface).toBe('Create form type')
         expect((en as any).catalogs.runtime.surfacePage).toBe('Page')
+        expect((en as any).entities.title).toBe('Entities')
         expect((en as any).sets.tabs).toEqual({
             general: 'General',
             hubs: 'Hubs',
@@ -86,5 +92,6 @@ describe('metahubs-frontend entry exports', () => {
         expect((ru as any).catalogs.tabs.layout).toBe('Макеты')
         expect((ru as any).catalogs.runtime.showSearch).toBe('Строка поиска/фильтрации')
         expect((ru as any).catalogs.runtime.createSurface).toBe('Тип окна создания')
+        expect((ru as any).entities.title).toBe('Сущности')
     })
 })

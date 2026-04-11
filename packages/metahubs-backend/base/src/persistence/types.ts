@@ -1,4 +1,4 @@
-import type { VersionedLocalizedContent, MetahubTemplateManifest } from '@universo/types'
+import type { VersionedLocalizedContent, TemplateDefinitionManifest } from '@universo/types'
 
 // Re-export canonical SqlQueryable from @universo/utils
 export type { SqlQueryable } from '@universo/utils'
@@ -160,7 +160,7 @@ export interface TemplateVersionRow extends UplSystemFields, AppSystemFields {
     versionNumber: number
     versionLabel: string
     minStructureVersion: string
-    manifestJson: MetahubTemplateManifest
+    manifestJson: TemplateDefinitionManifest
     manifestHash: string
     isActive: boolean
     changelog: Record<string, unknown> | null

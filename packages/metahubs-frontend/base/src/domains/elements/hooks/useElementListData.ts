@@ -9,6 +9,7 @@ import * as attributesApi from '../../attributes'
 import * as constantsApi from '../../constants/api'
 import { getCatalogById } from '../../catalogs'
 import { listEnumerationValues } from '../../enumerations/api'
+import { getEntityInstance } from '../../entities/api/entityInstances'
 import { metahubsQueryKeys } from '../../shared'
 import { getVLCString } from '../../../types'
 import type { Constant, HubElement } from '../../../types'
@@ -285,11 +286,7 @@ export function useElementListData() {
             visibleAttributesForColumns.filter((attr) => {
                 const targetKind = attr.targetEntityKind ?? null
                 const targetId = attr.targetEntityId ?? null
-                return (
-                    attr.dataType === 'REF' &&
-                    (targetKind === 'catalog' || targetKind === 'enumeration' || targetKind === 'set') &&
-                    Boolean(targetId)
-                )
+                return attr.dataType === 'REF' && Boolean(targetKind && targetId)
             }),
         [visibleAttributesForColumns]
     )
@@ -298,7 +295,7 @@ export function useElementListData() {
         () =>
             visibleRefAttributesForColumns.filter((attr) => {
                 const targetKind = attr.targetEntityKind ?? null
-                return targetKind === 'catalog' || targetKind === 'enumeration'
+                return Boolean(targetKind && targetKind !== 'set')
             }),
         [visibleRefAttributesForColumns]
     )
@@ -308,7 +305,7 @@ export function useElementListData() {
         const map: Record<
             string,
             {
-                kind: 'catalog' | 'enumeration' | 'set'
+                kind: string
                 targetId: string
                 targetConstantId?: string | null
                 setConstantLabel?: string | null
@@ -317,7 +314,7 @@ export function useElementListData() {
         visibleRefAttributesForColumns.forEach((attr) => {
             const targetKind = attr.targetEntityKind ?? null
             const targetId = attr.targetEntityId ?? null
-            if (!targetId || (targetKind !== 'catalog' && targetKind !== 'enumeration' && targetKind !== 'set')) return
+            if (!targetId || !targetKind) return
             if (targetKind === 'set') {
                 const targetConstantId = attr.targetConstantId ?? null
                 const targetConstant =
@@ -344,7 +341,7 @@ export function useElementListData() {
         refAttributesForColumns.forEach((attr) => {
             const targetKind = attr.targetEntityKind ?? null
             const targetId = attr.targetEntityId ?? null
-            if (!targetId || (targetKind !== 'catalog' && targetKind !== 'enumeration')) return
+            if (!targetId || !targetKind || targetKind === 'set') return
             const mapKey = `${targetKind}:${targetId}`
             if (!map[mapKey]) map[mapKey] = new Set()
             elements.forEach((element) => {
@@ -383,7 +380,7 @@ export function useElementListData() {
             for (const entry of refIdsKey) {
                 if (!entry.ids.length) continue
                 const [targetKind, targetId] = entry.targetKey.split(':')
-                if (!targetId || (targetKind !== 'catalog' && targetKind !== 'enumeration')) continue
+                if (!targetId || !targetKind || targetKind === 'set') continue
 
                 if (targetKind === 'catalog') {
                     const attributesResponse = await attributesApi.listAttributesDirect(metahubId, targetId, {
@@ -413,12 +410,36 @@ export function useElementListData() {
                     continue
                 }
 
-                const valuesResponse = await listEnumerationValues(metahubId, targetId, { includeShared: true })
-                const valuesDisplayMap: Record<string, string> = {}
-                valuesResponse.items.forEach((item) => {
-                    valuesDisplayMap[item.id] = getVLCString(item.name, i18n.language) || getVLCString(item.name, 'en') || item.codename
+                if (targetKind === 'enumeration') {
+                    const valuesResponse = await listEnumerationValues(metahubId, targetId, { includeShared: true })
+                    const valuesDisplayMap: Record<string, string> = {}
+                    valuesResponse.items.forEach((item) => {
+                        valuesDisplayMap[item.id] = getVLCString(item.name, i18n.language) || getVLCString(item.name, 'en') || item.codename
+                    })
+                    result[entry.targetKey] = valuesDisplayMap
+                    continue
+                }
+
+                const entityDisplayMap: Record<string, string> = {}
+                const entities = await Promise.all(
+                    entry.ids.map(async (id) => {
+                        try {
+                            return await getEntityInstance(metahubId, id)
+                        } catch {
+                            return null
+                        }
+                    })
+                )
+
+                entities.filter(Boolean).forEach((entity) => {
+                    entityDisplayMap[String(entity!.id)] =
+                        getVLCString(entity!.name, i18n.language) ||
+                        getVLCString(entity!.name, 'en') ||
+                        getVLCString(entity!.codename, i18n.language) ||
+                        getVLCString(entity!.codename, 'en') ||
+                        String(entity!.id)
                 })
-                result[entry.targetKey] = valuesDisplayMap
+                result[entry.targetKey] = entityDisplayMap
             }
 
             return result

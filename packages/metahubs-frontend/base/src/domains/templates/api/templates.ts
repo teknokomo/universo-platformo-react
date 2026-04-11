@@ -1,5 +1,5 @@
 import { apiClient } from '../../shared'
-import type { TemplateSummaryDTO, TemplateDetailDTO, TemplatesListResponseDTO } from '@universo/types'
+import type { TemplateSummaryDTO, TemplateDetailDTO, TemplatesListResponseDTO, TemplateDefinitionType } from '@universo/types'
 
 // Re-export shared DTO types for convenience
 export type { TemplateSummaryDTO as TemplateSummary } from '@universo/types'
@@ -9,8 +9,12 @@ export type { TemplatesListResponseDTO as TemplatesListResponse } from '@univers
 
 // ============ API FUNCTIONS ============
 
-export const listTemplates = async (): Promise<TemplateSummaryDTO[]> => {
-    const response = await apiClient.get<TemplatesListResponseDTO>('/templates')
+export const listTemplates = async (params?: { definitionType?: TemplateDefinitionType }): Promise<TemplateSummaryDTO[]> => {
+    const response = await apiClient.get<TemplatesListResponseDTO>('/templates', {
+        params: {
+            definitionType: params?.definitionType
+        }
+    })
     return response.data.data
 }
 

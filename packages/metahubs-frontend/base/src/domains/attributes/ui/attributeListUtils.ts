@@ -1,4 +1,4 @@
-import type { VersionedLocalizedContent, MetaEntityKind } from '@universo/types'
+import type { VersionedLocalizedContent, EntityKind } from '@universo/types'
 import type { AttributeDataType, AttributeValidationRules } from '../../../types'
 
 export type ActionBaseContext = {
@@ -28,7 +28,7 @@ export type AttributeFormValues = {
     isDisplayAttribute?: boolean
     validationRules?: AttributeValidationRules
     targetEntityId?: string | null
-    targetEntityKind?: MetaEntityKind | null
+    targetEntityKind?: EntityKind | null
     targetConstantId?: string | null
     uiConfig?: Record<string, unknown>
 }
@@ -70,7 +70,7 @@ export const extractResponseMaxChildAttributes = (error: unknown): number | unde
 
 export const sanitizeAttributeUiConfig = (
     dataType: AttributeDataType,
-    targetEntityKind: MetaEntityKind | null | undefined,
+    targetEntityKind: EntityKind | null | undefined,
     sourceUiConfig: Record<string, unknown>
 ): Record<string, unknown> => {
     const nextUiConfig = { ...sourceUiConfig }

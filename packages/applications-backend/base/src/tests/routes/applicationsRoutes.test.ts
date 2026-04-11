@@ -23,6 +23,7 @@ const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 import { createMockDbExecutor, createMockDataStore } from '../utils/dbMocks'
 import { createApplicationsRoutes } from '../../routes/applicationsRoutes'
+import { ROLE_PERMISSIONS } from '../../routes/guards'
 import { RuntimeScriptsService } from '../../services/runtimeScriptsService'
 
 describe('Applications Routes', () => {
@@ -324,10 +325,23 @@ describe('Applications Routes', () => {
 
             const response = await request(app).get(`/applications/${runtimeApplicationId}/runtime`).expect(200)
 
+            expect(response.body.section).toMatchObject({
+                id: runtimeCatalogId,
+                codename: 'orders'
+            })
             expect(response.body.catalog).toMatchObject({
                 id: runtimeCatalogId,
                 codename: 'orders'
             })
+            expect(response.body.sections).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        id: runtimeCatalogId,
+                        codename: 'orders'
+                    })
+                ])
+            )
+            expect(response.body.activeSectionId).toBe(runtimeCatalogId)
         })
     })
 
@@ -2489,6 +2503,41 @@ describe('Applications Routes', () => {
         const copiedRowId = '018f8a78-7b8f-7c1d-a111-222233334473'
         const reorderedRowIdA = '018f8a78-7b8f-7c1d-a111-222233334474'
         const reorderedRowIdB = '018f8a78-7b8f-7c1d-a111-222233334475'
+
+        it('rejects inline PATCH before touching runtime tables when edit permissions are unavailable', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+            const originalEditPermission = ROLE_PERMISSIONS.editor.editContent
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role: 'editor'
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test',
+                workspacesEnabled: false
+            })
+
+            ROLE_PERMISSIONS.editor.editContent = false
+
+            try {
+                const app = buildApp(dataSource)
+                const response = await request(app)
+                    .patch(`/applications/${runtimeApplicationId}/runtime/${runtimeRowId}`)
+                    .send({
+                        catalogId: runtimeCatalogId,
+                        field: 'title',
+                        value: 'Updated title'
+                    })
+                    .expect(403)
+
+                expect(response.body).toEqual({ error: 'Insufficient permissions for this action' })
+                expect(dataSource.manager.query).not.toHaveBeenCalled()
+            } finally {
+                ROLE_PERMISSIONS.editor.editContent = originalEditPermission
+            }
+        })
 
         it('allows editor role to create a parent runtime row because create is governed by create permissions', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()

@@ -52,12 +52,26 @@ function createDeferred<T>() {
 
 function createAppData(): AppDataResponse {
     return {
+        section: {
+            id: 'catalog-1',
+            codename: 'products',
+            tableName: 'products',
+            name: 'Products'
+        },
         catalog: {
             id: 'catalog-1',
             codename: 'products',
             tableName: 'products',
             name: 'Products'
         },
+        sections: [
+            {
+                id: 'catalog-1',
+                codename: 'products',
+                tableName: 'products',
+                name: 'Products'
+            }
+        ],
         catalogs: [
             {
                 id: 'catalog-1',
@@ -66,6 +80,7 @@ function createAppData(): AppDataResponse {
                 name: 'Products'
             }
         ],
+        activeSectionId: 'catalog-1',
         activeCatalogId: 'catalog-1',
         columns: [
             {
@@ -139,6 +154,50 @@ function renderCrudDashboard(adapter: CrudDataAdapter) {
 }
 
 describe('useCrudDashboard optimistic mutations', () => {
+    it('exposes section aliases and section-aware menu items while keeping catalog compatibility', async () => {
+        const adapter = createAdapter({
+            fetchList: vi.fn().mockResolvedValue({
+                ...createAppData(),
+                menus: [
+                    {
+                        id: 'menu-1',
+                        widgetId: 'widget-1',
+                        showTitle: true,
+                        title: 'Sections',
+                        items: [
+                            {
+                                id: 'item-1',
+                                kind: 'catalog',
+                                title: 'Products',
+                                catalogId: 'catalog-1',
+                                sectionId: 'catalog-1',
+                                isActive: true
+                            }
+                        ]
+                    }
+                ],
+                activeMenuId: 'menu-1'
+            })
+        })
+        const { getState } = renderCrudDashboard(adapter)
+
+        await waitFor(() => {
+            expect(getState().activeSectionId).toBe('catalog-1')
+            expect(getState().selectedSectionId).toBe('catalog-1')
+        })
+
+        expect(getState().dashboardMenuItems[0]).toMatchObject({
+            kind: 'section',
+            sectionId: 'catalog-1',
+            catalogId: 'catalog-1',
+            selected: true
+        })
+        expect(getState().menuSlot).toMatchObject({
+            activeSectionId: 'catalog-1',
+            activeCatalogId: 'catalog-1'
+        })
+    })
+
     it('adds a pending create row immediately and closes the form right away', async () => {
         const deferredCreate = createDeferred<Record<string, unknown>>()
         const adapter = createAdapter({

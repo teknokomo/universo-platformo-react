@@ -16,6 +16,8 @@ export type { DashboardLayoutConfig } from '@universo/types'
 export interface DashboardDetailsSlot {
     title: string
     applicationId?: string
+    sectionId?: string | null
+    sectionCodename?: string | null
     catalogId?: string | null
     catalogCodename?: string | null
     apiBaseUrl?: string
@@ -45,7 +47,8 @@ export interface DashboardMenuItem {
     id: string
     label: string
     icon?: string | null
-    kind: 'catalog' | 'hub' | 'link'
+    kind: 'catalog' | 'section' | 'hub' | 'link'
+    sectionId?: string | null
     catalogId?: string | null
     hubId?: string | null
     href?: string | null
@@ -56,6 +59,8 @@ export interface DashboardMenuSlot {
     title?: string | null
     showTitle?: boolean
     items: DashboardMenuItem[]
+    activeSectionId?: string | null
+    onSelectSection?: (sectionId: string) => void
     activeCatalogId?: string | null
     onSelectCatalog?: (catalogId: string) => void
 }

@@ -57,6 +57,11 @@ describe('DDL Naming Utilities', () => {
             expect(result).toBe(`cat_${expectedCleanId}`)
         })
 
+        it('should prefer an explicit custom prefix when provided', () => {
+            const result = generateTableName(testEntityId, 'customer_registry', 'cust')
+            expect(result).toBe(`cust_${expectedCleanId}`)
+        })
+
         it('should generate table name with hub_ prefix for hub entities', () => {
             const result = generateTableName(testEntityId, 'hub')
             expect(result).toBe(`hub_${expectedCleanId}`)
@@ -101,6 +106,16 @@ describe('DDL Naming Utilities', () => {
                     kind: 'catalog'
                 })
             ).toBe(`cat_${expectedCleanId}`)
+        })
+
+        it('should fallback to physical table prefix when explicit table name is absent', () => {
+            expect(
+                resolveEntityTableName({
+                    id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                    kind: 'customer_registry',
+                    physicalTablePrefix: 'cust'
+                })
+            ).toBe(`cust_${expectedCleanId}`)
         })
     })
 

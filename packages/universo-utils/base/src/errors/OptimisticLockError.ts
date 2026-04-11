@@ -21,6 +21,10 @@ export interface ConflictInfo {
         | 'layout'
         | 'menu'
         | 'menu_item'
+        | 'entity'
+        | 'entity_type'
+        | 'action'
+        | 'event_binding'
         | 'application'
         | 'connector'
     /** Version the client expected */

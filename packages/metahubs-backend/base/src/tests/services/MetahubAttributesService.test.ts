@@ -492,4 +492,106 @@ describe('MetahubAttributesService active-row filtering', () => {
         ])
         expect(trxQuery).toHaveBeenCalledWith(expect.stringContaining('parent_attribute_id IS NULL'), ['catalog-1'])
     })
+
+    it('supports the object-scoped system attribute adapter with the provided transaction runner', async () => {
+        const trxQuery = jest.fn(async (sql: string) => {
+            if (sql.includes('WHERE object_id = $1 AND is_system = true') && !sql.includes('parent_attribute_id IS NULL')) {
+                return []
+            }
+            if (sql.includes('INSERT INTO')) {
+                return []
+            }
+            if (sql.includes('parent_attribute_id IS NULL') && sql.includes('is_system = true')) {
+                return [
+                    {
+                        id: 'attr-app-published',
+                        object_id: 'object-1',
+                        codename: '_app_published',
+                        presentation: { name: { en: 'Published' } },
+                        data_type: 'BOOLEAN',
+                        is_required: false,
+                        is_display_attribute: false,
+                        target_object_id: null,
+                        target_object_kind: null,
+                        target_constant_id: null,
+                        parent_attribute_id: null,
+                        sort_order: 1,
+                        validation_rules: {},
+                        ui_config: {},
+                        is_system: true,
+                        system_key: 'app.published',
+                        is_system_managed: true,
+                        is_system_enabled: true,
+                        _upl_version: 1,
+                        _upl_created_at: '2026-03-17T00:00:00.000Z',
+                        _upl_updated_at: '2026-03-17T00:00:00.000Z'
+                    }
+                ]
+            }
+            return []
+        })
+
+        mockExecQuery.mockImplementation(async (sql: string) => {
+            if (sql.includes('parent_attribute_id IS NULL') && sql.includes('is_system = true')) {
+                throw new Error('Final system-row read should stay on the transaction runner')
+            }
+            return []
+        })
+
+        const result = await service.ensureObjectSystemAttributes('metahub-1', 'object-1', 'user-1', { query: trxQuery } as any)
+
+        expect(result).toEqual([
+            expect.objectContaining({
+                id: 'attr-app-published',
+                codename: '_app_published',
+                system: expect.objectContaining({
+                    isSystem: true,
+                    systemKey: 'app.published',
+                    isEnabled: true
+                })
+            })
+        ])
+        expect(trxQuery).toHaveBeenCalledWith(expect.stringContaining('parent_attribute_id IS NULL'), ['object-1'])
+    })
+
+    it('keeps legacy catalog wrappers aligned with object-scoped system attribute reads', async () => {
+        const sharedSystemRow = {
+            id: 'attr-app-deleted',
+            object_id: 'catalog-1',
+            codename: '_app_deleted',
+            presentation: { name: { en: 'Deleted' } },
+            data_type: 'BOOLEAN',
+            is_required: false,
+            is_display_attribute: false,
+            target_object_id: null,
+            target_object_kind: null,
+            target_constant_id: null,
+            parent_attribute_id: null,
+            sort_order: 1,
+            validation_rules: {},
+            ui_config: {},
+            is_system: true,
+            system_key: 'app.deleted',
+            is_system_managed: true,
+            is_system_enabled: true,
+            _upl_version: 1,
+            _upl_created_at: '2026-04-09T00:00:00.000Z',
+            _upl_updated_at: '2026-04-09T00:00:00.000Z'
+        }
+
+        mockExecQuery.mockResolvedValue([sharedSystemRow])
+
+        const objectScoped = await service.listObjectSystemAttributes('metahub-1', 'catalog-1', 'user-1')
+        const legacyCatalogScoped = await service.listCatalogSystemAttributes('metahub-1', 'catalog-1', 'user-1')
+        const objectSnapshot = await service.getObjectSystemFieldsSnapshot('metahub-1', 'catalog-1', 'user-1')
+        const legacyCatalogSnapshot = await service.getCatalogSystemFieldsSnapshot('metahub-1', 'catalog-1', 'user-1')
+
+        expect(objectScoped).toEqual(legacyCatalogScoped)
+        expect(objectSnapshot).toEqual(legacyCatalogSnapshot)
+        expect(objectSnapshot.fields).toEqual(expect.arrayContaining([{ key: 'app.deleted', enabled: true }]))
+        expect(objectSnapshot.lifecycleContract).toMatchObject({
+            delete: expect.objectContaining({ mode: 'soft' })
+        })
+        expect(mockExecQuery).toHaveBeenCalledWith(expect.stringContaining('parent_attribute_id IS NULL'), ['catalog-1'])
+    })
 })

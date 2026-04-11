@@ -24,6 +24,9 @@ describe('systemTableDefinitions', () => {
             expect(tableNames).toContain('_mhb_shared_entity_overrides')
             expect(tableNames).toContain('_mhb_migrations')
             expect(tableNames).toContain('_mhb_scripts')
+            expect(tableNames).toContain('_mhb_entity_type_definitions')
+            expect(tableNames).toContain('_mhb_actions')
+            expect(tableNames).toContain('_mhb_event_bindings')
         })
 
         it('has no duplicate table names', () => {
@@ -147,6 +150,15 @@ describe('systemTableDefinitions', () => {
 
             expect(previousScripts).toBeDefined()
             expect(scopedIndex?.columns).toEqual([codenamePrimaryTextSql('codename')])
+        })
+
+        it('keeps ECAE tables out of the historical version 3 definitions', () => {
+            const previousDefs = SYSTEM_TABLE_VERSIONS.get(3) ?? []
+            const previousNames = previousDefs.map((table) => table.name)
+
+            expect(previousNames).not.toContain('_mhb_entity_type_definitions')
+            expect(previousNames).not.toContain('_mhb_actions')
+            expect(previousNames).not.toContain('_mhb_event_bindings')
         })
 
         it('returns undefined for unknown version', () => {

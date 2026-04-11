@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
     Box,
     Skeleton,
@@ -52,6 +52,7 @@ import { useElementListData } from '../hooks/useElementListData'
 import * as elementsApi from '../api'
 import * as attributesApi from '../../attributes'
 import { listEnumerationValues } from '../../enumerations/api'
+import { listEntityInstances } from '../../entities/api/entityInstances'
 import { metahubsQueryKeys, invalidateElementsQueries } from '../../shared'
 import { Catalog, CatalogLocalizedPayload, HubElement, HubElementDisplay, getVLCString, toHubElementDisplay } from '../../../types'
 import { hasAxiosResponse, isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo/utils'
@@ -77,6 +78,7 @@ import {
     resolveRefId,
     applyCopySuffixToFirstStringAttribute
 } from './elementListUtils'
+import { buildCatalogAuthoringPath } from '../../catalogs/ui/catalogRoutePaths'
 
 const StyledPopper = styled(Popper)(({ theme }) => ({
     boxShadow: theme.shadows[4],
@@ -94,7 +96,8 @@ const StyledPopper = styled(Popper)(({ theme }) => ({
 
 type ReferenceFieldAutocompleteProps = {
     metahubId: string
-    targetCatalogId: string
+    targetEntityId: string
+    targetEntityKind: string
     value: string | null | undefined
     onChange: (value: string | null) => void
     label: string
@@ -107,7 +110,8 @@ type ReferenceFieldAutocompleteProps = {
 
 const ReferenceFieldAutocomplete = ({
     metahubId,
-    targetCatalogId,
+    targetEntityId,
+    targetEntityKind,
     value,
     onChange,
     label,
@@ -118,27 +122,42 @@ const ReferenceFieldAutocomplete = ({
     locale
 }: ReferenceFieldAutocompleteProps) => {
     const { t } = useTranslation('metahubs')
+    const isCatalogTarget = targetEntityKind === 'catalog'
 
     const { data: targetAttributesData, isLoading: isLoadingAttributes } = useQuery({
-        queryKey: metahubsQueryKeys.attributesListDirect(metahubId, targetCatalogId, { limit: 100, locale, includeShared: true }),
-        queryFn: () => attributesApi.listAttributesDirect(metahubId, targetCatalogId, { limit: 100, locale, includeShared: true }),
-        enabled: Boolean(metahubId && targetCatalogId)
+        queryKey: metahubsQueryKeys.attributesListDirect(metahubId, targetEntityId, { limit: 100, locale, includeShared: true }),
+        queryFn: () => attributesApi.listAttributesDirect(metahubId, targetEntityId, { limit: 100, locale, includeShared: true }),
+        enabled: Boolean(metahubId && targetEntityId && isCatalogTarget)
     })
 
     const targetAttributes = useMemo(() => targetAttributesData?.items ?? [], [targetAttributesData])
 
     const { data: targetElementsData, isLoading: isLoadingElements } = useQuery({
-        queryKey: metahubsQueryKeys.elementsListDirect(metahubId, targetCatalogId, { limit: 200, sortBy: 'updated', sortOrder: 'desc' }),
+        queryKey: metahubsQueryKeys.elementsListDirect(metahubId, targetEntityId, { limit: 200, sortBy: 'updated', sortOrder: 'desc' }),
         queryFn: () =>
-            elementsApi.listElementsDirect(metahubId, targetCatalogId, {
+            elementsApi.listElementsDirect(metahubId, targetEntityId, {
                 limit: 200,
                 sortBy: 'updated',
                 sortOrder: 'desc'
             }),
-        enabled: Boolean(metahubId && targetCatalogId)
+        enabled: Boolean(metahubId && targetEntityId && isCatalogTarget)
     })
 
-    const elementOptions = useMemo<ElementOption[]>(() => {
+    const { data: targetEntitiesData, isLoading: isLoadingEntities } = useQuery({
+        queryKey: metahubId ? metahubsQueryKeys.entitiesList(metahubId, { kind: targetEntityKind, limit: 200, locale }) : ['empty'],
+        queryFn: () =>
+            listEntityInstances(metahubId, {
+                kind: targetEntityKind,
+                limit: 200,
+                offset: 0,
+                sortBy: 'updated',
+                sortOrder: 'desc',
+                locale
+            }),
+        enabled: Boolean(metahubId && targetEntityId && !isCatalogTarget)
+    })
+
+    const catalogElementOptions = useMemo<ElementOption[]>(() => {
         const elements = targetElementsData?.items ?? []
         return elements.map((element) => {
             const display = toHubElementDisplay(element, targetAttributes, locale)
@@ -146,19 +165,36 @@ const ReferenceFieldAutocomplete = ({
         })
     }, [targetElementsData, targetAttributes, locale])
 
+    const genericEntityOptions = useMemo<ElementOption[]>(() => {
+        const entities = targetEntitiesData?.items ?? []
+        return entities.map((entity) => ({
+            id: entity.id,
+            name:
+                getVLCString(entity.name, locale) ||
+                getVLCString(entity.name, 'en') ||
+                getVLCString(entity.codename, locale) ||
+                getVLCString(entity.codename, 'en') ||
+                entity.id
+        }))
+    }, [targetEntitiesData?.items, locale])
+
+    const options = isCatalogTarget ? catalogElementOptions : genericEntityOptions
+
     const selectedOption = useMemo<ElementOption | null>(() => {
         if (!value) return null
-        const found = elementOptions.find((option) => option.id === value)
+        const found = options.find((option) => option.id === value)
         if (found) return found
-        const fallbackLabel = t('ref.unknownElement', 'Element {{id}}', { id: value.slice(0, 8) })
+        const fallbackLabel = isCatalogTarget
+            ? t('ref.unknownElement', 'Element {{id}}', { id: value.slice(0, 8) })
+            : t('ref.unknownEntity', 'Entity {{id}}', { id: value.slice(0, 8) })
         return { id: value, name: fallbackLabel }
-    }, [elementOptions, t, value])
+    }, [isCatalogTarget, options, t, value])
 
     const optionsWithFallback = useMemo(() => {
-        if (!selectedOption) return elementOptions
-        if (elementOptions.some((option) => option.id === selectedOption.id)) return elementOptions
-        return [selectedOption, ...elementOptions]
-    }, [elementOptions, selectedOption])
+        if (!selectedOption) return options
+        if (options.some((option) => option.id === selectedOption.id)) return options
+        return [selectedOption, ...options]
+    }, [options, selectedOption])
 
     return (
         <Autocomplete
@@ -184,9 +220,15 @@ const ReferenceFieldAutocomplete = ({
                     }
                 }
             }}
-            loading={isLoadingElements || isLoadingAttributes}
-            loadingText={t('ref.loadingElements', 'Loading elements...')}
-            noOptionsText={t('ref.noElementsAvailable', 'No elements available')}
+            loading={isCatalogTarget ? isLoadingElements || isLoadingAttributes : isLoadingEntities}
+            loadingText={
+                isCatalogTarget ? t('ref.loadingElements', 'Loading elements...') : t('ref.loadingEntities', 'Loading entities...')
+            }
+            noOptionsText={
+                isCatalogTarget
+                    ? t('ref.noElementsAvailable', 'No elements available')
+                    : t('ref.noEntitiesAvailable', 'No entities available')
+            }
             sx={{
                 '& .MuiAutocomplete-endAdornment': {
                     top: '50%',
@@ -210,7 +252,11 @@ const ReferenceFieldAutocomplete = ({
                         ...params.InputProps,
                         endAdornment: (
                             <>
-                                {isLoadingElements || isLoadingAttributes ? <CircularProgress color='inherit' size={16} /> : null}
+                                {isCatalogTarget ? (
+                                    isLoadingElements || isLoadingAttributes
+                                ) : isLoadingEntities ? (
+                                    <CircularProgress color='inherit' size={16} />
+                                ) : null}
                                 {params.InputProps.endAdornment}
                             </>
                         )
@@ -431,6 +477,7 @@ const EnumerationFieldAutocomplete = ({
 
 const ElementList = () => {
     const navigate = useNavigate()
+    const { kindKey } = useParams<{ kindKey?: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
 
@@ -739,15 +786,20 @@ const ElementList = () => {
                 )
             }
 
-            if (targetKind === 'catalog') {
+            if (targetKind === 'catalog' || (targetKind !== 'enumeration' && targetKind !== 'set')) {
                 return (
                     <ReferenceFieldAutocomplete
                         metahubId={metahubId}
-                        targetCatalogId={targetId}
+                        targetEntityId={targetId}
+                        targetEntityKind={targetKind}
                         value={typeof value === 'string' ? value : null}
                         onChange={(nextValue) => onChange(nextValue)}
                         label={field.label}
-                        placeholder={t('ref.selectElement', 'Select element...')}
+                        placeholder={
+                            targetKind === 'catalog'
+                                ? t('ref.selectElement', 'Select element...')
+                                : t('ref.selectEntity', 'Select entity...')
+                        }
                         disabled={disabled}
                         error={Boolean(error)}
                         helperText={helperText}
@@ -803,17 +855,6 @@ const ElementList = () => {
                     />
                 )
             }
-
-            return (
-                <TextField
-                    fullWidth
-                    size='small'
-                    label={field.label}
-                    disabled
-                    error={Boolean(error)}
-                    helperText={error ?? t('ref.entityKindNotSupported', 'This entity type is not yet supported for references.')}
-                />
-            )
         },
         [metahubId, t]
     )
@@ -1094,6 +1135,10 @@ const ElementList = () => {
             enqueueSnackbar,
             handleMoveElement,
             metahubId,
+            openConflict,
+            openCopy,
+            openDelete,
+            openEdit,
             queryClient,
             elementMap,
             sortedElements.length,
@@ -1147,6 +1192,18 @@ const ElementList = () => {
             return nextData
         },
         [childAttributesMap, orderedAttributes]
+    )
+
+    const buildCatalogTabPath = useCallback(
+        (tab: 'attributes' | 'system' | 'elements') =>
+            buildCatalogAuthoringPath({
+                metahubId,
+                hubId: hubIdParam,
+                kindKey,
+                catalogId,
+                tab
+            }),
+        [catalogId, hubIdParam, kindKey, metahubId]
     )
 
     // Validate metahubId and catalogId from URL AFTER all hooks
@@ -1212,12 +1269,10 @@ const ElementList = () => {
             setEditDialogOpen(true)
             return
         }
-        const nextSuffix = nextTab === 'system' ? 'system' : 'attributes'
-        if (hubIdParam) {
-            navigate(`/metahub/${metahubId}/hub/${hubIdParam}/catalog/${catalogId}/${nextSuffix}`)
-            return
+        const nextPath = buildCatalogTabPath(nextTab === 'system' ? 'system' : 'attributes')
+        if (nextPath) {
+            navigate(nextPath)
         }
-        navigate(`/metahub/${metahubId}/catalog/${catalogId}/${nextSuffix}`)
     }
 
     const handleCreateElement = async (data: Record<string, unknown>) => {

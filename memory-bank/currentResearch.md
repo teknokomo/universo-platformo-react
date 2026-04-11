@@ -1,5 +1,84 @@
 # Current Research
 
+## 2026-04-11: Entities automation closure remediation
+
+- Research outcome implemented: the remaining QA-closure work narrowed to three real seams only: generic create still needed to use the lifecycle boundary, the automation ACL suspicion needed verification against the actual mounted surface instead of a speculative permission patch, and the EN/RU operator docs still under-described the real authoring workflow.
+- Implemented fix set: generic custom-entity create now routes through `EntityMutationService` with a result-resolved committed object id, focused `EntityAutomationTab` coverage is green, catalog-compatible routes were verified to short-circuit into `CatalogList` before the generic automation tabs mount, and EN/RU docs now ship save-first `Scripts -> Actions -> Events` guidance plus stable copied visual assets.
+- Build-only follow-up: `pnpm run build:e2e` surfaced a missing `DbExecutor` type import in `EntityActionExecutionService`; fixing that import was required before the final green validation result.
+- Closure validation: focused metahubs backend coverage passed (`27/27`), focused metahubs frontend automation coverage passed (`12/12`), `pnpm docs:i18n:check` passed, `pnpm run build:e2e` completed green, the targeted Chromium automation flow passed (`2 passed`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- No open research thread remains for the entities automation closure seam.
+
+## 2026-04-11: Post-rebuild Entities workspace QA closure
+
+- Research outcome implemented: the residual defects reported after a clean rebuild/reset/import were real shipped-surface mismatches rather than stale local state. The honest remaining scope was limited to `EntitiesWorkspace` polish, shared menu target resolution, product-string pluralization, and supported fixture regeneration.
+- Implemented fix set: removed obsolete Entities page copy, tightened banner side spacing, restored built-in Documents localization through the consolidated namespace path, switched the toolbar CTA to the shared `Create` label, resolved menu edit/delete targets through the live entity-type map, pluralized `Catalogs V2` / `Каталоги V2` across user-facing seams, and regenerated the self-hosted snapshot through the Playwright generator path.
+- Closure validation: focused metahubs backend coverage passed (`24/24`), focused metahubs frontend coverage passed (`22/22`), `pnpm run build:e2e` passed, the supported self-hosted generator rerun passed, the focused Chromium entities workspace flow passed (`4 passed`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- No open research thread remains for the post-rebuild Entities workspace QA seam.
+
+## 2026-04-10: ECAE residual QA hardening closure
+
+- Research outcome implemented: repository evidence confirmed that Phase 5 remains future-only, so the honest remaining scope was limited to residual hardening on the shipped strict-parity surface rather than hidden unfinished visual-builder work.
+- Implemented fix set: generic entity copy now retries `idx_mhb_objects_kind_codename_active` races like the legacy copy controllers, focused frontend coverage now locks fail-closed catalog-compatible copy/delete visibility while settings permissions are still loading, and Playwright now proves invited metahub members can open catalog-compatible instances read-only.
+- Closure validation: focused metahubs backend route coverage passed (`20/20`), focused metahubs frontend `EntityInstanceList` coverage passed (`9/9`), the targeted member ACL browser rerun passed, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- No open research thread remains for the residual QA hardening seam or for the Phase 5 scope question in this session.
+
+## 2026-04-09: ECAE Phase 3.6-4 closure
+
+- Research outcome implemented: the remaining builder/browser gap was real checkbox semantics in `EntitiesWorkspace`, not a test bug; after that repair the honest Phase 3.8 closure was focused compatibility proof plus Phase 4 docs rather than widening into a new speculative surface.
+- Implemented fix: `EntitiesWorkspace` now uses actual checkbox controls for structured builder toggles, focused backend proofs now cover legacy snapshot restore without v3-only entity metadata sections and legacy catalog-wrapper parity against object-scoped system-attribute reads, and EN/RU architecture/guide/API docs plus summaries are synced.
+- Closure validation: focused frontend regressions passed (`5/5`), `@universo/metahubs-frontend` build passed, focused workspace and publication/runtime Playwright flows passed (`2/2` each), focused backend suites passed (`27/27`), the repository-standard docs i18n check passed, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- No open research thread remains for the Phase 3.6-4 closure seam.
+
+## 2026-04-09: ECAE Phase 2.9 browser validation closure
+
+- Research outcome implemented: the correct Phase 2.9 scope was the already shipped entity-type authoring surface, not a speculative Phase 3 runtime UI. The validation target was therefore `EntitiesWorkspace`, the preset-backed create dialog, backend persistence, RU parity, and a pixel-proof dialog snapshot.
+- Implemented fix: added focused Playwright backend helpers plus a shipped-surface flow spec, added a dedicated visual spec for the create dialog, fixed the blank `Name` column in `EntitiesWorkspace` list mode via `row.name || row.kindKey`, and stabilized the visual proof by capturing the preset selector after blur.
+- Closure validation: the focused flow passed, the refreshed visual baseline passed on rerun, and the canonical root `pnpm build` completed successfully.
+- No open research thread remains for the Phase 2.9 browser-validation seam.
+
+## 2026-04-09: ECAE Phase 2.7b reusable entity presets closure
+
+- Research outcome implemented: the safe reusable-preset seam was already present in the metahub template registry. The missing pieces were typed registry/API exposure for `definition_type='entity_type_preset'`, builtin preset manifests, and frontend create-flow consumption.
+- Implemented fix: shared template DTOs/routes now expose `definitionType` plus `activeVersionManifest`, builtin entity presets are validated and seeded through the existing template seeder/migration path, and `EntitiesWorkspace` create mode now reuses the templates hooks/selector seam to prefill entity-type form state from preset manifests.
+- Additional closure fix: the canonical root `pnpm build` initially failed on `@universo/core-frontend` V8 heap exhaustion under Turbo, so the package build script now runs Vite with `NODE_OPTIONS='--max-old-space-size=8192'` to keep root validation reproducible.
+- Closure validation: focused metahubs backend/frontend checks passed, `@universo/core-frontend` build passed with the heap guard, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- No open research thread remains for the Phase 2.7b reusable-entity-preset seam.
+
+## 2026-04-08: ECAE Phase 2.5c design-time service genericization closure
+
+- Research outcome implemented: the honest safe Phase 2.5c slice was not broad layout-service genericization. The real reusable seam was an object-scoped system-attribute adapter plus one shared design-time child-copy helper that both legacy built-in copy routes and generic custom-entity copy can reuse.
+- Implemented fix: `MetahubAttributesService` now exposes object-scoped system-attribute aliases while preserving catalog wrappers, `copyDesignTimeObjectChildren(...)` centralizes attribute/element/constant/value copy behavior plus optional system-attribute reseeding, legacy catalog/set/enumeration copy controllers now use that helper internally, and generic custom-entity copy derives child-copy breadth from enabled components.
+- Closure validation: focused backend regressions passed (`82/82`), `@universo/metahubs-backend` lint returned to the existing warning-only backlog (`0 errors`), `@universo/metahubs-backend` build passed, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- No open research thread remains for the Phase 2.5c design-time genericization seam.
+
+## 2026-04-08: ECAE Phase 2.5 generic entity CRUD backend closure
+
+- Research outcome implemented: the generic object-layer seam was viable, but only as a coexistence-first slice. Built-in catalogs/sets/enumerations still carry extra policy/copy/runtime behavior, so the safe first cut was a custom-only generic route surface rather than a wholesale legacy-route replacement.
+- Implemented fix: `MetahubObjectsService` now supports generic kind strings and optional transaction runners on the mutation helpers used by generic CRUD, while the new entity-instance controllers/routes expose custom-only list/create/get/update/delete/restore/permanent/copy/reorder flows and route update/delete/copy/restore through `EntityMutationService`.
+- Closure validation: focused generic route tests passed (`9/9`), the combined ECAE regression suite passed (`33/33`), `@universo/utils` build passed, `@universo/metahubs-backend` build passed, touched-file lint had `0 errors` (warning backlog only), and the canonical root `pnpm build` completed green after clearing an unrelated generated `applications-backend/base/dist` cleanup blocker.
+- No open research thread remains for the Phase 2.5 generic entity CRUD backend seam.
+
+## 2026-04-08: ECAE Phase 2.4 resolver DB extension closure
+
+- Research outcome implemented: the shared entity-type resolver is no longer registry-only. It now understands the hybrid model where built-ins come from code and custom kinds come from metahub data definitions.
+- Implemented fix: `EntityTypeResolver` now resolves built-ins first, falls through to `EntityTypeService.resolveType(...)` for custom DB-backed kinds when metahub context exists, and caches repeated custom-kind lookups per resolver instance.
+- Closure validation: focused resolver tests passed (`5/5`), the combined ECAE service+route+resolver regression suite passed (`24/24`), `@universo/metahubs-backend` build passed, touched-file lint was clean, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- No open research thread remains for the Phase 2.4 resolver DB extension seam.
+
+## 2026-04-08: ECAE Phase 2.3 backend route surface closure
+
+- Research outcome implemented: the new ECAE backend foundation is no longer service-only. The metahubs backend now exposes custom entity types, object-owned actions, and object-owned event bindings through the normal route/controller/auth/rate-limit stack.
+- Implemented fix: added entity-type, action, and event-binding controllers/routes, registered them in the metahubs domain router, and kept route handlers thin so validation/business rules stay in the Phase 2.2 services.
+- Closure validation: the new focused route suite passed (`8/8`), the combined ECAE service+route regression suite passed (`19/19`), `@universo/metahubs-backend` build passed, package lint finished with `0 errors` (warning backlog only), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- No open research thread remains for the Phase 2.3 backend route surface seam.
+
+## 2026-04-08: ECAE Phase 2.2 backend service foundation closure
+
+- Research outcome implemented: the first focused Phase 2.2 service run did not reveal domain-logic breakage; it exposed two narrower seams instead: test fixtures used non-canonical schema names, and the new services still had build-only typing gaps around optimistic locking and post-commit dispatch.
+- Implemented fix: the focused backend tests now use canonical metahub schema names, `ActionService` uses the shared codename text helper for conflict checks, shared optimistic-lock typing now includes `entity_type` / `action` / `event_binding`, and `EntityMutationService` now performs `after*` dispatch explicitly after the transaction instead of storing a callback closure.
+- Closure validation: focused entity/action/event/lifecycle service tests passed (`11/11`), `@universo/utils` build passed, `@universo/metahubs-backend` build passed, package lint finished with `0 errors` (warning backlog only), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- No open research thread remains for the Phase 2.2 backend service foundation seam.
+
 ## 2026-04-08: Post-QA lint closure for the Shared/Common wave
 
 - Research outcome implemented: after the earlier product/security remediations were closed, the only remaining QA blocker was red package lint in the touched Shared/Common backend/frontend files.

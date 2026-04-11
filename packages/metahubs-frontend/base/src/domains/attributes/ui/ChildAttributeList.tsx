@@ -17,7 +17,7 @@ import { useSnackbar } from 'notistack'
 import { EntityFormDialog, ConfirmDeleteDialog, type TabConfig } from '@universo/template-mui/components/dialogs'
 import { BaseEntityMenu, notifyError, FlowListTable, useListDialogs } from '@universo/template-mui'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
-import type { VersionedLocalizedContent, MetaEntityKind } from '@universo/types'
+import type { VersionedLocalizedContent, EntityKind } from '@universo/types'
 import { TABLE_CHILD_DATA_TYPES } from '@universo/types'
 import type { AttributeDataType } from '../../../types'
 import {
@@ -944,7 +944,7 @@ const ChildAttributeList = ({
             const codenamePayload = ensureLocalizedContent(codenameValue, namePrimaryLocale, codename)
             const dataType = (data.dataType as string) ?? 'STRING'
             const targetEntityId = dataType === 'REF' ? (data.targetEntityId as string | null | undefined) ?? null : undefined
-            const targetEntityKind = dataType === 'REF' ? (data.targetEntityKind as MetaEntityKind | null | undefined) ?? null : undefined
+            const targetEntityKind = dataType === 'REF' ? (data.targetEntityKind as EntityKind | null | undefined) ?? null : undefined
             const uiConfig = (data.uiConfig as Record<string, unknown>) ?? {}
             const normalizedUiConfig = sanitizeChildAttributeUiConfig(dataType as AttributeDataType, targetEntityKind, uiConfig)
             const payload: AttributeLocalizedPayload & {
@@ -953,7 +953,7 @@ const ChildAttributeList = ({
                 isRequired?: boolean
                 isDisplayAttribute?: boolean
                 targetEntityId?: string | null
-                targetEntityKind?: MetaEntityKind | null
+                targetEntityKind?: EntityKind | null
             } = {
                 codename: codenamePayload,
                 dataType: dataType as AttributeDataType,
@@ -1036,7 +1036,7 @@ const ChildAttributeList = ({
             const codenamePayload = ensureLocalizedContent(codenameValue, namePrimaryLocale, codename)
             const dataType = (data.dataType as string) ?? currentAttribute.dataType
             const targetEntityId = dataType === 'REF' ? (data.targetEntityId as string | null | undefined) ?? null : null
-            const targetEntityKind = dataType === 'REF' ? (data.targetEntityKind as MetaEntityKind | null | undefined) ?? null : null
+            const targetEntityKind = dataType === 'REF' ? (data.targetEntityKind as EntityKind | null | undefined) ?? null : null
             const uiConfig = (data.uiConfig as Record<string, unknown>) ?? {}
             const normalizedUiConfig = sanitizeChildAttributeUiConfig(dataType as AttributeDataType, targetEntityKind, uiConfig)
             const payload: AttributeLocalizedPayload & {
@@ -1045,7 +1045,7 @@ const ChildAttributeList = ({
                 isRequired?: boolean
                 expectedVersion?: number
                 targetEntityId?: string | null
-                targetEntityKind?: MetaEntityKind | null
+                targetEntityKind?: EntityKind | null
             } = {
                 codename: codenamePayload,
                 dataType: dataType as AttributeDataType,
@@ -1160,7 +1160,7 @@ const ChildAttributeList = ({
                 attr.targetEntityId ?? (attr.validationRules as { targetEntityId?: string | null } | undefined)?.targetEntityId ?? null,
             targetEntityKind:
                 attr.targetEntityKind ??
-                (attr.validationRules as { targetEntityKind?: MetaEntityKind | null } | undefined)?.targetEntityKind ??
+                (attr.validationRules as { targetEntityKind?: EntityKind | null } | undefined)?.targetEntityKind ??
                 null,
             validationRules: attr.validationRules ?? {},
             uiConfig: attr.uiConfig ?? {}

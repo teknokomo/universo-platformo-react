@@ -16,7 +16,7 @@ import {
 } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { LocalizedInlineField, useCodenameAutoFillVlc, CollapsibleSection } from '@universo/template-mui'
-import type { VersionedLocalizedContent, AttributeDataType, MetaEntityKind, EnumPresentationMode } from '@universo/types'
+import type { VersionedLocalizedContent, AttributeDataType, EntityKind, EnumPresentationMode } from '@universo/types'
 import type { AttributeValidationRules } from '../../../types'
 import { getDefaultValidationRules, getPhysicalDataType, formatPhysicalType, getVLCString } from '../../../types'
 import { sanitizeCodenameForStyle } from '../../../utils/codename'
@@ -316,7 +316,7 @@ const AttributeFormFields = ({
                 return (
                     <TargetEntitySelector
                         metahubId={metahubId}
-                        targetEntityKind={values.targetEntityKind as MetaEntityKind | null | undefined}
+                        targetEntityKind={values.targetEntityKind as EntityKind | null | undefined}
                         targetEntityId={values.targetEntityId as string | null | undefined}
                         targetConstantId={values.targetConstantId as string | null | undefined}
                         onEntityKindChange={(kind) => setValue('targetEntityKind', kind)}
@@ -486,7 +486,7 @@ export type PresentationTabFieldsProps = {
     headerAsCheckboxLabel: string
     headerAsCheckboxHelper: string
     dataType: string
-    targetEntityKind?: MetaEntityKind | null
+    targetEntityKind?: EntityKind | null
     targetEntityId?: string | null
     isRequired?: boolean
     forceDisplayAttributeWhenLocked?: boolean

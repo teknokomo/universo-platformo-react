@@ -107,6 +107,7 @@ const mockTemplatesList = [
     {
         id: 'template-basic',
         codename: 'basic',
+        definitionType: 'metahub_template',
         name: createVlc('Basic template', 'Базовый шаблон'),
         description: createVlc('Default template for metahubs', 'Шаблон по умолчанию для метахабов'),
         icon: 'Dashboard',
@@ -117,6 +118,22 @@ const mockTemplatesList = [
             versionNumber: 1,
             versionLabel: '0.1.0',
             changelog: 'Baseline template version'
+        }
+    },
+    {
+        id: 'template-entity-catalog-v2',
+        codename: 'catalog-v2',
+        definitionType: 'entity_type_preset',
+        name: createVlc('Catalogs V2', 'Каталоги V2'),
+        description: createVlc('Catalog-compatible custom entity preset', 'Пресет пользовательской сущности в стиле каталога'),
+        icon: 'IconDatabase',
+        isSystem: true,
+        sortOrder: 2,
+        activeVersion: {
+            id: 'template-entity-catalog-v2-v1',
+            versionNumber: 1,
+            versionLabel: '0.1.0',
+            changelog: 'Catalogs V2 preset'
         }
     }
 ]
@@ -165,11 +182,17 @@ export const handlers = [
     }),
 
     // List templates (used by metahub create/edit forms)
-    http.get(`${API_BASE_URL}/templates`, async () => {
+    http.get(`${API_BASE_URL}/templates`, async ({ request }) => {
         await delay(20)
+        const url = new URL(request.url)
+        const definitionType = url.searchParams.get('definitionType')
+        const filteredTemplates = definitionType
+            ? mockTemplatesList.filter((template) => template.definitionType === definitionType)
+            : mockTemplatesList
+
         return HttpResponse.json({
-            data: mockTemplatesList,
-            total: mockTemplatesList.length
+            data: filteredTemplates,
+            total: filteredTemplates.length
         })
     }),
 
@@ -185,6 +208,7 @@ export const handlers = [
         return HttpResponse.json({
             id: template.id,
             codename: template.codename,
+            definitionType: template.definitionType,
             name: template.name,
             description: template.description,
             icon: template.icon,
@@ -192,6 +216,50 @@ export const handlers = [
             isActive: true,
             sortOrder: template.sortOrder,
             activeVersionId: template.activeVersion?.id ?? null,
+            activeVersionManifest:
+                template.definitionType === 'entity_type_preset'
+                    ? {
+                          $schema: 'entity-type-preset/v1',
+                          codename: template.codename,
+                          version: template.activeVersion?.versionLabel ?? '0.1.0',
+                          minStructureVersion: '0.4.0',
+                          name: template.name,
+                          description: template.description,
+                          entityType: {
+                              kindKey: 'custom.catalog-v2',
+                              codename: createVlc('CatalogV2', 'CatalogV2'),
+                              components: {
+                                  dataSchema: { enabled: true },
+                                  predefinedElements: { enabled: true },
+                                  hubAssignment: { enabled: true },
+                                  enumerationValues: false,
+                                  constants: false,
+                                  hierarchy: { enabled: true, supportsFolders: true },
+                                  nestedCollections: false,
+                                  relations: { enabled: true, allowedRelationTypes: ['manyToOne'] },
+                                  actions: { enabled: true },
+                                  events: { enabled: true },
+                                  scripting: { enabled: true },
+                                  layoutConfig: { enabled: true },
+                                  runtimeBehavior: { enabled: true },
+                                  physicalTable: { enabled: true, prefix: 'catx' }
+                              },
+                              ui: {
+                                  iconName: 'IconDatabase',
+                                  tabs: ['general', 'hubs', 'layout', 'scripts'],
+                                  sidebarSection: 'objects',
+                                  nameKey: 'Catalogs V2',
+                                  descriptionKey: 'Catalog-compatible custom entity preset'
+                              },
+                              presentation: {},
+                              config: {
+                                  compatibility: {
+                                      legacyObjectKind: 'catalog'
+                                  }
+                              }
+                          }
+                      }
+                    : null,
             versions: [
                 {
                     id: template.activeVersion?.id ?? 'template-version-1',

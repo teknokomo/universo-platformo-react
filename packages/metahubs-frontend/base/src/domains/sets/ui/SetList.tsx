@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Box, ButtonBase, Chip, Divider, Skeleton, Stack, Tab, Tabs, Typography } from '@mui/material'
+import { Box, ButtonBase, Chip, Skeleton, Stack, Tab, Tabs, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
@@ -19,8 +19,6 @@ import {
     FlowListTable,
     gridSpacing,
     useConfirm,
-    LocalizedInlineField,
-    useCodenameAutoFillVlc,
     EntitySelectionPanel,
     revealPendingEntityFeedback,
     useListDialogs
@@ -48,12 +46,13 @@ import { invalidateSetsQueries, metahubsQueryKeys } from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { isOptimisticLockConflict, extractConflictInfo, isPendingEntity, getPendingAction, type ConflictInfo } from '@universo/utils'
 import { SetLocalizedPayload, getVLCString } from '../../../types'
-import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
+import { normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
 import { ensureLocalizedContent, extractLocalizedInput, hasPrimaryContent } from '../../../utils/localizedInput'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
 import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
-import { SetDeleteDialog, CodenameField, HubSelectionPanel, ExistingCodenamesProvider } from '../../../components'
+import { SetDeleteDialog, HubSelectionPanel, ExistingCodenamesProvider } from '../../../components'
 import setActions, { SetDisplayWithHub } from './SetActions'
+import GeneralTabFields from '../../shared/ui/GeneralTabFields'
 import {
     DIALOG_SAVE_CANCEL,
     extractResponseStatus,
@@ -64,98 +63,6 @@ import {
     type SetMenuBaseContext,
     type ConfirmSpec
 } from './setListUtils'
-
-type GenericFormValues = Record<string, unknown>
-
-type GeneralTabFieldsProps = {
-    values: GenericFormValues
-    setValue: (name: string, value: unknown) => void
-    isLoading: boolean
-    errors: Record<string, string>
-    uiLocale: string
-    nameLabel: string
-    descriptionLabel: string
-    codenameLabel: string
-    codenameHelper: string
-}
-
-/**
- * General tab content component with name, description, codename fields
- */
-const GeneralTabFields = ({
-    values,
-    setValue,
-    isLoading,
-    errors,
-    uiLocale,
-    nameLabel,
-    descriptionLabel,
-    codenameLabel,
-    codenameHelper
-}: GeneralTabFieldsProps) => {
-    const codenameConfig = useCodenameConfig()
-    const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
-    const descriptionVlc = (values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
-    const codename = (values.codename as VersionedLocalizedContent<string> | null | undefined) ?? null
-    const codenameTouched = Boolean(values.codenameTouched)
-    useCodenameAutoFillVlc({
-        codename,
-        codenameTouched,
-        nameVlc,
-        deriveCodename: (nameContent) =>
-            sanitizeCodenameForStyle(
-                nameContent,
-                codenameConfig.style,
-                codenameConfig.alphabet,
-                codenameConfig.allowMixed,
-                codenameConfig.autoConvertMixedAlphabets
-            ),
-        setValue: setValue as (field: 'codename' | 'codenameTouched', value: VersionedLocalizedContent<string> | null | boolean) => void
-    })
-
-    return (
-        <Stack spacing={2}>
-            <LocalizedInlineField
-                mode='localized'
-                label={nameLabel}
-                required
-                disabled={isLoading}
-                value={nameVlc}
-                onChange={(next: VersionedLocalizedContent<string> | null) => setValue('nameVlc', next)}
-                error={errors.nameVlc || null}
-                helperText={errors.nameVlc}
-                uiLocale={uiLocale}
-            />
-
-            <LocalizedInlineField
-                mode='localized'
-                label={descriptionLabel}
-                disabled={isLoading}
-                value={descriptionVlc}
-                onChange={(next: VersionedLocalizedContent<string> | null) => setValue('descriptionVlc', next)}
-                uiLocale={uiLocale}
-                multiline
-                rows={2}
-            />
-
-            <Divider />
-
-            <CodenameField
-                value={codename}
-                onChange={(value) => setValue('codename', value)}
-                touched={codenameTouched}
-                onTouchedChange={(touched: boolean) => setValue('codenameTouched', touched)}
-                onDuplicateStatusChange={(dup) => setValue('_hasCodenameDuplicate', dup)}
-                uiLocale={uiLocale}
-                label={codenameLabel}
-                helperText={codenameHelper}
-                error={errors.codename}
-                disabled={isLoading}
-                required
-            />
-        </Stack>
-    )
-}
 
 const SetListContent = () => {
     const navigate = useNavigate()

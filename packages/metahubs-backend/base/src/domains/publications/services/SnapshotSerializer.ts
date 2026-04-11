@@ -2,9 +2,14 @@ import { createHash } from 'crypto'
 import stableStringify from 'json-stable-stringify'
 import type { EntityDefinition, FieldDefinition } from '@universo/schema-ddl'
 import {
+    BUILTIN_ENTITY_TYPE_REGISTRY,
     MetaEntityKind,
     SHARED_OBJECT_KINDS,
+    isEnabledComponentConfig,
     type CatalogSystemFieldsSnapshot,
+    type ComponentManifest,
+    type EntityKind,
+    type EntityTypeUIConfig,
     type EnumerationValueDefinition,
     type MetahubScriptDefinition,
     type MetahubSnapshotVersionEnvelope,
@@ -20,6 +25,9 @@ import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
 import { MetahubEnumerationValuesService } from '../../metahubs/services/MetahubEnumerationValuesService'
 import { MetahubConstantsService } from '../../metahubs/services/MetahubConstantsService'
 import { MetahubScriptsService } from '../../scripts/services/MetahubScriptsService'
+import { EntityTypeService } from '../../entities/services/EntityTypeService'
+import { ActionService } from '../../entities/services/ActionService'
+import { EventBindingService } from '../../entities/services/EventBindingService'
 import { CURRENT_STRUCTURE_VERSION, structureVersionToSemver } from '../../metahubs/services/structureVersions'
 import { generateTableName } from '../../ddl'
 import { getCodenameText } from '../../shared/codename'
@@ -38,6 +46,7 @@ export interface MetahubSnapshot {
     generatedAt: string
     metahubId: string
     entities: Record<string, MetaEntitySnapshot>
+    entityTypeDefinitions?: Record<string, MetahubEntityTypeDefinitionSnapshot>
     elements?: Record<string, MetaElementSnapshot[]>
     enumerationValues?: Record<string, MetaEnumerationValueSnapshot[]>
     constants?: Record<string, MetaConstantSnapshot[]>
@@ -92,6 +101,37 @@ export interface MetahubSnapshotScript extends Omit<MetahubScriptDefinition, 'co
     sourceCode?: string
 }
 
+export interface MetahubEntityTypeDefinitionSnapshot {
+    id: string
+    kindKey: EntityKind | string
+    codename: SnapshotCodenameValue
+    presentation: Record<string, unknown>
+    components: ComponentManifest
+    ui: EntityTypeUIConfig
+    config: Record<string, unknown>
+    isBuiltin: boolean
+    published?: boolean
+}
+
+export interface MetahubEntityActionSnapshot {
+    id: string
+    codename: SnapshotCodenameValue
+    presentation: Record<string, unknown>
+    actionType: 'script' | 'builtin'
+    scriptId: string | null
+    config: Record<string, unknown>
+    sortOrder: number
+}
+
+export interface MetahubEventBindingSnapshot {
+    id: string
+    eventName: string
+    actionId: string
+    priority: number
+    isActive: boolean
+    config: Record<string, unknown>
+}
+
 export interface MetahubSharedEntityOverrideSnapshot {
     id: string
     entityKind: SharedEntityKind
@@ -132,6 +172,8 @@ export interface MetaEntitySnapshot extends Omit<EntityDefinition, 'codename' | 
     hubs: string[]
     tableName?: string
     config?: Record<string, unknown>
+    actions?: MetahubEntityActionSnapshot[]
+    eventBindings?: MetahubEventBindingSnapshot[]
 }
 
 type SnapshotAttributeRecord = {
@@ -141,7 +183,7 @@ type SnapshotAttributeRecord = {
     isRequired: boolean
     isDisplayAttribute?: boolean | null
     targetEntityId?: string | null
-    targetEntityKind?: MetaEntityKind | null
+    targetEntityKind?: EntityKind | null
     targetConstantId?: string | null
     name?: VersionedLocalizedContent<string> | null
     description?: VersionedLocalizedContent<string> | null
@@ -216,7 +258,10 @@ export class SnapshotSerializer {
         private readonly constantsService?: MetahubConstantsService,
         private readonly scriptsService?: MetahubScriptsService,
         private readonly sharedContainerService?: SharedContainerService,
-        private readonly sharedEntityOverridesService?: SharedEntityOverridesService
+        private readonly sharedEntityOverridesService?: SharedEntityOverridesService,
+        private readonly entityTypeService?: EntityTypeService,
+        private readonly actionService?: ActionService,
+        private readonly eventBindingService?: EventBindingService
     ) {}
 
     private static toSnapshotCodenameValue(value: unknown): SnapshotCodenameValue {
@@ -239,7 +284,7 @@ export class SnapshotSerializer {
 
         return rootAttributes.map((attr) => {
             const resolvedTargetEntityId = attr.targetEntityId ?? undefined
-            const resolvedTargetEntityKind: MetaEntityKind | undefined = attr.targetEntityKind ?? undefined
+            const resolvedTargetEntityKind: EntityKind | undefined = attr.targetEntityKind ?? undefined
 
             const fieldDef: MetaFieldSnapshot = {
                 id: attr.id,
@@ -447,6 +492,109 @@ export class SnapshotSerializer {
         }
     }
 
+    private static mapEntityActionSnapshots(
+        actions: Array<{
+            id: string
+            codename: unknown
+            presentation: unknown
+            actionType: 'script' | 'builtin'
+            scriptId: string | null
+            config: unknown
+            sortOrder: number
+        }>
+    ): MetahubEntityActionSnapshot[] {
+        return actions.map((action) => ({
+            id: action.id,
+            codename: SnapshotSerializer.toSnapshotCodenameValue(action.codename),
+            presentation: ensureRecord(action.presentation),
+            actionType: action.actionType,
+            scriptId: action.scriptId ?? null,
+            config: ensureRecord(action.config),
+            sortOrder: Number(action.sortOrder ?? 0)
+        }))
+    }
+
+    private static mapEventBindingSnapshots(
+        eventBindings: Array<{
+            id: string
+            eventName: string
+            actionId: string
+            priority: number
+            isActive: boolean
+            config: unknown
+        }>
+    ): MetahubEventBindingSnapshot[] {
+        return eventBindings.map((binding) => ({
+            id: binding.id,
+            eventName: binding.eventName,
+            actionId: binding.actionId,
+            priority: Number(binding.priority ?? 0),
+            isActive: binding.isActive !== false,
+            config: ensureRecord(binding.config)
+        }))
+    }
+
+    private async loadSnapshotTypeDefinitions(metahubId: string): Promise<{
+        typeByKind: Map<string, { components: ComponentManifest }>
+        entityTypeDefinitions?: Record<string, MetahubEntityTypeDefinitionSnapshot>
+    }> {
+        const typeByKind = new Map<string, { components: ComponentManifest }>()
+        for (const [kindKey, definition] of BUILTIN_ENTITY_TYPE_REGISTRY.entries()) {
+            typeByKind.set(kindKey, definition)
+        }
+
+        if (!this.entityTypeService) {
+            return { typeByKind }
+        }
+
+        const customDefinitions = await this.entityTypeService.listCustomTypes(metahubId)
+        const entityTypeDefinitions: Record<string, MetahubEntityTypeDefinitionSnapshot> = {}
+
+        for (const definition of customDefinitions) {
+            typeByKind.set(definition.kindKey, definition)
+            entityTypeDefinitions[definition.kindKey] = {
+                id: definition.id ?? definition.kindKey,
+                kindKey: definition.kindKey,
+                codename: SnapshotSerializer.toSnapshotCodenameValue(definition.codename),
+                presentation: ensureRecord(definition.presentation),
+                components: definition.components,
+                ui: definition.ui,
+                config: ensureRecord(definition.config),
+                isBuiltin: definition.isBuiltin === true,
+                published: definition.published === true
+            }
+        }
+
+        return {
+            typeByKind,
+            entityTypeDefinitions: Object.keys(entityTypeDefinitions).length > 0 ? entityTypeDefinitions : undefined
+        }
+    }
+
+    private async loadSystemFieldsSnapshotForObject(
+        metahubId: string,
+        objectId: string,
+        kind: string
+    ): Promise<CatalogSystemFieldsSnapshot | null> {
+        if (kind === MetaEntityKind.CATALOG && typeof this.attributesService.getCatalogSystemFieldsSnapshot === 'function') {
+            return this.attributesService.getCatalogSystemFieldsSnapshot(metahubId, objectId)
+        }
+
+        if (
+            typeof this.attributesService.listObjectSystemAttributes !== 'function' ||
+            typeof this.attributesService.getObjectSystemFieldsSnapshot !== 'function'
+        ) {
+            return null
+        }
+
+        const systemAttributes = await this.attributesService.listObjectSystemAttributes(metahubId, objectId)
+        if (!systemAttributes.length) {
+            return null
+        }
+
+        return this.attributesService.getObjectSystemFieldsSnapshot(metahubId, objectId)
+    }
+
     /**
      * Serializes the entire Metahub metadata tree into a JSON snapshot.
      *
@@ -456,12 +604,12 @@ export class SnapshotSerializer {
      * snapshot before it is persisted or published.
      */
     async serializeMetahub(metahubId: string, versionEnvelope?: Partial<MetahubSnapshotVersionEnvelope>): Promise<MetahubSnapshot> {
-        // Fetch entities from dynamic schema
-        const catalogs = await this.objectsService.findAllByKind(metahubId, MetaEntityKind.CATALOG)
-        const sets = await this.objectsService.findAllByKind(metahubId, MetaEntityKind.SET)
-        const enumerations = await this.objectsService.findAllByKind(metahubId, MetaEntityKind.ENUMERATION)
-        // Note: findAll already orders by created_at, but we might want sortOrder if we add it to _mhb_objects
-        // Currently _mhb_objects doesn't have sort_order in standard schema, using order by name or created_at
+        const { typeByKind, entityTypeDefinitions } = await this.loadSnapshotTypeDefinitions(metahubId)
+        const objectKinds = [...typeByKind.keys()].filter((kind) => kind !== MetaEntityKind.HUB)
+        const objectsByKindEntries = await Promise.all(
+            objectKinds.map(async (kind) => [kind, await this.objectsService.findAllByKind(metahubId, kind)] as const)
+        )
+        const serializedObjects = objectsByKindEntries.flatMap(([kind, objects]) => objects.map((object) => ({ kind, object })))
 
         const entities: Record<string, MetaEntitySnapshot> = {}
         const elementsByObject: Record<string, MetaElementSnapshot[]> = {}
@@ -492,9 +640,17 @@ export class SnapshotSerializer {
               }))
             : []
 
-        const objectIds = catalogs.map((catalog) => catalog.id)
+        const elementObjectIds = serializedObjects
+            .filter(({ kind, object }) => {
+                const resolvedKind = typeof object.kind === 'string' ? object.kind : kind
+                const definition = typeByKind.get(String(resolvedKind))
+                return definition ? isEnabledComponentConfig(definition.components.predefinedElements) : false
+            })
+            .map(({ object }) => object.id)
         const allElements =
-            this.elementsService && objectIds.length > 0 ? await this.elementsService.findAllByObjectIds(metahubId, objectIds) : []
+            this.elementsService && elementObjectIds.length > 0
+                ? await this.elementsService.findAllByObjectIds(metahubId, elementObjectIds)
+                : []
         const elementsMap = new Map<string, MetaElementSnapshot[]>()
 
         for (const element of allElements) {
@@ -583,111 +739,93 @@ export class SnapshotSerializer {
             }
         }
 
-        for (const catalog of catalogs) {
-            // Fetch ALL attributes (root + child) for snapshot completeness
-            const allAttributes = (await this.attributesService.findAllFlatForSnapshot(
-                metahubId,
-                catalog.id,
-                undefined,
-                'all'
-            )) as SnapshotAttributeRecord[]
-            const businessAttributes = allAttributes.filter((attribute) => attribute.system?.isSystem !== true)
-
-            systemFieldsByObject[catalog.id] = await this.attributesService.getCatalogSystemFieldsSnapshot(metahubId, catalog.id)
-
-            // Get associated hubs from config
-            const hubIds: string[] = catalog.config?.hubs || []
-
-            const catalogElements = elementsMap.get(catalog.id) ?? []
-            if (catalogElements.length > 0) {
-                elementsByObject[catalog.id] = catalogElements
+        for (const { kind: kindFromQuery, object } of serializedObjects) {
+            const kind = typeof object.kind === 'string' ? object.kind : kindFromQuery
+            const definition = typeByKind.get(kind)
+            if (!definition) {
+                continue
             }
 
-            entities[catalog.id] = {
-                id: catalog.id,
-                kind: 'catalog',
-                codename: SnapshotSerializer.toSnapshotCodenameValue(catalog.codename),
-                tableName: catalog.table_name,
+            const objectPresentation = ensureRecord(object.presentation)
+            const physicalTableConfig = isEnabledComponentConfig(definition.components.physicalTable)
+                ? definition.components.physicalTable
+                : null
+
+            const hubIds = Array.isArray(object.config?.hubs)
+                ? object.config.hubs.filter((hubId: unknown): hubId is string => typeof hubId === 'string')
+                : []
+
+            const entitySnapshot: MetaEntitySnapshot = {
+                id: object.id,
+                kind: kind as MetaEntitySnapshot['kind'],
+                codename: SnapshotSerializer.toSnapshotCodenameValue(object.codename),
+                tableName:
+                    typeof object.table_name === 'string' && object.table_name.trim().length > 0
+                        ? object.table_name
+                        : physicalTableConfig
+                        ? generateTableName(object.id, kind, physicalTableConfig.prefix)
+                        : kind === MetaEntityKind.SET || kind === MetaEntityKind.ENUMERATION
+                        ? generateTableName(object.id, kind)
+                        : undefined,
                 presentation: {
-                    name: catalog.presentation?.name || {},
-                    description: catalog.presentation?.description || {}
+                    name: (objectPresentation.name ?? {}) as MetaEntitySnapshot['presentation']['name'],
+                    description: (objectPresentation.description ?? {}) as MetaEntitySnapshot['presentation']['description']
                 },
-                config: {
-                    ...(catalog.config ?? {}),
-                    isSingleHub: catalog.config?.isSingleHub ?? false,
-                    isRequiredHub: catalog.config?.isRequiredHub ?? false
-                },
-                fields: SnapshotSerializer.buildFieldSnapshots(businessAttributes),
+                config: ensureRecord(object.config),
+                fields: [],
                 hubs: hubIds
             }
-        }
 
-        if (this.constantsService && sets.length > 0) {
-            for (const set of sets) {
-                const constants = (await this.constantsService.findAll(metahubId, set.id)) as SnapshotConstantRecord[]
-                if (!constants.length) continue
-                constantsByObject[set.id] = SnapshotSerializer.mapConstantSnapshots(constants, set.id)
-            }
-        }
+            if (isEnabledComponentConfig(definition.components.dataSchema)) {
+                const allAttributes = (await this.attributesService.findAllFlatForSnapshot(
+                    metahubId,
+                    object.id,
+                    undefined,
+                    'all'
+                )) as SnapshotAttributeRecord[]
+                const businessAttributes = allAttributes.filter((attribute) => attribute.system?.isSystem !== true)
+                entitySnapshot.fields = SnapshotSerializer.buildFieldSnapshots(businessAttributes)
 
-        if (this.enumerationValuesService && enumerations.length > 0) {
-            const valuesEntries = await Promise.all(
-                enumerations.map(async (enumeration) => {
-                    const values = (await this.enumerationValuesService!.findAll(
-                        metahubId,
-                        enumeration.id
-                    )) as unknown as SnapshotEnumerationValueRecord[]
-                    const normalizedValues = SnapshotSerializer.mapEnumerationValueSnapshots(values, enumeration.id)
-                    return [enumeration.id, normalizedValues] as const
-                })
-            )
-            for (const [enumerationId, values] of valuesEntries) {
-                if (values.length > 0) {
-                    enumerationValuesByObject[enumerationId] = values
+                const systemFields = await this.loadSystemFieldsSnapshotForObject(metahubId, object.id, kind)
+                if (systemFields) {
+                    systemFieldsByObject[object.id] = systemFields
                 }
             }
-        }
 
-        for (const enumeration of enumerations) {
-            const hubIds: string[] = enumeration.config?.hubs || []
-            entities[enumeration.id] = {
-                id: enumeration.id,
-                kind: MetaEntityKind.ENUMERATION,
-                codename: SnapshotSerializer.toSnapshotCodenameValue(enumeration.codename),
-                tableName: generateTableName(enumeration.id, MetaEntityKind.ENUMERATION),
-                presentation: {
-                    name: enumeration.presentation?.name || {},
-                    description: enumeration.presentation?.description || {}
-                },
-                config: {
-                    ...(enumeration.config ?? {}),
-                    isSingleHub: enumeration.config?.isSingleHub ?? false,
-                    isRequiredHub: enumeration.config?.isRequiredHub ?? false
-                },
-                fields: [],
-                hubs: hubIds
+            const objectElements = elementsMap.get(object.id) ?? []
+            if (objectElements.length > 0) {
+                elementsByObject[object.id] = objectElements
             }
-        }
 
-        for (const set of sets) {
-            const hubIds: string[] = set.config?.hubs || []
-            entities[set.id] = {
-                id: set.id,
-                kind: MetaEntityKind.SET,
-                codename: SnapshotSerializer.toSnapshotCodenameValue(set.codename),
-                tableName: generateTableName(set.id, MetaEntityKind.SET),
-                presentation: {
-                    name: set.presentation?.name || {},
-                    description: set.presentation?.description || {}
-                },
-                config: {
-                    ...(set.config ?? {}),
-                    isSingleHub: set.config?.isSingleHub ?? false,
-                    isRequiredHub: set.config?.isRequiredHub ?? false
-                },
-                fields: [],
-                hubs: hubIds
+            if (this.constantsService && isEnabledComponentConfig(definition.components.constants)) {
+                const constants = (await this.constantsService.findAll(metahubId, object.id)) as SnapshotConstantRecord[]
+                if (constants.length > 0) {
+                    constantsByObject[object.id] = SnapshotSerializer.mapConstantSnapshots(constants, object.id)
+                }
             }
+
+            if (this.enumerationValuesService && isEnabledComponentConfig(definition.components.enumerationValues)) {
+                const values = (await this.enumerationValuesService.findAll(metahubId, object.id)) as SnapshotEnumerationValueRecord[]
+                if (values.length > 0) {
+                    enumerationValuesByObject[object.id] = SnapshotSerializer.mapEnumerationValueSnapshots(values, object.id)
+                }
+            }
+
+            if (this.actionService && isEnabledComponentConfig(definition.components.actions)) {
+                const actions = await this.actionService.listByObjectId(metahubId, object.id)
+                if (actions.length > 0) {
+                    entitySnapshot.actions = SnapshotSerializer.mapEntityActionSnapshots(actions)
+                }
+            }
+
+            if (this.eventBindingService && isEnabledComponentConfig(definition.components.events)) {
+                const eventBindings = await this.eventBindingService.listByObjectId(metahubId, object.id)
+                if (eventBindings.length > 0) {
+                    entitySnapshot.eventBindings = SnapshotSerializer.mapEventBindingSnapshots(eventBindings)
+                }
+            }
+
+            entities[object.id] = entitySnapshot
         }
 
         return {
@@ -697,9 +835,10 @@ export class SnapshotSerializer {
             versionEnvelope: {
                 structureVersion: versionEnvelope?.structureVersion ?? structureVersionToSemver(CURRENT_STRUCTURE_VERSION),
                 templateVersion: versionEnvelope?.templateVersion ?? null,
-                snapshotFormatVersion: 2
+                snapshotFormatVersion: 3
             },
             entities,
+            entityTypeDefinitions,
             elements: Object.keys(elementsByObject).length > 0 ? elementsByObject : undefined,
             enumerationValues: Object.keys(enumerationValuesByObject).length > 0 ? enumerationValuesByObject : undefined,
             constants: Object.keys(constantsByObject).length > 0 ? constantsByObject : undefined,
@@ -781,23 +920,34 @@ export class SnapshotSerializer {
             parentAttributeId
         })
 
-        return Object.values(snapshot.entities).map((entity) => ({
-            ...entity,
-            id: entity.id,
-            codename: getCodenameText(entity.codename),
-            config: {
-                ...(entity.config ?? {}),
-                systemFields: snapshot.systemFields?.[entity.id] ?? null
-            },
-            fields: entity.fields.flatMap((field) => {
-                const mapped = toExecutableField(field)
+        return Object.values(snapshot.entities).map((entity) => {
+            const definition = snapshot.entityTypeDefinitions?.[entity.kind] ?? BUILTIN_ENTITY_TYPE_REGISTRY.get(entity.kind)
+            const physicalTableConfig =
+                definition && isEnabledComponentConfig(definition.components.physicalTable) ? definition.components.physicalTable : null
 
-                // Flatten TABLE child fields into the entity.fields array
-                const children = (field.childFields ?? []).map((child) => toExecutableField(child, child.parentAttributeId ?? field.id))
+            return {
+                ...entity,
+                id: entity.id,
+                physicalTablePrefix: physicalTableConfig?.prefix,
+                physicalTableName:
+                    entity.tableName ??
+                    entity.physicalTableName ??
+                    (physicalTableConfig ? generateTableName(entity.id, entity.kind, physicalTableConfig.prefix) : undefined),
+                codename: getCodenameText(entity.codename),
+                config: {
+                    ...(entity.config ?? {}),
+                    systemFields: snapshot.systemFields?.[entity.id] ?? null
+                },
+                fields: entity.fields.flatMap((field) => {
+                    const mapped = toExecutableField(field)
 
-                return [mapped, ...children]
-            })
-        }))
+                    // Flatten TABLE child fields into the entity.fields array
+                    const children = (field.childFields ?? []).map((child) => toExecutableField(child, child.parentAttributeId ?? field.id))
+
+                    return [mapped, ...children]
+                })
+            }
+        })
     }
 
     private static normalizeSnapshotForHash(snapshot: MetahubSnapshot): Record<string, unknown> {
@@ -805,8 +955,16 @@ export class SnapshotSerializer {
             defaultVersionEnvelope: {
                 structureVersion: structureVersionToSemver(CURRENT_STRUCTURE_VERSION),
                 templateVersion: null,
-                snapshotFormatVersion: 2
+                snapshotFormatVersion: 3
             }
         })
     }
+}
+
+const ensureRecord = (value: unknown): Record<string, unknown> => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return {}
+    }
+
+    return value as Record<string, unknown>
 }

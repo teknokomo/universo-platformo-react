@@ -48,6 +48,7 @@
 * [Monorepo Structure](architecture/monorepo-structure.md)
 * [Backend Architecture](architecture/backend.md)
 * [Frontend Architecture](architecture/frontend.md)
+* [Entity Component System](architecture/entity-component-system.md)
 * [Database Design](architecture/database.md)
 * [Database Access Standard](architecture/database-access-standard.md)
 * [Authentication and Authorization](architecture/auth.md)
@@ -74,6 +75,7 @@
 
 * [Overview](guides/README.md)
 * [Common Section](guides/general-section.md)
+* [Custom Entity Types](guides/custom-entity-types.md)
 * [Catalog Layouts](guides/catalog-layouts.md)
 * [Metahub Scripting](guides/metahub-scripting.md)
 * [Quiz Application Tutorial](guides/quiz-application-tutorial.md)

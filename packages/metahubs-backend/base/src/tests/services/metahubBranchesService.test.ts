@@ -88,6 +88,7 @@ jest.mock('../../domains/ddl', () => ({
 }))
 
 import { MetahubBranchesService } from '../../domains/branches/services/MetahubBranchesService'
+import { CURRENT_STRUCTURE_VERSION_SEMVER } from '../../domains/metahubs/services/structureVersions'
 import type { DbExecutor } from '@universo/utils/database'
 import type { VersionedLocalizedContent } from '@universo/types'
 
@@ -239,8 +240,11 @@ describe('MetahubBranchesService', () => {
             TEST_METAHUB_BRANCH_SCHEMA_2,
             expect.objectContaining({ minStructureVersion: '0.1.0' })
         )
-        expect(mockCreateBranchRow).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ structureVersion: '0.1.0' }))
-        expect(created.structureVersion).toBe('0.1.0')
+        expect(mockCreateBranchRow).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.objectContaining({ structureVersion: CURRENT_STRUCTURE_VERSION_SEMVER })
+        )
+        expect(created.structureVersion).toBe(CURRENT_STRUCTURE_VERSION_SEMVER)
         expect(mockAcquireAdvisoryLock).toHaveBeenCalled()
         expect(mockReleaseAdvisoryLock).toHaveBeenCalled()
     })

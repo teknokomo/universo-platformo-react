@@ -32,7 +32,7 @@ const ApplicationRuntime = () => {
 
     const adapter = useMemo(() => (applicationId ? createRuntimeAdapter(applicationId) : null), [applicationId])
 
-    // Inline cell mutation for BOOLEAN checkboxes (catalogId passed dynamically)
+    // Inline cell mutation for BOOLEAN checkboxes (section id passed dynamically).
     const updateCellMutation = useUpdateRuntimeCell({ applicationId })
     const pendingRuntimeCellMutations = usePendingRuntimeCellMutations({ applicationId })
 
@@ -42,7 +42,7 @@ const ApplicationRuntime = () => {
     const pendingCellValues = useMemo(() => buildPendingRuntimeCellMap(pendingRuntimeCellMutations), [pendingRuntimeCellMutations])
     const pendingCellValuesRef = useRef(pendingCellValues)
     pendingCellValuesRef.current = pendingCellValues
-    const catalogIdRef = useRef<string | undefined>(undefined)
+    const sectionIdRef = useRef<string | undefined>(undefined)
     const pendingInteractionRef = useRef<(rowId: string) => boolean>(() => false)
 
     // Cell renderer overrides: interactive BOOLEAN checkboxes with per-cell optimistic state
@@ -71,7 +71,7 @@ const ApplicationRuntime = () => {
                                 rowId: params.rowId,
                                 field: params.field,
                                 value: checked,
-                                catalogId: catalogIdRef.current
+                                sectionId: sectionIdRef.current
                             })
                         }}
                     />
@@ -91,15 +91,17 @@ const ApplicationRuntime = () => {
         cellRenderers
     })
 
-    const activeCatalogRuntimeConfig = state.appData?.catalog?.runtimeConfig
-    const showCreateButton = activeCatalogRuntimeConfig?.showCreateButton !== false
+    const activeRuntimeSection = state.appData?.section ?? state.appData?.catalog
+    const activeRuntimeConfig = activeRuntimeSection?.runtimeConfig
+    const currentSectionId = state.selectedSectionId ?? state.activeSectionId ?? state.selectedCatalogId ?? state.activeCatalogId
+    const showCreateButton = activeRuntimeConfig?.showCreateButton !== false
     const resolveFormSurface = useCallback(
         (mode: 'create' | 'edit' | 'copy') => {
-            if (mode === 'create') return activeCatalogRuntimeConfig?.createSurface ?? 'dialog'
-            if (mode === 'copy') return activeCatalogRuntimeConfig?.copySurface ?? 'dialog'
-            return activeCatalogRuntimeConfig?.editSurface ?? 'dialog'
+            if (mode === 'create') return activeRuntimeConfig?.createSurface ?? 'dialog'
+            if (mode === 'copy') return activeRuntimeConfig?.copySurface ?? 'dialog'
+            return activeRuntimeConfig?.editSurface ?? 'dialog'
         },
-        [activeCatalogRuntimeConfig?.copySurface, activeCatalogRuntimeConfig?.createSurface, activeCatalogRuntimeConfig?.editSurface]
+        [activeRuntimeConfig?.copySurface, activeRuntimeConfig?.createSurface, activeRuntimeConfig?.editSurface]
     )
 
     const clearRuntimeFormParams = useCallback(() => {
@@ -261,17 +263,13 @@ const ApplicationRuntime = () => {
         [handleCloseFormSurface, handleFormSubmitSurface, handleOpenCopySurface, handleOpenCreateSurface, handleOpenEditSurface, state]
     )
 
-    const activeCatalogSelectionId = state.selectedCatalogId ?? state.activeCatalogId
-    const previousCatalogSelectionRef = useRef<string | undefined>(undefined)
+    const activeSectionSelectionId = currentSectionId
+    const previousSectionSelectionRef = useRef<string | undefined>(undefined)
 
     useEffect(() => {
-        const previousCatalogSelectionId = previousCatalogSelectionRef.current
+        const previousSectionSelectionId = previousSectionSelectionRef.current
 
-        if (
-            previousCatalogSelectionId &&
-            activeCatalogSelectionId &&
-            previousCatalogSelectionId !== activeCatalogSelectionId
-        ) {
+        if (previousSectionSelectionId && activeSectionSelectionId && previousSectionSelectionId !== activeSectionSelectionId) {
             handledPageSurfaceRequestRef.current = null
             suppressPageSurfaceOpenRef.current = false
 
@@ -284,11 +282,12 @@ const ApplicationRuntime = () => {
             }
         }
 
-        previousCatalogSelectionRef.current = activeCatalogSelectionId
+        previousSectionSelectionRef.current = activeSectionSelectionId
     }, [
-        activeCatalogSelectionId,
+        activeSectionSelectionId,
         clearRuntimeFormParams,
         searchParams,
+        state,
         state.copyRowId,
         state.editRowId,
         state.formOpen,
@@ -298,11 +297,11 @@ const ApplicationRuntime = () => {
     const activeFormSurface =
         searchParams.get('surface') === 'page' && !(searchParams.get('mode') === 'create' && !showCreateButton) ? 'page' : 'dialog'
 
-    // Keep catalogId ref in sync with current catalog from hook state
-    catalogIdRef.current = state.selectedCatalogId ?? state.activeCatalogId
+    // Keep section id ref in sync with the current runtime section from hook state.
+    sectionIdRef.current = currentSectionId
     pendingInteractionRef.current = runtimeState.handlePendingInteractionAttempt
 
-    const detailsTitle = state.appData?.catalog?.name ?? 'Details'
+    const detailsTitle = activeRuntimeSection?.name ?? 'Details'
 
     const createActions = useMemo(
         () =>
@@ -326,7 +325,7 @@ const ApplicationRuntime = () => {
             state.appData?.workspaceLimit?.canCreate === false ? (
                 <Alert severity='info' data-testid='application-runtime-workspace-limit-banner'>
                     {t('app.workspaceLimitReached', {
-                        defaultValue: 'The workspace limit for this catalog has been reached ({{current}} / {{max}}).',
+                        defaultValue: 'The workspace limit for this section has been reached ({{current}} / {{max}}).',
                         current: state.appData.workspaceLimit.currentRows,
                         max: state.appData.workspaceLimit.maxRows ?? '∞'
                     })}
@@ -343,7 +342,7 @@ const ApplicationRuntime = () => {
                     locale={i18n.language}
                     apiBaseUrl='/api/v1'
                     applicationId={applicationId}
-                    catalogId={state.selectedCatalogId ?? state.activeCatalogId}
+                    catalogId={currentSectionId}
                     surface='page'
                     renderDelete={false}
                     labels={{
@@ -354,7 +353,7 @@ const ApplicationRuntime = () => {
                         savingText: t('app.saving', 'Saving...'),
                         creatingText: t('app.creating', 'Creating...'),
                         cancelText: t('app.cancel', 'Cancel'),
-                        noFieldsText: t('app.noFields', 'No fields configured for this catalog.'),
+                        noFieldsText: t('app.noFields', 'No fields configured for this section.'),
                         deleteTitle: t('app.deleteConfirmTitle', 'Delete element?'),
                         deleteDescription: t(
                             'app.deleteConfirmDescription',
@@ -368,23 +367,17 @@ const ApplicationRuntime = () => {
                     }}
                 />
             ) : null,
-        [
-            activeFormSurface,
-            applicationId,
-            i18n.language,
-            runtimeState,
-            state.activeCatalogId,
-            state.selectedCatalogId,
-            t
-        ]
+        [activeFormSurface, applicationId, currentSectionId, i18n.language, runtimeState, t]
     )
 
     const details = useMemo<DashboardDetailsSlot>(
         () => ({
             title: detailsTitle,
             applicationId,
-            catalogId: state.selectedCatalogId ?? state.activeCatalogId ?? null,
-            catalogCodename: state.appData?.catalog?.codename ?? null,
+            sectionId: currentSectionId ?? null,
+            sectionCodename: activeRuntimeSection?.codename ?? null,
+            catalogId: currentSectionId ?? null,
+            catalogCodename: activeRuntimeSection?.codename ?? null,
             apiBaseUrl: '/api/v1',
             banner: workspaceLimitBanner,
             content: pageSurfaceContent,
@@ -397,7 +390,7 @@ const ApplicationRuntime = () => {
             pageSizeOptions: state.pageSizeOptions,
             localeText: state.localeText,
             actions: createActions,
-            searchMode: activeCatalogRuntimeConfig?.searchMode ?? 'page-local',
+            searchMode: activeRuntimeConfig?.searchMode ?? 'page-local',
             rowReorder: state.canPersistRowReorder
                 ? {
                       onReorder: state.handlePersistRowReorder,
@@ -406,7 +399,10 @@ const ApplicationRuntime = () => {
                 : undefined
         }),
         [
-            activeCatalogRuntimeConfig?.searchMode,
+            activeRuntimeConfig?.searchMode,
+            activeRuntimeSection?.codename,
+            applicationId,
+            currentSectionId,
             detailsTitle,
             state.rows,
             state.columns,
@@ -456,7 +452,7 @@ const ApplicationRuntime = () => {
                 locale={i18n.language}
                 apiBaseUrl='/api/v1'
                 applicationId={applicationId}
-                catalogId={state.selectedCatalogId ?? state.activeCatalogId}
+                catalogId={currentSectionId}
                 surface={activeFormSurface}
                 renderForm={activeFormSurface !== 'page'}
                 labels={{
@@ -467,7 +463,7 @@ const ApplicationRuntime = () => {
                     savingText: t('app.saving', 'Saving...'),
                     creatingText: t('app.creating', 'Creating...'),
                     cancelText: t('app.cancel', 'Cancel'),
-                    noFieldsText: t('app.noFields', 'No fields configured for this catalog.'),
+                    noFieldsText: t('app.noFields', 'No fields configured for this section.'),
                     deleteTitle: t('app.deleteConfirmTitle', 'Delete element?'),
                     deleteDescription: t(
                         'app.deleteConfirmDescription',

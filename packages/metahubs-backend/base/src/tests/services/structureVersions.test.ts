@@ -8,18 +8,21 @@ import {
 } from '../../domains/metahubs/services/structureVersions'
 
 describe('structureVersions registry', () => {
-    it('exposes v1 as current structure revision', () => {
-        expect(CURRENT_STRUCTURE_VERSION).toBe(1)
+    it('exposes v4 as current structure revision', () => {
+        expect(CURRENT_STRUCTURE_VERSION).toBe(4)
     })
 
     it('exposes current semver label', () => {
-        expect(CURRENT_STRUCTURE_VERSION_SEMVER).toBe('0.1.0')
+        expect(CURRENT_STRUCTURE_VERSION_SEMVER).toBe('0.4.0')
     })
 
-    it('exposes enumeration values table in current structure version', () => {
+    it('exposes ECAE tables in current structure version', () => {
         const current = getStructureVersion(CURRENT_STRUCTURE_VERSION)
         expect(current.tables).toContain('_mhb_values')
         expect(current.tables).toContain('_mhb_constants')
+        expect(current.tables).toContain('_mhb_entity_type_definitions')
+        expect(current.tables).toContain('_mhb_actions')
+        expect(current.tables).toContain('_mhb_event_bindings')
     })
 
     it('throws for unknown numeric version', () => {
@@ -70,6 +73,10 @@ describe('structureVersionToSemver', () => {
         expect(structureVersionToSemver(2)).toBe('0.2.0')
     })
 
+    it('converts current numeric version to the bumped semver', () => {
+        expect(structureVersionToSemver(4)).toBe('0.4.0')
+    })
+
     it('returns current semver for empty string', () => {
         expect(structureVersionToSemver('')).toBe(CURRENT_STRUCTURE_VERSION_SEMVER)
     })
@@ -112,6 +119,10 @@ describe('semverToStructureVersion', () => {
         expect(semverToStructureVersion('0.2.0')).toBe(2)
     })
 
+    it('converts current bumped semver to numeric version', () => {
+        expect(semverToStructureVersion('0.4.0')).toBe(4)
+    })
+
     it('clamps future semver to CURRENT + 1', () => {
         expect(semverToStructureVersion('99.0.0')).toBe(CURRENT_STRUCTURE_VERSION + 1)
     })
@@ -136,6 +147,7 @@ describe('normalizeStoredStructureVersion', () => {
 
     it('normalizes numeric version to semver', () => {
         expect(normalizeStoredStructureVersion(1)).toBe('0.1.0')
+        expect(normalizeStoredStructureVersion(4)).toBe('0.4.0')
     })
 
     it('normalizes null to current semver', () => {

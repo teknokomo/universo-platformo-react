@@ -14,27 +14,30 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
     return {
         queryKeyPrefix: appQueryKeys.list(applicationId),
 
-        fetchList: ({ limit, offset, locale, catalogId }) => fetchAppData({ apiBaseUrl, applicationId, limit, offset, locale, catalogId }),
+        fetchList: ({ limit, offset, locale, catalogId, sectionId }) =>
+            fetchAppData({ apiBaseUrl, applicationId, limit, offset, locale, catalogId, sectionId }),
 
-        fetchRow: (rowId, catalogId) => fetchAppRow({ apiBaseUrl, applicationId, rowId, catalogId }),
+        fetchRow: (rowId, catalogId) => fetchAppRow({ apiBaseUrl, applicationId, rowId, catalogId, sectionId: catalogId }),
 
-        fetchTabularRows: async ({ parentRowId, attributeId, catalogId }) => {
-            if (!catalogId) return []
+        fetchTabularRows: async ({ parentRowId, attributeId, catalogId, sectionId }) => {
+            const resolvedSectionId = sectionId ?? catalogId
+            if (!resolvedSectionId) return []
             const response = await fetchTabularRows({
                 apiBaseUrl,
                 applicationId,
                 parentRecordId: parentRowId,
                 attributeId,
-                catalogId
+                catalogId: resolvedSectionId,
+                sectionId: resolvedSectionId
             })
             return response.items
         },
 
-        createRow: (data, catalogId) => createAppRow({ apiBaseUrl, applicationId, data, catalogId }),
+        createRow: (data, catalogId) => createAppRow({ apiBaseUrl, applicationId, data, catalogId, sectionId: catalogId }),
 
-        updateRow: (rowId, data, catalogId) => updateAppRow({ apiBaseUrl, applicationId, rowId, data, catalogId }),
+        updateRow: (rowId, data, catalogId) => updateAppRow({ apiBaseUrl, applicationId, rowId, data, catalogId, sectionId: catalogId }),
 
-        deleteRow: (rowId, catalogId) => deleteAppRow({ apiBaseUrl, applicationId, rowId, catalogId }),
+        deleteRow: (rowId, catalogId) => deleteAppRow({ apiBaseUrl, applicationId, rowId, catalogId, sectionId: catalogId }),
 
         copyRow: (rowId, data) =>
             copyAppRow({
@@ -42,6 +45,7 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
                 applicationId,
                 rowId,
                 catalogId: data?.catalogId,
+                sectionId: data?.sectionId ?? data?.catalogId,
                 copyChildTables: data?.copyChildTables
             })
     }

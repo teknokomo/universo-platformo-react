@@ -1,6 +1,6 @@
-import type { AttributeDataType, MetaEntityDefinition, MetaEntityKind, MetaFieldDefinition, MetaPresentation } from '@universo/types'
+import type { AttributeDataType, EntityKind, MetaEntityDefinition, MetaFieldDefinition, MetaPresentation } from '@universo/types'
 
-export type RuntimeEntityKind = MetaEntityKind | 'enumeration' | 'relation' | 'settings'
+export type RuntimeEntityKind = EntityKind | 'enumeration' | 'relation' | 'settings'
 
 export interface FieldDefinition extends Omit<MetaFieldDefinition, 'targetEntityKind' | 'childFields'> {
     targetEntityKind?: RuntimeEntityKind | null
@@ -14,6 +14,7 @@ export interface EntityDefinition extends Omit<MetaEntityDefinition, 'kind' | 'f
     kind: RuntimeEntityKind
     fields: FieldDefinition[]
     physicalTableName?: string
+    physicalTablePrefix?: string | null
     config?: Record<string, unknown>
 }
 

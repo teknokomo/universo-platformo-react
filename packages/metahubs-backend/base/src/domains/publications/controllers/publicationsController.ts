@@ -45,6 +45,9 @@ import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
 import { MetahubEnumerationValuesService } from '../../metahubs/services/MetahubEnumerationValuesService'
 import { MetahubConstantsService } from '../../metahubs/services/MetahubConstantsService'
 import { MetahubScriptsService } from '../../scripts/services/MetahubScriptsService'
+import { EntityTypeService } from '../../entities/services/EntityTypeService'
+import { ActionService } from '../../entities/services/ActionService'
+import { EventBindingService } from '../../entities/services/EventBindingService'
 import { structureVersionToSemver } from '../../metahubs/services/structureVersions'
 import { SharedContainerService } from '../../shared/services/SharedContainerService'
 import { SharedEntityOverridesService } from '../../shared/services/SharedEntityOverridesService'
@@ -447,6 +450,9 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
     }) => {
         const sharedContainerService = new SharedContainerService(params.exec, params.schemaService)
         const sharedEntityOverridesService = new SharedEntityOverridesService(params.exec, params.schemaService)
+        const entityTypeService = new EntityTypeService(params.exec, params.schemaService)
+        const actionService = new ActionService(params.exec, params.schemaService, entityTypeService)
+        const eventBindingService = new EventBindingService(params.exec, params.schemaService, entityTypeService)
 
         return new SnapshotSerializer(
             params.objectsService,
@@ -457,7 +463,10 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             params.constantsService,
             params.scriptsService,
             sharedContainerService,
-            sharedEntityOverridesService
+            sharedEntityOverridesService,
+            entityTypeService,
+            actionService,
+            eventBindingService
         )
     }
 

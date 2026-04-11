@@ -126,6 +126,61 @@ describe('SnapshotRestoreService', () => {
         expect(mockEnsureCatalogSystemAttributesSeed).toHaveBeenCalled()
     })
 
+    it('restores a legacy snapshot that omits v3 entity metadata sections', async () => {
+        const snapshot = makeMinimalSnapshot({
+            scripts: [
+                {
+                    id: 'old-script-id',
+                    codename: {
+                        _schema: '1',
+                        _primary: 'en',
+                        locales: {
+                            en: { content: 'legacy_hook', version: 1, isActive: true }
+                        }
+                    },
+                    presentation: { name: { en: 'Legacy hook' } },
+                    attachedToKind: 'metahub',
+                    attachedToId: null,
+                    moduleRole: 'shared',
+                    sourceKind: 'embedded',
+                    sdkApiVersion: '1.0.0',
+                    manifest: {
+                        className: 'LegacyHook',
+                        sdkApiVersion: '1.0.0',
+                        moduleRole: 'shared',
+                        sourceKind: 'embedded',
+                        capabilities: ['rpc.server'],
+                        methods: []
+                    },
+                    serverBundle: 'legacy-server-bundle',
+                    clientBundle: null,
+                    checksum: 'legacy-checksum',
+                    isActive: true,
+                    config: {},
+                    sourceCode:
+                        "import { ExtensionScript } from '@universo/extension-sdk'\nexport default class LegacyHook extends ExtensionScript {}"
+                }
+            ],
+            entityTypeDefinitions: undefined
+        } as unknown as Partial<MetahubSnapshot>)
+
+        const { knex, insertedRows } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+
+        await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
+
+        expect(insertedRows['_mhb_objects']).toHaveLength(1)
+        expect(insertedRows['_mhb_attributes']).toHaveLength(1)
+        expect(insertedRows['_mhb_scripts']).toHaveLength(1)
+        expect(insertedRows['_mhb_scripts']![0]).toMatchObject({
+            codename: expect.objectContaining({ _schema: '1' }),
+            source_code: expect.stringContaining('LegacyHook extends ExtensionScript')
+        })
+        expect(insertedRows['_mhb_entity_type_definitions']).toBeUndefined()
+        expect(insertedRows['_mhb_actions']).toBeUndefined()
+        expect(insertedRows['_mhb_event_bindings']).toBeUndefined()
+    })
+
     it('remaps hub references in entity config', async () => {
         const snapshot = makeMinimalSnapshot({
             entities: {
@@ -345,6 +400,141 @@ describe('SnapshotRestoreService', () => {
             attached_to_id: 'generated-id-2',
             source_code: expect.stringContaining('AttributeHook extends ExtensionScript'),
             server_bundle: 'attribute server bundle'
+        })
+    })
+
+    it('restores snapshot v3 custom entity definitions with remapped actions and event bindings', async () => {
+        const snapshot = makeMinimalSnapshot({
+            entities: {
+                'old-custom-object-id': {
+                    id: 'old-custom-object-id',
+                    kind: 'customer_registry',
+                    codename: 'customer_registry',
+                    presentation: { name: { en: 'Customer Registry' }, description: {} },
+                    config: {},
+                    tableName: 'cust_customer_registry',
+                    fields: [],
+                    hubs: [],
+                    actions: [
+                        {
+                            id: 'old-action-id',
+                            codename: 'sync_customer',
+                            presentation: { name: { en: 'Sync customer' } },
+                            actionType: 'script',
+                            scriptId: 'old-script-id',
+                            config: { mode: 'sync' },
+                            sortOrder: 1
+                        }
+                    ],
+                    eventBindings: [
+                        {
+                            id: 'old-binding-id',
+                            eventName: 'afterCreate',
+                            actionId: 'old-action-id',
+                            priority: 2,
+                            isActive: true,
+                            config: { trigger: 'runtime' }
+                        }
+                    ]
+                }
+            },
+            entityTypeDefinitions: {
+                customer_registry: {
+                    id: 'old-type-id',
+                    kindKey: 'customer_registry',
+                    codename: 'customer_registry',
+                    presentation: { name: { en: 'Customer Registry' }, description: {} },
+                    components: {
+                        dataSchema: { enabled: true },
+                        predefinedElements: false,
+                        hubAssignment: false,
+                        enumerationValues: false,
+                        constants: false,
+                        hierarchy: false,
+                        nestedCollections: false,
+                        relations: false,
+                        actions: { enabled: true },
+                        events: { enabled: true },
+                        scripting: false,
+                        layoutConfig: false,
+                        runtimeBehavior: false,
+                        physicalTable: { enabled: true, prefix: 'cust' }
+                    },
+                    ui: {
+                        iconName: 'IconUsers',
+                        tabs: ['general'],
+                        sidebarSection: 'objects',
+                        nameKey: 'metahubs:entities.customerRegistry'
+                    },
+                    config: { publishedSection: true },
+                    isBuiltin: false,
+                    published: true
+                }
+            },
+            scripts: [
+                {
+                    id: 'old-script-id',
+                    codename: 'customer_hook',
+                    presentation: { name: { en: 'Customer hook' } },
+                    attachedToKind: 'metahub',
+                    attachedToId: null,
+                    moduleRole: 'lifecycle',
+                    sourceKind: 'embedded',
+                    sdkApiVersion: '1.0.0',
+                    manifest: {
+                        className: 'CustomerHook',
+                        sdkApiVersion: '1.0.0',
+                        moduleRole: 'lifecycle',
+                        sourceKind: 'embedded',
+                        capabilities: ['records.read', 'records.write', 'metadata.read', 'lifecycle'],
+                        methods: []
+                    },
+                    serverBundle: 'customer hook bundle',
+                    clientBundle: null,
+                    checksum: 'checksum-customer-hook',
+                    isActive: true,
+                    config: {},
+                    sourceCode:
+                        "import { ExtensionScript } from '@universo/extension-sdk'\nexport default class CustomerHook extends ExtensionScript {}"
+                }
+            ]
+        } as unknown as Partial<MetahubSnapshot>)
+
+        const { knex, insertedRows } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+
+        await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
+
+        expect(insertedRows['_mhb_entity_type_definitions']).toHaveLength(1)
+        expect(insertedRows['_mhb_entity_type_definitions']![0]).toMatchObject({
+            kind_key: 'customer_registry',
+            is_builtin: false,
+            _mhb_published: true
+        })
+
+        expect(insertedRows['_mhb_actions']).toHaveLength(1)
+        expect(insertedRows['_mhb_event_bindings']).toHaveLength(1)
+
+        const objectRow = insertedRows['_mhb_objects']![0] as Record<string, unknown>
+        const scriptRow = insertedRows['_mhb_scripts']![0] as Record<string, unknown>
+        const actionRow = insertedRows['_mhb_actions']![0] as Record<string, unknown>
+        const eventBindingRow = insertedRows['_mhb_event_bindings']![0] as Record<string, unknown>
+
+        expect(objectRow).toMatchObject({
+            kind: 'customer_registry',
+            table_name: 'cust_customer_registry'
+        })
+        expect(actionRow).toMatchObject({
+            object_id: objectRow.id,
+            action_type: 'script',
+            script_id: scriptRow.id
+        })
+        expect(eventBindingRow).toMatchObject({
+            object_id: objectRow.id,
+            event_name: 'afterCreate',
+            action_id: actionRow.id,
+            priority: 2,
+            is_active: true
         })
     })
 

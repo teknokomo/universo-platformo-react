@@ -85,11 +85,56 @@ if (!userId) return
 #### 3.2.5 Self-Hosted Fixture Contract And Regeneration
 -   **Canonical source**: `tools/testing/e2e/support/selfHostedAppFixtureContract.mjs` is the single source of truth for the committed self-hosted snapshot identity, localized copy, layout metadata, section metadata, and settings baseline.
 -   **Regeneration path**: regenerate `tools/fixtures/metahubs-self-hosted-app-snapshot.json` from the contract/canonicalizer rather than hand-editing the committed JSON.
--   **Current structure baseline seam**: public structure version `0.1.0` / numeric version `1` remains the active metahub branch baseline, and `SYSTEM_TABLE_VERSIONS` must map version `1` to `SYSTEM_TABLES` rather than `SYSTEM_TABLES_V1`; otherwise fresh branch schemas omit `_mhb_scripts` and publication-backed self-hosted fixture flows fail.
+-   **Structure-version source**: fixture tooling must resolve `CURRENT_STRUCTURE_VERSION_SEMVER` from `packages/metahubs-backend/base/dist/domains/metahubs/services/structureVersions.js` (with the current `0.4.0` baseline as the compatibility fallback) instead of hardcoding a legacy self-hosted `structureVersion` string inside the contract.
+-   **Current structure baseline seam**: public structure version `0.4.0` / numeric version `4` is now the active metahub branch baseline. Historical mappings for `0.1.0` / `0.2.0` / `0.3.0` remain preserved for upgrade planning, and fresh branches default to `CURRENT_STRUCTURE_VERSION_SEMVER` instead of a hardcoded legacy semver.
 -   **Catalog-layout proof seam**: the canonical self-hosted fixture now includes a dedicated Settings catalog layout override derived from `SELF_HOSTED_APP_SETTINGS_LAYOUT`, and downstream import/runtime verification should keep proving that the imported application visibly diverges from the default global layout for that catalog.
 -   **Validation seam**: `assertSelfHostedAppEnvelopeContract(...)` must fail closed on stale self-model markers, mixed-language drift, missing `Settings`, or layout/menu-widget metadata drift.
 -   **Consumer seam**: downstream E2E flows must not introduce legacy `self-model` markers when recording imported self-hosted fixtures.
 -   **Migrations parity note**: self-hosted migrations parity is represented by real frontend navigation/pages/guards, not by synthetic migration entities in the fixture.
+
+#### 3.2.5.1 ECAE Backend Service Foundation (2026-04-08)
+-   **Service seam**: metahubs backend now has a dedicated `domains/entities/services` foundation with `EntityTypeService`, `ActionService`, `EventBindingService`, `EntityEventRouter`, and `EntityMutationService`.
+-   **Ownership contract**: actions and event bindings are object-owned rows in `_mhb_actions` / `_mhb_event_bindings`; event bindings may reference only actions owned by the same object.
+-   **Lifecycle contract**: generic entity `before*` hooks run on the active transaction runner, while `after*` hooks dispatch only after commit through the pool executor.
+-   **Optimistic-lock typing seam**: shared conflict typing now includes `entity_type`, `action`, and `event_binding`, so downstream update flows can use the standard optimistic-lock helpers without lossy `record` placeholders.
+-   **Test-fixture seam**: service/unit tests that touch schema-qualified entity tables must use canonical metahub schema names such as `mhb_<hex>_b1`; placeholder names like `mhb_test_schema` fail before business logic because identifier helpers validate schema format.
+
+#### 3.2.5.2 ECAE Backend Route Surface (2026-04-08)
+-   **Route seam**: metahubs backend now exposes entity-type, action, and event-binding routes through the standard domain router stack under `/metahub/:metahubId/...`.
+-   **Route shape**: entity types use top-level metahub routes, while actions and event bindings are object-scoped lists plus singular record routes (`/object/:objectId/actions`, `/action/:actionId`, `/object/:objectId/event-bindings`, `/event-binding/:bindingId`).
+-   **Controller seam**: the new controllers remain thin and instantiate the existing ECAE services directly, following the same `createMetahubHandlerFactory(...)` and domain-error pattern as other metahubs domains.
+-   **Current limitation**: this checkpoint exposes only entity-type definitions plus object-owned actions/event bindings; generic entity-instance CRUD remains a later Phase 2.5 task.
+
+#### 3.2.5.3 Shared Entity-Type Resolver DB Extension (2026-04-08)
+-   **Resolution order**: the shared `EntityTypeResolver` now resolves built-ins from `BUILTIN_ENTITY_TYPE_REGISTRY` first and falls through to `EntityTypeService.resolveType(...)` only when a metahub context exists and the kind is not built-in.
+-   **Caching seam**: repeated custom-kind lookups are cached per resolver instance and keyed by `metahubId + userId + kind`; failed lookups are not kept if the service call throws.
+-   **Async contract**: resolver consumers must now treat `resolve(...)`, `resolveOrThrow(...)`, and `isComponentEnabled(...)` as async because custom DB-backed kinds require IO.
+
+#### 3.2.5.4 Generic Custom Entity CRUD Backend (2026-04-08)
+-   **Route seam**: metahubs backend now exposes custom-only generic entity instance routes under `/metahub/:metahubId/entities` plus singular `/entity/:entityId` copy/restore/permanent/reorder endpoints.
+-   **Coexistence guard**: those generic routes resolve the routed kind through `EntityTypeResolver` and reject built-in kinds fail closed, so catalogs/sets/enumerations continue using their legacy routes until Phase 2.5b/2.5c compatibility work lands.
+-   **Mutation seam**: `MetahubObjectsService` now accepts generic kind strings and optional `SqlQueryable` runners for `findById(...)`, `findByCodenameAndKind(...)`, `updateObject(...)`, `delete(...)`, `restore(...)`, and `permanentDelete(...)`, which lets `EntityMutationService` own the transaction/lifecycle boundary for generic create/update/delete/copy/restore flows.
+-   **Deleted-detail read seam**: the generic detail route remains active-row-only by default, but explicit `includeDeleted=true` requests now forward `{ includeDeleted: true }` into `MetahubObjectsService.findById(...)` so deleted-state and restore flows can inspect soft-deleted rows without widening the default read contract.
+-   **Lifecycle contract**: generic create/update/delete/copy now use the ECAE lifecycle dispatcher; create resolves the committed object id from the mutation result before `afterCreate` dispatch, while restore intentionally suppresses hooks through `mode: 'restore'`.
+
+#### 3.2.5.5 Design-Time Service Genericization And Policy Reuse (2026-04-08)
+-   **Object-scoped attribute seam**: `MetahubAttributesService` now exposes object-scoped system-attribute aliases (`listObjectSystemAttributes`, `getObjectSystemFieldsSnapshot`, `ensureObjectSystemAttributes`) while keeping the legacy catalog wrappers as compatibility passthroughs.
+-   **Shared copy seam**: `copyDesignTimeObjectChildren(...)` is the new transaction-aware helper for shared design-time child copy work across attributes, elements, constants, and enumeration values, with optional system-attribute reseeding for policy-sensitive catalog flows.
+-   **Legacy reuse rule**: catalog, set, and enumeration copy controllers remain the public route owners but now delegate shared child-copy behavior to the helper instead of maintaining controller-local duplication.
+-   **Generic copy rule**: generic custom-entity copy now resolves enabled design-time components from `EntityTypeResolver` and copies only the matching child surfaces; built-in kinds remain rejected on generic routes.
+-   **Validation seam**: the Phase 2.5c closure is validated by focused metahubs-backend route/service tests, warning-only package lint, a clean package build, and the canonical root `pnpm build`.
+
+#### 3.2.5.6 Reusable Entity Preset Template Registry (2026-04-09)
+-   **Registry seam**: reusable entity presets now live in the existing metahub template registry as `definition_type='entity_type_preset'`, sharing `metahubs.cat_templates` and `metahubs.doc_template_versions` with builtin metahub templates instead of using a second preset store.
+-   **DTO/API seam**: shared metahub template DTOs now expose `definitionType` on list responses and `activeVersionManifest` on detail responses so consumers can retrieve the active typed preset manifest directly.
+-   **Seeder/validator seam**: builtin entity presets are validated by the shared template manifest validator, including component dependency checks, and are seeded through the unified builtin template definition registry plus checksum-based builtin-template migration.
+-   **Frontend consumption seam**: `useTemplates(definitionType)`, `useTemplateDetail(...)`, `TemplateSelector`, and `EntityTypePresetSelector` now drive create-mode preset prefill in `EntitiesWorkspace` without changing edit-mode flows.
+
+#### 3.2.5.7 Entity Authoring Browser Proof Closure (2026-04-09)
+-   **Focused browser seam**: `tools/testing/e2e/specs/flows/metahub-entities-workspace.spec.ts` is the Phase 2.9 browser proof for the shipped entity-type authoring surface, covering preset-backed create, backend-confirmed persistence, and EN/RU parity through `/metahub/:metahubId/entities`.
+-   **Backend helper seam**: Playwright backend support now includes metahub entity-type list/detail helpers so the browser flow can confirm persistence through API state instead of DOM-only assertions.
+-   **Visual seam**: `tools/testing/e2e/specs/visual/metahub-entities-dialog.visual.spec.ts` intentionally captures the dialog after the preset selector loses focus; the snapshot baseline represents the non-focused combobox state to avoid focus-ring-only visual diffs.
+-   **UI visibility seam**: `EntitiesWorkspace` list mode now renders the primary name column explicitly with `row.name || row.kindKey`, which is the visible-name contract relied on by the focused browser flow after create.
 
 #### 3.2.6 Metahub Scripting Runtime Contract (2026-04-05)
 -   **Shared source of truth**: `@universo/types` owns script roles, source kinds, capability enums, role-based allowlists/defaults, and normalization helpers used by compiler, design-time validation, runtime persistence, and execution-context gating.
@@ -175,6 +220,17 @@ if (!userId) return
 #### 3.2.14 Package-Scoped Formatting And Lint Verification Nuance (2026-04-08)
 -   **Prettier cwd seam**: `pnpm --filter <package> exec prettier` runs from the package root, so workspace-root-relative file paths fail with `No files matching the pattern were found`. For explicit workspace-root-relative file lists, run `pnpm exec prettier --write ...` from the repository root instead.
 -   **Lint verification seam**: the metahubs backend/frontend package lint commands fail only on error-level findings; warning-only output still exits `0`. Post-QA closure for this repository therefore has to distinguish release-blocking lint errors from the broader warning backlog when validating a narrow remediation surface.
+
+#### 3.2.15 Core Frontend Build Heap Guard (2026-04-09)
+-   **Build script seam**: `@universo/core-frontend` now builds through `NODE_OPTIONS='--max-old-space-size=8192' vite build`.
+-   **Why it exists**: isolated `@universo/core-frontend` builds can pass without extra heap, but the canonical root `pnpm build` under Turbo can still hit V8 heap exhaustion during the core-frontend bundle when multiple workspace builds have already consumed memory.
+-   **Validation rule**: after touching heavy frontend packages, the canonical root `pnpm build` remains mandatory; do not treat an isolated core-frontend build as a sufficient substitute for the workspace-wide Turbo path.
+
+#### 3.2.16 TypeScript 6 Transitional Tsconfig Guard (2026-04-10)
+-   **Touched-package rule**: packages that still rely on `baseUrl` for current import resolution may keep a local `ignoreDeprecations: "5.0"` guard during the current editor-side TypeScript 6 transition instead of widening the migration across untouched packages.
+-   **RootDir rule**: touched package `tsconfig` files that emit build artifacts should declare an explicit `rootDir` so TS6 project-service diagnostics do not fail on `outDir` resolution.
+-   **Compiler reality**: the workspace catalog currently pins `typescript: ^5.8.3`, so `ignoreDeprecations: "6.0"` is invalid for real builds even if the editor surfaces TS6-style deprecation diagnostics.
+-   **Scope rule**: keep this as a minimal touched-package closeout seam, not a blanket monorepo-wide config rewrite, until a dedicated repo-wide alias migration is scheduled.
 
 #### 3.3 Runtime DDL Utilities (schema-ddl)
 -   **Package**: `@universo/schema-ddl` provides shared runtime DDL logic (schema generation, migrations, snapshots).

@@ -2,7 +2,7 @@ import { z } from 'zod'
 import type { DbExecutor, SqlQueryable } from '@universo/utils'
 import { localizedContent, database, OptimisticLockError, normalizeSetCopyOptions } from '@universo/utils'
 import { normalizeCodenameForStyle, isValidCodenameForStyle } from '@universo/utils/validation/codename'
-import type { SetCopyOptions, ConstantDataType } from '@universo/types'
+import type { SetCopyOptions } from '@universo/types'
 import { MetaEntityKind } from '@universo/types'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
@@ -27,6 +27,12 @@ import {
     syncCodenamePayloadText,
     syncOptionalCodenamePayloadText
 } from '../../shared/codenamePayload'
+import {
+    executeBlockedDelete,
+    executeHubScopedDelete,
+    executeLegacyReorder
+} from '../../entities/services/legacyBuiltinObjectCompatibility'
+import { copyDesignTimeObjectChildren } from '../../entities/services/designTimeObjectChildrenCopy'
 
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 
@@ -393,30 +399,6 @@ const getSetById = async (
 const getBlockingReferences = async (metahubId: string, setId: string, constantsService: MetahubConstantsService, userId?: string) =>
     constantsService.findSetReferenceBlockers(metahubId, setId, userId)
 
-const hardDeleteSet = async (
-    metahubId: string,
-    setId: string,
-    userId: string,
-    objectsService: MetahubObjectsService,
-    constantsService: MetahubConstantsService
-): Promise<{ status: number; payload?: Record<string, unknown> }> => {
-    const blockers = await getBlockingReferences(metahubId, setId, constantsService, userId)
-    if (blockers.length > 0) {
-        return {
-            status: 409,
-            payload: {
-                error: 'Cannot delete set because there are blocking references',
-                code: 'SET_DELETE_BLOCKED_BY_REFERENCES',
-                setId,
-                blockingReferences: blockers
-            }
-        }
-    }
-
-    await objectsService.delete(metahubId, setId, userId)
-    return { status: 204 }
-}
-
 // ---------------------------------------------------------------------------
 // Controller factory
 // ---------------------------------------------------------------------------
@@ -665,24 +647,21 @@ export function createSetsController(createHandler: ReturnType<typeof createMeta
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            try {
-                const updated = await objectsService.reorderByKind(
-                    metahubId,
-                    MetaEntityKind.SET,
-                    parsed.data.setId,
-                    parsed.data.newSortOrder,
-                    userId
-                )
-                return res.json({
-                    id: updated.id,
-                    sortOrder: updated.config?.sortOrder ?? 0
-                })
-            } catch (error: unknown) {
-                if (error instanceof Error && error.message === 'set not found') {
-                    throw new MetahubNotFoundError('set', parsed.data.setId)
-                }
-                throw error
+            const result = await executeLegacyReorder({
+                entityLabel: 'Set',
+                notFoundErrorMessage: 'set not found',
+                notFoundResponseMessage: 'set not found',
+                reorderEntity: () =>
+                    objectsService.reorderByKind(metahubId, MetaEntityKind.SET, parsed.data.setId, parsed.data.newSortOrder, userId),
+                getId: (updated) => updated.id,
+                getSortOrder: (updated) => updated.config?.sortOrder ?? 0
+            })
+
+            if (result.status === 404) {
+                throw new MetahubNotFoundError('set', parsed.data.setId)
             }
+
+            return res.json(result.body)
         },
         { permission: 'editContent' }
     )
@@ -792,8 +771,6 @@ export function createSetsController(createHandler: ReturnType<typeof createMeta
                 ? sourceConfig.hubs.filter((value: unknown): value is string => typeof value === 'string')
                 : []
 
-            const sourceConstants = copyOptions.copyConstants ? await constantsService.findAll(metahubId, setId, userId) : []
-
             let copiedConstants = 0
             let createdSetId: string | null = null
 
@@ -831,48 +808,19 @@ export function createSetsController(createHandler: ReturnType<typeof createMeta
                         )) as SetObjectRow
                         createdSetId = createdSet.id
 
-                        if (copyOptions.copyConstants) {
-                            for (const sourceConstant of sourceConstants) {
-                                const sourceConstantCodename = getCodenamePayloadText(
-                                    sourceConstant.codename as Parameters<typeof getCodenamePayloadText>[0]
-                                )
-                                if (!sourceConstantCodename) {
-                                    throw new Error('Source constant codename is missing')
-                                }
-                                const constantCodename = await constantsService.ensureUniqueCodenameWithRetries({
-                                    metahubId,
-                                    setId: createdSet.id,
-                                    desiredCodename: sourceConstantCodename,
-                                    codenameStyle,
-                                    userId,
-                                    db: trx
-                                })
-                                const constantCodenamePayload = syncCodenamePayloadText(
-                                    sourceConstant.codename,
-                                    DEFAULT_PRIMARY_LOCALE,
-                                    constantCodename,
-                                    codenameStyle,
-                                    codenameAlphabet
-                                )
-                                await constantsService.create(
-                                    metahubId,
-                                    {
-                                        setId: createdSet.id,
-                                        codename: constantCodenamePayload ?? constantCodename,
-                                        dataType: sourceConstant.dataType as ConstantDataType,
-                                        name: sourceConstant.name,
-                                        validationRules: sourceConstant.validationRules as Record<string, unknown> | undefined,
-                                        uiConfig: sourceConstant.uiConfig as Record<string, unknown> | undefined,
-                                        value: sourceConstant.value,
-                                        sortOrder: sourceConstant.sortOrder as number | undefined,
-                                        createdBy: userId
-                                    },
-                                    userId,
-                                    trx
-                                )
-                                copiedConstants += 1
-                            }
-                        }
+                        const copyResult = await copyDesignTimeObjectChildren({
+                            metahubId,
+                            sourceObjectId: setId,
+                            targetObjectId: createdSet.id,
+                            tx: trx,
+                            userId,
+                            copyConstants: copyOptions.copyConstants,
+                            codenameStyle,
+                            codenameAlphabet,
+                            constantsService
+                        })
+
+                        copiedConstants = copyResult.constantsCopied
                     })
                     break
                 } catch (error) {
@@ -934,56 +882,73 @@ export function createSetsController(createHandler: ReturnType<typeof createMeta
             const forceDelete = req.query.force === 'true'
 
             const setRow = (await objectsService.findById(metahubId, setId, userId)) as SetObjectRow | null
-            if (!isSetObject(setRow)) {
-                throw new MetahubNotFoundError('set', setId)
-            }
-
-            const hubIds = getSetHubIds(setRow)
-            if (hubId) {
-                if (!hubIds.includes(hubId)) {
-                    return res.status(404).json({ error: 'Set not found in this hub' })
+            const entity = isSetObject(setRow) ? setRow : null
+            const blockedOutcome = (blockers: Awaited<ReturnType<typeof getBlockingReferences>>) => ({
+                status: 409,
+                body: {
+                    error: 'Cannot delete set because there are blocking references',
+                    code: 'SET_DELETE_BLOCKED_BY_REFERENCES',
+                    setId,
+                    blockingReferences: blockers
                 }
+            })
 
-                if (!forceDelete && hubIds.length > 1) {
-                    const nextHubIds = hubIds.filter((id) => id !== hubId)
-                    const expectedVersion = typeof setRow._upl_version === 'number' ? setRow._upl_version : 1
-                    try {
-                        await objectsService.updateSet(
-                            metahubId,
-                            setId,
-                            {
-                                config: {
-                                    ...(setRow.config ?? {}),
-                                    hubs: nextHubIds
-                                },
-                                expectedVersion,
-                                updatedBy: userId
-                            },
-                            userId
-                        )
-                    } catch (error) {
-                        if (error instanceof OptimisticLockError) {
-                            return res.status(409).json({
-                                error: error.message,
-                                code: error.code,
-                                conflict: error.conflict
-                            })
-                        }
-                        throw error
-                    }
+            const result = hubId
+                ? await executeHubScopedDelete({
+                      entity,
+                      entityLabel: 'Set',
+                      notFoundMessage: 'set not found',
+                      notFoundInHubMessage: 'Set not found in this hub',
+                      hubId,
+                      forceDelete,
+                      getHubIds: getSetHubIds,
+                      detachFromHub: async (nextHubIds) => {
+                          const expectedVersion = typeof entity?._upl_version === 'number' ? entity._upl_version : 1
+                          await objectsService.updateSet(
+                              metahubId,
+                              setId,
+                              {
+                                  config: {
+                                      ...(entity?.config ?? {}),
+                                      hubs: nextHubIds
+                                  },
+                                  expectedVersion,
+                                  updatedBy: userId
+                              },
+                              userId
+                          )
+                      },
+                      detachConflictOutcome: (error) => {
+                          if (error instanceof OptimisticLockError) {
+                              return {
+                                  status: 409,
+                                  body: {
+                                      error: error.message,
+                                      code: error.code,
+                                      conflict: error.conflict
+                                  }
+                              }
+                          }
+                          return null
+                      },
+                      detachedMessage: 'Set was removed from the selected hub but kept in other hubs',
+                      findBlockingReferences: () => getBlockingReferences(metahubId, setId, constantsService, userId),
+                      blockedOutcome,
+                      deleteEntity: () => objectsService.delete(metahubId, setId, userId)
+                  })
+                : await executeBlockedDelete({
+                      entity,
+                      entityLabel: 'Set',
+                      notFoundMessage: 'set not found',
+                      findBlockingReferences: () => getBlockingReferences(metahubId, setId, constantsService, userId),
+                      blockedOutcome,
+                      deleteEntity: () => objectsService.delete(metahubId, setId, userId)
+                  })
 
-                    return res.status(200).json({
-                        message: 'Set was removed from the selected hub but kept in other hubs',
-                        remainingHubs: nextHubIds.length
-                    })
-                }
-            }
-
-            const result = await hardDeleteSet(metahubId, setId, userId, objectsService, constantsService)
             if (result.status === 204) {
                 return res.status(204).send()
             }
-            return res.status(result.status).json(result.payload)
+            return res.status(result.status).json(result.body)
         },
         { permission: 'deleteContent' }
     )

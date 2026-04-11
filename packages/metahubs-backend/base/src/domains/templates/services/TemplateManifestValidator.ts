@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import {
     ATTRIBUTE_DATA_TYPES,
+    validateComponentDependencies,
     CONSTANT_DATA_TYPES,
     META_ENTITY_KINDS,
     DASHBOARD_LAYOUT_ZONES,
@@ -136,6 +137,47 @@ const templateMetaSchema = z.object({
     tags: z.array(z.string()).optional(),
     icon: z.string().optional(),
     previewUrl: z.string().optional()
+})
+
+const componentConfigSchema = z.object({ enabled: z.boolean() })
+
+const componentManifestSchema = z.object({
+    dataSchema: z.union([componentConfigSchema.extend({ maxAttributes: z.number().int().nullable().optional() }), z.literal(false)]),
+    predefinedElements: z.union([componentConfigSchema.extend({ maxElements: z.number().int().nullable().optional() }), z.literal(false)]),
+    hubAssignment: z.union([
+        componentConfigSchema.extend({
+            isSingleHub: z.boolean().optional(),
+            isRequiredHub: z.boolean().optional()
+        }),
+        z.literal(false)
+    ]),
+    enumerationValues: z.union([componentConfigSchema, z.literal(false)]),
+    constants: z.union([componentConfigSchema, z.literal(false)]),
+    hierarchy: z.union([componentConfigSchema.extend({ supportsFolders: z.boolean().optional() }), z.literal(false)]),
+    nestedCollections: z.union([
+        componentConfigSchema.extend({ maxCollections: z.number().int().nullable().optional() }),
+        z.literal(false)
+    ]),
+    relations: z.union([
+        componentConfigSchema.extend({
+            allowedRelationTypes: z.array(z.string()).optional()
+        }),
+        z.literal(false)
+    ]),
+    actions: z.union([componentConfigSchema, z.literal(false)]),
+    events: z.union([componentConfigSchema, z.literal(false)]),
+    scripting: z.union([componentConfigSchema, z.literal(false)]),
+    layoutConfig: z.union([componentConfigSchema, z.literal(false)]),
+    runtimeBehavior: z.union([componentConfigSchema, z.literal(false)]),
+    physicalTable: z.union([componentConfigSchema.extend({ prefix: z.string().min(1) }), z.literal(false)])
+})
+
+const entityTypeUiSchema = z.object({
+    iconName: z.string().min(1),
+    tabs: z.array(z.string().min(1)).min(1),
+    sidebarSection: z.enum(['objects', 'admin']),
+    nameKey: z.string().min(1),
+    descriptionKey: z.string().min(1).optional()
 })
 
 const baseTemplateManifestSchema = z.object({
@@ -400,7 +442,53 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
     }
 })
 
+const entityTypePresetManifestSchemaBase = z.object({
+    $schema: z.literal('entity-type-preset/v1'),
+    codename: z
+        .string()
+        .min(1)
+        .max(100)
+        .regex(/^[a-z0-9-]+$/, 'Codename must be lowercase alphanumeric with hyphens'),
+    version: z.string().regex(/^\d+\.\d+\.\d+$/, 'Version must be SemVer (e.g., 1.0.0)'),
+    minStructureVersion: z.string().regex(/^\d+\.\d+\.\d+$/, 'Structure version must be SemVer (e.g., 0.1.0)'),
+    name: vlcSchema,
+    description: vlcSchema.optional(),
+    meta: templateMetaSchema.optional(),
+    entityType: z.object({
+        kindKey: z
+            .string()
+            .min(1)
+            .max(64)
+            .regex(/^[a-z][a-z0-9._-]{0,63}$/, 'Kind key must be lowercase and start with a letter'),
+        codename: vlcSchema.optional(),
+        components: componentManifestSchema,
+        ui: entityTypeUiSchema,
+        presentation: z.record(z.unknown()).optional(),
+        config: z.record(z.unknown()).optional()
+    })
+})
+
+export const entityTypePresetManifestSchema = entityTypePresetManifestSchemaBase.superRefine((manifest, ctx) => {
+    if (semverToStructureVersion(manifest.minStructureVersion) > CURRENT_STRUCTURE_VERSION) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['minStructureVersion'],
+            message: `Template requires structure version ${manifest.minStructureVersion}, but current platform supports only ${CURRENT_STRUCTURE_VERSION_SEMVER}`
+        })
+    }
+
+    const dependencyErrors = validateComponentDependencies(manifest.entityType.components)
+    for (const [index, error] of dependencyErrors.entries()) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['entityType', 'components', index],
+            message: error
+        })
+    }
+})
+
 export type ValidatedManifest = z.infer<typeof templateManifestSchema>
+export type ValidatedEntityTypePresetManifest = z.infer<typeof entityTypePresetManifestSchema>
 
 /**
  * Validates a template manifest object against the Zod schema.
@@ -408,4 +496,8 @@ export type ValidatedManifest = z.infer<typeof templateManifestSchema>
  */
 export function validateTemplateManifest(manifest: unknown): ValidatedManifest {
     return templateManifestSchema.parse(manifest)
+}
+
+export function validateEntityTypePresetManifest(manifest: unknown): ValidatedEntityTypePresetManifest {
+    return entityTypePresetManifestSchema.parse(manifest)
 }

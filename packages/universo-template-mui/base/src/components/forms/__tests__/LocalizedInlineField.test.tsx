@@ -39,12 +39,7 @@ describe('LocalizedInlineField', () => {
 
     it('keeps the primary locale badge inside the field row bounds', () => {
         renderWithProviders(
-            <LocalizedInlineField
-                mode='localized'
-                label='Name'
-                value={createLocalizedContent('en', 'Name')}
-                onChange={jest.fn()}
-            />
+            <LocalizedInlineField mode='localized' label='Name' value={createLocalizedContent('en', 'Name')} onChange={jest.fn()} />
         )
 
         const row = screen.getByTestId('localized-inline-row-en')

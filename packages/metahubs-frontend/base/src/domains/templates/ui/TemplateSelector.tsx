@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Box, FormControl, InputLabel, Select, MenuItem, Typography, Chip, CircularProgress } from '@mui/material'
+import type { TemplateDefinitionType } from '@universo/types'
 import { useTranslation } from 'react-i18next'
 import { getVLCString } from '../../../types'
 import { useTemplates } from '../../templates/hooks'
@@ -8,6 +9,9 @@ interface TemplateSelectorProps {
     value: string | undefined
     onChange: (templateId: string | undefined) => void
     disabled?: boolean
+    definitionType?: TemplateDefinitionType
+    allowEmptyOption?: boolean
+    emptyOptionLabel?: string
     /** When true, auto-select the default (first system) template if value is empty */
     autoSelectDefault?: boolean
 }
@@ -16,9 +20,17 @@ interface TemplateSelectorProps {
  * Template selector dropdown for metahub creation/edit dialog.
  * Fetches templates via TanStack Query and displays them as a select input.
  */
-export function TemplateSelector({ value, onChange, disabled, autoSelectDefault }: TemplateSelectorProps) {
+export function TemplateSelector({
+    value,
+    onChange,
+    disabled,
+    definitionType = 'metahub_template',
+    allowEmptyOption = false,
+    emptyOptionLabel,
+    autoSelectDefault
+}: TemplateSelectorProps) {
     const { t, i18n } = useTranslation('metahubs')
-    const { data: templates, isLoading, isError } = useTemplates()
+    const { data: templates, isLoading, isError } = useTemplates(definitionType)
     const locale = i18n.language?.split('-')[0] || 'en'
 
     // Auto-select default template (first system template) when no value is set
@@ -55,6 +67,7 @@ export function TemplateSelector({ value, onChange, disabled, autoSelectDefault 
                 onChange={(e) => onChange(e.target.value || undefined)}
                 disabled={disabled}
             >
+                {allowEmptyOption ? <MenuItem value=''>{emptyOptionLabel || t('templates.noTemplate', 'No template')}</MenuItem> : null}
                 {templates.map((tmpl) => {
                     const name = getVLCString(tmpl.name, locale) || tmpl.codename
                     const desc = tmpl.description ? getVLCString(tmpl.description, locale) : undefined

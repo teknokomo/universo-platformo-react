@@ -25,19 +25,24 @@ export const generateSchemaName = (applicationId: string): string => {
     return buildManagedDynamicSchemaName({ prefix: SCHEMA_PREFIX, ownerId: applicationId })
 }
 
-export const generateTableName = (entityId: string, kind: RuntimeEntityKind): string => {
+export const generateTableName = (entityId: string, kind: RuntimeEntityKind, prefixOverride?: string | null): string => {
     const cleanId = entityId.replace(/-/g, '')
-    const prefix = ENTITY_TABLE_PREFIX[kind] ?? 'obj'
+    const prefix = prefixOverride && prefixOverride.trim().length > 0 ? prefixOverride.trim() : ENTITY_TABLE_PREFIX[kind] ?? 'obj'
     return `${prefix}_${cleanId}`
 }
 
-export const resolveEntityTableName = (entity: { id: string; kind: RuntimeEntityKind; physicalTableName?: string | null }): string => {
+export const resolveEntityTableName = (entity: {
+    id: string
+    kind: RuntimeEntityKind
+    physicalTableName?: string | null
+    physicalTablePrefix?: string | null
+}): string => {
     if (typeof entity.physicalTableName === 'string' && entity.physicalTableName.trim().length > 0) {
         assertCanonicalIdentifier(entity.physicalTableName)
         return entity.physicalTableName
     }
 
-    return generateTableName(entity.id, entity.kind)
+    return generateTableName(entity.id, entity.kind, entity.physicalTablePrefix)
 }
 
 export const generateColumnName = (fieldId: string): string => {

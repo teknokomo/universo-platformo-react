@@ -1,11 +1,16 @@
 import { basicTemplate } from '../../domains/templates/data/basic.template'
-import { validateTemplateManifest } from '../../domains/templates/services/TemplateManifestValidator'
+import { catalogV2EntityPreset } from '../../domains/templates/data/catalog-v2.entity-preset'
+import { validateEntityTypePresetManifest, validateTemplateManifest } from '../../domains/templates/services/TemplateManifestValidator'
 
 const cloneTemplate = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
 
 describe('TemplateManifestValidator', () => {
     it('accepts the built-in basic template', () => {
         expect(() => validateTemplateManifest(cloneTemplate(basicTemplate))).not.toThrow()
+    })
+
+    it('accepts the built-in catalog entity preset', () => {
+        expect(() => validateEntityTypePresetManifest(cloneTemplate(catalogV2EntityPreset))).not.toThrow()
     })
 
     it('keeps the basic template default widgets limited to app navbar, header, details title, and details table', () => {
@@ -52,5 +57,13 @@ describe('TemplateManifestValidator', () => {
         })
 
         expect(() => validateTemplateManifest(manifest)).toThrow(/ambiguous/i)
+    })
+
+    it('rejects entity presets with invalid component dependency combinations', () => {
+        const manifest = cloneTemplate(catalogV2EntityPreset)
+        manifest.entityType.components.events = { enabled: true }
+        manifest.entityType.components.actions = false
+
+        expect(() => validateEntityTypePresetManifest(manifest)).toThrow(/actions/i)
     })
 })
