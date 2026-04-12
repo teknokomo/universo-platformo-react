@@ -734,7 +734,7 @@ const MetahubList = () => {
 
                         {isLoading && metahubsDisplay.length === 0 ? (
                             view === 'card' ? (
-                                <SkeletonGrid />
+                                <SkeletonGrid insetMode='content' />
                             ) : (
                                 <Skeleton variant='rectangular' height={120} />
                             )
@@ -747,7 +747,6 @@ const MetahubList = () => {
                                         sx={{
                                             display: 'grid',
                                             gap: gridSpacing,
-                                            mx: { xs: -1.5, md: -2 },
                                             gridTemplateColumns: {
                                                 xs: '1fr',
                                                 sm: 'repeat(auto-fill, minmax(240px, 1fr))',
@@ -799,7 +798,7 @@ const MetahubList = () => {
                                         })}
                                     </Box>
                                 ) : (
-                                    <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
+                                    <Box>
                                         <FlowListTable
                                             data={metahubsDisplay}
                                             images={images}
@@ -840,7 +839,7 @@ const MetahubList = () => {
 
                         {/* Table Pagination at bottom - only show when there's data */}
                         {!isLoading && metahubsDisplay.length > 0 && (
-                            <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
+                            <Box sx={{ mt: 2 }}>
                                 <PaginationControls
                                     pagination={paginationResult.pagination}
                                     actions={paginationResult.actions}

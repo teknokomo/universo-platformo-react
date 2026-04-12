@@ -1072,7 +1072,7 @@ const SetListContent = () => {
                         <Box sx={{ mt: isHubScoped ? 2 : 0 }}>
                             {isLoading && sortedSets.length === 0 ? (
                                 view === 'card' ? (
-                                    <SkeletonGrid />
+                                    <SkeletonGrid insetMode='content' />
                                 ) : (
                                     <Skeleton variant='rectangular' height={120} />
                                 )
@@ -1090,7 +1090,6 @@ const SetListContent = () => {
                                             sx={{
                                                 display: 'grid',
                                                 gap: gridSpacing,
-                                                mx: { xs: -1.5, md: -2 },
                                                 gridTemplateColumns: {
                                                     xs: '1fr',
                                                     sm: 'repeat(auto-fill, minmax(240px, 1fr))',
@@ -1152,7 +1151,7 @@ const SetListContent = () => {
                                             })}
                                         </Box>
                                     ) : (
-                                        <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
+                                        <Box>
                                             <FlowListTable
                                                 data={sortedSets.map(getSetCardData)}
                                                 images={images}
@@ -1197,7 +1196,7 @@ const SetListContent = () => {
 
                         {/* Table Pagination at bottom */}
                         {!isLoading && sortedSets.length > 0 && (
-                            <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
+                            <Box sx={{ mt: 2 }}>
                                 <PaginationControls
                                     pagination={paginationResult.pagination}
                                     actions={paginationResult.actions}

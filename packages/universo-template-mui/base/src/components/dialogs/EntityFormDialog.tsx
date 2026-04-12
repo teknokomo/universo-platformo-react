@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
     Dialog,
     DialogTitle,
@@ -196,22 +196,33 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
     const extraValuesRef = useRef<Record<string, any>>(normalizedInitialExtraValues)
     const wasOpenRef = useRef(false)
 
+    const syncFormStateToInitials = useCallback(() => {
+        setName(initialName)
+        setDescription(initialDescription)
+        setExtraValues(normalizedInitialExtraValues)
+        extraValuesRef.current = normalizedInitialExtraValues
+        setHasTouchedExtraValues(false)
+        setFieldErrors({})
+        setActiveTab(initialTabIndex)
+    }, [initialDescription, initialName, initialTabIndex, normalizedInitialExtraValues])
+
     useEffect(() => {
         extraValuesRef.current = extraValues
     }, [extraValues])
 
-    // Only reset form when dialog opens, not when initialExtraValues change
-    useEffect(() => {
+    // Reset before paint so the first visible open uses state-backed values and child mount effects cannot race the reset.
+    useLayoutEffect(() => {
         if (open && !wasOpenRef.current) {
-            setName(initialName)
-            setDescription(initialDescription)
-            setExtraValues(normalizedInitialExtraValues)
-            setHasTouchedExtraValues(false)
-            setFieldErrors({})
-            setActiveTab(initialTabIndex)
+            syncFormStateToInitials()
         }
         wasOpenRef.current = open
-    }, [open, initialName, initialDescription, initialTabIndex, normalizedInitialExtraValues])
+    }, [open, syncFormStateToInitials])
+
+    useEffect(() => {
+        if (!open) {
+            syncFormStateToInitials()
+        }
+    }, [open, syncFormStateToInitials])
 
     useEffect(() => {
         if (open && !hideDefaultFields) {

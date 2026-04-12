@@ -1,5 +1,28 @@
 # System Patterns
 > **Note**: Reusable architectural patterns and best practices. For completed work -> progress.md. For current tasks -> tasks.md.
+## Metahub Page Shell Unified Horizontal Gutter Pattern (IMPORTANT)
+**Rule**: Standalone metahub pages must use the dedicated narrower metahub shell gutter provided by `MainLayoutMUI` and must not reintroduce ad hoc negative `mx` bleed offsets or extra page-local horizontal padding below `ViewHeader`.
+**Required**:
+- The metahub shell route decision and inset math must come from the shared `pageSpacing.ts` helpers (`isMetahubShellRoute`, `getPageGutterPx`, `getHeaderInsetPx`) instead of duplicating regex logic inside `MainLayoutMUI`, `Header`, or route-level components.
+- Do not remove the route-aware `Header` inset just because `MainLayoutMUI` already applies shell `px`; the real `metahub-shell-spacing.spec.ts` browser proof currently requires that extra `Header` inset to keep breadcrumbs aligned with the metahub `ViewHeader` title region.
+- Legacy and entity-based metahub list surfaces should not use `mx: { xs: -1.5, md: -2 }` to widen card grids, tables, or pagination beyond the header gutter.
+- Metahub page-shell sections such as Common, Settings, Migrations, and Layout details should not use metahub-local `PAGE_CONTENT_GUTTER_MX` / `PAGE_TAB_BAR_SX` overrides that make the content wider than the page title and right-side actions.
+- Standalone metahub route pages should not add their own `px: { xs: 1.5, md: 2 }` wrappers on top of the shell; if the shell gutter must change again, change it once in `MainLayoutMUI` for `/metahubs` and `/metahub/*`.
+- The shared shell `Header` must stay in the same metahub-specific inset contract as the body content, because breadcrumbs and theme/language controls live there rather than in the page body.
+- Metahub loading states must not rely on `SkeletonGrid`'s older negative default `mx`; use the shared semantic contract `SkeletonGrid insetMode='content'` on metahub list/workspace routes so loading cards align with the steady-state content without repeating numeric `mx={0}` overrides.
+- If a surface is embedded inside another shell, keep the embedded-specific local layout logic there; the standalone route contract is the important one to preserve.
+- When adjusting metahub spacing again, validate both legacy and entity-based pages so the header/title gutter and the content gutter cannot drift apart silently.
+**Detection**: `rg "isMetahubShellRoute|getPageGutterPx|getHeaderInsetPx|mx: \{ xs: -1\.5, md: -2 \}|PAGE_CONTENT_GUTTER_MX|PAGE_TAB_BAR_SX|insetMode='content'|insetMode=\"content\"" packages`
+**Why**: The 2026-04-12 QA gap-closure pass revalidated that fixing only steady-state page content was not enough. The durable contract now includes one shared route-aware helper source plus a semantic loading-state inset mode, which prevents future spacing passes from reintroducing duplicated route detection or numeric loading overrides.
+## EntityFormDialog First-Open State Hydration Pattern (IMPORTANT)
+**Rule**: `EntityFormDialog` must render from internal state only; do not reintroduce first-open prop overrides or render-phase ref writes to paper over reset timing.
+**Required**:
+- Reset incoming dialog state before paint on the first open transition and resync to incoming initials while the dialog is closed.
+- Keep `extraValuesRef` synchronized only through reset helpers or effects; writing `extraValuesRef.current` during render is not allowed.
+- Preserve the existing async hydration contract: `shouldPreserveAsyncHydration(...)` and `hasTouchedExtraValues` still decide whether late `initialExtraValues` updates may replace current state.
+- Keep focused regression coverage for both first-open auto-initializer blanking and first-open child-update races in `EntityFormDialog.test.tsx`.
+**Detection**: `rg "isFreshOpen|renderedExtraValues|extraValuesRef\.current =|useLayoutEffect|shouldPreserveAsyncHydration" packages/universo-template-mui/base/src/components/dialogs`
+**Why**: The 2026-04-12 GH763 review triage confirmed two coupled issues in the older dialog approach: React render purity was violated by a render-phase ref write, and the passive open-reset cycle could overwrite first-open child updates. A state-backed before-paint reset closes both seams without regressing async hydration.
 ## Legacy-Compatible V2 Preset Automation Uplift Pattern (IMPORTANT)
 **Rule**: Legacy-compatible V2 presets built on top of automation-disabled built-in kinds must explicitly override their component manifest; do not spread `HUB_TYPE.components` or `ENUMERATION_TYPE.components` verbatim when the product contract promises V2-only automation capabilities.
 **Required**:
@@ -18,15 +41,15 @@
 - Keep direct service-level SQL regressions plus one real browser negative-path proof whenever this seam changes, so route-level mocks cannot hide an exact-kind regression.
 **Detection**: `rg "find(SetReferenceBlockers|AttributeReferenceBlockersByConstant|ReferenceBlockersByTarget|DefaultEnumValueBlockers|ElementEnumValueBlockers)|ANY\(\$[0-9]+::text\[\]\)|target_object_kind = 'set'|target_object_kind = 'enumeration'" packages/metahubs-backend tools/testing/e2e`
 **Why**: The 2026-04-12 QA completion pass found that route-level compatibility work was not sufficient on its own. Delete safety still drifted because the low-level SQL services filtered only exact built-in target kinds, which meant compatible `custom.set-v2*` and `custom.enumeration-v2*` references could bypass blocked-delete behavior until the query seam became array-aware.
-## Exact Requested Legacy-Compatible Kind Scope Pattern (IMPORTANT)
-**Rule**: Compatibility helpers may widen list scopes only when no explicit compatible custom `kindKey` was requested; once a route asks for a specific compatible kind, backend and frontend helpers must preserve that exact scope.
+## Validated Legacy-Compatible Read Union Pattern (IMPORTANT)
+**Rule**: Legacy-compatible hub/set/enumeration list reads must validate an explicit compatible custom `kindKey`, but after validation they must widen the read scope back to the full compatible kind union so V2 surfaces still show legacy rows on fresh imports.
 **Required**:
-- Shared backend list helpers such as `resolveRequestedLegacyCompatibleKinds(...)` must return `[requestedKindKey]` when the requested kind is already validated as legacy-compatible.
-- Do not widen an explicit compatible custom request back to `[builtInKind, requestedCustomKind]`; that leaks built-in rows into V2 filtered surfaces and breaks coexistence guarantees.
-- Shared kind-recognition helpers must treat preset-derived keys as compatible when they extend known defaults with suffixes, for example `custom.hub-v2-demo`, `custom.set-v2-demo`, or `custom.enumeration-v2-demo`.
-- Keep focused regression coverage on shared kind-resolution helpers, backend hubs/sets/enumerations route tests, and the broad legacy-compatible V2 Playwright coexistence flow whenever this seam changes.
+- Shared backend list helpers such as `resolveRequestedLegacyCompatibleKinds(...)` must validate the explicit compatible `kindKey` and then return the full `resolveLegacyCompatibleKinds(...)` union for list/read surfaces.
+- Do not collapse an explicit compatible V2 request to `[requestedKindKey]` on hub/set/enumeration list reads; that hides legacy rows from the V2 surfaces and breaks the accepted fresh-import coexistence contract.
+- Shared kind-recognition helpers must still treat preset-derived keys as compatible when they extend known defaults with suffixes, for example `custom.hub-v2-demo`, `custom.set-v2-demo`, or `custom.enumeration-v2-demo`.
+- Keep focused regression coverage on shared kind-resolution helpers, backend hubs/sets/enumerations route tests, and the broad legacy-compatible V2 browser flow whenever this seam changes.
 **Detection**: `rg "resolveRequestedLegacyCompatibleKinds|getLegacyCompatibleObjectKindForKindKey|custom\.(hub|set|enumeration)-v2-" packages/metahubs-backend packages/universo-types tools/testing/e2e`
-**Why**: The 2026-04-12 post-rebuild remediation found two coupled regressions on the shipped V2 coexistence surface: preset-derived compatible kinds were not always recognized by the shared helper layer, and explicit custom-kind list requests were silently widened back to the built-in/custom union. Preserving exact requested-kind scope prevents delegated V2 routes from leaking legacy built-in rows after future compatibility refactors.
+**Why**: The 2026-04-12 post-rebuild regression fix revalidated the actual product contract on a fresh imported metahub: Hub V2 / Set V2 / Enumeration V2 must still show legacy rows. Preserving the validated read-union rule prevents future compatibility refactors from reintroducing an exact-scope filter that hides those legacy rows again.
 ## Legacy-Compatible E2E Pathname Matcher Pattern (IMPORTANT)
 **Rule**: Playwright response matchers for legacy-compatible V2 entity routes must match on the response pathname, not on the raw full URL string.
 **Required**:

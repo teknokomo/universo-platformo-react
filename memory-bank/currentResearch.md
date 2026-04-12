@@ -1,5 +1,41 @@
 # Current Research
 
+## 2026-04-12: Metahub QA gap closure
+
+## 2026-04-12: PR #763 review comment QA triage
+
+- Research outcome implemented: only the dialog-related review comments were correct on the live tree. React docs confirmed that `EntityFormDialog` should not write `ref.current` during render, and the first-open reset path was indeed vulnerable to child mount effects overwriting or being overwritten by the passive open-reset cycle.
+- Implemented fix set: `EntityFormDialog` now performs the first-open reset in `useLayoutEffect`, resyncs to incoming initials while closed, renders extra fields from state only, and adds focused regression coverage for first-open child updates.
+- Rejected suggestion with proof: removing the route-aware `Header` inset looked plausible from the nested `Stack` structure, but the targeted Chromium `metahub-shell-spacing.spec.ts` run showed a `16px` breadcrumb/title drift immediately after that patch, so the `Header` inset contract was restored unchanged.
+- Closure validation: focused `EntityFormDialog` Jest passed (`10/10`), `pnpm --filter @universo/template-mui build` passed, `pnpm run build:e2e` passed, the targeted Chromium metahub shell-spacing flow passed (`2 passed`), and the canonical root `pnpm build` completed successfully.
+- No open research thread remains for this PR review-triage seam.
+
+- Research outcome implemented: the remaining QA debt after the visual spacing acceptance passes was structural, not visual-only. The accepted inset depended on duplicated metahub route detection across shared shell components, metahub loading states still used an implicit numeric override pattern, and the tree lacked real proof for browser geometry plus negative-path generic-entity ACL behavior.
+- Implemented fix set: `pageSpacing.ts` now centralizes the route-aware metahub shell helpers consumed by `MainLayoutMUI` and `Header`; `SkeletonGrid` now exposes semantic `insetMode='page' | 'content'` plus the stable `skeleton-grid` selector; the affected metahub routes now use `insetMode='content'`; focused `entityInstancesRoutes` ACL tests now prove `403` denial behavior for generic delete and catalog-compatible create; and the new authenticated Playwright flow `metahub-shell-spacing.spec.ts` proves breadcrumb/header/loading-skeleton alignment on `/metahubs` during a delayed loading state.
+- Closure validation: `pnpm --filter @universo/template-mui build` passed, `pnpm --filter @universo/template-mui test` passed (`23/23`), `pnpm --filter @universo/metahubs-frontend build` passed, `pnpm run build:e2e` passed, the targeted Chromium shell-spacing flow passed (`2 passed` including auth setup), and the canonical root `pnpm build` completed green.
+- Wider `entityInstancesRoutes` permanent-delete policy failures remain an older branch baseline and were not changed in this session; no open research thread remains for the metahub QA-gap closure itself.
+
+## 2026-04-12: Metahub gutter narrowing follow-up
+
+- Research outcome implemented: removing the old content bleed offsets fixed the original mismatch, but the resulting metahub page inset was still wider than the acceptance screenshots because breadcrumbs remained tied to the shared shell gutter.
+- Implemented fix set: `MainLayoutMUI` now applies a narrower route-aware gutter for `/metahubs` and `/metahub/*`, and `MetahubBoard` dropped its remaining extra header padding so metahub breadcrumbs, headers, content, and pagination all align to the same smaller inset.
+- Closure validation: `pnpm --filter @universo/template-mui build` passed, `pnpm --filter @universo/metahubs-frontend build` passed, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- No open research thread remains for this metahub gutter follow-up.
+
+## 2026-04-12: Metahub page horizontal spacing fix
+
+- Research outcome implemented: the spacing issue was not isolated to one list page. The same standalone page-shell drift existed across both legacy and entity-based metahub pages because the main layout already provided a gutter while the page content still applied older negative bleed offsets.
+- Implemented fix set: the old horizontal bleed offsets were removed from metahub card/table/banner/pagination wrappers and from the Common/Settings/Migrations/Layout page shells, so headers and the content below now align to the same left/right gutter.
+- Closure validation: `pnpm --filter @universo/metahubs-frontend build` completed green, diagnostics stayed clean, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- No open research thread remains for this metahub spacing seam.
+
+## 2026-04-12: Entity V2 post-rebuild regression fix
+
+- Research outcome implemented: the fresh-import defects were two narrow shipped-surface seams, not a wider entity-definition data-loss problem. The first-open blank fields came from shared dialog state timing, and the missing Hub V2 / Set V2 / Enumeration V2 rows came from an over-narrow compatibility read scope.
+- Implemented fix set: `EntityFormDialog` now renders fresh initial localized values on the first open, and `resolveRequestedLegacyCompatibleKinds(...)` now validates the requested compatible kind and widens read scopes back to the full compatible union for hub/set/enumeration list surfaces.
+- Closure validation: focused backend route regressions passed (`39/39`), focused shared dialog coverage passed (`9/9`), focused compatibility-helper coverage passed (`2/2`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- No open research thread remains for this post-rebuild regression seam.
+
 ## 2026-04-12: Self-hosted fixture QA closure
 
 - Research outcome implemented: the last real QA findings on the current tree were no longer preset manifests or compatibility ACLs; they were a stale committed self-hosted fixture and a browser import flow that still validated only counts/layout structure.

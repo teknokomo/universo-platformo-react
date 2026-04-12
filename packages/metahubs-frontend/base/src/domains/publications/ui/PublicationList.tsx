@@ -770,7 +770,6 @@ const PublicationList = () => {
                             severity='info'
                             icon={<InfoIcon />}
                             sx={{
-                                mx: { xs: -1.5, md: -2 },
                                 mt: 0,
                                 mb: 2
                             }}
@@ -784,7 +783,7 @@ const PublicationList = () => {
 
                     {isLoading && publications.length === 0 ? (
                         view === 'card' ? (
-                            <SkeletonGrid />
+                            <SkeletonGrid insetMode='content' />
                         ) : (
                             <Skeleton variant='rectangular' height={120} />
                         )
@@ -802,7 +801,6 @@ const PublicationList = () => {
                                     sx={{
                                         display: 'grid',
                                         gap: gridSpacing,
-                                        mx: { xs: -1.5, md: -2 },
                                         gridTemplateColumns: {
                                             xs: '1fr',
                                             sm: 'repeat(auto-fill, minmax(240px, 1fr))',
@@ -854,7 +852,7 @@ const PublicationList = () => {
                                     })}
                                 </Box>
                             ) : (
-                                <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
+                                <Box>
                                     <FlowListTable
                                         data={visiblePublications.map(getPublicationCardData)}
                                         images={images}
@@ -891,7 +889,7 @@ const PublicationList = () => {
                             )}
 
                             {totalItems > 0 && (
-                                <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
+                                <Box sx={{ mt: 2 }}>
                                     <PaginationControls
                                         pagination={pagination}
                                         actions={paginationActions}

@@ -1494,7 +1494,7 @@ const ElementList = () => {
                             description={attributes.length === 0 ? t('elements.addAttributesFirst') : t('elements.emptyDescription')}
                         />
                     ) : (
-                        <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
+                        <Box>
                             <FlowListTable
                                 data={sortedElements.map(getElementTableData)}
                                 images={images}
@@ -1534,7 +1534,7 @@ const ElementList = () => {
 
                     {/* Table Pagination at bottom */}
                     {!isLoading && sortedElements.length > 0 && (
-                        <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
+                        <Box sx={{ mt: 2 }}>
                             <PaginationControls
                                 pagination={paginationResult.pagination}
                                 actions={paginationResult.actions}

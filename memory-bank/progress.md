@@ -45,6 +45,71 @@
 | 0.22.0-alpha | 2025-07-27 | 0.22.0 Alpha — 2025-07-27 (Global Impulse) ⚡️    | Memory Bank, MMOOMM improvements                                                                    |
 | 0.21.0-alpha | 2025-07-20 | 0.21.0 Alpha — 2025-07-20 (Firm Resolve) 💪       | Handler refactoring, PlayCanvas stabilization                                                       |
 
+## 2026-04-12 PR #763 Review Comment QA Triage
+
+Closed the review-driven follow-up for GH763 by validating each bot suggestion against the live branch state, React documentation, and the existing browser proof before changing code. The real fixes were limited to the shared dialog first-open hydration seam; the suggested `Header` inset removal looked plausible in JSX but failed the real metahub shell-spacing browser contract and was therefore rejected.
+
+| Area | Resolution |
+| --- | --- |
+| Confirmed dialog fixes | `EntityFormDialog` now resets incoming initial state before paint on first open, syncs the closed dialog state back to incoming initials, and renders from internal state instead of the earlier `isFreshOpen` prop override path. |
+| Render purity | The dialog no longer writes `extraValuesRef.current` during render; the ref is synchronized only through state-reset helpers and effects, which aligns the component with React's render-purity guidance. |
+| Review rejection with proof | The proposed `Header` inset removal was tested through `metahub-shell-spacing.spec.ts` and immediately broke breadcrumb/title alignment (`16px` left-edge drift), so the shared route-aware `Header` inset contract remains intentionally intact. |
+| Validation | Focused `EntityFormDialog` Jest passed (`10/10`), `pnpm --filter @universo/template-mui build` passed, `pnpm run build:e2e` passed, the targeted Chromium metahub shell-spacing flow passed (`2 passed`), and the canonical root `pnpm build` completed successfully. |
+
+## 2026-04-12 Metahub QA Gap Closure
+
+Closed the three residual QA gaps left after the metahub spacing acceptance work: duplicated shell-spacing logic across shared layout components, ad hoc metahub loading-state overrides, and missing proof for both browser geometry and negative-path generic-entity permissions. This pass kept the accepted metahub inset unchanged while moving the contract into shared helpers and adding real validation instead of relying on JSX inspection alone.
+
+| Area | Resolution |
+| --- | --- |
+| Shared shell-spacing contract | `pageSpacing.ts` now owns the shared metahub helpers (`isMetahubShellRoute`, `getPageGutterPx`, `getHeaderInsetPx`), and both `MainLayoutMUI` and the shared `Header` consume that single route-aware source instead of maintaining separate metahub regex logic. |
+| Loading-state contract | `SkeletonGrid` now exposes semantic `insetMode='page' | 'content'` plus the stable `skeleton-grid` test id, and the affected metahub routes now use `insetMode='content'` instead of scattered `mx={0}` overrides tied to the component's older negative default margin. |
+| Regression proof | `entityInstancesRoutes` now includes isolated `403` ACL regressions for generic delete and catalog-compatible create denial paths, and the new authenticated Playwright flow `metahub-shell-spacing.spec.ts` proves breadcrumb/header/loading-skeleton edge alignment on `/metahubs` during a delayed real loading state. |
+| Validation | `pnpm --filter @universo/template-mui build` passed, `pnpm --filter @universo/template-mui test` passed (`23/23`), `pnpm --filter @universo/metahubs-frontend build` passed, `pnpm run build:e2e` passed, the targeted Chromium shell-spacing flow passed (`2 passed` including auth setup), and the canonical root `pnpm build` completed green. |
+
+## 2026-04-12 Metahub Page Horizontal Spacing Fix
+
+Closed the metahub page-shell spacing drift that had accumulated across both the legacy authoring pages and the newer entity-based surfaces. This pass did not redesign the pages; it removed the old horizontal bleed offsets that pulled cards, tables, banners, tabs, and pagination wider than the shared header gutter provided by the main layout shell.
+
+| Area | Resolution |
+| --- | --- |
+| Shared gutter contract | Standalone metahub pages now respect the outer gutter already applied by `MainLayoutMUI` instead of compensating it again with `mx: { xs: -1.5, md: -2 }` or metahub-local `PAGE_CONTENT_GUTTER_MX` usage. |
+| Legacy and entity-based lists | Hubs, Catalogs, Sets, Enumerations, Branches, Members, Metahubs, Elements, Publications, and the entity-based `EntitiesWorkspace` / `EntityInstanceList` surfaces now align page titles/actions with card grids, tables, banners, and pagination under one left/right spacing rule. |
+| Page-shell tabs and nested sections | Common, Settings, Migrations, Layout details, and the nested attribute/constant/enumeration value/layout list surfaces no longer widen tabs or content beyond the header gutter, which removes the “header inset vs content edge” mismatch across metahub navigation. |
+| Validation | `pnpm --filter @universo/metahubs-frontend build` completed green, diagnostics stayed clean, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+## 2026-04-12 Metahub Gutter Narrowing Follow-up
+
+Closed the acceptance follow-up on the same metahub spacing seam after the first pass proved directionally correct but still left the shared page inset wider than the target shown in the screenshots. Instead of restoring ad hoc negative margins on individual list pages, the follow-up narrowed the metahub route gutter at the shell level so breadcrumbs, title/actions, body content, and pagination all move together.
+
+| Area | Resolution |
+| --- | --- |
+| Shared shell gutter | `MainLayoutMUI` now uses a narrower route-aware gutter only for `/metahubs` and `/metahub/*` pages (`px: { xs: 1, md: 1.5 }`) while leaving the default shell gutter unchanged for the rest of the workspace. |
+| Metahub page alignment | Because breadcrumbs live in the shared shell header, this route-level gutter change keeps breadcrumbs, section headers/actions, cards/tables, and pagination on the same x-offset without reintroducing metahub-local bleed offsets. |
+| Residual local padding cleanup | `MetahubBoard` no longer adds its own extra horizontal header padding, so the dashboard page follows the same metahub route gutter as the rest of the metahub surfaces. |
+| Validation | `pnpm --filter @universo/template-mui build` passed, `pnpm --filter @universo/metahubs-frontend build` passed, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+## 2026-04-12 Metahub Breadcrumb And Skeleton Inset Follow-up
+
+Closed the last acceptance-visible spacing seams on the metahub shell after the narrowed route gutter revealed two remaining mismatches: the top breadcrumbs/theme-language row still sat on the raw shell edge, and metahub loading skeletons still used the older negative bleed behavior. This follow-up kept the already-correct steady-state body spacing intact and aligned only the remaining outliers.
+
+| Area | Resolution |
+| --- | --- |
+| Shared header row | The shared `Header` now applies metahub-only horizontal padding on `/metahubs` and `/metahub/*`, so breadcrumbs and the top-right shell controls align with the corrected page body inset instead of staying closer to the edge than the title/content below. |
+| Loading-state parity | The affected metahub card-view loading branches now render `SkeletonGrid mx={0}`, so skeleton cards use the same inset as the steady-state metahub grids instead of inheriting the component's older negative default `mx`. |
+| Validation | `pnpm --filter @universo/template-mui build` passed, `pnpm --filter @universo/metahubs-frontend build` passed, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+## 2026-04-12 Entity V2 Post-Rebuild Regression Fix
+
+Closed the two fresh-import regressions that only reproduced after rebuilding the workspace, recreating the database, and importing `tools/fixtures/metahubs-self-hosted-app-snapshot.json`. This pass stayed narrow on the real product seams: the shared entity-type dialog first-open hydration path and the compatibility-aware list scope used by Hub V2 / Set V2 / Enumeration V2.
+
+| Area | Resolution |
+| --- | --- |
+| First-open entity-type dialog hydration | `EntityFormDialog` now renders fresh `initialExtraValues` on the first open instead of waiting for reset effects, so localized Name/Description and the rest of the entity-type payload no longer appear blank until the dialog is reopened. |
+| Legacy row visibility on V2 list surfaces | `resolveRequestedLegacyCompatibleKinds(...)` now validates the requested compatible V2 `kindKey` and then widens list reads back to the full compatibility union, so Hub V2 / Set V2 / Enumeration V2 again show legacy rows alongside V2 rows on a fresh imported metahub. |
+| Regression coverage | Shared dialog coverage now locks the first-open localized-hydration seam, shared compatibility-helper coverage now proves validated V2 requests widen to the legacy-compatible read union, and route suites for hubs/sets/enumerations now assert the restored visibility contract directly. |
+| Validation | Focused metahubs-backend route coverage passed (`39/39`), focused `EntityFormDialog` coverage passed (`9/9`), focused legacy-compatibility helper coverage passed (`2/2`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
 ## 2026-04-12 GitBook Asset Layout Migration
 
 Closed the GitBook screenshot publication gap by aligning the repository with the working locale-local asset layout used by the verified Flowise reference project. This pass moved the published screenshots out of the removed shared `docs/assets` tree, rewired the EN/RU guide links to `../.gitbook/assets/...`, updated the quiz tutorial screenshot generator so future regenerations keep EN and RU assets in sync, and finished on green docs/build validation.
@@ -157,7 +222,7 @@ Closed the remaining post-rebuild regression debt on the already-shipped Entity 
 | --- | --- |
 | Delegated Set/Enumeration runtime stability | `SetList` and `EnumerationList` now restore the resolved `kindKey` alias from `entityKindKey`, so the reused legacy authoring surfaces stop crashing on delegated entity-owned V2 routes. |
 | Preset-derived compatibility resolution | `getLegacyCompatibleObjectKindForKindKey(...)` now recognizes exact default compatible kind keys plus suffixed preset-derived variants such as `custom.hub-v2-demo`, and focused `@universo/types` plus route-helper regressions lock that behavior. |
-| Exact requested-kind filtering | `resolveRequestedLegacyCompatibleKinds(...)` now returns only the explicitly requested compatible custom kind for list routes instead of widening back to the built-in/custom union, which prevents built-in hub/set/enumeration rows from leaking into custom V2 filtered surfaces. |
+| Exact requested-kind filtering | `resolveRequestedLegacyCompatibleKinds(...)` temporarily returned only the explicitly requested compatible custom kind for list routes instead of widening back to the built-in/custom union; this was later revised by the 2026-04-12 post-rebuild regression fix after fresh-import validation re-confirmed that Hub V2 / Set V2 / Enumeration V2 list reads must still include legacy rows. |
 | Validation | Focused `@universo/types` and metahubs-frontend shared route-helper regressions passed, focused backend hubs/sets/enumerations route coverage passed (`39/39`), `pnpm run build:e2e` completed green (`30 successful`, `30 total`), the targeted Chromium legacy-compatible V2 suite passed (`6 passed`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
 
 ### Validation

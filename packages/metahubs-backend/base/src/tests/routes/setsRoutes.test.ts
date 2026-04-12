@@ -208,7 +208,7 @@ describe('Sets Routes', () => {
         expect(response.body.items[0].hubs).toEqual([{ id: 'hub-1', name: { en: 'Hub One' }, codename: 'HubOne' }])
     })
 
-    it('GET /metahub/:metahubId/sets uses the requested legacy-compatible custom set kind as an exact list scope', async () => {
+    it('GET /metahub/:metahubId/sets widens the requested legacy-compatible custom set kind to the compatibility list scope', async () => {
         mockEntityTypeService.listCustomTypes.mockResolvedValue([
             {
                 kindKey: 'custom.set-v2-compatible',
@@ -222,6 +222,16 @@ describe('Sets Routes', () => {
         })
         mockObjectsService.findAllByKinds.mockResolvedValue([
             {
+                id: 'set-legacy-1',
+                kind: 'set',
+                codename: 'ProductsSet',
+                presentation: { name: { en: 'Products' }, description: { en: 'Legacy set' } },
+                config: { hubs: [], isSingleHub: false, isRequiredHub: false, sortOrder: 1 },
+                _upl_version: 1,
+                _upl_created_at: '2026-03-03T10:00:00.000Z',
+                _upl_updated_at: '2026-03-03T11:00:00.000Z'
+            },
+            {
                 id: 'set-v2-1',
                 kind: 'custom.set-v2-compatible',
                 codename: 'ProductsSetV2',
@@ -232,23 +242,38 @@ describe('Sets Routes', () => {
                 _upl_updated_at: '2026-03-04T11:00:00.000Z'
             }
         ])
-        mockConstantsService.countByObjectIds.mockResolvedValue(new Map([['set-v2-1', 3]]))
+        mockConstantsService.countByObjectIds.mockResolvedValue(
+            new Map([
+                ['set-legacy-1', 2],
+                ['set-v2-1', 3]
+            ])
+        )
 
         const app = buildApp()
         const response = await request(app)
             .get('/metahub/test-metahub-id/sets?kindKey=custom.set-v2-compatible')
             .expect(200)
 
-        expect(response.body.pagination).toMatchObject({ total: 1, limit: 100, offset: 0 })
-        expect(response.body.items[0]).toMatchObject({
-            id: 'set-v2-1',
-            codename: 'ProductsSetV2',
-            constantsCount: 3,
-            sortOrder: 4
-        })
+        expect(response.body.pagination).toMatchObject({ total: 2, limit: 100, offset: 0 })
+        expect(response.body.items).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    id: 'set-legacy-1',
+                    codename: 'ProductsSet',
+                    constantsCount: 2,
+                    sortOrder: 1
+                }),
+                expect.objectContaining({
+                    id: 'set-v2-1',
+                    codename: 'ProductsSetV2',
+                    constantsCount: 3,
+                    sortOrder: 4
+                })
+            ])
+        )
         expect(mockObjectsService.findAllByKinds).toHaveBeenCalledWith(
             'test-metahub-id',
-            ['custom.set-v2-compatible'],
+            ['set', 'custom.set-v2-compatible'],
             'test-user-id'
         )
     })

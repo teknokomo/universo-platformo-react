@@ -405,6 +405,32 @@ describe('Entity instance routes', () => {
         expect(mockObjectsService.delete).toHaveBeenCalledWith('metahub-1', 'entity-1', 'user-1', mockExec)
     })
 
+    it('returns 403 when metahub access check fails for generic delete routes', async () => {
+        mockObjectsService.findById.mockResolvedValueOnce({
+            id: 'entity-1',
+            kind: 'custom-order',
+            codename: 'CustomOrder',
+            name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Custom order' } } },
+            description: null,
+            config: { enabled: true },
+            _mhb_deleted: false
+        })
+        mockResolver.resolve.mockResolvedValueOnce({
+            kindKey: 'custom-order',
+            source: 'custom',
+            components: {},
+            config: {}
+        })
+        mockEnsureMetahubAccess.mockRejectedValueOnce(Object.assign(new Error('Access denied to this metahub'), { statusCode: 403 }))
+
+        const app = buildApp()
+
+        const response = await request(app).delete('/metahub/metahub-1/entity/entity-1').expect(403)
+
+        expect(response.body.error).toBe('Access denied to this metahub')
+        expect(mockObjectsService.delete).not.toHaveBeenCalled()
+    })
+
     it('copies a custom entity via the mutation service', async () => {
         mockObjectsService.findById.mockResolvedValueOnce({
             id: 'entity-1',
@@ -685,6 +711,35 @@ describe('Entity instance routes', () => {
 
         expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'editContent', mockDbSession)
         expect(mockEnsureMetahubAccess).not.toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
+    })
+
+    it('returns 403 when metahub access check fails for catalog-compatible creates on the generic route surface', async () => {
+        mockResolver.resolve.mockResolvedValueOnce({
+            kindKey: 'custom.catalog-v2',
+            source: 'custom',
+            components: {},
+            config: {
+                compatibility: {
+                    legacyObjectKind: 'catalog'
+                }
+            }
+        })
+        mockEnsureMetahubAccess.mockRejectedValueOnce(Object.assign(new Error('Access denied to this metahub'), { statusCode: 403 }))
+
+        const app = buildApp()
+
+        const response = await request(app)
+            .post('/metahub/metahub-1/entities')
+            .send({
+                kind: 'custom.catalog-v2',
+                codename: 'CatalogV2',
+                name: { en: 'Catalogs V2' },
+                namePrimaryLocale: 'en'
+            })
+            .expect(403)
+
+        expect(response.body.error).toBe('Access denied to this metahub')
+        expect(mockObjectsService.createObject).not.toHaveBeenCalled()
     })
 
     it('rejects catalog-compatible copies when catalogs.allowCopy is disabled', async () => {

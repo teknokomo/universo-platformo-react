@@ -95,7 +95,7 @@ export const resolveRequestedLegacyCompatibleKinds = async (
     }
 
     await resolveRequestedLegacyCompatibleKind(entityTypeService, metahubId, legacyKind, normalizedRequestedKindKey, userId)
-    return [normalizedRequestedKindKey]
+    return resolveLegacyCompatibleKinds(entityTypeService, metahubId, legacyKind, userId)
 }
 
 export const resolveStoredLegacyCompatibleKind = async (
