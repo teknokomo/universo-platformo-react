@@ -4,6 +4,7 @@
 **Rule**: Standalone metahub pages must use the dedicated narrower metahub shell gutter provided by `MainLayoutMUI` and must not reintroduce ad hoc negative `mx` bleed offsets or extra page-local horizontal padding below `ViewHeader`.
 **Required**:
 - The metahub shell route decision and inset math must come from the shared `pageSpacing.ts` helpers (`isMetahubShellRoute`, `getPageGutterPx`, `getHeaderInsetPx`) instead of duplicating regex logic inside `MainLayoutMUI`, `Header`, or route-level components.
+- Do not remove the route-aware `Header` inset just because `MainLayoutMUI` already applies shell `px`; the real `metahub-shell-spacing.spec.ts` browser proof currently requires that extra `Header` inset to keep breadcrumbs aligned with the metahub `ViewHeader` title region.
 - Legacy and entity-based metahub list surfaces should not use `mx: { xs: -1.5, md: -2 }` to widen card grids, tables, or pagination beyond the header gutter.
 - Metahub page-shell sections such as Common, Settings, Migrations, and Layout details should not use metahub-local `PAGE_CONTENT_GUTTER_MX` / `PAGE_TAB_BAR_SX` overrides that make the content wider than the page title and right-side actions.
 - Standalone metahub route pages should not add their own `px: { xs: 1.5, md: 2 }` wrappers on top of the shell; if the shell gutter must change again, change it once in `MainLayoutMUI` for `/metahubs` and `/metahub/*`.
@@ -13,6 +14,15 @@
 - When adjusting metahub spacing again, validate both legacy and entity-based pages so the header/title gutter and the content gutter cannot drift apart silently.
 **Detection**: `rg "isMetahubShellRoute|getPageGutterPx|getHeaderInsetPx|mx: \{ xs: -1\.5, md: -2 \}|PAGE_CONTENT_GUTTER_MX|PAGE_TAB_BAR_SX|insetMode='content'|insetMode=\"content\"" packages`
 **Why**: The 2026-04-12 QA gap-closure pass revalidated that fixing only steady-state page content was not enough. The durable contract now includes one shared route-aware helper source plus a semantic loading-state inset mode, which prevents future spacing passes from reintroducing duplicated route detection or numeric loading overrides.
+## EntityFormDialog First-Open State Hydration Pattern (IMPORTANT)
+**Rule**: `EntityFormDialog` must render from internal state only; do not reintroduce first-open prop overrides or render-phase ref writes to paper over reset timing.
+**Required**:
+- Reset incoming dialog state before paint on the first open transition and resync to incoming initials while the dialog is closed.
+- Keep `extraValuesRef` synchronized only through reset helpers or effects; writing `extraValuesRef.current` during render is not allowed.
+- Preserve the existing async hydration contract: `shouldPreserveAsyncHydration(...)` and `hasTouchedExtraValues` still decide whether late `initialExtraValues` updates may replace current state.
+- Keep focused regression coverage for both first-open auto-initializer blanking and first-open child-update races in `EntityFormDialog.test.tsx`.
+**Detection**: `rg "isFreshOpen|renderedExtraValues|extraValuesRef\.current =|useLayoutEffect|shouldPreserveAsyncHydration" packages/universo-template-mui/base/src/components/dialogs`
+**Why**: The 2026-04-12 GH763 review triage confirmed two coupled issues in the older dialog approach: React render purity was violated by a render-phase ref write, and the passive open-reset cycle could overwrite first-open child updates. A state-backed before-paint reset closes both seams without regressing async hydration.
 ## Legacy-Compatible V2 Preset Automation Uplift Pattern (IMPORTANT)
 **Rule**: Legacy-compatible V2 presets built on top of automation-disabled built-in kinds must explicitly override their component manifest; do not spread `HUB_TYPE.components` or `ENUMERATION_TYPE.components` verbatim when the product contract promises V2-only automation capabilities.
 **Required**:

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
     Dialog,
     DialogTitle,
@@ -195,29 +195,34 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
     const nameInputRef = useRef<HTMLInputElement>(null)
     const extraValuesRef = useRef<Record<string, any>>(normalizedInitialExtraValues)
     const wasOpenRef = useRef(false)
-    const isFreshOpen = open && !wasOpenRef.current
-    const renderedName = isFreshOpen ? initialName : name
-    const renderedDescription = isFreshOpen ? initialDescription : description
-    const renderedExtraValues = isFreshOpen ? normalizedInitialExtraValues : extraValues
 
-    extraValuesRef.current = renderedExtraValues
+    const syncFormStateToInitials = useCallback(() => {
+        setName(initialName)
+        setDescription(initialDescription)
+        setExtraValues(normalizedInitialExtraValues)
+        extraValuesRef.current = normalizedInitialExtraValues
+        setHasTouchedExtraValues(false)
+        setFieldErrors({})
+        setActiveTab(initialTabIndex)
+    }, [initialDescription, initialName, initialTabIndex, normalizedInitialExtraValues])
 
     useEffect(() => {
         extraValuesRef.current = extraValues
     }, [extraValues])
 
-    // Only reset form when dialog opens, not when initialExtraValues change
-    useEffect(() => {
+    // Reset before paint so the first visible open uses state-backed values and child mount effects cannot race the reset.
+    useLayoutEffect(() => {
         if (open && !wasOpenRef.current) {
-            setName(initialName)
-            setDescription(initialDescription)
-            setExtraValues(normalizedInitialExtraValues)
-            setHasTouchedExtraValues(false)
-            setFieldErrors({})
-            setActiveTab(initialTabIndex)
+            syncFormStateToInitials()
         }
         wasOpenRef.current = open
-    }, [open, initialName, initialDescription, initialTabIndex, normalizedInitialExtraValues])
+    }, [open, syncFormStateToInitials])
+
+    useEffect(() => {
+        if (!open) {
+            syncFormStateToInitials()
+        }
+    }, [open, syncFormStateToInitials])
 
     useEffect(() => {
         if (open && !hideDefaultFields) {
@@ -241,8 +246,8 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
     }, [])
 
     const handleSave = async () => {
-        const trimmedName = renderedName.trim()
-        const trimmedDescription = renderedDescription.trim()
+        const trimmedName = name.trim()
+        const trimmedDescription = description.trim()
 
         if (!hideDefaultFields && !trimmedName) {
             setFieldErrors({ name: 'Name is required' })
@@ -250,21 +255,21 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
         }
 
         if (validate) {
-            const errors = validate({ name: trimmedName, description: trimmedDescription, ...renderedExtraValues })
+            const errors = validate({ name: trimmedName, description: trimmedDescription, ...extraValues })
             if (errors) {
                 setFieldErrors(errors)
                 return
             }
         }
 
-        if (canSave && !canSave({ name: trimmedName, description: trimmedDescription, ...renderedExtraValues })) {
+        if (canSave && !canSave({ name: trimmedName, description: trimmedDescription, ...extraValues })) {
             return
         }
 
         setFieldErrors({})
         setIsSubmitting(true)
         try {
-            await onSave({ name: trimmedName, description: trimmedDescription || undefined, ...renderedExtraValues })
+            await onSave({ name: trimmedName, description: trimmedDescription || undefined, ...extraValues })
             // Call optional success callback and close dialog if enabled
             try {
                 onSuccess && onSuccess()
@@ -291,8 +296,8 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
 
     const isLoading = loading || isSubmitting
     const isSubmitDisabled = canSave
-        ? !canSave({ name: renderedName.trim(), description: renderedDescription.trim(), ...renderedExtraValues })
-        : !hideDefaultFields && !renderedName.trim()
+        ? !canSave({ name: name.trim(), description: description.trim(), ...extraValues })
+        : !hideDefaultFields && !name.trim()
 
     const handleClose = () => {
         if (!isLoading) onClose()
@@ -316,7 +321,7 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
 
     // Build helpers object for extraFields and tabs
     const formHelpers = {
-        values: renderedExtraValues,
+        values: extraValues,
         setValue: handleExtraValueChange,
         isLoading,
         errors: fieldErrors
@@ -360,7 +365,7 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
                         <TextField
                             label={nameLabel}
                             placeholder={namePlaceholder}
-                            value={renderedName}
+                            value={name}
                             onChange={(e) => setName(e.target.value)}
                             fullWidth
                             required
@@ -374,7 +379,7 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
                         <TextField
                             label={descriptionLabel}
                             placeholder={descriptionPlaceholder}
-                            value={renderedDescription}
+                            value={description}
                             onChange={(e) => setDescription(e.target.value)}
                             fullWidth
                             disabled={isLoading}

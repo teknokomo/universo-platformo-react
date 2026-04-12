@@ -4,15 +4,13 @@
 
 ---
 
-## Current Focus: Metahub QA Gap Closure Closed
+## Current Focus: PR #763 Review Comment QA Triage Closed
 
-- The 2026-04-12 metahub QA gap-closure pass is now implemented and validated on the current tree.
-- The accepted narrower metahub inset no longer depends on duplicated route-local logic: `pageSpacing.ts` now owns the shared metahub shell helpers consumed by both `MainLayoutMUI` and the shared `Header`.
-- Metahub loading states no longer rely on `SkeletonGrid`'s legacy negative default margin or repeated page-local `mx={0}` overrides. The shared loading contract is now semantic: affected metahub routes use `SkeletonGrid insetMode='content'`, while the component keeps `insetMode='page'` behavior for ordinary page shells.
-- Real browser proof now exists for the shell-spacing contract: `metahub-shell-spacing.spec.ts` delays `/api/v1/metahubs`, asserts the loading skeleton plus breadcrumbs/header regions, and proves their left/right edges align on the authenticated `/metahubs` route.
-- Focused negative-path backend proof now exists for the generic entity mutation surface: isolated `entityInstancesRoutes` ACL tests confirm `403` denial behavior for generic delete and catalog-compatible create when `ensureMetahubAccess(...)` rejects.
-- Validation is green for the touched surface: `pnpm --filter @universo/template-mui build`, `pnpm --filter @universo/template-mui test`, `pnpm --filter @universo/metahubs-frontend build`, `pnpm run build:e2e`, the targeted Chromium shell-spacing flow, and the canonical root `pnpm build` all completed successfully.
-- Wider `entityInstancesRoutes` permanent-delete policy cases still show older failures on the branch, but this session did not change backend permanent-delete behavior; the new ACL tests were validated separately so the QA-gap closure remains scoped to the touched implementation seams.
+- The 2026-04-12 GH763 bot-review follow-up is now implemented and validated on the current tree.
+- Confirmed fixes landed only in the shared dialog seam: `EntityFormDialog` now uses a before-paint first-open reset plus closed-state resync, keeps extra field rendering state-backed, and no longer mutates `extraValuesRef.current` during render.
+- Focused dialog regression coverage now locks the first-open child-update race explicitly, so future refactors cannot restore the passive open-reset overwrite bug without failing `EntityFormDialog.test.tsx`.
+- The `Header` inset removal suggestion was rejected after real browser proof: removing the route-aware inset made breadcrumbs drift 16px left of the `ViewHeader` title region in `metahub-shell-spacing.spec.ts`, so the accepted shell-spacing contract stays unchanged.
+- Validation is green for the touched surface: focused `EntityFormDialog` Jest passed (`10/10`), `pnpm --filter @universo/template-mui build` passed, `pnpm run build:e2e` passed, the targeted Chromium shell-spacing flow passed (`2 passed`), and the canonical root `pnpm build` completed successfully.
 
 ## Previous Focus: PR #759 Review Comment QA Triage Closed
 

@@ -2,6 +2,14 @@
 
 ## 2026-04-12: Metahub QA gap closure
 
+## 2026-04-12: PR #763 review comment QA triage
+
+- Research outcome implemented: only the dialog-related review comments were correct on the live tree. React docs confirmed that `EntityFormDialog` should not write `ref.current` during render, and the first-open reset path was indeed vulnerable to child mount effects overwriting or being overwritten by the passive open-reset cycle.
+- Implemented fix set: `EntityFormDialog` now performs the first-open reset in `useLayoutEffect`, resyncs to incoming initials while closed, renders extra fields from state only, and adds focused regression coverage for first-open child updates.
+- Rejected suggestion with proof: removing the route-aware `Header` inset looked plausible from the nested `Stack` structure, but the targeted Chromium `metahub-shell-spacing.spec.ts` run showed a `16px` breadcrumb/title drift immediately after that patch, so the `Header` inset contract was restored unchanged.
+- Closure validation: focused `EntityFormDialog` Jest passed (`10/10`), `pnpm --filter @universo/template-mui build` passed, `pnpm run build:e2e` passed, the targeted Chromium metahub shell-spacing flow passed (`2 passed`), and the canonical root `pnpm build` completed successfully.
+- No open research thread remains for this PR review-triage seam.
+
 - Research outcome implemented: the remaining QA debt after the visual spacing acceptance passes was structural, not visual-only. The accepted inset depended on duplicated metahub route detection across shared shell components, metahub loading states still used an implicit numeric override pattern, and the tree lacked real proof for browser geometry plus negative-path generic-entity ACL behavior.
 - Implemented fix set: `pageSpacing.ts` now centralizes the route-aware metahub shell helpers consumed by `MainLayoutMUI` and `Header`; `SkeletonGrid` now exposes semantic `insetMode='page' | 'content'` plus the stable `skeleton-grid` selector; the affected metahub routes now use `insetMode='content'`; focused `entityInstancesRoutes` ACL tests now prove `403` denial behavior for generic delete and catalog-compatible create; and the new authenticated Playwright flow `metahub-shell-spacing.spec.ts` proves breadcrumb/header/loading-skeleton alignment on `/metahubs` during a delayed loading state.
 - Closure validation: `pnpm --filter @universo/template-mui build` passed, `pnpm --filter @universo/template-mui test` passed (`23/23`), `pnpm --filter @universo/metahubs-frontend build` passed, `pnpm run build:e2e` passed, the targeted Chromium shell-spacing flow passed (`2 passed` including auth setup), and the canonical root `pnpm build` completed green.

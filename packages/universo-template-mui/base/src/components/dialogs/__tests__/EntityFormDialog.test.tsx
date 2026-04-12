@@ -376,6 +376,74 @@ describe('EntityFormDialog', () => {
         })
     })
 
+    it('preserves first-open child updates instead of overwriting them with the open-reset cycle', async () => {
+        const AutoUpdatingField = ({
+            value,
+            setValue
+        }: {
+            value: { locales?: { en?: { content?: string } } } | null | undefined
+            setValue: (name: string, nextValue: unknown) => void
+        }) => {
+            React.useEffect(() => {
+                setValue('nameVlc', {
+                    _schema: 'v1',
+                    _primary: 'en',
+                    locales: {
+                        en: { content: 'Child update on first open' }
+                    }
+                })
+            }, [setValue])
+
+            return <div data-testid='name-value'>{String(value?.locales?.en?.content ?? 'empty')}</div>
+        }
+
+        const OpenOnDemandHost = () => {
+            const [open, setOpen] = React.useState(false)
+
+            return (
+                <>
+                    <button type='button' onClick={() => setOpen(true)}>
+                        Open
+                    </button>
+                    <EntityFormDialog
+                        open={open}
+                        title='Edit Publication'
+                        hideDefaultFields
+                        nameLabel='Name'
+                        descriptionLabel='Description'
+                        initialExtraValues={{
+                            nameVlc: {
+                                _schema: 'v1',
+                                _primary: 'en',
+                                locales: {
+                                    en: { content: 'Loaded on first open' }
+                                }
+                            }
+                        }}
+                        tabs={({ values, setValue }) => [
+                            {
+                                id: 'general',
+                                label: 'General',
+                                content: <AutoUpdatingField value={values.nameVlc as never} setValue={setValue} />
+                            }
+                        ]}
+                        onClose={() => undefined}
+                        onSave={() => undefined}
+                    />
+                </>
+            )
+        }
+
+        const user = userEvent.setup()
+        render(<OpenOnDemandHost />)
+
+        await user.click(screen.getByRole('button', { name: 'Open' }))
+
+        await waitFor(() => {
+            expect(screen.getByTestId('name-value')).toHaveTextContent('Child update on first open')
+        })
+    })
+
     it('shows fullscreen and reset controls when dialog presentation is enabled with a stored custom size', async () => {
         window.localStorage.setItem('universo:dialog-presentation:metahub-1:size', JSON.stringify({ width: 720, height: 540 }))
 

@@ -45,6 +45,17 @@
 | 0.22.0-alpha | 2025-07-27 | 0.22.0 Alpha — 2025-07-27 (Global Impulse) ⚡️    | Memory Bank, MMOOMM improvements                                                                    |
 | 0.21.0-alpha | 2025-07-20 | 0.21.0 Alpha — 2025-07-20 (Firm Resolve) 💪       | Handler refactoring, PlayCanvas stabilization                                                       |
 
+## 2026-04-12 PR #763 Review Comment QA Triage
+
+Closed the review-driven follow-up for GH763 by validating each bot suggestion against the live branch state, React documentation, and the existing browser proof before changing code. The real fixes were limited to the shared dialog first-open hydration seam; the suggested `Header` inset removal looked plausible in JSX but failed the real metahub shell-spacing browser contract and was therefore rejected.
+
+| Area | Resolution |
+| --- | --- |
+| Confirmed dialog fixes | `EntityFormDialog` now resets incoming initial state before paint on first open, syncs the closed dialog state back to incoming initials, and renders from internal state instead of the earlier `isFreshOpen` prop override path. |
+| Render purity | The dialog no longer writes `extraValuesRef.current` during render; the ref is synchronized only through state-reset helpers and effects, which aligns the component with React's render-purity guidance. |
+| Review rejection with proof | The proposed `Header` inset removal was tested through `metahub-shell-spacing.spec.ts` and immediately broke breadcrumb/title alignment (`16px` left-edge drift), so the shared route-aware `Header` inset contract remains intentionally intact. |
+| Validation | Focused `EntityFormDialog` Jest passed (`10/10`), `pnpm --filter @universo/template-mui build` passed, `pnpm run build:e2e` passed, the targeted Chromium metahub shell-spacing flow passed (`2 passed`), and the canonical root `pnpm build` completed successfully. |
+
 ## 2026-04-12 Metahub QA Gap Closure
 
 Closed the three residual QA gaps left after the metahub spacing acceptance work: duplicated shell-spacing logic across shared layout components, ad hoc metahub loading-state overrides, and missing proof for both browser geometry and negative-path generic-entity permissions. This pass kept the accepted metahub inset unchanged while moving the contract into shared helpers and adding real validation instead of relying on JSX inspection alone.

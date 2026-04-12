@@ -6,6 +6,19 @@
 
 ## Current Task Ledger (Canonical)
 
+## Completed Session: 2026-04-12 PR #763 Review Comment QA Triage
+
+> Goal: review the bot comments on GH763 against the live branch state and official docs, implement only the confirmed non-regressive fixes, rerun the touched validation stack, and then sync memory-bank status on the resulting green tree.
+
+- [x] Finalize comment triage for the currently extracted PR #763 bot suggestions.
+    - Outcome: the two `EntityFormDialog.tsx` comments were confirmed as valid against the live code plus React docs, while the `Header` inset comment was rejected after the real `metahub-shell-spacing.spec.ts` browser proof showed that removing the inset shifts breadcrumbs 16px left of the ViewHeader title region.
+- [x] Implement only the confirmed fixes in the shared template-mui surface.
+    - Outcome: `EntityFormDialog` now resets to incoming initial state before paint on first open, stays state-backed instead of rendering prop overrides, and no longer writes `extraValuesRef.current` during render.
+- [x] Re-run focused validation for the touched template-mui seams and then the canonical root `pnpm build`.
+    - Outcome: the focused `EntityFormDialog` Jest suite passed (`10/10`), `pnpm --filter @universo/template-mui build` passed, `pnpm run build:e2e` passed, the targeted Chromium metahub shell-spacing flow passed (`2 passed` including auth setup), and the repository-standard root `pnpm build` completed successfully.
+- [x] Sync `activeContext.md`, `progress.md`, and any durable pattern notes only after the final patch set is validated.
+    - Outcome: memory-bank notes now record both the accepted dialog-hydration fix and the rejected header-inset review suggestion as durable QA context.
+
 ## Completed Session: 2026-04-12 Metahub QA Gap Closure
 
 > Goal: close the remaining QA-confirmed gaps on the current metahub spacing and generic-entity surface by removing the brittle shell-spacing duplication, replacing ad hoc metahub skeleton overrides with an explicit shared contract, adding the missing backend negative-path permission proof, adding real browser geometry proof for breadcrumbs plus loading-state alignment, and then rerunning the touched validation stack plus the canonical root build.
