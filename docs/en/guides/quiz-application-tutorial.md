@@ -27,7 +27,7 @@ By the end, you will have a metahub-hosted quiz widget script, a layout that ren
 4. Keep the source kind as Embedded.
 5. Save the script after pasting the quiz widget source or after adapting the starter template.
 
-![Metahub scripts tab](../assets/quiz-tutorial/metahub-scripts.png)
+![Metahub scripts tab](../.gitbook/assets/quiz-tutorial/metahub-scripts.png)
 
 The browser-authored Playwright flow uses this step to prove that the quiz script is visible in the true metahub-level Scripts scope.
 
@@ -38,7 +38,7 @@ The browser-authored Playwright flow uses this step to prove that the quiz scrip
 3. Set `scriptCodename` to `quiz-widget`.
 4. Save the layout and verify that the widget stays in the layout details view.
 
-![Layout details with quiz widget](../assets/quiz-tutorial/layout-quiz-widget.png)
+![Layout details with quiz widget](../.gitbook/assets/quiz-tutorial/layout-quiz-widget.png)
 
 The shipped quiz contract keeps the quiz widget centered so the runtime is focused on the question flow instead of side panels.
 
@@ -58,7 +58,7 @@ This is the point where publication data, layout data, and script bundles move f
 3. Use the General tab to choose the preferred dialog size, fullscreen behavior, resize behavior, and close behavior.
 4. Save the settings and confirm that later control-panel dialogs reuse the same presentation contract.
 
-![Application settings general tab](../assets/quiz-tutorial/application-settings-general.png)
+![Application settings general tab](../.gitbook/assets/quiz-tutorial/application-settings-general.png)
 
 These settings affect the application control panel only.
 They do not change the quiz content or layout owned by the metahub publication.
@@ -70,7 +70,7 @@ They do not change the quiz content or layout owned by the metahub publication.
 3. Submit an answer and confirm that the widget advances through the flow.
 4. Finish the quiz and check the final score summary.
 
-![Quiz widget runtime view](../assets/quiz-tutorial/runtime-quiz.png)
+![Quiz widget runtime view](../.gitbook/assets/quiz-tutorial/runtime-quiz.png)
 
 The shipped starter expects a client `mount()` method and a server `submit()` method, so a working runtime proves both client and server script paths.
 

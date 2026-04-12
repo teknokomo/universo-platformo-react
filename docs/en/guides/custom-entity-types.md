@@ -57,8 +57,8 @@ Custom entity types let a metahub define new authoring and runtime sections on t
 
 ## Visual References
 
-![Create Entity Type dialog](../assets/entities/metahub-entities-create-dialog.png)
-![Catalog-compatible general panel](../assets/entities/catalog-compatible-edit-general-panel.png)
+![Create Entity Type dialog](../.gitbook/assets/entities/metahub-entities-create-dialog.png)
+![Catalog-compatible general panel](../.gitbook/assets/entities/catalog-compatible-edit-general-panel.png)
 
 ## Related References
 

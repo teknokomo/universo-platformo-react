@@ -37,7 +37,17 @@ import { createLocalizedContent } from '@universo/utils'
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 
-const SCREENSHOTS_DIR = path.resolve(repoRoot, 'docs', 'assets', 'quiz-tutorial')
+const SCREENSHOT_DIRECTORIES = [
+    path.resolve(repoRoot, 'docs', 'en', '.gitbook', 'assets', 'quiz-tutorial'),
+    path.resolve(repoRoot, 'docs', 'ru', '.gitbook', 'assets', 'quiz-tutorial')
+] as const
+const PRIMARY_SCREENSHOTS_DIR = SCREENSHOT_DIRECTORIES[0]
+
+function ensureScreenshotDirectories() {
+    for (const screenshotsDir of SCREENSHOT_DIRECTORIES) {
+        fs.mkdirSync(screenshotsDir, { recursive: true })
+    }
+}
 
 async function expectJsonResponse(response: Response, label: string) {
     const text = await response.text()
@@ -154,7 +164,7 @@ test.describe('Docs Quiz Tutorial Screenshots', () => {
 
         await page.setViewportSize({ width: 1440, height: 900 })
         await applyBrowserPreferences(page, { language: 'en', isDarkMode: false })
-        fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true })
+        ensureScreenshotDirectories()
 
         const metahubName = `Docs Quiz Tutorial ${runManifest.runId}`
         const metahub = await createMetahub(api, {
@@ -260,23 +270,23 @@ test.describe('Docs Quiz Tutorial Screenshots', () => {
         await syncApplicationSchema(api, applicationId)
 
         const scriptsDialog = await openMetahubScriptsDialog(page, metahub.id, metahubName)
-        await scriptsDialog.screenshot({ path: path.join(SCREENSHOTS_DIR, 'metahub-scripts.png') })
+        await scriptsDialog.screenshot({ path: path.join(PRIMARY_SCREENSHOTS_DIR, 'metahub-scripts.png') })
         await scriptsDialog.getByTestId(entityDialogSelectors.cancelButton).click()
         await expect(scriptsDialog).toHaveCount(0)
 
         await page.goto(`/metahub/${metahub.id}/layouts/${layoutId}`)
         await expect(page.getByTestId(buildLayoutZoneSelector('center'))).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText('Quiz widget').first()).toBeVisible({ timeout: 30_000 })
-        await page.screenshot({ path: path.join(SCREENSHOTS_DIR, 'layout-quiz-widget.png') })
+        await page.screenshot({ path: path.join(PRIMARY_SCREENSHOTS_DIR, 'layout-quiz-widget.png') })
 
         await page.goto(`/a/${applicationId}/admin/settings`)
         await expect(page.getByText('Application Settings', { exact: true })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByTestId('application-setting-dialogSizePreset')).toBeVisible({ timeout: 30_000 })
-        await page.screenshot({ path: path.join(SCREENSHOTS_DIR, 'application-settings-general.png') })
+        await page.screenshot({ path: path.join(PRIMARY_SCREENSHOTS_DIR, 'application-settings-general.png') })
 
         await page.goto(`/a/${applicationId}`)
         await expect(page.getByRole('button', { name: 'Check answer' })).toBeVisible({ timeout: 60_000 })
-        await page.screenshot({ path: path.join(SCREENSHOTS_DIR, 'runtime-quiz.png') })
+        await page.screenshot({ path: path.join(PRIMARY_SCREENSHOTS_DIR, 'runtime-quiz.png') })
 
         for (const screenshotName of [
             'metahub-scripts.png',
@@ -284,9 +294,16 @@ test.describe('Docs Quiz Tutorial Screenshots', () => {
             'application-settings-general.png',
             'runtime-quiz.png'
         ]) {
-            const screenshotPath = path.join(SCREENSHOTS_DIR, screenshotName)
-            expect(fs.existsSync(screenshotPath)).toBe(true)
-            expect(fs.statSync(screenshotPath).size).toBeGreaterThan(0)
+            const primaryScreenshotPath = path.join(PRIMARY_SCREENSHOTS_DIR, screenshotName)
+            expect(fs.existsSync(primaryScreenshotPath)).toBe(true)
+            expect(fs.statSync(primaryScreenshotPath).size).toBeGreaterThan(0)
+
+            for (const screenshotsDir of SCREENSHOT_DIRECTORIES.slice(1)) {
+                const localizedScreenshotPath = path.join(screenshotsDir, screenshotName)
+                fs.copyFileSync(primaryScreenshotPath, localizedScreenshotPath)
+                expect(fs.existsSync(localizedScreenshotPath)).toBe(true)
+                expect(fs.statSync(localizedScreenshotPath).size).toBeGreaterThan(0)
+            }
         }
     })
 })

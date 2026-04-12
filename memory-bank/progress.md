@@ -45,6 +45,17 @@
 | 0.22.0-alpha | 2025-07-27 | 0.22.0 Alpha — 2025-07-27 (Global Impulse) ⚡️    | Memory Bank, MMOOMM improvements                                                                    |
 | 0.21.0-alpha | 2025-07-20 | 0.21.0 Alpha — 2025-07-20 (Firm Resolve) 💪       | Handler refactoring, PlayCanvas stabilization                                                       |
 
+## 2026-04-12 GitBook Asset Layout Migration
+
+Closed the GitBook screenshot publication gap by aligning the repository with the working locale-local asset layout used by the verified Flowise reference project. This pass moved the published screenshots out of the removed shared `docs/assets` tree, rewired the EN/RU guide links to `../.gitbook/assets/...`, updated the quiz tutorial screenshot generator so future regenerations keep EN and RU assets in sync, and finished on green docs/build validation.
+
+| Area | Resolution |
+| --- | --- |
+| GitBook asset layout | Entity and quiz tutorial screenshots now live under `docs/en/.gitbook/assets/...` and `docs/ru/.gitbook/assets/...`, matching the locale-local structure used by the verified GitBook reference project instead of the removed repository-level `docs/assets` directory. |
+| Guide references | The four screenshot-bearing guide pages (`custom-entity-types` and `quiz-application-tutorial` in EN/RU) now reference `../.gitbook/assets/...` instead of the broken `../assets/...` paths. |
+| Generator parity | `docs-quiz-tutorial-screenshots.spec.ts` now writes primary screenshots into the EN GitBook asset tree and mirrors the generated PNGs into the RU tree so future regenerations preserve publication parity. |
+| Validation | Manual EN/RU line-count parity checks matched (`72/72` and `89/89`), `pnpm docs:i18n:check` returned clean on the current `Scope=resources` configuration, `pnpm run build:e2e` finished green (`30 successful`, `30 total`), and the canonical root `pnpm build` finished green (`30 successful`, `30 total`). |
+
 ## 2026-04-12 PR #759 Review Comment QA Triage
 
 Closed the post-merge-request bot-review follow-up for GH759 on top of the already-green Entity V2 branch. This pass stayed intentionally narrow on product code: it accepted the two reviewer findings that were actually correct, kept the `_mhb_migrations` baseline rewrite/read path inside the transaction-aware executor boundary, consolidated duplicated legacy-compatible kind classification helpers in `schema-ddl`, and then absorbed the stale test-contract drift that surfaced during the mandatory full-suite validation.
@@ -268,13 +279,13 @@ Closed the actionable review-driven follow-up on top of the shipped Entities/ECA
 - `pnpm --filter @universo/metahubs-backend test -- --runTestsByPath src/tests/routes/entityInstancesRoutes.test.ts src/tests/services/MetahubObjectsService.test.ts src/tests/services/EntityLifecycleServices.test.ts`
 - `pnpm build`
 
-Closed the remaining QA-closure seams around generic entity automation without widening scope beyond the shipped ECAE/Catalogs surface. This pass finished the real lifecycle path for generic create, verified the automation ACL question against the actual mounted surface, published the missing EN/RU authoring docs/assets, fixed the one compile-only regression the canonical build exposed, and finished on green backend/frontend/docs/browser/root-build evidence.
+Closed the remaining QA-closure seams around generic entity automation without widening scope beyond the shipped ECAE/Catalogs surface. This pass finished the real lifecycle path for generic create, verified the automation ACL question against the actual mounted surface, published the missing EN/RU authoring docs plus locale-local GitBook assets, fixed the one compile-only regression the canonical build exposed, and finished on green backend/frontend/docs/browser/root-build evidence.
 
 | Area | Resolution |
 | --- | --- |
 | Generic create lifecycle parity | `entityInstancesController` now routes generic custom-entity create through `EntityMutationService`, and the service resolves the committed object id from the mutation result before `afterCreate` dispatch so lifecycle actions execute against the real created row. |
 | ACL and automation proof | Focused `EntityAutomationTab` coverage now locks save-first validation plus action/event authoring seams, while focused `EntityInstanceList` coverage still proves catalog-compatible routes delegate to `CatalogList` instead of mounting the generic automation tabs. |
-| Documentation closure | EN/RU `custom-entity-types` guides now document the save-first `Scripts -> Actions -> Events` workflow, explain the catalog-compatible routing nuance, and ship stable visual references under `docs/assets/entities/`. |
+| Documentation closure | EN/RU `custom-entity-types` guides now document the save-first `Scripts -> Actions -> Events` workflow, explain the catalog-compatible routing nuance, and ship stable visual references under the locale-local `docs/*/.gitbook/assets/entities/` trees. |
 | Validation and build-only fix | Focused metahubs backend coverage passed (`27/27`), focused metahubs frontend automation coverage passed (`12/12`), `pnpm docs:i18n:check` passed, `pnpm run build:e2e` completed green after fixing a missing `DbExecutor` type import in `EntityActionExecutionService`, the targeted Chromium automation flow passed (`2 passed`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
 
 ### Validation
@@ -1483,9 +1494,9 @@ Closed the documentation/tutorial closure for the admin and application dialog s
 | --- | --- |
 | GitBook coverage | Rewrote the EN/RU `metahub-scripting.md`, `platform/metahubs.md`, and `platform/applications.md` pages; added new EN/RU `platform/admin.md` and `guides/quiz-application-tutorial.md`; and updated both `docs/*/SUMMARY.md` files so the new pages are part of the GitBook navigation. |
 | EN/RU parity | The touched EN/RU page pairs were kept in structural parity, and the docs diagnostics pass reported no file-level errors on the rewritten pages. |
-| Tutorial screenshots | Added `tools/testing/e2e/specs/generators/docs-quiz-tutorial-screenshots.spec.ts`, which provisions the quiz tutorial state through API helpers and captures `metahub-scripts.png`, `layout-quiz-widget.png`, `application-settings-general.png`, and `runtime-quiz.png` into `docs/assets/quiz-tutorial/`. |
+| Tutorial screenshots | Added `tools/testing/e2e/specs/generators/docs-quiz-tutorial-screenshots.spec.ts`, which provisions the quiz tutorial state through API helpers and keeps `metahub-scripts.png`, `layout-quiz-widget.png`, `application-settings-general.png`, and `runtime-quiz.png` mirrored under both locale-local `docs/*/.gitbook/assets/quiz-tutorial/` trees. |
 | Build-fix cleanup | The screenshot/doc validation wave exposed real defects that were then fixed in the shipped branch: a missing SQL-parameter comma in `applicationsStore.ts`, the missing `settings` field in the applications update schema, shared dialog `maxWidth` typing/export drift in `@universo/template-mui`, and broken publication-dialog JSX in metahubs frontend consumers. |
-| Validation | Focused package builds passed for the touched backend/frontend/shared-dialog seams, `pnpm run build:e2e` finished green with `30 successful`, the final quiz tutorial screenshot generator passed with `2 passed`, all four screenshot assets were written to `docs/assets/quiz-tutorial/`, and the canonical root `pnpm build` finished green with `30 successful`, `17 cached`, and `3m15.638s`. |
+| Validation | Focused package builds passed for the touched backend/frontend/shared-dialog seams, `pnpm run build:e2e` finished green with `30 successful`, the final quiz tutorial screenshot generator passed with `2 passed`, all four screenshot assets are now mirrored under the locale-local `docs/*/.gitbook/assets/quiz-tutorial/` trees, and the canonical root `pnpm build` finished green with `30 successful`, `17 cached`, and `3m15.638s`. |
 
 ### Validation
 
@@ -1493,7 +1504,7 @@ Closed the documentation/tutorial closure for the admin and application dialog s
 - Docs diagnostics on the rewritten pages reported no errors.
 - `pnpm run build:e2e`
 - `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/generators/docs-quiz-tutorial-screenshots.spec.ts --project generators`
-- Verified the four generated files under `docs/assets/quiz-tutorial/`.
+- Verified the four generated files under the locale-local `docs/*/.gitbook/assets/quiz-tutorial/` trees.
 - `pnpm build` passed successfully.
 
 ## 2026-04-06 QA Remediation Closure For Dialog Settings And GitBook Coverage
