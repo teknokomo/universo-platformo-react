@@ -9,8 +9,7 @@ import {
     FlowListTable,
     PaginationControls,
     EmptyListState,
-    APIEmptySVG,
-    PAGE_CONTENT_GUTTER_MX
+    APIEmptySVG
 } from '@universo/template-mui'
 import type { PaginationActions, PaginationState } from '@universo/template-mui'
 import { useMetahubMigrationsList, useMetahubMigrationsPlan, useApplyMetahubMigrations } from '../hooks'
@@ -234,7 +233,7 @@ const MetahubMigrations = () => {
             <Stack flexDirection='column' sx={{ gap: 1 }}>
                 <ViewHeader title={t('metahubs:migrations.title', 'Migrations')} />
 
-                <Stack sx={{ pb: 2, mx: PAGE_CONTENT_GUTTER_MX }} spacing={2}>
+                <Stack sx={{ pb: 2 }} spacing={2}>
                     <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ xs: 'stretch', md: 'center' }}>
                         <FormControl size='small' sx={{ minWidth: 320 }}>
                             <InputLabel id={branchLabelId}>{t('metahubs:migrations.branchLabel', 'Branch')}</InputLabel>

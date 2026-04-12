@@ -1964,7 +1964,7 @@ const EntitiesWorkspace = () => {
                         />
                     </ViewHeader>
 
-                    <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
+                    <Box>
                         <Alert severity='info'>
                             {t(
                                 'entities.banner',
@@ -1983,7 +1983,7 @@ const EntitiesWorkspace = () => {
 
                     {entityTypesQuery.isLoading && filteredRows.length === 0 ? (
                         view === 'card' ? (
-                            <SkeletonGrid />
+                            <SkeletonGrid insetMode='content' />
                         ) : (
                             <Skeleton variant='rectangular' height={120} />
                         )
@@ -2007,7 +2007,6 @@ const EntitiesWorkspace = () => {
                             sx={{
                                 display: 'grid',
                                 gap: gridSpacing,
-                                mx: { xs: -1.5, md: -2 },
                                 gridTemplateColumns: {
                                     xs: '1fr',
                                     sm: 'repeat(auto-fill, minmax(240px, 1fr))',
@@ -2068,7 +2067,7 @@ const EntitiesWorkspace = () => {
                             ))}
                         </Box>
                     ) : (
-                        <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
+                        <Box>
                             <FlowListTable<EntityTypeDisplayRow>
                                 data={filteredRows}
                                 isLoading={entityTypesQuery.isLoading}

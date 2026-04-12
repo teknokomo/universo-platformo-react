@@ -39,7 +39,7 @@ import type {
     QuizWidgetConfig
 } from '@universo/types'
 import { DASHBOARD_LAYOUT_ZONES } from '@universo/types'
-import { TemplateMainCard as MainCard, ViewHeaderMUI as ViewHeader, notifyError, PAGE_CONTENT_GUTTER_MX } from '@universo/template-mui'
+import { TemplateMainCard as MainCard, ViewHeaderMUI as ViewHeader, notifyError } from '@universo/template-mui'
 import { extractCatalogLayoutBehaviorConfig, normalizeCatalogRuntimeViewConfig, setCatalogLayoutBehaviorConfig } from '@universo/utils'
 
 import { metahubsQueryKeys, invalidateLayoutsQueries } from '../../shared'
@@ -608,7 +608,7 @@ export default function LayoutDetails() {
     return (
         <MainCard
             content={false}
-            sx={{ maxWidth: '100%', width: '100%', mx: PAGE_CONTENT_GUTTER_MX, p: 0, gap: 0 }}
+            sx={{ maxWidth: '100%', width: '100%', p: 0, gap: 0 }}
             disableHeader
             border={false}
             shadow={false}

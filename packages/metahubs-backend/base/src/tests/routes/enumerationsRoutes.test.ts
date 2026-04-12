@@ -284,7 +284,7 @@ describe('Enumerations Routes', () => {
         mockEnsureSchema.mockResolvedValue('mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
     })
 
-    it('GET /metahub/:metahubId/enumerations uses the requested legacy-compatible custom enumeration kind as an exact list scope', async () => {
+    it('GET /metahub/:metahubId/enumerations widens the requested legacy-compatible custom enumeration kind to the compatibility list scope', async () => {
         mockEntityTypeService.listCustomTypes.mockResolvedValue([
             {
                 kindKey: 'custom.enumeration-v2-compatible',
@@ -298,6 +298,16 @@ describe('Enumerations Routes', () => {
         })
         mockObjectsService.findAllByKinds.mockResolvedValue([
             {
+                id: 'enum-legacy-1',
+                kind: 'enumeration',
+                codename: 'status-legacy',
+                presentation: { name: baseNameVlc, description: baseDescriptionVlc },
+                config: { hubs: [], isSingleHub: false, isRequiredHub: false, sortOrder: 1 },
+                _upl_version: 1,
+                _upl_created_at: '2026-02-17T00:00:00.000Z',
+                _upl_updated_at: '2026-02-17T01:00:00.000Z'
+            },
+            {
                 id: 'enum-custom-1',
                 kind: 'custom.enumeration-v2-compatible',
                 codename: 'status-v2',
@@ -308,23 +318,38 @@ describe('Enumerations Routes', () => {
                 _upl_updated_at: '2026-02-18T01:00:00.000Z'
             }
         ])
-        mockValuesService.countByObjectIds.mockResolvedValue(new Map([['enum-custom-1', 2]]))
+        mockValuesService.countByObjectIds.mockResolvedValue(
+            new Map([
+                ['enum-legacy-1', 1],
+                ['enum-custom-1', 2]
+            ])
+        )
 
         const app = buildApp()
         const response = await request(app)
             .get('/metahub/metahub-1/enumerations?kindKey=custom.enumeration-v2-compatible')
             .expect(200)
 
-        expect(response.body.pagination).toMatchObject({ total: 1, limit: 100, offset: 0 })
-        expect(response.body.items[0]).toMatchObject({
-            id: 'enum-custom-1',
-            codename: 'status-v2',
-            sortOrder: 3,
-            valuesCount: 2
-        })
+        expect(response.body.pagination).toMatchObject({ total: 2, limit: 100, offset: 0 })
+        expect(response.body.items).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    id: 'enum-legacy-1',
+                    codename: 'status-legacy',
+                    sortOrder: 1,
+                    valuesCount: 1
+                }),
+                expect.objectContaining({
+                    id: 'enum-custom-1',
+                    codename: 'status-v2',
+                    sortOrder: 3,
+                    valuesCount: 2
+                })
+            ])
+        )
         expect(mockObjectsService.findAllByKinds).toHaveBeenCalledWith(
             'metahub-1',
-            ['custom.enumeration-v2-compatible'],
+            ['enumeration', 'custom.enumeration-v2-compatible'],
             'test-user-id'
         )
     })

@@ -201,7 +201,7 @@ describe('Hubs Routes', () => {
     })
 
     describe('GET /metahub/:metahubId/hubs', () => {
-        it('uses the requested legacy-compatible custom hub kind as an exact list scope', async () => {
+            it('widens the requested legacy-compatible custom hub kind to the compatibility list scope', async () => {
             mockEntityTypeService.listCustomTypes.mockResolvedValue([
                 {
                     kindKey: 'custom.hub-v2-compatible',
@@ -216,6 +216,18 @@ describe('Hubs Routes', () => {
             mockHubsService.findAll.mockResolvedValue({
                 items: [
                     {
+                        id: 'hub-legacy-1',
+                        kind: 'hub',
+                        codename: 'LegacyHub',
+                        name: { en: 'Legacy Hub' },
+                        description: null,
+                        sort_order: 1,
+                        parent_hub_id: null,
+                        _upl_version: 1,
+                        created_at: '2026-03-03T10:00:00.000Z',
+                        updated_at: '2026-03-03T11:00:00.000Z'
+                    },
+                    {
                         id: 'hub-custom-1',
                         kind: 'custom.hub-v2-compatible',
                         codename: 'OperationsHub',
@@ -228,7 +240,7 @@ describe('Hubs Routes', () => {
                         updated_at: '2026-03-04T11:00:00.000Z'
                     }
                 ],
-                total: 1
+                total: 2
             })
 
             const app = buildApp()
@@ -236,8 +248,15 @@ describe('Hubs Routes', () => {
                 .get('/metahub/metahub-1/hubs?kindKey=custom.hub-v2-compatible')
                 .expect(200)
 
-            expect(response.body.pagination).toMatchObject({ total: 1, limit: 100, offset: 0 })
+            expect(response.body.pagination).toMatchObject({ total: 2, limit: 100, offset: 0 })
             expect(response.body.items[0]).toMatchObject({
+                id: 'hub-legacy-1',
+                codename: 'LegacyHub',
+                sortOrder: 1,
+                catalogsCount: 0,
+                itemsCount: 0
+            })
+            expect(response.body.items[1]).toMatchObject({
                 id: 'hub-custom-1',
                 codename: 'OperationsHub',
                 sortOrder: 4,
@@ -247,7 +266,7 @@ describe('Hubs Routes', () => {
             expect(mockHubsService.findAll).toHaveBeenCalledWith(
                 'metahub-1',
                 expect.objectContaining({
-                    kinds: ['custom.hub-v2-compatible']
+                    kinds: ['hub', 'custom.hub-v2-compatible']
                 }),
                 'test-user-id'
             )

@@ -1,5 +1,10 @@
 import React from 'react'
 import { Box, Skeleton, SxProps, Theme } from '@mui/material'
+import { PAGE_CONTENT_GUTTER_MX } from '../../constants/pageSpacing'
+
+export type SkeletonGridInsetMode = 'page' | 'content'
+
+export const SKELETON_GRID_TEST_ID = 'skeleton-grid'
 
 export interface SkeletonGridProps {
     /** Number of skeleton items to display (default: 3) */
@@ -17,8 +22,12 @@ export interface SkeletonGridProps {
         md?: string
         lg?: string
     }
-    /** Horizontal margin (default: { xs: -1.5, md: -2 }) */
+    /** Align the grid either to the widened page edges or to its current content box (default: 'page'). */
+    insetMode?: SkeletonGridInsetMode
+    /** Horizontal margin override. When provided, this takes precedence over insetMode. */
     mx?: number | string | { xs?: number; sm?: number; md?: number; lg?: number }
+    /** Optional test id for browser geometry assertions. */
+    testId?: string
     /** Additional custom styles for the container Box */
     sx?: SxProps<Theme>
 }
@@ -58,15 +67,20 @@ export const SkeletonGrid: React.FC<SkeletonGridProps> = ({
         sm: 'repeat(auto-fill, minmax(240px, 1fr))',
         lg: 'repeat(auto-fill, minmax(260px, 1fr))'
     },
-    mx = { xs: -1.5, md: -2 },
+    insetMode = 'page',
+    mx,
+    testId,
     sx
 }) => {
+    const resolvedMx = mx ?? (insetMode === 'page' ? PAGE_CONTENT_GUTTER_MX : 0)
+
     return (
         <Box
+            data-testid={testId ?? SKELETON_GRID_TEST_ID}
             sx={{
                 display: 'grid',
                 gap,
-                mx,
+                mx: resolvedMx,
                 gridTemplateColumns: columns,
                 justifyContent: 'start',
                 alignContent: 'start',

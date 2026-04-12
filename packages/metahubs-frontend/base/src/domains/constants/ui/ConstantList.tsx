@@ -745,7 +745,7 @@ export const ConstantListContent = ({
         copyConstantMutation.isPending ||
         updateConstantMutation.isPending ||
         deleteConstantMutation.isPending
-    const contentOffsetSx = renderPageShell ? { xs: -1.5, md: -2 } : 0
+    const contentOffsetSx = 0
 
     const content = (
         <ExistingCodenamesProvider entities={codenameEntities}>

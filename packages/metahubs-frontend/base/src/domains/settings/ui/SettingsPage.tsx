@@ -19,9 +19,7 @@ import {
     EmptyListState,
     APIEmptySVG,
     useDebouncedSearch,
-    useConfirm,
-    PAGE_CONTENT_GUTTER_MX,
-    PAGE_TAB_BAR_SX
+    useConfirm
 } from '@universo/template-mui'
 import { ViewHeaderMUI as ViewHeader } from '@universo/template-mui'
 
@@ -250,7 +248,7 @@ const SettingsPage = () => {
             <ViewHeader search title={t('settings.title')} searchPlaceholder={t('settings.search')} onSearchChange={handleSearchChange} />
 
             {/* Tabs */}
-            <Box data-testid='metahub-settings-tabs' sx={PAGE_TAB_BAR_SX}>
+            <Box data-testid='metahub-settings-tabs' sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
                 <Tabs value={activeTab} onChange={handleTabChange} variant='scrollable' scrollButtons='auto'>
                     {SETTING_TABS.map((tab) => (
                         <Tab key={tab} label={t(`settings.tabs.${tab}`)} value={tab} />
@@ -259,7 +257,7 @@ const SettingsPage = () => {
             </Box>
 
             {/* Content */}
-            <Box data-testid='metahub-settings-content' sx={{ py: 2, mx: PAGE_CONTENT_GUTTER_MX }}>
+            <Box data-testid='metahub-settings-content' sx={{ py: 2 }}>
                 {isLoading ? (
                     <Stack spacing={2}>
                         {[1, 2, 3].map((i) => (

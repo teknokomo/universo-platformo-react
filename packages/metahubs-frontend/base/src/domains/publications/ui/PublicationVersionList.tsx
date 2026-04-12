@@ -480,7 +480,7 @@ export const PublicationVersionList: React.FC = () => {
                         />
                     ) : (
                         <>
-                            <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
+                            <Box>
                                 <FlowListTable
                                     data={paginatedVersions}
                                     customColumns={versionColumns}
@@ -497,7 +497,7 @@ export const PublicationVersionList: React.FC = () => {
                                 />
                             </Box>
                             {filteredVersions.length > 0 && (
-                                <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
+                                <Box sx={{ mt: 2 }}>
                                     <PaginationControls
                                         pagination={paginationState}
                                         actions={paginationActions}

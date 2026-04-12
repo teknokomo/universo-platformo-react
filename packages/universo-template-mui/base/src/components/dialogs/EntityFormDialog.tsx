@@ -195,6 +195,12 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
     const nameInputRef = useRef<HTMLInputElement>(null)
     const extraValuesRef = useRef<Record<string, any>>(normalizedInitialExtraValues)
     const wasOpenRef = useRef(false)
+    const isFreshOpen = open && !wasOpenRef.current
+    const renderedName = isFreshOpen ? initialName : name
+    const renderedDescription = isFreshOpen ? initialDescription : description
+    const renderedExtraValues = isFreshOpen ? normalizedInitialExtraValues : extraValues
+
+    extraValuesRef.current = renderedExtraValues
 
     useEffect(() => {
         extraValuesRef.current = extraValues
@@ -235,8 +241,8 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
     }, [])
 
     const handleSave = async () => {
-        const trimmedName = name.trim()
-        const trimmedDescription = description.trim()
+        const trimmedName = renderedName.trim()
+        const trimmedDescription = renderedDescription.trim()
 
         if (!hideDefaultFields && !trimmedName) {
             setFieldErrors({ name: 'Name is required' })
@@ -244,21 +250,21 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
         }
 
         if (validate) {
-            const errors = validate({ name: trimmedName, description: trimmedDescription, ...extraValues })
+            const errors = validate({ name: trimmedName, description: trimmedDescription, ...renderedExtraValues })
             if (errors) {
                 setFieldErrors(errors)
                 return
             }
         }
 
-        if (canSave && !canSave({ name: trimmedName, description: trimmedDescription, ...extraValues })) {
+        if (canSave && !canSave({ name: trimmedName, description: trimmedDescription, ...renderedExtraValues })) {
             return
         }
 
         setFieldErrors({})
         setIsSubmitting(true)
         try {
-            await onSave({ name: trimmedName, description: trimmedDescription || undefined, ...extraValues })
+            await onSave({ name: trimmedName, description: trimmedDescription || undefined, ...renderedExtraValues })
             // Call optional success callback and close dialog if enabled
             try {
                 onSuccess && onSuccess()
@@ -285,8 +291,8 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
 
     const isLoading = loading || isSubmitting
     const isSubmitDisabled = canSave
-        ? !canSave({ name: name.trim(), description: description.trim(), ...extraValues })
-        : !hideDefaultFields && !name.trim()
+        ? !canSave({ name: renderedName.trim(), description: renderedDescription.trim(), ...renderedExtraValues })
+        : !hideDefaultFields && !renderedName.trim()
 
     const handleClose = () => {
         if (!isLoading) onClose()
@@ -310,7 +316,7 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
 
     // Build helpers object for extraFields and tabs
     const formHelpers = {
-        values: extraValues,
+        values: renderedExtraValues,
         setValue: handleExtraValueChange,
         isLoading,
         errors: fieldErrors
@@ -354,7 +360,7 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
                         <TextField
                             label={nameLabel}
                             placeholder={namePlaceholder}
-                            value={name}
+                            value={renderedName}
                             onChange={(e) => setName(e.target.value)}
                             fullWidth
                             required
@@ -368,7 +374,7 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
                         <TextField
                             label={descriptionLabel}
                             placeholder={descriptionPlaceholder}
-                            value={description}
+                            value={renderedDescription}
                             onChange={(e) => setDescription(e.target.value)}
                             fullWidth
                             disabled={isLoading}

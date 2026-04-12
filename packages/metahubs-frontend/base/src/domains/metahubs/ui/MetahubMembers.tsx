@@ -364,7 +364,7 @@ export const MetahubMembers = () => {
 
                     {isLoading && members.length === 0 ? (
                         view === 'card' ? (
-                            <SkeletonGrid />
+                            <SkeletonGrid insetMode='content' />
                         ) : (
                             <Skeleton variant='rectangular' height={120} />
                         )
@@ -377,7 +377,6 @@ export const MetahubMembers = () => {
                                     sx={{
                                         display: 'grid',
                                         gap: gridSpacing,
-                                        mx: { xs: -1.5, md: -2 },
                                         gridTemplateColumns: {
                                             xs: '1fr',
                                             sm: 'repeat(auto-fill, minmax(240px, 1fr))',
@@ -432,7 +431,7 @@ export const MetahubMembers = () => {
                                     })}
                                 </Box>
                             ) : (
-                                <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
+                                <Box>
                                     <FlowListTable
                                         data={members}
                                         images={images}
@@ -472,7 +471,7 @@ export const MetahubMembers = () => {
                     )}
 
                     {!isLoading && members.length > 0 && (
-                        <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
+                        <Box sx={{ mt: 2 }}>
                             <PaginationControls
                                 pagination={paginationResult.pagination}
                                 actions={paginationResult.actions}

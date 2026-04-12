@@ -1499,7 +1499,7 @@ const EntityInstanceList = () => {
 
                     {entityTypesQuery.isLoading && !entityType ? (
                         view === 'card' ? (
-                            <SkeletonGrid />
+                            <SkeletonGrid insetMode='content' />
                         ) : (
                             <Skeleton variant='rectangular' height={120} />
                         )
@@ -1539,7 +1539,6 @@ const EntityInstanceList = () => {
                             sx={{
                                 display: 'grid',
                                 gap: gridSpacing,
-                                mx: { xs: -1.5, md: -2 },
                                 gridTemplateColumns: {
                                     xs: '1fr',
                                     sm: 'repeat(auto-fill, minmax(240px, 1fr))',
@@ -1574,7 +1573,7 @@ const EntityInstanceList = () => {
                             ))}
                         </Box>
                     ) : (
-                        <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
+                        <Box>
                             <FlowListTable<EntityInstanceDisplayRow>
                                 data={instanceRows}
                                 isLoading={paginationResult.isLoading}

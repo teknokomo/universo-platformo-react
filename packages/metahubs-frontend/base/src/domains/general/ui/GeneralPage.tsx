@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router-dom'
 import { SHARED_OBJECT_KINDS } from '@universo/types'
 
-import { TemplateMainCard as MainCard, PAGE_CONTENT_GUTTER_MX, PAGE_TAB_BAR_SX, ViewHeaderMUI as ViewHeader } from '@universo/template-mui'
+import { TemplateMainCard as MainCard, ViewHeaderMUI as ViewHeader } from '@universo/template-mui'
 
 import { AttributeListContent } from '../../attributes/ui/AttributeList'
 import { ConstantListContent } from '../../constants/ui/ConstantList'
@@ -87,7 +87,7 @@ export default function GeneralPage() {
         <MainCard disableHeader border={false} shadow={false} contentSX={{ px: 0, py: 0 }} disableContentPadding>
             <ViewHeader title={t('general.title', 'Common')} />
 
-            <Box data-testid='metahub-common-tabs' sx={PAGE_TAB_BAR_SX}>
+            <Box data-testid='metahub-common-tabs' sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
                 <Tabs
                     value={activeTab}
                     onChange={(_, nextValue: GeneralTab) => setActiveTab(nextValue)}
@@ -102,7 +102,7 @@ export default function GeneralPage() {
                 </Tabs>
             </Box>
 
-            <Box data-testid='metahub-common-content' sx={{ py: 2, mx: PAGE_CONTENT_GUTTER_MX }}>
+            <Box data-testid='metahub-common-content' sx={{ py: 2 }}>
                 {activeTab === 'layouts' ? (
                     <LayoutListContent
                         metahubId={metahubId}

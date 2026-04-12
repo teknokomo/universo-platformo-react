@@ -119,8 +119,8 @@ const MetahubBoard = () => {
 
     return (
         <Stack spacing={2} sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' }, mx: 'auto' }}>
-            {/* ViewHeader with horizontal padding */}
-            <Box sx={{ px: { xs: 1.5, md: 2 } }}>
+            {/* MainLayoutMUI already provides the metahub route gutter. */}
+            <Box>
                 <ViewHeader
                     title={metahubDisplay.name}
                     description={metahubDisplay.description || t('board.defaultDescription', 'Metahub analytics and statistics')}

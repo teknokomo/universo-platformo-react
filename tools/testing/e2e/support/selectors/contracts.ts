@@ -49,6 +49,10 @@ export const applicationSelectors = {
     migrationsTable: 'application-migrations-table'
 } as const
 
+export const feedbackSelectors = {
+    skeletonGrid: 'skeleton-grid'
+} as const
+
 export const metahubMigrationsSelectors = {
     branchSelect: 'metahub-migrations-branch-select'
 } as const

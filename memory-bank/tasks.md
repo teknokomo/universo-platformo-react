@@ -6,6 +6,71 @@
 
 ## Current Task Ledger (Canonical)
 
+## Completed Session: 2026-04-12 Metahub QA Gap Closure
+
+> Goal: close the remaining QA-confirmed gaps on the current metahub spacing and generic-entity surface by removing the brittle shell-spacing duplication, replacing ad hoc metahub skeleton overrides with an explicit shared contract, adding the missing backend negative-path permission proof, adding real browser geometry proof for breadcrumbs plus loading-state alignment, and then rerunning the touched validation stack plus the canonical root build.
+
+- [x] Refactor the shared metahub spacing contract so the shell gutter and breadcrumb inset use one reusable source instead of duplicated route-local logic.
+    - Outcome: `pageSpacing.ts` now owns the shared metahub shell helpers (`isMetahubShellRoute`, `getPageGutterPx`, `getHeaderInsetPx`), and both `MainLayoutMUI` and `Header` now consume that single route-aware source instead of carrying separate metahub detection logic.
+- [x] Replace the metahub-only `SkeletonGrid mx={0}` scatter with an explicit shared loading-state contract that does not depend on a legacy negative default margin.
+    - Outcome: `SkeletonGrid` now exposes semantic `insetMode='page' | 'content'` plus a stable `skeleton-grid` test id, and the affected metahub list/workspace routes now use `insetMode='content'` instead of repeated local numeric `mx={0}` overrides.
+- [x] Add the missing backend negative-path regression proof for generic entity mutation permissions.
+    - Outcome: focused `entityInstancesRoutes` coverage now proves `403` denial behavior for generic delete and catalog-compatible create when `ensureMetahubAccess(...)` rejects, and the new tests passed in isolation via `--testNamePattern='metahub access check fails'`.
+- [x] Add browser-level geometry proof that metahub breadcrumbs and metahub loading skeletons align to the accepted inset.
+    - Outcome: the new authenticated Playwright flow `metahub-shell-spacing.spec.ts` delays the metahub list response, asserts the loading skeleton plus breadcrumb/header regions, and proves left/right edge alignment through the shared browser spacing helpers.
+- [x] Re-run focused validation for the touched template-mui, metahubs frontend/backend, and E2E spacing seams, then finish with the canonical root `pnpm build`.
+    - Outcome: `pnpm --filter @universo/template-mui build` passed, `pnpm --filter @universo/template-mui test` passed (`23/23` suites), `pnpm --filter @universo/metahubs-frontend build` passed, `pnpm run build:e2e` passed, the targeted Chromium spacing flow passed (`2 passed` including auth setup), and the canonical root `pnpm build` completed green.
+
+## Completed Session: 2026-04-12 Metahub Breadcrumb And Skeleton Inset Follow-up
+
+> Goal: finish the metahub spacing acceptance pass by aligning the top shell breadcrumbs row and loading skeleton states to the same horizontal inset already used by the steady-state page content.
+
+- [x] Confirm why the shared breadcrumbs row still renders narrower side insets than the corrected metahub body content.
+    - Outcome: the top breadcrumbs/theme-language row is rendered by the shared `Header` inside `MainLayoutMUI`, not by the metahub page bodies, so the previous metahub-only body fixes could not move that top row together with the corrected steady-state content.
+- [x] Confirm which metahub loading states still bypass the corrected content inset and fix them without reintroducing the old bleed offsets.
+    - Outcome: metahub card-view loading states were still rendering `SkeletonGrid` with its legacy negative default `mx`, so the loading surface kept the old narrow side inset even after the steady-state grids/tables were corrected. The follow-up now applies metahub-only `Header` padding and explicit `SkeletonGrid mx={0}` across the affected metahub list surfaces.
+- [x] Revalidate the touched frontend packages and the canonical root `pnpm build`, then sync memory-bank closure notes.
+    - Outcome: `pnpm --filter @universo/template-mui build` passed, `pnpm --filter @universo/metahubs-frontend build` passed, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+
+## Completed Session: 2026-04-12 Metahub Gutter Narrowing Follow-up
+
+> Goal: narrow the horizontal metahub page gutter after the first spacing pass overshot the target inset, so breadcrumbs, section headers/actions, main content, and pagination all share the same smaller left/right offset visible in the acceptance screenshots.
+
+- [x] Reconfirm which shared layout seam controls breadcrumbs and which metahub pages still carry local horizontal padding.
+    - Outcome: breadcrumbs were confirmed to live in the shared `Header` inside `MainLayoutMUI`, so page-local metahubs edits alone could never keep breadcrumbs, title/actions, content, and pagination on the same x-offset. The only remaining metahub-local hardcoded page padding was the `MetahubBoard` header wrapper.
+- [x] Implement one narrower route-aware gutter for `/metahubs` and `/metahub/*` surfaces instead of reintroducing page-by-page bleed offsets.
+    - Outcome: `MainLayoutMUI` now applies a narrower metahub-specific shell gutter (`px: { xs: 1, md: 1.5 }`) only on metahub routes, and `MetahubBoard` no longer adds its own extra horizontal header padding, so breadcrumbs, section headers/actions, content, and pagination now move together under one smaller inset.
+- [x] Revalidate the touched packages and the canonical root `pnpm build`, then sync memory-bank closure notes.
+    - Outcome: `pnpm --filter @universo/template-mui build` passed, `pnpm --filter @universo/metahubs-frontend build` passed, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+
+## Completed Session: 2026-04-12 Metahub Page Horizontal Spacing Fix
+
+> Goal: restore a consistent horizontal spacing contract across legacy and entity-based metahub pages so page titles/actions, card grids, tables, banners, and pagination all share the same left/right gutter instead of mixing the header gutter with old content bleed offsets.
+
+- [x] Confirm the shared page-shell and list/card/table spacing seams that currently make metahub content too close to the page edges while headers stay more inset.
+    - Outcome: the affected metahub pages all shared the same root cause: `MainLayoutMUI` already provides the page gutter, but many list/page-shell surfaces still applied old horizontal bleed offsets such as `mx: { xs: -1.5, md: -2 }` or `PAGE_CONTENT_GUTTER_MX`, so cards/tables/tabs were pulled closer to the edges than the header.
+- [x] Remove the outdated horizontal bleed offsets from the affected metahub list/card/table surfaces and align legacy plus entity-based pages to one standard gutter.
+    - Outcome: the legacy lists, entity-based lists, publications pages, Common/Settings/Migrations shells, and shared nested metahub list surfaces now respect the same outer gutter as `ViewHeader`, so titles, create buttons, banners, cards, tables, and pagination align consistently.
+- [x] Re-run focused validation for the touched frontend package and finish with the canonical root `pnpm build`.
+    - Outcome: `pnpm --filter @universo/metahubs-frontend build` completed green, diagnostics stayed clean, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- [x] Sync `activeContext.md`, `progress.md`, and this task ledger after the spacing fix is validated.
+    - Outcome: the session is now closed and the updated memory-bank notes preserve the new metahub page-shell spacing contract.
+
+## Completed Session: 2026-04-12 Entity V2 Post-Rebuild Regression Fix
+
+> Goal: reproduce and fix the two post-rebuild Entity V2 regressions reported on a fresh self-hosted snapshot import: the first-open edit dialog missing localized entity-type fields, and the missing legacy hub/set/enumeration rows on the corresponding V2 surfaces, then rerun focused validation plus the canonical root build before syncing memory-bank state.
+
+- [x] Confirm the current frontend and backend seams that cause the first-open entity-type edit dialog to render incomplete localized fields before detail hydration finishes.
+    - Outcome: the first-open gap was traced to the always-mounted shared `EntityFormDialog`, where the initial render still used stale internal state before the reset effects applied the incoming localized values.
+- [x] Confirm why Hub V2 / Set V2 / Enumeration V2 list surfaces do not include legacy rows on the fresh imported metahub while Catalog V2 still does.
+    - Outcome: the reused legacy hub/set/enumeration list routes validated the requested V2 `kindKey` correctly, but `resolveRequestedLegacyCompatibleKinds(...)` narrowed the read scope to the custom kind only and therefore hid the legacy rows that the fresh-import acceptance contract still expects.
+- [x] Implement root-cause fixes for dialog hydration and legacy-compatible V2 list parity without preserving unnecessary legacy structure.
+    - Outcome: `EntityFormDialog` now renders fresh `initialExtraValues` on the very first open instead of waiting for reset effects, and legacy-compatible hub/set/enumeration list reads now validate the requested V2 kind and widen back to the full compatible kind union so legacy rows reappear on V2 surfaces.
+- [x] Re-run focused validation for the touched frontend/backend seams and finish with the canonical root `pnpm build`.
+    - Outcome: focused route regressions passed (`39/39`), focused dialog coverage passed (`9/9`), focused compatibility-helper coverage passed (`2/2`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- [x] Sync `activeContext.md`, `progress.md`, and this task ledger only after the repaired implementation is validated.
+    - Outcome: the active session is now closed and the current context/progress/system-pattern notes record the restored first-open dialog hydration and legacy-row visibility contract.
+
 ## Completed Session: 2026-04-12 GitBook Asset Layout Migration
 
 > Goal: move the published documentation screenshots from the repository-level `docs/assets` layout into locale-local `.gitbook/assets` directories that match the working GitBook pattern, rewrite the EN/RU guide references to those new paths, validate the paired docs contract plus generator output targets, and then send the full working tree to upstream through the `git-push` agent as explicitly requested.

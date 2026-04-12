@@ -733,7 +733,7 @@ export const LayoutListContent = ({
     const disableDeactivate = Boolean(menuLayout?.isDefault) || (Boolean(menuLayout?.isActive) && activeCount <= 1)
     const disableDelete = Boolean(menuLayout?.isDefault)
     const disableSetDefault = !menuLayout?.isActive || Boolean(menuLayout?.isDefault)
-    const contentOffsetSx = embedded ? 0 : { xs: -1.5, md: -2 }
+    const contentOffsetSx = 0
     const resolvedTitle = title === undefined ? t('layouts.title', 'Layouts') : title ?? undefined
 
     const listContent = (
@@ -786,7 +786,7 @@ export const LayoutListContent = ({
 
                     {isLoading && layouts.length === 0 ? (
                         view === 'card' ? (
-                            <SkeletonGrid />
+                            <SkeletonGrid insetMode='content' />
                         ) : (
                             <Skeleton variant='rectangular' height={120} />
                         )

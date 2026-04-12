@@ -4,13 +4,15 @@
 
 ---
 
-## Current Focus: GitBook Asset Layout Migration Closed
+## Current Focus: Metahub QA Gap Closure Closed
 
-- The 2026-04-12 GitBook screenshot-layout migration is now implemented and pushed upstream as commit `7d1c6226c7fba877d9b294cf2675136a0f0cb4bd` on `upstream/feature/gitbook-asset-layout-migration-2026-04-12`.
-- Documentation screenshots now live under locale-local GitBook trees: `docs/en/.gitbook/assets/*` and `docs/ru/.gitbook/assets/*`, which matches the verified Flowise-style publication pattern instead of the removed repository-level `docs/assets` layout.
-- The four screenshot-bearing EN/RU guides now reference `../.gitbook/assets/...`, and the quiz tutorial screenshot generator writes primary files into the EN GitBook tree before mirroring them into the RU tree so future regenerations preserve the same layout.
-- Validation for this migration is green: EN/RU line-count parity matched for both touched page pairs (`72/72` and `89/89`), `pnpm docs:i18n:check` returned clean on the current `Scope=resources` configuration, `pnpm run build:e2e` finished green (`30 successful`, `30 total`), and the canonical root `pnpm build` finished green (`30 successful`, `30 total`).
-- Next step: if requested after merge/publish, re-check the live GitBook pages to confirm the published site now resolves the locale-local `.gitbook/assets` screenshots.
+- The 2026-04-12 metahub QA gap-closure pass is now implemented and validated on the current tree.
+- The accepted narrower metahub inset no longer depends on duplicated route-local logic: `pageSpacing.ts` now owns the shared metahub shell helpers consumed by both `MainLayoutMUI` and the shared `Header`.
+- Metahub loading states no longer rely on `SkeletonGrid`'s legacy negative default margin or repeated page-local `mx={0}` overrides. The shared loading contract is now semantic: affected metahub routes use `SkeletonGrid insetMode='content'`, while the component keeps `insetMode='page'` behavior for ordinary page shells.
+- Real browser proof now exists for the shell-spacing contract: `metahub-shell-spacing.spec.ts` delays `/api/v1/metahubs`, asserts the loading skeleton plus breadcrumbs/header regions, and proves their left/right edges align on the authenticated `/metahubs` route.
+- Focused negative-path backend proof now exists for the generic entity mutation surface: isolated `entityInstancesRoutes` ACL tests confirm `403` denial behavior for generic delete and catalog-compatible create when `ensureMetahubAccess(...)` rejects.
+- Validation is green for the touched surface: `pnpm --filter @universo/template-mui build`, `pnpm --filter @universo/template-mui test`, `pnpm --filter @universo/metahubs-frontend build`, `pnpm run build:e2e`, the targeted Chromium shell-spacing flow, and the canonical root `pnpm build` all completed successfully.
+- Wider `entityInstancesRoutes` permanent-delete policy cases still show older failures on the branch, but this session did not change backend permanent-delete behavior; the new ACL tests were validated separately so the QA-gap closure remains scoped to the touched implementation seams.
 
 ## Previous Focus: PR #759 Review Comment QA Triage Closed
 
@@ -75,8 +77,8 @@
 
 ## Immediate Next Steps
 
-- If another pass is requested, treat it as QA or follow-up review work on top of the now-green 2026-04-12 baseline rather than reopening implementation without a new failing proof.
-- Preserve the compatibility-metadata contract in any future refactor: new route/runtime/schema code must not reintroduce exact-kind branching, requested-kind widening, unscoped frontend cache keys, or exact built-in blocker queries for legacy-compatible V2 kinds.
+- If another pass is requested, treat it as a new QA or follow-up review session on top of the now-green metahub shell-spacing baseline rather than reopening implementation without fresh failing proof.
+- Preserve the compatibility-metadata contract in any future refactor: new route/runtime/schema code must not reintroduce exact-kind branching, requested-kind widening, unscoped frontend cache keys, exact built-in blocker queries for legacy-compatible V2 kinds, or metahub shell-spacing duplication outside the shared `pageSpacing.ts` helpers.
 
 ## Constraints to Preserve
 

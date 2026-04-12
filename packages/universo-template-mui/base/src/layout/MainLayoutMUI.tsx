@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import type {} from '@mui/x-date-pickers/themeAugmentation'
 import type {} from '@mui/x-charts/themeAugmentation'
 import type {} from '@mui/x-data-grid-pro/themeAugmentation'
@@ -15,6 +15,7 @@ import AppTheme from '../components/shared/AppTheme'
 import { chartsCustomizations, dataGridCustomizations, datePickersCustomizations, treeViewCustomizations } from '../themes/mui-custom'
 import { ConfirmContextProvider } from '../contexts'
 import { ConfirmDialog } from '../components/dialogs/ConfirmDialog'
+import { getPageGutterPx } from '../constants/pageSpacing'
 
 const xThemeComponents = {
     ...chartsCustomizations,
@@ -29,6 +30,9 @@ interface MainLayoutMUIProps {
 }
 
 export default function MainLayoutMUI({ disableCustomTheme, children }: MainLayoutMUIProps) {
+    const location = useLocation()
+    const pageGutterPx = getPageGutterPx(location.pathname)
+
     return (
         <AppTheme disableCustomTheme={disableCustomTheme} themeComponents={xThemeComponents}>
             <ConfirmContextProvider>
@@ -53,7 +57,7 @@ export default function MainLayoutMUI({ disableCustomTheme, children }: MainLayo
                                 width: '100%',
                                 maxWidth: { md: 1700 },
                                 mx: 'auto',
-                                px: { xs: 1.5, md: 2 },
+                                px: pageGutterPx,
                                 pb: 2,
                                 mt: { xs: 8, md: 0 }
                             }}

@@ -1406,7 +1406,7 @@ export const AttributeListContent = ({
         )
     }
 
-    const contentOffsetSx = renderPageShell ? { xs: -1.5, md: -2 } : 0
+    const contentOffsetSx = 0
 
     const body = (
         <>
