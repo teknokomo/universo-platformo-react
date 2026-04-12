@@ -4,7 +4,15 @@
 
 ---
 
-## Current Focus: Entity V2 Self-Hosted Fixture QA Closure Closed
+## Current Focus: PR #759 Review Comment QA Triage Closed
+
+- The 2026-04-12 PR #759 bot-review follow-up is now closed on `feature/entity-v2-generalization-hub-set-enum`.
+- Review outcome: the transaction-bound `_mhb_migrations` concern in `MetahubSchemaService` was confirmed and fixed through the request/executor SQL path, while duplicated legacy-compatible kind helpers in `schema-ddl` were consolidated into `legacyCompatibleKinds.ts`.
+- The validation sweep also absorbed the stale test drift that had accumulated on the branch: metahubs/profile/applications frontend tests now match the current route-aware, async-save, API-meta, dialog-helper, and CSRF contracts instead of older assumptions.
+- Final validation for this triage pass is green: focused `@universo/metahubs-backend` and `@universo/schema-ddl` Jest coverage passed, the final root `pnpm test:vitest` rerun passed (`145/145` files, `804/804` tests), and the standalone canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- Treat any further PR #759 work as a new review or QA session on top of this now-validated branch state rather than reopening the completed bot-triage pass without fresh failing proof.
+
+## Previous Focus: Entity V2 Self-Hosted Fixture QA Closure Closed
 
 - The 2026-04-12 self-hosted fixture follow-up is now closed on the current branch.
 - The committed `tools/fixtures/metahubs-self-hosted-app-snapshot.json` was regenerated through the supported Playwright generator so all exported V2 entity definitions match the canonical self-hosted fixture contract again.

@@ -24,7 +24,7 @@ import { buildBaselineMigrationMeta, buildTemplateSeedMigrationMeta } from './me
 import { TemplateSeedExecutor } from '../../templates/services/TemplateSeedExecutor'
 import { TemplateSeedMigrator } from '../../templates/services/TemplateSeedMigrator'
 import { mirrorToGlobalCatalog } from '@universo/migrations-catalog'
-import { hasRuntimeHistoryTable } from '@universo/migrations-core'
+import { hasRuntimeHistoryTable, quoteIdentifier } from '@universo/migrations-core'
 import { clearWidgetTableResolverCache } from '../../templates/services/widgetTableResolver'
 import { validateTemplateManifest } from '../../templates/services/TemplateManifestValidator'
 import { builtinTemplates, DEFAULT_TEMPLATE_CODENAME } from '../../templates/data'
@@ -121,15 +121,13 @@ export class MetahubSchemaService {
         if (!baselineRow?.id) return
 
         const baselineName = `baseline_structure_v${normalizedVersion}`
-        await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_migrations')
-            .where({ id: baselineRow.id })
-            .update({
-                name: baselineName,
-                from_version: normalizedVersion,
-                to_version: normalizedVersion
-            })
+        const schemaIdent = quoteIdentifier(schemaName)
+        await this.exec.query(
+            `UPDATE ${schemaIdent}._mhb_migrations
+             SET name = $1, from_version = $2, to_version = $3
+             WHERE id = $4`,
+            [baselineName, normalizedVersion, normalizedVersion, baselineRow.id]
+        )
     }
 
     private get knex() {
@@ -187,17 +185,17 @@ export class MetahubSchemaService {
     private async readBaselineMigrationRow(
         schemaName: string
     ): Promise<{ id: string; name: string; toVersion: string | number | null } | null> {
-        const hasMigrationTable = await hasRuntimeHistoryTable(this.knex, schemaName, '_mhb_migrations')
+        const hasMigrationTable = await this.hasLocalMigrationTable(schemaName)
         if (!hasMigrationTable) return null
 
-        const rows = await this.knex
-            .withSchema(schemaName)
-            .from('_mhb_migrations')
-            .select<{ id: string; name: string; to_version: string | number | null }[]>(['id', 'name', 'to_version'])
-            .where('name', 'like', 'baseline_structure_v%')
-            .orderBy('applied_at', 'asc')
-            .orderBy('name', 'asc')
-            .limit(1)
+        const schemaIdent = quoteIdentifier(schemaName)
+        const rows = await this.exec.query<{ id: string; name: string; toVersion: string | number | null }>(
+            `SELECT id, name, to_version AS "toVersion"
+             FROM ${schemaIdent}._mhb_migrations
+             WHERE name LIKE 'baseline_structure_v%'
+             ORDER BY applied_at ASC, name ASC
+             LIMIT 1`
+        )
 
         const baselineRow = rows[0]
         if (!baselineRow) return null
@@ -205,8 +203,22 @@ export class MetahubSchemaService {
         return {
             id: baselineRow.id,
             name: baselineRow.name,
-            toVersion: baselineRow.to_version ?? null
+            toVersion: baselineRow.toVersion ?? null
         }
+    }
+
+    private async hasLocalMigrationTable(schemaName: string): Promise<boolean> {
+        const rows = await this.exec.query<{ exists: boolean | string | number }>(
+            `SELECT EXISTS (
+                 SELECT 1
+                 FROM information_schema.tables
+                 WHERE table_schema = $1 AND table_name = $2
+             ) AS "exists"`,
+            [schemaName, '_mhb_migrations']
+        )
+
+        const exists = rows[0]?.exists
+        return exists === true || exists === 't' || exists === 'true' || exists === 1
     }
 
     /**

@@ -1,6 +1,6 @@
 import type { Knex } from 'knex'
 import type { SystemTableCapabilityOptions } from '@universo/migrations-core'
-import { AttributeDataType, MetaEntityKind, getLegacyCompatibleObjectKindForKindKey } from '@universo/types'
+import { AttributeDataType } from '@universo/types'
 import type { AttributeValidationRules } from '@universo/types'
 import { buildFkConstraintName, resolveFieldColumnName, resolveEntityTableName } from './naming'
 import { uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from './locking'
@@ -9,23 +9,7 @@ import type { SchemaDiff, SchemaChange } from './diff'
 import type { EntityDefinition, FieldDefinition, MigrationResult, SchemaSnapshot } from './types'
 import { SchemaGenerator } from './SchemaGenerator'
 import { MigrationManager, generateMigrationName } from './MigrationManager'
-
-const ENUMERATION_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { ENUMERATION?: MetaEntityKind }).ENUMERATION ??
-    'enumeration') as MetaEntityKind
-const SET_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { SET?: MetaEntityKind }).SET ?? 'set') as MetaEntityKind
-
-const resolveLegacyCompatibleKind = (kind: unknown): 'catalog' | 'hub' | 'set' | 'enumeration' | null => {
-    if (kind === MetaEntityKind.CATALOG || kind === MetaEntityKind.HUB || kind === MetaEntityKind.SET || kind === MetaEntityKind.ENUMERATION) {
-        return kind
-    }
-
-    const fromKindKey = getLegacyCompatibleObjectKindForKindKey(kind)
-    return fromKindKey && fromKindKey !== 'document' ? fromKindKey : null
-}
-
-const isEnumerationCompatibleKind = (kind: unknown): boolean => resolveLegacyCompatibleKind(kind) === MetaEntityKind.ENUMERATION
-
-const isSetCompatibleKind = (kind: unknown): boolean => resolveLegacyCompatibleKind(kind) === MetaEntityKind.SET
+import { isEnumerationCompatibleKind, isSetCompatibleKind } from './legacyCompatibleKinds'
 
 /**
  * Options for applying changes with migration recording

@@ -23,6 +23,41 @@ const buildMigrationRowsSnapshot = () =>
             to_version: row.to_version
         }))
 
+const createSchemaServiceExec = () => ({
+    query: jest.fn(async (sql: string, params?: unknown[]) => {
+        // Simulate information_schema.tables lookup for inspectSchemaState and local migration-table checks.
+        if (typeof sql === 'string' && sql.includes('information_schema.tables')) {
+            if (Array.isArray(params) && typeof params[1] === 'string') {
+                return [{ exists: tablePresence.get(params[1]) === true }]
+            }
+
+            const candidates = Array.isArray(params) && Array.isArray(params[1]) ? (params[1] as string[]) : []
+            return candidates.filter((t) => tablePresence.get(t) === true).map((t) => ({ table_name: t }))
+        }
+
+        if (typeof sql === 'string' && sql.includes('SELECT id, name, to_version AS "toVersion"')) {
+            return buildMigrationRowsSnapshot().map((row) => ({
+                id: row.id,
+                name: row.name,
+                toVersion: row.to_version
+            }))
+        }
+
+        if (typeof sql === 'string' && sql.includes('UPDATE') && sql.includes('._mhb_migrations')) {
+            const [name, fromVersion, toVersion, id] = Array.isArray(params) ? params : []
+            const row = migrationRows.find((candidate) => candidate.id === id)
+            if (row) {
+                row.name = String(name)
+                row.from_version = fromVersion as string | number | null
+                row.to_version = toVersion as string | number | null
+            }
+            return []
+        }
+
+        return []
+    })
+})
+
 const buildSchemaScopedQueryBuilder = (_schemaName: string) => ({
     from: (tableName: string) => {
         if (tableName !== '_mhb_migrations') {
@@ -125,17 +160,6 @@ describe('MetahubSchemaService (read_only mode)', () => {
         }
     }
 
-    const mockExec = {
-        query: jest.fn(async (sql: string, params?: unknown[]) => {
-            // Simulate information_schema.tables lookup for inspectSchemaState
-            if (typeof sql === 'string' && sql.includes('information_schema.tables')) {
-                const candidates = Array.isArray(params) && Array.isArray(params[1]) ? (params[1] as string[]) : []
-                return candidates.filter((t) => tablePresence.get(t) === true).map((t) => ({ table_name: t }))
-            }
-            return []
-        })
-    }
-
     const setupExec = (structureVersion: number) => {
         mockFindMetahubById.mockResolvedValue({
             id: metahubId,
@@ -156,7 +180,7 @@ describe('MetahubSchemaService (read_only mode)', () => {
             lastTemplateVersionLabel: null
         })
 
-        return mockExec
+        return createSchemaServiceExec()
     }
 
     beforeEach(() => {
@@ -222,7 +246,7 @@ describe('MetahubSchemaService migration sequencing', () => {
     })
 
     it('does not update branch structureVersion when seed sync fails after structure migration', async () => {
-        const exec = { query: jest.fn().mockResolvedValue([]) }
+        const exec = createSchemaServiceExec()
         const service = new MetahubSchemaService(exec)
 
         const migrateSpy = jest.spyOn(SystemTableMigrator.prototype, 'migrate').mockResolvedValue({
@@ -255,7 +279,7 @@ describe('MetahubSchemaService create options', () => {
     })
 
     it('passes createOptions through initializeSchema into system table initialization', async () => {
-        const exec = { query: jest.fn().mockResolvedValue([]) }
+        const exec = createSchemaServiceExec()
         const service = new MetahubSchemaService(exec)
         const manifest = {
             version: '0.1.0',
@@ -323,7 +347,7 @@ describe('MetahubSchemaService create options', () => {
     })
 
     it('resolves the public structure version from the baseline migration row', async () => {
-        mockHasRuntimeHistoryTable.mockResolvedValue(true)
+        tablePresence.set('_mhb_migrations', true)
         migrationRows.push({
             id: 'migration-1',
             name: 'baseline_structure_v1',
@@ -332,14 +356,14 @@ describe('MetahubSchemaService create options', () => {
             applied_at: '2026-04-12T00:00:00.000Z'
         })
 
-        const exec = { query: jest.fn().mockResolvedValue([]) }
+        const exec = createSchemaServiceExec()
         const service = new MetahubSchemaService(exec)
 
         await expect(service.resolvePublicStructureVersion('mhb_test_schema', CURRENT_STRUCTURE_VERSION)).resolves.toBe('0.1.0')
     })
 
     it('rewrites the baseline migration row to the imported snapshot structure version', async () => {
-        mockHasRuntimeHistoryTable.mockResolvedValue(true)
+        tablePresence.set('_mhb_migrations', true)
         migrationRows.push({
             id: 'migration-1',
             name: 'baseline_structure_v1',
@@ -348,7 +372,7 @@ describe('MetahubSchemaService create options', () => {
             applied_at: '2026-04-12T00:00:00.000Z'
         })
 
-        const exec = { query: jest.fn().mockResolvedValue([]) }
+        const exec = createSchemaServiceExec()
         const service = new MetahubSchemaService(exec)
 
         await service.rewriteBaselineMigrationVersion('mhb_test_schema', '0.4.0')

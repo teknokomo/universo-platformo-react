@@ -45,6 +45,26 @@
 | 0.22.0-alpha | 2025-07-27 | 0.22.0 Alpha — 2025-07-27 (Global Impulse) ⚡️    | Memory Bank, MMOOMM improvements                                                                    |
 | 0.21.0-alpha | 2025-07-20 | 0.21.0 Alpha — 2025-07-20 (Firm Resolve) 💪       | Handler refactoring, PlayCanvas stabilization                                                       |
 
+## 2026-04-12 PR #759 Review Comment QA Triage
+
+Closed the post-merge-request bot-review follow-up for GH759 on top of the already-green Entity V2 branch. This pass stayed intentionally narrow on product code: it accepted the two reviewer findings that were actually correct, kept the `_mhb_migrations` baseline rewrite/read path inside the transaction-aware executor boundary, consolidated duplicated legacy-compatible kind classification helpers in `schema-ddl`, and then absorbed the stale test-contract drift that surfaced during the mandatory full-suite validation.
+
+| Area | Resolution |
+| --- | --- |
+| Confirmed backend review fix | `MetahubSchemaService` now rewrites and reads baseline migration rows through executor SQL plus quoted schema identifiers instead of routing that reviewed path through the global Knex connection, keeping the baseline metadata flow aligned with transaction-bound semantics. |
+| Confirmed schema-ddl review fix | Shared compatibility classification helpers now live in `packages/schema-ddl/base/src/legacyCompatibleKinds.ts`, and `SchemaGenerator`, `SchemaMigrator`, plus `diff` consume the same helper set instead of drifting through duplicated local variants. |
+| Validation drift cleanup | Branch-local stale tests were realigned across backend/frontend packages: route-aware blocker assertions, `_app_scripts` system-table expectations, metahubs dialog/template mocks, async enumeration save behavior, members/invite label handling, connector action-factory imports, profile CSRF mocks, and metahubs API wrapper `meta` expectations now match the current shipped contracts. |
+| Validation | Focused `@universo/metahubs-backend` Jest coverage passed (`70/70` suites, `626` tests with `4` skipped), focused `@universo/schema-ddl` Jest coverage passed (`9/9` suites, `158` tests), the final root `pnpm test:vitest` rerun passed (`145/145` files, `804/804` tests), and the standalone canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+### Validation
+
+- official Knex transactions guidance review for transaction-bound query semantics
+- focused `@universo/metahubs-backend` Jest rerun
+- focused `@universo/schema-ddl` Jest rerun
+- targeted vitest reruns for the stale frontend test wave
+- `pnpm test:vitest`
+- `pnpm build`
+
 ## 2026-04-12 Self-Hosted Fixture QA Closure
 
 Closed the last two real QA findings that were still live on the current tree after the broader Entity V2 surface was already green. This pass stayed intentionally narrow: regenerate the committed self-hosted fixture through the supported generator path and harden the browser snapshot import proof so imported V2 entity-definition drift cannot hide behind count/layout-only assertions.

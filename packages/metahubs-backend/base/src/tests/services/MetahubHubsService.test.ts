@@ -61,8 +61,10 @@ describe('MetahubHubsService active-row filtering', () => {
 
         const result = await service.findAll('metahub-1', {}, 'user-1')
 
-        expect(mockExecQuery.mock.calls[0][0]).toContain("kind = 'hub' AND _upl_deleted = false AND _mhb_deleted = false")
-        expect(mockExecQuery.mock.calls[1][0]).toContain("kind = 'hub' AND _upl_deleted = false AND _mhb_deleted = false")
+        expect(mockExecQuery.mock.calls[0][0]).toContain('kind = $1 AND _upl_deleted = false AND _mhb_deleted = false')
+        expect(mockExecQuery.mock.calls[0][1]).toEqual(['hub'])
+        expect(mockExecQuery.mock.calls[1][0]).toContain('kind = $1 AND _upl_deleted = false AND _mhb_deleted = false')
+        expect(mockExecQuery.mock.calls[1][1]).toEqual(['hub'])
         expect(result.total).toBe(1)
         expect(result.items).toEqual([
             expect.objectContaining({
@@ -83,14 +85,18 @@ describe('MetahubHubsService active-row filtering', () => {
         await service.findByIds('metahub-1', ['hub-1'], 'user-1')
         await service.count('metahub-1', 'user-1')
 
-        expect(mockExecQuery.mock.calls[0][0]).toContain("WHERE id = $1 AND kind = 'hub' AND _upl_deleted = false AND _mhb_deleted = false")
+        expect(mockExecQuery.mock.calls[0][0]).toContain('WHERE id = $1 AND kind = $2 AND _upl_deleted = false AND _mhb_deleted = false')
+        expect(mockExecQuery.mock.calls[0][1]).toEqual(['hub-1', 'hub'])
         expect(mockExecQuery.mock.calls[1][0]).toContain(
-            "WHERE COALESCE(codename->'locales'->(codename->>'_primary')->>'content', codename->'locales'->'en'->>'content', '') = $1 AND kind = 'hub' AND _upl_deleted = false AND _mhb_deleted = false"
+            "WHERE COALESCE(codename->'locales'->(codename->>'_primary')->>'content', codename->'locales'->'en'->>'content', '') = $1 AND kind = $2 AND _upl_deleted = false AND _mhb_deleted = false"
         )
+        expect(mockExecQuery.mock.calls[1][1]).toEqual(['main-hub', 'hub'])
         expect(mockExecQuery.mock.calls[2][0]).toContain(
-            "WHERE kind = 'hub' AND _upl_deleted = false AND _mhb_deleted = false AND id = ANY($1::uuid[])"
+            'WHERE kind = $1 AND _upl_deleted = false AND _mhb_deleted = false AND id = ANY($2::uuid[])'
         )
-        expect(mockExecQuery.mock.calls[3][0]).toContain("WHERE kind = 'hub' AND _upl_deleted = false AND _mhb_deleted = false")
+        expect(mockExecQuery.mock.calls[2][1]).toEqual(['hub', ['hub-1']])
+        expect(mockExecQuery.mock.calls[3][0]).toContain('WHERE kind = $1 AND _upl_deleted = false AND _mhb_deleted = false')
+        expect(mockExecQuery.mock.calls[3][1]).toEqual(['hub'])
     })
 
     it('fails closed on soft-deleted rows before update', async () => {
@@ -108,7 +114,8 @@ describe('MetahubHubsService active-row filtering', () => {
 
         await service.update('metahub-1', 'hub-1', { name: { en: 'Renamed hub' }, updatedBy: 'user-1' }, 'user-1')
 
-        expect(mockExecQuery.mock.calls[0][0]).toContain("WHERE id = $1 AND kind = 'hub' AND _upl_deleted = false AND _mhb_deleted = false")
+        expect(mockExecQuery.mock.calls[0][0]).toContain('WHERE id = $1 AND kind = $2 AND _upl_deleted = false AND _mhb_deleted = false')
+        expect(mockExecQuery.mock.calls[0][1]).toEqual(['hub-1', 'hub'])
         expect(mockIncrementVersion).toHaveBeenCalledTimes(1)
         expect(mockUpdateWithVersionCheck).not.toHaveBeenCalled()
     })
@@ -119,7 +126,8 @@ describe('MetahubHubsService active-row filtering', () => {
         expect(mockExecQuery).toHaveBeenCalledTimes(1)
         expect(mockExecQuery.mock.calls[0][0]).toContain('UPDATE "mhb_a1b2c3d4e5f67890abcdef1234567890_b1"."_mhb_objects"')
         expect(mockExecQuery.mock.calls[0][0]).toContain('_mhb_deleted = true')
-        expect(mockExecQuery.mock.calls[0][0]).toContain("WHERE id = $3 AND kind = 'hub' AND _upl_deleted = false AND _mhb_deleted = false")
+        expect(mockExecQuery.mock.calls[0][0]).toContain('WHERE id = $3 AND kind = $4 AND _upl_deleted = false AND _mhb_deleted = false')
+        expect(mockExecQuery.mock.calls[0][1]).toEqual([expect.any(Date), 'user-1', 'hub-1', 'hub'])
         expect(mockExecQuery.mock.calls[0][0]).not.toContain('DELETE FROM')
     })
 })

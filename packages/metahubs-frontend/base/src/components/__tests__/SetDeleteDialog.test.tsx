@@ -113,7 +113,7 @@ describe('SetDeleteDialog', () => {
         const result = await dialogProps.fetchBlockingEntities()
         const [firstRow] = result.blockingEntities
 
-        expect(getBlockingSetReferences).toHaveBeenCalledWith('metahub-1', 'set-1')
+        expect(getBlockingSetReferences).toHaveBeenCalledWith('metahub-1', 'set-1', undefined)
         expect(dialogProps.labels.blockingWarning).toContain('catalog attributes')
         expect(firstRow.sourceCatalogDisplayName).toBe('ProductsCatalog')
         expect(firstRow.attributeDisplayName).toBe('OwnerRef')

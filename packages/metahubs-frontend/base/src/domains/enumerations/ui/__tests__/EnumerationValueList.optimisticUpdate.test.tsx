@@ -165,7 +165,8 @@ vi.mock('../../../shared', () => ({
         const [movedId] = nextIds.splice(fromIndex, 1)
         nextIds.splice(toIndex, 0, movedId)
         return nextIds
-    }
+    },
+    useUpsertSharedEntityOverride: () => ({ mutateAsync: vi.fn(), isPending: false })
 }))
 
 vi.mock('../dnd', () => ({
@@ -268,7 +269,7 @@ describe('EnumerationValueList optimistic update flow', () => {
         vi.clearAllMocks()
     })
 
-    it('uses mutate instead of mutateAsync when saving edits and closes the dialog immediately', async () => {
+    it('uses mutateAsync when saving edits and closes the dialog after the async save resolves', async () => {
         render(<EnumerationValueList />)
 
         fireEvent.click(screen.getByRole('button', { name: 'edit-enumeration-value' }))
@@ -277,10 +278,10 @@ describe('EnumerationValueList optimistic update flow', () => {
         fireEvent.click(screen.getByRole('button', { name: 'submit-enumeration-value' }))
 
         await waitFor(() => {
-            expect(updateEnumerationValueMutate).toHaveBeenCalledTimes(1)
+            expect(updateEnumerationValueMutateAsync).toHaveBeenCalledTimes(1)
         })
 
-        expect(updateEnumerationValueMutateAsync).not.toHaveBeenCalled()
+        expect(updateEnumerationValueMutate).not.toHaveBeenCalled()
         expect(screen.queryByTestId('enumeration-value-dialog')).not.toBeInTheDocument()
     })
 })

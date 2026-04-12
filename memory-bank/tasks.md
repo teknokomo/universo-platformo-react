@@ -6,7 +6,20 @@
 
 ## Current Task Ledger (Canonical)
 
-- No open implementation tasks remain on the current branch after the 2026-04-12 self-hosted fixture QA closure follow-up. Start a new active session only when fresh failing proof or approved new scope appears.
+## Active Session: 2026-04-12 PR #759 Review Comment QA Triage
+
+> Goal: wait for bot feedback on GH759, verify each suggestion against the current codebase and external transaction guidance, implement only the confirmed non-regressive fixes, rerun the touched validation stack plus the canonical root build, and push the follow-up back into the same PR branch.
+
+- [x] Gather PR #759 review comments, branch context, and affected file slices.
+    - Outcome: after the mandatory 20-minute wait, the branch was switched back to `feature/entity-v2-generalization-hub-set-enum`, PR #759 review data was fetched from GitHub, and the actionable scope was narrowed to the transaction-bound `_mhb_migrations` access path in `MetahubSchemaService` plus duplicated legacy-compatible kind classification helpers in `schema-ddl`.
+- [x] Validate each bot suggestion against the current codebase contracts and external documentation before editing code.
+    - Outcome: the review comments were checked against the current backend/frontend contracts and the official Knex transaction guidance; the transaction-bound `_mhb_migrations` concern and the schema-ddl helper duplication concern were both confirmed as valid, while no speculative widening was accepted.
+- [x] Implement only the fixes that are confirmed correct, transaction-safe, and non-regressive for the shipped Entity V2 / self-hosted surface.
+    - Outcome: `MetahubSchemaService` now reads/writes baseline migration rows through the transaction-aware executor path, shared legacy-compatible kind helpers were extracted into `packages/schema-ddl/base/src/legacyCompatibleKinds.ts`, and the touched backend/schema-ddl tests were aligned with the real contracts.
+- [x] Re-run focused validation for the touched backend and schema-ddl surfaces, then finish with the canonical root `pnpm build`.
+    - Outcome: focused `@universo/metahubs-backend` Jest coverage passed (`70/70` suites, `626` tests with `4` skipped), focused `@universo/schema-ddl` Jest coverage passed (`9/9` suites, `158` tests), the stale frontend vitest contracts were aligned with the current async/meta/CSRF behavior, the final root `pnpm test:vitest` rerun passed (`145/145` files, `804/804` tests), and the standalone canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- [x] Sync memory-bank status and push the follow-up commit to PR #759.
+    - Outcome: the PR #759 review-triage state is now reflected in `activeContext.md`, `progress.md`, and this ledger, and the validated follow-up patch set is being committed and pushed back to `feature/entity-v2-generalization-hub-set-enum` for the existing PR.
 
 ## Completed Session: 2026-04-12 Self-Hosted Fixture QA Closure
 

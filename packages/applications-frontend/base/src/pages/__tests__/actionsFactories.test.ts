@@ -10,6 +10,10 @@ vi.mock('@universo/template-mui', () => ({
     DEFAULT_VIEW_STYLE: 'card'
 }))
 
+vi.mock('../../components', () => ({
+    ConnectorPublicationInfoWrapper: () => null
+}))
+
 beforeEach(() => {
     vi.clearAllMocks()
     vi.resetModules()

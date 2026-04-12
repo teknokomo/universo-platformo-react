@@ -2,9 +2,6 @@ import type { Knex } from 'knex'
 import type { SystemTableCapabilityOptions } from '@universo/migrations-core'
 import {
     AttributeDataType,
-    MetaEntityKind,
-    getLegacyCompatibleObjectKind,
-    getLegacyCompatibleObjectKindForKindKey,
     getPhysicalDataType,
     formatPhysicalType,
     type ApplicationLifecycleContract,
@@ -19,36 +16,10 @@ import { generateMigrationName } from './MigrationManager'
 import type { MigrationManager } from './MigrationManager'
 import type { EntityDefinition, FieldDefinition, SchemaGenerationResult, SchemaSnapshot } from './types'
 import type { SchemaDiff } from './diff'
+import { isEnumerationCompatibleKind, isNonPhysicalLegacyCompatibleEntity, isSetCompatibleKind } from './legacyCompatibleKinds'
 
-const ENUMERATION_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { ENUMERATION?: MetaEntityKind }).ENUMERATION ??
-    'enumeration') as MetaEntityKind
-const SET_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { SET?: MetaEntityKind }).SET ?? 'set') as MetaEntityKind
-const HUB_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { HUB?: MetaEntityKind }).HUB ?? 'hub') as MetaEntityKind
 const DEFAULT_DDL_STATEMENT_TIMEOUT_MS = 120_000
 const ENTITY_KIND_DB_LENGTH = 64
-
-const resolveLegacyCompatibleKind = (kind: unknown, config?: unknown): 'catalog' | 'hub' | 'set' | 'enumeration' | null => {
-    if (kind === MetaEntityKind.CATALOG || kind === MetaEntityKind.HUB || kind === MetaEntityKind.SET || kind === MetaEntityKind.ENUMERATION) {
-        return kind
-    }
-
-    const fromConfig = getLegacyCompatibleObjectKind(config)
-    if (fromConfig && fromConfig !== 'document') {
-        return fromConfig
-    }
-
-    const fromKindKey = getLegacyCompatibleObjectKindForKindKey(kind)
-    return fromKindKey && fromKindKey !== 'document' ? fromKindKey : null
-}
-
-const isNonPhysicalLegacyCompatibleEntity = (entity: Pick<EntityDefinition, 'kind' | 'config'>): boolean => {
-    const legacyKind = resolveLegacyCompatibleKind(entity.kind, entity.config)
-    return legacyKind === MetaEntityKind.HUB || legacyKind === MetaEntityKind.SET || legacyKind === MetaEntityKind.ENUMERATION
-}
-
-const isEnumerationCompatibleKind = (kind: unknown): boolean => resolveLegacyCompatibleKind(kind) === MetaEntityKind.ENUMERATION
-
-const isSetCompatibleKind = (kind: unknown): boolean => resolveLegacyCompatibleKind(kind) === MetaEntityKind.SET
 
 const createCodenameVLC = (primaryLocale: string, codename: string): VersionedLocalizedContent<string> => {
     const timestamp = new Date(0).toISOString()

@@ -182,6 +182,21 @@ vi.mock('@tanstack/react-query', async () => {
 })
 
 vi.mock('@universo/template-mui/components/dialogs', () => ({
+    useDialogPresentation: ({ onClose }: { onClose?: () => void }) => ({
+        dialogProps: {
+            onClose,
+            maxWidth: 'sm',
+            fullWidth: true,
+            disableEscapeKeyDown: false,
+            PaperProps: undefined
+        },
+        titleActions: null,
+        contentSx: undefined,
+        resizeHandle: null
+    }),
+    resolveDialogMaxWidth: (maxWidth: unknown, fallback: unknown) => maxWidth ?? fallback,
+    mergeDialogPaperProps: (_base: unknown, next: unknown) => next,
+    mergeDialogSx: (base: unknown) => base,
     EntityFormDialog: ({ open, title }: { open?: boolean; title?: string }) =>
         open ? <div data-testid='publication-settings-dialog'>{title}</div> : null
 }))
