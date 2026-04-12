@@ -1,4 +1,4 @@
-import { MetaEntityKind } from '@universo/types'
+import { MetaEntityKind, getLegacyCompatibleObjectKind, getLegacyCompatibleObjectKindForKindKey } from '@universo/types'
 import type { EntityDefinition, RuntimeEntityKind, SchemaSnapshot } from './types'
 import { resolveFieldColumnName, resolveEntityTableName, generateChildTableName } from './naming'
 
@@ -6,6 +6,27 @@ const ENUMERATION_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { ENUMER
     'enumeration') as MetaEntityKind
 const SET_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { SET?: MetaEntityKind }).SET ?? 'set') as MetaEntityKind
 const HUB_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { HUB?: MetaEntityKind }).HUB ?? 'hub') as MetaEntityKind
+
+const resolveLegacyCompatibleKind = (kind: unknown, config?: unknown): 'catalog' | 'hub' | 'set' | 'enumeration' | null => {
+    if (kind === MetaEntityKind.CATALOG || kind === MetaEntityKind.HUB || kind === MetaEntityKind.SET || kind === MetaEntityKind.ENUMERATION) {
+        return kind
+    }
+
+    const fromConfig = getLegacyCompatibleObjectKind(config)
+    if (fromConfig && fromConfig !== 'document') {
+        return fromConfig
+    }
+
+    const fromKindKey = getLegacyCompatibleObjectKindForKindKey(kind)
+    return fromKindKey && fromKindKey !== 'document' ? fromKindKey : null
+}
+
+const isNonPhysicalLegacyCompatibleEntity = (entity: { kind: unknown; config?: unknown }): boolean => {
+    const legacyKind = resolveLegacyCompatibleKind(entity.kind, entity.config)
+    return legacyKind === MetaEntityKind.HUB || legacyKind === MetaEntityKind.SET || legacyKind === MetaEntityKind.ENUMERATION
+}
+
+const isSetCompatibleKind = (kind: unknown): boolean => resolveLegacyCompatibleKind(kind) === MetaEntityKind.SET
 
 export enum ChangeType {
     ADD_TABLE = 'ADD_TABLE',
@@ -67,7 +88,7 @@ const shouldHavePhysicalForeignKey = (field: {
 }): boolean => {
     if (field.dataType !== 'REF') return false
     if (!field.targetEntityId) return false
-    if (field.targetEntityKind === SET_KIND) return false
+    if (isSetCompatibleKind(field.targetEntityKind)) return false
     return true
 }
 
@@ -78,12 +99,10 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
         destructive: [],
         summary: ''
     }
-    const newPhysicalEntities = newEntities.filter(
-        (entity) => entity.kind !== ENUMERATION_KIND && entity.kind !== SET_KIND && entity.kind !== HUB_KIND
-    )
+    const newPhysicalEntities = newEntities.filter((entity) => !isNonPhysicalLegacyCompatibleEntity(entity))
     const oldPhysicalEntities = oldSnapshot?.entities
         ? Object.entries(oldSnapshot.entities)
-              .filter(([, entity]) => entity.kind !== ENUMERATION_KIND && entity.kind !== SET_KIND && entity.kind !== HUB_KIND)
+              .filter(([, entity]) => !isNonPhysicalLegacyCompatibleEntity(entity))
               .map(([entityId, entity]) => ({
                   ...entity,
                   id: entityId

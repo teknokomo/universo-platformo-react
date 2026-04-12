@@ -1,5 +1,5 @@
 import { createHash } from 'crypto'
-import { AttributeDataType } from '@universo/types'
+import { AttributeDataType, getLegacyCompatibleObjectKindForKindKey } from '@universo/types'
 import { getCodenamePrimary, serialization } from '@universo/utils'
 import type {
     PublishedApplicationRuntimeSource,
@@ -31,6 +31,9 @@ const resolveSnapshotCodenameText = (value: unknown): string | null => {
 
     return null
 }
+
+const isEnumerationCompatibleKind = (kind: unknown): boolean =>
+    kind === 'enumeration' || getLegacyCompatibleObjectKindForKindKey(kind) === 'enumeration'
 
 const calculatePublicationSnapshotHash = (snapshot: PublishedApplicationSnapshot): string =>
     createHash('sha256')
@@ -164,7 +167,11 @@ const rewriteElementDataForFields = (
             continue
         }
 
-        if (field.dataType === AttributeDataType.REF && field.targetEntityKind === 'enumeration' && typeof field.targetEntityId === 'string') {
+        if (
+            field.dataType === AttributeDataType.REF &&
+            isEnumerationCompatibleKind(field.targetEntityKind) &&
+            typeof field.targetEntityId === 'string'
+        ) {
             const nextValue = remapEnumerationReferenceValue(rawValue, field.targetEntityId, scopedIdsByObject)
             if (nextValue !== rawValue) {
                 nextData[key] = nextValue

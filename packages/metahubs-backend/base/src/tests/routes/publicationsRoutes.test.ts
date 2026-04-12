@@ -25,6 +25,7 @@ const mockSerializeMetahub = jest.fn()
 const mockDeserializeSnapshot = jest.fn()
 const mockCalculateHash = jest.fn()
 const mockEnsureSchema = jest.fn()
+const mockResolvePublicStructureVersion = jest.fn()
 const mockEnrichDefinitionsWithSetConstants = jest.fn()
 const mockApplyRlsContext = jest.fn()
 
@@ -111,19 +112,28 @@ jest.mock('../../domains/applications/services/ApplicationSchemaStateStore', () 
     persistApplicationSchemaSyncState: (...args: unknown[]) => mockPersistApplicationSchemaSyncState(...args)
 }))
 
-jest.mock('../../domains/publications/services/SnapshotSerializer', () => ({
-    __esModule: true,
-    SnapshotSerializer: jest.fn().mockImplementation(() => ({
+jest.mock('../../domains/publications/services/SnapshotSerializer', () => {
+    const SnapshotSerializer = jest.fn().mockImplementation(() => ({
         serializeMetahub: (...args: unknown[]) => mockSerializeMetahub(...args),
         deserializeSnapshot: (...args: unknown[]) => mockDeserializeSnapshot(...args),
         calculateHash: (...args: unknown[]) => mockCalculateHash(...args)
     }))
-}))
+
+    ;(SnapshotSerializer as unknown as { materializeSharedEntitiesForRuntime: jest.Mock }).materializeSharedEntitiesForRuntime = jest.fn(
+        () => []
+    )
+
+    return {
+        __esModule: true,
+        SnapshotSerializer
+    }
+})
 
 jest.mock('../../domains/metahubs/services/MetahubSchemaService', () => ({
     __esModule: true,
     MetahubSchemaService: jest.fn().mockImplementation(() => ({
-        ensureSchema: (...args: unknown[]) => mockEnsureSchema(...args)
+        ensureSchema: (...args: unknown[]) => mockEnsureSchema(...args),
+        resolvePublicStructureVersion: (...args: unknown[]) => mockResolvePublicStructureVersion(...args)
     }))
 }))
 
@@ -257,12 +267,13 @@ describe('Publications Routes', () => {
             description: { en: 'Metahub description' },
             templateVersionId: null
         })
-        mockFindBranchByIdAndMetahub.mockResolvedValue({ id: 'branch-1', structureVersion: 1 })
+        mockFindBranchByIdAndMetahub.mockResolvedValue({ id: 'branch-1', schemaName: 'mhb_schema', structureVersion: 1 })
         mockFindTemplateVersionById.mockResolvedValue(null)
         mockSerializeMetahub.mockResolvedValue({ entities: [], layouts: [], layoutZoneWidgets: [] })
         mockCalculateHash.mockReturnValue('snapshot-hash')
         mockDeserializeSnapshot.mockReturnValue([])
         mockEnsureSchema.mockRejectedValue(new Error('skip layouts in test'))
+        mockResolvePublicStructureVersion.mockResolvedValue('0.1.0')
         mockEnrichDefinitionsWithSetConstants.mockImplementation((definitions: unknown) => definitions)
         mockGenerateFullSchema.mockRejectedValue(new Error('ddl exploded'))
         mockRunPublishedApplicationRuntimeSync.mockResolvedValue({ seedWarnings: [] })
@@ -452,6 +463,8 @@ describe('Publications Routes', () => {
                 autoCreateApplication: true
             })
         )
+        expect(mockResolvePublicStructureVersion).toHaveBeenCalledWith('mhb_schema', 1)
+        expect(mockSerializeMetahub).toHaveBeenCalledWith('metahub-1', expect.objectContaining({ structureVersion: '0.1.0' }))
         expect(mockGenerateFullSchema).toHaveBeenCalledWith(
             TEST_APP_SCHEMA_NAME,
             [],
@@ -487,15 +500,10 @@ describe('Publications Routes', () => {
             expect.objectContaining({
                 trx: ddlTransaction,
                 schemaName: TEST_APP_SCHEMA_NAME,
-                snapshot: expect.objectContaining({
-                    entities: [],
-                    layouts: [],
-                    layoutZoneWidgets: [],
-                    defaultLayoutId: null,
-                    layoutConfig: {}
-                }),
+                snapshot: [],
                 entities: [],
                 migrationId: 'migration-1',
+                applicationId: 'application-1',
                 userId: 'user-1'
             })
         )

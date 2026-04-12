@@ -60,6 +60,7 @@ export interface PublishedMetahubMenuEntityType {
     title: string
     iconName?: string | null
     sidebarSection?: 'objects' | 'admin'
+    sidebarOrder?: number | null
 }
 
 const menuIconRegistry: Record<string, ElementType> = {
@@ -154,8 +155,18 @@ export const getMetahubMenuItems = (
         publishedEntityTypes?: PublishedMetahubMenuEntityType[]
     }
 ): TemplateMenuItem[] => {
-    const publishedObjectItems = (options?.publishedEntityTypes ?? [])
+    const publishedObjectItems = [...(options?.publishedEntityTypes ?? [])]
         .filter((entityType) => (entityType.sidebarSection ?? 'objects') === 'objects')
+        .sort((left, right) => {
+            const leftOrder = typeof left.sidebarOrder === 'number' ? left.sidebarOrder : Number.MAX_SAFE_INTEGER
+            const rightOrder = typeof right.sidebarOrder === 'number' ? right.sidebarOrder : Number.MAX_SAFE_INTEGER
+
+            if (leftOrder !== rightOrder) {
+                return leftOrder - rightOrder
+            }
+
+            return left.title.localeCompare(right.title)
+        })
         .map<TemplateMenuItem>((entityType) => ({
             id: `metahub-entity-${entityType.kindKey}`,
             title: entityType.title,

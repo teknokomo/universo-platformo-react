@@ -7,6 +7,13 @@ const LEGACY_COMPATIBLE_OBJECT_KINDS = ['catalog', 'set', 'enumeration', 'hub', 
 
 export type LegacyCompatibleObjectKind = (typeof LEGACY_COMPATIBLE_OBJECT_KINDS)[number]
 
+export const LEGACY_COMPATIBLE_KIND_KEYS: Readonly<Record<Exclude<LegacyCompatibleObjectKind, 'document'>, string>> = {
+    catalog: 'custom.catalog-v2',
+    hub: 'custom.hub-v2',
+    set: 'custom.set-v2',
+    enumeration: 'custom.enumeration-v2'
+}
+
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 
 export const getLegacyCompatibleObjectKind = (config: unknown): LegacyCompatibleObjectKind | null => {
@@ -24,10 +31,31 @@ export const getLegacyCompatibleObjectKind = (config: unknown): LegacyCompatible
 
 export const isLegacyCompatibleObjectKind = (config: unknown, kind: string): boolean => getLegacyCompatibleObjectKind(config) === kind
 
+export const getLegacyCompatibleObjectKindForKindKey = (kindKey: unknown): LegacyCompatibleObjectKind | null => {
+    if (typeof kindKey !== 'string') {
+        return null
+    }
+
+    const normalizedKindKey = kindKey.trim()
+    if (!normalizedKindKey) {
+        return null
+    }
+
+    const matchedEntry = Object.entries(LEGACY_COMPATIBLE_KIND_KEYS).find(([, value]) => {
+        if (value === normalizedKindKey) {
+            return true
+        }
+
+        return normalizedKindKey.startsWith(`${value}-`)
+    })
+    return matchedEntry ? (matchedEntry[0] as Exclude<LegacyCompatibleObjectKind, 'document'>) : null
+}
+
 export interface EntityTypeUIConfig {
     iconName: string
     tabs: readonly string[]
     sidebarSection: EntitySidebarSection
+    sidebarOrder?: number
     nameKey: string
     descriptionKey?: string
 }

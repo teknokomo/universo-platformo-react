@@ -15,6 +15,13 @@ Backend-пакет для design-time ресурсов metahub, metadata publica
 - Publication-driven application sync компонуется через package boundaries вместо дублирования runtime ownership внутри этого пакета.
 - Service-level mutations fail closed и используют `RETURNING`, когда нужно подтверждение затронутой строки.
 
+## Legacy-Compatible Entity V2 Contract
+
+- `config.compatibility.legacyObjectKind` является источником истины для совместимости catalog, hub, set и enumeration.
+- Custom V2 rows сохраняют свой custom `kindKey` в `_mhb_objects.kind`; controllers расширяют legacy наборы kind через compatibility helpers вместо переписывания сохранённых kind.
+- Controllers hubs, catalogs, sets и enumerations принимают `kindKey`-aware compatibility filters, чтобы legacy семейство routes обслуживало и built-in, и compatible custom rows.
+- Publication, runtime и schema seams классифицируют V2 kinds через compatibility metadata, поэтому в runtime navigation материализуются только catalog-compatible sections.
+
 ## Main Responsibilities
 
 - Экспортировать authenticated CRUD routes для design-time metahub resources.

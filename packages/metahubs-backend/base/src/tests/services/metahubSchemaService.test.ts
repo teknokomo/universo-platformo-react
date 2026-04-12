@@ -2,8 +2,54 @@ const mockAcquireAdvisoryLock = jest.fn(async () => true)
 const mockReleaseAdvisoryLock = jest.fn(async () => undefined)
 const mockUuidToLockKey = jest.fn(() => 'lock-key')
 const mockCreateSchema = jest.fn(async () => undefined)
+const mockHasRuntimeHistoryTable = jest.fn(async () => false)
 
 const tablePresence = new Map<string, boolean>()
+const migrationRows: Array<{
+    id: string
+    name: string
+    from_version: string | number | null
+    to_version: string | number | null
+    applied_at: string
+}> = []
+
+const buildMigrationRowsSnapshot = () =>
+    migrationRows
+        .slice()
+        .sort((left, right) => left.applied_at.localeCompare(right.applied_at) || left.name.localeCompare(right.name))
+        .map((row) => ({
+            id: row.id,
+            name: row.name,
+            to_version: row.to_version
+        }))
+
+const buildSchemaScopedQueryBuilder = (_schemaName: string) => ({
+    from: (tableName: string) => {
+        if (tableName !== '_mhb_migrations') {
+            throw new Error(`Unexpected table access in test: ${tableName}`)
+        }
+
+        return {
+            select: () => ({
+                where: () => ({
+                    orderBy: () => ({
+                        orderBy: () => ({
+                            limit: async () => buildMigrationRowsSnapshot()
+                        })
+                    })
+                })
+            }),
+            where: ({ id }: { id: string }) => ({
+                update: async (payload: Partial<(typeof migrationRows)[number]>) => {
+                    const row = migrationRows.find((candidate) => candidate.id === id)
+                    if (!row) return 0
+                    Object.assign(row, payload)
+                    return 1
+                }
+            })
+        }
+    }
+})
 
 const mockKnex = {
     schema: {
@@ -11,6 +57,7 @@ const mockKnex = {
             hasTable: jest.fn(async (tableName: string) => tablePresence.get(tableName) === true)
         }))
     },
+    withSchema: jest.fn((schemaName: string) => buildSchemaScopedQueryBuilder(schemaName)),
     raw: jest.fn(async () => ({ rows: [] })),
     transaction: jest.fn()
 }
@@ -23,6 +70,12 @@ jest.mock('@universo/database', () => ({
     qSchemaTable: jest.requireActual('@universo/database').qSchemaTable,
     qColumn: jest.requireActual('@universo/database').qColumn,
     createKnexExecutor: jest.requireActual('@universo/database').createKnexExecutor
+}))
+
+jest.mock('@universo/migrations-core', () => ({
+    __esModule: true,
+    ...jest.requireActual('@universo/migrations-core'),
+    hasRuntimeHistoryTable: (...args: unknown[]) => mockHasRuntimeHistoryTable(...args)
 }))
 
 jest.mock('../../domains/ddl', () => ({
@@ -109,6 +162,8 @@ describe('MetahubSchemaService (read_only mode)', () => {
     beforeEach(() => {
         jest.clearAllMocks()
         tablePresence.clear()
+        migrationRows.splice(0, migrationRows.length)
+        mockHasRuntimeHistoryTable.mockResolvedValue(false)
         MetahubSchemaService.clearAllCaches()
     })
 
@@ -162,6 +217,8 @@ describe('MetahubSchemaService (read_only mode)', () => {
 describe('MetahubSchemaService migration sequencing', () => {
     beforeEach(() => {
         jest.clearAllMocks()
+        migrationRows.splice(0, migrationRows.length)
+        mockHasRuntimeHistoryTable.mockResolvedValue(false)
     })
 
     it('does not update branch structureVersion when seed sync fails after structure migration', async () => {
@@ -192,6 +249,8 @@ describe('MetahubSchemaService create options', () => {
     beforeEach(() => {
         jest.clearAllMocks()
         tablePresence.clear()
+        migrationRows.splice(0, migrationRows.length)
+        mockHasRuntimeHistoryTable.mockResolvedValue(false)
         MetahubSchemaService.clearAllCaches()
     })
 
@@ -261,5 +320,45 @@ describe('MetahubSchemaService create options', () => {
         expect(filtered.enumerationValues).toEqual({
             enum_status: [{ codename: 'draft' }]
         })
+    })
+
+    it('resolves the public structure version from the baseline migration row', async () => {
+        mockHasRuntimeHistoryTable.mockResolvedValue(true)
+        migrationRows.push({
+            id: 'migration-1',
+            name: 'baseline_structure_v1',
+            from_version: 1,
+            to_version: 1,
+            applied_at: '2026-04-12T00:00:00.000Z'
+        })
+
+        const exec = { query: jest.fn().mockResolvedValue([]) }
+        const service = new MetahubSchemaService(exec)
+
+        await expect(service.resolvePublicStructureVersion('mhb_test_schema', CURRENT_STRUCTURE_VERSION)).resolves.toBe('0.1.0')
+    })
+
+    it('rewrites the baseline migration row to the imported snapshot structure version', async () => {
+        mockHasRuntimeHistoryTable.mockResolvedValue(true)
+        migrationRows.push({
+            id: 'migration-1',
+            name: 'baseline_structure_v1',
+            from_version: 1,
+            to_version: 1,
+            applied_at: '2026-04-12T00:00:00.000Z'
+        })
+
+        const exec = { query: jest.fn().mockResolvedValue([]) }
+        const service = new MetahubSchemaService(exec)
+
+        await service.rewriteBaselineMigrationVersion('mhb_test_schema', '0.4.0')
+
+        expect(migrationRows[0]).toEqual(
+            expect.objectContaining({
+                name: 'baseline_structure_v4',
+                from_version: 4,
+                to_version: 4
+            })
+        )
     })
 })

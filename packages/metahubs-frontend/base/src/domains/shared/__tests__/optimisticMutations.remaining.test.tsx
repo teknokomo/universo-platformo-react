@@ -618,6 +618,58 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         })
     })
 
+    it('isolates optimistic set create state to the requested custom kind scope', async () => {
+        const metahubId = 'metahub-sets-kind'
+        const kindKey = 'custom.set-v2'
+        const scopedListKey = metahubsQueryKeys.allSetsList(metahubId, { kindKey })
+        const unscopedListKey = metahubsQueryKeys.allSetsList(metahubId)
+
+        const createSetRequest = createPromiseController<{ data: { id: string } }>()
+        mocks.setsApi.createSetAtMetahub.mockReturnValue(createSetRequest.promise)
+
+        const queryClient = createTestQueryClient()
+        queryClient.setQueryData(scopedListKey, {
+            items: [{ id: 'set-custom-1', codename: 'set-custom-1', name: { en: 'Scoped Set 1' }, constantsCount: 1 }],
+            pagination: { total: 1 }
+        })
+        queryClient.setQueryData(unscopedListKey, {
+            items: [{ id: 'set-legacy-1', codename: 'set-legacy-1', name: { en: 'Legacy Set 1' }, constantsCount: 1 }],
+            pagination: { total: 1 }
+        })
+
+        let createSet: ReturnType<typeof setHooks.useCreateSetAtMetahub> | undefined
+
+        function Probe() {
+            createSet = setHooks.useCreateSetAtMetahub()
+            return null
+        }
+
+        render(createElement(QueryClientProvider, { client: queryClient }, createElement(Probe)))
+
+        act(() => {
+            createSet!.mutate({
+                metahubId,
+                kindKey,
+                data: { codename: 'set-custom-2', name: { en: 'Scoped Set 2' } }
+            } as CreateSetParams)
+        })
+
+        await waitFor(() => {
+            const scopedData = queryClient.getQueryData<{ items: Array<Record<string, unknown>> }>(scopedListKey)
+            const unscopedData = queryClient.getQueryData<{ items: Array<Record<string, unknown>> }>(unscopedListKey)
+            expect(scopedData?.items.at(0)?.codename).toBe('set-custom-2')
+            expect(scopedData?.items.at(0)?.__pendingAction).toBe('create')
+            expect(unscopedData?.items).toHaveLength(1)
+            expect(unscopedData?.items.at(0)?.id).toBe('set-legacy-1')
+        })
+
+        createSetRequest.resolve({ data: { id: 'set-custom-2' } })
+
+        await waitFor(() => {
+            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Set created', { variant: 'success' })
+        })
+    })
+
     it('applies optimistic copy state for catalogs in both metahub and hub scopes', async () => {
         const metahubId = 'metahub-catalogs'
         const listKey = metahubsQueryKeys.allCatalogsList(metahubId)
@@ -774,6 +826,58 @@ describe('remaining metahubs optimistic mutation hooks', () => {
             expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Enumeration copied', { variant: 'success' })
             const hubData = queryClient.getQueryData<{ items: Array<Record<string, unknown>> }>(hubListKey)
             expect(hubData?.items.at(0)?.id).toBe('enum-copy')
+        })
+    })
+
+    it('isolates optimistic enumeration create state to the requested custom kind scope', async () => {
+        const metahubId = 'metahub-enums-kind'
+        const kindKey = 'custom.enumeration-v2'
+        const scopedListKey = metahubsQueryKeys.allEnumerationsList(metahubId, { kindKey })
+        const unscopedListKey = metahubsQueryKeys.allEnumerationsList(metahubId)
+
+        const createEnumerationRequest = createPromiseController<{ data: { id: string } }>()
+        mocks.enumerationsApi.createEnumerationAtMetahub.mockReturnValue(createEnumerationRequest.promise)
+
+        const queryClient = createTestQueryClient()
+        queryClient.setQueryData(scopedListKey, {
+            items: [{ id: 'enum-custom-1', codename: 'enum-custom-1', name: { en: 'Scoped Enum 1' }, valuesCount: 1 }],
+            pagination: { total: 1 }
+        })
+        queryClient.setQueryData(unscopedListKey, {
+            items: [{ id: 'enum-legacy-1', codename: 'enum-legacy-1', name: { en: 'Legacy Enum 1' }, valuesCount: 1 }],
+            pagination: { total: 1 }
+        })
+
+        let createEnumeration: ReturnType<typeof enumerationHooks.useCreateEnumerationAtMetahub> | undefined
+
+        function Probe() {
+            createEnumeration = enumerationHooks.useCreateEnumerationAtMetahub()
+            return null
+        }
+
+        render(createElement(QueryClientProvider, { client: queryClient }, createElement(Probe)))
+
+        act(() => {
+            createEnumeration!.mutate({
+                metahubId,
+                kindKey,
+                data: { codename: 'enum-custom-2', name: { en: 'Scoped Enum 2' } }
+            } as CreateEnumerationParams)
+        })
+
+        await waitFor(() => {
+            const scopedData = queryClient.getQueryData<{ items: Array<Record<string, unknown>> }>(scopedListKey)
+            const unscopedData = queryClient.getQueryData<{ items: Array<Record<string, unknown>> }>(unscopedListKey)
+            expect(scopedData?.items.at(0)?.codename).toBe('enum-custom-2')
+            expect(scopedData?.items.at(0)?.__pendingAction).toBe('create')
+            expect(unscopedData?.items).toHaveLength(1)
+            expect(unscopedData?.items.at(0)?.id).toBe('enum-legacy-1')
+        })
+
+        createEnumerationRequest.resolve({ data: { id: 'enum-custom-2' } })
+
+        await waitFor(() => {
+            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Enumeration created', { variant: 'success' })
         })
     })
 

@@ -17,6 +17,7 @@ export interface SnapshotFieldDefinition extends Omit<FieldDefinition, 'codename
 
 export interface SnapshotEntityDefinition extends Omit<EntityDefinition, 'codename' | 'fields'> {
     codename: SnapshotCodenameValue
+    tableName?: string
     fields: SnapshotFieldDefinition[]
 }
 

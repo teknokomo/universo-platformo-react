@@ -2,6 +2,8 @@ import { apiClient } from '../../shared'
 import { MetahubSet, SetLocalizedPayload, PaginationParams, PaginatedResponse, HubRef } from '../../../types'
 import type { SetCopyOptions, VersionedLocalizedContent } from '@universo/types'
 
+type LegacyCompatiblePaginationParams = PaginationParams & { kindKey?: string }
+
 /**
  * Set with parent hubs info (for "all sets" view)
  * Uses the same hubs array as the Set type
@@ -28,7 +30,7 @@ export interface BlockingSetReferencesResponse {
 /**
  * List all sets in a metahub (owner-level view)
  */
-export const listAllSets = async (metahubId: string, params?: PaginationParams): Promise<PaginatedResponse<SetWithHubs>> => {
+export const listAllSets = async (metahubId: string, params?: LegacyCompatiblePaginationParams): Promise<PaginatedResponse<SetWithHubs>> => {
     const response = await apiClient.get<{ items: SetWithHubs[]; pagination: { total: number; limit: number; offset: number } }>(
         `/metahub/${metahubId}/sets`,
         {
@@ -37,7 +39,8 @@ export const listAllSets = async (metahubId: string, params?: PaginationParams):
                 offset: params?.offset,
                 sortBy: params?.sortBy,
                 sortOrder: params?.sortOrder,
-                search: params?.search
+                search: params?.search,
+                kindKey: params?.kindKey
             }
         }
     )
@@ -58,7 +61,11 @@ export const listAllSets = async (metahubId: string, params?: PaginationParams):
 /**
  * List sets for a specific hub (via junction table)
  */
-export const listSets = async (metahubId: string, hubId: string, params?: PaginationParams): Promise<PaginatedResponse<MetahubSet>> => {
+export const listSets = async (
+    metahubId: string,
+    hubId: string,
+    params?: LegacyCompatiblePaginationParams
+): Promise<PaginatedResponse<MetahubSet>> => {
     const response = await apiClient.get<{ items: MetahubSet[]; pagination: { total: number; limit: number; offset: number } }>(
         `/metahub/${metahubId}/hub/${hubId}/sets`,
         {
@@ -67,7 +74,8 @@ export const listSets = async (metahubId: string, hubId: string, params?: Pagina
                 offset: params?.offset,
                 sortBy: params?.sortBy,
                 sortOrder: params?.sortOrder,
-                search: params?.search
+                search: params?.search,
+                kindKey: params?.kindKey
             }
         }
     )
@@ -98,8 +106,10 @@ export const getSet = async (metahubId: string, hubId: string, setId: string): P
  * Get a single set by ID (owner-level, no hub required)
  * Returns set with all associated hubs
  */
-export const getSetById = async (metahubId: string, setId: string): Promise<SetWithHubs> => {
-    const response = await apiClient.get<SetWithHubs>(`/metahub/${metahubId}/set/${setId}`)
+export const getSetById = async (metahubId: string, setId: string, kindKey?: string): Promise<SetWithHubs> => {
+    const response = await apiClient.get<SetWithHubs>(`/metahub/${metahubId}/set/${setId}`, {
+        params: kindKey ? { kindKey } : undefined
+    })
     return response.data
 }
 
@@ -107,13 +117,13 @@ export const getSetById = async (metahubId: string, setId: string): Promise<SetW
  * Create a new set at metahub level (can have 0+ hub associations)
  * Used when creating sets from the global sets list
  */
-export const createSetAtMetahub = (metahubId: string, data: SetLocalizedPayload & { sortOrder?: number }) =>
+export const createSetAtMetahub = (metahubId: string, data: SetLocalizedPayload & { sortOrder?: number; kindKey?: string }) =>
     apiClient.post<MetahubSet>(`/metahub/${metahubId}/sets`, data)
 
 /**
  * Create a new set and associate with hub(s) - hub-scoped endpoint
  */
-export const createSet = (metahubId: string, hubId: string, data: SetLocalizedPayload & { sortOrder?: number }) =>
+export const createSet = (metahubId: string, hubId: string, data: SetLocalizedPayload & { sortOrder?: number; kindKey?: string }) =>
     apiClient.post<MetahubSet>(`/metahub/${metahubId}/hub/${hubId}/sets`, data)
 
 export type SetCopyInput = SetLocalizedPayload & {
@@ -137,8 +147,12 @@ export const updateSet = (
     metahubId: string,
     hubId: string,
     setId: string,
-    data: Partial<SetLocalizedPayload> & { sortOrder?: number; expectedVersion?: number }
-) => apiClient.patch<MetahubSet>(`/metahub/${metahubId}/hub/${hubId}/set/${setId}`, data)
+    data: Partial<SetLocalizedPayload> & { sortOrder?: number; expectedVersion?: number },
+    kindKey?: string
+) =>
+    apiClient.patch<MetahubSet>(`/metahub/${metahubId}/hub/${hubId}/set/${setId}`, data, {
+        params: kindKey ? { kindKey } : undefined
+    })
 
 /**
  * Update a set at metahub level (for sets without hub or with multiple hubs)
@@ -147,8 +161,12 @@ export const updateSet = (
 export const updateSetAtMetahub = (
     metahubId: string,
     setId: string,
-    data: Partial<SetLocalizedPayload> & { sortOrder?: number; expectedVersion?: number }
-) => apiClient.patch<MetahubSet>(`/metahub/${metahubId}/set/${setId}`, data)
+    data: Partial<SetLocalizedPayload> & { sortOrder?: number; expectedVersion?: number },
+    kindKey?: string
+) =>
+    apiClient.patch<MetahubSet>(`/metahub/${metahubId}/set/${setId}`, data, {
+        params: kindKey ? { kindKey } : undefined
+    })
 
 /**
  * Delete a set or remove from hub
@@ -169,7 +187,13 @@ export const deleteSetDirect = (metahubId: string, setId: string) => apiClient.d
 /**
  * Get REF attributes from catalogs that block deleting this set.
  */
-export const getBlockingSetReferences = async (metahubId: string, setId: string): Promise<BlockingSetReferencesResponse> => {
-    const response = await apiClient.get<BlockingSetReferencesResponse>(`/metahub/${metahubId}/set/${setId}/blocking-references`)
+export const getBlockingSetReferences = async (
+    metahubId: string,
+    setId: string,
+    kindKey?: string
+): Promise<BlockingSetReferencesResponse> => {
+    const response = await apiClient.get<BlockingSetReferencesResponse>(`/metahub/${metahubId}/set/${setId}/blocking-references`, {
+        params: kindKey ? { kindKey } : undefined
+    })
     return response.data
 }

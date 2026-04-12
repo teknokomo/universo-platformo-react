@@ -10,7 +10,7 @@ The Entity-Component-Action-Event (ECAE) layer adds custom metahub entity types 
 
 - Keep new domain modeling inside one generic entity pipeline.
 - Reuse existing metahub authoring services and runtime publication flow.
-- Publish entity-based sections such as Catalogs v2 through metadata instead of hardcoded menus.
+- Publish entity-based sections such as Hubs V2, Catalogs V2, Sets V2, and Enumerations V2 through metadata instead of hardcoded menus.
 
 ## Core Model
 
@@ -36,10 +36,10 @@ The Entity-Component-Action-Event (ECAE) layer adds custom metahub entity types 
 
 ## Coexistence Rules
 
-- Legacy Catalogs, Sets, and Enumerations remain visible until parity is accepted.
-- Catalogs v2 relies on the same authoring primitives instead of a second policy layer.
-- Browser validation must cover both the design-time workspace and the publication/runtime path.
-- Advanced visual builder tooling remains future work after parity closure.
+- Legacy Hubs, Catalogs, Sets, and Enumerations remain visible until parity is accepted.
+- Hubs V2, Catalogs V2, Sets V2, and Enumerations V2 reuse the matching legacy authoring primitives instead of a second policy layer.
+- Browser validation must cover design-time workspace flows, legacy/V2 coexistence, and the publication/runtime path.
+- Only catalog-compatible sections materialize in runtime navigation; hub/set/enumeration-compatible kinds stay filtered after publication sync.
 
 ## Related Packages
 

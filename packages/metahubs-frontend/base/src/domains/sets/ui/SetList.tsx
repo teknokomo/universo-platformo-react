@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useParams } from 'react-router-dom'
 import { Box, ButtonBase, Chip, Skeleton, Stack, Tab, Tabs, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
@@ -63,9 +63,11 @@ import {
     type SetMenuBaseContext,
     type ConfirmSpec
 } from './setListUtils'
+import { buildHubAuthoringPath, buildSetAuthoringPath } from '../../shared/legacyCompatibleRoutePaths'
 
 const SetListContent = () => {
     const navigate = useNavigate()
+    const { kindKey: routeKindKey } = useParams<{ kindKey?: string }>()
     const codenameConfig = useCodenameConfig()
     const preferredVlcLocale = useMetahubPrimaryLocale()
     const { t, i18n } = useTranslation('metahubs')
@@ -89,10 +91,32 @@ const SetListContent = () => {
         allSetsById,
         existingSetCodenames,
         attachableExistingSets,
+        entityKindKey,
         allowCopy,
         allowDelete,
         allowAttachExistingEntities
     } = useSetListData()
+    const kindKey = entityKindKey
+    const buildSetPath = useCallback(
+        (setId: string) =>
+            buildSetAuthoringPath({
+                metahubId,
+                setId,
+                hubId: isHubScoped ? hubId : null,
+                kindKey: routeKindKey
+            }),
+        [hubId, isHubScoped, metahubId, routeKindKey]
+    )
+    const buildHubPath = useCallback(
+        (tab: 'hubs' | 'catalogs' | 'sets' | 'enumerations') =>
+            buildHubAuthoringPath({
+                metahubId,
+                hubId,
+                kindKey: routeKindKey,
+                tab
+            }),
+        [hubId, metahubId, routeKindKey]
+    )
 
     const { dialogs, openCreate, openDelete, openConflict, close } = useListDialogs<SetWithHubs>()
     const [view, setView] = useViewPreference(isHubScoped ? STORAGE_KEYS.SET_DISPLAY_STYLE : STORAGE_KEYS.ALL_SETS_DISPLAY_STYLE)
@@ -142,12 +166,11 @@ const SetListContent = () => {
         if (!resolvedSet) return
 
         setPendingSetNavigation(null)
-        navigate(
-            isHubScoped && hubId
-                ? `/metahub/${metahubId}/hub/${hubId}/set/${resolvedSet.id}/constants`
-                : `/metahub/${metahubId}/set/${resolvedSet.id}/constants`
-        )
-    }, [hubId, isHubScoped, metahubId, navigate, pendingSetNavigation, sortedSets])
+        const nextPath = buildSetPath(resolvedSet.id)
+        if (nextPath) {
+            navigate(nextPath)
+        }
+    }, [buildSetPath, metahubId, navigate, pendingSetNavigation, sortedSets])
 
     const handlePendingSetInteraction = useCallback(
         (pendingSetId: string) => {
@@ -158,17 +181,20 @@ const SetListContent = () => {
             }
             revealPendingEntityFeedback({
                 queryClient,
-                queryKeyPrefix: isHubScoped && hubId ? metahubsQueryKeys.sets(metahubId, hubId) : metahubsQueryKeys.allSets(metahubId),
+                queryKeyPrefix:
+                    isHubScoped && hubId
+                        ? metahubsQueryKeys.setsScope(metahubId, hubId, entityKindKey)
+                        : metahubsQueryKeys.allSetsScope(metahubId, entityKindKey),
                 entityId: pendingSetId,
                 extraQueryKeys: [
                     isHubScoped && hubId
-                        ? metahubsQueryKeys.setDetailInHub(metahubId, hubId, pendingSetId)
-                        : metahubsQueryKeys.setDetail(metahubId, pendingSetId)
+                        ? metahubsQueryKeys.setDetailInHub(metahubId, hubId, pendingSetId, entityKindKey)
+                        : metahubsQueryKeys.setDetail(metahubId, pendingSetId, entityKindKey)
                 ]
             })
             enqueueSnackbar(pendingInteractionMessage, { variant: 'info' })
         },
-        [enqueueSnackbar, hubId, isHubScoped, metahubId, pendingInteractionMessage, queryClient, setMap]
+        [enqueueSnackbar, entityKindKey, hubId, isHubScoped, metahubId, pendingInteractionMessage, queryClient, setMap]
     )
 
     const attachExistingSetSelectionLabels = useMemo<EntitySelectionLabels>(
@@ -340,9 +366,7 @@ const SetListContent = () => {
                 sortable: true,
                 sortAccessor: (row: SetWithHubsDisplay) => row.name?.toLowerCase() ?? '',
                 render: (row: SetWithHubsDisplay) => {
-                    const href = isHubScoped
-                        ? `/metahub/${metahubId}/hub/${hubId}/set/${row.id}/constants`
-                        : `/metahub/${metahubId}/set/${row.id}/constants`
+                    const href = buildSetPath(row.id)
                     return isPendingEntity(row) ? (
                         <ButtonBase
                             onClick={() => handlePendingSetInteraction(row.id)}
@@ -499,11 +523,7 @@ const SetListContent = () => {
                             </ButtonBase>
                         ) : (
                             <Link
-                                to={
-                                    isHubScoped
-                                        ? `/metahub/${metahubId}/hub/${hubId}/set/${row.id}/constants`
-                                        : `/metahub/${metahubId}/set/${row.id}/constants`
-                                }
+                                to={buildSetPath(row.id)}
                                 style={{ textDecoration: 'none', color: 'inherit' }}
                             >
                                 <Typography
@@ -575,6 +595,7 @@ const SetListContent = () => {
                                 metahubId,
                                 hubId: targetHubId,
                                 setId: id,
+                                kindKey,
                                 data: dataWithVersion
                             },
                             { onError: mutationOptions.onError }
@@ -584,6 +605,7 @@ const SetListContent = () => {
                             {
                                 metahubId,
                                 setId: id,
+                                kindKey,
                                 data: dataWithVersion
                             },
                             { onError: mutationOptions.onError }
@@ -602,6 +624,7 @@ const SetListContent = () => {
                             metahubId,
                             hubId,
                             setId: id,
+                            kindKey,
                             force: false
                         })
                     } else {
@@ -611,6 +634,7 @@ const SetListContent = () => {
                             metahubId,
                             hubId: targetHubId, // undefined for sets without hubs
                             setId: id,
+                            kindKey,
                             force: Boolean(targetHubId) // force=true if has multiple hubs
                         })
                     }
@@ -620,6 +644,7 @@ const SetListContent = () => {
                     copySetMutation.mutate({
                         metahubId,
                         setId: id,
+                        kindKey,
                         data: payload
                     })
 
@@ -633,7 +658,7 @@ const SetListContent = () => {
                             void invalidateSetsQueries.all(queryClient, metahubId, hubId)
                         } else {
                             // In global mode, invalidate all sets cache
-                            void queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allSets(metahubId) })
+                            void queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allSetsScope(metahubId, kindKey) })
                         }
                     }
                 },
@@ -745,10 +770,15 @@ const SetListContent = () => {
                 try {
                     const currentHubIds = Array.isArray(set.hubs) ? set.hubs.map((hub) => hub.id) : []
                     const nextHubIds = Array.from(new Set([...currentHubIds, hubId]))
-                    await setsApi.updateSetAtMetahub(metahubId, set.id, {
-                        hubIds: nextHubIds,
-                        expectedVersion: set.version
-                    })
+                    await setsApi.updateSetAtMetahub(
+                        metahubId,
+                        set.id,
+                        {
+                            hubIds: nextHubIds,
+                            expectedVersion: set.version
+                        },
+                        kindKey
+                    )
                 } catch (error) {
                     failed.push(getVLCString(set.name, preferredVlcLocale) || getVLCString(set.name, 'en') || set.codename)
                     // eslint-disable-next-line no-console
@@ -758,7 +788,7 @@ const SetListContent = () => {
 
             await Promise.all([
                 invalidateSetsQueries.all(queryClient, metahubId, hubId),
-                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allSets(metahubId) })
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allSetsScope(metahubId, kindKey) })
             ])
 
             if (failed.length === 0) {
@@ -843,22 +873,22 @@ const SetListContent = () => {
             createSetMutation.mutate({
                 metahubId: metahubId!,
                 hubId: primaryHubId,
+                kindKey,
                 data: setPayload
             })
         } else {
             createSetAtMetahubMutation.mutate({
                 metahubId: metahubId!,
+                kindKey,
                 data: setPayload
             })
         }
     }
 
     const goToSet = (set: SetWithHubs) => {
-        // Navigate based on mode: hub-scoped or set-centric
-        if (isHubScoped) {
-            navigate(`/metahub/${metahubId}/hub/${hubId}/set/${set.id}/constants`)
-        } else {
-            navigate(`/metahub/${metahubId}/set/${set.id}/constants`)
+        const nextPath = buildSetPath(set.id)
+        if (nextPath) {
+            navigate(nextPath)
         }
     }
 
@@ -870,22 +900,37 @@ const SetListContent = () => {
     const handleHubTabChange = (_event: unknown, tabValue: 'hubs' | 'catalogs' | 'sets' | 'enumerations' | 'settings') => {
         if (!metahubId || !hubId) return
         if (tabValue === 'hubs') {
-            navigate(`/metahub/${metahubId}/hub/${hubId}/hubs`)
+            const nextPath = buildHubPath('hubs')
+            if (nextPath) {
+                navigate(nextPath)
+            }
             return
         }
         if (tabValue === 'settings') {
-            navigate(`/metahub/${metahubId}/hub/${hubId}/hubs`, { state: { openHubSettings: true } })
+            const nextPath = buildHubPath('hubs')
+            if (nextPath) {
+                navigate(nextPath, { state: { openHubSettings: true } })
+            }
             return
         }
         if (tabValue === 'catalogs') {
-            navigate(`/metahub/${metahubId}/hub/${hubId}/catalogs`)
+            const nextPath = buildHubPath('catalogs')
+            if (nextPath) {
+                navigate(nextPath)
+            }
             return
         }
         if (tabValue === 'enumerations') {
-            navigate(`/metahub/${metahubId}/hub/${hubId}/enumerations`)
+            const nextPath = buildHubPath('enumerations')
+            if (nextPath) {
+                navigate(nextPath)
+            }
             return
         }
-        navigate(`/metahub/${metahubId}/hub/${hubId}/sets`)
+        const nextPath = buildHubPath('sets')
+        if (nextPath) {
+            navigate(nextPath)
+        }
     }
 
     // Transform Set data for display - use hub-aware version for global mode
@@ -906,6 +951,7 @@ const SetListContent = () => {
                 metahubId,
                 hubId,
                 setId: String(active.id),
+                kindKey,
                 newSortOrder: overSet.sortOrder ?? 1
             })
             enqueueSnackbar(t('sets.reorderSuccess', 'Set order updated'), { variant: 'success' })
@@ -1117,13 +1163,7 @@ const SetListContent = () => {
                                                 dragDisabled={reorderSetMutation.isPending || isLoading}
                                                 onSortableDragEnd={handleSortableDragEnd}
                                                 renderDragOverlay={renderDragOverlay}
-                                                getRowLink={(row: SetWithHubsDisplay) =>
-                                                    row?.id
-                                                        ? isHubScoped
-                                                            ? `/metahub/${metahubId}/hub/${hubId}/set/${row.id}/constants`
-                                                            : `/metahub/${metahubId}/set/${row.id}/constants`
-                                                        : undefined
-                                                }
+                                                getRowLink={(row: SetWithHubsDisplay) => (row?.id ? buildSetPath(row.id) || undefined : undefined)}
                                                 onPendingInteractionAttempt={(row: SetWithHubsDisplay) =>
                                                     handlePendingSetInteraction(row.id)
                                                 }
@@ -1265,12 +1305,13 @@ const SetListContent = () => {
                                 metahubId,
                                 hubId: targetHubId,
                                 setId: deletingSetId,
+                                kindKey,
                                 force: !isHubScoped
                             },
                             {
                                 onSuccess: () => {
                                     queryClient.removeQueries({
-                                        queryKey: metahubsQueryKeys.blockingSetReferences(metahubId, deletingSetId)
+                                        queryKey: metahubsQueryKeys.blockingSetReferences(metahubId, deletingSetId, kindKey)
                                     })
                                 },
                                 onError: (err: unknown) => {
@@ -1302,11 +1343,12 @@ const SetListContent = () => {
                                 metahubId,
                                 hubId: targetHubId,
                                 setId: set.id,
+                                kindKey,
                                 force: !isHubScoped
                             },
                             {
                                 onSuccess: () => {
-                                    queryClient.removeQueries({ queryKey: metahubsQueryKeys.blockingSetReferences(metahubId, set.id) })
+                                    queryClient.removeQueries({ queryKey: metahubsQueryKeys.blockingSetReferences(metahubId, set.id, kindKey) })
                                 },
                                 onError: (err: unknown) => {
                                     const responseMessage = extractResponseMessage(err)
@@ -1347,12 +1389,14 @@ const SetListContent = () => {
                                     metahubId,
                                     hubId: targetHubId,
                                     setId: conflictData.setId,
+                                    kindKey,
                                     data: conflictData.pendingData
                                 })
                             } else {
                                 await updateSetAtMetahubMutation.mutateAsync({
                                     metahubId,
                                     setId: conflictData.setId,
+                                    kindKey,
                                     data: conflictData.pendingData
                                 })
                             }
@@ -1369,7 +1413,7 @@ const SetListContent = () => {
                             if (isHubScoped && hubId) {
                                 await invalidateSetsQueries.all(queryClient, metahubId, hubId)
                             } else {
-                                await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allSets(metahubId) })
+                                await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allSetsScope(metahubId, kindKey) })
                             }
                         }
                         close('conflict')

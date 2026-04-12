@@ -40,6 +40,12 @@
 - **Валидация форм**: Комплексная валидация с Zod схемами
 - **Интеграция API**: RESTful API клиент с аутентификацией
 
+### 🧩 Делегирование Entity V2
+- **Workspace Entities**: Hubs V2, Catalogs V2, Sets V2 и Enumerations V2 создаются из presets и публикуются в dynamic metahub menu.
+- **Переиспользование legacy surfaces**: V2 entity routes делегируются в HubList, CatalogList, SetList и EnumerationList вместо введения параллельных CRUD shells.
+- **Владение маршрутами**: Делегированные detail tabs остаются под `/metahub/:id/entities/:kindKey/...`, тогда как legacy routes продолжают сосуществовать для видимости общих данных.
+- **Runtime boundary**: Catalog-compatible V2 sections могут появляться в runtime после publication sync, а hub/set/enumeration-compatible V2 sections остаются отфильтрованными из runtime navigation.
+
 ### 📋 Выбор шаблона
 - **Компонент TemplateSelector**: Выпадающий селектор для выбора шаблона метахаба при создании
 - **API шаблонов**: Загрузка доступных шаблонов через эндпоинт `GET /templates`

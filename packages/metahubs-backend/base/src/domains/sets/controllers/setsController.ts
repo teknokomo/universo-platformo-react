@@ -4,6 +4,7 @@ import { localizedContent, database, OptimisticLockError, normalizeSetCopyOption
 import { normalizeCodenameForStyle, isValidCodenameForStyle } from '@universo/utils/validation/codename'
 import type { SetCopyOptions } from '@universo/types'
 import { MetaEntityKind } from '@universo/types'
+import { EntityTypeService } from '../../entities/services/EntityTypeService'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
@@ -33,6 +34,12 @@ import {
     executeLegacyReorder
 } from '../../entities/services/legacyBuiltinObjectCompatibility'
 import { copyDesignTimeObjectChildren } from '../../entities/services/designTimeObjectChildrenCopy'
+import {
+    createLegacyCompatibleKindSet,
+    resolveLegacyCompatibleKinds,
+    resolveRequestedLegacyCompatibleKind,
+    resolveRequestedLegacyCompatibleKinds
+} from '../../shared/legacyCompatibility'
 
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 
@@ -91,8 +98,12 @@ const mapHubSummary = (hub: Record<string, unknown>): HubSummaryRow => ({
     codename: String(hub.codename)
 })
 
-const isSetObject = (row: SetObjectRow | null | undefined): row is SetObjectRow => {
+const isSetObject = (row: SetObjectRow | null | undefined, allowedKinds?: Set<string>): row is SetObjectRow => {
     if (!row) return false
+    if (allowedKinds) {
+        return typeof row.kind === 'string' && allowedKinds.has(row.kind)
+    }
+
     return row.kind === MetaEntityKind.SET
 }
 
@@ -275,7 +286,8 @@ const compareSetItems = (a: SetListItemRow, b: SetListItemRow, sortBy: string, s
 
 const SetsListQuerySchema = ListQuerySchema.extend({
     sortBy: z.enum(['name', 'codename', 'created', 'updated', 'sortOrder']).default('updated'),
-    sortOrder: z.enum(['asc', 'desc']).default('desc')
+    sortOrder: z.enum(['asc', 'desc']).default('desc'),
+    kindKey: z.string().trim().min(1).max(128).optional()
 })
 
 const localizedInputSchema = z.union([z.string(), z.record(z.string())]).transform((val) => (typeof val === 'string' ? { en: val } : val))
@@ -293,7 +305,8 @@ const createSetSchema = z
         sortOrder: z.number().int().optional(),
         isSingleHub: z.boolean().optional(),
         isRequiredHub: z.boolean().optional(),
-        hubIds: z.array(z.string().uuid()).optional()
+        hubIds: z.array(z.string().uuid()).optional(),
+        kindKey: z.string().trim().min(1).max(128).optional()
     })
     .strict()
 
@@ -339,7 +352,8 @@ function createDomainServices(exec: DbExecutor, schemaService: MetahubSchemaServ
         objectsService: new MetahubObjectsService(exec, schemaService),
         hubsService: new MetahubHubsService(exec, schemaService),
         constantsService: new MetahubConstantsService(exec, schemaService),
-        settingsService: new MetahubSettingsService(exec, schemaService)
+        settingsService: new MetahubSettingsService(exec, schemaService),
+        entityTypeService: new EntityTypeService(exec, schemaService)
     }
 }
 
@@ -377,14 +391,15 @@ const getSetById = async (
     options: {
         hubId?: string
         userId?: string
+        allowedKinds?: Set<string>
         objectsService: MetahubObjectsService
         hubsService: MetahubHubsService
         constantsService: MetahubConstantsService
     }
 ): Promise<SetListItemRow | null> => {
-    const { hubId, userId, objectsService, hubsService, constantsService } = options
+    const { hubId, userId, allowedKinds, objectsService, hubsService, constantsService } = options
     const row = (await objectsService.findById(metahubId, setId, userId)) as SetObjectRow | null
-    if (!isSetObject(row)) return null
+    if (!isSetObject(row, allowedKinds)) return null
 
     const hubIds = getSetHubIds(row)
     if (hubId && !hubIds.includes(hubId)) return null
@@ -396,8 +411,13 @@ const getSetById = async (
     return enriched ?? null
 }
 
-const getBlockingReferences = async (metahubId: string, setId: string, constantsService: MetahubConstantsService, userId?: string) =>
-    constantsService.findSetReferenceBlockers(metahubId, setId, userId)
+const getBlockingReferences = async (
+    metahubId: string,
+    setId: string,
+    compatibleSetKinds: readonly string[],
+    constantsService: MetahubConstantsService,
+    userId?: string
+) => constantsService.findSetReferenceBlockers(metahubId, setId, userId, compatibleSetKinds)
 
 // ---------------------------------------------------------------------------
 // Controller factory
@@ -409,7 +429,7 @@ export function createSetsController(createHandler: ReturnType<typeof createMeta
         const { req, res, metahubId, userId, exec, schemaService } = ctx
         const { hubId, setId } = req.params
         const hubScoped = Boolean(hubId)
-        const { objectsService, hubsService, settingsService, constantsService } = createDomainServices(exec, schemaService)
+        const { objectsService, hubsService, settingsService, constantsService, entityTypeService } = createDomainServices(exec, schemaService)
 
         if (hubScoped && hubId) {
             const hub = await hubsService.findById(metahubId, hubId, userId)
@@ -427,11 +447,19 @@ export function createSetsController(createHandler: ReturnType<typeof createMeta
             allowMixed
         } = await getCodenameSettings(settingsService, metahubId, userId)
 
+        const compatibleSetKinds = await resolveLegacyCompatibleKinds(entityTypeService, metahubId, 'set', userId)
+        const compatibleSetKindSet = createLegacyCompatibleKindSet(compatibleSetKinds)
+        const requestedKindKey = 'kindKey' in parsed.data ? parsed.data.kindKey : undefined
+        const requestedCreateKind =
+            mode === 'create'
+                ? await resolveRequestedLegacyCompatibleKind(entityTypeService, metahubId, 'set', requestedKindKey, userId)
+                : null
+
         const currentSet =
             mode === 'update' && setId ? ((await objectsService.findById(metahubId, setId, userId)) as SetObjectRow | null) : null
 
         if (mode === 'update') {
-            if (!currentSet || !isSetObject(currentSet)) {
+            if (!currentSet || !isSetObject(currentSet, compatibleSetKindSet)) {
                 throw new MetahubNotFoundError('set', setId)
             }
 
@@ -511,8 +539,9 @@ export function createSetsController(createHandler: ReturnType<typeof createMeta
         if (mode === 'create') {
             let created: SetObjectRow
             try {
-                created = (await objectsService.createSet(
+                created = (await objectsService.createObject(
                     metahubId,
+                    requestedCreateKind ?? MetaEntityKind.SET,
                     {
                         codename: codenamePayload ?? finalCodename,
                         name: resolvedName,
@@ -536,6 +565,7 @@ export function createSetsController(createHandler: ReturnType<typeof createMeta
 
             const createdItem = await getSetById(metahubId, created.id, {
                 userId,
+                allowedKinds: createLegacyCompatibleKindSet([created.kind ?? MetaEntityKind.SET]),
                 objectsService,
                 hubsService,
                 constantsService
@@ -544,12 +574,14 @@ export function createSetsController(createHandler: ReturnType<typeof createMeta
         }
 
         const expectedVersion = mode === 'update' ? (parsed.data as z.infer<typeof updateSetSchema>).expectedVersion : undefined
+        const currentSetKind = currentSet?.kind ?? MetaEntityKind.SET
 
         let updated: SetObjectRow | null
         try {
-            updated = (await objectsService.updateSet(
+            updated = (await objectsService.updateObject(
                 metahubId,
                 setId,
+                currentSetKind,
                 {
                     codename: codenamePayload ?? finalCodename,
                     name: resolvedName,
@@ -562,8 +594,8 @@ export function createSetsController(createHandler: ReturnType<typeof createMeta
                     },
                     expectedVersion,
                     updatedBy: userId
-                },
-                userId
+                    },
+                    userId
             )) as SetObjectRow | null
         } catch (error) {
             if (isUniqueViolation(error)) {
@@ -578,6 +610,7 @@ export function createSetsController(createHandler: ReturnType<typeof createMeta
 
         const updatedItem = await getSetById(metahubId, updated.id, {
             userId,
+            allowedKinds: createLegacyCompatibleKindSet([updated.kind ?? currentSetKind]),
             objectsService,
             hubsService,
             constantsService
@@ -592,7 +625,7 @@ export function createSetsController(createHandler: ReturnType<typeof createMeta
 
     const list = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {
         const hubId = req.params.hubId
-        const { objectsService, hubsService, constantsService } = createDomainServices(exec, schemaService)
+        const { objectsService, hubsService, constantsService, entityTypeService } = createDomainServices(exec, schemaService)
 
         if (hubId) {
             const hub = await hubsService.findById(metahubId, hubId, userId)
@@ -605,9 +638,19 @@ export function createSetsController(createHandler: ReturnType<typeof createMeta
         }
 
         const { limit, offset, sortBy, sortOrder, search } = parsed.data
+        const requestedKinds = await resolveRequestedLegacyCompatibleKinds(
+            entityTypeService,
+            metahubId,
+            'set',
+            parsed.data.kindKey,
+            userId
+        )
+        const requestedKindSet = createLegacyCompatibleKindSet(requestedKinds)
 
-        const rawSets = (await objectsService.findAllByKind(metahubId, 'set', userId)) as SetObjectRow[]
-        const setRows = hubId ? rawSets.filter((row) => isSetObject(row) && getSetHubIds(row).includes(hubId)) : rawSets.filter(isSetObject)
+        const rawSets = (await objectsService.findAllByKinds(metahubId, requestedKinds, userId)) as SetObjectRow[]
+        const setRows = hubId
+            ? rawSets.filter((row) => isSetObject(row, requestedKindSet) && getSetHubIds(row).includes(hubId))
+            : rawSets.filter((row) => isSetObject(row, requestedKindSet))
         const setIds = setRows.map((row) => row.id)
         const constantsCounts = await constantsService.countByObjectIds(metahubId, setIds, userId)
 
@@ -640,11 +683,18 @@ export function createSetsController(createHandler: ReturnType<typeof createMeta
 
     const reorder = createHandler(
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
-            const { objectsService } = createDomainServices(exec, schemaService)
+            const { objectsService, entityTypeService } = createDomainServices(exec, schemaService)
 
             const parsed = reorderSetsSchema.safeParse(req.body)
             if (!parsed.success) {
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
+            }
+
+            const compatibleSetKinds = await resolveLegacyCompatibleKinds(entityTypeService, metahubId, 'set', userId)
+            const compatibleSetKindSet = createLegacyCompatibleKindSet(compatibleSetKinds)
+            const existing = (await objectsService.findById(metahubId, parsed.data.setId, userId)) as SetObjectRow | null
+            if (!isSetObject(existing, compatibleSetKindSet)) {
+                throw new MetahubNotFoundError('set', parsed.data.setId)
             }
 
             const result = await executeLegacyReorder({
@@ -652,7 +702,7 @@ export function createSetsController(createHandler: ReturnType<typeof createMeta
                 notFoundErrorMessage: 'set not found',
                 notFoundResponseMessage: 'set not found',
                 reorderEntity: () =>
-                    objectsService.reorderByKind(metahubId, MetaEntityKind.SET, parsed.data.setId, parsed.data.newSortOrder, userId),
+                    objectsService.reorderByKind(metahubId, existing.kind ?? MetaEntityKind.SET, parsed.data.setId, parsed.data.newSortOrder, userId),
                 getId: (updated) => updated.id,
                 getSortOrder: (updated) => updated.config?.sortOrder ?? 0
             })
@@ -668,11 +718,13 @@ export function createSetsController(createHandler: ReturnType<typeof createMeta
 
     const getById = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {
         const { setId, hubId } = req.params
-        const { objectsService, hubsService, constantsService } = createDomainServices(exec, schemaService)
+        const { objectsService, hubsService, constantsService, entityTypeService } = createDomainServices(exec, schemaService)
+        const compatibleSetKinds = await resolveLegacyCompatibleKinds(entityTypeService, metahubId, 'set', userId)
 
         const setItem = await getSetById(metahubId, setId, {
             hubId,
             userId,
+            allowedKinds: createLegacyCompatibleKindSet(compatibleSetKinds),
             objectsService,
             hubsService,
             constantsService
@@ -702,10 +754,12 @@ export function createSetsController(createHandler: ReturnType<typeof createMeta
     const copy = createHandler(
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
             const { setId } = req.params
-            const { objectsService, hubsService, constantsService, settingsService } = createDomainServices(exec, schemaService)
+            const { objectsService, hubsService, constantsService, settingsService, entityTypeService } = createDomainServices(exec, schemaService)
+            const compatibleSetKinds = await resolveLegacyCompatibleKinds(entityTypeService, metahubId, 'set', userId)
+            const compatibleSetKindSet = createLegacyCompatibleKindSet(compatibleSetKinds)
 
             const sourceSet = (await objectsService.findById(metahubId, setId, userId)) as SetObjectRow | null
-            if (!isSetObject(sourceSet)) {
+            if (!isSetObject(sourceSet, compatibleSetKindSet)) {
                 throw new MetahubNotFoundError('set', setId)
             }
 
@@ -790,8 +844,9 @@ export function createSetsController(createHandler: ReturnType<typeof createMeta
                 try {
                     copiedConstants = 0
                     await exec.transaction(async (trx: SqlQueryable) => {
-                        const createdSet = (await objectsService.createSet(
+                        const createdSet = (await objectsService.createObject(
                             metahubId,
+                            sourceSet.kind ?? MetaEntityKind.SET,
                             {
                                 codename: codenamePayloadForSetCopy,
                                 name: nameVlc,
@@ -840,6 +895,7 @@ export function createSetsController(createHandler: ReturnType<typeof createMeta
 
             const copiedSet = await getSetById(metahubId, createdSetId, {
                 userId,
+                allowedKinds: createLegacyCompatibleKindSet([sourceSet.kind ?? MetaEntityKind.SET]),
                 objectsService,
                 hubsService,
                 constantsService
@@ -860,14 +916,15 @@ export function createSetsController(createHandler: ReturnType<typeof createMeta
 
     const getBlockingReferencesHandler = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {
         const { setId } = req.params
-        const { objectsService, constantsService } = createDomainServices(exec, schemaService)
+        const { objectsService, constantsService, entityTypeService } = createDomainServices(exec, schemaService)
+        const compatibleSetKinds = await resolveLegacyCompatibleKinds(entityTypeService, metahubId, 'set', userId)
 
         const existing = (await objectsService.findById(metahubId, setId, userId)) as SetObjectRow | null
-        if (!isSetObject(existing)) {
+        if (!isSetObject(existing, createLegacyCompatibleKindSet(compatibleSetKinds))) {
             throw new MetahubNotFoundError('set', setId)
         }
 
-        const blockers = await getBlockingReferences(metahubId, setId, constantsService, userId)
+        const blockers = await getBlockingReferences(metahubId, setId, compatibleSetKinds, constantsService, userId)
         res.json({
             setId,
             blockingReferences: blockers,
@@ -878,11 +935,13 @@ export function createSetsController(createHandler: ReturnType<typeof createMeta
     const deleteSet = createHandler(
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
             const { setId, hubId } = req.params
-            const { objectsService, constantsService } = createDomainServices(exec, schemaService)
+            const { objectsService, constantsService, entityTypeService } = createDomainServices(exec, schemaService)
             const forceDelete = req.query.force === 'true'
+            const compatibleSetKinds = await resolveLegacyCompatibleKinds(entityTypeService, metahubId, 'set', userId)
+            const compatibleSetKindSet = createLegacyCompatibleKindSet(compatibleSetKinds)
 
             const setRow = (await objectsService.findById(metahubId, setId, userId)) as SetObjectRow | null
-            const entity = isSetObject(setRow) ? setRow : null
+            const entity = isSetObject(setRow, compatibleSetKindSet) ? setRow : null
             const blockedOutcome = (blockers: Awaited<ReturnType<typeof getBlockingReferences>>) => ({
                 status: 409,
                 body: {
@@ -904,9 +963,10 @@ export function createSetsController(createHandler: ReturnType<typeof createMeta
                       getHubIds: getSetHubIds,
                       detachFromHub: async (nextHubIds) => {
                           const expectedVersion = typeof entity?._upl_version === 'number' ? entity._upl_version : 1
-                          await objectsService.updateSet(
+                          await objectsService.updateObject(
                               metahubId,
                               setId,
+                              entity?.kind ?? MetaEntityKind.SET,
                               {
                                   config: {
                                       ...(entity?.config ?? {}),
@@ -932,7 +992,7 @@ export function createSetsController(createHandler: ReturnType<typeof createMeta
                           return null
                       },
                       detachedMessage: 'Set was removed from the selected hub but kept in other hubs',
-                      findBlockingReferences: () => getBlockingReferences(metahubId, setId, constantsService, userId),
+                      findBlockingReferences: () => getBlockingReferences(metahubId, setId, compatibleSetKinds, constantsService, userId),
                       blockedOutcome,
                       deleteEntity: () => objectsService.delete(metahubId, setId, userId)
                   })
@@ -940,7 +1000,7 @@ export function createSetsController(createHandler: ReturnType<typeof createMeta
                       entity,
                       entityLabel: 'Set',
                       notFoundMessage: 'set not found',
-                      findBlockingReferences: () => getBlockingReferences(metahubId, setId, constantsService, userId),
+                      findBlockingReferences: () => getBlockingReferences(metahubId, setId, compatibleSetKinds, constantsService, userId),
                       blockedOutcome,
                       deleteEntity: () => objectsService.delete(metahubId, setId, userId)
                   })

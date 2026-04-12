@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
 import type { DbExecutor } from '@universo/utils'
+import { getLegacyCompatibleObjectKind, getLegacyCompatibleObjectKindForKindKey } from '@universo/types'
 import {
     normalizeCatalogRuntimeViewConfig,
     resolveCatalogLayoutBehaviorConfig,
@@ -86,10 +87,47 @@ const runtimeReorderBodySchema = z.object({
     orderedRowIds: z.array(z.string().uuid()).min(1).max(1000)
 })
 
-const RUNTIME_SECTION_FILTER_SQL = `kind NOT IN ('hub', 'set', 'enumeration')`
+const RUNTIME_LEGACY_COMPATIBLE_KIND_SQL = (kindColumn = 'kind', configColumn = 'config') =>
+    `COALESCE(
+      ${configColumn}->'compatibility'->>'legacyObjectKind',
+      ${configColumn}->>'legacyObjectKind',
+      CASE ${kindColumn}
+        WHEN 'custom.catalog-v2' THEN 'catalog'
+        WHEN 'custom.hub-v2' THEN 'hub'
+        WHEN 'custom.set-v2' THEN 'set'
+        WHEN 'custom.enumeration-v2' THEN 'enumeration'
+        ELSE ${kindColumn}
+      END,
+      ''
+    )`
 
-const isRuntimeSectionTargetKind = (kind: unknown): kind is string =>
-    typeof kind === 'string' && kind !== 'hub' && kind !== 'set' && kind !== 'enumeration'
+const RUNTIME_SECTION_FILTER_SQL = `${RUNTIME_LEGACY_COMPATIBLE_KIND_SQL()} NOT IN ('hub', 'set', 'enumeration')`
+
+const resolveRuntimeLegacyCompatibleKind = (kind: unknown, config?: unknown): 'catalog' | 'hub' | 'set' | 'enumeration' | null => {
+    if (kind === 'catalog' || kind === 'hub' || kind === 'set' || kind === 'enumeration') {
+        return kind
+    }
+
+    const fromConfig = getLegacyCompatibleObjectKind(config)
+    if (fromConfig && fromConfig !== 'document') {
+        return fromConfig
+    }
+
+    const fromKindKey = getLegacyCompatibleObjectKindForKindKey(kind)
+    return fromKindKey && fromKindKey !== 'document' ? fromKindKey : null
+}
+
+const isRuntimeSectionTargetKind = (kind: unknown, config?: unknown): kind is string =>
+    typeof kind === 'string' && !['hub', 'set', 'enumeration'].includes(resolveRuntimeLegacyCompatibleKind(kind, config) ?? '')
+
+const isRuntimeEnumerationTargetKind = (kind: unknown): kind is string =>
+    typeof kind === 'string' && resolveRuntimeLegacyCompatibleKind(kind) === 'enumeration'
+
+const isRuntimeSetTargetKind = (kind: unknown): kind is string =>
+    typeof kind === 'string' && resolveRuntimeLegacyCompatibleKind(kind) === 'set'
+
+const isRuntimeHubKind = (kind: unknown, config?: unknown): kind is string =>
+    typeof kind === 'string' && resolveRuntimeLegacyCompatibleKind(kind, config) === 'hub'
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -586,10 +624,20 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         const enumTargetObjectIds = Array.from(
             new Set([
                 ...safeAttributes
-                    .filter((attr) => attr.data_type === 'REF' && attr.target_object_kind === 'enumeration' && attr.target_object_id)
+                    .filter(
+                        (attr) =>
+                            attr.data_type === 'REF' &&
+                            isRuntimeEnumerationTargetKind(attr.target_object_kind) &&
+                            attr.target_object_id
+                    )
                     .map((attr) => String(attr.target_object_id)),
                 ...allChildAttributes
-                    .filter((attr) => attr.data_type === 'REF' && attr.target_object_kind === 'enumeration' && attr.target_object_id)
+                    .filter(
+                        (attr) =>
+                            attr.data_type === 'REF' &&
+                            isRuntimeEnumerationTargetKind(attr.target_object_kind) &&
+                            attr.target_object_id
+                    )
                     .map((attr) => String(attr.target_object_id))
             ])
         )
@@ -1015,7 +1063,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 `
           SELECT id, kind, codename, presentation, config
           FROM ${schemaIdent}._app_objects
-          WHERE (kind = 'hub' OR ${RUNTIME_SECTION_FILTER_SQL})
+                    WHERE (${RUNTIME_LEGACY_COMPATIBLE_KIND_SQL('kind', 'config')} = 'hub' OR ${RUNTIME_SECTION_FILTER_SQL})
             AND _upl_deleted = false
             AND _app_deleted = false
         `
@@ -1033,7 +1081,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 const sortOrder = typeof rawSortOrder === 'number' ? rawSortOrder : 0
                 const title = resolvePresentationName(row.presentation, requestedLocale, resolveRuntimeCodenameText(row.codename))
 
-                if (row.kind === 'hub') {
+                if (isRuntimeHubKind(row.kind, row.config)) {
                     const parentHubId = typeof config.parentHubId === 'string' ? config.parentHubId : null
                     hubMetaById.set(row.id, {
                         id: row.id,
@@ -1229,7 +1277,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                         .sort((a, b) => a.sortOrder - b.sortOrder)
 
                     for (const item of normalizedItems) {
-                        if (item.kind === 'hub') {
+                        if (isRuntimeHubKind(item.kind)) {
                             const expanded = buildHubMenuItems(item)
                             if (expanded.length > 0) {
                                 resolvedItems.push(...expanded)
@@ -1296,12 +1344,14 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             if (
                 attribute.data_type !== 'REF' ||
                 typeof attribute.target_object_id !== 'string' ||
-                (targetObjectKind !== 'enumeration' && targetObjectKind !== 'set' && !isRuntimeSectionTargetKind(targetObjectKind))
+                (!isRuntimeEnumerationTargetKind(targetObjectKind) &&
+                    !isRuntimeSetTargetKind(targetObjectKind) &&
+                    !isRuntimeSectionTargetKind(targetObjectKind))
             ) {
                 return undefined
             }
 
-            if (targetObjectKind === 'enumeration') {
+            if (isRuntimeEnumerationTargetKind(targetObjectKind)) {
                 return enumOptionsMap.get(attribute.target_object_id) ?? []
             }
             if (isRuntimeSectionTargetKind(targetObjectKind)) {
@@ -1315,12 +1365,14 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             includeChildColumns: boolean
         ): RuntimeColumnDefinition => {
             const setConstantConfig =
-                attribute.data_type === 'REF' && attribute.target_object_kind === 'set' ? getSetConstantConfig(attribute.ui_config) : null
+                attribute.data_type === 'REF' && isRuntimeSetTargetKind(attribute.target_object_kind)
+                    ? getSetConstantConfig(attribute.ui_config)
+                    : null
             const setConstantOption = buildSetConstantOption(setConstantConfig)
             const refOptions = resolveRefOptions(attribute, setConstantOption)
             const enumOptions =
                 attribute.data_type === 'REF' &&
-                attribute.target_object_kind === 'enumeration' &&
+                isRuntimeEnumerationTargetKind(attribute.target_object_kind) &&
                 attribute.target_object_id &&
                 enumOptionsMap.has(attribute.target_object_id)
                     ? enumOptionsMap.get(attribute.target_object_id)
@@ -1435,14 +1487,14 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             })
         }
 
-        if (attr.data_type === 'REF' && attr.target_object_kind === 'enumeration' && getEnumPresentationMode(attr.ui_config) === 'label') {
+        if (attr.data_type === 'REF' && isRuntimeEnumerationTargetKind(attr.target_object_kind) && getEnumPresentationMode(attr.ui_config) === 'label') {
             return res.status(400).json({
                 error: `Field is read-only: ${attr.codename}`
             })
         }
 
         const setConstantConfig =
-            attr.data_type === 'REF' && attr.target_object_kind === 'set' ? getSetConstantConfig(attr.ui_config) : null
+            attr.data_type === 'REF' && isRuntimeSetTargetKind(attr.target_object_kind) ? getSetConstantConfig(attr.ui_config) : null
         let rawValue = value
         if (setConstantConfig) {
             const providedRefId = resolveRefId(rawValue)
@@ -1470,7 +1522,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             })
         }
 
-        if (attr.data_type === 'REF' && attr.target_object_kind === 'enumeration' && typeof attr.target_object_id === 'string' && coerced) {
+        if (attr.data_type === 'REF' && isRuntimeEnumerationTargetKind(attr.target_object_kind) && typeof attr.target_object_id === 'string' && coerced) {
             try {
                 await ensureEnumerationValueBelongsToTarget(ctx.manager, ctx.schemaIdent, String(coerced), attr.target_object_id)
             } catch (error) {
@@ -1626,7 +1678,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
             if (
                 attr.data_type === 'REF' &&
-                attr.target_object_kind === 'enumeration' &&
+                isRuntimeEnumerationTargetKind(attr.target_object_kind) &&
                 getEnumPresentationMode(attr.ui_config) === 'label'
             ) {
                 return res.status(400).json({
@@ -1634,7 +1686,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 })
             }
             const setConstantConfig =
-                attr.data_type === 'REF' && attr.target_object_kind === 'set' ? getSetConstantConfig(attr.ui_config) : null
+                attr.data_type === 'REF' && isRuntimeSetTargetKind(attr.target_object_kind) ? getSetConstantConfig(attr.ui_config) : null
             if (setConstantConfig) {
                 const providedRefId = resolveRefId(raw)
                 if (!providedRefId) {
@@ -1658,7 +1710,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
                 if (
                     attr.data_type === 'REF' &&
-                    attr.target_object_kind === 'enumeration' &&
+                    isRuntimeEnumerationTargetKind(attr.target_object_kind) &&
                     typeof attr.target_object_id === 'string' &&
                     coerced
                 ) {
@@ -1744,7 +1796,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     if (!IDENTIFIER_REGEX.test(cAttr.column_name)) continue
 
                     const childFieldPath = formatRuntimeFieldPath(tAttr.codename, cAttr.codename)
-                    const isEnumRef = cAttr.data_type === 'REF' && cAttr.target_object_kind === 'enumeration'
+                    const isEnumRef = cAttr.data_type === 'REF' && isRuntimeEnumerationTargetKind(cAttr.target_object_kind)
                     const { hasUserValue: hasChildUserValue, value: childInputValue } = getRuntimeInputValue(
                         rowData,
                         cAttr.column_name,
@@ -1780,7 +1832,9 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     }
 
                     const childSetConstantConfig =
-                        cAttr.data_type === 'REF' && cAttr.target_object_kind === 'set' ? getSetConstantConfig(cAttr.ui_config) : null
+                        cAttr.data_type === 'REF' && isRuntimeSetTargetKind(cAttr.target_object_kind)
+                            ? getSetConstantConfig(cAttr.ui_config)
+                            : null
                     if (childSetConstantConfig) {
                         const providedRefId = resolveRefId(cRaw)
                         if (!providedRefId) {
@@ -2072,7 +2126,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             const { hasUserValue, value: inputValue } = getRuntimeInputValue(data, attr.column_name, attr.codename)
             let raw = inputValue
 
-            const isEnumRef = attr.data_type === 'REF' && attr.target_object_kind === 'enumeration'
+            const isEnumRef = attr.data_type === 'REF' && isRuntimeEnumerationTargetKind(attr.target_object_kind)
             const enumMode = getEnumPresentationMode(attr.ui_config)
 
             if (isEnumRef && enumMode === 'label' && hasUserValue) {
@@ -2098,7 +2152,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             }
 
             const setConstantConfig =
-                attr.data_type === 'REF' && attr.target_object_kind === 'set' ? getSetConstantConfig(attr.ui_config) : null
+                attr.data_type === 'REF' && isRuntimeSetTargetKind(attr.target_object_kind) ? getSetConstantConfig(attr.ui_config) : null
             if (setConstantConfig) {
                 const providedRefId = resolveRefId(raw)
                 if (!providedRefId) {
@@ -2259,7 +2313,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     for (const cAttr of childAttrsResult) {
                         if (!IDENTIFIER_REGEX.test(cAttr.column_name)) continue
                         const childFieldPath = formatRuntimeFieldPath(tAttr.codename, cAttr.codename)
-                        const isEnumRef = cAttr.data_type === 'REF' && cAttr.target_object_kind === 'enumeration'
+                        const isEnumRef = cAttr.data_type === 'REF' && isRuntimeEnumerationTargetKind(cAttr.target_object_kind)
                         const { hasUserValue, value: childInputValue } = getRuntimeInputValue(rowData, cAttr.column_name, cAttr.codename)
                         let cRaw = childInputValue
 
@@ -2294,7 +2348,9 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                         }
 
                         const childSetConstantConfig =
-                            cAttr.data_type === 'REF' && cAttr.target_object_kind === 'set' ? getSetConstantConfig(cAttr.ui_config) : null
+                            cAttr.data_type === 'REF' && isRuntimeSetTargetKind(cAttr.target_object_kind)
+                                ? getSetConstantConfig(cAttr.ui_config)
+                                : null
                         if (childSetConstantConfig) {
                             const providedRefId = resolveRefId(cRaw)
                             if (!providedRefId) {

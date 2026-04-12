@@ -5,6 +5,7 @@ export interface BaseConstantScope {
     metahubId: string
     hubId?: string
     setId: string
+    kindKey?: string
 }
 
 export interface CreateConstantParams extends BaseConstantScope {

@@ -573,6 +573,8 @@
             "tabsHelperStructured": "Choose which authoring tabs should be exposed for this entity type. General is always enabled.",
             "sidebarSection": "Sidebar section",
             "sidebarSectionHelper": "Controls where future menus may place this entity type",
+            "sidebarOrder": "Sidebar order",
+            "sidebarOrderHelper": "Optional non-negative integer used to sort published entity links inside the dynamic menu zone.",
             "published": "Publish to dynamic menu",
             "publishedHelper": "Only published custom entity types appear in the dynamic metahub menu zone.",
             "components": "Components JSON",
@@ -589,6 +591,8 @@
             "kindKey": "Kind key",
             "source": "Source",
             "sidebarSection": "Section",
+            "sidebarOrder": "Order",
+            "sidebarOrderAuto": "Auto",
             "published": "Menu",
             "components": "Components",
             "updatedAt": "Updated"
@@ -655,10 +659,16 @@
         "editDialog": {
             "title": "Edit Entity Type"
         },
+        "copyDialog": {
+            "title": "Copy Entity Type",
+            "copying": "Copying..."
+        },
         "deleteDialog": {
             "title": "Delete Entity Type",
             "description": "Delete custom entity type \"{{name}}\"? Existing built-in types cannot be deleted."
         },
+        "copySuccess": "Entity type copied",
+        "copyError": "Failed to copy entity type",
         "validation": {
             "kindKeyRequired": "Kind key is required",
             "kindKeyInvalid": "Kind key must start with a letter and use only lowercase letters, digits, dots, underscores, or hyphens",
@@ -666,6 +676,7 @@
             "codenameRequired": "Codename is required",
             "codenameInvalid": "Codename contains invalid characters",
             "iconNameRequired": "Icon name is required",
+            "sidebarOrderInvalid": "Sidebar order must be a non-negative integer",
             "tabsRequired": "At least one tab is required",
             "componentsInvalid": "Components must be a valid JSON object",
             "presentationInvalid": "Presentation must be a valid JSON object",

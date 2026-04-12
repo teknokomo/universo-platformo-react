@@ -62,6 +62,7 @@ const presetManifest = {
             iconName: 'IconDatabase',
             tabs: ['general', 'hubs', 'layout', 'scripts'],
             sidebarSection: 'objects' as const,
+            sidebarOrder: 20,
             nameKey: 'Catalogs V2',
             descriptionKey: 'Catalog-compatible preset'
         },
@@ -126,6 +127,7 @@ describe('entityTypePreset helpers', () => {
             tabs: ['general', 'hubs', 'layout', 'scripts'],
             customTabsInput: '',
             sidebarSection: 'objects',
+            sidebarOrder: 20,
             codenameTouched: false,
             published: true
         })

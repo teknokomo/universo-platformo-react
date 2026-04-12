@@ -20,7 +20,7 @@ describe('SchemaMigrator', () => {
         mockReleaseAdvisoryLock.mockResolvedValue(undefined)
     })
 
-    it('routes REF->enumeration foreign keys to _app_values', async () => {
+    it('routes REF->legacy-compatible custom enumeration foreign keys to _app_values', async () => {
         const trx = {
             raw: jest.fn().mockResolvedValue(undefined)
         } as unknown as import('knex').Knex.Transaction
@@ -37,7 +37,7 @@ describe('SchemaMigrator', () => {
             dataType: AttributeDataType.REF,
             isRequired: false,
             targetEntityId: 'enum-0000-0000-0000-000000000001',
-            targetEntityKind: 'enumeration'
+            targetEntityKind: 'custom.enumeration-v2' as import('../types').RuntimeEntityKind
         }
         const entities: EntityDefinition[] = [
             {
@@ -88,7 +88,7 @@ describe('SchemaMigrator', () => {
         )
     })
 
-    it('skips physical FK creation for REF->set fields', async () => {
+    it('skips physical FK creation for REF->legacy-compatible custom set fields', async () => {
         const trx = {
             raw: jest.fn().mockResolvedValue(undefined)
         } as unknown as import('knex').Knex.Transaction
@@ -105,7 +105,7 @@ describe('SchemaMigrator', () => {
             dataType: AttributeDataType.REF,
             isRequired: false,
             targetEntityId: 'set-0000-0000-0000-000000000001',
-            targetEntityKind: 'set'
+            targetEntityKind: 'custom.set-v2' as import('../types').RuntimeEntityKind
         }
         const entities: EntityDefinition[] = [
             {

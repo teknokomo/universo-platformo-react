@@ -90,6 +90,7 @@ vi.mock('@universo/template-mui', async (importOriginal) => {
     const resolveMenuLabel = (labelKey: string) => {
         if (labelKey === 'entities.actions.instances') return 'Instances'
         if (labelKey === 'common:actions.edit') return 'Edit'
+        if (labelKey === 'common:actions.copy') return 'Copy'
         if (labelKey === 'common:actions.delete') return 'Delete'
         return labelKey
     }
@@ -216,6 +217,8 @@ vi.mock('@universo/template-mui/components/dialogs', async () => {
 
             return (
                 <div role='dialog' aria-label={title}>
+                    <div data-testid='entity-dialog-kind-key'>{String(values.kindKey ?? '')}</div>
+                    <div data-testid='entity-dialog-name'>{String((values.nameVlc as any)?.locales?.en?.content ?? '')}</div>
                     {renderedTabs.map((tab) => (
                         <section key={tab.id} aria-label={tab.label}>
                             {tab.content}
@@ -268,6 +271,7 @@ vi.mock('../EntityTypePresetSelector', () => ({
 vi.mock('../../hooks', () => ({
     useEntityTypesQuery: (...args: unknown[]) => mockEntityTypesQuery(...args),
     useCreateEntityType: () => ({ mutateAsync: vi.fn(), isPending: false }),
+    useCopyEntityType: () => ({ mutateAsync: vi.fn(), isPending: false }),
     useUpdateEntityType: () => ({ mutateAsync: vi.fn(), isPending: false }),
     useDeleteEntityType: () => ({ mutateAsync: vi.fn(), isPending: false })
 }))
@@ -368,6 +372,27 @@ describe('EntitiesWorkspace', () => {
 
         expect(screen.getByRole('dialog', { name: 'Edit Entity Type' })).toBeInTheDocument()
         expect(screen.getByText('GeneralTabFields')).toBeInTheDocument()
+        expect(screen.getByRole('checkbox', { name: 'Publish to dynamic menu' })).toBeChecked()
+    })
+
+    it('opens the copy dialog with duplicated defaults for a custom entity type', async () => {
+        const user = userEvent.setup()
+        const { default: EntitiesWorkspace } = await import('../EntitiesWorkspace')
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities' element={<EntitiesWorkspace />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        await user.click(screen.getByTestId('entity-menu-trigger-entity-type-type-1'))
+        await user.click(screen.getByTestId('entity-menu-item-entity-type-copy-type-1'))
+
+        expect(screen.getByRole('dialog', { name: 'Copy Entity Type' })).toBeInTheDocument()
+        expect(screen.getByTestId('entity-dialog-kind-key')).toHaveTextContent('custom.product-copy')
+        expect(screen.getByTestId('entity-dialog-name')).toHaveTextContent('Products (copy)')
         expect(screen.getByRole('checkbox', { name: 'Publish to dynamic menu' })).toBeChecked()
     })
 

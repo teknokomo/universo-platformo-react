@@ -2,9 +2,11 @@ import type { ConstantCopyOptions } from '@universo/types'
 import type { Constant, ConstantLocalizedPayload, PaginatedResponse, PaginationParams } from '../../../types'
 import { apiClient } from '../../shared'
 
-type ConstantsListParams = PaginationParams & { locale?: string; includeShared?: boolean }
+type ConstantsListParams = PaginationParams & { locale?: string; includeShared?: boolean; kindKey?: string }
 type ConstantsListMeta = { totalAll?: number; limit?: number; limitReached?: boolean; includeShared?: boolean }
 type ConstantsListResponse = PaginatedResponse<Constant> & { meta?: ConstantsListMeta }
+
+const buildKindKeyParams = (kindKey?: string) => (kindKey ? { kindKey } : undefined)
 
 const mapListResponse = (response: {
     data: {
@@ -35,7 +37,8 @@ const buildListParams = (params?: ConstantsListParams) => ({
     sortOrder: params?.sortOrder,
     search: params?.search,
     locale: params?.locale,
-    includeShared: params?.includeShared
+    includeShared: params?.includeShared,
+    kindKey: params?.kindKey
 })
 
 export const listConstants = async (
@@ -68,32 +71,54 @@ export const listConstantsDirect = async (
 export const getConstant = (metahubId: string, hubId: string, setId: string, constantId: string) =>
     apiClient.get<Constant>(`/metahub/${metahubId}/hub/${hubId}/set/${setId}/constant/${constantId}`)
 
-export const getConstantDirect = (metahubId: string, setId: string, constantId: string) =>
-    apiClient.get<Constant>(`/metahub/${metahubId}/set/${setId}/constant/${constantId}`)
+export const getConstantDirect = (metahubId: string, setId: string, constantId: string, kindKey?: string) =>
+    apiClient.get<Constant>(`/metahub/${metahubId}/set/${setId}/constant/${constantId}`, {
+        params: buildKindKeyParams(kindKey)
+    })
 
 export const createConstant = (metahubId: string, hubId: string, setId: string, data: ConstantLocalizedPayload) =>
     apiClient.post<Constant>(`/metahub/${metahubId}/hub/${hubId}/set/${setId}/constants`, data)
 
-export const createConstantDirect = (metahubId: string, setId: string, data: ConstantLocalizedPayload) =>
-    apiClient.post<Constant>(`/metahub/${metahubId}/set/${setId}/constants`, data)
+export const createConstantDirect = (metahubId: string, setId: string, data: ConstantLocalizedPayload, kindKey?: string) =>
+    apiClient.post<Constant>(`/metahub/${metahubId}/set/${setId}/constants`, data, {
+        params: buildKindKeyParams(kindKey)
+    })
 
 export const updateConstant = (metahubId: string, hubId: string, setId: string, constantId: string, data: ConstantLocalizedPayload) =>
     apiClient.patch<Constant>(`/metahub/${metahubId}/hub/${hubId}/set/${setId}/constant/${constantId}`, data)
 
-export const updateConstantDirect = (metahubId: string, setId: string, constantId: string, data: ConstantLocalizedPayload) =>
-    apiClient.patch<Constant>(`/metahub/${metahubId}/set/${setId}/constant/${constantId}`, data)
+export const updateConstantDirect = (
+    metahubId: string,
+    setId: string,
+    constantId: string,
+    data: ConstantLocalizedPayload,
+    kindKey?: string
+) =>
+    apiClient.patch<Constant>(`/metahub/${metahubId}/set/${setId}/constant/${constantId}`, data, {
+        params: buildKindKeyParams(kindKey)
+    })
 
 export const deleteConstant = (metahubId: string, hubId: string, setId: string, constantId: string) =>
     apiClient.delete<void>(`/metahub/${metahubId}/hub/${hubId}/set/${setId}/constant/${constantId}`)
 
-export const deleteConstantDirect = (metahubId: string, setId: string, constantId: string) =>
-    apiClient.delete<void>(`/metahub/${metahubId}/set/${setId}/constant/${constantId}`)
+export const deleteConstantDirect = (metahubId: string, setId: string, constantId: string, kindKey?: string) =>
+    apiClient.delete<void>(`/metahub/${metahubId}/set/${setId}/constant/${constantId}`, {
+        params: buildKindKeyParams(kindKey)
+    })
 
 export const moveConstant = (metahubId: string, hubId: string, setId: string, constantId: string, direction: 'up' | 'down') =>
     apiClient.patch<Constant>(`/metahub/${metahubId}/hub/${hubId}/set/${setId}/constant/${constantId}/move`, { direction })
 
-export const moveConstantDirect = (metahubId: string, setId: string, constantId: string, direction: 'up' | 'down') =>
-    apiClient.patch<Constant>(`/metahub/${metahubId}/set/${setId}/constant/${constantId}/move`, { direction })
+export const moveConstantDirect = (
+    metahubId: string,
+    setId: string,
+    constantId: string,
+    direction: 'up' | 'down',
+    kindKey?: string
+) =>
+    apiClient.patch<Constant>(`/metahub/${metahubId}/set/${setId}/constant/${constantId}/move`, { direction }, {
+        params: buildKindKeyParams(kindKey)
+    })
 
 export const reorderConstant = (
     metahubId: string,
@@ -114,28 +139,43 @@ export const reorderConstantDirect = (
     setId: string,
     constantId: string,
     newSortOrder: number,
-    mergedOrderIds?: string[]
+    mergedOrderIds?: string[],
+    kindKey?: string
 ) =>
-    apiClient.patch<Constant>(`/metahub/${metahubId}/set/${setId}/constants/reorder`, {
-        constantId,
-        newSortOrder,
-        ...(Array.isArray(mergedOrderIds) && mergedOrderIds.length > 0 && { mergedOrderIds })
-    })
+    apiClient.patch<Constant>(
+        `/metahub/${metahubId}/set/${setId}/constants/reorder`,
+        {
+            constantId,
+            newSortOrder,
+            ...(Array.isArray(mergedOrderIds) && mergedOrderIds.length > 0 && { mergedOrderIds })
+        },
+        {
+            params: buildKindKeyParams(kindKey)
+        }
+    )
 
 export type ConstantCopyInput = Partial<ConstantLocalizedPayload> & Partial<ConstantCopyOptions>
 
 export const copyConstant = (metahubId: string, hubId: string, setId: string, constantId: string, data: ConstantCopyInput) =>
     apiClient.post<Constant>(`/metahub/${metahubId}/hub/${hubId}/set/${setId}/constant/${constantId}/copy`, data)
 
-export const copyConstantDirect = (metahubId: string, setId: string, constantId: string, data: ConstantCopyInput) =>
-    apiClient.post<Constant>(`/metahub/${metahubId}/set/${setId}/constant/${constantId}/copy`, data)
+export const copyConstantDirect = (metahubId: string, setId: string, constantId: string, data: ConstantCopyInput, kindKey?: string) =>
+    apiClient.post<Constant>(`/metahub/${metahubId}/set/${setId}/constant/${constantId}/copy`, data, {
+        params: buildKindKeyParams(kindKey)
+    })
 
 export interface ConstantCodenameEntry {
     id: string
     codename: Record<string, unknown> | string | null
 }
 
-export const listAllConstantCodenames = async (metahubId: string, setId: string): Promise<{ items: ConstantCodenameEntry[] }> => {
-    const response = await apiClient.get<{ items: ConstantCodenameEntry[] }>(`/metahub/${metahubId}/set/${setId}/constant-codenames`)
+export const listAllConstantCodenames = async (
+    metahubId: string,
+    setId: string,
+    kindKey?: string
+): Promise<{ items: ConstantCodenameEntry[] }> => {
+    const response = await apiClient.get<{ items: ConstantCodenameEntry[] }>(`/metahub/${metahubId}/set/${setId}/constant-codenames`, {
+        params: buildKindKeyParams(kindKey)
+    })
     return response.data
 }

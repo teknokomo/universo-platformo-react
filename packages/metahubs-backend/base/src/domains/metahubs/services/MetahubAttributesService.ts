@@ -41,6 +41,17 @@ const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 type AttributeScope = 'business' | 'system' | 'all'
 const RESERVED_CATALOG_SYSTEM_CODENAMES = new Set(getReservedCatalogSystemFieldCodenames())
 
+const normalizeCompatibleTargetKinds = (targetKinds: string | readonly string[]): string[] => {
+    const rawKinds = Array.isArray(targetKinds) ? targetKinds : [targetKinds]
+    const normalized = Array.from(new Set(rawKinds.map((kind) => kind.trim()).filter((kind) => kind.length > 0)))
+
+    if (normalized.length === 0) {
+        throw new MetahubValidationError('Target object kinds are required for blocker lookup')
+    }
+
+    return normalized
+}
+
 type MetahubAttributeRecord = {
     id: string
     catalogId: string
@@ -728,10 +739,16 @@ export class MetahubAttributesService {
      * Find REF attributes that reference a target object by kind and id.
      * Used to block deletion of referenced objects (e.g. enumerations).
      */
-    async findReferenceBlockersByTarget(metahubId: string, targetObjectId: string, targetObjectKind: string, userId?: string) {
+    async findReferenceBlockersByTarget(
+        metahubId: string,
+        targetObjectId: string,
+        targetObjectKinds: string | readonly string[],
+        userId?: string
+    ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const attrTable = qSchemaTable(schemaName, '_mhb_attributes')
         const objTable = qSchemaTable(schemaName, '_mhb_objects')
+        const compatibleTargetKinds = normalizeCompatibleTargetKinds(targetObjectKinds)
         const rows = await queryMany<{
             attribute_id: string
             attribute_codename: string
@@ -752,11 +769,11 @@ export class MetahubAttributesService {
              LEFT JOIN ${objTable} obj ON obj.id = attr.object_id
              WHERE attr.data_type = 'REF'
                AND attr.target_object_id = $1
-               AND attr.target_object_kind = $2
+                             AND attr.target_object_kind = ANY($2::text[])
                AND attr._upl_deleted = false AND attr._mhb_deleted = false
                AND obj._upl_deleted = false AND obj._mhb_deleted = false
              ORDER BY ${codenamePrimaryTextSql('obj.codename')} ASC, attr.sort_order ASC`,
-            [targetObjectId, targetObjectKind]
+                        [targetObjectId, compatibleTargetKinds]
         )
 
         return rows.map((row) => ({
@@ -773,10 +790,16 @@ export class MetahubAttributesService {
      * Find REF attributes that use a specific enumeration value as default in ui_config.
      * Used to block deletion of enumeration values that are still configured as defaults.
      */
-    async findDefaultEnumValueBlockers(metahubId: string, enumValueId: string, userId?: string) {
+    async findDefaultEnumValueBlockers(
+        metahubId: string,
+        enumValueId: string,
+        userId?: string,
+        targetObjectKinds?: readonly string[]
+    ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const attrTable = qSchemaTable(schemaName, '_mhb_attributes')
         const objTable = qSchemaTable(schemaName, '_mhb_objects')
+        const compatibleTargetKinds = normalizeCompatibleTargetKinds(targetObjectKinds ?? ['enumeration'])
         const rows = await queryMany<{
             attribute_id: string
             attribute_codename: string
@@ -796,12 +819,12 @@ export class MetahubAttributesService {
              FROM ${attrTable} attr
              LEFT JOIN ${objTable} obj ON obj.id = attr.object_id
              WHERE attr.data_type = 'REF'
-               AND attr.target_object_kind = 'enumeration'
+                             AND attr.target_object_kind = ANY($2::text[])
                AND attr.ui_config ->> 'defaultEnumValueId' = $1
                AND attr._upl_deleted = false AND attr._mhb_deleted = false
                AND obj._upl_deleted = false AND obj._mhb_deleted = false
              ORDER BY ${codenamePrimaryTextSql('obj.codename')} ASC, attr.sort_order ASC`,
-            [enumValueId]
+                        [enumValueId, compatibleTargetKinds]
         )
 
         return rows.map((row) => ({
@@ -818,11 +841,18 @@ export class MetahubAttributesService {
      * Find predefined elements that reference a specific enumeration value.
      * Used to prevent deleting values that are still used in catalog predefined data.
      */
-    async findElementEnumValueBlockers(metahubId: string, enumerationId: string, enumValueId: string, userId?: string) {
+    async findElementEnumValueBlockers(
+        metahubId: string,
+        enumerationId: string,
+        enumValueId: string,
+        userId?: string,
+        targetObjectKinds?: readonly string[]
+    ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const attrTable = qSchemaTable(schemaName, '_mhb_attributes')
         const objTable = qSchemaTable(schemaName, '_mhb_objects')
         const elTable = qSchemaTable(schemaName, '_mhb_elements')
+        const compatibleTargetKinds = normalizeCompatibleTargetKinds(targetObjectKinds ?? ['enumeration'])
         const rows = await queryMany<{
             attribute_id: string
             attribute_codename: string
@@ -845,7 +875,7 @@ export class MetahubAttributesService {
              LEFT JOIN ${objTable} obj ON obj.id = attr.object_id
              LEFT JOIN ${elTable} el ON el.object_id = attr.object_id
              WHERE attr.data_type = 'REF'
-               AND attr.target_object_kind = 'enumeration'
+                             AND attr.target_object_kind = ANY($3::text[])
                AND attr.target_object_id = $1
                AND el.data ->> (${codenamePrimaryTextSql('attr.codename')}) = $2
                AND attr._upl_deleted = false AND attr._mhb_deleted = false
@@ -853,7 +883,7 @@ export class MetahubAttributesService {
                AND el._upl_deleted = false AND el._mhb_deleted = false
              GROUP BY attr.id, attr.codename, attr.presentation, attr.object_id, obj.codename, obj.presentation
              ORDER BY ${codenamePrimaryTextSql('obj.codename')} ASC, attr.sort_order ASC`,
-            [enumerationId, enumValueId]
+                        [enumerationId, enumValueId, compatibleTargetKinds]
         )
 
         return rows.map((row) => ({

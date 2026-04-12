@@ -29,6 +29,7 @@ export const catalogV2EntityPreset: EntityTypePresetManifest = {
         },
         ui: {
             ...CATALOG_TYPE.ui,
+            sidebarOrder: 20,
             nameKey: 'Catalogs V2',
             descriptionKey:
                 'Catalog-compatible custom entity with hubs, hierarchy, references, scripts, and publication-ready layout support.'

@@ -100,10 +100,16 @@ const normalizeUiConfig = (value: EntityTypeUIConfig): EntityTypeUIConfig => {
         throw new MetahubValidationError('Entity type UI config must contain a nameKey')
     }
 
+    const sidebarOrder = value.sidebarOrder
+    if (sidebarOrder !== undefined && (!Number.isInteger(sidebarOrder) || sidebarOrder < 0)) {
+        throw new MetahubValidationError('Entity type UI config sidebarOrder must be a non-negative integer')
+    }
+
     return {
         iconName,
         tabs,
         sidebarSection: value.sidebarSection === 'admin' ? 'admin' : 'objects',
+        sidebarOrder,
         nameKey,
         descriptionKey:
             typeof value.descriptionKey === 'string' && value.descriptionKey.trim().length > 0 ? value.descriptionKey : undefined
@@ -191,15 +197,19 @@ export class EntityTypeService {
         return queryOne<StoredEntityTypeRow>(db, `SELECT * FROM ${qt} WHERE kind_key = $1 AND ${ACTIVE_CLAUSE} LIMIT 1`, [kindKey])
     }
 
-    async listCustomTypes(metahubId: string, userId?: string): Promise<MetahubResolvedEntityType[]> {
-        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+    async listCustomTypesInSchema(schemaName: string, db: SqlQueryable = this.exec): Promise<MetahubResolvedEntityType[]> {
         const qt = qSchemaTable(schemaName, TABLE)
         const rows = await queryMany<StoredEntityTypeRow>(
-            this.exec,
+            db,
             `SELECT * FROM ${qt} WHERE ${ACTIVE_CLAUSE} ORDER BY kind_key ASC, _upl_created_at ASC, id ASC`
         )
 
         return rows.map((row) => this.normalizeCustomRow(row))
+    }
+
+    async listCustomTypes(metahubId: string, userId?: string): Promise<MetahubResolvedEntityType[]> {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        return this.listCustomTypesInSchema(schemaName)
     }
 
     async listResolvedTypes(metahubId: string, userId?: string): Promise<MetahubResolvedEntityType[]> {

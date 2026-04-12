@@ -41,8 +41,8 @@ import type {
     ReorderEnumerationValueParams
 } from './mutationTypes'
 
-const getEnumerationValueQueryKeyPrefix = (metahubId: string, enumerationId: string) =>
-    metahubsQueryKeys.enumerationValues(metahubId, enumerationId)
+const getEnumerationValueQueryKeyPrefix = (metahubId: string, enumerationId: string, kindKey?: string | null) =>
+    metahubsQueryKeys.enumerationValues(metahubId, enumerationId, kindKey)
 
 export function useCreateEnumerationAtMetahub() {
     const queryClient = useQueryClient()
@@ -52,13 +52,13 @@ export function useCreateEnumerationAtMetahub() {
     return useMutation({
         retry: false,
         mutationKey: ['enumerations', 'create'],
-        mutationFn: async ({ metahubId, data }: CreateEnumerationAtMetahubParams) => {
-            const response = await enumerationsApi.createEnumerationAtMetahub(metahubId, data)
+        mutationFn: async ({ metahubId, kindKey, data }: CreateEnumerationAtMetahubParams) => {
+            const response = await enumerationsApi.createEnumerationAtMetahub(metahubId, kindKey ? { ...data, kindKey } : data)
             return response.data
         },
-        onMutate: async ({ metahubId, data }) => {
+        onMutate: async ({ metahubId, kindKey, data }) => {
             const optimisticId = generateOptimisticId()
-            const queryKeyPrefix = metahubsQueryKeys.allEnumerations(metahubId)
+            const queryKeyPrefix = metahubsQueryKeys.allEnumerationsScope(metahubId, kindKey)
             const optimisticSortOrder = data.sortOrder ?? getNextOptimisticSortOrderFromQueries(queryClient, queryKeyPrefix)
             const optimisticEntity = {
                 id: optimisticId,
@@ -87,7 +87,7 @@ export function useCreateEnumerationAtMetahub() {
             if (context?.optimisticId && data?.id) {
                 confirmOptimisticCreate(
                     queryClient,
-                    metahubsQueryKeys.allEnumerations(variables.metahubId),
+                    metahubsQueryKeys.allEnumerationsScope(variables.metahubId, variables.kindKey),
                     context.optimisticId,
                     data.id,
                     {
@@ -118,13 +118,13 @@ export function useCreateEnumeration() {
     return useMutation({
         retry: false,
         mutationKey: ['enumerations', 'create'],
-        mutationFn: async ({ metahubId, hubId, data }: CreateEnumerationParams) => {
-            const response = await enumerationsApi.createEnumeration(metahubId, hubId, data)
+        mutationFn: async ({ metahubId, hubId, kindKey, data }: CreateEnumerationParams) => {
+            const response = await enumerationsApi.createEnumeration(metahubId, hubId, kindKey ? { ...data, kindKey } : data)
             return response.data
         },
-        onMutate: async ({ metahubId, hubId, data }) => {
+        onMutate: async ({ metahubId, hubId, kindKey, data }) => {
             const optimisticId = generateOptimisticId()
-            const queryKeyPrefix = metahubsQueryKeys.enumerations(metahubId, hubId)
+            const queryKeyPrefix = metahubsQueryKeys.enumerationsScope(metahubId, hubId, kindKey)
             const optimisticSortOrder = data.sortOrder ?? getNextOptimisticSortOrderFromQueries(queryClient, queryKeyPrefix)
             const optimisticEntity = {
                 id: optimisticId,
@@ -153,7 +153,7 @@ export function useCreateEnumeration() {
             if (context?.optimisticId && data?.id) {
                 confirmOptimisticCreate(
                     queryClient,
-                    metahubsQueryKeys.enumerations(variables.metahubId, variables.hubId),
+                    metahubsQueryKeys.enumerationsScope(variables.metahubId, variables.hubId, variables.kindKey),
                     context.optimisticId,
                     data.id,
                     { serverEntity: data }
@@ -179,14 +179,14 @@ export function useUpdateEnumeration() {
 
     return useMutation({
         mutationKey: ['enumerations', 'update'],
-        mutationFn: async ({ metahubId, hubId, enumerationId, data }: UpdateEnumerationParams) => {
-            const response = await enumerationsApi.updateEnumeration(metahubId, hubId, enumerationId, data)
+        mutationFn: async ({ metahubId, hubId, enumerationId, kindKey, data }: UpdateEnumerationParams) => {
+            const response = await enumerationsApi.updateEnumeration(metahubId, hubId, enumerationId, data, kindKey)
             return response.data
         },
-        onMutate: async ({ metahubId, hubId, enumerationId, data }) => {
+        onMutate: async ({ metahubId, hubId, enumerationId, kindKey, data }) => {
             return applyOptimisticUpdate({
                 queryClient,
-                queryKeyPrefix: metahubsQueryKeys.enumerations(metahubId, hubId),
+                queryKeyPrefix: metahubsQueryKeys.enumerationsScope(metahubId, hubId, kindKey),
                 entityId: enumerationId,
                 updater: { ...data, updatedAt: new Date().toISOString() },
                 moveToFront: true
@@ -197,10 +197,10 @@ export function useUpdateEnumeration() {
             enqueueSnackbar(error.message || t('enumerations.updateError', 'Failed to update enumeration'), { variant: 'error' })
         },
         onSuccess: async (data, variables) => {
-            await queryClient.cancelQueries({ queryKey: metahubsQueryKeys.enumerations(variables.metahubId, variables.hubId) })
+            await queryClient.cancelQueries({ queryKey: metahubsQueryKeys.enumerationsScope(variables.metahubId, variables.hubId, variables.kindKey) })
             confirmOptimisticUpdate(
                 queryClient,
-                metahubsQueryKeys.enumerations(variables.metahubId, variables.hubId),
+                metahubsQueryKeys.enumerationsScope(variables.metahubId, variables.hubId, variables.kindKey),
                 variables.enumerationId,
                 { serverEntity: data ?? null, moveToFront: true }
             )
@@ -226,14 +226,14 @@ export function useUpdateEnumerationAtMetahub() {
 
     return useMutation({
         mutationKey: ['enumerations', 'update'],
-        mutationFn: async ({ metahubId, enumerationId, data }: UpdateEnumerationAtMetahubParams) => {
-            const response = await enumerationsApi.updateEnumerationAtMetahub(metahubId, enumerationId, data)
+        mutationFn: async ({ metahubId, enumerationId, kindKey, data }: UpdateEnumerationAtMetahubParams) => {
+            const response = await enumerationsApi.updateEnumerationAtMetahub(metahubId, enumerationId, data, kindKey)
             return response.data
         },
-        onMutate: async ({ metahubId, enumerationId, data }) => {
+        onMutate: async ({ metahubId, enumerationId, kindKey, data }) => {
             return applyOptimisticUpdate({
                 queryClient,
-                queryKeyPrefix: metahubsQueryKeys.allEnumerations(metahubId),
+                queryKeyPrefix: metahubsQueryKeys.allEnumerationsScope(metahubId, kindKey),
                 entityId: enumerationId,
                 updater: { ...data, updatedAt: new Date().toISOString() },
                 moveToFront: true
@@ -244,11 +244,16 @@ export function useUpdateEnumerationAtMetahub() {
             enqueueSnackbar(error.message || t('enumerations.updateError', 'Failed to update enumeration'), { variant: 'error' })
         },
         onSuccess: async (data, variables) => {
-            await queryClient.cancelQueries({ queryKey: metahubsQueryKeys.allEnumerations(variables.metahubId) })
-            confirmOptimisticUpdate(queryClient, metahubsQueryKeys.allEnumerations(variables.metahubId), variables.enumerationId, {
+            await queryClient.cancelQueries({ queryKey: metahubsQueryKeys.allEnumerationsScope(variables.metahubId, variables.kindKey) })
+            confirmOptimisticUpdate(
+                queryClient,
+                metahubsQueryKeys.allEnumerationsScope(variables.metahubId, variables.kindKey),
+                variables.enumerationId,
+                {
                 serverEntity: data ?? null,
                 moveToFront: true
-            })
+                }
+            )
             enqueueSnackbar(t('enumerations.updateSuccess', 'Enumeration updated'), { variant: 'success' })
         },
         onSettled: (_data, _error, variables) => {
@@ -270,15 +275,17 @@ export function useDeleteEnumeration() {
 
     return useMutation({
         mutationKey: ['enumerations', 'delete'],
-        mutationFn: async ({ metahubId, hubId, enumerationId, force }: DeleteEnumerationParams) => {
+        mutationFn: async ({ metahubId, hubId, enumerationId, force, kindKey }: DeleteEnumerationParams) => {
             if (hubId) {
-                await enumerationsApi.deleteEnumeration(metahubId, hubId, enumerationId, force)
+                await enumerationsApi.deleteEnumeration(metahubId, hubId, enumerationId, force, kindKey)
             } else {
-                await enumerationsApi.deleteEnumerationDirect(metahubId, enumerationId)
+                await enumerationsApi.deleteEnumerationDirect(metahubId, enumerationId, kindKey)
             }
         },
-        onMutate: async ({ metahubId, hubId, enumerationId }) => {
-            const queryKeyPrefix = hubId ? metahubsQueryKeys.enumerations(metahubId, hubId) : metahubsQueryKeys.allEnumerations(metahubId)
+        onMutate: async ({ metahubId, hubId, enumerationId, kindKey }) => {
+            const queryKeyPrefix = hubId
+                ? metahubsQueryKeys.enumerationsScope(metahubId, hubId, kindKey)
+                : metahubsQueryKeys.allEnumerationsScope(metahubId, kindKey)
             return applyOptimisticDelete({
                 queryClient,
                 queryKeyPrefix,
@@ -315,13 +322,13 @@ export function useCopyEnumeration() {
 
     return useMutation({
         mutationKey: ['enumerations', 'copy'],
-        mutationFn: async ({ metahubId, enumerationId, data }: CopyEnumerationParams) => {
-            const response = await enumerationsApi.copyEnumeration(metahubId, enumerationId, data)
+        mutationFn: async ({ metahubId, enumerationId, kindKey, data }: CopyEnumerationParams) => {
+            const response = await enumerationsApi.copyEnumeration(metahubId, enumerationId, data, kindKey)
             return response.data
         },
-        onMutate: async ({ metahubId, enumerationId, data }) => {
+        onMutate: async ({ metahubId, enumerationId, kindKey, data }) => {
             const optimisticId = generateOptimisticId()
-            const broadQueryKeyPrefix = metahubsQueryKeys.allEnumerations(metahubId)
+            const broadQueryKeyPrefix = metahubsQueryKeys.allEnumerationsScope(metahubId, kindKey)
             const existingEnumeration = queryClient
                 .getQueriesData<{ items?: Array<Record<string, unknown>> }>({ queryKey: ['metahubs'] })
                 .flatMap(([, value]) => (Array.isArray(value?.items) ? value.items : []))
@@ -332,7 +339,7 @@ export function useCopyEnumeration() {
                 entityId: enumerationId,
                 entitySegment: 'enumerations',
                 broadQueryKeyPrefix,
-                scopedQueryKeyPrefixFactory: (hubId) => metahubsQueryKeys.enumerations(metahubId, hubId),
+                scopedQueryKeyPrefixFactory: (hubId) => metahubsQueryKeys.enumerationsScope(metahubId, hubId, kindKey),
                 knownHubIds: Array.isArray(existingEnumeration?.hubs)
                     ? existingEnumeration.hubs
                           .map((hub) => (typeof hub?.id === 'string' ? hub.id : null))
@@ -372,7 +379,7 @@ export function useCopyEnumeration() {
             if (context?.optimisticId && data?.id) {
                 confirmOptimisticCreateInQueryKeyPrefixes(
                     queryClient,
-                    context.queryKeyPrefixes ?? [metahubsQueryKeys.allEnumerations(variables.metahubId)],
+                    context.queryKeyPrefixes ?? [metahubsQueryKeys.allEnumerationsScope(variables.metahubId, variables.kindKey)],
                     context.optimisticId,
                     data.id,
                     { serverEntity: data }
@@ -406,8 +413,8 @@ export function useReorderEnumeration() {
 
     return useMutation({
         mutationKey: ['enumerations', 'reorder'],
-        mutationFn: async ({ metahubId, hubId, enumerationId, newSortOrder }: ReorderEnumerationParams) => {
-            const response = await enumerationsApi.reorderEnumeration(metahubId, enumerationId, newSortOrder, hubId)
+        mutationFn: async ({ metahubId, hubId, enumerationId, kindKey, newSortOrder }: ReorderEnumerationParams) => {
+            const response = await enumerationsApi.reorderEnumeration(metahubId, enumerationId, newSortOrder, hubId, kindKey)
             return response.data
         },
         onMutate: async (variables) => {
@@ -415,13 +422,13 @@ export function useReorderEnumeration() {
                 variables.hubId != null
                     ? await applyOptimisticReorder(
                           queryClient,
-                          metahubsQueryKeys.enumerations(variables.metahubId, variables.hubId),
+                          metahubsQueryKeys.enumerationsScope(variables.metahubId, variables.hubId, variables.kindKey),
                           variables.enumerationId,
                           variables.newSortOrder
                       )
                     : await applyOptimisticReorder(
                           queryClient,
-                          metahubsQueryKeys.allEnumerations(variables.metahubId),
+                          metahubsQueryKeys.allEnumerationsScope(variables.metahubId, variables.kindKey),
                           variables.enumerationId,
                           variables.newSortOrder
                       )
@@ -430,7 +437,7 @@ export function useReorderEnumeration() {
                 variables.hubId != null
                     ? await applyOptimisticReorder(
                           queryClient,
-                          metahubsQueryKeys.allEnumerations(variables.metahubId),
+                          metahubsQueryKeys.allEnumerationsScope(variables.metahubId, variables.kindKey),
                           variables.enumerationId,
                           variables.newSortOrder
                       )
@@ -468,12 +475,12 @@ export function useCreateEnumerationValue() {
 
     return useMutation({
         mutationKey: ['enumerationValues', 'create'],
-        mutationFn: async ({ metahubId, enumerationId, data }: CreateEnumerationValueParams) => {
-            const response = await enumerationsApi.createEnumerationValue(metahubId, enumerationId, data)
+        mutationFn: async ({ metahubId, enumerationId, kindKey, data }: CreateEnumerationValueParams) => {
+            const response = await enumerationsApi.createEnumerationValue(metahubId, enumerationId, data, kindKey)
             return response.data
         },
-        onMutate: async ({ metahubId, enumerationId, data }) => {
-            const queryKeyPrefix = getEnumerationValueQueryKeyPrefix(metahubId, enumerationId)
+        onMutate: async ({ metahubId, enumerationId, kindKey, data }) => {
+            const queryKeyPrefix = getEnumerationValueQueryKeyPrefix(metahubId, enumerationId, kindKey)
             const optimisticSortOrder = data.sortOrder ?? getNextOptimisticSortOrderFromQueries(queryClient, queryKeyPrefix)
 
             return applyOptimisticCreate({
@@ -499,7 +506,7 @@ export function useCreateEnumerationValue() {
             if (context?.optimisticId && data?.id) {
                 confirmOptimisticCreate(
                     queryClient,
-                    getEnumerationValueQueryKeyPrefix(variables.metahubId, variables.enumerationId),
+                    getEnumerationValueQueryKeyPrefix(variables.metahubId, variables.enumerationId, variables.kindKey),
                     context.optimisticId,
                     data.id,
                     { serverEntity: data }
@@ -513,7 +520,7 @@ export function useCreateEnumerationValue() {
         },
         onSettled: (_data, _error, variables) => {
             if (queryClient.isMutating({ mutationKey: ['enumerationValues'] }) <= 1) {
-                invalidateEnumerationValuesQueries.all(queryClient, variables.metahubId, variables.enumerationId)
+                invalidateEnumerationValuesQueries.all(queryClient, variables.metahubId, variables.enumerationId, variables.kindKey)
             }
         }
     })
@@ -526,14 +533,14 @@ export function useUpdateEnumerationValue() {
 
     return useMutation({
         mutationKey: ['enumerationValues', 'update'],
-        mutationFn: async ({ metahubId, enumerationId, valueId, data }: UpdateEnumerationValueParams) => {
-            const response = await enumerationsApi.updateEnumerationValue(metahubId, enumerationId, valueId, data)
+        mutationFn: async ({ metahubId, enumerationId, valueId, kindKey, data }: UpdateEnumerationValueParams) => {
+            const response = await enumerationsApi.updateEnumerationValue(metahubId, enumerationId, valueId, data, kindKey)
             return response.data
         },
-        onMutate: async ({ metahubId, enumerationId, valueId, data }) => {
+        onMutate: async ({ metahubId, enumerationId, valueId, kindKey, data }) => {
             return applyOptimisticUpdate({
                 queryClient,
-                queryKeyPrefix: getEnumerationValueQueryKeyPrefix(metahubId, enumerationId),
+                queryKeyPrefix: getEnumerationValueQueryKeyPrefix(metahubId, enumerationId, kindKey),
                 entityId: valueId,
                 updater: {
                     ...data,
@@ -545,7 +552,7 @@ export function useUpdateEnumerationValue() {
         onSuccess: (data, variables) => {
             confirmOptimisticUpdate(
                 queryClient,
-                getEnumerationValueQueryKeyPrefix(variables.metahubId, variables.enumerationId),
+                getEnumerationValueQueryKeyPrefix(variables.metahubId, variables.enumerationId, variables.kindKey),
                 variables.valueId,
                 { serverEntity: data ?? null }
             )
@@ -557,7 +564,7 @@ export function useUpdateEnumerationValue() {
         },
         onSettled: (_data, _error, variables) => {
             if (queryClient.isMutating({ mutationKey: ['enumerationValues'] }) <= 1) {
-                invalidateEnumerationValuesQueries.all(queryClient, variables.metahubId, variables.enumerationId)
+                invalidateEnumerationValuesQueries.all(queryClient, variables.metahubId, variables.enumerationId, variables.kindKey)
             }
         }
     })
@@ -570,13 +577,13 @@ export function useDeleteEnumerationValue() {
 
     return useMutation({
         mutationKey: ['enumerationValues', 'delete'],
-        mutationFn: async ({ metahubId, enumerationId, valueId }: DeleteEnumerationValueParams) => {
-            await enumerationsApi.deleteEnumerationValue(metahubId, enumerationId, valueId)
+        mutationFn: async ({ metahubId, enumerationId, valueId, kindKey }: DeleteEnumerationValueParams) => {
+            await enumerationsApi.deleteEnumerationValue(metahubId, enumerationId, valueId, kindKey)
         },
-        onMutate: async ({ metahubId, enumerationId, valueId }) => {
+        onMutate: async ({ metahubId, enumerationId, valueId, kindKey }) => {
             return applyOptimisticDelete({
                 queryClient,
-                queryKeyPrefix: getEnumerationValueQueryKeyPrefix(metahubId, enumerationId),
+                queryKeyPrefix: getEnumerationValueQueryKeyPrefix(metahubId, enumerationId, kindKey),
                 entityId: valueId,
                 strategy: 'remove'
             })
@@ -590,7 +597,7 @@ export function useDeleteEnumerationValue() {
         },
         onSettled: (_data, _error, variables) => {
             if (queryClient.isMutating({ mutationKey: ['enumerationValues'] }) <= 1) {
-                invalidateEnumerationValuesQueries.all(queryClient, variables.metahubId, variables.enumerationId)
+                invalidateEnumerationValuesQueries.all(queryClient, variables.metahubId, variables.enumerationId, variables.kindKey)
             }
         }
     })
@@ -603,8 +610,8 @@ export function useMoveEnumerationValue() {
 
     return useMutation({
         mutationKey: ['enumerationValues', 'move'],
-        mutationFn: async ({ metahubId, enumerationId, valueId, direction }: MoveEnumerationValueParams) => {
-            const response = await enumerationsApi.moveEnumerationValue(metahubId, enumerationId, valueId, direction)
+        mutationFn: async ({ metahubId, enumerationId, valueId, kindKey, direction }: MoveEnumerationValueParams) => {
+            const response = await enumerationsApi.moveEnumerationValue(metahubId, enumerationId, valueId, direction, kindKey)
             return response.data
         },
         onSuccess: () => {
@@ -615,7 +622,7 @@ export function useMoveEnumerationValue() {
         },
         onSettled: (_data, _error, variables) => {
             if (queryClient.isMutating({ mutationKey: ['enumerationValues'] }) <= 1) {
-                invalidateEnumerationValuesQueries.all(queryClient, variables.metahubId, variables.enumerationId)
+                invalidateEnumerationValuesQueries.all(queryClient, variables.metahubId, variables.enumerationId, variables.kindKey)
             }
         }
     })
@@ -630,12 +637,19 @@ export function useReorderEnumerationValue() {
 
     return useMutation({
         mutationKey: ['enumerationValues', 'reorder'],
-        mutationFn: async ({ metahubId, enumerationId, valueId, newSortOrder, mergedOrderIds }: ReorderEnumerationValueParams) => {
-            const response = await enumerationsApi.reorderEnumerationValue(metahubId, enumerationId, valueId, newSortOrder, mergedOrderIds)
+        mutationFn: async ({ metahubId, enumerationId, valueId, kindKey, newSortOrder, mergedOrderIds }: ReorderEnumerationValueParams) => {
+            const response = await enumerationsApi.reorderEnumerationValue(
+                metahubId,
+                enumerationId,
+                valueId,
+                newSortOrder,
+                mergedOrderIds,
+                kindKey
+            )
             return response.data
         },
         onMutate: async (variables) => {
-            const baseKey = metahubsQueryKeys.enumerationValues(variables.metahubId, variables.enumerationId)
+            const baseKey = metahubsQueryKeys.enumerationValues(variables.metahubId, variables.enumerationId, variables.kindKey)
 
             // Cancel in-flight queries
             await queryClient.cancelQueries({ queryKey: baseKey })
@@ -683,7 +697,7 @@ export function useReorderEnumerationValue() {
         },
         onSettled: (_data, _error, variables) => {
             if (queryClient.isMutating({ mutationKey: ['enumerationValues'] }) <= 1) {
-                invalidateEnumerationValuesQueries.all(queryClient, variables.metahubId, variables.enumerationId)
+                invalidateEnumerationValuesQueries.all(queryClient, variables.metahubId, variables.enumerationId, variables.kindKey)
             }
         }
     })
@@ -696,12 +710,12 @@ export function useCopyEnumerationValue() {
 
     return useMutation({
         mutationKey: ['enumerationValues', 'copy'],
-        mutationFn: async ({ metahubId, enumerationId, valueId, data }: CopyEnumerationValueParams) => {
-            const response = await enumerationsApi.copyEnumerationValue(metahubId, enumerationId, valueId, data)
+        mutationFn: async ({ metahubId, enumerationId, valueId, kindKey, data }: CopyEnumerationValueParams) => {
+            const response = await enumerationsApi.copyEnumerationValue(metahubId, enumerationId, valueId, data, kindKey)
             return response.data
         },
-        onMutate: async ({ metahubId, enumerationId, valueId, data }) => {
-            const queryKeyPrefix = getEnumerationValueQueryKeyPrefix(metahubId, enumerationId)
+        onMutate: async ({ metahubId, enumerationId, valueId, kindKey, data }) => {
+            const queryKeyPrefix = getEnumerationValueQueryKeyPrefix(metahubId, enumerationId, kindKey)
             const optimisticSortOrder = getNextOptimisticSortOrderFromQueries(queryClient, queryKeyPrefix)
             const existingValue = queryClient
                 .getQueriesData<{ items?: Array<Record<string, unknown>> }>({ queryKey: queryKeyPrefix })
@@ -732,7 +746,7 @@ export function useCopyEnumerationValue() {
             if (context?.optimisticId && data?.id) {
                 confirmOptimisticCreate(
                     queryClient,
-                    getEnumerationValueQueryKeyPrefix(variables.metahubId, variables.enumerationId),
+                    getEnumerationValueQueryKeyPrefix(variables.metahubId, variables.enumerationId, variables.kindKey),
                     context.optimisticId,
                     data.id,
                     { serverEntity: data }
@@ -748,7 +762,7 @@ export function useCopyEnumerationValue() {
         },
         onSettled: (_data, _error, variables) => {
             if (queryClient.isMutating({ mutationKey: ['enumerationValues'] }) <= 1) {
-                invalidateEnumerationValuesQueries.all(queryClient, variables.metahubId, variables.enumerationId)
+                invalidateEnumerationValuesQueries.all(queryClient, variables.metahubId, variables.enumerationId, variables.kindKey)
             }
         }
     })

@@ -2,10 +2,12 @@ import type { DbExecutor, SqlQueryable } from '@universo/utils/database'
 import { queryMany, queryOne, queryOneOrThrow } from '@universo/utils/database'
 import { qSchemaTable } from '@universo/database'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
+import { EntityTypeService } from '../../entities/services/EntityTypeService'
 import { incrementVersion } from '../../../utils/optimisticLock'
 import { getSettingDefinition } from '@universo/types'
 import type { MetahubSettingRow } from '@universo/types'
 import { validateSettingValue } from '../../shared/validateSettingValue'
+import { resolveLegacyCompatibleKindsInSchema } from '../../shared/legacyCompatibility'
 import { MetahubValidationError } from '../../shared/domainErrors'
 
 const TABLE = '_mhb_settings'
@@ -16,6 +18,11 @@ const TABLE = '_mhb_settings'
  */
 export class MetahubSettingsService {
     constructor(private exec: DbExecutor, private schemaService: MetahubSchemaService) {}
+
+    private async getCompatibleHubKinds(schemaName: string): Promise<string[]> {
+        const entityTypeService = new EntityTypeService(this.exec, this.schemaService)
+        return resolveLegacyCompatibleKindsInSchema(entityTypeService, schemaName, 'hub')
+    }
 
     /**
      * Get all settings (non-deleted).
@@ -194,18 +201,19 @@ export class MetahubSettingsService {
     async clearHubNesting(metahubId: string, userId?: string): Promise<number> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_objects')
+        const compatibleHubKinds = await this.getCompatibleHubKinds(schemaName)
         const rows = await this.exec.query<{ id: string }>(
             `UPDATE ${qt}
              SET config = jsonb_set(COALESCE(config, '{}'::jsonb), '{parentHubId}', 'null'::jsonb, true),
                  _upl_updated_at = $1,
                  _upl_updated_by = $2,
                  _upl_version = _upl_version + 1
-             WHERE kind = 'hub'
+             WHERE kind = ANY($3::text[])
                AND _upl_deleted = false
                AND _mhb_deleted = false
                AND COALESCE(config->>'parentHubId', '') <> ''
              RETURNING id`,
-            [new Date(), userId ?? null]
+            [new Date(), userId ?? null, compatibleHubKinds]
         )
         return rows.length
     }
@@ -216,12 +224,15 @@ export class MetahubSettingsService {
     async hasHubNesting(metahubId: string, userId?: string): Promise<boolean> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_objects')
+        const compatibleHubKinds = await this.getCompatibleHubKinds(schemaName)
         const rows = await this.exec.query<{ total: string }>(
             `SELECT COUNT(*)::text AS total FROM ${qt}
-             WHERE kind = 'hub'
+             WHERE kind = ANY($1::text[])
                AND _upl_deleted = false
                AND _mhb_deleted = false
                AND COALESCE(config->>'parentHubId', '') <> ''`
+            ,
+            [compatibleHubKinds]
         )
         const total = Number(rows[0]?.total ?? 0)
         return Number.isFinite(total) && total > 0

@@ -41,73 +41,13 @@ export function useCreateSetAtMetahub() {
     return useMutation({
         retry: false,
         mutationKey: ['sets', 'create'],
-        mutationFn: async ({ metahubId, data }: CreateSetAtMetahubParams) => {
-            const response = await setsApi.createSetAtMetahub(metahubId, data)
+        mutationFn: async ({ metahubId, kindKey, data }: CreateSetAtMetahubParams) => {
+            const response = await setsApi.createSetAtMetahub(metahubId, kindKey ? { ...data, kindKey } : data)
             return response.data
         },
-        onMutate: async ({ metahubId, data }) => {
+        onMutate: async ({ metahubId, kindKey, data }) => {
             const optimisticId = generateOptimisticId()
-            const queryKeyPrefix = metahubsQueryKeys.allSets(metahubId)
-            const optimisticSortOrder = data.sortOrder ?? getNextOptimisticSortOrderFromQueries(queryClient, queryKeyPrefix)
-            const optimisticEntity = {
-                id: optimisticId,
-                codename: data.codename || '',
-                name: data.name,
-                description: data.description,
-                sortOrder: optimisticSortOrder,
-                constantsCount: 0,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                ...makePendingMarkers('create')
-            }
-
-            return applyOptimisticCreate({
-                queryClient,
-                queryKeyPrefix,
-                optimisticEntity,
-                insertPosition: 'prepend'
-            })
-        },
-        onError: (error: Error, _variables, context) => {
-            rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('sets.createError', 'Failed to create set'), { variant: 'error' })
-        },
-        onSuccess: (data, variables, context) => {
-            if (context?.optimisticId && data?.id) {
-                confirmOptimisticCreate(queryClient, metahubsQueryKeys.allSets(variables.metahubId), context.optimisticId, data.id, {
-                    serverEntity: data
-                })
-            }
-            enqueueSnackbar(t('sets.createSuccess', 'Set created'), { variant: 'success' })
-        },
-        onSettled: (_data, _error, variables) => {
-            if (queryClient.isMutating({ mutationKey: ['sets'] }) <= 1) {
-                safeInvalidateQueries(
-                    queryClient,
-                    ['sets'],
-                    metahubsQueryKeys.allSets(variables.metahubId),
-                    ...(variables.data.hubIds ?? []).map((hubId) => metahubsQueryKeys.sets(variables.metahubId, hubId))
-                )
-            }
-        }
-    })
-}
-
-export function useCreateSet() {
-    const queryClient = useQueryClient()
-    const { enqueueSnackbar } = useSnackbar()
-    const { t } = useTranslation('metahubs')
-
-    return useMutation({
-        retry: false,
-        mutationKey: ['sets', 'create'],
-        mutationFn: async ({ metahubId, hubId, data }: CreateSetParams) => {
-            const response = await setsApi.createSet(metahubId, hubId, data)
-            return response.data
-        },
-        onMutate: async ({ metahubId, hubId, data }) => {
-            const optimisticId = generateOptimisticId()
-            const queryKeyPrefix = metahubsQueryKeys.sets(metahubId, hubId)
+            const queryKeyPrefix = metahubsQueryKeys.allSetsScope(metahubId, kindKey)
             const optimisticSortOrder = data.sortOrder ?? getNextOptimisticSortOrderFromQueries(queryClient, queryKeyPrefix)
             const optimisticEntity = {
                 id: optimisticId,
@@ -136,7 +76,71 @@ export function useCreateSet() {
             if (context?.optimisticId && data?.id) {
                 confirmOptimisticCreate(
                     queryClient,
-                    metahubsQueryKeys.sets(variables.metahubId, variables.hubId),
+                    metahubsQueryKeys.allSetsScope(variables.metahubId, variables.kindKey),
+                    context.optimisticId,
+                    data.id,
+                    { serverEntity: data }
+                )
+            }
+            enqueueSnackbar(t('sets.createSuccess', 'Set created'), { variant: 'success' })
+        },
+        onSettled: (_data, _error, variables) => {
+            if (queryClient.isMutating({ mutationKey: ['sets'] }) <= 1) {
+                safeInvalidateQueries(
+                    queryClient,
+                    ['sets'],
+                    metahubsQueryKeys.allSets(variables.metahubId),
+                    ...(variables.data.hubIds ?? []).map((hubId) => metahubsQueryKeys.sets(variables.metahubId, hubId))
+                )
+            }
+        }
+    })
+}
+
+export function useCreateSet() {
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const { t } = useTranslation('metahubs')
+
+    return useMutation({
+        retry: false,
+        mutationKey: ['sets', 'create'],
+        mutationFn: async ({ metahubId, hubId, kindKey, data }: CreateSetParams) => {
+            const response = await setsApi.createSet(metahubId, hubId, kindKey ? { ...data, kindKey } : data)
+            return response.data
+        },
+        onMutate: async ({ metahubId, hubId, kindKey, data }) => {
+            const optimisticId = generateOptimisticId()
+            const queryKeyPrefix = metahubsQueryKeys.setsScope(metahubId, hubId, kindKey)
+            const optimisticSortOrder = data.sortOrder ?? getNextOptimisticSortOrderFromQueries(queryClient, queryKeyPrefix)
+            const optimisticEntity = {
+                id: optimisticId,
+                codename: data.codename || '',
+                name: data.name,
+                description: data.description,
+                sortOrder: optimisticSortOrder,
+                constantsCount: 0,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                ...makePendingMarkers('create')
+            }
+
+            return applyOptimisticCreate({
+                queryClient,
+                queryKeyPrefix,
+                optimisticEntity,
+                insertPosition: 'prepend'
+            })
+        },
+        onError: (error: Error, _variables, context) => {
+            rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
+            enqueueSnackbar(error.message || t('sets.createError', 'Failed to create set'), { variant: 'error' })
+        },
+        onSuccess: (data, variables, context) => {
+            if (context?.optimisticId && data?.id) {
+                confirmOptimisticCreate(
+                    queryClient,
+                    metahubsQueryKeys.setsScope(variables.metahubId, variables.hubId, variables.kindKey),
                     context.optimisticId,
                     data.id,
                     { serverEntity: data }
@@ -162,14 +166,14 @@ export function useUpdateSet() {
 
     return useMutation({
         mutationKey: ['sets', 'update'],
-        mutationFn: async ({ metahubId, hubId, setId, data }: UpdateSetParams) => {
-            const response = await setsApi.updateSet(metahubId, hubId, setId, data)
+        mutationFn: async ({ metahubId, hubId, setId, kindKey, data }: UpdateSetParams) => {
+            const response = await setsApi.updateSet(metahubId, hubId, setId, data, kindKey)
             return response.data
         },
-        onMutate: async ({ metahubId, hubId, setId, data }) => {
+        onMutate: async ({ metahubId, hubId, setId, kindKey, data }) => {
             return applyOptimisticUpdate({
                 queryClient,
-                queryKeyPrefix: metahubsQueryKeys.sets(metahubId, hubId),
+                queryKeyPrefix: metahubsQueryKeys.setsScope(metahubId, hubId, kindKey),
                 entityId: setId,
                 updater: { ...data, updatedAt: new Date().toISOString() },
                 moveToFront: true
@@ -180,11 +184,16 @@ export function useUpdateSet() {
             enqueueSnackbar(error.message || t('sets.updateError', 'Failed to update set'), { variant: 'error' })
         },
         onSuccess: async (data, variables) => {
-            await queryClient.cancelQueries({ queryKey: metahubsQueryKeys.sets(variables.metahubId, variables.hubId) })
-            confirmOptimisticUpdate(queryClient, metahubsQueryKeys.sets(variables.metahubId, variables.hubId), variables.setId, {
-                serverEntity: data ?? null,
-                moveToFront: true
-            })
+            await queryClient.cancelQueries({ queryKey: metahubsQueryKeys.setsScope(variables.metahubId, variables.hubId, variables.kindKey) })
+            confirmOptimisticUpdate(
+                queryClient,
+                metahubsQueryKeys.setsScope(variables.metahubId, variables.hubId, variables.kindKey),
+                variables.setId,
+                {
+                    serverEntity: data ?? null,
+                    moveToFront: true
+                }
+            )
             enqueueSnackbar(t('sets.updateSuccess', 'Set updated'), { variant: 'success' })
         },
         onSettled: (_data, _error, variables) => {
@@ -207,14 +216,14 @@ export function useUpdateSetAtMetahub() {
 
     return useMutation({
         mutationKey: ['sets', 'update'],
-        mutationFn: async ({ metahubId, setId, data }: UpdateSetAtMetahubParams) => {
-            const response = await setsApi.updateSetAtMetahub(metahubId, setId, data)
+        mutationFn: async ({ metahubId, setId, kindKey, data }: UpdateSetAtMetahubParams) => {
+            const response = await setsApi.updateSetAtMetahub(metahubId, setId, data, kindKey)
             return response.data
         },
-        onMutate: async ({ metahubId, setId, data }) => {
+        onMutate: async ({ metahubId, setId, kindKey, data }) => {
             return applyOptimisticUpdate({
                 queryClient,
-                queryKeyPrefix: metahubsQueryKeys.allSets(metahubId),
+                queryKeyPrefix: metahubsQueryKeys.allSetsScope(metahubId, kindKey),
                 entityId: setId,
                 updater: { ...data, updatedAt: new Date().toISOString() },
                 moveToFront: true
@@ -225,8 +234,8 @@ export function useUpdateSetAtMetahub() {
             enqueueSnackbar(error.message || t('sets.updateError', 'Failed to update set'), { variant: 'error' })
         },
         onSuccess: async (data, variables) => {
-            await queryClient.cancelQueries({ queryKey: metahubsQueryKeys.allSets(variables.metahubId) })
-            confirmOptimisticUpdate(queryClient, metahubsQueryKeys.allSets(variables.metahubId), variables.setId, {
+            await queryClient.cancelQueries({ queryKey: metahubsQueryKeys.allSetsScope(variables.metahubId, variables.kindKey) })
+            confirmOptimisticUpdate(queryClient, metahubsQueryKeys.allSetsScope(variables.metahubId, variables.kindKey), variables.setId, {
                 serverEntity: data ?? null,
                 moveToFront: true
             })
@@ -258,8 +267,10 @@ export function useDeleteSet() {
                 await setsApi.deleteSetDirect(metahubId, setId)
             }
         },
-        onMutate: async ({ metahubId, hubId, setId }) => {
-            const queryKeyPrefix = hubId ? metahubsQueryKeys.sets(metahubId, hubId) : metahubsQueryKeys.allSets(metahubId)
+        onMutate: async ({ metahubId, hubId, setId, kindKey }) => {
+            const queryKeyPrefix = hubId
+                ? metahubsQueryKeys.setsScope(metahubId, hubId, kindKey)
+                : metahubsQueryKeys.allSetsScope(metahubId, kindKey)
             return applyOptimisticDelete({
                 queryClient,
                 queryKeyPrefix,
@@ -300,9 +311,9 @@ export function useCopySet() {
             const response = await setsApi.copySet(metahubId, setId, data)
             return response.data
         },
-        onMutate: async ({ metahubId, setId, data }) => {
+        onMutate: async ({ metahubId, setId, kindKey, data }) => {
             const optimisticId = generateOptimisticId()
-            const broadQueryKeyPrefix = metahubsQueryKeys.allSets(metahubId)
+            const broadQueryKeyPrefix = metahubsQueryKeys.allSetsScope(metahubId, kindKey)
             const existingSet = queryClient
                 .getQueriesData<{ items?: Array<Record<string, unknown>> }>({ queryKey: ['metahubs'] })
                 .flatMap(([, value]) => (Array.isArray(value?.items) ? value.items : []))
@@ -313,7 +324,7 @@ export function useCopySet() {
                 entityId: setId,
                 entitySegment: 'sets',
                 broadQueryKeyPrefix,
-                scopedQueryKeyPrefixFactory: (hubId) => metahubsQueryKeys.sets(metahubId, hubId),
+                scopedQueryKeyPrefixFactory: (hubId) => metahubsQueryKeys.setsScope(metahubId, hubId, kindKey),
                 knownHubIds: Array.isArray(existingSet?.hubs)
                     ? existingSet.hubs
                           .map((hub) => (typeof hub?.id === 'string' ? hub.id : null))
@@ -353,7 +364,7 @@ export function useCopySet() {
             if (context?.optimisticId && data?.id) {
                 confirmOptimisticCreateInQueryKeyPrefixes(
                     queryClient,
-                    context.queryKeyPrefixes ?? [metahubsQueryKeys.allSets(variables.metahubId)],
+                    context.queryKeyPrefixes ?? [metahubsQueryKeys.allSetsScope(variables.metahubId, variables.kindKey)],
                     context.optimisticId,
                     data.id,
                     {
@@ -395,13 +406,13 @@ export function useReorderSet() {
                 variables.hubId != null
                     ? await applyOptimisticReorder(
                           queryClient,
-                          metahubsQueryKeys.sets(variables.metahubId, variables.hubId),
+                          metahubsQueryKeys.setsScope(variables.metahubId, variables.hubId, variables.kindKey),
                           variables.setId,
                           variables.newSortOrder
                       )
                     : await applyOptimisticReorder(
                           queryClient,
-                          metahubsQueryKeys.allSets(variables.metahubId),
+                          metahubsQueryKeys.allSetsScope(variables.metahubId, variables.kindKey),
                           variables.setId,
                           variables.newSortOrder
                       )
@@ -410,7 +421,7 @@ export function useReorderSet() {
                 variables.hubId != null
                     ? await applyOptimisticReorder(
                           queryClient,
-                          metahubsQueryKeys.allSets(variables.metahubId),
+                          metahubsQueryKeys.allSetsScope(variables.metahubId, variables.kindKey),
                           variables.setId,
                           variables.newSortOrder
                       )

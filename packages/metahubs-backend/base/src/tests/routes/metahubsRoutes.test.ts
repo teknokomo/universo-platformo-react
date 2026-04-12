@@ -168,6 +168,7 @@ const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
 
 import { createMetahubsRoutes } from '../../domains/metahubs/routes/metahubsRoutes'
+import { MetahubSchemaService } from '../../domains/metahubs/services/MetahubSchemaService'
 import { testCodenameVlc } from '../utils/codenameTestHelpers'
 import { buildSnapshotEnvelope, buildVLC } from '@universo/utils'
 import { createLocalizedContent } from '@universo/utils/vlc'
@@ -211,6 +212,25 @@ describe('Metahubs Routes', () => {
 
     beforeEach(() => {
         jest.clearAllMocks()
+        jest.spyOn(MetahubSchemaService.prototype, 'rewriteBaselineMigrationVersion').mockResolvedValue(undefined)
+        jest.spyOn(MetahubSchemaService.prototype, 'resolvePublicStructureVersion').mockImplementation(async (_schemaName, fallbackVersion) => {
+            if (typeof fallbackVersion === 'string' && fallbackVersion.trim()) {
+                return fallbackVersion
+            }
+
+            switch (fallbackVersion) {
+                case 1:
+                    return '0.1.0'
+                case 2:
+                    return '0.2.0'
+                case 3:
+                    return '0.3.0'
+                case 4:
+                    return '0.4.0'
+                default:
+                    return '0.4.0'
+            }
+        })
         mockIsSuperuser.mockResolvedValue(false)
         mockGetGlobalRoleCodename.mockResolvedValue(null)
         mockHasSubjectPermission.mockResolvedValue(false)
@@ -254,6 +274,10 @@ describe('Metahubs Routes', () => {
             metahubId: 'metahub-1',
             isSynthetic: false
         })
+    })
+
+    afterEach(() => {
+        jest.restoreAllMocks()
     })
 
     describe('GET /metahubs', () => {
@@ -377,8 +401,8 @@ describe('Metahubs Routes', () => {
             mockExec.query.mockImplementation(async (sql: string) => {
                 if (
                     sql.includes(`FROM "mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b1"._mhb_objects`) &&
-                    sql.includes(`COUNT(*) FILTER (WHERE kind = 'hub')::int AS "hubsCount"`) &&
-                    sql.includes(`COUNT(*) FILTER (WHERE kind = 'catalog')::int AS "catalogsCount"`)
+                    sql.includes(`COUNT(*) FILTER (WHERE kind = ANY($1::text[]))::int AS "hubsCount"`) &&
+                    sql.includes(`COUNT(*) FILTER (WHERE kind = ANY($2::text[]))::int AS "catalogsCount"`)
                 ) {
                     return [{ hubsCount: 2, catalogsCount: 5 }]
                 }
@@ -407,8 +431,14 @@ describe('Metahubs Routes', () => {
                 .map(([sql]: [string]) => sql)
                 .find((sql: string) => sql.includes(`FROM "mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b1"._mhb_objects`))
 
+            const countsParams = mockExec.query.mock.calls
+                .find(([sql]: [string]) => sql.includes(`FROM "mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b1"._mhb_objects`))?.[1]
+
             expect(countsSql).toContain(`_upl_deleted = false`)
             expect(countsSql).toContain(`_mhb_deleted = false`)
+            expect(countsSql).toContain(`COUNT(*) FILTER (WHERE kind = ANY($1::text[]))::int AS "hubsCount"`)
+            expect(countsSql).toContain(`COUNT(*) FILTER (WHERE kind = ANY($2::text[]))::int AS "catalogsCount"`)
+            expect(countsParams).toEqual([['hub'], ['catalog'], ['hub', 'catalog']])
         })
 
         it('should handle pagination parameters correctly', async () => {
@@ -1545,7 +1575,7 @@ describe('Metahubs Routes', () => {
     // ── Import / Export ─────────────────────────────────────────────────
 
     describe('POST /metahubs/import', () => {
-        const makeTestEnvelope = () => {
+        const makeTestEnvelope = (snapshotOverrides?: Record<string, unknown>) => {
             const metahubId = '00000000-0000-0000-0000-000000000001'
             const snapshot = {
                 version: '1.0.0',
@@ -1558,7 +1588,8 @@ describe('Metahubs Routes', () => {
                         config: {},
                         fields: []
                     }
-                }
+                },
+                ...(snapshotOverrides ?? {})
             }
             return buildSnapshotEnvelope({
                 snapshot: snapshot as Record<string, unknown>,
@@ -1720,6 +1751,56 @@ describe('Metahubs Routes', () => {
                 version: { id: 'version-1', versionNumber: 7 }
             })
             expect(mockCreatePublicationVersion).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ versionNumber: 7 }))
+        })
+
+        it('rewrites the imported baseline migration row to the snapshot structureVersion', async () => {
+            const metahubRow = {
+                id: 'new-metahub-id',
+                name: createLocalizedContent('en', 'Test Metahub'),
+                codename: testCodenameVlc('test-codename-imported'),
+                defaultBranchId: 'branch-main'
+            }
+
+            const envelope = makeTestEnvelope({
+                versionEnvelope: {
+                    structureVersion: '0.1.0',
+                    templateVersion: null,
+                    snapshotFormatVersion: 3
+                }
+            })
+
+            mockCreateMetahub.mockResolvedValueOnce(metahubRow)
+            mockFindMetahubById.mockResolvedValueOnce(metahubRow)
+            mockFindBranchByIdAndMetahub.mockResolvedValueOnce({
+                id: 'branch-main',
+                schemaName: 'test_schema',
+                metahubId: 'new-metahub-id',
+                structureVersion: 4
+            })
+            mockCreatePublication.mockResolvedValueOnce({ id: 'pub-1' })
+            mockCreatePublicationVersion.mockResolvedValueOnce({ id: 'version-1', versionNumber: 1 })
+
+            mockExec.transaction.mockImplementation(async (cb: any) => {
+                const tx = { query: jest.fn(async () => []), transaction: jest.fn(), isReleased: () => false }
+                return cb(tx)
+            })
+
+            const rewriteBaselineSpy = jest
+                .spyOn(MetahubSchemaService.prototype, 'rewriteBaselineMigrationVersion')
+                .mockResolvedValue(undefined)
+
+            try {
+                const app = buildApp()
+                await request(app).post('/metahubs/import').send(envelope).expect(201)
+
+                expect(rewriteBaselineSpy).toHaveBeenCalledWith('test_schema', '0.1.0')
+                expect(mockSerializeMetahub).toHaveBeenCalledWith(
+                    'new-metahub-id',
+                    expect.objectContaining({ structureVersion: '0.1.0' })
+                )
+            } finally {
+                rewriteBaselineSpy.mockRestore()
+            }
         })
 
         it('rolls back imported metahub artifacts when snapshot restore fails', async () => {
@@ -2002,6 +2083,51 @@ describe('Metahubs Routes', () => {
                 'manageMetahub',
                 undefined
             )
+        })
+
+        it('uses the public baseline structure version when exporting a snapshot', async () => {
+            const metahubId = '00000000-0000-0000-0000-000000000001'
+            const resolvePublicStructureSpy = jest
+                .spyOn(MetahubSchemaService.prototype, 'resolvePublicStructureVersion')
+                .mockResolvedValue('0.1.0')
+
+            mockFindMetahubById.mockResolvedValueOnce({
+                id: metahubId,
+                name: createLocalizedContent('en', 'Test Metahub'),
+                description: createLocalizedContent('en', 'Export description'),
+                codename: testCodenameVlc('test-metahub'),
+                slug: 'test-metahub',
+                defaultBranchId: 'branch-main'
+            })
+            mockFindBranchByIdAndMetahub.mockResolvedValueOnce({
+                id: 'branch-main',
+                schemaName: 'test_schema',
+                metahubId,
+                structureVersion: 4
+            })
+            mockSerializeMetahub.mockImplementationOnce(async (_resolvedMetahubId: string, versionEnvelope?: { structureVersion?: string }) => ({
+                version: 1,
+                generatedAt: '2026-04-12T00:00:00.000Z',
+                metahubId,
+                versionEnvelope: {
+                    structureVersion: versionEnvelope?.structureVersion ?? '0.4.0',
+                    templateVersion: null,
+                    snapshotFormatVersion: 3
+                },
+                entities: {}
+            }))
+
+            try {
+                const app = buildApp()
+                const response = await request(app).get(`/metahub/${metahubId}/export`).expect(200)
+                const envelope = JSON.parse(response.text)
+
+                expect(resolvePublicStructureSpy).toHaveBeenCalledWith('test_schema', 4)
+                expect(mockSerializeMetahub).toHaveBeenCalledWith(metahubId, expect.objectContaining({ structureVersion: '0.1.0' }))
+                expect(envelope.snapshot.versionEnvelope.structureVersion).toBe('0.1.0')
+            } finally {
+                resolvePublicStructureSpy.mockRestore()
+            }
         })
     })
 })

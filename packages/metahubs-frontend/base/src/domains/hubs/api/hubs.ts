@@ -2,6 +2,8 @@ import { apiClient } from '../../shared'
 import { Hub, HubLocalizedPayload, PaginationParams, PaginatedResponse } from '../../../types'
 import type { HubCopyOptions, VersionedLocalizedContent } from '@universo/types'
 
+type LegacyCompatiblePaginationParams = PaginationParams & { kindKey?: string }
+
 /**
  * Blocking hub object info returned by blocking-catalogs endpoint
  */
@@ -28,7 +30,7 @@ export interface BlockingCatalogsResponse {
 /**
  * List hubs for a specific metahub
  */
-export const listHubs = async (metahubId: string, params?: PaginationParams): Promise<PaginatedResponse<Hub>> => {
+export const listHubs = async (metahubId: string, params?: LegacyCompatiblePaginationParams): Promise<PaginatedResponse<Hub>> => {
     const response = await apiClient.get<{ items: Hub[]; pagination: { total: number; limit: number; offset: number } }>(
         `/metahub/${metahubId}/hubs`,
         {
@@ -37,7 +39,8 @@ export const listHubs = async (metahubId: string, params?: PaginationParams): Pr
                 offset: params?.offset,
                 sortBy: params?.sortBy,
                 sortOrder: params?.sortOrder,
-                search: params?.search
+                search: params?.search,
+                kindKey: params?.kindKey
             }
         }
     )
@@ -59,7 +62,11 @@ export const listHubs = async (metahubId: string, params?: PaginationParams): Pr
 /**
  * List direct child hubs of a parent hub.
  */
-export const listChildHubs = async (metahubId: string, hubId: string, params?: PaginationParams): Promise<PaginatedResponse<Hub>> => {
+export const listChildHubs = async (
+    metahubId: string,
+    hubId: string,
+    params?: LegacyCompatiblePaginationParams
+): Promise<PaginatedResponse<Hub>> => {
     const response = await apiClient.get<{ items: Hub[]; pagination: { total: number; limit: number; offset: number } }>(
         `/metahub/${metahubId}/hub/${hubId}/hubs`,
         {
@@ -68,7 +75,8 @@ export const listChildHubs = async (metahubId: string, hubId: string, params?: P
                 offset: params?.offset,
                 sortBy: params?.sortBy,
                 sortOrder: params?.sortOrder,
-                search: params?.search
+                search: params?.search,
+                kindKey: params?.kindKey
             }
         }
     )
@@ -94,7 +102,7 @@ export const getHub = (metahubId: string, hubId: string) => apiClient.get<Hub>(`
 /**
  * Create a new hub
  */
-export const createHub = (metahubId: string, data: HubLocalizedPayload & { sortOrder?: number }) =>
+export const createHub = (metahubId: string, data: HubLocalizedPayload & { sortOrder?: number; kindKey?: string }) =>
     apiClient.post<Hub>(`/metahub/${metahubId}/hubs`, data)
 
 export type HubCopyInput = HubLocalizedPayload & {

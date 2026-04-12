@@ -87,7 +87,7 @@ export const SetDeleteDialog = ({
     )
 
     const fetchBlockingEntities = async () => {
-        const result = await getBlockingSetReferences(metahubId, setId)
+        const result = await getBlockingSetReferences(metahubId, setId, kindKey)
         const blockingEntities: BlockingReferenceRow[] = result.blockingReferences.map((ref) => ({
             ...ref,
             sourceCatalogDisplayName:
@@ -116,7 +116,7 @@ export const SetDeleteDialog = ({
         <BlockingEntitiesDeleteDialog<MetahubSet, BlockingReferenceRow>
             open={open}
             entity={set}
-            queryKey={metahubsQueryKeys.blockingSetReferences(metahubId, setId)}
+            queryKey={metahubsQueryKeys.blockingSetReferences(metahubId, setId, kindKey)}
             fetchBlockingEntities={fetchBlockingEntities}
             onClose={onClose}
             onConfirm={onConfirm}

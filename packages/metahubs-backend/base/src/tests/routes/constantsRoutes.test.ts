@@ -41,6 +41,11 @@ const mockObjectsService = {
     findById: jest.fn()
 }
 
+const mockEntityTypeService = {
+    listCustomTypes: jest.fn(async () => []),
+    resolveType: jest.fn(async () => null)
+}
+
 jest.mock('../../domains/metahubs/services/MetahubSchemaService', () => ({
     __esModule: true,
     MetahubSchemaService: jest.fn().mockImplementation(() => ({}))
@@ -54,6 +59,11 @@ jest.mock('../../domains/metahubs/services/MetahubConstantsService', () => ({
 jest.mock('../../domains/metahubs/services/MetahubObjectsService', () => ({
     __esModule: true,
     MetahubObjectsService: jest.fn().mockImplementation(() => mockObjectsService)
+}))
+
+jest.mock('../../domains/entities/services/EntityTypeService', () => ({
+    __esModule: true,
+    EntityTypeService: jest.fn().mockImplementation(() => mockEntityTypeService)
 }))
 
 const mockSettingsService = {
@@ -111,6 +121,8 @@ describe('Constants Routes', () => {
         jest.clearAllMocks()
 
         mockEnsureMetahubAccess.mockResolvedValue(undefined)
+        mockEntityTypeService.listCustomTypes.mockResolvedValue([])
+        mockEntityTypeService.resolveType.mockResolvedValue(null)
         mockObjectsService.findById.mockResolvedValue(activeSet)
 
         mockConstantsService.findAll.mockResolvedValue([])
@@ -276,6 +288,46 @@ describe('Constants Routes', () => {
             'test-user-id'
         )
         expect(response.body).toMatchObject({ id: 'constant-1', codename: 'WelcomeText' })
+    })
+
+    it('POST /metahub/:metahubId/set/:setId/constants accepts legacy-compatible custom set kinds', async () => {
+        mockObjectsService.findById.mockResolvedValueOnce({
+            id: 'custom-set-1',
+            kind: 'custom.set-v2-compatible',
+            codename: 'CustomSet',
+            config: { hubs: [] }
+        })
+        mockEntityTypeService.listCustomTypes.mockResolvedValueOnce([
+            {
+                kindKey: 'custom.set-v2-compatible',
+                config: { compatibility: { legacyObjectKind: 'set' } }
+            }
+        ])
+        mockConstantsService.create.mockResolvedValue({
+            id: 'constant-1',
+            setId: 'custom-set-1',
+            codename: 'CustomValue',
+            dataType: 'STRING',
+            value: 'Hello'
+        })
+
+        const app = buildApp()
+        const response = await request(app)
+            .post('/metahub/metahub-1/set/custom-set-1/constants')
+            .send({
+                codename: testCodenameVlc('custom-value'),
+                dataType: 'STRING',
+                name: 'Custom Value',
+                value: 'Hello'
+            })
+            .expect(201)
+
+        expect(mockConstantsService.create).toHaveBeenCalledWith(
+            'metahub-1',
+            expect.objectContaining({ setId: 'custom-set-1', dataType: 'STRING', value: 'Hello' }),
+            'test-user-id'
+        )
+        expect(response.body).toMatchObject({ id: 'constant-1', setId: 'custom-set-1', codename: 'CustomValue' })
     })
 
     it('PATCH /metahub/:metahubId/set/:setId/constants/reorder rejects unknown payload fields via strict schema', async () => {

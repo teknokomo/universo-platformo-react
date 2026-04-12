@@ -1,5 +1,33 @@
 # Current Research
 
+## 2026-04-12: Self-hosted fixture QA closure
+
+- Research outcome implemented: the last real QA findings on the current tree were no longer preset manifests or compatibility ACLs; they were a stale committed self-hosted fixture and a browser import flow that still validated only counts/layout structure.
+- Implemented fix set: the supported self-hosted generator regenerated the committed snapshot, and the browser import flow now re-exports the imported metahub and validates `assertSelfHostedAppEnvelopeContract(...)` with an explicit stabilization timeout so imported `entityTypeDefinitions` drift fails in the browser.
+- Closure validation: direct contract check returned `fixture-contract:ok`, `pnpm run build:e2e` passed, the supported self-hosted generator/export flow passed (`2 passed`), the targeted Chromium self-hosted import flow passed (`2 passed`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- No open research thread remains for this self-hosted fixture/import seam.
+
+## 2026-04-12: Entity V2 QA completion follow-up
+
+- Research outcome implemented: the last real implementation gap after the QA pass was not ACL/runtime parity anymore; it was preset manifest drift. Hub V2 and Enumeration V2 still inherited legacy-disabled component maps even though the approved plan promised V2-only automation uplift.
+- Implemented fix set: Hub V2 now explicitly enables scripting/actions/events, Enumeration V2 now explicitly enables actions/events on top of inherited scripting, direct preset-manifest coverage now asserts the upgraded component set, and the self-hosted fixture contract plus committed snapshot were regenerated through the supported generator path to lock the exported definitions.
+- Closure validation: focused `templateManifestValidator` coverage passed (`8/8`), the supported self-hosted generator/export flow passed (`1 passed`, `5.3m`), the edited EN/RU custom-entity guides remain line-count aligned (`72/72`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- No open research thread remains for this preset-uplift seam.
+
+## 2026-04-12: Entity V2 QA closure completion
+
+- Research outcome implemented: the last real blocker after the deeper QA review was a low-level SQL seam, not a controller-level permission bug. Delete blocker services still filtered exact built-in `set` / `enumeration` target kinds even though compatible Set V2 / Enumeration V2 rows persisted custom target kinds.
+- Implemented fix set: low-level blocker services now accept compatible target-kind arrays, the generic entity delete plan plus the legacy set/enumeration/constant delete paths now pass those arrays consistently, focused service regressions lock the `ANY($n::text[])` SQL contract, and the Chromium legacy-compatible V2 flow now proves blocked delete when a catalog attribute still references a compatible Set V2.
+- Closure validation: focused metahubs-backend route/service coverage passed (`87/87`), `pnpm run build:e2e` completed green (`30 successful`, `30 total`), the targeted Chromium legacy-compatible V2 suite passed (`7 passed`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- No open research thread remains for this blocker-service seam.
+
+## 2026-04-11: Entity V2 completion remediation closure
+
+- Research outcome implemented: the remaining live browser defects were the delegated Set V2 direct-constants `kindKey` gap, the delegated Enumeration V2 detail/value `kindKey` gap, a backend direct-enumeration update seam that still hardcoded the built-in `enumeration` kind, and a stale snapshot round-trip browser timeout after the self-hosted fixture expanded.
+- Implemented fix set: direct Set/Enumeration leaf flows now propagate `kindKey` through frontend APIs/hooks/query keys and UI invalidation, backend direct enumeration PATCH now updates through the stored compatible custom kind, the targeted legacy-compatible V2 Playwright proof now matches response pathnames instead of raw URLs, the supported self-hosted generator regenerated the committed fixture, and the snapshot import browser proof now has an explicit larger timeout budget for the expanded contract.
+- Closure validation: targeted Chromium legacy-compatible V2 flows passed (`3 passed`), the self-hosted generator passed (`2 passed`), the full snapshot export/import suite passed (`5 passed`), `pnpm docs:i18n:check` passed, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- No open research thread remains for the Entity V2 completion remediation seam.
+
 ## 2026-04-11: PR #757 review comment QA triage
 
 - Review outcome implemented: the PR bot comments reduced to one real backend lifecycle issue plus a batch of indentation-only comments.

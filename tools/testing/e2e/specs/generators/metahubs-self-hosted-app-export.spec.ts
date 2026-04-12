@@ -28,7 +28,6 @@ import { SHARED_OBJECT_KINDS } from '@universo/types'
 import { buildVLC, createLocalizedContent, validateSnapshotEnvelope } from '@universo/utils'
 import {
     SELF_HOSTED_APP_CANONICAL_METAHUB,
-    SELF_HOSTED_APP_CATALOG_V2_ENTITY_TYPE,
     SELF_HOSTED_APP_FIXTURE_FILENAME,
     SELF_HOSTED_APP_LAYOUT,
     SELF_HOSTED_APP_PUBLICATION,
@@ -37,6 +36,7 @@ import {
     SELF_HOSTED_APP_SHARED_ENTITIES,
     SELF_HOSTED_APP_SETTINGS_LAYOUT,
     SELF_HOSTED_APP_SETTINGS_BASELINE,
+    SELF_HOSTED_APP_V2_ENTITY_TYPES,
     assertSelfHostedAppEnvelopeContract,
     buildSelfHostedAppLiveMetahubCodename,
     buildSelfHostedAppLiveMetahubName,
@@ -45,6 +45,7 @@ import {
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 type SelfHostedAppSection = (typeof SELF_HOSTED_APP_SECTIONS)[number]
+type SelfHostedAppV2EntityType = (typeof SELF_HOSTED_APP_V2_ENTITY_TYPES)[number]
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 
@@ -205,28 +206,30 @@ async function apiGet(api: ApiContext, urlPath: string) {
     })
 }
 
-async function getCatalogV2PresetEntityType(api: ApiContext) {
+async function getPresetEntityType(api: ApiContext, expectedEntityType: SelfHostedAppV2EntityType) {
     const templatesPayload = await listTemplates(api, {
         definitionType: 'entity_type_preset'
     })
     const templateItems = Array.isArray(templatesPayload?.data) ? templatesPayload.data : []
-    const catalogV2Template = templateItems.find(
-        (template) => template?.codename === SELF_HOSTED_APP_CATALOG_V2_ENTITY_TYPE.templateCodename
-    )
+    const presetTemplate = templateItems.find((template) => template?.codename === expectedEntityType.templateCodename)
 
-    expect(catalogV2Template?.id).toBeTruthy()
+    expect(presetTemplate?.id).toBeTruthy()
 
-    const templateDetail = await getTemplate(api, String(catalogV2Template.id))
+    const templateDetail = await getTemplate(api, String(presetTemplate.id))
     const manifest = isRecord(templateDetail?.activeVersionManifest) ? templateDetail.activeVersionManifest : null
     const entityType = manifest && isRecord(manifest.entityType) ? manifest.entityType : null
 
-    expect(entityType?.kindKey).toBe(SELF_HOSTED_APP_CATALOG_V2_ENTITY_TYPE.kindKey)
+    expect(entityType?.kindKey).toBe(expectedEntityType.kindKey)
 
     return entityType
 }
 
-async function seedCatalogV2EntityType(api: ApiContext, metahubId: string) {
-    const entityType = await getCatalogV2PresetEntityType(api)
+async function seedLegacyCompatibleEntityType(
+    api: ApiContext,
+    metahubId: string,
+    expectedEntityType: SelfHostedAppV2EntityType
+) {
+    const entityType = await getPresetEntityType(api, expectedEntityType)
     const createdPayload = await createMetahubEntityType(api, metahubId, {
         kindKey: String(entityType?.kindKey ?? ''),
         codename: entityType?.codename,
@@ -240,11 +243,11 @@ async function seedCatalogV2EntityType(api: ApiContext, metahubId: string) {
     const createdEntityType = getResponseData(createdPayload)
     const createdEntityTypeId = typeof createdEntityType.id === 'string' ? createdEntityType.id : undefined
 
-    expect(createdEntityType.kindKey).toBe(SELF_HOSTED_APP_CATALOG_V2_ENTITY_TYPE.kindKey)
+    expect(createdEntityType.kindKey).toBe(expectedEntityType.kindKey)
     expect(createdEntityTypeId).toBeTruthy()
 
     const persistedEntityType = await getMetahubEntityType(api, metahubId, createdEntityTypeId)
-    expect(persistedEntityType?.kindKey).toBe(SELF_HOSTED_APP_CATALOG_V2_ENTITY_TYPE.kindKey)
+    expect(persistedEntityType?.kindKey).toBe(expectedEntityType.kindKey)
     expect(persistedEntityType?.published).toBe(true)
 
     return persistedEntityType
@@ -446,8 +449,13 @@ test.describe('Metahubs Self-Hosted App Export', () => {
 
         expect(Object.keys(sectionMap).length).toBe(SELF_HOSTED_APP_SECTIONS.length)
 
-        const catalogV2EntityType = await seedCatalogV2EntityType(api, metahubId)
-        expect(catalogV2EntityType?.kindKey).toBe(SELF_HOSTED_APP_CATALOG_V2_ENTITY_TYPE.kindKey)
+        const seededEntityTypes: Array<Record<string, unknown> | null | undefined> = []
+        for (const expectedEntityType of SELF_HOSTED_APP_V2_ENTITY_TYPES) {
+            const persistedEntityType = await seedLegacyCompatibleEntityType(api, metahubId, expectedEntityType)
+            seededEntityTypes.push(persistedEntityType)
+            expect(persistedEntityType?.kindKey).toBe(expectedEntityType.kindKey)
+        }
+        expect(seededEntityTypes).toHaveLength(SELF_HOSTED_APP_V2_ENTITY_TYPES.length)
 
         await seedSharedEntities(api, metahubId, sectionMap)
 

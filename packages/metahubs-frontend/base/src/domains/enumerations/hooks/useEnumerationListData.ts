@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { usePaginated, useDebouncedSearch } from '@universo/template-mui'
 import { fetchAllPaginatedItems, metahubsQueryKeys } from '../../shared'
+import { resolveLegacyCompatibleChildKindKey } from '../../shared/legacyCompatibleRoutePaths'
 import type { PaginatedResponse } from '../../../types'
 import * as enumerationsApi from '../api'
 import type { EnumerationWithHubs } from '../api'
@@ -10,8 +11,9 @@ import { useMetahubHubs } from '../../hubs/hooks'
 import { useEntityPermissions } from '../../settings/hooks/useEntityPermissions'
 
 export function useEnumerationListData() {
-    const { metahubId, hubId } = useParams<{ metahubId: string; hubId?: string }>()
+    const { metahubId, hubId, kindKey: routeKindKey } = useParams<{ metahubId: string; hubId?: string; kindKey?: string }>()
     const isHubScoped = Boolean(hubId)
+    const entityKindKey = resolveLegacyCompatibleChildKindKey({ routeKindKey, childObjectKind: 'enumeration' })
 
     const { allowCopy, allowDelete, allowAttachExistingEntities } = useEntityPermissions('enumerations')
 
@@ -21,13 +23,19 @@ export function useEnumerationListData() {
     // All enumerations for codename validation and attach dialog
     const { data: allEnumerationsResponse } = useQuery<PaginatedResponse<EnumerationWithHubs>>({
         queryKey: metahubId
-            ? metahubsQueryKeys.allEnumerationsList(metahubId, { limit: 1000, offset: 0, sortBy: 'sortOrder', sortOrder: 'asc' })
+            ? metahubsQueryKeys.allEnumerationsList(metahubId, {
+                  limit: 1000,
+                  offset: 0,
+                  sortBy: 'sortOrder',
+                  sortOrder: 'asc',
+                  kindKey: entityKindKey
+              })
             : ['metahubs', 'enumerations', 'all', 'empty'],
         queryFn: async () => {
             if (!metahubId) {
                 return { items: [], pagination: { limit: 1000, offset: 0, count: 0, total: 0, hasMore: false } }
             }
-            return fetchAllPaginatedItems((params) => enumerationsApi.listAllEnumerations(metahubId, params), {
+            return fetchAllPaginatedItems((params) => enumerationsApi.listAllEnumerations(metahubId, { ...params, kindKey: entityKindKey }), {
                 limit: 1000,
                 sortBy: 'sortOrder',
                 sortOrder: 'asc'
@@ -45,13 +53,13 @@ export function useEnumerationListData() {
     const paginationResult = usePaginated<EnumerationWithHubs, 'codename' | 'created' | 'updated' | 'sortOrder'>({
         queryKeyFn: metahubId
             ? isHubScoped
-                ? (params) => metahubsQueryKeys.enumerationsList(metahubId, hubId!, params)
-                : (params) => metahubsQueryKeys.allEnumerationsList(metahubId, params)
+                ? (params) => metahubsQueryKeys.enumerationsList(metahubId, hubId!, { ...params, kindKey: entityKindKey })
+                : (params) => metahubsQueryKeys.allEnumerationsList(metahubId, { ...params, kindKey: entityKindKey })
             : () => ['empty'],
         queryFn: metahubId
             ? isHubScoped
-                ? (params) => enumerationsApi.listEnumerations(metahubId, hubId!, params)
-                : (params) => enumerationsApi.listAllEnumerations(metahubId, params)
+                ? (params) => enumerationsApi.listEnumerations(metahubId, hubId!, { ...params, kindKey: entityKindKey })
+                : (params) => enumerationsApi.listAllEnumerations(metahubId, { ...params, kindKey: entityKindKey })
             : async () => ({ items: [], pagination: { limit: 20, offset: 0, count: 0, total: 0, hasMore: false } }),
         initialLimit: 20,
         sortBy: 'sortOrder',
@@ -126,6 +134,7 @@ export function useEnumerationListData() {
     return {
         metahubId,
         hubId,
+        entityKindKey,
         isHubScoped,
         hubs,
         isLoading,

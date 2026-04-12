@@ -90,7 +90,7 @@ export const EnumerationDeleteDialog = ({
     )
 
     const fetchBlockingEntities = async () => {
-        const result = await getBlockingEnumerationReferences(metahubId, enumerationId)
+        const result = await getBlockingEnumerationReferences(metahubId, enumerationId, kindKey)
         const blockingEntities: BlockingReferenceRow[] = result.blockingReferences.map((ref) => ({
             ...ref,
             sourceCatalogDisplayName:
@@ -119,7 +119,7 @@ export const EnumerationDeleteDialog = ({
         <BlockingEntitiesDeleteDialog<Enumeration, BlockingReferenceRow>
             open={open}
             entity={enumeration}
-            queryKey={metahubsQueryKeys.blockingEnumerationReferences(metahubId, enumerationId)}
+            queryKey={metahubsQueryKeys.blockingEnumerationReferences(metahubId, enumerationId, kindKey)}
             fetchBlockingEntities={fetchBlockingEntities}
             onClose={onClose}
             onConfirm={onConfirm}

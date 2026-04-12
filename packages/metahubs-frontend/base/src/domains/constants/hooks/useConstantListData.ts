@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useDebouncedSearch, usePaginated } from '@universo/template-mui'
 import { useSettingValue } from '../../settings/hooks/useSettings'
 import { metahubsQueryKeys, sortSharedEntityList } from '../../shared'
+import { resolveLegacyCompatibleChildKindKey } from '../../shared/legacyCompatibleRoutePaths'
 import { getSetById } from '../../sets'
 import * as constantsApi from '../api'
 import { useMetahubHubs } from '../../hubs/hooks'
@@ -23,13 +24,15 @@ export function useConstantListData(options: UseConstantListDataOptions = {}) {
     const {
         metahubId: routeMetahubId,
         hubId: routeHubIdParam,
-        setId: routeSetId
-    } = useParams<{ metahubId: string; hubId?: string; setId: string }>()
+        setId: routeSetId,
+        kindKey: routeKindKey
+    } = useParams<{ metahubId: string; hubId?: string; setId: string; kindKey?: string }>()
     const { i18n } = useTranslation()
     const constantCodenameScope = useSettingValue<string>('sets.constantCodenameScope') ?? 'per-level'
     const metahubId = options.metahubId ?? routeMetahubId
     const hubIdParam = options.hubId ?? routeHubIdParam
     const setId = options.setId ?? routeSetId
+    const kindKey = resolveLegacyCompatibleChildKindKey({ routeKindKey, childObjectKind: 'set' })
     const resolveSetDetails = options.resolveSetDetails ?? true
     const includeSharedEntities = options.includeSharedEntities ?? true
 
@@ -38,10 +41,10 @@ export function useConstantListData(options: UseConstantListDataOptions = {}) {
         isLoading: isSetResolutionLoading,
         error: setResolutionError
     } = useQuery({
-        queryKey: metahubId && setId ? metahubsQueryKeys.setDetail(metahubId, setId) : ['metahubs', 'sets', 'detail', 'empty'],
+        queryKey: metahubId && setId ? metahubsQueryKeys.setDetail(metahubId, setId, kindKey) : ['metahubs', 'sets', 'detail', 'empty'],
         queryFn: async () => {
             if (!metahubId || !setId) throw new Error('metahubId and setId are required')
-            return getSetById(metahubId, setId)
+            return getSetById(metahubId, setId, kindKey)
         },
         enabled: resolveSetDetails && !!metahubId && !!setId && !hubIdParam
     })
@@ -61,12 +64,14 @@ export function useConstantListData(options: UseConstantListDataOptions = {}) {
                           ? metahubsQueryKeys.constantsList(metahubId, effectiveHubId, setId, {
                                 ...params,
                                 locale: i18n.language,
-                                includeShared: includeSharedEntities
+                                includeShared: includeSharedEntities,
+                                kindKey
                             })
                           : metahubsQueryKeys.constantsListDirect(metahubId, setId, {
                                 ...params,
                                 locale: i18n.language,
-                                includeShared: includeSharedEntities
+                                includeShared: includeSharedEntities,
+                                kindKey
                             })
                 : () => ['empty'],
         queryFn:
@@ -76,12 +81,14 @@ export function useConstantListData(options: UseConstantListDataOptions = {}) {
                           ? constantsApi.listConstants(metahubId, effectiveHubId, setId, {
                                 ...params,
                                 locale: i18n.language,
-                                includeShared: includeSharedEntities
+                              includeShared: includeSharedEntities,
+                              kindKey
                             })
                           : constantsApi.listConstantsDirect(metahubId, setId, {
                                 ...params,
                                 locale: i18n.language,
-                                includeShared: includeSharedEntities
+                              includeShared: includeSharedEntities,
+                              kindKey
                             })
                 : async () => ({ items: [], pagination: { limit: 20, offset: 0, count: 0, total: 0, hasMore: false } }),
         initialLimit: 20,
@@ -98,8 +105,8 @@ export function useConstantListData(options: UseConstantListDataOptions = {}) {
 
     const isGlobalScope = constantCodenameScope === 'global'
     const { data: globalCodenamesData } = useQuery({
-        queryKey: metahubsQueryKeys.allConstantCodenames(metahubId ?? '', setId ?? ''),
-        queryFn: () => constantsApi.listAllConstantCodenames(metahubId ?? '', setId ?? ''),
+        queryKey: metahubsQueryKeys.allConstantCodenames(metahubId ?? '', setId ?? '', kindKey),
+        queryFn: () => constantsApi.listAllConstantCodenames(metahubId ?? '', setId ?? '', kindKey),
         enabled: isGlobalScope && !!metahubId && !!setId
     })
 
@@ -121,6 +128,7 @@ export function useConstantListData(options: UseConstantListDataOptions = {}) {
         metahubId,
         hubIdParam,
         setId,
+        kindKey,
         effectiveHubId,
         setForHubResolution,
         setResolutionError,

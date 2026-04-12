@@ -66,9 +66,11 @@ const baseDescriptionVlc = {
 }
 
 const mockObjectsService = {
+    findAllByKinds: jest.fn(),
     findById: jest.fn(),
-    createEnumeration: jest.fn(),
-    updateEnumeration: jest.fn(),
+    findByCodenameAndKind: jest.fn(),
+    createObject: jest.fn(),
+    updateObject: jest.fn(),
     restore: jest.fn(),
     permanentDelete: jest.fn(),
     reorderByKind: jest.fn()
@@ -79,6 +81,7 @@ const mockAttributesService = {
 }
 
 const mockValuesService = {
+    countByObjectIds: jest.fn(),
     findAll: jest.fn(),
     findAllMerged: jest.fn(),
     reorderValue: jest.fn(),
@@ -86,6 +89,11 @@ const mockValuesService = {
 }
 const mockHubsService = {
     findByIds: jest.fn()
+}
+
+const mockEntityTypeService = {
+    listCustomTypes: jest.fn(),
+    resolveType: jest.fn()
 }
 
 jest.mock('../../domains/metahubs/services/MetahubSchemaService', () => ({
@@ -113,6 +121,11 @@ jest.mock('../../domains/metahubs/services/MetahubEnumerationValuesService', () 
 jest.mock('../../domains/metahubs/services/MetahubHubsService', () => ({
     __esModule: true,
     MetahubHubsService: jest.fn().mockImplementation(() => mockHubsService)
+}))
+
+jest.mock('../../domains/entities/services/EntityTypeService', () => ({
+    __esModule: true,
+    EntityTypeService: jest.fn().mockImplementation(() => mockEntityTypeService)
 }))
 
 const mockSettingsService = {
@@ -188,6 +201,7 @@ describe('Enumerations Routes', () => {
 
     beforeEach(() => {
         jest.clearAllMocks()
+        mockObjectsService.findAllByKinds.mockResolvedValue([])
         mockObjectsService.findById.mockResolvedValue({
             id: 'enum-1',
             kind: 'enumeration',
@@ -206,7 +220,8 @@ describe('Enumerations Routes', () => {
             _upl_created_at: new Date('2026-02-18T00:00:00.000Z').toISOString(),
             _upl_updated_at: new Date('2026-02-18T00:00:00.000Z').toISOString()
         })
-        mockObjectsService.createEnumeration.mockResolvedValue({
+        mockObjectsService.findByCodenameAndKind.mockResolvedValue(null)
+        mockObjectsService.createObject.mockResolvedValue({
             id: 'enum-copy-id',
             codename: 'StatusCopy',
             presentation: { name: baseNameVlc, description: baseDescriptionVlc },
@@ -215,8 +230,8 @@ describe('Enumerations Routes', () => {
             _upl_created_at: '2026-02-26T00:00:00.000Z',
             _upl_updated_at: '2026-02-26T00:00:00.000Z'
         })
-        mockObjectsService.updateEnumeration.mockImplementation(
-            async (_metahubId: string, enumerationId: string, payload: Record<string, unknown>) => ({
+        mockObjectsService.updateObject.mockImplementation(
+            async (_metahubId: string, enumerationId: string, _kind: string, payload: Record<string, unknown>) => ({
                 id: enumerationId,
                 codename: payload.codename ?? 'status',
                 presentation: {
@@ -240,6 +255,7 @@ describe('Enumerations Routes', () => {
             id: '44444444-4444-4444-8444-444444444444',
             config: { sortOrder: 2 }
         })
+        mockValuesService.countByObjectIds.mockResolvedValue(new Map())
         mockValuesService.findAll.mockResolvedValue([])
         mockValuesService.findAllMerged.mockResolvedValue([])
         mockValuesService.reorderValue.mockResolvedValue({
@@ -261,9 +277,56 @@ describe('Enumerations Routes', () => {
                 codename: 'main-hub'
             }
         ])
+        mockEntityTypeService.listCustomTypes.mockResolvedValue([])
+        mockEntityTypeService.resolveType.mockResolvedValue(null)
         mockFindMetahubById.mockResolvedValue({ id: 'metahub-1' })
         mockEnsureMetahubAccess.mockResolvedValue({ metahubId: 'metahub-1' })
         mockEnsureSchema.mockResolvedValue('mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+    })
+
+    it('GET /metahub/:metahubId/enumerations uses the requested legacy-compatible custom enumeration kind as an exact list scope', async () => {
+        mockEntityTypeService.listCustomTypes.mockResolvedValue([
+            {
+                kindKey: 'custom.enumeration-v2-compatible',
+                config: { compatibility: { legacyObjectKind: 'enumeration' } }
+            }
+        ])
+        mockEntityTypeService.resolveType.mockResolvedValue({
+            source: 'custom',
+            kindKey: 'custom.enumeration-v2-compatible',
+            config: { compatibility: { legacyObjectKind: 'enumeration' } }
+        })
+        mockObjectsService.findAllByKinds.mockResolvedValue([
+            {
+                id: 'enum-custom-1',
+                kind: 'custom.enumeration-v2-compatible',
+                codename: 'status-v2',
+                presentation: { name: baseNameVlc, description: baseDescriptionVlc },
+                config: { hubs: [], isSingleHub: false, isRequiredHub: false, sortOrder: 3 },
+                _upl_version: 2,
+                _upl_created_at: '2026-02-18T00:00:00.000Z',
+                _upl_updated_at: '2026-02-18T01:00:00.000Z'
+            }
+        ])
+        mockValuesService.countByObjectIds.mockResolvedValue(new Map([['enum-custom-1', 2]]))
+
+        const app = buildApp()
+        const response = await request(app)
+            .get('/metahub/metahub-1/enumerations?kindKey=custom.enumeration-v2-compatible')
+            .expect(200)
+
+        expect(response.body.pagination).toMatchObject({ total: 1, limit: 100, offset: 0 })
+        expect(response.body.items[0]).toMatchObject({
+            id: 'enum-custom-1',
+            codename: 'status-v2',
+            sortOrder: 3,
+            valuesCount: 2
+        })
+        expect(mockObjectsService.findAllByKinds).toHaveBeenCalledWith(
+            'metahub-1',
+            ['custom.enumeration-v2-compatible'],
+            'test-user-id'
+        )
     })
 
     describe('PATCH /metahub/:metahubId/enumeration/:enumerationId/values/reorder', () => {
@@ -463,9 +526,56 @@ describe('Enumerations Routes', () => {
                 })
                 .expect(200)
 
-            expect(mockObjectsService.updateEnumeration).toHaveBeenCalled()
-            const payload = mockObjectsService.updateEnumeration.mock.calls[0][2]
+            expect(mockObjectsService.updateObject).toHaveBeenCalled()
+            const payload = mockObjectsService.updateObject.mock.calls[0][3]
             expect(payload.description?._primary).toBe('ru')
+        })
+
+        it('PATCH /metahub/:metahubId/enumeration/:enumerationId updates legacy-compatible custom enumeration kinds using the stored kind', async () => {
+            mockObjectsService.findById.mockResolvedValueOnce({
+                id: 'enum-custom-1',
+                kind: 'custom.enumeration-v2-compatible',
+                codename: 'status',
+                presentation: {
+                    name: baseNameVlc,
+                    description: baseDescriptionVlc
+                },
+                config: {
+                    hubs: ['hub-1'],
+                    isSingleHub: false,
+                    isRequiredHub: false,
+                    sortOrder: 0
+                },
+                _upl_version: 1,
+                _upl_created_at: new Date('2026-02-18T00:00:00.000Z').toISOString(),
+                _upl_updated_at: new Date('2026-02-18T00:00:00.000Z').toISOString()
+            })
+            mockEntityTypeService.listCustomTypes.mockResolvedValueOnce([
+                {
+                    kindKey: 'custom.enumeration-v2-compatible',
+                    config: { compatibility: { legacyObjectKind: 'enumeration' } }
+                }
+            ])
+
+            const app = buildApp()
+            await request(app)
+                .patch('/metahub/metahub-1/enumeration/enum-custom-1')
+                .send({
+                    description: {
+                        en: 'Updated custom description'
+                    }
+                })
+                .expect(200)
+
+            expect(mockObjectsService.updateObject).toHaveBeenCalledWith(
+                'metahub-1',
+                'enum-custom-1',
+                'custom.enumeration-v2-compatible',
+                expect.objectContaining({
+                    description: expect.objectContaining({ _primary: 'en' })
+                }),
+                'test-user-id'
+            )
         })
     })
 
@@ -542,7 +652,7 @@ describe('Enumerations Routes', () => {
             expect(response.body.valuesCount).toBe(1)
             // trx.query called: SELECT values (1) + INSERT values (1) = 2
             expect(trx.query).toHaveBeenCalledTimes(2)
-            expect(mockObjectsService.createEnumeration).toHaveBeenCalled()
+            expect(mockObjectsService.createObject).toHaveBeenCalled()
         })
 
         it('does not copy values when copyValues is disabled', async () => {
@@ -571,7 +681,7 @@ describe('Enumerations Routes', () => {
                 constraint: 'idx_mhb_objects_kind_codename_active'
             })
             const trx = createEnumerationCopyTransactionTrx()
-            mockObjectsService.createEnumeration.mockResolvedValueOnce({
+            mockObjectsService.createObject.mockResolvedValueOnce({
                 id: 'enum-copy-id-2',
                 codename: 'StatusCopy_2',
                 presentation: { name: baseNameVlc, description: baseDescriptionVlc },

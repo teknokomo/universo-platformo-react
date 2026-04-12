@@ -8,6 +8,7 @@ import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaServi
 import { MetahubConstantsService } from '../../metahubs/services/MetahubConstantsService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
+import { EntityTypeService } from '../../entities/services/EntityTypeService'
 import { ListQuerySchema, paginateItems } from '../../shared/queryParams'
 import { MetahubNotFoundError, MetahubConflictError } from '../../shared/domainErrors'
 import { isUniqueViolation } from '../../shared/errorGuards'
@@ -28,6 +29,7 @@ import {
     syncCodenamePayloadText,
     syncOptionalCodenamePayloadText
 } from '../../shared/codenamePayload'
+import { createLegacyCompatibleKindSet, resolveLegacyCompatibleKinds } from '../../shared/legacyCompatibility'
 
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 
@@ -158,18 +160,28 @@ const normalizeLocaleCode = (locale: string): string => locale.split('-')[0].spl
 const createDomainServices = (exec: DbExecutor, schemaService: MetahubSchemaService) => ({
     constantsService: new MetahubConstantsService(exec, schemaService),
     objectsService: new MetahubObjectsService(exec, schemaService),
-    settingsService: new MetahubSettingsService(exec, schemaService)
+    settingsService: new MetahubSettingsService(exec, schemaService),
+    entityTypeService: new EntityTypeService(exec, schemaService)
 })
+
+const isSetContextKind = (kind: unknown, allowedKinds: Set<string>): boolean =>
+    (typeof kind === 'string' && allowedKinds.has(kind)) || kind === SHARED_OBJECT_KINDS.SHARED_SET_POOL
 
 const ensureSetContext = async (
     metahubId: string,
     setId: string,
     hubId: string | undefined,
     userId: string,
-    objectsService: MetahubObjectsService
+    objectsService: MetahubObjectsService,
+    entityTypeService: EntityTypeService
 ): Promise<Record<string, unknown>> => {
     const setObject = await objectsService.findById(metahubId, setId, userId)
-    if (!setObject || (setObject.kind !== 'set' && setObject.kind !== SHARED_OBJECT_KINDS.SHARED_SET_POOL)) {
+    if (!setObject) {
+        throw new MetahubNotFoundError('set', setId)
+    }
+
+    const compatibleSetKinds = await resolveLegacyCompatibleKinds(entityTypeService, metahubId, 'set', userId)
+    if (!isSetContextKind(setObject.kind, createLegacyCompatibleKindSet(compatibleSetKinds))) {
         throw new MetahubNotFoundError('set', setId)
     }
 
@@ -398,9 +410,9 @@ const getNameSortValue = (name: unknown, locale?: string): string => {
 export function createConstantsController(createHandler: ReturnType<typeof createMetahubHandlerFactory>) {
     const list = createHandler(async ({ req, res, userId, metahubId, exec, schemaService }) => {
         const { hubId, setId } = req.params
-        const { constantsService, objectsService } = createDomainServices(exec, schemaService)
+        const { constantsService, objectsService, entityTypeService } = createDomainServices(exec, schemaService)
 
-        await ensureSetContext(metahubId, setId, hubId, userId, objectsService)
+        await ensureSetContext(metahubId, setId, hubId, userId, objectsService, entityTypeService)
 
         const parsed = ConstantsListQuerySchema.safeParse(req.query)
         if (!parsed.success) {
@@ -458,9 +470,9 @@ export function createConstantsController(createHandler: ReturnType<typeof creat
 
     const getById = createHandler(async ({ req, res, userId, metahubId, exec, schemaService }) => {
         const { hubId, setId, constantId } = req.params
-        const { constantsService, objectsService } = createDomainServices(exec, schemaService)
+        const { constantsService, objectsService, entityTypeService } = createDomainServices(exec, schemaService)
 
-        await ensureSetContext(metahubId, setId, hubId, userId, objectsService)
+        await ensureSetContext(metahubId, setId, hubId, userId, objectsService, entityTypeService)
 
         const constant = await constantsService.findById(metahubId, constantId, userId)
         if (!constant || constant.setId !== setId) {
@@ -473,9 +485,9 @@ export function createConstantsController(createHandler: ReturnType<typeof creat
     const create = createHandler(
         async ({ req, res, userId, metahubId, exec, schemaService }) => {
             const { hubId, setId } = req.params
-            const { constantsService, objectsService, settingsService } = createDomainServices(exec, schemaService)
+            const { constantsService, objectsService, settingsService, entityTypeService } = createDomainServices(exec, schemaService)
 
-            await ensureSetContext(metahubId, setId, hubId, userId, objectsService)
+            await ensureSetContext(metahubId, setId, hubId, userId, objectsService, entityTypeService)
 
             const totalAll = await constantsService.countByObjectId(metahubId, setId, userId)
             if (totalAll >= CONSTANT_LIMIT) {
@@ -574,9 +586,9 @@ export function createConstantsController(createHandler: ReturnType<typeof creat
     const update = createHandler(
         async ({ req, res, userId, metahubId, exec, schemaService }) => {
             const { hubId, setId, constantId } = req.params
-            const { constantsService, objectsService, settingsService } = createDomainServices(exec, schemaService)
+            const { constantsService, objectsService, settingsService, entityTypeService } = createDomainServices(exec, schemaService)
 
-            await ensureSetContext(metahubId, setId, hubId, userId, objectsService)
+            await ensureSetContext(metahubId, setId, hubId, userId, objectsService, entityTypeService)
 
             const existing = await constantsService.findById(metahubId, constantId, userId)
             if (!existing || existing.setId !== setId) {
@@ -687,9 +699,9 @@ export function createConstantsController(createHandler: ReturnType<typeof creat
     const deleteConstant = createHandler(
         async ({ req, res, userId, metahubId, exec, schemaService }) => {
             const { hubId, setId, constantId } = req.params
-            const { constantsService, objectsService, settingsService } = createDomainServices(exec, schemaService)
+            const { constantsService, objectsService, settingsService, entityTypeService } = createDomainServices(exec, schemaService)
 
-            await ensureSetContext(metahubId, setId, hubId, userId, objectsService)
+            await ensureSetContext(metahubId, setId, hubId, userId, objectsService, entityTypeService)
 
             const constant = await constantsService.findById(metahubId, constantId, userId)
             if (!constant || constant.setId !== setId) {
@@ -701,7 +713,14 @@ export function createConstantsController(createHandler: ReturnType<typeof creat
                 return res.status(403).json({ error: 'Constant delete is disabled by metahub settings' })
             }
 
-            const blocked = await constantsService.findAttributeReferenceBlockersByConstant(metahubId, setId, constantId, userId)
+            const compatibleSetKinds = await resolveLegacyCompatibleKinds(entityTypeService, metahubId, 'set', userId)
+            const blocked = await constantsService.findAttributeReferenceBlockersByConstant(
+                metahubId,
+                setId,
+                constantId,
+                userId,
+                compatibleSetKinds
+            )
             if (blocked) {
                 return res.status(409).json({
                     error: 'Cannot delete constant because it is referenced by REF attributes',
@@ -718,9 +737,9 @@ export function createConstantsController(createHandler: ReturnType<typeof creat
     const move = createHandler(
         async ({ req, res, userId, metahubId, exec, schemaService }) => {
             const { hubId, setId, constantId } = req.params
-            const { constantsService, objectsService } = createDomainServices(exec, schemaService)
+            const { constantsService, objectsService, entityTypeService } = createDomainServices(exec, schemaService)
 
-            await ensureSetContext(metahubId, setId, hubId, userId, objectsService)
+            await ensureSetContext(metahubId, setId, hubId, userId, objectsService, entityTypeService)
 
             const parsed = moveConstantSchema.safeParse(req.body)
             if (!parsed.success) {
@@ -736,9 +755,9 @@ export function createConstantsController(createHandler: ReturnType<typeof creat
     const reorder = createHandler(
         async ({ req, res, userId, metahubId, exec, schemaService }) => {
             const { hubId, setId } = req.params
-            const { constantsService, objectsService } = createDomainServices(exec, schemaService)
+            const { constantsService, objectsService, entityTypeService } = createDomainServices(exec, schemaService)
 
-            await ensureSetContext(metahubId, setId, hubId, userId, objectsService)
+            await ensureSetContext(metahubId, setId, hubId, userId, objectsService, entityTypeService)
 
             const parsed = reorderConstantSchema.safeParse(req.body)
             if (!parsed.success) {
@@ -762,9 +781,9 @@ export function createConstantsController(createHandler: ReturnType<typeof creat
     const copy = createHandler(
         async ({ req, res, userId, metahubId, exec, schemaService }) => {
             const { hubId, setId, constantId } = req.params
-            const { constantsService, objectsService, settingsService } = createDomainServices(exec, schemaService)
+            const { constantsService, objectsService, settingsService, entityTypeService } = createDomainServices(exec, schemaService)
 
-            await ensureSetContext(metahubId, setId, hubId, userId, objectsService)
+            await ensureSetContext(metahubId, setId, hubId, userId, objectsService, entityTypeService)
 
             const source = await constantsService.findById(metahubId, constantId, userId)
             if (!source || source.setId !== setId) {
@@ -878,9 +897,9 @@ export function createConstantsController(createHandler: ReturnType<typeof creat
 
     const getCodenames = createHandler(async ({ req, res, userId, metahubId, exec, schemaService }) => {
         const { setId } = req.params
-        const { constantsService, objectsService } = createDomainServices(exec, schemaService)
+        const { constantsService, objectsService, entityTypeService } = createDomainServices(exec, schemaService)
 
-        await ensureSetContext(metahubId, setId, undefined, userId, objectsService)
+        await ensureSetContext(metahubId, setId, undefined, userId, objectsService, entityTypeService)
 
         const constants = await constantsService.findAll(metahubId, setId, userId)
         res.json({

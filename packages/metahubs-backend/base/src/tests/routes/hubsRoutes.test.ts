@@ -45,15 +45,23 @@ jest.mock('../../domains/ddl', () => ({
 
 const mockHubsService = {
     findById: jest.fn(),
+    findByIdWithKinds: jest.fn(),
     findAll: jest.fn(),
     findByCodename: jest.fn(),
+    findByCodenameWithKinds: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn()
 }
 
 const mockObjectsService = {
+    findAllByKinds: jest.fn(),
     reorderByKind: jest.fn()
+}
+
+const mockEntityTypeService = {
+    listCustomTypes: jest.fn(),
+    resolveType: jest.fn()
 }
 
 jest.mock('../../domains/metahubs/services/MetahubSchemaService', () => ({
@@ -71,6 +79,11 @@ jest.mock('../../domains/metahubs/services/MetahubObjectsService', () => ({
 jest.mock('../../domains/metahubs/services/MetahubHubsService', () => ({
     __esModule: true,
     MetahubHubsService: jest.fn().mockImplementation(() => mockHubsService)
+}))
+
+jest.mock('../../domains/entities/services/EntityTypeService', () => ({
+    __esModule: true,
+    EntityTypeService: jest.fn().mockImplementation(() => mockEntityTypeService)
 }))
 
 const mockSettingsService = {
@@ -163,6 +176,9 @@ describe('Hubs Routes', () => {
         mockFindMetahubById.mockResolvedValue({ id: 'metahub-1' })
         mockEnsureMetahubAccess.mockResolvedValue({ metahubId: 'metahub-1' })
         mockHubsService.findById.mockResolvedValue(null)
+        mockHubsService.findByIdWithKinds.mockResolvedValue(null)
+        mockHubsService.findByCodenameWithKinds.mockResolvedValue(null)
+        mockHubsService.findAll.mockResolvedValue({ items: [], total: 0 })
         mockHubsService.create.mockResolvedValue({
             id: 'hub-copy-id',
             codename: 'MainHubCopy',
@@ -178,11 +194,74 @@ describe('Hubs Routes', () => {
             id: '11111111-1111-4111-8111-111111111111',
             config: { sortOrder: 2 }
         })
+        mockObjectsService.findAllByKinds.mockResolvedValue([])
+        mockEntityTypeService.listCustomTypes.mockResolvedValue([])
+        mockEntityTypeService.resolveType.mockResolvedValue(null)
         mockEnsureSchema.mockResolvedValue('mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+    })
+
+    describe('GET /metahub/:metahubId/hubs', () => {
+        it('uses the requested legacy-compatible custom hub kind as an exact list scope', async () => {
+            mockEntityTypeService.listCustomTypes.mockResolvedValue([
+                {
+                    kindKey: 'custom.hub-v2-compatible',
+                    config: { compatibility: { legacyObjectKind: 'hub' } }
+                }
+            ])
+            mockEntityTypeService.resolveType.mockResolvedValue({
+                source: 'custom',
+                kindKey: 'custom.hub-v2-compatible',
+                config: { compatibility: { legacyObjectKind: 'hub' } }
+            })
+            mockHubsService.findAll.mockResolvedValue({
+                items: [
+                    {
+                        id: 'hub-custom-1',
+                        kind: 'custom.hub-v2-compatible',
+                        codename: 'OperationsHub',
+                        name: { en: 'Operations Hub' },
+                        description: null,
+                        sort_order: 4,
+                        parent_hub_id: null,
+                        _upl_version: 2,
+                        created_at: '2026-03-04T10:00:00.000Z',
+                        updated_at: '2026-03-04T11:00:00.000Z'
+                    }
+                ],
+                total: 1
+            })
+
+            const app = buildApp()
+            const response = await request(app)
+                .get('/metahub/metahub-1/hubs?kindKey=custom.hub-v2-compatible')
+                .expect(200)
+
+            expect(response.body.pagination).toMatchObject({ total: 1, limit: 100, offset: 0 })
+            expect(response.body.items[0]).toMatchObject({
+                id: 'hub-custom-1',
+                codename: 'OperationsHub',
+                sortOrder: 4,
+                catalogsCount: 0,
+                itemsCount: 0
+            })
+            expect(mockHubsService.findAll).toHaveBeenCalledWith(
+                'metahub-1',
+                expect.objectContaining({
+                    kinds: ['custom.hub-v2-compatible']
+                }),
+                'test-user-id'
+            )
+        })
     })
 
     describe('PATCH /metahub/:metahubId/hubs/reorder', () => {
         it('reorders hub and returns updated sort order', async () => {
+            mockHubsService.findByIdWithKinds.mockResolvedValueOnce({
+                id: '11111111-1111-4111-8111-111111111111',
+                kind: 'hub',
+                codename: 'main-hub'
+            })
+
             const app = buildApp()
             const response = await request(app)
                 .patch('/metahub/metahub-1/hubs/reorder')
@@ -206,7 +285,7 @@ describe('Hubs Routes', () => {
         })
 
         it('returns 404 when hub is not found', async () => {
-            mockObjectsService.reorderByKind.mockRejectedValueOnce(new MetahubNotFoundError('hub', '11111111-1111-4111-8111-111111111111'))
+            mockHubsService.findByIdWithKinds.mockResolvedValueOnce(null)
 
             const app = buildApp()
             const response = await request(app)
@@ -264,8 +343,9 @@ describe('Hubs Routes', () => {
         })
 
         it('skips single-hub relation entities during relation propagation', async () => {
-            mockHubsService.findById.mockResolvedValueOnce({
+            mockHubsService.findByIdWithKinds.mockResolvedValueOnce({
                 id: 'hub-1',
+                kind: 'hub',
                 codename: 'main-hub',
                 name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Main hub' } } },
                 description: null,
@@ -291,8 +371,9 @@ describe('Hubs Routes', () => {
         })
 
         it('copies hub successfully when copyAllRelations is disabled', async () => {
-            mockHubsService.findById.mockResolvedValueOnce({
+            mockHubsService.findByIdWithKinds.mockResolvedValueOnce({
                 id: 'hub-1',
+                kind: 'hub',
                 codename: 'main-hub',
                 name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Main hub' } } },
                 description: null,
@@ -322,8 +403,9 @@ describe('Hubs Routes', () => {
         })
 
         it('retries hub copy after concurrent relation update conflict and succeeds', async () => {
-            mockHubsService.findById.mockResolvedValue({
+            mockHubsService.findByIdWithKinds.mockResolvedValue({
                 id: 'hub-1',
+                kind: 'hub',
                 codename: 'main-hub',
                 name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Main hub' } } },
                 description: null,
@@ -354,8 +436,9 @@ describe('Hubs Routes', () => {
 
     describe('blocking child hubs', () => {
         it('returns child hubs in GET blocking-catalogs response', async () => {
-            mockHubsService.findById.mockResolvedValueOnce({
+            mockHubsService.findByIdWithKinds.mockResolvedValueOnce({
                 id: 'hub-1',
+                kind: 'hub',
                 codename: 'main-hub'
             })
             ;(mockExec.query as jest.Mock).mockResolvedValueOnce([]).mockResolvedValueOnce([
@@ -376,8 +459,9 @@ describe('Hubs Routes', () => {
         })
 
         it('blocks DELETE when child hubs are linked to parent', async () => {
-            mockHubsService.findById.mockResolvedValueOnce({
+            mockHubsService.findByIdWithKinds.mockResolvedValueOnce({
                 id: 'hub-1',
+                kind: 'hub',
                 codename: 'main-hub'
             })
             ;(mockExec.query as jest.Mock).mockResolvedValueOnce([]).mockResolvedValueOnce([

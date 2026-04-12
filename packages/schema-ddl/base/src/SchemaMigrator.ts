@@ -1,6 +1,6 @@
 import type { Knex } from 'knex'
 import type { SystemTableCapabilityOptions } from '@universo/migrations-core'
-import { AttributeDataType, MetaEntityKind } from '@universo/types'
+import { AttributeDataType, MetaEntityKind, getLegacyCompatibleObjectKindForKindKey } from '@universo/types'
 import type { AttributeValidationRules } from '@universo/types'
 import { buildFkConstraintName, resolveFieldColumnName, resolveEntityTableName } from './naming'
 import { uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from './locking'
@@ -13,6 +13,19 @@ import { MigrationManager, generateMigrationName } from './MigrationManager'
 const ENUMERATION_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { ENUMERATION?: MetaEntityKind }).ENUMERATION ??
     'enumeration') as MetaEntityKind
 const SET_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { SET?: MetaEntityKind }).SET ?? 'set') as MetaEntityKind
+
+const resolveLegacyCompatibleKind = (kind: unknown): 'catalog' | 'hub' | 'set' | 'enumeration' | null => {
+    if (kind === MetaEntityKind.CATALOG || kind === MetaEntityKind.HUB || kind === MetaEntityKind.SET || kind === MetaEntityKind.ENUMERATION) {
+        return kind
+    }
+
+    const fromKindKey = getLegacyCompatibleObjectKindForKindKey(kind)
+    return fromKindKey && fromKindKey !== 'document' ? fromKindKey : null
+}
+
+const isEnumerationCompatibleKind = (kind: unknown): boolean => resolveLegacyCompatibleKind(kind) === MetaEntityKind.ENUMERATION
+
+const isSetCompatibleKind = (kind: unknown): boolean => resolveLegacyCompatibleKind(kind) === MetaEntityKind.SET
 
 /**
  * Options for applying changes with migration recording
@@ -332,10 +345,10 @@ export class SchemaMigrator {
                 const onDelete = change.onDeleteAction ?? 'SET NULL'
 
                 let targetTableName: string
-                if (targetEntityKind === ENUMERATION_KIND) {
+                if (isEnumerationCompatibleKind(targetEntityKind)) {
                     await this.generator.ensureSystemTables(schemaName, trx, options?.systemTableCapabilities)
                     targetTableName = '_app_values'
-                } else if (targetEntityKind === SET_KIND) {
+                } else if (isSetCompatibleKind(targetEntityKind)) {
                     // Set references are mapped to constant IDs in data rows and are resolved via ui_config metadata.
                     // They are intentionally stored without physical FK constraints.
                     return

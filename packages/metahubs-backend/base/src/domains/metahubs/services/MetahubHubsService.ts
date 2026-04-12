@@ -8,6 +8,16 @@ import { codenamePrimaryTextSql, ensureCodenameValue } from '../../shared/codena
 import { MetahubNotFoundError } from '../../shared/domainErrors'
 
 const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
+const DEFAULT_HUB_KIND = 'hub'
+
+const normalizeKinds = (kinds?: readonly string[] | null): string[] => {
+    if (!Array.isArray(kinds) || kinds.length === 0) {
+        return [DEFAULT_HUB_KIND]
+    }
+
+    const normalizedKinds = kinds.map((kind) => String(kind).trim()).filter((kind) => kind.length > 0)
+    return normalizedKinds.length > 0 ? [...new Set(normalizedKinds)] : [DEFAULT_HUB_KIND]
+}
 
 /**
  * MetahubHubsService - CRUD operations for Hubs stored in isolated schemas.
@@ -21,7 +31,7 @@ const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 export class MetahubHubsService {
     constructor(private exec: DbExecutor, private schemaService: MetahubSchemaService) {}
 
-    private async getNextSortOrder(schemaName: string, db?: SqlQueryable): Promise<number> {
+    private async getNextSortOrder(schemaName: string, kind: string, db?: SqlQueryable): Promise<number> {
         const runner = db ?? this.exec
         const qt = qSchemaTable(schemaName, '_mhb_objects')
 
@@ -29,7 +39,8 @@ export class MetahubHubsService {
             runner,
             `SELECT COALESCE(MAX((config->>'sortOrder')::int), 0) AS max_sort_order
              FROM ${qt}
-             WHERE kind = 'hub' AND ${ACTIVE}`
+             WHERE kind = $1 AND ${ACTIVE}`,
+            [kind]
         )
 
         const maxSortOrder = Number(result?.max_sort_order ?? 0)
@@ -47,6 +58,7 @@ export class MetahubHubsService {
         const config = (row.config as Record<string, unknown>) ?? {}
         return {
             id: row.id,
+            kind: row.kind,
             codename: ensureCodenameValue(row.codename),
             name: (row.presentation as Record<string, unknown>)?.name ?? {},
             description: (row.presentation as Record<string, unknown>)?.description ?? null,
@@ -69,15 +81,17 @@ export class MetahubHubsService {
             sortBy?: string
             sortOrder?: 'asc' | 'desc'
             search?: string
+            kinds?: readonly string[]
         } = {},
         userId?: string
     ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_objects')
+        const normalizedKinds = normalizeKinds(options.kinds)
 
-        const conditions: string[] = ["kind = 'hub'", ACTIVE]
-        const params: unknown[] = []
-        let paramIdx = 1
+        const conditions: string[] = [normalizedKinds.length === 1 ? `kind = $1` : `kind = ANY($1::text[])`, ACTIVE]
+        const params: unknown[] = [normalizedKinds.length === 1 ? normalizedKinds[0] : normalizedKinds]
+        let paramIdx = 2
 
         if (options.search) {
             const escapedSearch = `%${escapeLikeWildcards(options.search)}%`
@@ -150,13 +164,20 @@ export class MetahubHubsService {
      * Find a hub by ID.
      */
     async findById(metahubId: string, hubId: string, userId?: string) {
+        return this.findByIdWithKinds(metahubId, hubId, userId)
+    }
+
+    async findByIdWithKinds(metahubId: string, hubId: string, userId?: string, kinds?: readonly string[]) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_objects')
+        const normalizedKinds = normalizeKinds(kinds)
 
         const row = await queryOne<Record<string, unknown>>(
             this.exec,
-            `SELECT * FROM ${qt} WHERE id = $1 AND kind = 'hub' AND ${ACTIVE} LIMIT 1`,
-            [hubId]
+            normalizedKinds.length === 1
+                ? `SELECT * FROM ${qt} WHERE id = $1 AND kind = $2 AND ${ACTIVE} LIMIT 1`
+                : `SELECT * FROM ${qt} WHERE id = $1 AND kind = ANY($2::text[]) AND ${ACTIVE} LIMIT 1`,
+            [hubId, normalizedKinds.length === 1 ? normalizedKinds[0] : normalizedKinds]
         )
 
         return row ? this.mapHubFromObject(row) : null
@@ -166,13 +187,20 @@ export class MetahubHubsService {
      * Find a hub by codename.
      */
     async findByCodename(metahubId: string, codename: string, userId?: string) {
+        return this.findByCodenameWithKinds(metahubId, codename, userId)
+    }
+
+    async findByCodenameWithKinds(metahubId: string, codename: string, userId?: string, kinds?: readonly string[]) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_objects')
+        const normalizedKinds = normalizeKinds(kinds)
 
         const row = await queryOne<Record<string, unknown>>(
             this.exec,
-            `SELECT * FROM ${qt} WHERE ${codenamePrimaryTextSql('codename')} = $1 AND kind = 'hub' AND ${ACTIVE} LIMIT 1`,
-            [codename]
+            normalizedKinds.length === 1
+                ? `SELECT * FROM ${qt} WHERE ${codenamePrimaryTextSql('codename')} = $1 AND kind = $2 AND ${ACTIVE} LIMIT 1`
+                : `SELECT * FROM ${qt} WHERE ${codenamePrimaryTextSql('codename')} = $1 AND kind = ANY($2::text[]) AND ${ACTIVE} LIMIT 1`,
+            [codename, normalizedKinds.length === 1 ? normalizedKinds[0] : normalizedKinds]
         )
 
         return row ? this.mapHubFromObject(row) : null
@@ -182,15 +210,22 @@ export class MetahubHubsService {
      * Find multiple hubs by IDs.
      */
     async findByIds(metahubId: string, hubIds: string[], userId?: string): Promise<Record<string, unknown>[]> {
+        return this.findByIdsWithKinds(metahubId, hubIds, userId)
+    }
+
+    async findByIdsWithKinds(metahubId: string, hubIds: string[], userId?: string, kinds?: readonly string[]): Promise<Record<string, unknown>[]> {
         if (hubIds.length === 0) return []
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_objects')
+        const normalizedKinds = normalizeKinds(kinds)
 
         const rows = await queryMany<Record<string, unknown>>(
             this.exec,
-            `SELECT * FROM ${qt} WHERE kind = 'hub' AND ${ACTIVE} AND id = ANY($1::uuid[])`,
-            [hubIds]
+            normalizedKinds.length === 1
+                ? `SELECT * FROM ${qt} WHERE kind = $1 AND ${ACTIVE} AND id = ANY($2::uuid[])`
+                : `SELECT * FROM ${qt} WHERE kind = ANY($1::text[]) AND ${ACTIVE} AND id = ANY($2::uuid[])`,
+            [normalizedKinds.length === 1 ? normalizedKinds[0] : normalizedKinds, hubIds]
         )
 
         return rows.map((row) => this.mapHubFromObject(row))
@@ -208,18 +243,20 @@ export class MetahubHubsService {
             sortOrder?: number
             parentHubId?: string | null
             createdBy?: string | null
+            kind?: string
         },
         userId?: string,
         db?: SqlQueryable
     ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_objects')
+        const kind = typeof input.kind === 'string' && input.kind.trim().length > 0 ? input.kind.trim() : DEFAULT_HUB_KIND
 
         const createWithRunner = async (tx: SqlQueryable) => {
             const sortOrder =
                 typeof input.sortOrder === 'number' && Number.isFinite(input.sortOrder)
                     ? input.sortOrder
-                    : await this.getNextSortOrder(schemaName, tx)
+                    : await this.getNextSortOrder(schemaName, kind, tx)
 
             const now = new Date()
             const codename = ensureCodenameValue(input.codename)
@@ -237,9 +274,9 @@ export class MetahubHubsService {
                 `INSERT INTO ${qt}
                     (kind, codename, table_name, presentation, config,
                      _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
-                 VALUES ('hub', $1::jsonb, NULL, $2::jsonb, $3::jsonb, $4, $5, $4, $5)
+                 VALUES ($1, $2::jsonb, NULL, $3::jsonb, $4::jsonb, $5, $6, $5, $6)
                  RETURNING *`,
-                [JSON.stringify(codename), presentation, config, now, input.createdBy ?? null]
+                [kind, JSON.stringify(codename), presentation, config, now, input.createdBy ?? null]
             )
             return this.mapHubFromObject(created)
         }
@@ -262,6 +299,7 @@ export class MetahubHubsService {
             parentHubId?: string | null
             updatedBy?: string | null
             expectedVersion?: number
+            kind?: string
         },
         userId?: string,
         db?: SqlQueryable
@@ -269,11 +307,12 @@ export class MetahubHubsService {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_objects')
         const runner = db ?? this.exec
+        const kind = typeof input.kind === 'string' && input.kind.trim().length > 0 ? input.kind.trim() : DEFAULT_HUB_KIND
 
         const existing = await queryOne<Record<string, unknown>>(
             runner,
-            `SELECT * FROM ${qt} WHERE id = $1 AND kind = 'hub' AND ${ACTIVE} LIMIT 1`,
-            [hubId]
+            `SELECT * FROM ${qt} WHERE id = $1 AND kind = $2 AND ${ACTIVE} LIMIT 1`,
+            [hubId, kind]
         )
 
         if (!existing) throw new MetahubNotFoundError('Hub', hubId)
@@ -315,7 +354,7 @@ export class MetahubHubsService {
                 schemaName,
                 tableName: '_mhb_objects',
                 entityId: hubId,
-                entityType: 'hub',
+                entityType: DEFAULT_HUB_KIND,
                 expectedVersion: input.expectedVersion,
                 updateData
             })
@@ -330,9 +369,10 @@ export class MetahubHubsService {
     /**
      * Delete a hub.
      */
-    async delete(metahubId: string, hubId: string, userId?: string) {
+    async delete(metahubId: string, hubId: string, userId?: string, kind?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_objects')
+        const normalizedKind = typeof kind === 'string' && kind.trim().length > 0 ? kind.trim() : DEFAULT_HUB_KIND
 
         await this.exec.query(
             `UPDATE ${qt}
@@ -341,20 +381,27 @@ export class MetahubHubsService {
                  _mhb_deleted_by = $2,
                  _upl_updated_at = $1,
                  _upl_updated_by = $2
-             WHERE id = $3 AND kind = 'hub' AND ${ACTIVE}
+             WHERE id = $3 AND kind = $4 AND ${ACTIVE}
              RETURNING id`,
-            [new Date(), userId ?? null, hubId]
+            [new Date(), userId ?? null, hubId, normalizedKind]
         )
     }
 
     /**
      * Count hubs in a metahub.
      */
-    async count(metahubId: string, userId?: string): Promise<number> {
+    async count(metahubId: string, userId?: string, kinds?: readonly string[]): Promise<number> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_objects')
+        const normalizedKinds = normalizeKinds(kinds)
 
-        const result = await queryOne<{ total: string }>(this.exec, `SELECT COUNT(*) AS total FROM ${qt} WHERE kind = 'hub' AND ${ACTIVE}`)
+        const result = await queryOne<{ total: string }>(
+            this.exec,
+            normalizedKinds.length === 1
+                ? `SELECT COUNT(*) AS total FROM ${qt} WHERE kind = $1 AND ${ACTIVE}`
+                : `SELECT COUNT(*) AS total FROM ${qt} WHERE kind = ANY($1::text[]) AND ${ACTIVE}`,
+            [normalizedKinds.length === 1 ? normalizedKinds[0] : normalizedKinds]
+        )
 
         return result ? parseInt(result.total, 10) : 0
     }

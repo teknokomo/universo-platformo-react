@@ -15,6 +15,14 @@ import { SharedContainerService } from '../../shared/services/SharedContainerSer
 const ALLOWED_CONSTANT_TYPES: ConstantDataType[] = ['STRING', 'NUMBER', 'BOOLEAN', 'DATE']
 const ACTIVE = `_upl_deleted = false AND _mhb_deleted = false`
 
+const normalizeCompatibleTargetKinds = (targetKinds: readonly string[] | undefined, fallbackKind: string): string[] => {
+    const normalized = Array.from(
+        new Set(targetKinds?.map((kind) => kind.trim()).filter((kind) => kind.length > 0) ?? [fallbackKind])
+    )
+
+    return normalized.length > 0 ? normalized : [fallbackKind]
+}
+
 type MetahubConstantRecord = {
     id: string
     setId: string
@@ -433,10 +441,16 @@ export class MetahubConstantsService {
         throw new MetahubConflictError('Could not generate unique constant codename')
     }
 
-    async findSetReferenceBlockers(metahubId: string, targetSetId: string, userId?: string) {
+    async findSetReferenceBlockers(
+        metahubId: string,
+        targetSetId: string,
+        userId?: string,
+        targetObjectKinds?: readonly string[]
+    ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const attrQt = qSchemaTable(schemaName, '_mhb_attributes')
         const objQt = qSchemaTable(schemaName, '_mhb_objects')
+        const compatibleTargetKinds = normalizeCompatibleTargetKinds(targetObjectKinds, 'set')
         const rows = await queryMany<Record<string, unknown>>(
             this.exec,
             `SELECT attr.id AS attribute_id,
@@ -449,11 +463,11 @@ export class MetahubConstantsService {
              LEFT JOIN ${objQt} AS obj ON obj.id = attr.object_id
              WHERE attr.data_type = 'REF'
                AND attr.target_object_id = $1
-               AND attr.target_object_kind = 'set'
+                             AND attr.target_object_kind = ANY($2::text[])
                AND attr._upl_deleted = false AND attr._mhb_deleted = false
                AND obj._upl_deleted = false AND obj._mhb_deleted = false
              ORDER BY ${codenamePrimaryTextSql('obj.codename')} ASC, attr.sort_order ASC`,
-            [targetSetId]
+                        [targetSetId, compatibleTargetKinds]
         )
 
         return rows.map((row) => ({
@@ -466,18 +480,25 @@ export class MetahubConstantsService {
         }))
     }
 
-    async findAttributeReferenceBlockersByConstant(metahubId: string, targetSetId: string, targetConstantId: string, userId?: string) {
+    async findAttributeReferenceBlockersByConstant(
+        metahubId: string,
+        targetSetId: string,
+        targetConstantId: string,
+        userId?: string,
+        targetObjectKinds?: readonly string[]
+    ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_attributes')
+        const compatibleTargetKinds = normalizeCompatibleTargetKinds(targetObjectKinds, 'set')
         const rows = await this.exec.query<{ id: string }>(
             `SELECT id FROM ${qt}
              WHERE data_type = 'REF'
-               AND target_object_kind = 'set'
+               AND target_object_kind = ANY($2::text[])
                AND target_object_id = $1
-               AND target_constant_id = $2
+               AND target_constant_id = $3
                AND ${ACTIVE}
              LIMIT 1`,
-            [targetSetId, targetConstantId]
+            [targetSetId, compatibleTargetKinds, targetConstantId]
         )
         return rows.length > 0
     }
