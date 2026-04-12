@@ -6,7 +6,7 @@
 
 ## Current Task Ledger (Canonical)
 
-## Active Session: 2026-04-12 GitBook Asset Layout Migration
+## Completed Session: 2026-04-12 GitBook Asset Layout Migration
 
 > Goal: move the published documentation screenshots from the repository-level `docs/assets` layout into locale-local `.gitbook/assets` directories that match the working GitBook pattern, rewrite the EN/RU guide references to those new paths, validate the paired docs contract plus generator output targets, and then send the full working tree to upstream through the `git-push` agent as explicitly requested.
 
@@ -18,7 +18,8 @@
     - Outcome: all four guide pages now reference `../.gitbook/assets/...`, and `docs-quiz-tutorial-screenshots.spec.ts` now writes primary files to the EN GitBook asset tree before mirroring them into the RU tree.
 - [x] Run documentation-focused validation for path correctness and EN/RU parity before handoff.
     - Outcome: the touched EN/RU guide pairs kept line-count parity (`72/72` and `89/89`), `pnpm docs:i18n:check` returned clean on the current `Scope=resources` configuration, `pnpm run build:e2e` completed green (`30 successful`, `30 total`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
-- [ ] Use the `git-push` agent to commit and push all requested changes (`git add -A`) to upstream.
+- [x] Use the `git-push` agent to commit and push all requested changes (`git add -A`) to upstream.
+    - Outcome: the full working tree, including the pre-existing `.github/agents/*.md` edits, was staged with `git add -A`, committed as `docs(repository): migrate GitBook asset layout and sync docs automation`, and pushed successfully to `upstream/feature/gitbook-asset-layout-migration-2026-04-12` (`7d1c6226c7fba877d9b294cf2675136a0f0cb4bd`).
 
 ## Active Session: 2026-04-12 PR #759 Review Comment QA Triage
 

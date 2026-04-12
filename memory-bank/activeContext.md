@@ -6,11 +6,11 @@
 
 ## Current Focus: GitBook Asset Layout Migration Closed
 
-- The 2026-04-12 GitBook screenshot-layout migration is now implemented on `main`.
+- The 2026-04-12 GitBook screenshot-layout migration is now implemented and pushed upstream as commit `7d1c6226c7fba877d9b294cf2675136a0f0cb4bd` on `upstream/feature/gitbook-asset-layout-migration-2026-04-12`.
 - Documentation screenshots now live under locale-local GitBook trees: `docs/en/.gitbook/assets/*` and `docs/ru/.gitbook/assets/*`, which matches the verified Flowise-style publication pattern instead of the removed repository-level `docs/assets` layout.
 - The four screenshot-bearing EN/RU guides now reference `../.gitbook/assets/...`, and the quiz tutorial screenshot generator writes primary files into the EN GitBook tree before mirroring them into the RU tree so future regenerations preserve the same layout.
 - Validation for this migration is green: EN/RU line-count parity matched for both touched page pairs (`72/72` and `89/89`), `pnpm docs:i18n:check` returned clean on the current `Scope=resources` configuration, `pnpm run build:e2e` finished green (`30 successful`, `30 total`), and the canonical root `pnpm build` finished green (`30 successful`, `30 total`).
-- Next step: push the full working tree upstream with `git add -A` semantics as explicitly requested, then treat any browser-visible GitBook confirmation as a post-publish follow-up.
+- Next step: if requested after merge/publish, re-check the live GitBook pages to confirm the published site now resolves the locale-local `.gitbook/assets` screenshots.
 
 ## Previous Focus: PR #759 Review Comment QA Triage Closed
 
