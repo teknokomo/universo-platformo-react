@@ -4,7 +4,15 @@
 
 ---
 
-## Current Focus: PR #759 Review Comment QA Triage Closed
+## Current Focus: GitBook Asset Layout Migration Closed
+
+- The 2026-04-12 GitBook screenshot-layout migration is now implemented on `main`.
+- Documentation screenshots now live under locale-local GitBook trees: `docs/en/.gitbook/assets/*` and `docs/ru/.gitbook/assets/*`, which matches the verified Flowise-style publication pattern instead of the removed repository-level `docs/assets` layout.
+- The four screenshot-bearing EN/RU guides now reference `../.gitbook/assets/...`, and the quiz tutorial screenshot generator writes primary files into the EN GitBook tree before mirroring them into the RU tree so future regenerations preserve the same layout.
+- Validation for this migration is green: EN/RU line-count parity matched for both touched page pairs (`72/72` and `89/89`), `pnpm docs:i18n:check` returned clean on the current `Scope=resources` configuration, `pnpm run build:e2e` finished green (`30 successful`, `30 total`), and the canonical root `pnpm build` finished green (`30 successful`, `30 total`).
+- Next step: push the full working tree upstream with `git add -A` semantics as explicitly requested, then treat any browser-visible GitBook confirmation as a post-publish follow-up.
+
+## Previous Focus: PR #759 Review Comment QA Triage Closed
 
 - The 2026-04-12 PR #759 bot-review follow-up is now closed on `feature/entity-v2-generalization-hub-set-enum`.
 - Review outcome: the transaction-bound `_mhb_migrations` concern in `MetahubSchemaService` was confirmed and fixed through the request/executor SQL path, while duplicated legacy-compatible kind helpers in `schema-ddl` were consolidated into `legacyCompatibleKinds.ts`.
@@ -31,7 +39,7 @@
 - The 2026-04-11 entities QA closure pass remains fully implemented and validated on the current tree.
 - `EntityInstanceList` keeps the shipped object-scoped `Scripts`, `Actions`, and `Events` authoring flow on edit-only generic custom-entity dialogs, while create/copy dialogs remain intentionally minimal.
 - Catalog-compatible ACL alignment is now explicitly verified on the mounted surface: those routes delegate to `CatalogList` before the generic automation tabs mount, so no extra permission widening was required on the current tree.
-- EN/RU custom-entity workflow docs now include the save-first `Scripts -> Actions -> Events` authoring sequence, and stable GitBook-compatible visual assets now live under `docs/assets/entities/`.
+- EN/RU custom-entity workflow docs now include the save-first `Scripts -> Actions -> Events` authoring sequence, and stable GitBook-compatible visual assets now live under the locale-local `docs/*/.gitbook/assets/entities/` trees.
 - Final validation for this closure wave is green: focused backend coverage passed (`27/27`), focused frontend automation coverage passed (`12/12`), `pnpm docs:i18n:check` passed, `pnpm run build:e2e` completed green (`30 successful`, `30 total`), the targeted Chromium automation flow passed (`2 passed` including auth bootstrap), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 - Build-only follow-up fixed: the canonical build surfaced a missing `DbExecutor` type import in `EntityActionExecutionService`, and that repair is now part of the validated tree.
 - Shared field contract: legacy `CatalogActions`, `EnumerationActions`, and `SetActions` must continue passing explicit `nameLabel`, `descriptionLabel`, `codenameLabel`, and `codenameHelper` props into `GeneralTabFields`; otherwise the localized fields silently lose accessible labels and the real browser copy flow breaks at `getByLabel(...)`.

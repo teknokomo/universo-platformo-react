@@ -6,6 +6,20 @@
 
 ## Current Task Ledger (Canonical)
 
+## Active Session: 2026-04-12 GitBook Asset Layout Migration
+
+> Goal: move the published documentation screenshots from the repository-level `docs/assets` layout into locale-local `.gitbook/assets` directories that match the working GitBook pattern, rewrite the EN/RU guide references to those new paths, validate the paired docs contract plus generator output targets, and then send the full working tree to upstream through the `git-push` agent as explicitly requested.
+
+- [x] Audit every live screenshot reference plus generator output that still depends on the old `docs/assets` layout.
+    - Outcome: confirmed that only the four EN/RU screenshot-bearing guide pages plus the quiz tutorial screenshot generator still depended on the removed shared docs-assets layout.
+- [x] Move the committed quiz/entity screenshot files into `docs/en/.gitbook/assets` and `docs/ru/.gitbook/assets` and remove the obsolete repository-level docs asset directories.
+    - Outcome: the entity and quiz tutorial PNGs were copied into both locale-local GitBook asset trees, and the obsolete repository-level `docs/assets` directory was deleted.
+- [x] Rewrite the EN/RU guide references and any screenshot generators so future regenerations keep the GitBook-compatible layout.
+    - Outcome: all four guide pages now reference `../.gitbook/assets/...`, and `docs-quiz-tutorial-screenshots.spec.ts` now writes primary files to the EN GitBook asset tree before mirroring them into the RU tree.
+- [x] Run documentation-focused validation for path correctness and EN/RU parity before handoff.
+    - Outcome: the touched EN/RU guide pairs kept line-count parity (`72/72` and `89/89`), `pnpm docs:i18n:check` returned clean on the current `Scope=resources` configuration, `pnpm run build:e2e` completed green (`30 successful`, `30 total`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- [ ] Use the `git-push` agent to commit and push all requested changes (`git add -A`) to upstream.
+
 ## Active Session: 2026-04-12 PR #759 Review Comment QA Triage
 
 > Goal: wait for bot feedback on GH759, verify each suggestion against the current codebase and external transaction guidance, implement only the confirmed non-regressive fixes, rerun the touched validation stack plus the canonical root build, and push the follow-up back into the same PR branch.
@@ -211,7 +225,7 @@
 - [x] Add direct regression coverage for the automation authoring surface.
     - Outcome: focused `EntityAutomationTab` coverage now locks save-first validation plus action/event authoring seams, and focused `EntityInstanceList` coverage still proves catalog-compatible routes delegate to `CatalogList` instead of mounting the generic automation tabs.
 - [x] Finish the missing publication-quality Entities documentation artifacts.
-    - Outcome: EN/RU custom-entity workflow guides now include the save-first `Scripts -> Actions -> Events` authoring sequence, and stable GitBook-compatible visual assets now live under `docs/assets/entities/`.
+    - Outcome: EN/RU custom-entity workflow guides now include the save-first `Scripts -> Actions -> Events` authoring sequence, and stable GitBook-compatible visual assets now live under the locale-local `docs/*/.gitbook/assets/entities/` trees.
 - [x] Re-run focused validation, browser proof, and the canonical root build before closing.
     - Outcome: focused metahubs backend coverage passed (`27/27`), focused metahubs frontend automation coverage passed (`12/12`), `pnpm docs:i18n:check` passed, `pnpm run build:e2e` completed green after fixing a build-only `DbExecutor` type import, the targeted Chromium automation flow passed (`2 passed`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 
@@ -1361,7 +1375,7 @@ Implementation note: execute phases in order, but land shared script type/normal
 -   [x] Expand GitBook docs for scripts, settings, and the new quiz-application tutorial.
     -   Note: Rewrote the EN/RU scripting, metahubs, and applications pages; added new EN/RU admin and quiz-tutorial pages; updated both `SUMMARY.md` files; and kept the touched EN/RU page pairs in structural parity.
 -   [x] Generate Playwright screenshots for the quiz-application tutorial.
-    -   Note: Added the reproducible generator `tools/testing/e2e/specs/generators/docs-quiz-tutorial-screenshots.spec.ts`, which now writes `metahub-scripts.png`, `layout-quiz-widget.png`, `application-settings-general.png`, and `runtime-quiz.png` into `docs/assets/quiz-tutorial/`.
+    -   Note: Added the reproducible generator `tools/testing/e2e/specs/generators/docs-quiz-tutorial-screenshots.spec.ts`, which now keeps `metahub-scripts.png`, `layout-quiz-widget.png`, `application-settings-general.png`, and `runtime-quiz.png` mirrored under both locale-local `docs/*/.gitbook/assets/quiz-tutorial/` trees.
 -   [x] Validate the touched seams and sync memory-bank closure state.
     -   Note: Docs diagnostics stayed clean, the focused package builds and `pnpm run build:e2e` passed during generator stabilization, the final tutorial screenshot generator passed with `2 passed`, and the canonical root `pnpm build` finished green with `30 successful`, `17 cached`, and `3m15.638s`.
 
