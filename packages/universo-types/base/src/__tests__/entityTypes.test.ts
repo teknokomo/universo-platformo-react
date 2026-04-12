@@ -5,6 +5,7 @@ import {
     BUILTIN_ENTITY_TYPES,
     MetaEntityKind,
     getEnabledComponentKeys,
+    getLegacyCompatibleObjectKindForKindKey,
     isBuiltinKind,
     validateComponentDependencies,
     type ComponentManifest,
@@ -58,5 +59,13 @@ describe('entity type contracts', () => {
         const version: MetahubSnapshotFormatVersion = 3
 
         expect(version).toBe(3)
+    })
+
+    it('recognizes preset-derived legacy-compatible custom kind keys with suffixes', () => {
+        expect(getLegacyCompatibleObjectKindForKindKey('custom.hub-v2')).toBe('hub')
+        expect(getLegacyCompatibleObjectKindForKindKey('custom.hub-v2-demo')).toBe('hub')
+        expect(getLegacyCompatibleObjectKindForKindKey('custom.set-v2-demo')).toBe('set')
+        expect(getLegacyCompatibleObjectKindForKindKey('custom.enumeration-v2-demo')).toBe('enumeration')
+        expect(getLegacyCompatibleObjectKindForKindKey('custom.hub-v2demo')).toBeNull()
     })
 })

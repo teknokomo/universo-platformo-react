@@ -197,12 +197,20 @@ describe('MetahubMembers', () => {
     })
 
     describe('Component rendering with happy-dom', () => {
-        it('should render component with translated UI elements', () => {
+        it('should render component with translated UI elements', async () => {
+            vi.mocked(metahubsApi.listMetahubMembers).mockResolvedValue({
+                ...paginated([], { total: 0, limit: 20, offset: 0 }),
+                meta: {
+                    role: 'owner',
+                    permissions: { manageMembers: true }
+                }
+            } as any)
+
             renderWithProviders(<MetahubMembers />)
 
             expect(screen.getByText(/access/i)).toBeInTheDocument()
             expect(screen.getByPlaceholderText(/search members/i)).toBeInTheDocument()
-            expect(screen.getByRole('button', { name: /add/i })).toBeInTheDocument()
+            expect(await screen.findByRole('button', { name: /add|invite/i })).toBeInTheDocument()
         })
 
         it('should render view toggle buttons', () => {
@@ -474,7 +482,13 @@ describe('MetahubMembers', () => {
 
     describe('Invite error branches', () => {
         beforeEach(() => {
-            vi.mocked(metahubsApi.listMetahubMembers).mockResolvedValue(paginated([], { total: 0, limit: 20, offset: 0 }))
+            vi.mocked(metahubsApi.listMetahubMembers).mockResolvedValue({
+                ...paginated([], { total: 0, limit: 20, offset: 0 }),
+                meta: {
+                    role: 'owner',
+                    permissions: { manageMembers: true }
+                }
+            } as any)
         })
 
         it('should show userNotFound message on 404', async () => {
@@ -482,7 +496,7 @@ describe('MetahubMembers', () => {
 
             const { user } = renderWithProviders(<MetahubMembers />)
 
-            const addButton = await screen.findByRole('button', { name: /add/i })
+            const addButton = await screen.findByRole('button', { name: /add|invite/i })
             await user.click(addButton)
 
             const dialog = await screen.findByRole('dialog')
@@ -506,7 +520,7 @@ describe('MetahubMembers', () => {
 
             const { user } = renderWithProviders(<MetahubMembers />)
 
-            const addButton = await screen.findByRole('button', { name: /add/i })
+            const addButton = await screen.findByRole('button', { name: /add|invite/i })
             await user.click(addButton)
 
             const dialog = await screen.findByRole('dialog')

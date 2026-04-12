@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useParams } from 'react-router-dom'
 import { Box, ButtonBase, Chip, Divider, Skeleton, Stack, Tab, Tabs, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
@@ -55,12 +55,14 @@ import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryL
 import GeneralTabFields from '../../shared/ui/GeneralTabFields'
 import type { EnumerationFormValues, EnumerationMenuBaseContext, ConfirmSpec } from './enumerationListUtils'
 import { DIALOG_SAVE_CANCEL, extractResponseStatus, extractResponseMessage, toEnumerationWithHubsDisplay } from './enumerationListUtils'
+import { buildEnumerationAuthoringPath, buildHubAuthoringPath } from '../../shared/legacyCompatibleRoutePaths'
 
 type GenericFormValues = Record<string, unknown>
 
 const EnumerationListContent = () => {
     const codenameConfig = useCodenameConfig()
     const navigate = useNavigate()
+    const { kindKey: routeKindKey } = useParams<{ kindKey?: string }>()
     const preferredVlcLocale = useMetahubPrimaryLocale()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
@@ -84,10 +86,32 @@ const EnumerationListContent = () => {
         allEnumerationsById,
         existingEnumerationCodenames,
         attachableExistingEnumerations,
+        entityKindKey,
         allowCopy,
         allowDelete,
         allowAttachExistingEntities
     } = useEnumerationListData()
+    const kindKey = entityKindKey
+    const buildEnumerationPath = useCallback(
+        (enumerationId: string) =>
+            buildEnumerationAuthoringPath({
+                metahubId,
+                enumerationId,
+                hubId: isHubScoped ? hubId : null,
+                kindKey: routeKindKey
+            }),
+        [hubId, isHubScoped, metahubId, routeKindKey]
+    )
+    const buildHubPath = useCallback(
+        (tab: 'hubs' | 'catalogs' | 'sets' | 'enumerations') =>
+            buildHubAuthoringPath({
+                metahubId,
+                hubId,
+                kindKey: routeKindKey,
+                tab
+            }),
+        [hubId, metahubId, routeKindKey]
+    )
 
     const { dialogs, openCreate, openDelete, openConflict, close } = useListDialogs<EnumerationWithHubs>()
     const [view, setView] = useViewPreference(
@@ -139,12 +163,11 @@ const EnumerationListContent = () => {
         if (!resolvedEnumeration) return
 
         setPendingEnumerationNavigation(null)
-        navigate(
-            isHubScoped && hubId
-                ? `/metahub/${metahubId}/hub/${hubId}/enumeration/${resolvedEnumeration.id}/values`
-                : `/metahub/${metahubId}/enumeration/${resolvedEnumeration.id}/values`
-        )
-    }, [hubId, isHubScoped, metahubId, navigate, pendingEnumerationNavigation, sortedEnumerations])
+        const nextPath = buildEnumerationPath(resolvedEnumeration.id)
+        if (nextPath) {
+            navigate(nextPath)
+        }
+    }, [buildEnumerationPath, metahubId, navigate, pendingEnumerationNavigation, sortedEnumerations])
 
     const handlePendingEnumerationInteraction = useCallback(
         (pendingEnumerationId: string) => {
@@ -156,17 +179,19 @@ const EnumerationListContent = () => {
             revealPendingEntityFeedback({
                 queryClient,
                 queryKeyPrefix:
-                    isHubScoped && hubId ? metahubsQueryKeys.enumerations(metahubId, hubId) : metahubsQueryKeys.allEnumerations(metahubId),
+                    isHubScoped && hubId
+                        ? metahubsQueryKeys.enumerationsScope(metahubId, hubId, entityKindKey)
+                        : metahubsQueryKeys.allEnumerationsScope(metahubId, entityKindKey),
                 entityId: pendingEnumerationId,
                 extraQueryKeys: [
                     isHubScoped && hubId
-                        ? metahubsQueryKeys.enumerationDetailInHub(metahubId, hubId, pendingEnumerationId)
-                        : metahubsQueryKeys.enumerationDetail(metahubId, pendingEnumerationId)
+                        ? metahubsQueryKeys.enumerationDetailInHub(metahubId, hubId, pendingEnumerationId, entityKindKey)
+                        : metahubsQueryKeys.enumerationDetail(metahubId, pendingEnumerationId, entityKindKey)
                 ]
             })
             enqueueSnackbar(pendingInteractionMessage, { variant: 'info' })
         },
-        [enqueueSnackbar, enumerationMap, hubId, isHubScoped, metahubId, pendingInteractionMessage, queryClient]
+        [enqueueSnackbar, entityKindKey, enumerationMap, hubId, isHubScoped, metahubId, pendingInteractionMessage, queryClient]
     )
 
     const attachExistingEnumerationSelectionLabels = useMemo<EntitySelectionLabels>(
@@ -339,9 +364,7 @@ const EnumerationListContent = () => {
                 sortable: true,
                 sortAccessor: (row: EnumerationWithHubsDisplay) => row.name?.toLowerCase() ?? '',
                 render: (row: EnumerationWithHubsDisplay) => {
-                    const href = isHubScoped
-                        ? `/metahub/${metahubId}/hub/${hubId}/enumeration/${row.id}/values`
-                        : `/metahub/${metahubId}/enumeration/${row.id}/values`
+                    const href = buildEnumerationPath(row.id)
                     return isPendingEntity(row) ? (
                         <ButtonBase
                             onClick={() => handlePendingEnumerationInteraction(row.id)}
@@ -498,11 +521,7 @@ const EnumerationListContent = () => {
                             </ButtonBase>
                         ) : (
                             <Link
-                                to={
-                                    isHubScoped
-                                        ? `/metahub/${metahubId}/hub/${hubId}/enumeration/${row.id}/values`
-                                        : `/metahub/${metahubId}/enumeration/${row.id}/values`
-                                }
+                                to={buildEnumerationPath(row.id)}
                                 style={{ textDecoration: 'none', color: 'inherit' }}
                             >
                                 <Typography
@@ -574,6 +593,7 @@ const EnumerationListContent = () => {
                                 metahubId,
                                 hubId: targetHubId,
                                 enumerationId: id,
+                                kindKey,
                                 data: dataWithVersion
                             },
                             { onError: mutationOptions.onError }
@@ -583,6 +603,7 @@ const EnumerationListContent = () => {
                             {
                                 metahubId,
                                 enumerationId: id,
+                                kindKey,
                                 data: dataWithVersion
                             },
                             { onError: mutationOptions.onError }
@@ -601,6 +622,7 @@ const EnumerationListContent = () => {
                             metahubId,
                             hubId,
                             enumerationId: id,
+                            kindKey,
                             force: false
                         })
                     } else {
@@ -610,6 +632,7 @@ const EnumerationListContent = () => {
                             metahubId,
                             hubId: targetHubId, // undefined for enumerations without hubs
                             enumerationId: id,
+                            kindKey,
                             force: Boolean(targetHubId) // force=true if has multiple hubs
                         })
                     }
@@ -619,6 +642,7 @@ const EnumerationListContent = () => {
                     copyEnumerationMutation.mutate({
                         metahubId,
                         enumerationId: id,
+                        kindKey,
                         data: payload
                     })
 
@@ -632,7 +656,7 @@ const EnumerationListContent = () => {
                             void invalidateEnumerationsQueries.all(queryClient, metahubId, hubId)
                         } else {
                             // In global mode, invalidate all enumerations cache
-                            void queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allEnumerations(metahubId) })
+                            void queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allEnumerationsScope(metahubId, kindKey) })
                         }
                     }
                 },
@@ -683,6 +707,7 @@ const EnumerationListContent = () => {
             hubs,
             hubId,
             isHubScoped,
+            kindKey,
             metahubId,
             preferredVlcLocale,
             queryClient,
@@ -746,10 +771,15 @@ const EnumerationListContent = () => {
                 try {
                     const currentHubIds = Array.isArray(enumeration.hubs) ? enumeration.hubs.map((hub) => hub.id) : []
                     const nextHubIds = Array.from(new Set([...currentHubIds, hubId]))
-                    await enumerationsApi.updateEnumerationAtMetahub(metahubId, enumeration.id, {
-                        hubIds: nextHubIds,
-                        expectedVersion: enumeration.version
-                    })
+                    await enumerationsApi.updateEnumerationAtMetahub(
+                        metahubId,
+                        enumeration.id,
+                        {
+                            hubIds: nextHubIds,
+                            expectedVersion: enumeration.version
+                        },
+                        kindKey
+                    )
                 } catch (error) {
                     failed.push(
                         getVLCString(enumeration.name, preferredVlcLocale) || getVLCString(enumeration.name, 'en') || enumeration.codename
@@ -761,7 +791,7 @@ const EnumerationListContent = () => {
 
             await Promise.all([
                 invalidateEnumerationsQueries.all(queryClient, metahubId, hubId),
-                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allEnumerations(metahubId) })
+                queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allEnumerationsScope(metahubId, kindKey) })
             ])
 
             if (failed.length === 0) {
@@ -850,22 +880,22 @@ const EnumerationListContent = () => {
             createEnumerationMutation.mutate({
                 metahubId: metahubId!,
                 hubId: primaryHubId,
+                kindKey,
                 data: enumerationPayload
             })
         } else {
             createEnumerationAtMetahubMutation.mutate({
                 metahubId: metahubId!,
+                kindKey,
                 data: enumerationPayload
             })
         }
     }
 
     const goToEnumeration = (enumeration: EnumerationWithHubs) => {
-        // Navigate based on mode: hub-scoped or enumeration-centric
-        if (isHubScoped) {
-            navigate(`/metahub/${metahubId}/hub/${hubId}/enumeration/${enumeration.id}/values`)
-        } else {
-            navigate(`/metahub/${metahubId}/enumeration/${enumeration.id}/values`)
+        const nextPath = buildEnumerationPath(enumeration.id)
+        if (nextPath) {
+            navigate(nextPath)
         }
     }
 
@@ -877,22 +907,37 @@ const EnumerationListContent = () => {
     const handleHubTabChange = (_event: unknown, tabValue: 'hubs' | 'catalogs' | 'sets' | 'enumerations' | 'settings') => {
         if (!metahubId || !hubId) return
         if (tabValue === 'hubs') {
-            navigate(`/metahub/${metahubId}/hub/${hubId}/hubs`)
+            const nextPath = buildHubPath('hubs')
+            if (nextPath) {
+                navigate(nextPath)
+            }
             return
         }
         if (tabValue === 'settings') {
-            navigate(`/metahub/${metahubId}/hub/${hubId}/hubs`, { state: { openHubSettings: true } })
+            const nextPath = buildHubPath('hubs')
+            if (nextPath) {
+                navigate(nextPath, { state: { openHubSettings: true } })
+            }
             return
         }
         if (tabValue === 'catalogs') {
-            navigate(`/metahub/${metahubId}/hub/${hubId}/catalogs`)
+            const nextPath = buildHubPath('catalogs')
+            if (nextPath) {
+                navigate(nextPath)
+            }
             return
         }
         if (tabValue === 'sets') {
-            navigate(`/metahub/${metahubId}/hub/${hubId}/sets`)
+            const nextPath = buildHubPath('sets')
+            if (nextPath) {
+                navigate(nextPath)
+            }
             return
         }
-        navigate(`/metahub/${metahubId}/hub/${hubId}/enumerations`)
+        const nextPath = buildHubPath('enumerations')
+        if (nextPath) {
+            navigate(nextPath)
+        }
     }
 
     // Transform Enumeration data for display - use hub-aware version for global mode
@@ -912,6 +957,7 @@ const EnumerationListContent = () => {
                 metahubId,
                 hubId,
                 enumerationId: String(active.id),
+                kindKey,
                 newSortOrder: overEnumeration.sortOrder ?? 1
             })
             enqueueSnackbar(t('enumerations.reorderSuccess', 'Enumeration order updated'), { variant: 'success' })
@@ -1129,11 +1175,7 @@ const EnumerationListContent = () => {
                                                 onSortableDragEnd={handleSortableDragEnd}
                                                 renderDragOverlay={renderDragOverlay}
                                                 getRowLink={(row: EnumerationWithHubsDisplay) =>
-                                                    row?.id
-                                                        ? isHubScoped
-                                                            ? `/metahub/${metahubId}/hub/${hubId}/enumeration/${row.id}/values`
-                                                            : `/metahub/${metahubId}/enumeration/${row.id}/values`
-                                                        : undefined
+                                                    row?.id ? buildEnumerationPath(row.id) || undefined : undefined
                                                 }
                                                 onPendingInteractionAttempt={(row: EnumerationWithHubsDisplay) =>
                                                     handlePendingEnumerationInteraction(row.id)
@@ -1279,12 +1321,13 @@ const EnumerationListContent = () => {
                                 metahubId,
                                 hubId: targetHubId,
                                 enumerationId: deletingEnumerationId,
+                                kindKey,
                                 force: !isHubScoped
                             },
                             {
                                 onSuccess: () => {
                                     queryClient.removeQueries({
-                                        queryKey: metahubsQueryKeys.blockingEnumerationReferences(metahubId, deletingEnumerationId)
+                                        queryKey: metahubsQueryKeys.blockingEnumerationReferences(metahubId, deletingEnumerationId, kindKey)
                                     })
                                 },
                                 onError: (err: unknown) => {
@@ -1316,12 +1359,13 @@ const EnumerationListContent = () => {
                                 metahubId,
                                 hubId: targetHubId,
                                 enumerationId: enumeration.id,
+                                kindKey,
                                 force: !isHubScoped
                             },
                             {
                                 onSuccess: () => {
                                     queryClient.removeQueries({
-                                        queryKey: metahubsQueryKeys.blockingEnumerationReferences(metahubId, enumeration.id)
+                                        queryKey: metahubsQueryKeys.blockingEnumerationReferences(metahubId, enumeration.id, kindKey)
                                     })
                                 },
                                 onError: (err: unknown) => {
@@ -1363,12 +1407,14 @@ const EnumerationListContent = () => {
                                     metahubId,
                                     hubId: targetHubId,
                                     enumerationId: conflictData.enumerationId,
+                                    kindKey,
                                     data: conflictData.pendingData
                                 })
                             } else {
                                 await updateEnumerationAtMetahubMutation.mutateAsync({
                                     metahubId,
                                     enumerationId: conflictData.enumerationId,
+                                    kindKey,
                                     data: conflictData.pendingData
                                 })
                             }
@@ -1385,7 +1431,7 @@ const EnumerationListContent = () => {
                             if (isHubScoped && hubId) {
                                 await invalidateEnumerationsQueries.all(queryClient, metahubId, hubId)
                             } else {
-                                await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allEnumerations(metahubId) })
+                                await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allEnumerationsScope(metahubId, kindKey) })
                             }
                         }
                         close('conflict')

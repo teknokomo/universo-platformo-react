@@ -37,6 +37,7 @@ vi.mock('@tanstack/react-query', async () => {
 })
 
 vi.mock('@universo/template-mui', () => ({
+    PAGE_CONTENT_GUTTER_MX: 0,
     TemplateMainCard: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
     ViewHeaderMUI: ({ title }: { title: string }) => <h1>{title}</h1>,
     FlowListTable: ({ data }: { data: Array<{ name: string }> }) => (

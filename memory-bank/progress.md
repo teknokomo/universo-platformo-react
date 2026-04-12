@@ -45,6 +45,212 @@
 | 0.22.0-alpha | 2025-07-27 | 0.22.0 Alpha — 2025-07-27 (Global Impulse) ⚡️    | Memory Bank, MMOOMM improvements                                                                    |
 | 0.21.0-alpha | 2025-07-20 | 0.21.0 Alpha — 2025-07-20 (Firm Resolve) 💪       | Handler refactoring, PlayCanvas stabilization                                                       |
 
+## 2026-04-12 PR #759 Review Comment QA Triage
+
+Closed the post-merge-request bot-review follow-up for GH759 on top of the already-green Entity V2 branch. This pass stayed intentionally narrow on product code: it accepted the two reviewer findings that were actually correct, kept the `_mhb_migrations` baseline rewrite/read path inside the transaction-aware executor boundary, consolidated duplicated legacy-compatible kind classification helpers in `schema-ddl`, and then absorbed the stale test-contract drift that surfaced during the mandatory full-suite validation.
+
+| Area | Resolution |
+| --- | --- |
+| Confirmed backend review fix | `MetahubSchemaService` now rewrites and reads baseline migration rows through executor SQL plus quoted schema identifiers instead of routing that reviewed path through the global Knex connection, keeping the baseline metadata flow aligned with transaction-bound semantics. |
+| Confirmed schema-ddl review fix | Shared compatibility classification helpers now live in `packages/schema-ddl/base/src/legacyCompatibleKinds.ts`, and `SchemaGenerator`, `SchemaMigrator`, plus `diff` consume the same helper set instead of drifting through duplicated local variants. |
+| Validation drift cleanup | Branch-local stale tests were realigned across backend/frontend packages: route-aware blocker assertions, `_app_scripts` system-table expectations, metahubs dialog/template mocks, async enumeration save behavior, members/invite label handling, connector action-factory imports, profile CSRF mocks, and metahubs API wrapper `meta` expectations now match the current shipped contracts. |
+| Validation | Focused `@universo/metahubs-backend` Jest coverage passed (`70/70` suites, `626` tests with `4` skipped), focused `@universo/schema-ddl` Jest coverage passed (`9/9` suites, `158` tests), the final root `pnpm test:vitest` rerun passed (`145/145` files, `804/804` tests), and the standalone canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+### Validation
+
+- official Knex transactions guidance review for transaction-bound query semantics
+- focused `@universo/metahubs-backend` Jest rerun
+- focused `@universo/schema-ddl` Jest rerun
+- targeted vitest reruns for the stale frontend test wave
+- `pnpm test:vitest`
+- `pnpm build`
+
+## 2026-04-12 Self-Hosted Fixture QA Closure
+
+Closed the last two real QA findings that were still live on the current tree after the broader Entity V2 surface was already green. This pass stayed intentionally narrow: regenerate the committed self-hosted fixture through the supported generator path and harden the browser snapshot import proof so imported V2 entity-definition drift cannot hide behind count/layout-only assertions.
+
+| Area | Resolution |
+| --- | --- |
+| Browser import contract proof | `snapshot-export-import.spec.ts` now re-exports the imported metahub and polls `assertSelfHostedAppEnvelopeContract(...)`, with an explicit longer stabilization timeout so the browser flow validates imported `entityTypeDefinitions` rather than only counts/layout structure. |
+| Fixture regeneration | The supported self-hosted generator rewrote `tools/fixtures/metahubs-self-hosted-app-snapshot.json`, and a direct Node contract check now returns `fixture-contract:ok` for the committed artifact. |
+| Validation | `pnpm run build:e2e` completed green, the supported self-hosted generator/export flow passed (`2 passed`), the targeted Chromium browser import flow passed (`2 passed`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+### Validation
+
+- `pnpm run build:e2e`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/generators/metahubs-self-hosted-app-export.spec.ts --project generators`
+- direct self-hosted fixture contract check via `assertSelfHostedAppEnvelopeContract(...)` (`fixture-contract:ok`)
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-export-import.spec.ts --project chromium --grep "self-hosted app snapshot fixture imports through the browser UI and restores MVP structure"`
+- `pnpm build`
+
+## 2026-04-12 Entity V2 QA Completion Follow-up
+
+Closed the last plan-vs-implementation gap left by the QA audit on the already-green legacy-compatible V2 surface. This follow-up did not change ACL, runtime filtering, or route-ownership behavior; it fixed the shipped preset manifests so Hub V2 and Enumeration V2 finally expose the promised automation uplift instead of inheriting legacy-disabled component maps.
+
+| Area | Resolution |
+| --- | --- |
+| Hub V2 / Enumeration V2 manifests | `hub-v2.entity-preset.ts` now enables `scripting`, `actions`, and `events`, while `enumeration-v2.entity-preset.ts` now enables `actions` and `events` on top of inherited scripting, aligning the shipped manifests with the approved V2 automation contract. |
+| Regression proof | Focused preset-manifest coverage now asserts the upgraded automation component set directly instead of only validating schema shape, so Hub V2 / Enumeration V2 cannot silently fall back to legacy-disabled automation components again. |
+| Fixture-facing contract | `selfHostedAppFixtureContract.mjs` now asserts automation component expectations for all four V2 presets, and the committed self-hosted snapshot was regenerated through the supported Playwright generator flow so exported fixture state matches the upgraded preset definitions. |
+| Docs and validation | EN/RU custom-entity guide wording now explicitly reflects automation on the legacy-compatible V2 presets, the edited guide pair remains line-count aligned (`72/72`), the supported self-hosted generator/export flow passed (`1 passed`, `5.3m`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-backend exec jest --config jest.config.js --runInBand src/tests/services/templateManifestValidator.test.ts`
+- `node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "self-hosted app"`
+- `pnpm docs:i18n:check`
+- `wc -l docs/en/guides/custom-entity-types.md docs/ru/guides/custom-entity-types.md`
+- `pnpm build 2>&1 | tail -20`
+
+## 2026-04-12 Entity V2 QA Closure Completion
+
+Closed the last real blocker left by the deeper QA review on the already-shipped legacy-compatible V2 surface. This pass fixed the remaining low-level delete-safety seam by teaching blocker services to honor compatible custom target kinds instead of only built-in `set` / `enumeration` literals, then wired that repair through both the generic entity delete plan and the legacy set/enumeration/constant child-delete flows.
+
+| Area | Resolution |
+| --- | --- |
+| Compatibility-aware blocker queries | `MetahubConstantsService` and `MetahubAttributesService` now accept compatible target-kind arrays and use `ANY($n::text[])` matching, so custom `custom.set-v2*` and `custom.enumeration-v2*` references participate in delete blocking the same way as built-in kinds. |
+| Generic and legacy delete parity | The generic entity-instance delete/permanent-delete path plus the legacy set/enumeration/constant delete flows now resolve compatible kinds explicitly before calling the blocker services, so both route families share the same delete-safety contract. |
+| Regression proof closure | Focused service tests now cover the real SQL seam, generic-route regressions now lock ACL/settings behavior for non-catalog compatible kinds, and the Chromium legacy-compatible V2 suite now proves a compatible Set V2 delete remains blocked when a catalog attribute still references it. |
+| Validation | Focused metahubs-backend route/service coverage passed (`87/87`), `pnpm run build:e2e` completed green (`30 successful`, `30 total`), the targeted Chromium legacy-compatible V2 suite passed (`7 passed`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+### Validation
+
+- Focused metahubs-backend route/service rerun (`MetahubConstantsService`, `MetahubAttributesService`, `constantsRoutes`, `setsRoutes`, `enumerationsRoutes`, `entityInstancesRoutes`)
+- `pnpm run build:e2e`
+- `node tools/testing/e2e/run-playwright-suite.mjs --project chromium -- tools/testing/e2e/specs/flows/metahub-entities-legacy-compatible-v2.spec.ts`
+- `pnpm build`
+
+## 2026-04-12 Entity V2 QA Gap Closure
+
+Closed the last two QA-found blockers on top of the already-shipped Entity V2 surface without widening the product scope. This pass restored legacy-safe generic delete behavior for compatible Hub V2 / Set V2 / Enumeration V2 custom kinds, extracted the shared hub-delete compatibility seam so the generic controller and the legacy hubs controller reuse the same blocker/cleanup logic, and hardened the runtime browser proof so it validates semantic URL state instead of a brittle raw string pattern.
+
+| Area | Resolution |
+| --- | --- |
+| Generic delete parity | Generic entity-instance `remove` and `permanentRemove` now build a legacy-compatible delete plan, so compatible catalog/set/enumeration/hub custom kinds reuse the same delete safety as the legacy controllers instead of preserving only the catalog-compatible branch. |
+| Hub-specific delete semantics | Shared hub compatibility helpers now expose blocker lookup plus association cleanup, and the generic delete path removes hub references from related objects before deleting a compatible Hub V2 row. |
+| Runtime proof hardening | The runtime Chromium spec now polls `pathname` and `catalogId` from `new URL(page.url())`, which keeps the proof stable when the browser uses absolute URLs and expected query strings. |
+| Validation | Focused metahubs-backend route coverage passed for the 4 touched suites (`64/64`), `pnpm run build:e2e` completed green (`30 successful`, `30 total`), the combined Chromium legacy-compatible/runtime rerun passed (`7 passed`), and the canonical root `pnpm build` completed green on the final patch set. |
+
+### Validation
+
+- Focused metahubs-backend route rerun (`entityInstancesRoutes`, `hubsRoutes`, `setsRoutes`, `enumerationsRoutes`)
+- `pnpm run build:e2e`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/metahub-entities-legacy-compatible-v2.spec.ts tools/testing/e2e/specs/flows/metahub-entities-v2-runtime.spec.ts --project=chromium`
+- `pnpm build`
+
+## 2026-04-12 Entity V2 Post-Rebuild Regression Remediation
+
+Closed the remaining post-rebuild regression debt on the already-shipped Entity V2 surface without widening schema/template versions or reopening a new product wave. This pass finished the last real defects that only remained after the earlier baseline/fixture repair: delegated Sets V2 and Enumerations V2 no longer crash on entity-owned routes, preset-derived compatible kind keys now resolve through the shared helper layer, and backend exact-kind list scoping no longer leaks built-in rows into custom V2 filtered surfaces.
+
+| Area | Resolution |
+| --- | --- |
+| Delegated Set/Enumeration runtime stability | `SetList` and `EnumerationList` now restore the resolved `kindKey` alias from `entityKindKey`, so the reused legacy authoring surfaces stop crashing on delegated entity-owned V2 routes. |
+| Preset-derived compatibility resolution | `getLegacyCompatibleObjectKindForKindKey(...)` now recognizes exact default compatible kind keys plus suffixed preset-derived variants such as `custom.hub-v2-demo`, and focused `@universo/types` plus route-helper regressions lock that behavior. |
+| Exact requested-kind filtering | `resolveRequestedLegacyCompatibleKinds(...)` now returns only the explicitly requested compatible custom kind for list routes instead of widening back to the built-in/custom union, which prevents built-in hub/set/enumeration rows from leaking into custom V2 filtered surfaces. |
+| Validation | Focused `@universo/types` and metahubs-frontend shared route-helper regressions passed, focused backend hubs/sets/enumerations route coverage passed (`39/39`), `pnpm run build:e2e` completed green (`30 successful`, `30 total`), the targeted Chromium legacy-compatible V2 suite passed (`6 passed`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+### Validation
+
+- `pnpm --filter @universo/types test -- --run src/__tests__/entityTypes.test.ts`
+- `pnpm --filter @universo/types build`
+- `pnpm --filter @universo/metahubs-frontend test -- --run src/domains/shared/__tests__/legacyCompatibleRoutePaths.test.ts`
+- Focused backend hubs/sets/enumerations route test rerun (`39/39`)
+- `pnpm run build:e2e`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/metahub-entities-legacy-compatible-v2.spec.ts --project=chromium`
+- `pnpm build`
+
+## 2026-04-11 Entity V2 Residual QA Remediation
+
+Closed the reopened residual QA debt on the already-shipped legacy-compatible V2 surface without widening the product scope. This pass focused on backend regression proof rather than new product code: the current tree now has direct tests for compatibility-aware metahub counts, `kindKey`-scoped Hub/Set/Enumeration V2 legacy list visibility, branch partial-copy/prune custom-kind grouping, and hub-nesting settings cleanup/read queries.
+
+| Area | Resolution |
+| --- | --- |
+| Compatibility-aware counts | Focused route regressions now prove metahub board/list counts use compatibility kind arrays with `ANY($n::text[])` semantics instead of stale exact built-in kind SQL assumptions. |
+| Legacy-compatible V2 list visibility | Focused Hub/Set/Enumeration route tests now prove `kindKey`-scoped legacy list routes include compatible custom rows instead of only built-in kinds. |
+| Branch/settings service seams | Focused service coverage now proves partial-copy compatibility/prune groups include custom compatible kinds, and `MetahubSettingsService` now has direct hub-nesting tests over built-in + compatible custom hub kinds. |
+| Validation | Focused `@universo/metahubs-backend` reruns passed for all 7 touched suites (`110` tests total, `106` passed, `4` skipped), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-backend test -- --runTestsByPath src/tests/routes/metahubBoardSummary.test.ts src/tests/routes/metahubsRoutes.test.ts src/tests/routes/hubsRoutes.test.ts src/tests/routes/setsRoutes.test.ts src/tests/routes/enumerationsRoutes.test.ts src/tests/services/metahubBranchesService.test.ts src/tests/services/MetahubSettingsService.test.ts`
+- `pnpm build`
+
+## 2026-04-11 Entity V2 QA Closure Completion
+
+Closed the last QA-completion gaps on the legacy-compatible V2 publication/runtime surface without widening scope. This pass preserved merged compatibility metadata from publication snapshots into applications-backend runtime and release-bundle normalization, generalized compatibility-aware executable handling for custom hub/set/enumeration kinds, preserved explicit snapshot table names in executable payloads, added the missing Hub V2 menu-widget browser proof, and finished on green focused/browser/build evidence.
+
+| Area | Resolution |
+| --- | --- |
+| Publication/runtime compatibility propagation | `SnapshotSerializer` now remains aligned with downstream applications-backend normalization, so legacy-compatible V2 hub/set/enumeration rows keep their merged compatibility metadata through publication, runtime filtering, and release-bundle generation. |
+| Executable entity contract | `publishedApplicationSnapshotEntities` now propagates snapshot `tableName` into executable `physicalTableName`, and the shared `SnapshotEntityDefinition` contract now declares optional `tableName` so full-build type checks stay aligned with the runtime payload seam. |
+| Browser-proof closure | The legacy-compatible V2 Chromium flow now proves Hub V2 rows are selectable from the menu-widget Bound hub picker, and the final rerun passed after correcting the interaction to target the actual combobox control rendered by the dialog. |
+| Validation | Focused `SnapshotSerializer` and `applicationReleaseBundle` regressions passed, the targeted Chromium hub-binding flow passed, `pnpm run build:e2e` completed green, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+### Validation
+
+- Focused `SnapshotSerializer` regression suite
+- Focused `applicationReleaseBundle` regression suite
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/metahub-entities-legacy-compatible-v2.spec.ts --project chromium --grep "Hub V2 instances are selectable in menu widget hub bindings"`
+- `pnpm run build:e2e`
+- `pnpm build`
+
+## 2026-04-11 Entity V2 Completion Remediation Closure
+
+Closed the remaining post-QA completion defects on the legacy-compatible V2 surface without widening scope. This pass fixed the missing delegated `kindKey` propagation for direct Set and Enumeration leaf/detail routes, closed the backend direct-enumeration update seam that still hardcoded the built-in `enumeration` kind, refreshed the committed self-hosted fixture through the supported generator path, and finished on green browser/docs/build evidence.
+
+| Area | Resolution |
+| --- | --- |
+| Delegated Set and Enumeration flows | Direct Set constants and Enumeration detail/value flows now keep compatibility context end to end through frontend APIs, hooks, query keys, invalidation paths, and the backend direct enumeration PATCH path. |
+| Browser-proof hardening | The targeted legacy-compatible V2 Playwright proof now compares response pathnames instead of raw full URLs, so expected `?kindKey=...` query params do not create false-negative timeouts on fixed routes. |
+| Fixture and snapshot closure | The supported self-hosted generator regenerated `tools/fixtures/metahubs-self-hosted-app-snapshot.json` with the published V2 entity definitions, and the full snapshot export/import browser suite is green again after aligning the slow import test budget with the expanded fixture verification scope. |
+| Validation | Focused frontend query-key coverage passed, the focused backend enumeration route regression passed (`18/18`), the targeted Chromium legacy-compatible V2 rerun passed (`3 passed`), the self-hosted generator passed (`2 passed`), the snapshot export/import suite passed (`5 passed`), `pnpm docs:i18n:check` passed, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-frontend test -- --run src/domains/shared/__tests__/queryKeys.test.ts`
+- `pnpm --filter @universo/metahubs-backend test -- --runTestsByPath src/tests/routes/enumerationsRoutes.test.ts`
+- `pnpm run build:e2e`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/metahub-entities-legacy-compatible-v2.spec.ts --project chromium --grep "Sets V2 delegated workspace flow preserves legacy lifecycle and browser leaf authoring|Enumerations V2 delegated workspace flow preserves legacy lifecycle and browser leaf authoring"`
+- `node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "self-hosted app"`
+- `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-export-import.spec.ts --project chromium`
+- `pnpm docs:i18n:check`
+- `pnpm build`
+
+## 2026-04-11 Entity V2 Generalization Completion
+
+Closed the reopened post-route-ownership implementation wave for legacy-compatible V2 entity kinds without widening scope into a second CRUD stack. This final pass kept the entity-route delegation layer intact, then finished the remaining compatibility seams across backend mutations, scoped frontend caches, runtime section selection, publication snapshot materialization, and schema-ddl classification so hub-v2, set-v2, enumeration-v2, and catalog-v2 now behave like their mature legacy counterparts while preserving stored custom kind identity.
+
+| Area | Resolution |
+| --- | --- |
+| Frontend scoped ownership | Hubs/sets/enumerations query keys, API adapters, mutation hooks, optimistic cache prefixes, and list UIs now carry optional `kindKey`, so legacy-compatible entity routes no longer share unscoped caches or writes with the legacy built-in surfaces. |
+| Runtime/publication/schema compatibility | `runtimeRowsController`, `SnapshotSerializer`, `SchemaGenerator`, `diff`, and `SchemaMigrator` now classify catalog/hub/set/enumeration behavior from compatibility metadata and known V2 kind keys instead of exact built-in literals, while filtering out unsupported `document` fallbacks from the narrower helper unions. |
+| Backend closure and build-only debt cleanup | The reopened backend compatibility pass now preserves stored custom kinds through hub/set/enumeration mutation paths, and the final validation sweep also removed the compile-only controller/service leftovers that surfaced only under the canonical root build. |
+| Validation | Focused metahubs-frontend regressions passed for scoped cache isolation, focused schema-ddl compatibility tests passed (`69/69`), focused `SnapshotSerializer` and `runtimeRowsController` suites passed, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-frontend test -- --run src/domains/shared/__tests__/queryKeys.test.ts src/domains/shared/__tests__/optimisticMutations.remaining.test.tsx`
+- `pnpm --filter @universo/schema-ddl test -- --runInBand src/__tests__/SchemaGenerator.test.ts src/__tests__/diff.test.ts src/__tests__/SchemaMigrator.test.ts`
+- `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/services/SnapshotSerializer.test.ts`
+- `pnpm --filter @universo/applications-backend test -- --runInBand src/tests/controllers/runtimeRowsController.test.ts`
+- `pnpm build`
+
+## 2026-04-11 Entity V2 Route Ownership Closure
+
+Closed the still-open route-ownership slice of the Entity V2 generalization wave without widening into a second CRUD stack. This pass finished the compatibility surface that was missing after the sidebar-order/preset work: hub/set/enumeration-compatible V2 kinds now delegate through the existing mature authoring pages, nested entity routes keep navigation inside the active `/entities/:kindKey/...` shell, and breadcrumbs follow the legacy-compatible detail names instead of falling back to the generic entity detail endpoint.
+
+| Area | Resolution |
+| --- | --- |
+| Sidebar ordering and presets | Shared entity-type UI config now persists `sidebarOrder`, the new built-in `hub-v2`, `set-v2`, and `enumeration-v2` presets are registered with explicit `legacyObjectKind` metadata, and dynamic metahub menu items sort by explicit sidebar order before title fallback. |
+| Legacy-compatible delegation and route ownership | `EntityInstanceList` now delegates hub/set/enumeration-compatible kinds in the same way as catalog-compatible kinds, shared route helpers preserve entity-route ownership for hub/catalog/set/enumeration detail paths, and core frontend routing now covers the nested entity-owned hub scope plus set/enumeration detail routes. |
+| Breadcrumb continuity and focused proof | `NavbarBreadcrumbs` now resolves entity-route labels for hub/catalog/set/enumeration-compatible V2 routes through the matching legacy name hooks, focused metahubs-frontend tests now cover the new delegation and route helper contract (`12/12`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`). |
+
+### Validation
+
+- `pnpm --filter @universo/types build`
+- `pnpm --filter @universo/metahubs-frontend test -- --run src/domains/entities/ui/__tests__/EntityInstanceList.test.tsx src/domains/shared/__tests__/legacyCompatibleRoutePaths.test.ts`
+- `pnpm build`
+
 ## 2026-04-11 Entities QA Closure Remediation
 
 ## 2026-04-11 PR #757 Review Comment QA Triage

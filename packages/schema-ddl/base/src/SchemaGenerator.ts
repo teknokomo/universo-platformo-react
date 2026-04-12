@@ -2,7 +2,6 @@ import type { Knex } from 'knex'
 import type { SystemTableCapabilityOptions } from '@universo/migrations-core'
 import {
     AttributeDataType,
-    MetaEntityKind,
     getPhysicalDataType,
     formatPhysicalType,
     type ApplicationLifecycleContract,
@@ -17,11 +16,8 @@ import { generateMigrationName } from './MigrationManager'
 import type { MigrationManager } from './MigrationManager'
 import type { EntityDefinition, FieldDefinition, SchemaGenerationResult, SchemaSnapshot } from './types'
 import type { SchemaDiff } from './diff'
+import { isEnumerationCompatibleKind, isNonPhysicalLegacyCompatibleEntity, isSetCompatibleKind } from './legacyCompatibleKinds'
 
-const ENUMERATION_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { ENUMERATION?: MetaEntityKind }).ENUMERATION ??
-    'enumeration') as MetaEntityKind
-const SET_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { SET?: MetaEntityKind }).SET ?? 'set') as MetaEntityKind
-const HUB_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { HUB?: MetaEntityKind }).HUB ?? 'hub') as MetaEntityKind
 const DEFAULT_DDL_STATEMENT_TIMEOUT_MS = 120_000
 const ENTITY_KIND_DB_LENGTH = 64
 
@@ -291,7 +287,7 @@ export class SchemaGenerator {
                 await this.createSchema(schemaName, trx)
 
                 for (const entity of entities) {
-                    if (entity.kind === ENUMERATION_KIND || entity.kind === SET_KIND || entity.kind === HUB_KIND) {
+                    if (isNonPhysicalLegacyCompatibleEntity(entity)) {
                         continue
                     }
                     await this.createEntityTable(schemaName, entity, trx)
@@ -396,7 +392,7 @@ export class SchemaGenerator {
     }
 
     public async createEntityTable(schemaName: string, entity: EntityDefinition, trx?: Knex.Transaction): Promise<void> {
-        if (entity.kind === ENUMERATION_KIND || entity.kind === SET_KIND || entity.kind === HUB_KIND) {
+        if (isNonPhysicalLegacyCompatibleEntity(entity)) {
             console.log(`[SchemaGenerator] Skipping physical table for ${entity.kind} entity: ${entity.codename}`)
             return
         }
@@ -562,7 +558,7 @@ export class SchemaGenerator {
         const constraintName = buildFkConstraintName(sourceTableName, columnName)
         const knex = trx ?? this.knex
 
-        if (field.targetEntityKind === ENUMERATION_KIND) {
+        if (isEnumerationCompatibleKind(field.targetEntityKind)) {
             await this.ensureSystemTables(schemaName, trx)
             console.log(`[SchemaGenerator] Adding FK: ${sourceTableName}.${columnName} -> _app_values.id`)
             await knex.raw(
@@ -578,7 +574,7 @@ export class SchemaGenerator {
             return
         }
 
-        if (field.targetEntityKind === SET_KIND) {
+        if (isSetCompatibleKind(field.targetEntityKind)) {
             console.log(
                 `[SchemaGenerator] Skipping FK for set constant reference: ${sourceTableName}.${columnName} (set refs store constant IDs)`
             )
@@ -1236,7 +1232,7 @@ export class SchemaGenerator {
                         : resolveFieldColumnName(field)
                 const baseUiConfig = ((field.uiConfig as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>
                 const setTargetConstantId =
-                    field.targetEntityKind === 'set' && typeof field.targetConstantId === 'string' ? field.targetConstantId : null
+                    isSetCompatibleKind(field.targetEntityKind) && typeof field.targetConstantId === 'string' ? field.targetConstantId : null
                 const normalizedUiConfig = setTargetConstantId
                     ? {
                           ...baseUiConfig,

@@ -38,10 +38,15 @@ const mockUseMetahubDetails = vi.fn()
 const mockUseEntityPermissions = vi.fn()
 const templateMainCardMock = vi.fn()
 const catalogListMock = vi.fn()
+const hubListMock = vi.fn()
+const setListMock = vi.fn()
+const enumerationListMock = vi.fn()
 
 type MockListRow = {
     id: string
     name: string
+    isDeleted?: boolean
+    raw?: unknown
 }
 
 type FlowListTableProps = {
@@ -130,7 +135,7 @@ vi.mock('@universo/template-mui', async (importOriginal) => {
                 {data.map((row) => (
                     <div key={row.id}>
                         <span>{row.name}</span>
-                        {renderActions ? renderActions(row) : null}
+                        {renderActions ? renderActions({ ...row, raw: undefined }) : null}
                     </div>
                 ))}
             </div>
@@ -252,6 +257,27 @@ vi.mock('../../../catalogs/ui/CatalogList', () => ({
     }
 }))
 
+vi.mock('../../../hubs/ui/HubList', () => ({
+    default: () => {
+        hubListMock()
+        return <div>HubList</div>
+    }
+}))
+
+vi.mock('../../../sets/ui/SetList', () => ({
+    default: () => {
+        setListMock()
+        return <div>SetList</div>
+    }
+}))
+
+vi.mock('../../../enumerations/ui/EnumerationList', () => ({
+    default: () => {
+        enumerationListMock()
+        return <div>EnumerationList</div>
+    }
+}))
+
 vi.mock('../../../settings/hooks/useMetahubPrimaryLocale', () => ({
     useMetahubPrimaryLocale: () => 'en'
 }))
@@ -297,6 +323,9 @@ describe('EntityInstanceList', () => {
         vi.clearAllMocks()
         templateMainCardMock.mockClear()
         catalogListMock.mockClear()
+        hubListMock.mockClear()
+        setListMock.mockClear()
+        enumerationListMock.mockClear()
 
         mockUseMetahubDetails.mockReturnValue({
             data: { permissions: { manageMetahub: true, editContent: true, deleteContent: true } },
@@ -369,7 +398,18 @@ describe('EntityInstanceList', () => {
         })
 
         mockEntityInstanceDetailQuery.mockReturnValue({
-            data: undefined,
+            data: {
+                id: 'entity-1',
+                kind: 'custom.product',
+                codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'product-one' } } },
+                name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Product One' } } },
+                description: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Fresh shared description' } } },
+                config: { hubs: ['hub-1'], isSingleHub: false, isRequiredHub: false, sortOrder: 1 },
+                sortOrder: 1,
+                version: 4,
+                updatedAt: '2026-04-09T12:05:00.000Z',
+                _mhb_deleted: false
+            },
             isLoading: false
         })
     })
@@ -425,6 +465,24 @@ describe('EntityInstanceList', () => {
         expect(screen.getByText('Scripts')).toBeInTheDocument()
         expect(screen.getByText('Actions')).toBeInTheDocument()
         expect(screen.getByText('Events')).toBeInTheDocument()
+    })
+
+    it('hydrates the list-view edit dialog from the entity detail query when table rows omit raw payloads', async () => {
+        const user = userEvent.setup()
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/custom.product/instances']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instances' element={<EntityInstanceList />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        await user.click(screen.getByRole('button', { name: 'Edit' }))
+
+        expect(await screen.findByTestId('entity-form-dialog')).toBeInTheDocument()
+        expect(screen.getByTestId('dialog-description')).toHaveTextContent('Fresh shared description')
+        expect(screen.getByText('Attributes')).toBeInTheDocument()
     })
 
     it('renders the catalog-compatible authoring surface on the entity route', () => {
@@ -509,6 +567,63 @@ describe('EntityInstanceList', () => {
 
         expect(screen.getByText('CatalogList')).toBeInTheDocument()
         expect(catalogListMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('renders the hub-compatible surface immediately for the known Hubs V2 route', () => {
+        mockEntityTypesQuery.mockReturnValue({
+            data: undefined,
+            error: null,
+            isLoading: true
+        })
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/custom.hub-v2/instances']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instances' element={<EntityInstanceList />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        expect(screen.getByText('HubList')).toBeInTheDocument()
+        expect(hubListMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('renders the set-compatible surface immediately for the known Sets V2 route', () => {
+        mockEntityTypesQuery.mockReturnValue({
+            data: undefined,
+            error: null,
+            isLoading: true
+        })
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/custom.set-v2/instances']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instances' element={<EntityInstanceList />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        expect(screen.getByText('SetList')).toBeInTheDocument()
+        expect(setListMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('renders the enumeration-compatible surface immediately for the known Enumerations V2 route', () => {
+        mockEntityTypesQuery.mockReturnValue({
+            data: undefined,
+            error: null,
+            isLoading: true
+        })
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/custom.enumeration-v2/instances']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instances' element={<EntityInstanceList />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        expect(screen.getByText('EnumerationList')).toBeInTheDocument()
+        expect(enumerationListMock).toHaveBeenCalledTimes(1)
     })
 
     it('keeps the catalog-compatible surface when legacy settings limit copy and delete', () => {

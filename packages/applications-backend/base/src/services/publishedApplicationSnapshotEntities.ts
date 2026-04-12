@@ -1,7 +1,7 @@
 import { createHash } from 'crypto'
 import type { EntityDefinition, FieldDefinition } from '@universo/schema-ddl'
 import { getCodenamePrimary } from '@universo/utils'
-import { AttributeDataType, type CatalogSystemFieldsSnapshot } from '@universo/types'
+import { AttributeDataType, getLegacyCompatibleObjectKindForKindKey, type CatalogSystemFieldsSnapshot } from '@universo/types'
 import type {
     PublishedApplicationSnapshot,
     SnapshotCodenameValue,
@@ -25,6 +25,8 @@ type SetConstantRefPayload = {
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
+
+const isSetCompatibleKind = (kind: unknown): boolean => kind === 'set' || getLegacyCompatibleObjectKindForKindKey(kind) === 'set'
 
 const buildDeterministicScopedUuid = (seed: string): string => {
     const hex = createHash('sha256').update(seed).digest('hex').slice(0, 32).split('')
@@ -218,7 +220,7 @@ const enrichFieldWithSetConstantRef = (
 
     if (
         nextField.dataType !== AttributeDataType.REF ||
-        nextField.targetEntityKind !== 'set' ||
+        !isSetCompatibleKind(nextField.targetEntityKind) ||
         typeof nextField.targetConstantId !== 'string' ||
         nextField.targetConstantId.length === 0
     ) {
@@ -334,6 +336,11 @@ export const resolveExecutablePayloadEntities = (snapshot: PublishedApplicationS
             const normalizedEntity: EntityDefinition = {
                 ...entity,
                 codename: resolveSnapshotCodenameText(entity.codename) ?? '',
+                ...(typeof entity.tableName === 'string' && entity.tableName.trim().length > 0
+                    ? { physicalTableName: entity.tableName }
+                    : typeof entity.physicalTableName === 'string' && entity.physicalTableName.trim().length > 0
+                      ? { physicalTableName: entity.physicalTableName }
+                      : {}),
                 config: {
                     ...entityConfig,
                     ...(snapshotSystemFields?.[entity.id] ? { systemFields: snapshotSystemFields[entity.id] } : {})

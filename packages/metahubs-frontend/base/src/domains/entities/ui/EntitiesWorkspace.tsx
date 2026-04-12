@@ -18,6 +18,7 @@ import {
     Typography
 } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import ViewListRoundedIcon from '@mui/icons-material/ViewListRounded'
@@ -68,7 +69,7 @@ import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryL
 import GeneralTabFields from '../../shared/ui/GeneralTabFields'
 import { invalidateEntityTypesQueries, metahubsQueryKeys } from '../../shared'
 import type { EntityTypePayload, UpdateEntityTypePayload, MetahubEntityType } from '../api'
-import { useCreateEntityType, useDeleteEntityType, useEntityTypesQuery, useUpdateEntityType } from '../hooks'
+import { useCopyEntityType, useCreateEntityType, useDeleteEntityType, useEntityTypesQuery, useUpdateEntityType } from '../hooks'
 import { EntityTypePresetSelector } from './EntityTypePresetSelector'
 
 type EntityTypeFormValues = Record<string, unknown>
@@ -93,6 +94,7 @@ type EntityTypeDisplayRow = {
     codename: string
     source: 'builtin' | 'custom'
     sidebarSection: 'objects' | 'admin'
+    sidebarOrder: number | null
     iconName: string
     updatedAt: string
     componentKeys: string[]
@@ -138,6 +140,77 @@ const DEFAULT_COMPONENTS_TEMPLATE: ComponentManifest = {
 
 const DEFAULT_PRESENTATION_TEMPLATE: Record<string, unknown> = {}
 const DEFAULT_CONFIG_TEMPLATE: Record<string, unknown> = {}
+
+const appendLocalizedCopySuffix = (
+    value: VersionedLocalizedContent<string> | null | undefined,
+    uiLocale: string,
+    fallback: string
+): VersionedLocalizedContent<string> => {
+    const normalizedLocale = uiLocale.toLowerCase().startsWith('ru') ? 'ru' : 'en'
+    const suffix = normalizedLocale === 'ru' ? ' (копия)' : ' (copy)'
+
+    if (!value?.locales) {
+        return {
+            _schema: 'v1',
+            _primary: normalizedLocale,
+            locales: {
+                [normalizedLocale]: {
+                    content: `${fallback || (normalizedLocale === 'ru' ? 'Копия' : 'Copy')}${suffix}`
+                }
+            }
+        }
+    }
+
+    const nextLocales = { ...value.locales } as Record<string, { content?: string }>
+    for (const [locale, localeValue] of Object.entries(nextLocales)) {
+        const localeSuffix = locale.toLowerCase().startsWith('ru') ? ' (копия)' : ' (copy)'
+        const content = typeof localeValue?.content === 'string' ? localeValue.content.trim() : ''
+        if (content.length > 0) {
+            nextLocales[locale] = { ...localeValue, content: `${content}${localeSuffix}` }
+        }
+    }
+
+    const hasContent = Object.values(nextLocales).some((entry) => typeof entry?.content === 'string' && entry.content.trim().length > 0)
+    if (!hasContent) {
+        nextLocales[normalizedLocale] = {
+            content: `${fallback || (normalizedLocale === 'ru' ? 'Копия' : 'Copy')}${suffix}`
+        }
+    }
+
+    return {
+        ...value,
+        locales: nextLocales
+    }
+}
+
+const buildCopyEntityTypeKindKey = (kindKey: string): string => {
+    const normalizedKindKey = kindKey.trim().toLowerCase()
+    const existingCopyMatch = normalizedKindKey.match(/^(.*?)-copy(?:-(\d+))?$/)
+    if (existingCopyMatch) {
+        const nextIndex = existingCopyMatch[2] ? Number.parseInt(existingCopyMatch[2], 10) + 1 : 2
+        return `${existingCopyMatch[1]}-copy-${nextIndex}`
+    }
+
+    return `${normalizedKindKey}-copy`
+}
+
+const parseSidebarOrderValue = (value: unknown): number | undefined => {
+    if (value === null || value === undefined) {
+        return undefined
+    }
+
+    const rawValue = typeof value === 'string' ? value.trim() : String(value).trim()
+    if (!rawValue) {
+        return undefined
+    }
+
+    if (!/^\d+$/.test(rawValue)) {
+        return undefined
+    }
+
+    const parsedValue = Number.parseInt(rawValue, 10)
+    return Number.isSafeInteger(parsedValue) ? parsedValue : undefined
+}
 
 const stringifyJson = (value: unknown): string => JSON.stringify(value ?? {}, null, 2)
 
@@ -467,6 +540,7 @@ const buildEntityTypeDisplayRow = (
         codename,
         source: entityType.source,
         sidebarSection: entityType.ui.sidebarSection === 'admin' ? 'admin' : 'objects',
+        sidebarOrder: typeof entityType.ui.sidebarOrder === 'number' ? entityType.ui.sidebarOrder : null,
         iconName: entityType.ui.iconName,
         updatedAt: entityType.updatedAt ?? '',
         componentKeys,
@@ -489,6 +563,7 @@ const buildInitialFormValues = (uiLocale: string, entityType?: MetahubEntityType
             tabs: ['general'],
             customTabsInput: '',
             sidebarSection: 'objects',
+            sidebarOrder: '',
             components: normalizeComponentManifestForBuilder(DEFAULT_COMPONENTS_TEMPLATE),
             presentationText: stringifyJson(DEFAULT_PRESENTATION_TEMPLATE),
             configText: stringifyJson(DEFAULT_CONFIG_TEMPLATE),
@@ -519,10 +594,30 @@ const buildInitialFormValues = (uiLocale: string, entityType?: MetahubEntityType
         tabs: structuredTabs.length > 0 ? structuredTabs : ['general'],
         customTabsInput: customTabs.join(', '),
         sidebarSection: entityType.ui.sidebarSection === 'admin' ? 'admin' : 'objects',
+        sidebarOrder: typeof entityType.ui.sidebarOrder === 'number' ? String(entityType.ui.sidebarOrder) : '',
         components: normalizeComponentManifestForBuilder(entityType.components),
         presentationText: stringifyJson(entityType.presentation ?? DEFAULT_PRESENTATION_TEMPLATE),
         configText: stringifyJson(entityType.config ?? DEFAULT_CONFIG_TEMPLATE),
         published: entityType.published !== false
+    }
+}
+
+const buildCopyInitialFormValues = (uiLocale: string, entityType: MetahubEntityType): EntityTypeFormValues => {
+    const initialValues = buildInitialFormValues(uiLocale, entityType)
+    const fallbackName =
+        getLocalizedContentText(initialValues.codename as VersionedLocalizedContent<string> | string | null | undefined, uiLocale, '').trim() ||
+        entityType.kindKey
+
+    return {
+        ...initialValues,
+        nameVlc: appendLocalizedCopySuffix(
+            initialValues.nameVlc as VersionedLocalizedContent<string> | null | undefined,
+            uiLocale,
+            fallbackName
+        ),
+        codename: null,
+        codenameTouched: false,
+        kindKey: buildCopyEntityTypeKindKey(entityType.kindKey)
     }
 }
 
@@ -543,7 +638,7 @@ const EntitiesWorkspace = () => {
     const [searchValue, setSearchValue] = useState('')
     const [storedView, setStoredView] = useViewPreference(STORAGE_KEYS.ENTITY_DISPLAY_STYLE, 'list')
     const view = (storedView === 'table' ? 'list' : storedView) as EntitiesViewMode
-    const [editorState, setEditorState] = useState<{ mode: 'create' | 'edit'; entity: MetahubEntityType | null; open: boolean }>({
+    const [editorState, setEditorState] = useState<{ mode: 'create' | 'edit' | 'copy'; entity: MetahubEntityType | null; open: boolean }>({
         mode: 'create',
         entity: null,
         open: false
@@ -572,6 +667,7 @@ const EntitiesWorkspace = () => {
     })
 
     const createEntityTypeMutation = useCreateEntityType()
+    const copyEntityTypeMutation = useCopyEntityType()
     const updateEntityTypeMutation = useUpdateEntityType()
     const deleteEntityTypeMutation = useDeleteEntityType()
 
@@ -613,10 +709,17 @@ const EntitiesWorkspace = () => {
         []
     )
 
-    const editorInitialValues = useMemo(
-        () => buildInitialFormValues(preferredVlcLocale, editorState.mode === 'edit' ? editorState.entity : null),
-        [editorState.entity, editorState.mode, preferredVlcLocale]
-    )
+    const editorInitialValues = useMemo(() => {
+        if (editorState.mode === 'edit') {
+            return buildInitialFormValues(preferredVlcLocale, editorState.entity)
+        }
+
+        if (editorState.mode === 'copy' && editorState.entity) {
+            return buildCopyInitialFormValues(preferredVlcLocale, editorState.entity)
+        }
+
+        return buildInitialFormValues(preferredVlcLocale, null)
+    }, [editorState.entity, editorState.mode, preferredVlcLocale])
 
     const handleSearchChange = useCallback((event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setSearchValue(event.target.value)
@@ -648,6 +751,14 @@ const EntitiesWorkspace = () => {
         (entityType: MetahubEntityType) => {
             if (!canManageEntityTypes || entityType.source !== 'custom' || !entityType.id) return
             setEditorState({ mode: 'edit', entity: entityType, open: true })
+        },
+        [canManageEntityTypes]
+    )
+
+    const handleOpenCopy = useCallback(
+        (entityType: MetahubEntityType) => {
+            if (!canManageEntityTypes || entityType.source !== 'custom' || !entityType.id) return
+            setEditorState({ mode: 'copy', entity: entityType, open: true })
         },
         [canManageEntityTypes]
     )
@@ -685,6 +796,17 @@ const EntitiesWorkspace = () => {
                 }
             },
             {
+                id: 'copy',
+                labelKey: 'common:actions.copy',
+                icon: <ContentCopyRoundedIcon fontSize='small' />,
+                order: 30,
+                onSelect: ({ entity }) => {
+                    const resolvedEntityType = resolveEntityTypeForAction(entity)
+                    if (!resolvedEntityType) return
+                    handleOpenCopy(resolvedEntityType)
+                }
+            },
+            {
                 id: 'delete',
                 labelKey: 'common:actions.delete',
                 icon: <DeleteIcon fontSize='small' />,
@@ -698,7 +820,7 @@ const EntitiesWorkspace = () => {
                 }
             }
         ],
-        [handleOpenEdit, handleOpenInstances, resolveEntityTypeForAction]
+        [handleOpenCopy, handleOpenEdit, handleOpenInstances, resolveEntityTypeForAction]
     )
 
     const renderEntityTypeMenu = useCallback(
@@ -723,9 +845,9 @@ const EntitiesWorkspace = () => {
     )
 
     const handleCloseEditor = useCallback(() => {
-        if (createEntityTypeMutation.isPending || updateEntityTypeMutation.isPending) return
+        if (createEntityTypeMutation.isPending || copyEntityTypeMutation.isPending || updateEntityTypeMutation.isPending) return
         setEditorState((prev) => ({ ...prev, open: false }))
-    }, [createEntityTypeMutation.isPending, updateEntityTypeMutation.isPending])
+    }, [copyEntityTypeMutation.isPending, createEntityTypeMutation.isPending, updateEntityTypeMutation.isPending])
 
     const handleCloseConflict = useCallback(() => {
         setConflictState({ open: false, conflict: null, entity: null, patch: null })
@@ -738,6 +860,7 @@ const EntitiesWorkspace = () => {
                 .toLowerCase()
             const iconName = String(values.iconName ?? '').trim()
             const sidebarSection = values.sidebarSection === 'admin' ? 'admin' : 'objects'
+            const sidebarOrder = parseSidebarOrderValue(values.sidebarOrder)
             const tabs = normalizeEntityTypeTabs(values.tabs, values.customTabsInput)
             const components = normalizeComponentManifestForBuilder(values.components)
             const presentation = parseJsonRecordField(values.presentationText, DEFAULT_PRESENTATION_TEMPLATE)
@@ -766,6 +889,7 @@ const EntitiesWorkspace = () => {
                 iconName,
                 tabs,
                 sidebarSection,
+                ...(sidebarOrder !== undefined ? { sidebarOrder } : {}),
                 nameKey: getLocalizedContentText(nameVlc, namePrimaryLocale ?? preferredVlcLocale, kindKey),
                 descriptionKey: getLocalizedContentText(descriptionVlc, descriptionLocale, '').trim() || undefined
             }
@@ -790,6 +914,7 @@ const EntitiesWorkspace = () => {
                 .trim()
                 .toLowerCase()
             const iconName = String(values.iconName ?? '').trim()
+            const sidebarOrderValue = String(values.sidebarOrder ?? '').trim()
             const tabs = normalizeEntityTypeTabs(values.tabs, values.customTabsInput)
             const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
             const codenameValue = (values.codename as VersionedLocalizedContent<string> | null | undefined) ?? null
@@ -834,6 +959,13 @@ const EntitiesWorkspace = () => {
 
             if (!iconName) {
                 errors.iconName = t('entities.validation.iconNameRequired', 'Icon name is required')
+            }
+
+            if (sidebarOrderValue.length > 0) {
+                const parsedSidebarOrder = Number.parseInt(sidebarOrderValue, 10)
+                if (!/^\d+$/.test(sidebarOrderValue) || !Number.isSafeInteger(parsedSidebarOrder)) {
+                    errors.sidebarOrder = t('entities.validation.sidebarOrderInvalid', 'Sidebar order must be a non-negative integer')
+                }
             }
 
             if (tabs.length === 0) {
@@ -919,6 +1051,15 @@ const EntitiesWorkspace = () => {
                 return
             }
 
+            if (editorState.mode === 'copy') {
+                await copyEntityTypeMutation.mutateAsync({
+                    metahubId,
+                    data: payload
+                })
+
+                return
+            }
+
             await createEntityTypeMutation.mutateAsync({
                 metahubId,
                 data: payload
@@ -926,6 +1067,7 @@ const EntitiesWorkspace = () => {
         },
         [
             canManageEntityTypes,
+            copyEntityTypeMutation,
             createEntityTypeMutation,
             editorState.entity,
             editorState.mode,
@@ -1110,6 +1252,23 @@ const EntitiesWorkspace = () => {
                                         t('entities.fields.sidebarSectionHelper', 'Controls where future menus may place this entity type')}
                                 </FormHelperText>
                             </FormControl>
+                            <TextField
+                                label={t('entities.fields.sidebarOrder', 'Sidebar order')}
+                                value={String(values.sidebarOrder ?? '')}
+                                onChange={(event) => setValue('sidebarOrder', event.target.value)}
+                                disabled={isLoading}
+                                error={Boolean(errors.sidebarOrder)}
+                                helperText={
+                                    errors.sidebarOrder ||
+                                    t(
+                                        'entities.fields.sidebarOrderHelper',
+                                        'Optional non-negative integer used to sort published entity links inside the dynamic menu zone.'
+                                    )
+                                }
+                                type='number'
+                                inputProps={{ min: 0, step: 1 }}
+                                fullWidth
+                            />
                             <Box sx={COMPONENT_SECTION_SX}>
                                 <Stack spacing={1}>
                                     <FormControlLabel
@@ -1687,6 +1846,18 @@ const EntitiesWorkspace = () => {
                 )
             },
             {
+                id: 'sidebarOrder',
+                label: t('entities.columns.sidebarOrder', 'Order'),
+                width: '8%',
+                sortable: true,
+                sortAccessor: (row: EntityTypeDisplayRow) => row.sidebarOrder ?? Number.MAX_SAFE_INTEGER,
+                render: (row: EntityTypeDisplayRow) => (
+                    <Typography variant='body2' color={row.sidebarOrder === null ? 'text.secondary' : 'text.primary'}>
+                        {row.sidebarOrder ?? t('entities.columns.sidebarOrderAuto', 'Auto')}
+                    </Typography>
+                )
+            },
+            {
                 id: 'published',
                 label: t('entities.columns.published', 'Menu'),
                 width: '10%',
@@ -1920,13 +2091,25 @@ const EntitiesWorkspace = () => {
                     title={
                         editorState.mode === 'edit'
                             ? t('entities.editDialog.title', 'Edit Entity Type')
+                            : editorState.mode === 'copy'
+                            ? t('entities.copyDialog.title', 'Copy Entity Type')
                             : t('entities.createDialog.title', 'Create Entity Type')
                     }
                     nameLabel={tc('fields.name', 'Name')}
                     descriptionLabel={tc('fields.description', 'Description')}
-                    saveButtonText={editorState.mode === 'edit' ? tc('actions.save', 'Save') : tc('actions.create', 'Create')}
+                    saveButtonText={
+                        editorState.mode === 'edit'
+                            ? tc('actions.save', 'Save')
+                            : editorState.mode === 'copy'
+                            ? tc('actions.copy', 'Copy')
+                            : tc('actions.create', 'Create')
+                    }
                     savingButtonText={
-                        editorState.mode === 'edit' ? tc('actions.saving', 'Saving...') : tc('actions.creating', 'Creating...')
+                        editorState.mode === 'edit'
+                            ? tc('actions.saving', 'Saving...')
+                            : editorState.mode === 'copy'
+                            ? t('entities.copyDialog.copying', 'Copying...')
+                            : tc('actions.creating', 'Creating...')
                     }
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
                     onClose={handleCloseEditor}
@@ -1936,7 +2119,7 @@ const EntitiesWorkspace = () => {
                     tabs={buildFormTabs}
                     validate={validateEntityTypeForm}
                     canSave={canSaveEntityTypeForm}
-                    loading={createEntityTypeMutation.isPending || updateEntityTypeMutation.isPending}
+                    loading={createEntityTypeMutation.isPending || copyEntityTypeMutation.isPending || updateEntityTypeMutation.isPending}
                 />
 
                 <ConfirmDeleteDialog

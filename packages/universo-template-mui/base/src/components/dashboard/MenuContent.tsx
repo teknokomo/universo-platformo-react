@@ -48,6 +48,7 @@ type MenuEntityTypeSummary = {
         iconName?: string | null
         nameKey?: string | null
         sidebarSection?: 'objects' | 'admin'
+        sidebarOrder?: number | null
     }
 }
 
@@ -115,7 +116,8 @@ export default function MenuContent() {
             kindKey: item.kindKey,
             title: resolveLocalizedText(item.presentation?.name) || item.ui?.nameKey?.trim() || resolveLocalizedText(item.codename) || item.kindKey,
             iconName: item.ui?.iconName ?? null,
-            sidebarSection: item.ui?.sidebarSection ?? 'objects'
+            sidebarSection: item.ui?.sidebarSection ?? 'objects',
+            sidebarOrder: typeof item.ui?.sidebarOrder === 'number' ? item.ui.sidebarOrder : null
         }))
 
     // Check if we're in an application admin context (/a/:id/admin...)

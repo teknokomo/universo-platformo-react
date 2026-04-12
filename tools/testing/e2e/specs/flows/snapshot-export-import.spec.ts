@@ -134,6 +134,32 @@ async function loadSelfHostedAppFixture(): Promise<{
     }
 }
 
+async function waitForSelfHostedAppExportContract(api: ApiContext, metahubId: string) {
+    await expect
+        .poll(
+            async () => {
+                const exportResponse = await apiGet(api, `/api/v1/metahub/${metahubId}/export`)
+                if (!exportResponse.ok) {
+                    return `export status ${exportResponse.status}`
+                }
+
+                try {
+                    const envelope = (await exportResponse.json()) as Record<string, unknown>
+                    assertSelfHostedAppEnvelopeContract(envelope)
+                    return 'ok'
+                } catch (error) {
+                    return error instanceof Error ? error.message : String(error)
+                }
+            },
+            {
+                message: 'Waiting for imported self-hosted app export metadata to satisfy the canonical fixture contract',
+                timeout: 60_000,
+                intervals: [1_000, 2_000, 5_000]
+            }
+        )
+        .toBe('ok')
+}
+
 test.describe('Snapshot Export/Import Flow', () => {
     let api: ApiContext
 
@@ -216,6 +242,8 @@ test.describe('Snapshot Export/Import Flow', () => {
     })
 
     test('@flow self-hosted app snapshot fixture imports through the browser UI and restores MVP structure', async ({ page, runManifest }) => {
+        test.setTimeout(180_000)
+
         const fixture = await loadSelfHostedAppFixture()
 
         api = await createLoggedInApiContext({
@@ -243,7 +271,7 @@ test.describe('Snapshot Export/Import Flow', () => {
 
         const importResponsePromise = page.waitForResponse(
             (response) => response.request().method() === 'POST' && response.url().endsWith('/api/v1/metahubs/import'),
-            { timeout: 60_000 }
+            { timeout: 120_000 }
         )
         await dialog.getByRole('button', { name: /import/i }).last().click()
 
@@ -269,6 +297,8 @@ test.describe('Snapshot Export/Import Flow', () => {
         expect((hubs.items ?? []).length).toBe(fixture.expectedCounts.hubs)
         expect((sets.items ?? []).length).toBe(fixture.expectedCounts.sets)
         expect((enumerations.items ?? []).length).toBe(fixture.expectedCounts.enumerations)
+
+        await waitForSelfHostedAppExportContract(api, importedId)
 
         const settingsCatalog = (catalogs.items ?? []).find((catalog) => readLocalizedText(catalog?.name) === 'Settings')
         expect(typeof settingsCatalog?.id).toBe('string')

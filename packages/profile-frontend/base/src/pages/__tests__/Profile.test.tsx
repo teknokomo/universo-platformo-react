@@ -14,21 +14,26 @@ const authState = {
     getAccessToken: getAccessTokenMock
 }
 
-vi.mock('@universo/auth-frontend', () => ({
-    createAuthClient: () => ({
-        defaults: {
-            headers: {
-                common: {}
-            }
-        },
-        get: vi.fn(),
-        post: vi.fn(),
-        put: vi.fn(),
-        patch: vi.fn(),
-        delete: vi.fn()
-    }),
-    useAuth: () => authState
-}))
+vi.mock('@universo/auth-frontend', async () => {
+    const actual = await vi.importActual<typeof import('@universo/auth-frontend')>('@universo/auth-frontend')
+    return {
+        ...actual,
+        createAuthClient: () => ({
+            defaults: {
+                headers: {
+                    common: {}
+                }
+            },
+            get: vi.fn(),
+            post: vi.fn(),
+            put: vi.fn(),
+            patch: vi.fn(),
+            delete: vi.fn()
+        }),
+        useAuth: () => authState,
+        getStoredCsrfToken: vi.fn(() => null)
+    }
+})
 
 const profileResponse = {
     success: true,
@@ -43,6 +48,13 @@ function createFetchMock(passwordResponse: Record<string, unknown> = { success: 
             return {
                 ok: true,
                 json: async () => profileResponse
+            } as Response
+        }
+
+        if (url.includes('/api/v1/auth/csrf')) {
+            return {
+                ok: true,
+                json: async () => ({ csrfToken: 'csrf-token-123' })
             } as Response
         }
 

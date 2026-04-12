@@ -90,7 +90,8 @@ describe('metahubs-frontend api wrappers', () => {
         })
         expect(members).toEqual({
             items: [{ id: 'u1' }],
-            pagination: { total: 1, limit: 10, offset: 0, count: 1, hasMore: false }
+            pagination: { total: 1, limit: 10, offset: 0, count: 1, hasMore: false },
+            meta: { role: undefined, permissions: undefined }
         })
 
         api.inviteMetahubMember('m1', { email: 't@example.com', role: 'admin' as any })

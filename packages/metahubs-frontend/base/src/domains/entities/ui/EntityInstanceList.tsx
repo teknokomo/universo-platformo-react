@@ -27,7 +27,13 @@ import {
     usePaginated
 } from '@universo/template-mui'
 import { ConfirmDeleteDialog, ConflictResolutionDialog, EntityFormDialog, type TabConfig } from '@universo/template-mui/components/dialogs'
-import { isEnabledComponentConfig, isLegacyCompatibleObjectKind, type VersionedLocalizedContent } from '@universo/types'
+import {
+    getLegacyCompatibleObjectKind,
+    getLegacyCompatibleObjectKindForKindKey,
+    isEnabledComponentConfig,
+    type LegacyCompatibleObjectKind,
+    type VersionedLocalizedContent
+} from '@universo/types'
 import { extractConflictInfo, isOptimisticLockConflict, normalizeCatalogCopyOptions, type ConflictInfo } from '@universo/utils'
 
 import { ExistingCodenamesProvider, HubSelectionPanel } from '../../../components'
@@ -39,6 +45,7 @@ import { isValidCodenameForStyle, normalizeCodenameForStyle } from '../../../uti
 import { AttributeListContent } from '../../attributes/ui/AttributeList'
 import CatalogList from '../../catalogs/ui/CatalogList'
 import { useMetahubHubs } from '../../hubs/hooks'
+import HubList from '../../hubs/ui/HubList'
 import LayoutList from '../../layouts/ui/LayoutList'
 import { useMetahubDetails } from '../../metahubs/hooks'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
@@ -47,6 +54,8 @@ import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryL
 import { invalidateEntitiesQueries, metahubsQueryKeys } from '../../shared'
 import GeneralTabFields from '../../shared/ui/GeneralTabFields'
 import { createScriptsTab } from '../../scripts/ui/EntityScriptsTab'
+import EnumerationList from '../../enumerations/ui/EnumerationList'
+import SetList from '../../sets/ui/SetList'
 import { createEntityActionsTab, createEntityEventsTab } from './EntityAutomationTab'
 import type { MetahubEntityInstance, MetahubEntityType, UpdateEntityInstancePayload } from '../api'
 import * as entitiesApi from '../api'
@@ -79,8 +88,6 @@ type EntityInstanceDisplayRow = {
 }
 
 const DIALOG_SAVE_CANCEL = { __dialogCancelled: true } as const
-const CATALOG_COMPATIBLE_KIND_KEY = 'custom.catalog-v2'
-
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 
 const decodeKindKey = (value?: string): string => {
@@ -98,10 +105,8 @@ const decodeKindKey = (value?: string): string => {
 const buildEntityInstanceLayoutBasePath = (metahubId: string, kindKey: string, entityId: string) =>
     `/metahub/${metahubId}/entities/${encodeURIComponent(kindKey)}/instance/${entityId}/layout`
 
-const isCatalogCompatibleEntityType = (entityType: MetahubEntityType | null) =>
-    Boolean(
-        entityType && (entityType.kindKey === CATALOG_COMPATIBLE_KIND_KEY || isLegacyCompatibleObjectKind(entityType.config, 'catalog'))
-    )
+const resolveLegacyCompatibleKind = (entityType: MetahubEntityType | null, kindKey: string): LegacyCompatibleObjectKind | null =>
+    getLegacyCompatibleObjectKind(entityType?.config) ?? getLegacyCompatibleObjectKindForKindKey(kindKey)
 
 const appendLocalizedCopySuffix = (
     value: VersionedLocalizedContent<string> | null | undefined,
@@ -375,10 +380,9 @@ const EntityInstanceList = () => {
         () => resolveEntityTypeName(entityType, preferredVlcLocale, t, resolvedKindKey),
         [entityType, preferredVlcLocale, resolvedKindKey, t]
     )
-    const isCatalogCompatibleMode = useMemo(
-        () => resolvedKindKey === CATALOG_COMPATIBLE_KIND_KEY || isCatalogCompatibleEntityType(entityType),
-        [entityType, resolvedKindKey]
-    )
+    const legacyCompatibleKind = useMemo(() => resolveLegacyCompatibleKind(entityType, resolvedKindKey), [entityType, resolvedKindKey])
+    const isLegacyCompatibleMode = legacyCompatibleKind !== null
+    const isCatalogCompatibleMode = legacyCompatibleKind === 'catalog'
     const canEditCatalogCompatibleInstances = resolvedPermissions?.editContent === true
     const canDeleteCatalogCompatibleInstances = resolvedPermissions?.deleteContent === true
     const canManageEntityInstances = isCatalogCompatibleMode
@@ -423,7 +427,7 @@ const EntityInstanceList = () => {
         initialLimit: 20,
         sortBy: 'updated',
         sortOrder: 'desc',
-        enabled: Boolean(metahubId && resolvedKindKey && entityType && !isCatalogCompatibleMode),
+        enabled: Boolean(metahubId && resolvedKindKey && entityType && !isLegacyCompatibleMode),
         keepPreviousDataOnQueryKeyChange: false
     })
 
@@ -434,7 +438,7 @@ const EntityInstanceList = () => {
 
     const existingCodenameQuery = useEntityInstancesQuery(
         metahubId,
-        isCatalogCompatibleMode
+        isLegacyCompatibleMode
             ? undefined
             : {
                   kind: resolvedKindKey,
@@ -468,18 +472,23 @@ const EntityInstanceList = () => {
         [hubs, preferredVlcLocale]
     )
 
+    const instanceById = useMemo(
+        () => new Map(paginationResult.data.map((entity) => [entity.id, entity] as const)),
+        [paginationResult.data]
+    )
+
     const instanceRows = useMemo(
         () => paginationResult.data.map((entity) => buildInstanceDisplayRow(entity, preferredVlcLocale, t)),
         [paginationResult.data, preferredVlcLocale, t]
     )
 
     const codenameEntities = useMemo(() => {
-        if (isCatalogCompatibleMode) {
+        if (isLegacyCompatibleMode) {
             return []
         }
 
         return (existingCodenameQuery.data?.items ?? paginationResult.data).filter((entity) => entity.kind === resolvedKindKey)
-    }, [existingCodenameQuery.data?.items, isCatalogCompatibleMode, paginationResult.data, resolvedKindKey])
+    }, [existingCodenameQuery.data?.items, isLegacyCompatibleMode, paginationResult.data, resolvedKindKey])
 
     const editDialogEntity = editEntityDetailQuery.data ?? dialogs.edit.item
     const copyDialogEntity = copyEntityDetailQuery.data ?? dialogs.copy.item
@@ -838,6 +847,56 @@ const EntityInstanceList = () => {
         [canDeleteEntityInstances]
     )
 
+    const resolveDisplayEntity = useCallback(
+        (row: Pick<EntityInstanceDisplayRow, 'id' | 'raw'>): MetahubEntityInstance | null => instanceById.get(row.id) ?? row.raw ?? null,
+        [instanceById]
+    )
+
+    const handleOpenEditRow = useCallback(
+        (row: Pick<EntityInstanceDisplayRow, 'id' | 'raw'>) => {
+            const entity = resolveDisplayEntity(row)
+            if (!entity) return
+            handleOpenEdit(entity)
+        },
+        [handleOpenEdit, resolveDisplayEntity]
+    )
+
+    const handleOpenCopyRow = useCallback(
+        (row: Pick<EntityInstanceDisplayRow, 'id' | 'raw'>) => {
+            const entity = resolveDisplayEntity(row)
+            if (!entity) return
+            handleOpenCopy(entity)
+        },
+        [handleOpenCopy, resolveDisplayEntity]
+    )
+
+    const handleOpenDeleteRow = useCallback(
+        (row: Pick<EntityInstanceDisplayRow, 'id' | 'raw'>) => {
+            const entity = resolveDisplayEntity(row)
+            if (!entity) return
+            handleOpenDelete(entity)
+        },
+        [handleOpenDelete, resolveDisplayEntity]
+    )
+
+    const handleRestoreEntityRow = useCallback(
+        (row: Pick<EntityInstanceDisplayRow, 'id' | 'raw'>) => {
+            const entity = resolveDisplayEntity(row)
+            if (!entity) return
+            void handleRestoreEntity(entity)
+        },
+        [handleRestoreEntity, resolveDisplayEntity]
+    )
+
+    const handleSelectPermanentDeleteTargetRow = useCallback(
+        (row: Pick<EntityInstanceDisplayRow, 'id' | 'raw'>) => {
+            const entity = resolveDisplayEntity(row)
+            if (!entity) return
+            handleSelectPermanentDeleteTarget(entity)
+        },
+        [handleSelectPermanentDeleteTarget, resolveDisplayEntity]
+    )
+
     const buildFormTabs = useCallback(
         (
             {
@@ -1146,7 +1205,7 @@ const EntityInstanceList = () => {
                                         size='small'
                                         color='primary'
                                         aria-label={t('common:actions.restore', 'Restore')}
-                                        onClick={() => handleRestoreEntity(row.raw)}
+                                        onClick={() => handleRestoreEntityRow(row)}
                                         disabled={restoreEntityMutation.isPending}
                                     >
                                         <RestoreRoundedIcon fontSize='small' />
@@ -1159,7 +1218,7 @@ const EntityInstanceList = () => {
                                         size='small'
                                         color='error'
                                         aria-label={t('common:actions.deletePermanently', 'Delete permanently')}
-                                        onClick={() => handleSelectPermanentDeleteTarget(row.raw)}
+                                        onClick={() => handleSelectPermanentDeleteTargetRow(row)}
                                         disabled={permanentDeleteEntityMutation.isPending}
                                     >
                                         <DeleteForeverRoundedIcon fontSize='small' />
@@ -1174,7 +1233,7 @@ const EntityInstanceList = () => {
                                     <IconButton
                                         size='small'
                                         aria-label={tc('actions.copy', 'Copy')}
-                                        onClick={() => handleOpenCopy(row.raw)}
+                                        onClick={() => handleOpenCopyRow(row)}
                                     >
                                         <ContentCopyRoundedIcon fontSize='small' />
                                     </IconButton>
@@ -1185,7 +1244,7 @@ const EntityInstanceList = () => {
                                     <IconButton
                                         size='small'
                                         aria-label={tc('actions.edit', 'Edit')}
-                                        onClick={() => handleOpenEdit(row.raw)}
+                                        onClick={() => handleOpenEditRow(row)}
                                     >
                                         <EditRoundedIcon fontSize='small' />
                                     </IconButton>
@@ -1197,7 +1256,7 @@ const EntityInstanceList = () => {
                                         size='small'
                                         color='error'
                                         aria-label={tc('actions.delete', 'Delete')}
-                                        onClick={() => handleOpenDelete(row.raw)}
+                                        onClick={() => handleOpenDeleteRow(row)}
                                     >
                                         <DeleteOutlineRoundedIcon fontSize='small' />
                                     </IconButton>
@@ -1213,11 +1272,11 @@ const EntityInstanceList = () => {
             canDeleteEntityInstances,
             canEditEntityInstances,
             canRestoreEntityInstances,
-            handleOpenCopy,
-            handleOpenDelete,
-            handleOpenEdit,
-            handleRestoreEntity,
-            handleSelectPermanentDeleteTarget,
+            handleOpenCopyRow,
+            handleOpenDeleteRow,
+            handleOpenEditRow,
+            handleRestoreEntityRow,
+            handleSelectPermanentDeleteTargetRow,
             permanentDeleteEntityMutation.isPending,
             restoreEntityMutation.isPending,
             t,
@@ -1247,7 +1306,7 @@ const EntityInstanceList = () => {
                                         size='small'
                                         color='primary'
                                         aria-label={t('common:actions.restore', 'Restore')}
-                                        onClick={() => handleRestoreEntity(row.raw)}
+                                        onClick={() => handleRestoreEntityRow(row)}
                                         disabled={restoreEntityMutation.isPending}
                                     >
                                         <RestoreRoundedIcon fontSize='small' />
@@ -1260,7 +1319,7 @@ const EntityInstanceList = () => {
                                         size='small'
                                         color='error'
                                         aria-label={t('common:actions.deletePermanently', 'Delete permanently')}
-                                        onClick={() => handleSelectPermanentDeleteTarget(row.raw)}
+                                        onClick={() => handleSelectPermanentDeleteTargetRow(row)}
                                         disabled={permanentDeleteEntityMutation.isPending}
                                     >
                                         <DeleteForeverRoundedIcon fontSize='small' />
@@ -1275,7 +1334,7 @@ const EntityInstanceList = () => {
                                     <IconButton
                                         size='small'
                                         aria-label={tc('actions.copy', 'Copy')}
-                                        onClick={() => handleOpenCopy(row.raw)}
+                                        onClick={() => handleOpenCopyRow(row)}
                                     >
                                         <ContentCopyRoundedIcon fontSize='small' />
                                     </IconButton>
@@ -1286,7 +1345,7 @@ const EntityInstanceList = () => {
                                     <IconButton
                                         size='small'
                                         aria-label={tc('actions.edit', 'Edit')}
-                                        onClick={() => handleOpenEdit(row.raw)}
+                                        onClick={() => handleOpenEditRow(row)}
                                     >
                                         <EditRoundedIcon fontSize='small' />
                                     </IconButton>
@@ -1298,7 +1357,7 @@ const EntityInstanceList = () => {
                                         size='small'
                                         color='error'
                                         aria-label={tc('actions.delete', 'Delete')}
-                                        onClick={() => handleOpenDelete(row.raw)}
+                                        onClick={() => handleOpenDeleteRow(row)}
                                     >
                                         <DeleteOutlineRoundedIcon fontSize='small' />
                                     </IconButton>
@@ -1314,11 +1373,11 @@ const EntityInstanceList = () => {
             canDeleteEntityInstances,
             canEditEntityInstances,
             canRestoreEntityInstances,
-            handleOpenCopy,
-            handleOpenDelete,
-            handleOpenEdit,
-            handleRestoreEntity,
-            handleSelectPermanentDeleteTarget,
+            handleOpenCopyRow,
+            handleOpenDeleteRow,
+            handleOpenEditRow,
+            handleRestoreEntityRow,
+            handleSelectPermanentDeleteTargetRow,
             permanentDeleteEntityMutation.isPending,
             restoreEntityMutation.isPending,
             t,
@@ -1340,8 +1399,20 @@ const EntityInstanceList = () => {
 
     const isMissingEntityType = Boolean(!entityTypesQuery.isLoading && !entityType && resolvedKindKey)
 
-    if (isCatalogCompatibleMode) {
+    if (legacyCompatibleKind === 'catalog') {
         return <CatalogList />
+    }
+
+    if (legacyCompatibleKind === 'hub') {
+        return <HubList />
+    }
+
+    if (legacyCompatibleKind === 'set') {
+        return <SetList />
+    }
+
+    if (legacyCompatibleKind === 'enumeration') {
+        return <EnumerationList />
     }
 
     return (
@@ -1480,7 +1551,7 @@ const EntityInstanceList = () => {
                                 <ItemCard
                                     key={row.id}
                                     data={{ name: row.name, description: row.description }}
-                                    onClick={!row.isDeleted && canEditEntityInstances ? () => handleOpenEdit(row.raw) : undefined}
+                                    onClick={!row.isDeleted && canEditEntityInstances ? () => handleOpenEditRow(row) : undefined}
                                     headerAction={renderCardAction(row)}
                                     footerStartContent={
                                         <Stack direction='row' spacing={0.5} useFlexGap flexWrap='wrap'>

@@ -18,6 +18,10 @@ export const buildCatalogAuthoringPath = ({ metahubId, catalogId, hubId, kindKey
         return ''
     }
 
+    if (normalizedKindKey && normalizedHubId) {
+        return `/metahub/${normalizedMetahubId}/entities/${encodeURIComponent(normalizedKindKey)}/instance/${normalizedHubId}/catalog/${normalizedCatalogId}/${tab}`
+    }
+
     if (normalizedKindKey) {
         return `/metahub/${normalizedMetahubId}/entities/${encodeURIComponent(normalizedKindKey)}/instance/${normalizedCatalogId}/${tab}`
     }

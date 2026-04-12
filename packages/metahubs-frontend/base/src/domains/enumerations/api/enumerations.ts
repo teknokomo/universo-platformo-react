@@ -10,6 +10,10 @@ import {
 } from '../../../types'
 import type { EnumerationCopyOptions, VersionedLocalizedContent } from '@universo/types'
 
+type LegacyCompatiblePaginationParams = PaginationParams & { kindKey?: string }
+
+const buildKindKeyParams = (kindKey?: string) => (kindKey ? { kindKey } : undefined)
+
 /**
  * Enumeration with parent hubs info (for "all enumerations" view)
  * Uses the same hubs array as the Enumeration type
@@ -38,7 +42,7 @@ export interface BlockingEnumerationReferencesResponse {
  */
 export const listAllEnumerations = async (
     metahubId: string,
-    params?: PaginationParams
+    params?: LegacyCompatiblePaginationParams
 ): Promise<PaginatedResponse<EnumerationWithHubs>> => {
     const response = await apiClient.get<{ items: EnumerationWithHubs[]; pagination: { total: number; limit: number; offset: number } }>(
         `/metahub/${metahubId}/enumerations`,
@@ -48,7 +52,8 @@ export const listAllEnumerations = async (
                 offset: params?.offset,
                 sortBy: params?.sortBy,
                 sortOrder: params?.sortOrder,
-                search: params?.search
+                search: params?.search,
+                kindKey: params?.kindKey
             }
         }
     )
@@ -72,7 +77,7 @@ export const listAllEnumerations = async (
 export const listEnumerations = async (
     metahubId: string,
     hubId: string,
-    params?: PaginationParams
+    params?: LegacyCompatiblePaginationParams
 ): Promise<PaginatedResponse<Enumeration>> => {
     const response = await apiClient.get<{ items: Enumeration[]; pagination: { total: number; limit: number; offset: number } }>(
         `/metahub/${metahubId}/hub/${hubId}/enumerations`,
@@ -82,7 +87,8 @@ export const listEnumerations = async (
                 offset: params?.offset,
                 sortBy: params?.sortBy,
                 sortOrder: params?.sortOrder,
-                search: params?.search
+                search: params?.search,
+                kindKey: params?.kindKey
             }
         }
     )
@@ -113,8 +119,14 @@ export const getEnumeration = async (metahubId: string, hubId: string, enumerati
  * Get a single enumeration by ID (owner-level, no hub required)
  * Returns enumeration with all associated hubs
  */
-export const getEnumerationById = async (metahubId: string, enumerationId: string): Promise<EnumerationWithHubs> => {
-    const response = await apiClient.get<EnumerationWithHubs>(`/metahub/${metahubId}/enumeration/${enumerationId}`)
+export const getEnumerationById = async (
+    metahubId: string,
+    enumerationId: string,
+    kindKey?: string
+): Promise<EnumerationWithHubs> => {
+    const response = await apiClient.get<EnumerationWithHubs>(`/metahub/${metahubId}/enumeration/${enumerationId}`, {
+        params: buildKindKeyParams(kindKey)
+    })
     return response.data
 }
 
@@ -122,26 +134,42 @@ export const getEnumerationById = async (metahubId: string, enumerationId: strin
  * Create a new enumeration at metahub level (can have 0+ hub associations)
  * Used when creating enumerations from the global enumerations list
  */
-export const createEnumerationAtMetahub = (metahubId: string, data: EnumerationLocalizedPayload & { sortOrder?: number }) =>
+export const createEnumerationAtMetahub = (
+    metahubId: string,
+    data: EnumerationLocalizedPayload & { sortOrder?: number; kindKey?: string }
+) =>
     apiClient.post<Enumeration>(`/metahub/${metahubId}/enumerations`, data)
 
 /**
  * Create a new enumeration and associate with hub(s) - hub-scoped endpoint
  */
-export const createEnumeration = (metahubId: string, hubId: string, data: EnumerationLocalizedPayload & { sortOrder?: number }) =>
+export const createEnumeration = (
+    metahubId: string,
+    hubId: string,
+    data: EnumerationLocalizedPayload & { sortOrder?: number; kindKey?: string }
+) =>
     apiClient.post<Enumeration>(`/metahub/${metahubId}/hub/${hubId}/enumerations`, data)
 
 export type EnumerationCopyInput = EnumerationLocalizedPayload & {
     copyValues?: EnumerationCopyOptions['copyValues']
 }
 
-export const copyEnumeration = (metahubId: string, enumerationId: string, data: EnumerationCopyInput) =>
-    apiClient.post<Enumeration>(`/metahub/${metahubId}/enumeration/${enumerationId}/copy`, data)
+export const copyEnumeration = (metahubId: string, enumerationId: string, data: EnumerationCopyInput, kindKey?: string) =>
+    apiClient.post<Enumeration>(`/metahub/${metahubId}/enumeration/${enumerationId}/copy`, data, {
+        params: buildKindKeyParams(kindKey)
+    })
 
-export const reorderEnumeration = (metahubId: string, enumerationId: string, newSortOrder: number, hubId?: string) =>
+export const reorderEnumeration = (
+    metahubId: string,
+    enumerationId: string,
+    newSortOrder: number,
+    hubId?: string,
+    kindKey?: string
+) =>
     apiClient.patch<Enumeration>(
         hubId ? `/metahub/${metahubId}/hub/${hubId}/enumerations/reorder` : `/metahub/${metahubId}/enumerations/reorder`,
-        { enumerationId, newSortOrder }
+        { enumerationId, newSortOrder },
+        { params: buildKindKeyParams(kindKey) }
     )
 
 /**
@@ -152,8 +180,12 @@ export const updateEnumeration = (
     metahubId: string,
     hubId: string,
     enumerationId: string,
-    data: Partial<EnumerationLocalizedPayload> & { sortOrder?: number; expectedVersion?: number }
-) => apiClient.patch<Enumeration>(`/metahub/${metahubId}/hub/${hubId}/enumeration/${enumerationId}`, data)
+    data: Partial<EnumerationLocalizedPayload> & { sortOrder?: number; expectedVersion?: number },
+    kindKey?: string
+) =>
+    apiClient.patch<Enumeration>(`/metahub/${metahubId}/hub/${hubId}/enumeration/${enumerationId}`, data, {
+        params: kindKey ? { kindKey } : undefined
+    })
 
 /**
  * Update a enumeration at metahub level (for enumerations without hub or with multiple hubs)
@@ -162,36 +194,47 @@ export const updateEnumeration = (
 export const updateEnumerationAtMetahub = (
     metahubId: string,
     enumerationId: string,
-    data: Partial<EnumerationLocalizedPayload> & { sortOrder?: number; expectedVersion?: number }
-) => apiClient.patch<Enumeration>(`/metahub/${metahubId}/enumeration/${enumerationId}`, data)
+    data: Partial<EnumerationLocalizedPayload> & { sortOrder?: number; expectedVersion?: number },
+    kindKey?: string
+) =>
+    apiClient.patch<Enumeration>(`/metahub/${metahubId}/enumeration/${enumerationId}`, data, {
+        params: kindKey ? { kindKey } : undefined
+    })
 
 /**
  * Delete a enumeration or remove from hub
  * If enumeration is associated with multiple hubs and force=false, only removes from this hub
  * If force=true or single hub, deletes the entire enumeration
  */
-export const deleteEnumeration = (metahubId: string, hubId: string, enumerationId: string, force = false) =>
+export const deleteEnumeration = (metahubId: string, hubId: string, enumerationId: string, force = false, kindKey?: string) =>
     apiClient.delete<void | { message: string; remainingHubs: number }>(`/metahub/${metahubId}/hub/${hubId}/enumeration/${enumerationId}`, {
-        params: force ? { force: 'true' } : undefined
+        params: {
+            ...(force ? { force: 'true' } : {}),
+            ...(buildKindKeyParams(kindKey) ?? {})
+        }
     })
 
 /**
  * Delete a enumeration directly (without requiring hubId)
  * Use for enumerations without hub associations or force delete
  */
-export const deleteEnumerationDirect = (metahubId: string, enumerationId: string) =>
-    apiClient.delete<void>(`/metahub/${metahubId}/enumeration/${enumerationId}`)
+export const deleteEnumerationDirect = (metahubId: string, enumerationId: string, kindKey?: string) =>
+    apiClient.delete<void>(`/metahub/${metahubId}/enumeration/${enumerationId}`, {
+        params: buildKindKeyParams(kindKey)
+    })
 
 /**
  * Get cross-enumeration REF attributes that block deleting this enumeration.
  */
 export const getBlockingEnumerationReferences = async (
     metahubId: string,
-    enumerationId: string
+    enumerationId: string,
+    kindKey?: string
 ): Promise<BlockingEnumerationReferencesResponse> => {
     try {
         const response = await apiClient.get<BlockingEnumerationReferencesResponse>(
-            `/metahub/${metahubId}/enumeration/${enumerationId}/blocking-references`
+            `/metahub/${metahubId}/enumeration/${enumerationId}/blocking-references`,
+            { params: buildKindKeyParams(kindKey) }
         )
         return response.data
     } catch (error: unknown) {
@@ -205,7 +248,8 @@ export const getBlockingEnumerationReferences = async (
         if (status !== 404) throw error
 
         const fallbackResponse = await apiClient.get<BlockingEnumerationReferencesResponse>(
-            `/metahub/${metahubId}/enumerations/${enumerationId}/blocking-references`
+            `/metahub/${metahubId}/enumerations/${enumerationId}/blocking-references`,
+            { params: buildKindKeyParams(kindKey) }
         )
         return fallbackResponse.data
     }
@@ -229,44 +273,73 @@ export interface EnumerationValueBlockingReferencesResponse {
 export const listEnumerationValues = async (
     metahubId: string,
     enumerationId: string,
-    params?: { includeShared?: boolean }
+    params?: { includeShared?: boolean; kindKey?: string }
 ): Promise<EnumerationValuesResponse> => {
     const response = await apiClient.get<EnumerationValuesResponse>(`/metahub/${metahubId}/enumeration/${enumerationId}/values`, {
         params: {
-            includeShared: params?.includeShared
+            includeShared: params?.includeShared,
+            kindKey: params?.kindKey
         }
     })
     return response.data
 }
 
-export const getEnumerationValue = async (metahubId: string, enumerationId: string, valueId: string): Promise<EnumerationValue> => {
-    const response = await apiClient.get<EnumerationValue>(`/metahub/${metahubId}/enumeration/${enumerationId}/value/${valueId}`)
+export const getEnumerationValue = async (
+    metahubId: string,
+    enumerationId: string,
+    valueId: string,
+    kindKey?: string
+): Promise<EnumerationValue> => {
+    const response = await apiClient.get<EnumerationValue>(`/metahub/${metahubId}/enumeration/${enumerationId}/value/${valueId}`, {
+        params: buildKindKeyParams(kindKey)
+    })
     return response.data
 }
 
 export const getEnumerationValueBlockingReferences = async (
     metahubId: string,
     enumerationId: string,
-    valueId: string
+    valueId: string,
+    kindKey?: string
 ): Promise<EnumerationValueBlockingReferencesResponse> => {
     const response = await apiClient.get<EnumerationValueBlockingReferencesResponse>(
-        `/metahub/${metahubId}/enumeration/${enumerationId}/value/${valueId}/blocking-references`
+        `/metahub/${metahubId}/enumeration/${enumerationId}/value/${valueId}/blocking-references`,
+        { params: buildKindKeyParams(kindKey) }
     )
     return response.data
 }
 
-export const createEnumerationValue = (metahubId: string, enumerationId: string, data: EnumerationValueLocalizedPayload) =>
-    apiClient.post<EnumerationValue>(`/metahub/${metahubId}/enumeration/${enumerationId}/values`, data)
+export const createEnumerationValue = (
+    metahubId: string,
+    enumerationId: string,
+    data: EnumerationValueLocalizedPayload,
+    kindKey?: string
+) =>
+    apiClient.post<EnumerationValue>(`/metahub/${metahubId}/enumeration/${enumerationId}/values`, data, {
+        params: buildKindKeyParams(kindKey)
+    })
 
 export const updateEnumerationValue = (
     metahubId: string,
     enumerationId: string,
     valueId: string,
-    data: Partial<EnumerationValueLocalizedPayload> & { expectedVersion?: number }
-) => apiClient.patch<EnumerationValue>(`/metahub/${metahubId}/enumeration/${enumerationId}/value/${valueId}`, data)
+    data: Partial<EnumerationValueLocalizedPayload> & { expectedVersion?: number },
+    kindKey?: string
+) =>
+    apiClient.patch<EnumerationValue>(`/metahub/${metahubId}/enumeration/${enumerationId}/value/${valueId}`, data, {
+        params: buildKindKeyParams(kindKey)
+    })
 
-export const moveEnumerationValue = (metahubId: string, enumerationId: string, valueId: string, direction: 'up' | 'down') =>
-    apiClient.patch<EnumerationValue>(`/metahub/${metahubId}/enumeration/${enumerationId}/value/${valueId}/move`, { direction })
+export const moveEnumerationValue = (
+    metahubId: string,
+    enumerationId: string,
+    valueId: string,
+    direction: 'up' | 'down',
+    kindKey?: string
+) =>
+    apiClient.patch<EnumerationValue>(`/metahub/${metahubId}/enumeration/${enumerationId}/value/${valueId}/move`, { direction }, {
+        params: buildKindKeyParams(kindKey)
+    })
 
 /**
  * Reorder an enumeration value via DnD to a new sort_order position.
@@ -276,19 +349,36 @@ export const reorderEnumerationValue = (
     enumerationId: string,
     valueId: string,
     newSortOrder: number,
-    mergedOrderIds?: string[]
+    mergedOrderIds?: string[],
+    kindKey?: string
 ) =>
-    apiClient.patch<EnumerationValue>(`/metahub/${metahubId}/enumeration/${enumerationId}/values/reorder`, {
-        valueId,
-        newSortOrder,
-        ...(Array.isArray(mergedOrderIds) && mergedOrderIds.length > 0 && { mergedOrderIds })
+    apiClient.patch<EnumerationValue>(
+        `/metahub/${metahubId}/enumeration/${enumerationId}/values/reorder`,
+        {
+            valueId,
+            newSortOrder,
+            ...(Array.isArray(mergedOrderIds) && mergedOrderIds.length > 0 && { mergedOrderIds })
+        },
+        {
+            params: buildKindKeyParams(kindKey)
+        }
+    )
+
+export const deleteEnumerationValue = (metahubId: string, enumerationId: string, valueId: string, kindKey?: string) =>
+    apiClient.delete<void>(`/metahub/${metahubId}/enumeration/${enumerationId}/value/${valueId}`, {
+        params: buildKindKeyParams(kindKey)
     })
 
-export const deleteEnumerationValue = (metahubId: string, enumerationId: string, valueId: string) =>
-    apiClient.delete<void>(`/metahub/${metahubId}/enumeration/${enumerationId}/value/${valueId}`)
-
-export const copyEnumerationValue = (metahubId: string, enumerationId: string, valueId: string, data?: EnumerationValueCopyInput) =>
-    apiClient.post<EnumerationValue>(`/metahub/${metahubId}/enumeration/${enumerationId}/value/${valueId}/copy`, data ?? {})
+export const copyEnumerationValue = (
+    metahubId: string,
+    enumerationId: string,
+    valueId: string,
+    data?: EnumerationValueCopyInput,
+    kindKey?: string
+) =>
+    apiClient.post<EnumerationValue>(`/metahub/${metahubId}/enumeration/${enumerationId}/value/${valueId}/copy`, data ?? {}, {
+        params: buildKindKeyParams(kindKey)
+    })
 
 export type EnumerationValueCopyInput = Partial<
     Pick<

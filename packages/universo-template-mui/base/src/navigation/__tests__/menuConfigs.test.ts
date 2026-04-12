@@ -34,7 +34,8 @@ describe('menuConfigs', () => {
                     kindKey: 'custom-order',
                     title: 'Custom Order',
                     iconName: 'IconBolt',
-                    sidebarSection: 'objects'
+                    sidebarSection: 'objects',
+                    sidebarOrder: 20
                 }
             ]
         })
@@ -57,6 +58,42 @@ describe('menuConfigs', () => {
         expect(customIndex).toBeLessThan(publicationsIndex)
     })
 
+    it('sorts published custom entity kinds by explicit sidebar order before fallback title ordering', () => {
+        const menuItems = getMetahubMenuItems('mhb-1', {
+            canManageMetahub: true,
+            canManageMembers: true,
+            publishedEntityTypes: [
+                {
+                    kindKey: 'custom-zeta',
+                    title: 'Zeta',
+                    iconName: 'IconBolt',
+                    sidebarSection: 'objects',
+                    sidebarOrder: 40
+                },
+                {
+                    kindKey: 'custom-alpha',
+                    title: 'Alpha',
+                    iconName: 'IconBolt',
+                    sidebarSection: 'objects',
+                    sidebarOrder: 10
+                },
+                {
+                    kindKey: 'custom-beta',
+                    title: 'Beta',
+                    iconName: 'IconBolt',
+                    sidebarSection: 'objects',
+                    sidebarOrder: 20
+                }
+            ]
+        })
+
+        const dynamicItemIds = menuItems
+            .filter((item) => item.type !== 'divider' && item.id.startsWith('metahub-entity-'))
+            .map((item) => item.id)
+
+        expect(dynamicItemIds).toEqual(['metahub-entity-custom-alpha', 'metahub-entity-custom-beta', 'metahub-entity-custom-zeta'])
+    })
+
     it('hides authoring-only metahub items and compacts dividers without manage access', () => {
         const menuItems = getMetahubMenuItems('mhb-1', {
             canManageMetahub: false,
@@ -66,7 +103,8 @@ describe('menuConfigs', () => {
                     kindKey: 'custom-order',
                     title: 'Custom Order',
                     iconName: 'IconBolt',
-                    sidebarSection: 'objects'
+                    sidebarSection: 'objects',
+                    sidebarOrder: 20
                 }
             ]
         })

@@ -6,6 +6,189 @@
 
 ## Current Task Ledger (Canonical)
 
+## Active Session: 2026-04-12 PR #759 Review Comment QA Triage
+
+> Goal: wait for bot feedback on GH759, verify each suggestion against the current codebase and external transaction guidance, implement only the confirmed non-regressive fixes, rerun the touched validation stack plus the canonical root build, and push the follow-up back into the same PR branch.
+
+- [x] Gather PR #759 review comments, branch context, and affected file slices.
+    - Outcome: after the mandatory 20-minute wait, the branch was switched back to `feature/entity-v2-generalization-hub-set-enum`, PR #759 review data was fetched from GitHub, and the actionable scope was narrowed to the transaction-bound `_mhb_migrations` access path in `MetahubSchemaService` plus duplicated legacy-compatible kind classification helpers in `schema-ddl`.
+- [x] Validate each bot suggestion against the current codebase contracts and external documentation before editing code.
+    - Outcome: the review comments were checked against the current backend/frontend contracts and the official Knex transaction guidance; the transaction-bound `_mhb_migrations` concern and the schema-ddl helper duplication concern were both confirmed as valid, while no speculative widening was accepted.
+- [x] Implement only the fixes that are confirmed correct, transaction-safe, and non-regressive for the shipped Entity V2 / self-hosted surface.
+    - Outcome: `MetahubSchemaService` now reads/writes baseline migration rows through the transaction-aware executor path, shared legacy-compatible kind helpers were extracted into `packages/schema-ddl/base/src/legacyCompatibleKinds.ts`, and the touched backend/schema-ddl tests were aligned with the real contracts.
+- [x] Re-run focused validation for the touched backend and schema-ddl surfaces, then finish with the canonical root `pnpm build`.
+    - Outcome: focused `@universo/metahubs-backend` Jest coverage passed (`70/70` suites, `626` tests with `4` skipped), focused `@universo/schema-ddl` Jest coverage passed (`9/9` suites, `158` tests), the stale frontend vitest contracts were aligned with the current async/meta/CSRF behavior, the final root `pnpm test:vitest` rerun passed (`145/145` files, `804/804` tests), and the standalone canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- [x] Sync memory-bank status and push the follow-up commit to PR #759.
+    - Outcome: the PR #759 review-triage state is now reflected in `activeContext.md`, `progress.md`, and this ledger, and the validated follow-up patch set is being committed and pushed back to `feature/entity-v2-generalization-hub-set-enum` for the existing PR.
+
+## Completed Session: 2026-04-12 Self-Hosted Fixture QA Closure
+
+> Goal: close the two real QA findings that are still present on the current tree by aligning the committed self-hosted snapshot with the canonical V2 entity-definition contract, extending the browser import flow so fixture metadata drift cannot escape again, rerunning targeted validation, and only then syncing memory-bank closure notes.
+
+- [x] Regenerate or repair the committed self-hosted fixture so all exported V2 entity definitions match the canonical contract exactly.
+    - Outcome: the supported Playwright generator rewrote `tools/fixtures/metahubs-self-hosted-app-snapshot.json`, and the direct contract check now returns `fixture-contract:ok` for the committed artifact.
+- [x] Extend the browser snapshot import flow to assert imported V2 entity-definition metadata, not only counts/layout structure.
+    - Outcome: the import flow now re-exports the imported metahub and polls `assertSelfHostedAppEnvelopeContract(...)`, so imported V2 metadata drift fails the browser proof instead of hiding behind count/layout assertions.
+- [x] Re-run the targeted validation stack for the touched fixture and browser-flow seams, then finish with the canonical root build.
+    - Outcome: `pnpm run build:e2e` completed green, the supported self-hosted generator passed (`2 passed`), the targeted Chromium self-hosted import flow passed (`2 passed`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- [x] Sync memory-bank closure notes only after the repaired implementation is fully validated.
+    - Outcome: `activeContext.md`, `progress.md`, `currentResearch.md`, `techContext.md`, and this ledger now reflect the closed self-hosted fixture/import follow-up on the current green tree.
+
+## Active Session: 2026-04-12 Entity V2 QA Completion Follow-up
+
+> Goal: close the remaining QA-confirmed plan gap by shipping the promised automation-capability uplift for Hub V2 and Enumeration V2, extend regression coverage so the gap cannot recur silently, rerun focused validation plus the canonical root build, and then sync memory-bank status on the final green tree.
+
+- [x] Implement the missing Hub V2 / Enumeration V2 preset component uplift across shipped manifests and committed fixture-facing contracts.
+    - Outcome: Hub V2 now enables scripting/actions/events, Enumeration V2 now enables actions/events on top of its existing scripting support, self-hosted fixture-facing canonical definitions now expect the upgraded automation components, and the committed self-hosted snapshot was regenerated through the supported generator flow.
+- [x] Add focused regression coverage that proves the upgraded preset manifests instead of only validating schema shape.
+    - Outcome: direct preset-manifest coverage now asserts the upgraded automation component set for Hub V2 / Set V2 / Enumeration V2, and the self-hosted fixture contract now fails if the exported V2 entity definitions drift on automation components.
+- [x] Re-run focused validation for the touched presets, snapshot/archive contracts, docs parity checks, and the canonical root build.
+    - Outcome: focused preset-manifest Jest coverage passed (`8/8`), the supported self-hosted generator/export flow passed (`1 passed`, `5.3m`), the edited EN/RU guide pair remains line-count aligned (`72/72`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- [x] Sync memory-bank closure notes only after the repaired implementation is fully validated.
+    - Outcome: `activeContext.md`, `progress.md`, `systemPatterns.md`, `techContext.md`, `currentResearch.md`, and this ledger now reflect the closed preset-uplift follow-up on top of the already-green Entity V2 baseline.
+
+## Completed Session: 2026-04-12 Entity V2 QA Closure Completion
+
+> Goal: close the remaining compatibility-aware delete-safety seam found during QA, add missing low-level and browser regression proof, then rerun the targeted validation stack and the canonical root build before updating memory-bank closure notes.
+
+- [x] Repair compatibility-aware blocker lookups for legacy-compatible Set V2 / Enumeration V2 delete flows.
+    - Outcome: low-level blocker queries in `MetahubConstantsService` and `MetahubAttributesService` now accept compatible target-kind arrays, and both the generic entity delete plan plus the legacy set/enumeration/constant delete paths pass the resolved compatible kinds instead of exact built-in literals.
+- [x] Add regression coverage for the repaired blocker-service seam and the missing ACL / negative-path proof.
+    - Outcome: focused service tests now lock the real `ANY($n::text[])` SQL seam, generic-route regressions now prove the intended ACL/settings policy for non-catalog compatible kinds, and the Chromium legacy-compatible V2 suite now includes a blocked-delete browser proof for a compatible Set V2 referenced by a catalog attribute.
+- [x] Re-run focused backend, browser, and canonical build validation after the final patch set.
+    - Outcome: focused metahubs-backend route/service coverage passed (`87/87`), `pnpm run build:e2e` completed green (`30 successful`, `30 total`), the targeted Chromium legacy-compatible V2 suite passed (`7 passed`), and the repository-standard root `pnpm build` completed green (`30 successful`, `30 total`).
+- [x] Sync memory-bank closure notes only after the repaired implementation is fully validated.
+    - Outcome: `activeContext.md`, `progress.md`, `systemPatterns.md`, `techContext.md`, and this ledger now reflect the fully closed QA-completion state with no remaining known blocker on the current branch.
+
+## Completed Session: 2026-04-12 Entity V2 QA Gap Closure
+
+> Goal: close the two remaining QA blockers on the current Entity V2 tree, then rerun the targeted validation stack and the canonical root build before updating memory-bank status.
+
+- [x] Restore generic custom-entity delete blocker parity for hub/set/enumeration-compatible legacy V2 kinds.
+    - Outcome: generic `remove` / `permanentRemove` now build a shared legacy-compatible delete plan, so compatible Set V2 and Enumeration V2 rows reuse the same blocker semantics as the legacy controllers, while compatible Hub V2 rows also reuse the legacy hub blocker path plus association cleanup before delete.
+- [x] Add focused backend regression coverage for the repaired generic delete parity.
+    - Outcome: focused route coverage now locks the generic delete/permanent-delete path for compatible Hub V2 / Set V2 / Enumeration V2 rows, including blocked-delete behavior and the hub-association cleanup path.
+- [x] Fix the brittle runtime Playwright URL assertion and keep the browser proof aligned with real absolute URLs.
+    - Outcome: the runtime V2 proof now polls `pathname` plus `catalogId` from `new URL(page.url())` instead of relying on a raw URL regex, so expected absolute URLs and query strings no longer create false-negative failures.
+- [x] Re-run the targeted backend/browser validation and finish with the canonical root build.
+    - Outcome: the focused metahubs-backend rerun passed for the 4 touched route suites (`64/64`), `pnpm run build:e2e` completed green (`30 successful`, `30 total`), the combined Chromium legacy-compatible/runtime rerun passed (`7 passed`), and the canonical root `pnpm build` completed green on the final patch set.
+- [x] Sync memory-bank closure notes only after the repaired implementation is fully validated.
+    - Outcome: `activeContext.md`, `progress.md`, `systemPatterns.md`, and this ledger now reflect the closed QA-gap state rather than the earlier review-only verdict.
+
+## Completed Session: 2026-04-12 Entity V2 Post-Rebuild Regression Remediation
+
+> Goal: close the post-rebuild regressions reproduced from a fresh database and a fresh import of `tools/fixtures/metahubs-self-hosted-app-snapshot.json` without widening schema/template versions.
+
+- [x] Fix the first-open custom entity type edit dialog hydration failure in `EntitiesWorkspace`.
+    - Goal: opening `Catalogs V2`, `Enumerations V2`, or another custom type for edit must hydrate name and related fields correctly on the first attempt, not only after another dialog was opened.
+- [x] Fix the connector metahub picker dialog action-area spacing.
+    - Goal: restore standard bottom/right dialog action padding in the application connector metahub selection modal.
+- [x] Fix Hub V2 delegated child tabs that send invalid `kindKey` on Sets / Enumerations and likely Catalogs.
+    - Goal: child lists inside a Hub V2 detail route must request the compatible child surface kind, not the parent hub kind, and must load without 400 errors.
+    - Note: validate the same guard for delegated leaf routes such as Set constants and Enumeration values so the parent hub kind does not leak deeper into child APIs.
+- [x] Fix missing RU translations for entity type sidebar order UI and the entities table order column.
+    - Goal: create/edit dialogs and the entity types table must not leak English strings for `Sidebar order` / `Order` on the RU surface.
+- [x] Implement copy support for custom entity types from the entities action menu.
+    - Goal: custom entity types should support copy through the same action-menu affordance and validation flow style as the other authoring surfaces.
+- [x] Restore the self-hosted snapshot/migration baseline to version 1 / `0.1.0` and regenerate the committed fixture if needed.
+    - Outcome: the supported self-hosted generator and the committed fixture now preserve the expected baseline contract (`version: 1`, `structureVersion: 0.1.0`), and the snapshot export/import browser flow is green again on a fresh import path.
+- [x] Add focused regression coverage and browser proof for every repaired seam, then finish with the canonical root build.
+    - Outcome: focused `@universo/types` and metahubs-frontend regressions passed, focused backend hubs/sets/enumerations route coverage passed (`39/39`), `pnpm run build:e2e` completed green (`30 successful`, `30 total`), the targeted Chromium legacy-compatible V2 suite passed (`6 passed`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- [x] Fix the reopened legacy-compatible V2 runtime regression in delegated Set/Enumeration surfaces and harden kind-key recognition for preset-derived custom kinds.
+    - Outcome: delegated Sets V2 / Enumerations V2 no longer crash on render because the shared list surfaces restore the resolved `kindKey` alias, preset-derived compatible keys such as `custom.hub-v2-<suffix>` now resolve through the shared compatibility helper, and backend exact-kind filtering no longer leaks built-in rows into custom V2 filtered routes.
+- [x] Sync memory-bank closure notes after the repaired implementation and validation stack are green.
+    - Outcome: `activeContext.md`, `progress.md`, `systemPatterns.md`, and this ledger now reflect the fully validated 2026-04-12 closure state rather than the earlier in-progress regression snapshot.
+
+## Completed Session: 2026-04-11 Entity V2 Residual QA Remediation
+
+> Plan: [entities-v2-hubs-sets-enumerations-plan-2026-04-11.md](plan/entities-v2-hubs-sets-enumerations-plan-2026-04-11.md) (post-QA implementation completion)
+
+- [x] Re-baseline and fix the user-reported Entity list-view edit hydration failure.
+    - Outcome: `EntityInstanceList` now resolves row actions through the live entity map instead of trusting `row.raw`, and focused frontend regression coverage now reproduces the missing-`raw` table path.
+- [x] Restore legacy-data visibility parity and the remaining backend compatibility behavior for Hubs V2, Sets V2, and Enumerations V2.
+    - Outcome: the shipped backend/frontend patches now widen the remaining exact-kind seams for counts, settings cleanup, branch copy/prune, and V2 delegated list visibility through compatibility metadata.
+- [x] Add or refresh focused backend regression coverage for the repaired seams.
+    - Outcome: focused backend coverage now locks compatibility-aware metahub summary/list counts, `kindKey`-scoped Hub V2 / Set V2 / Enumeration V2 legacy list visibility, branch partial-copy custom-kind grouping, and direct `MetahubSettingsService` hub-nesting queries.
+- [x] Re-run focused validation and the canonical root build.
+    - Outcome: the focused `@universo/metahubs-backend` Jest rerun passed for all 7 touched suites (`110` tests, `106` passed, `4` skipped), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- [x] Sync memory-bank closure notes only after the repaired implementation is fully validated.
+    - Outcome: `activeContext.md`, `progress.md`, and this ledger now reflect the validated residual-QA closure state instead of the earlier stale “already green” snapshot.
+
+## Completed Session: 2026-04-11 Entity V2 QA Closure Completion
+
+> Plan: [entities-v2-hubs-sets-enumerations-plan-2026-04-11.md](plan/entities-v2-hubs-sets-enumerations-plan-2026-04-11.md) (QA follow-up completion)
+
+- [x] Repair publication/runtime compatibility metadata propagation for legacy-compatible V2 hubs/sets/enumerations.
+    - Outcome: `SnapshotSerializer` keeps merged compatibility config intact, applications-backend runtime and release-bundle normalization now resolve custom hub/set/enumeration-compatible rows through compatibility metadata, and executable entity definitions preserve explicit snapshot table names.
+- [x] Add backend regression coverage for runtime section filtering and publication/application sync compatibility seams.
+    - Outcome: focused `SnapshotSerializer` and `applicationReleaseBundle` regressions now lock merged compatibility metadata, compatibility-aware set/enumeration normalization, and `tableName -> physicalTableName` propagation.
+- [x] Add the missing browser proof for the remaining Phase 7 seams that are still under-validated.
+    - Outcome: the legacy-compatible V2 Chromium flow now proves Hub V2 rows are selectable in menu widget hub bindings, and the corrected combobox interaction passed on the supported Playwright wrapper.
+- [x] Re-run targeted validation plus the canonical root builds after the fixes.
+    - Outcome: focused backend suites passed, the targeted Chromium hub-binding flow passed, `pnpm run build:e2e` passed after aligning `SnapshotEntityDefinition.tableName`, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- [x] Sync memory-bank closure notes only after the repaired implementation and validation stack are green.
+    - Outcome: `activeContext.md`, `progress.md`, `systemPatterns.md`, `techContext.md`, and this ledger now preserve the closed runtime compatibility and Hub V2 widget-binding contracts.
+
+## Completed Session: 2026-04-11 Entity V2 Completion Remediation
+
+> Plan: [entities-v2-hubs-sets-enumerations-plan-2026-04-11.md](plan/entities-v2-hubs-sets-enumerations-plan-2026-04-11.md) (post-QA revision)  
+> Creative: [creative-entity-v2-generalization-hubs-sets-enumerations.md](creative/creative-entity-v2-generalization-hubs-sets-enumerations.md)
+
+- [x] Restore backend route-suite parity for hubs/sets/enumerations compatibility changes.
+    - Outcome: the reopened `hubsRoutes`, `setsRoutes`, and `enumerationsRoutes` suites were aligned with the compatibility-aware controller/service seams and returned green before the browser follow-up started.
+- [x] Implement the still-missing Playwright coverage for hub-v2, set-v2, enumeration-v2, coexistence, and runtime verification.
+    - Outcome: dedicated V2 lifecycle/coexistence/runtime specs plus shared helpers now exist under `tools/testing/e2e/specs/flows`, and `pnpm run build:e2e` is green on that new source set.
+- [x] Update EN/RU docs for the new V2 presets and route/runtime expectations.
+    - Outcome: the EN/RU guides, architecture docs, and metahubs frontend/backend READMEs now describe Hubs V2 / Catalogs V2 / Sets V2 / Enumerations V2, coexistence, and runtime filtering, with manual line-count parity already checked.
+- [x] Fix Set V2 delegated constants leaf flow by propagating `kindKey` through the direct constants APIs, hooks, query keys, and UI mutation paths.
+    - Outcome: the delegated Set V2 leaf now threads `kindKey` through direct constants fetch/mutation paths, scoped query keys, and UI invalidation, and the targeted Chromium proof no longer falls back to the old direct-route 404 seam.
+- [x] Fix Enumeration V2 delegated update/detail flow by normalizing `kindKey` propagation through enumeration update/detail/value paths.
+    - Outcome: delegated enumeration detail/value flows now keep compatibility context end to end, and the backend direct PATCH path now updates through the stored compatible custom kind instead of hardcoding the built-in `enumeration` kind.
+- [x] Re-run focused validation for the remaining V2 regressions.
+    - Outcome: touched-file diagnostics stayed clean, focused frontend query-key coverage passed, the focused backend `enumerationsRoutes` regression passed, and the targeted Chromium legacy-compatible V2 browser rerun completed green (`3 passed`).
+- [x] Extend the self-hosted fixture contract through committed snapshot regeneration and round-trip validation.
+    - Outcome: the supported self-hosted Playwright generator regenerated `tools/fixtures/metahubs-self-hosted-app-snapshot.json` with the published V2 entity definitions, and the full snapshot export/import browser suite is green again (`5 passed`).
+- [x] Re-run docs/snapshot checks plus the canonical root build after the final remediation patch set.
+    - Outcome: `pnpm run build:e2e` passed, `pnpm docs:i18n:check` passed, the snapshot round-trip suite stayed green after the slow-fixture timeout adjustment, and the final root `pnpm build` completed green (`30 successful`, `30 total`).
+
+## Completed Session: 2026-04-11 Entity V2 Generalization Completion
+
+> Plan: [entities-v2-hubs-sets-enumerations-plan-2026-04-11.md](plan/entities-v2-hubs-sets-enumerations-plan-2026-04-11.md) (post-QA revision)  
+> Creative: [creative-entity-v2-generalization-hubs-sets-enumerations.md](creative/creative-entity-v2-generalization-hubs-sets-enumerations.md)
+
+- [x] Finish backend legacy-compatible hub handling.
+    - Outcome: `hubsController` and `MetahubHubsService` now preserve stored custom hub kinds across list/create/copy/update/delete/reorder/blocker flows instead of hardcoding only built-in `hub` rows.
+- [x] Propagate optional `kindKey` through delegated legacy frontend data paths.
+    - Outcome: hubs/sets/enumerations adapters, query keys, hooks, optimistic mutations, and list UIs now keep scoped custom kind identity end to end, and focused metahubs-frontend regressions passed for scoped cache isolation.
+- [x] Close remaining runtime, publication, and schema exact-kind seams.
+    - Outcome: runtime row selection, publication snapshots, schema-ddl generation/diff/migration, and legacy-compatible controller helpers now resolve hub/set/enumeration/catalog behavior from compatibility metadata instead of exact built-in kinds while preserving stored custom kinds.
+- [x] Refresh regression coverage for the reopened compatibility wave.
+    - Outcome: focused regressions now cover scoped frontend query/mutation caches plus runtimeRowsController, SnapshotSerializer, SchemaGenerator, diff, and SchemaMigrator behavior for legacy-compatible custom V2 kinds.
+- [x] Re-run focused validation and the canonical root build.
+    - Outcome: focused metahubs-frontend regressions passed, focused schema-ddl tests passed (`69/69`), focused SnapshotSerializer and runtimeRowsController suites passed, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- [x] Sync memory-bank closure notes after validation.
+    - Outcome: active context, progress log, durable compatibility patterns, and the task ledger now reflect the fully validated Entity V2 generalization completion state.
+
+## Completed Session: 2026-04-11 Entity V2 Generalization Implementation
+
+> Plan: [entities-v2-hubs-sets-enumerations-plan-2026-04-11.md](plan/entities-v2-hubs-sets-enumerations-plan-2026-04-11.md) (post-QA revision)  
+> Creative: [creative-entity-v2-generalization-hubs-sets-enumerations.md](creative/creative-entity-v2-generalization-hubs-sets-enumerations.md)
+
+- [x] Thread sidebar-order metadata end to end.
+    - Outcome: shared types, backend validation, entity-type forms, presets, and dynamic menu ordering now preserve explicit sidebar ordering.
+- [x] Add built-in hub-v2, set-v2, and enumeration-v2 presets.
+    - Outcome: the preset registry now exposes the new legacy-compatible V2 kinds with explicit `legacyObjectKind` and sidebar-order metadata.
+- [x] Generalize entity-route delegation beyond catalog-only routing.
+    - Outcome: `EntityInstanceList` now delegates hub/set/enumeration-compatible V2 kinds in addition to catalog-compatible kinds, including the known built-in V2 routes before entity-type metadata finishes loading.
+- [x] Add nested entity routes for compatible legacy detail flows.
+    - Outcome: core frontend routing now owns nested entity-based hub/catalog/set/enumeration detail paths instead of falling back to legacy route trees after list navigation.
+- [x] Preserve breadcrumb and in-surface route ownership.
+    - Outcome: shared route helpers now keep HubList/CatalogList/SetList/EnumerationList navigation inside the active entity shell, and `NavbarBreadcrumbs` continues hub/catalog/set/enumeration-compatible entity routes with the matching legacy detail labels.
+- [x] Finish focused regression coverage and validation.
+    - Outcome: `@universo/types` rebuilt successfully, focused metahubs-frontend delegation/route-helper coverage passed (`12/12`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- [x] Sync memory-bank status and final implementation evidence.
+    - Outcome: active context, durable system patterns, and this ledger now reflect the validated legacy-compatible route-ownership contract for the Entity V2 generalization wave.
+
 ## Completed Session: 2026-04-11 PR #757 Review Comment QA Triage
 
 - [x] Gather unresolved PR review comments, issue comments, and file context for PR #757.
@@ -32,7 +215,7 @@
 - [x] Re-run focused validation, browser proof, and the canonical root build before closing.
     - Outcome: focused metahubs backend coverage passed (`27/27`), focused metahubs frontend automation coverage passed (`12/12`), `pnpm docs:i18n:check` passed, `pnpm run build:e2e` completed green after fixing a build-only `DbExecutor` type import, the targeted Chromium automation flow passed (`2 passed`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 
-## Active Session: 2026-04-11 ECAE Residual Completion
+## Completed Session: 2026-04-11 ECAE Residual Completion
 
 - [x] Route generic entity create through the transaction-aware lifecycle boundary.
     - Outcome: `entityInstancesController` now routes generic create through `EntityMutationService`, the service can resolve an after-commit object id from the mutation result, and the focused backend lifecycle/route tests passed (`25/25`).

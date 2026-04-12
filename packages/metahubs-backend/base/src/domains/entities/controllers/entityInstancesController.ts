@@ -3,7 +3,7 @@ import { z } from 'zod'
 import type { Request } from 'express'
 import { localizedContent, resolveLocalizedContent, normalizeCatalogCopyOptions } from '@universo/utils'
 import { isValidCodenameForStyle, normalizeCodenameForStyle } from '@universo/utils/validation/codename'
-import { isEnabledComponentConfig, type ResolvedEntityType } from '@universo/types'
+import { getLegacyCompatibleObjectKind, isEnabledComponentConfig, type ResolvedEntityType } from '@universo/types'
 import { getDbErrorConstraint, getRequestDbSession, isUniqueViolation } from '@universo/utils/database'
 import type { createMetahubHandlerFactory } from '../../shared/createMetahubHandler'
 import { ListQuerySchema, paginateItems } from '../../shared/queryParams'
@@ -36,7 +36,18 @@ import { EntityMutationService } from '../services/EntityMutationService'
 import { copyDesignTimeObjectChildren } from '../services/designTimeObjectChildrenCopy'
 import { executeBlockedDelete } from '../services/legacyBuiltinObjectCompatibility'
 import { findBlockingCatalogReferences, isCatalogCompatibleResolvedType } from '../../catalogs/services/catalogCompatibility'
+import {
+    findBlockingHubObjects,
+    loadHubCompatibilityContext,
+    removeHubFromObjectAssociations
+} from '../../hubs/services/hubCompatibility'
 import { MetahubScriptsService } from '../../scripts/services/MetahubScriptsService'
+import {
+    resolveLegacyCompatibleKinds,
+    resolveLegacyAclPermission,
+    resolveLegacySettingsPrefix,
+    type ManagedLegacyCompatibleKind
+} from '../../shared/legacyCompatibility'
 
 const { buildLocalizedContent, sanitizeLocalizedInput } = localizedContent
 
@@ -166,15 +177,49 @@ type PolicyOutcome = {
     body: Record<string, unknown>
 }
 
+const LEGACY_ENTITY_LABEL_MAP = {
+    catalog: 'Catalog',
+    hub: 'Hub',
+    set: 'Set',
+    enumeration: 'Enumeration'
+} as const
+
+const LEGACY_ENTITY_LABEL_PLURAL_MAP = {
+    catalog: 'catalogs',
+    hub: 'hubs',
+    set: 'sets',
+    enumeration: 'enumerations'
+} as const
+
+type ResolvedTypeWithOptionalConfig = ResolvedEntityType & { config?: Record<string, unknown> | null }
+
 const isCatalogCompatibleEntityType = (resolvedType: ResolvedEntityType | null | undefined) =>
     isCatalogCompatibleResolvedType((resolvedType ?? null) as (ResolvedEntityType & { config?: Record<string, unknown> | null }) | null)
 
-const getEntityMutationPermission = (resolvedType: ResolvedEntityType, mode: MutationPermissionMode): RolePermission => {
-    if (isCatalogCompatibleEntityType(resolvedType)) {
-        return mode === 'delete' ? 'deleteContent' : 'editContent'
+const getEntityMutationPermission = (resolvedType: ResolvedEntityType, mode: MutationPermissionMode): RolePermission =>
+    resolveLegacyAclPermission(resolvedType as ResolvedTypeWithOptionalConfig, mode === 'delete' ? 'delete' : 'write')
+
+const getManagedLegacyCompatibleKind = (resolvedType: ResolvedEntityType | null | undefined): ManagedLegacyCompatibleKind | null => {
+    const legacyKind = getLegacyCompatibleObjectKind((resolvedType as ResolvedTypeWithOptionalConfig | null)?.config)
+    return legacyKind && legacyKind !== 'document' ? legacyKind : null
+}
+
+const buildLegacyPolicyError = (
+    resolvedType: ResolvedEntityType,
+    operation: 'copy' | 'delete'
+): { status: number; body: Record<string, unknown> } | null => {
+    const legacyKind = getManagedLegacyCompatibleKind(resolvedType)
+    if (!legacyKind) {
+        return null
     }
 
-    return 'manageMetahub'
+    const label = LEGACY_ENTITY_LABEL_PLURAL_MAP[legacyKind]
+    return {
+        status: 403,
+        body: {
+            error: `${operation === 'copy' ? 'Copying' : 'Deleting'} ${label} is disabled in metahub settings`
+        }
+    }
 }
 
 const ensureEntityMutationPermission = async ({
@@ -196,7 +241,7 @@ const ensureEntityMutationPermission = async ({
     await ensureMetahubAccess(exec, userId, metahubId, getEntityMutationPermission(resolvedType, mode), dbSession)
 }
 
-const checkCatalogCompatibleCopyPolicy = async ({
+const checkLegacyCompatibleCopyPolicy = async ({
     resolvedType,
     settingsService,
     metahubId,
@@ -207,60 +252,160 @@ const checkCatalogCompatibleCopyPolicy = async ({
     metahubId: string
     userId?: string
 }): Promise<PolicyOutcome | null> => {
-    if (!isCatalogCompatibleEntityType(resolvedType)) {
+    const settingsPrefix = resolveLegacySettingsPrefix(resolvedType)
+    if (!settingsPrefix) {
         return null
     }
 
-    const allowCopyRow = await settingsService.findByKey(metahubId, 'catalogs.allowCopy', userId)
+    const allowCopyRow = await settingsService.findByKey(metahubId, `${settingsPrefix}.allowCopy`, userId)
     if (allowCopyRow && allowCopyRow.value?._value === false) {
-        return {
-            status: 403,
-            body: { error: 'Copying catalogs is disabled in metahub settings' }
-        }
+        return buildLegacyPolicyError(resolvedType, 'copy')
     }
 
     return null
 }
 
-const checkCatalogCompatibleDeletePolicy = async ({
+type LegacyCompatibleDeletePlan = {
+    policyOutcome: PolicyOutcome | null
+    beforeEntityDelete?: () => Promise<void>
+}
+
+const buildLegacyCompatibleDeletePlan = async ({
     resolvedType,
     settingsService,
     attributesService,
+    constantsService,
+    entityTypeService,
     metahubId,
     entityId,
-    userId
+    userId,
+    exec,
+    schemaService
 }: {
     resolvedType: ResolvedEntityType
     settingsService: MetahubSettingsService
     attributesService: MetahubAttributesService
+    constantsService: MetahubConstantsService
+    entityTypeService: EntityTypeService
     metahubId: string
     entityId: string
     userId?: string
-}): Promise<PolicyOutcome | null> => {
-    if (!isCatalogCompatibleEntityType(resolvedType)) {
-        return null
+    exec: ConstructorParameters<typeof MetahubObjectsService>[0]
+    schemaService: ConstructorParameters<typeof MetahubObjectsService>[1]
+}): Promise<LegacyCompatibleDeletePlan> => {
+    const legacyKind = getManagedLegacyCompatibleKind(resolvedType)
+    const settingsPrefix = legacyKind ? resolveLegacySettingsPrefix(resolvedType) : null
+    if (!legacyKind || !settingsPrefix) {
+        return { policyOutcome: null }
     }
 
-    const allowDeleteRow = await settingsService.findByKey(metahubId, 'catalogs.allowDelete', userId)
+    const allowDeleteRow = await settingsService.findByKey(metahubId, `${settingsPrefix}.allowDelete`, userId)
     if (allowDeleteRow && allowDeleteRow.value?._value === false) {
         return {
-            status: 403,
-            body: { error: 'Deleting catalogs is disabled in metahub settings' }
+            policyOutcome: buildLegacyPolicyError(resolvedType, 'delete')
         }
     }
 
-    const blockingReferences = await findBlockingCatalogReferences(metahubId, entityId, attributesService, userId)
-    if (blockingReferences.length > 0) {
+    if (legacyKind === 'catalog' && isCatalogCompatibleEntityType(resolvedType)) {
+        const blockingReferences = await findBlockingCatalogReferences(metahubId, entityId, attributesService, userId)
+        if (blockingReferences.length > 0) {
+            return {
+                policyOutcome: {
+                    status: 409,
+                    body: {
+                        error: 'Cannot delete catalog: it is referenced by attributes in other catalogs',
+                        blockingReferences
+                    }
+                }
+            }
+        }
+
+        return { policyOutcome: null }
+    }
+
+    if (legacyKind === 'set') {
+        const compatibleSetKinds = await resolveLegacyCompatibleKinds(entityTypeService, metahubId, 'set', userId)
+        const blockingReferences = await constantsService.findSetReferenceBlockers(metahubId, entityId, userId, compatibleSetKinds)
+        if (blockingReferences.length > 0) {
+            return {
+                policyOutcome: {
+                    status: 409,
+                    body: {
+                        error: 'Cannot delete set because there are blocking references',
+                        code: 'SET_DELETE_BLOCKED_BY_REFERENCES',
+                        setId: entityId,
+                        blockingReferences
+                    }
+                }
+            }
+        }
+
+        return { policyOutcome: null }
+    }
+
+    if (legacyKind === 'enumeration') {
+        const compatibleEnumerationKinds = await resolveLegacyCompatibleKinds(entityTypeService, metahubId, 'enumeration', userId)
+        const blockingReferences = await attributesService.findReferenceBlockersByTarget(
+            metahubId,
+            entityId,
+            compatibleEnumerationKinds,
+            userId
+        )
+        if (blockingReferences.length > 0) {
+            return {
+                policyOutcome: {
+                    status: 409,
+                    body: {
+                        error: 'Cannot delete enumeration: it is referenced by attributes',
+                        blockingReferences
+                    }
+                }
+            }
+        }
+
+        return { policyOutcome: null }
+    }
+
+    const compatibility = await loadHubCompatibilityContext(entityTypeService, metahubId, userId)
+    const { blockingCatalogs, blockingSets, blockingEnumerations, blockingChildHubs } = await findBlockingHubObjects({
+        metahubId,
+        hubId: entityId,
+        schemaService,
+        userId,
+        db: exec,
+        compatibility
+    })
+    const totalBlocking = blockingCatalogs.length + blockingSets.length + blockingEnumerations.length + blockingChildHubs.length
+
+    if (totalBlocking > 0) {
         return {
-            status: 409,
-            body: {
-                error: 'Cannot delete catalog: it is referenced by attributes in other catalogs',
-                blockingReferences
+            policyOutcome: {
+                status: 409,
+                body: {
+                    error: 'Cannot delete hub: required objects would become orphaned',
+                    blockingCatalogs,
+                    blockingSets,
+                    blockingEnumerations,
+                    blockingChildHubs,
+                    totalBlocking
+                }
             }
         }
     }
 
-    return null
+    return {
+        policyOutcome: null,
+        beforeEntityDelete: async () => {
+            await removeHubFromObjectAssociations({
+                metahubId,
+                hubId: entityId,
+                schemaService,
+                userId,
+                hubExec: exec,
+                compatibility
+            })
+        }
+    }
 }
 
 const buildDesignTimeCopyPlan = (resolvedType: ResolvedEntityType) => ({
@@ -598,10 +743,8 @@ export function createEntityInstancesController(createHandler: ReturnType<typeof
     })
 
     const remove = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {
-        const { objectsService, attributesService, settingsService, resolver, mutationService, actionExecutor } = createEntityServices(
-            exec,
-            schemaService
-        )
+        const { objectsService, attributesService, constantsService, settingsService, entityTypeService, resolver, mutationService, actionExecutor } =
+            createEntityServices(exec, schemaService)
         const existing = await objectsService.findById(metahubId, req.params.entityId, userId)
         if (!existing) {
             throw new MetahubNotFoundError('Entity', req.params.entityId)
@@ -610,20 +753,30 @@ export function createEntityInstancesController(createHandler: ReturnType<typeof
         const resolvedType = await assertCustomEntityKind(resolver, existing.kind, metahubId, userId)
         await ensureEntityMutationPermission({ req, exec, userId, metahubId, resolvedType, mode: 'delete' })
 
-        if (isCatalogCompatibleEntityType(resolvedType)) {
+        const legacyKind = getManagedLegacyCompatibleKind(resolvedType)
+        if (legacyKind) {
+            let beforeEntityDelete: (() => Promise<void>) | undefined
             const result = await executeBlockedDelete({
                 entity: existing,
-                entityLabel: 'Catalog',
-                beforeDelete: () =>
-                    checkCatalogCompatibleDeletePolicy({
+                entityLabel: LEGACY_ENTITY_LABEL_MAP[legacyKind],
+                beforeDelete: async () => {
+                    const deletePlan = await buildLegacyCompatibleDeletePlan({
                         resolvedType,
                         settingsService,
                         attributesService,
+                        constantsService,
+                        entityTypeService,
                         metahubId,
                         entityId: existing.id,
-                        userId
-                    }),
+                        userId,
+                        exec,
+                        schemaService
+                    })
+                    beforeEntityDelete = deletePlan.beforeEntityDelete
+                    return deletePlan.policyOutcome
+                },
                 deleteEntity: async () => {
+                    await beforeEntityDelete?.()
                     await mutationService.run({
                         metahubId,
                         objectId: existing.id,
@@ -688,7 +841,10 @@ export function createEntityInstancesController(createHandler: ReturnType<typeof
     })
 
     const permanentRemove = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {
-        const { objectsService, attributesService, settingsService, resolver } = createEntityServices(exec, schemaService)
+        const { objectsService, attributesService, constantsService, settingsService, entityTypeService, resolver } = createEntityServices(
+            exec,
+            schemaService
+        )
         const entity = await objectsService.findById(metahubId, req.params.entityId, userId, { includeDeleted: true })
         if (!entity) {
             throw new MetahubNotFoundError('Entity', req.params.entityId)
@@ -701,20 +857,30 @@ export function createEntityInstancesController(createHandler: ReturnType<typeof
             throw new MetahubValidationError('Entity is not deleted', { entityId: entity.id })
         }
 
-        if (isCatalogCompatibleEntityType(resolvedType)) {
+        const legacyKind = getManagedLegacyCompatibleKind(resolvedType)
+        if (legacyKind) {
+            let beforeEntityDelete: (() => Promise<void>) | undefined
             const result = await executeBlockedDelete({
                 entity,
-                entityLabel: 'Catalog',
-                beforeDelete: () =>
-                    checkCatalogCompatibleDeletePolicy({
+                entityLabel: LEGACY_ENTITY_LABEL_MAP[legacyKind],
+                beforeDelete: async () => {
+                    const deletePlan = await buildLegacyCompatibleDeletePlan({
                         resolvedType,
                         settingsService,
                         attributesService,
+                        constantsService,
+                        entityTypeService,
                         metahubId,
                         entityId: entity.id,
-                        userId
-                    }),
+                        userId,
+                        exec,
+                        schemaService
+                    })
+                    beforeEntityDelete = deletePlan.beforeEntityDelete
+                    return deletePlan.policyOutcome
+                },
                 deleteEntity: async () => {
+                    await beforeEntityDelete?.()
                     await objectsService.permanentDelete(metahubId, entity.id, userId)
                 }
             })
@@ -747,7 +913,7 @@ export function createEntityInstancesController(createHandler: ReturnType<typeof
 
         const resolvedType = await assertCustomEntityKind(resolver, source.kind, metahubId, userId)
         await ensureEntityMutationPermission({ req, exec, userId, metahubId, resolvedType, mode: 'edit' })
-        const copyPolicyOutcome = await checkCatalogCompatibleCopyPolicy({
+        const copyPolicyOutcome = await checkLegacyCompatibleCopyPolicy({
             resolvedType,
             settingsService,
             metahubId,

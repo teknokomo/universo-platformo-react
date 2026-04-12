@@ -101,6 +101,27 @@ export const useCreateEntityType = () => {
     })
 }
 
+export const useCopyEntityType = () => {
+    const queryClient = useQueryClient()
+    const { enqueueSnackbar } = useSnackbar()
+    const { t } = useTranslation('metahubs')
+
+    return useMutation({
+        mutationKey: ['entityTypes', 'copy'],
+        mutationFn: async ({ metahubId, data }: EntityTypeCreateVariables) => {
+            const response = await entitiesApi.createEntityType(metahubId, data)
+            return response.data
+        },
+        onSuccess: (_data, variables) => {
+            invalidateEntityTypesQueries.all(queryClient, variables.metahubId)
+            enqueueSnackbar(t('entities.copySuccess', 'Entity type copied'), { variant: 'success' })
+        },
+        onError: (error) => {
+            enqueueSnackbar(getErrorMessage(error, t('entities.copyError', 'Failed to copy entity type')), { variant: 'error' })
+        }
+    })
+}
+
 export const useUpdateEntityType = () => {
     const queryClient = useQueryClient()
     const { enqueueSnackbar } = useSnackbar()

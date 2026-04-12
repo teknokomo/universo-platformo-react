@@ -387,7 +387,7 @@ export const EntitySelectionPanel = <T extends SelectableEntity>({
                     </Box>
 
                     {/* Entity list */}
-                    <List sx={{ maxHeight: 300, overflow: 'auto', px: 1, py: 1 }}>
+                    <List sx={{ maxHeight: 300, overflow: 'auto', px: 2, pt: 1, pb: 2 }}>
                         {filteredEntities.length > 0 ? (
                             filteredEntities.map((entity) => (
                                 <ListItem key={entity.id} disablePadding>
@@ -415,7 +415,7 @@ export const EntitySelectionPanel = <T extends SelectableEntity>({
                         )}
                     </List>
                 </DialogContent>
-                <DialogActions>
+                <DialogActions sx={{ px: 3, py: 2 }}>
                     <Button onClick={handleClosePicker}>{labels.cancelButton}</Button>
                     <Button
                         onClick={handleConfirmSelection}

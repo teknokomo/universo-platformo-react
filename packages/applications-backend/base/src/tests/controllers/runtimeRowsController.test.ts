@@ -2,7 +2,7 @@ import { resolvePreferredCatalogIdFromGlobalMenu } from '../../controllers/runti
 import { createMockDbExecutor } from '../utils/dbMocks'
 
 describe('runtimeRowsController startup catalog resolution', () => {
-    it('derives startup catalog bindings from the global default or active layout only', async () => {
+    it('derives startup catalog bindings from the global default or active layout only with compatibility-aware section filtering', async () => {
         const { executor } = createMockDbExecutor()
 
         executor.query.mockImplementation(async (sql: string) => {
@@ -20,6 +20,10 @@ describe('runtimeRowsController startup catalog resolution', () => {
             }
 
             if (sql.includes("config->'hubs' @>")) {
+                expect(sql).toContain('legacyObjectKind')
+                expect(sql).toContain('custom.hub-v2')
+                expect(sql).toContain('custom.set-v2')
+                expect(sql).toContain('custom.enumeration-v2')
                 return [{ id: 'catalog-1' }]
             }
 

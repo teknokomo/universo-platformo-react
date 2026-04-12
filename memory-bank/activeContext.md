@@ -4,7 +4,23 @@
 
 ---
 
-## Current Focus: PR #757 Review Comment QA Triage Closed
+## Current Focus: PR #759 Review Comment QA Triage Closed
+
+- The 2026-04-12 PR #759 bot-review follow-up is now closed on `feature/entity-v2-generalization-hub-set-enum`.
+- Review outcome: the transaction-bound `_mhb_migrations` concern in `MetahubSchemaService` was confirmed and fixed through the request/executor SQL path, while duplicated legacy-compatible kind helpers in `schema-ddl` were consolidated into `legacyCompatibleKinds.ts`.
+- The validation sweep also absorbed the stale test drift that had accumulated on the branch: metahubs/profile/applications frontend tests now match the current route-aware, async-save, API-meta, dialog-helper, and CSRF contracts instead of older assumptions.
+- Final validation for this triage pass is green: focused `@universo/metahubs-backend` and `@universo/schema-ddl` Jest coverage passed, the final root `pnpm test:vitest` rerun passed (`145/145` files, `804/804` tests), and the standalone canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- Treat any further PR #759 work as a new review or QA session on top of this now-validated branch state rather than reopening the completed bot-triage pass without fresh failing proof.
+
+## Previous Focus: Entity V2 Self-Hosted Fixture QA Closure Closed
+
+- The 2026-04-12 self-hosted fixture follow-up is now closed on the current branch.
+- The committed `tools/fixtures/metahubs-self-hosted-app-snapshot.json` was regenerated through the supported Playwright generator so all exported V2 entity definitions match the canonical self-hosted fixture contract again.
+- The browser snapshot import flow now re-exports the imported metahub and polls `assertSelfHostedAppEnvelopeContract(...)`, which closes the previous blind spot where green count/layout checks could still miss imported `entityTypeDefinitions` drift.
+- Final validation for this follow-up is green: direct contract check returned `fixture-contract:ok`, `pnpm run build:e2e` passed, the supported self-hosted generator passed (`2 passed`), the targeted Chromium self-hosted import flow passed (`2 passed`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+- Treat any further work as a new QA or feature session on top of the now-green baseline rather than reopening this fixture/import seam without fresh failing proof.
+
+## Previous Focus: PR #757 Review Comment QA Triage Closed
 
 - The 2026-04-11 PR review triage for GH757 is implemented and validated on the current branch.
 - Review outcome: one actionable backend lifecycle-risk comment was confirmed and fixed; the indentation comments were rejected after codebase verification because the touched metahubs-backend package already uses the same local indentation style and the bot cited a non-existent `.gemini/styleguide.md` path.
@@ -51,10 +67,8 @@
 
 ## Immediate Next Steps
 
-- Wait for QA mode or the next user-directed wave; this residual implementation pass is complete.
-- Preserve the edit-only automation authoring contract on generic custom entities when future dialog or entity-type builder work touches `EntityInstanceList`.
-- Preserve the create-path lifecycle boundary so future generic entity refactors do not bypass `EntityMutationService` again.
-- Preserve the explicit create-time object-id handoff so `beforeCreate`, the persisted row, and `afterCreate` cannot silently drift onto different ids again.
+- If another pass is requested, treat it as QA or follow-up review work on top of the now-green 2026-04-12 baseline rather than reopening implementation without a new failing proof.
+- Preserve the compatibility-metadata contract in any future refactor: new route/runtime/schema code must not reintroduce exact-kind branching, requested-kind widening, unscoped frontend cache keys, or exact built-in blocker queries for legacy-compatible V2 kinds.
 
 ## Constraints to Preserve
 

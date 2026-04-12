@@ -40,6 +40,12 @@ Frontend application for managing metahubs, hubs, catalogs, attributes, and elem
 - **Form Validation**: Comprehensive validation with Zod schemas
 - **API Integration**: RESTful API client with authentication
 
+### 🧩 Entity V2 Delegation
+- **Entities Workspace**: Hubs V2, Catalogs V2, Sets V2, and Enumerations V2 are created from presets and published into the dynamic metahub menu.
+- **Legacy Surface Reuse**: The V2 entity routes delegate to HubList, CatalogList, SetList, and EnumerationList instead of introducing parallel CRUD shells.
+- **Route Ownership**: Delegated detail tabs stay under `/metahub/:id/entities/:kindKey/...` while legacy routes continue to coexist for shared data visibility.
+- **Runtime Boundary**: Catalog-compatible V2 sections can surface in runtime after publication sync, while hub/set/enumeration-compatible V2 sections stay filtered out of runtime navigation.
+
 ### 📋 Template Selection
 - **TemplateSelector Component**: Dropdown selector for choosing metahub templates during creation
 - **Templates API**: Fetches available templates via `GET /templates` endpoint

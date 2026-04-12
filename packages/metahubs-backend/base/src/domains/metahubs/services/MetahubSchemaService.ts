@@ -24,7 +24,7 @@ import { buildBaselineMigrationMeta, buildTemplateSeedMigrationMeta } from './me
 import { TemplateSeedExecutor } from '../../templates/services/TemplateSeedExecutor'
 import { TemplateSeedMigrator } from '../../templates/services/TemplateSeedMigrator'
 import { mirrorToGlobalCatalog } from '@universo/migrations-catalog'
-import { hasRuntimeHistoryTable } from '@universo/migrations-core'
+import { hasRuntimeHistoryTable, quoteIdentifier } from '@universo/migrations-core'
 import { clearWidgetTableResolverCache } from '../../templates/services/widgetTableResolver'
 import { validateTemplateManifest } from '../../templates/services/TemplateManifestValidator'
 import { builtinTemplates, DEFAULT_TEMPLATE_CODENAME } from '../../templates/data'
@@ -41,6 +41,7 @@ import { isGlobalMigrationCatalogEnabled } from '@universo/utils'
 import { createLogger } from '../../../utils/logger'
 
 const log = createLogger('MetahubSchemaService')
+const PUBLIC_BASELINE_STRUCTURE_VERSION = 1
 
 /**
  * In-memory cache for schema existence.
@@ -107,8 +108,117 @@ export class MetahubSchemaService {
         return this.exec.query<T>(sql, parameters)
     }
 
+    async resolvePublicStructureVersion(schemaName: string, fallbackVersion: string | number | null | undefined): Promise<string> {
+        const baselineVersion = await this.readBaselineMigrationVersion(schemaName)
+        return structureVersionToSemver(baselineVersion ?? fallbackVersion)
+    }
+
+    async rewriteBaselineMigrationVersion(schemaName: string, version: string | number | null | undefined): Promise<void> {
+        const normalizedVersion = this.parseExplicitStructureVersion(version)
+        if (normalizedVersion == null) return
+
+        const baselineRow = await this.readBaselineMigrationRow(schemaName)
+        if (!baselineRow?.id) return
+
+        const baselineName = `baseline_structure_v${normalizedVersion}`
+        const schemaIdent = quoteIdentifier(schemaName)
+        await this.exec.query(
+            `UPDATE ${schemaIdent}._mhb_migrations
+             SET name = $1, from_version = $2, to_version = $3
+             WHERE id = $4`,
+            [baselineName, normalizedVersion, normalizedVersion, baselineRow.id]
+        )
+    }
+
     private get knex() {
         return getKnex()
+    }
+
+    private parseExplicitStructureVersion(version: string | number | null | undefined): number | null {
+        if (typeof version === 'number') {
+            if (!Number.isInteger(version) || version < 1 || version > CURRENT_STRUCTURE_VERSION) return null
+            return version
+        }
+
+        if (typeof version !== 'string') {
+            return null
+        }
+
+        const trimmed = version.trim()
+        if (!trimmed) return null
+
+        if (/^\d+$/.test(trimmed)) {
+            const numeric = Number(trimmed)
+            if (!Number.isInteger(numeric) || numeric < 1 || numeric > CURRENT_STRUCTURE_VERSION) return null
+            return numeric
+        }
+
+        if (!/^\d+\.\d+\.\d+$/.test(trimmed)) {
+            return null
+        }
+
+        const normalized = semverToStructureVersion(trimmed)
+        if (normalized < 1 || normalized > CURRENT_STRUCTURE_VERSION) return null
+        return normalized
+    }
+
+    private async readBaselineMigrationVersion(schemaName: string): Promise<number | null> {
+        const baselineRow = await this.readBaselineMigrationRow(schemaName)
+        if (!baselineRow) return null
+
+        const versionFromColumn = this.parseExplicitStructureVersion(baselineRow.toVersion)
+        if (versionFromColumn != null) {
+            return versionFromColumn
+        }
+
+        const nameMatch = /^baseline_structure_v(\d+)$/.exec(baselineRow.name)
+        if (!nameMatch) return null
+
+        const versionFromName = Number(nameMatch[1])
+        if (!Number.isInteger(versionFromName) || versionFromName < 1 || versionFromName > CURRENT_STRUCTURE_VERSION) {
+            return null
+        }
+
+        return versionFromName
+    }
+
+    private async readBaselineMigrationRow(
+        schemaName: string
+    ): Promise<{ id: string; name: string; toVersion: string | number | null } | null> {
+        const hasMigrationTable = await this.hasLocalMigrationTable(schemaName)
+        if (!hasMigrationTable) return null
+
+        const schemaIdent = quoteIdentifier(schemaName)
+        const rows = await this.exec.query<{ id: string; name: string; toVersion: string | number | null }>(
+            `SELECT id, name, to_version AS "toVersion"
+             FROM ${schemaIdent}._mhb_migrations
+             WHERE name LIKE 'baseline_structure_v%'
+             ORDER BY applied_at ASC, name ASC
+             LIMIT 1`
+        )
+
+        const baselineRow = rows[0]
+        if (!baselineRow) return null
+
+        return {
+            id: baselineRow.id,
+            name: baselineRow.name,
+            toVersion: baselineRow.toVersion ?? null
+        }
+    }
+
+    private async hasLocalMigrationTable(schemaName: string): Promise<boolean> {
+        const rows = await this.exec.query<{ exists: boolean | string | number }>(
+            `SELECT EXISTS (
+                 SELECT 1
+                 FROM information_schema.tables
+                 WHERE table_schema = $1 AND table_name = $2
+             ) AS "exists"`,
+            [schemaName, '_mhb_migrations']
+        )
+
+        const exists = rows[0]?.exists
+        return exists === true || exists === 't' || exists === 'true' || exists === 1
     }
 
     /**
@@ -628,7 +738,7 @@ export class MetahubSchemaService {
         const hasMigrationTable = await hasRuntimeHistoryTable(this.knex, schemaName, '_mhb_migrations')
         if (!hasMigrationTable) return
 
-        const baselineName = `baseline_structure_v${structureVersion}`
+        const baselineName = `baseline_structure_v${PUBLIC_BASELINE_STRUCTURE_VERSION}`
         const snapshotAfter = buildSystemStructureSnapshot(structureVersion)
 
         await this.knex.transaction(async (trx) => {
@@ -637,8 +747,8 @@ export class MetahubSchemaService {
                 .into('_mhb_migrations')
                 .insert({
                     name: baselineName,
-                    from_version: structureVersion,
-                    to_version: structureVersion,
+                    from_version: PUBLIC_BASELINE_STRUCTURE_VERSION,
+                    to_version: PUBLIC_BASELINE_STRUCTURE_VERSION,
                     meta: buildBaselineMigrationMeta(snapshotAfter, templateVersionLabel)
                 })
                 .onConflict('name')
@@ -657,14 +767,15 @@ export class MetahubSchemaService {
                 scopeKey: schemaName,
                 sourceKind: 'system_sync',
                 migrationName: baselineName,
-                migrationVersion: String(structureVersion),
+                migrationVersion: String(PUBLIC_BASELINE_STRUCTURE_VERSION),
                 localHistoryTable: '_mhb_migrations',
-                summary: `Metahub baseline structure v${structureVersion}`,
+                summary: `Metahub baseline structure v${PUBLIC_BASELINE_STRUCTURE_VERSION}`,
                 transactionMode: 'single',
                 lockMode: 'session_advisory',
                 checksumPayload: {
                     schemaName,
                     structureVersion,
+                    publicBaselineStructureVersion: PUBLIC_BASELINE_STRUCTURE_VERSION,
                     templateVersionLabel: templateVersionLabel ?? null
                 },
                 meta: {
@@ -674,7 +785,8 @@ export class MetahubSchemaService {
                 snapshotBefore: null,
                 snapshotAfter: snapshotAfter as unknown as Record<string, unknown>,
                 plan: {
-                    structureVersion
+                    structureVersion,
+                    publicBaselineStructureVersion: PUBLIC_BASELINE_STRUCTURE_VERSION
                 }
             })
 

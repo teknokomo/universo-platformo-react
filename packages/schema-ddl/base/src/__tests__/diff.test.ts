@@ -53,11 +53,11 @@ describe('DDL Diff Utilities', () => {
         })
 
         describe('when comparing with existing snapshot', () => {
-            it('should ignore enumeration entities for physical DDL diff', () => {
+            it('should ignore legacy-compatible custom enumeration entities for physical DDL diff', () => {
                 const snapshot = createTestSnapshot({
                     'enum-entity-1111-2222-333344445555': {
                         codename: 'order_status',
-                        kind: 'enumeration',
+                        kind: 'custom.enumeration-v2' as SchemaSnapshot['entities'][string]['kind'],
                         tableName: 'enum_entity11112222333344445555',
                         fields: {}
                     }
@@ -131,7 +131,7 @@ describe('DDL Diff Utilities', () => {
                 expect(diff.additive[0].fieldCodename).toBe('new_field')
             })
 
-            it('does not generate physical FK changes for REF fields targeting set', () => {
+            it('does not generate physical FK changes for REF fields targeting legacy-compatible custom sets', () => {
                 const snapshot = createTestSnapshot()
                 const entities: EntityDefinition[] = [
                     createTestEntity({
@@ -142,7 +142,7 @@ describe('DDL Diff Utilities', () => {
                                 dataType: 'REF',
                                 isRequired: false,
                                 targetEntityId: 'set-1111-2222-333344445555',
-                                targetEntityKind: 'set'
+                                targetEntityKind: 'custom.set-v2' as EntityDefinition['fields'][number]['targetEntityKind']
                             }
                         ]
                     })

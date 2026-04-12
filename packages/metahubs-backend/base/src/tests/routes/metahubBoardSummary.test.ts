@@ -113,18 +113,19 @@ describe('Metahub Board Summary', () => {
         mockFindBranchByIdAndMetahub.mockResolvedValue({
             id: branchId,
             metahubId,
-            schemaName: 'mhb_abcdef_b1'
+            schemaName: 'mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b1'
         })
 
         mockCountBranches.mockResolvedValue(3)
         mockCountMetahubMembers.mockResolvedValue(5)
 
         mockExec.query.mockImplementation(async (sql: string) => {
-            if (sql.includes('_mhb_objects') && sql.includes("kind = 'hub'")) {
-                return [{ count: 2 }]
-            }
-            if (sql.includes('_mhb_objects') && sql.includes("kind = 'catalog'")) {
-                return [{ count: 4 }]
+            if (
+                sql.includes('_mhb_objects') &&
+                sql.includes('COUNT(*) FILTER (WHERE kind = ANY($1::text[]))::int AS "hubsCount"') &&
+                sql.includes('COUNT(*) FILTER (WHERE kind = ANY($2::text[]))::int AS "catalogsCount"')
+            ) {
+                return [{ hubsCount: 2, catalogsCount: 4 }]
             }
             if (sql.includes('doc_publication_versions')) {
                 return [{ count: 7 }]
@@ -135,7 +136,7 @@ describe('Metahub Board Summary', () => {
             if (sql.includes('metahubs.doc_publications')) {
                 return [{ count: 2 }]
             }
-            return [{ count: 0 }]
+            return []
         })
 
         const app = buildApp()
@@ -153,6 +154,12 @@ describe('Metahub Board Summary', () => {
             publicationVersionsCount: 7,
             applicationsCount: 1
         })
+
+        const countsCall = mockExec.query.mock.calls.find(([sql]: [string]) => sql.includes('_mhb_objects'))
+
+        expect(countsCall?.[0]).toContain('COUNT(*) FILTER (WHERE kind = ANY($1::text[]))::int AS "hubsCount"')
+        expect(countsCall?.[0]).toContain('COUNT(*) FILTER (WHERE kind = ANY($2::text[]))::int AS "catalogsCount"')
+        expect(countsCall?.[1]).toEqual([['hub'], ['catalog'], ['hub', 'catalog']])
     })
 
     it('skips metahub object counting for invalid branch schema names', async () => {

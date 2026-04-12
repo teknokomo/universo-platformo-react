@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next'
 import i18n from '@universo/i18n'
 import { useLocation, NavLink } from 'react-router-dom'
 import { useAuth } from '@universo/auth-frontend'
-import { isLegacyCompatibleObjectKind } from '@universo/types'
+import { getLegacyCompatibleObjectKind, getLegacyCompatibleObjectKindForKindKey, type LegacyCompatibleObjectKind } from '@universo/types'
 import { getVLCString } from '@universo/utils'
 import { useHasGlobalAccess } from '@universo/store'
 import {
@@ -77,9 +77,54 @@ type BreadcrumbEntityDetail = Record<string, unknown> & {
     codename?: unknown
 }
 
-const CATALOG_COMPATIBLE_KIND_KEY = 'custom.catalog-v2'
+const LEGACY_COMPATIBLE_ENTITY_LABEL_KEYS: Record<Exclude<LegacyCompatibleObjectKind, 'document'>, string> = {
+    catalog: 'catalogs',
+    hub: 'hubs',
+    set: 'sets',
+    enumeration: 'enumerations'
+}
 
 const truncateEntityBreadcrumbLabel = (value: string): string => (value.length > 36 ? `${value.slice(0, 33)}...` : value)
+
+const buildEntityInstancesPath = (metahubId: string, kindSegment: string): string => `/metahub/${metahubId}/entities/${kindSegment}/instances`
+
+const buildEntityInstanceDefaultPath = (
+    metahubId: string,
+    kindSegment: string,
+    entityId: string,
+    legacyCompatibleKind: LegacyCompatibleObjectKind | null
+): string => {
+    if (legacyCompatibleKind === 'hub') {
+        return `/metahub/${metahubId}/entities/${kindSegment}/instance/${entityId}/hubs`
+    }
+
+    if (legacyCompatibleKind === 'set') {
+        return `/metahub/${metahubId}/entities/${kindSegment}/instance/${entityId}/constants`
+    }
+
+    if (legacyCompatibleKind === 'enumeration') {
+        return `/metahub/${metahubId}/entities/${kindSegment}/instance/${entityId}/values`
+    }
+
+    return `/metahub/${metahubId}/entities/${kindSegment}/instance/${entityId}/attributes`
+}
+
+const buildEntityHubScopePath = (metahubId: string, kindSegment: string, hubId: string, tab: 'hubs' | 'catalogs' | 'sets' | 'enumerations') =>
+    `/metahub/${metahubId}/entities/${kindSegment}/instance/${hubId}/${tab}`
+
+const buildEntityHubCatalogPath = (
+    metahubId: string,
+    kindSegment: string,
+    hubId: string,
+    catalogId: string,
+    tab: 'attributes' | 'system' | 'elements'
+) => `/metahub/${metahubId}/entities/${kindSegment}/instance/${hubId}/catalog/${catalogId}/${tab}`
+
+const buildEntityHubSetPath = (metahubId: string, kindSegment: string, hubId: string, setId: string) =>
+    `/metahub/${metahubId}/entities/${kindSegment}/instance/${hubId}/set/${setId}/constants`
+
+const buildEntityHubEnumerationPath = (metahubId: string, kindSegment: string, hubId: string, enumerationId: string) =>
+    `/metahub/${metahubId}/entities/${kindSegment}/instance/${hubId}/enumeration/${enumerationId}/values`
 
 export default function NavbarBreadcrumbs() {
     const { t } = useTranslation('menu', { i18n })
@@ -133,6 +178,11 @@ export default function NavbarBreadcrumbs() {
     const entityRouteKindKey = entityRouteKindSegment ? decodeURIComponent(entityRouteKindSegment) : null
     const entityRouteDetailMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/entities\/[^/]+\/instance\/([^/]+)(?:\/|$)/)
     const entityRouteEntityId = entityRouteDetailMatch ? entityRouteDetailMatch[2] : null
+    const entityRouteHubCatalogMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/entities\/[^/]+\/instance\/([^/]+)\/catalog\/([^/]+)(?:\/|$)/)
+    const entityRouteHubSetMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/entities\/[^/]+\/instance\/([^/]+)\/set\/([^/]+)(?:\/|$)/)
+    const entityRouteHubEnumerationMatch = location.pathname.match(
+        /^\/metahubs?\/([^/]+)\/entities\/[^/]+\/instance\/([^/]+)\/enumeration\/([^/]+)(?:\/|$)/
+    )
     const entityTypeRouteQuery = useQuery<BreadcrumbEntityTypesResponse>({
         queryKey:
             entityRouteMetahubId && entityRouteKindKey
@@ -157,13 +207,49 @@ export default function NavbarBreadcrumbs() {
         refetchOnWindowFocus: false
     })
     const matchedEntityType = (entityTypeRouteQuery.data?.items ?? []).find((item) => item.kindKey === entityRouteKindKey) ?? null
-    const isCatalogCompatibleEntityType = matchedEntityType
-        ? matchedEntityType.kindKey === CATALOG_COMPATIBLE_KIND_KEY || isLegacyCompatibleObjectKind(matchedEntityType.config, 'catalog')
-        : entityRouteKindKey === CATALOG_COMPATIBLE_KIND_KEY
-    const entityRouteCatalogName = useCatalogNameStandalone(entityRouteMetahubId, isCatalogCompatibleEntityType ? entityRouteEntityId : null)
+    const entityRouteLegacyCompatibleKind = matchedEntityType
+        ? getLegacyCompatibleObjectKind(matchedEntityType.config) ?? getLegacyCompatibleObjectKindForKindKey(entityRouteKindKey)
+        : getLegacyCompatibleObjectKindForKindKey(entityRouteKindKey)
+    const entityRouteCatalogName = useCatalogNameStandalone(
+        entityRouteMetahubId,
+        entityRouteLegacyCompatibleKind === 'catalog' ? entityRouteEntityId : null
+    )
+    const entityRouteHubName = useHubName(
+        entityRouteMetahubId,
+        entityRouteLegacyCompatibleKind === 'hub'
+            ? entityRouteEntityId
+            : entityRouteHubCatalogMatch
+            ? entityRouteHubCatalogMatch[2]
+            : entityRouteHubSetMatch
+            ? entityRouteHubSetMatch[2]
+            : entityRouteHubEnumerationMatch
+            ? entityRouteHubEnumerationMatch[2]
+            : null
+    )
+    const entityRouteHubCatalogName = useCatalogName(
+        entityRouteMetahubId,
+        entityRouteHubCatalogMatch ? entityRouteHubCatalogMatch[2] : null,
+        entityRouteHubCatalogMatch ? entityRouteHubCatalogMatch[3] : null
+    )
+    const entityRouteSetName = useSetNameStandalone(
+        entityRouteMetahubId,
+        entityRouteLegacyCompatibleKind === 'set'
+            ? entityRouteEntityId
+            : entityRouteHubSetMatch
+            ? entityRouteHubSetMatch[3]
+            : null
+    )
+    const entityRouteEnumerationName = useEnumerationName(
+        entityRouteMetahubId,
+        entityRouteLegacyCompatibleKind === 'enumeration'
+            ? entityRouteEntityId
+            : entityRouteHubEnumerationMatch
+            ? entityRouteHubEnumerationMatch[3]
+            : null
+    )
     const entityTypeBreadcrumbLabel = (() => {
-        if (isCatalogCompatibleEntityType) {
-            return t('catalogs')
+        if (entityRouteLegacyCompatibleKind && entityRouteLegacyCompatibleKind !== 'document') {
+            return t(LEGACY_COMPATIBLE_ENTITY_LABEL_KEYS[entityRouteLegacyCompatibleKind])
         }
 
         if (!matchedEntityType) {
@@ -184,14 +270,14 @@ export default function NavbarBreadcrumbs() {
     })()
     const entityRouteDetailQuery = useQuery<BreadcrumbEntityDetail>({
         queryKey:
-            entityRouteMetahubId && entityRouteEntityId
+            entityRouteMetahubId && entityRouteEntityId && !entityRouteLegacyCompatibleKind
                 ? ['entities', 'breadcrumbs', entityRouteMetahubId, entityRouteEntityId]
                 : ['entities', 'breadcrumbs', 'missing-detail'],
         queryFn: async () => {
             const response = await client.get<BreadcrumbEntityDetail>(`/metahub/${entityRouteMetahubId}/entity/${entityRouteEntityId}`)
             return response.data
         },
-        enabled: Boolean(entityRouteMetahubId && entityRouteEntityId) && !authLoading,
+        enabled: Boolean(entityRouteMetahubId && entityRouteEntityId && !entityRouteLegacyCompatibleKind) && !authLoading,
         staleTime: 5 * 60 * 1000,
         retry: 2,
         retryOnMount: true,
@@ -200,7 +286,15 @@ export default function NavbarBreadcrumbs() {
     })
     const entityInstanceBreadcrumbLabel = (() => {
         const resolvedLabel =
-            (isCatalogCompatibleEntityType ? entityRouteCatalogName : null) ||
+            (entityRouteLegacyCompatibleKind === 'catalog'
+                ? entityRouteCatalogName
+                : entityRouteLegacyCompatibleKind === 'hub'
+                ? entityRouteHubName
+                : entityRouteLegacyCompatibleKind === 'set'
+                ? entityRouteSetName
+                : entityRouteLegacyCompatibleKind === 'enumeration'
+                ? entityRouteEnumerationName
+                : null) ||
             extractLocalizedString(entityRouteDetailQuery.data?.name) ||
             extractLocalizedString(entityRouteDetailQuery.data?.codename)
         return resolvedLabel ? truncateEntityBreadcrumbLabel(resolvedLabel) : null
@@ -440,18 +534,92 @@ export default function NavbarBreadcrumbs() {
                     items.push({ label: t('entities'), to: `/metahub/${segments[1]}/entities` })
 
                     if (segments[3] && (segments[4] === 'instances' || segments[4] === 'instance')) {
+                        const entityInstancesPath = buildEntityInstancesPath(segments[1], segments[3])
                         items.push({
                             label: entityTypeBreadcrumbLabel ?? truncateEntityBreadcrumbLabel(decodeURIComponent(segments[3])),
-                            to: `/metahub/${segments[1]}/entities/${segments[3]}/instances`
+                            to: entityInstancesPath
                         })
 
                         if (segments[4] === 'instance' && segments[5]) {
+                            const defaultEntityInstancePath = buildEntityInstanceDefaultPath(
+                                segments[1],
+                                segments[3],
+                                segments[5],
+                                entityRouteLegacyCompatibleKind
+                            )
                             items.push({
                                 label: entityInstanceBreadcrumbLabel ?? '...',
-                                to: `/metahub/${segments[1]}/entities/${segments[3]}/instance/${segments[5]}/attributes`
+                                to: defaultEntityInstancePath
                             })
 
-                            if (segments[6] === 'attributes') {
+                            if (entityRouteLegacyCompatibleKind === 'hub') {
+                                if (segments[6] === 'hubs' || segments[6] === 'catalogs' || segments[6] === 'sets' || segments[6] === 'enumerations') {
+                                    items.push({
+                                        label: t(segments[6]),
+                                        to: buildEntityHubScopePath(segments[1], segments[3], segments[5], segments[6])
+                                    })
+                                } else if (segments[6] === 'catalog' && segments[7]) {
+                                    items.push({
+                                        label: t('catalogs'),
+                                        to: buildEntityHubScopePath(segments[1], segments[3], segments[5], 'catalogs')
+                                    })
+                                    items.push({
+                                        label: entityRouteHubCatalogName ? truncateCatalogName(entityRouteHubCatalogName) : '...',
+                                        to: buildEntityHubCatalogPath(segments[1], segments[3], segments[5], segments[7], 'attributes')
+                                    })
+
+                                    if (segments[8] === 'attributes') {
+                                        items.push({ label: t('attributes'), to: location.pathname })
+                                    } else if (segments[8] === 'system') {
+                                        items.push({
+                                            label: i18n.t('metahubs:attributes.system.title', { defaultValue: 'System Attributes' }),
+                                            to: location.pathname
+                                        })
+                                    } else if (segments[8] === 'elements') {
+                                        items.push({ label: t('elements'), to: location.pathname })
+                                    }
+                                } else if (segments[6] === 'set' && segments[7]) {
+                                    items.push({
+                                        label: t('sets'),
+                                        to: buildEntityHubScopePath(segments[1], segments[3], segments[5], 'sets')
+                                    })
+                                    items.push({
+                                        label: entityRouteSetName ? truncateSetName(entityRouteSetName) : '...',
+                                        to: buildEntityHubSetPath(segments[1], segments[3], segments[5], segments[7])
+                                    })
+
+                                    if (segments[8] === 'constants') {
+                                        items.push({
+                                            label: t('constants'),
+                                            to: buildEntityHubSetPath(segments[1], segments[3], segments[5], segments[7])
+                                        })
+                                    }
+                                } else if (segments[6] === 'enumeration' && segments[7]) {
+                                    items.push({
+                                        label: t('enumerations'),
+                                        to: buildEntityHubScopePath(segments[1], segments[3], segments[5], 'enumerations')
+                                    })
+                                    items.push({
+                                        label: entityRouteEnumerationName ? truncateEnumerationName(entityRouteEnumerationName) : '...',
+                                        to: buildEntityHubEnumerationPath(segments[1], segments[3], segments[5], segments[7])
+                                    })
+
+                                    if (segments[8] === 'values') {
+                                        items.push({
+                                            label: t('values'),
+                                            to: buildEntityHubEnumerationPath(segments[1], segments[3], segments[5], segments[7])
+                                        })
+                                    }
+                                }
+                            } else if (entityRouteLegacyCompatibleKind === 'set') {
+                                if (segments[6] === 'constants') {
+                                    items.push({ label: t('constants'), to: defaultEntityInstancePath })
+                                }
+                            } else if (entityRouteLegacyCompatibleKind === 'enumeration') {
+                                if (segments[6] === 'values') {
+                                    items.push({ label: t('values'), to: defaultEntityInstancePath })
+                                }
+                            } else if (segments[6] === 'attributes') {
                                 items.push({ label: t('attributes'), to: location.pathname })
                             } else if (segments[6] === 'system') {
                                 items.push({

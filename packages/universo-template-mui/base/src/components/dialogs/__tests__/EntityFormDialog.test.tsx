@@ -102,6 +102,75 @@ describe('EntityFormDialog', () => {
         })
     })
 
+    it('keeps async hydration active when a child auto-initializes an empty localized scaffold first', async () => {
+        const AutoInitializingField = ({
+            value,
+            setValue
+        }: {
+            value: { locales?: { en?: { content?: string } } } | null | undefined
+            setValue: (name: string, nextValue: unknown) => void
+        }) => {
+            React.useEffect(() => {
+                if (value) return
+                setValue('nameVlc', {
+                    _schema: 'v1',
+                    _primary: 'en',
+                    locales: {
+                        en: { content: '' }
+                    }
+                })
+            }, [setValue, value])
+
+            return <div data-testid='name-value'>{String(value?.locales?.en?.content ?? 'empty')}</div>
+        }
+
+        const AsyncDialogHost = () => {
+            const [initialExtraValues, setInitialExtraValues] = React.useState<Record<string, unknown>>({ nameVlc: null })
+
+            React.useEffect(() => {
+                const timer = window.setTimeout(() => {
+                    setInitialExtraValues({
+                        nameVlc: {
+                            _schema: 'v1',
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Loaded publication name' }
+                            }
+                        }
+                    })
+                }, 0)
+
+                return () => window.clearTimeout(timer)
+            }, [])
+
+            return (
+                <EntityFormDialog
+                    open
+                    title='Edit Publication'
+                    hideDefaultFields
+                    nameLabel='Name'
+                    descriptionLabel='Description'
+                    initialExtraValues={initialExtraValues}
+                    tabs={({ values, setValue }) => [
+                        {
+                            id: 'general',
+                            label: 'General',
+                            content: <AutoInitializingField value={values.nameVlc as never} setValue={setValue} />
+                        }
+                    ]}
+                    onClose={() => undefined}
+                    onSave={() => undefined}
+                />
+            )
+        }
+
+        render(<AsyncDialogHost />)
+
+        await waitFor(() => {
+            expect(screen.getByTestId('name-value')).toHaveTextContent('Loaded publication name')
+        })
+    })
+
     it('does not overwrite extra values after the user starts editing', async () => {
         const AsyncDialogHost = () => {
             const [initialExtraValues, setInitialExtraValues] = React.useState<Record<string, unknown>>({

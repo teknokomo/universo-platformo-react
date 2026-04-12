@@ -76,6 +76,7 @@ import {
 import SharedEntitySettingsFields from '../../shared/ui/SharedEntitySettingsFields'
 import { readSharedExcludedTargetIdsField, syncSharedEntityExclusions } from '../../shared/sharedEntityExclusions'
 import { DragOverlayValueRow } from './dnd'
+import { resolveLegacyCompatibleChildKindKey } from '../../shared/legacyCompatibleRoutePaths'
 
 type ValueFormValues = {
     nameVlc: VersionedLocalizedContent<string> | null
@@ -266,9 +267,14 @@ export const EnumerationValueListContent = ({
     showSettingsTab = true
 }: EnumerationValueListContentProps = {}) => {
     const codenameConfig = useCodenameConfig()
-    const { metahubId: routeMetahubId, enumerationId: routeEnumerationId } = useParams<{ metahubId: string; enumerationId: string }>()
+    const {
+        metahubId: routeMetahubId,
+        enumerationId: routeEnumerationId,
+        kindKey: routeKindKey
+    } = useParams<{ metahubId: string; enumerationId: string; kindKey?: string }>()
     const metahubId = metahubIdProp ?? routeMetahubId
     const enumerationId = enumerationIdProp ?? routeEnumerationId
+    const kindKey = resolveLegacyCompatibleChildKindKey({ routeKindKey, childObjectKind: 'enumeration' })
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
     const { enqueueSnackbar } = useSnackbar()
@@ -299,6 +305,7 @@ export const EnumerationValueListContent = ({
                 await reorderMutation.mutateAsync({
                     metahubId,
                     enumerationId,
+                    kindKey,
                     valueId,
                     newSortOrder,
                     mergedOrderIds
@@ -319,9 +326,12 @@ export const EnumerationValueListContent = ({
     } = useQuery({
         queryKey:
             metahubId && enumerationId
-                ? metahubsQueryKeys.enumerationValuesList(metahubId, enumerationId, { includeShared: includeSharedValues })
+                ? metahubsQueryKeys.enumerationValuesList(metahubId, enumerationId, {
+                      includeShared: includeSharedValues,
+                      kindKey
+                  })
                 : ['empty'],
-        queryFn: () => listEnumerationValues(metahubId!, enumerationId!, { includeShared: includeSharedValues }),
+        queryFn: () => listEnumerationValues(metahubId!, enumerationId!, { includeShared: includeSharedValues, kindKey }),
         enabled: Boolean(metahubId && enumerationId)
     })
 
@@ -331,11 +341,11 @@ export const EnumerationValueListContent = ({
     const { data: enumerationForHubResolution } = useQuery({
         queryKey:
             metahubId && enumerationId
-                ? metahubsQueryKeys.enumerationDetail(metahubId, enumerationId)
+                ? metahubsQueryKeys.enumerationDetail(metahubId, enumerationId, kindKey)
                 : ['metahubs', 'enumerations', 'detail', 'empty'],
         queryFn: async () => {
             if (!metahubId || !enumerationId) throw new Error('metahubId and enumerationId are required')
-            return getEnumerationById(metahubId, enumerationId)
+            return getEnumerationById(metahubId, enumerationId, kindKey)
         },
         enabled: showSettingsTab && !!metahubId && !!enumerationId
     })
@@ -350,7 +360,7 @@ export const EnumerationValueListContent = ({
             metahubId && enumerationId && dialogs.edit.item?.id
                 ? ['metahubs', 'enumerationValueBlockingRefs', metahubId, enumerationId, dialogs.edit.item.id]
                 : ['metahubs', 'enumerationValueBlockingRefs', 'empty'],
-        queryFn: () => getEnumerationValueBlockingReferences(metahubId!, enumerationId!, dialogs.edit.item!.id),
+        queryFn: () => getEnumerationValueBlockingReferences(metahubId!, enumerationId!, dialogs.edit.item!.id, kindKey),
         enabled: Boolean(metahubId && enumerationId && dialogs.edit.item?.id)
     })
 
@@ -466,12 +476,12 @@ export const EnumerationValueListContent = ({
             if (!metahubId || !enumerationId) return
             revealPendingEntityFeedback({
                 queryClient,
-                queryKeyPrefix: metahubsQueryKeys.enumerationValues(metahubId, enumerationId),
+                queryKeyPrefix: metahubsQueryKeys.enumerationValues(metahubId, enumerationId, kindKey),
                 entityId: valueId
             })
             enqueueSnackbar(pendingInteractionMessage, { variant: 'info' })
         },
-        [enqueueSnackbar, enumerationId, metahubId, pendingInteractionMessage, queryClient]
+        [enqueueSnackbar, enumerationId, kindKey, metahubId, pendingInteractionMessage, queryClient]
     )
     const valueOrderMap = useMemo(() => {
         const sortedIds = sortSharedEntityList(values).map((item) => item.id)
@@ -496,6 +506,7 @@ export const EnumerationValueListContent = ({
                 updateMutation.mutate({
                     metahubId,
                     enumerationId,
+                    kindKey,
                     valueId: value.id,
                     data: {
                         isDefault: true,
@@ -509,6 +520,7 @@ export const EnumerationValueListContent = ({
                 updateMutation.mutate({
                     metahubId,
                     enumerationId,
+                    kindKey,
                     valueId: value.id,
                     data: {
                         isDefault: false,
@@ -521,12 +533,13 @@ export const EnumerationValueListContent = ({
                 await moveMutation.mutateAsync({
                     metahubId,
                     enumerationId,
+                    kindKey,
                     valueId: value.id,
                     direction
                 })
             }
         }),
-        [valueMap, valueOrderMap, values.length, metahubId, enumerationId, moveMutation, openDelete, openEdit, updateMutation]
+        [valueMap, valueOrderMap, values.length, kindKey, metahubId, enumerationId, moveMutation, openDelete, openEdit, updateMutation]
     )
     const toValueActionContext = useCallback((ctx: ActionContext<EnumerationValueDisplay, never>) => ctx as ValueActionContext, [])
 
@@ -868,7 +881,7 @@ export const EnumerationValueListContent = ({
                         ...patch
                     }
                 })
-                await invalidateEnumerationValuesQueries.all(queryClient, metahubId, enumerationId)
+                await invalidateEnumerationValuesQueries.all(queryClient, metahubId, enumerationId, kindKey)
                 enqueueSnackbar(successMessage, { variant: 'success' })
             } catch (error: unknown) {
                 const message =
@@ -879,7 +892,7 @@ export const EnumerationValueListContent = ({
                 enqueueSnackbar(message, { variant: 'error' })
             }
         },
-        [enumerationId, enqueueSnackbar, metahubId, queryClient, t, upsertSharedEntityOverrideMutation]
+        [enumerationId, enqueueSnackbar, kindKey, metahubId, queryClient, t, upsertSharedEntityOverrideMutation]
     )
 
     const validateForm = (valuesToValidate: GenericFormValues) => {
@@ -944,6 +957,7 @@ export const EnumerationValueListContent = ({
             await createMutation.mutateAsync({
                 metahubId,
                 enumerationId,
+                kindKey,
                 data: {
                     codename: codenamePayload,
                     name: nameInput,
@@ -965,6 +979,7 @@ export const EnumerationValueListContent = ({
             await updateMutation.mutateAsync({
                 metahubId,
                 enumerationId,
+                kindKey,
                 valueId: currentEditingValue.id,
                 data: {
                     codename: codenamePayload,
@@ -1275,6 +1290,7 @@ export const EnumerationValueListContent = ({
                     copyMutation.mutate({
                         metahubId,
                         enumerationId,
+                        kindKey,
                         valueId: dialogs.copy.item.id,
                         data: {
                             codename: codenamePayload,
@@ -1320,6 +1336,7 @@ export const EnumerationValueListContent = ({
                         {
                             metahubId,
                             enumerationId,
+                            kindKey,
                             valueId: dialogs.delete.item.id
                         },
                         {
@@ -1379,6 +1396,7 @@ export const EnumerationValueListContent = ({
                                 updateEnumMutation.mutate({
                                     metahubId,
                                     enumerationId: id,
+                                    kindKey,
                                     data: { ...patch, expectedVersion: enumerationForHubResolution.version }
                                 })
                             }
@@ -1387,10 +1405,10 @@ export const EnumerationValueListContent = ({
                             refreshList: async () => {
                                 if (metahubId && enumerationId) {
                                     void queryClient.invalidateQueries({
-                                        queryKey: metahubsQueryKeys.enumerationDetail(metahubId, enumerationId)
+                                        queryKey: metahubsQueryKeys.enumerationDetail(metahubId, enumerationId, kindKey)
                                     })
                                     void queryClient.invalidateQueries({
-                                        queryKey: metahubsQueryKeys.allEnumerations(metahubId)
+                                        queryKey: metahubsQueryKeys.allEnumerationsScope(metahubId, kindKey)
                                     })
                                     // Invalidate breadcrumb queries so page title refreshes immediately
                                     void queryClient.invalidateQueries({

@@ -122,6 +122,7 @@ export const ConstantListContent = ({
         sortedConstants,
         orderMap,
         tableData,
+        kindKey,
         includeShared
     } = useConstantListData({
         metahubId: metahubIdProp,
@@ -145,13 +146,13 @@ export const ConstantListContent = ({
             revealPendingEntityFeedback({
                 queryClient,
                 queryKeyPrefix: effectiveHubId
-                    ? metahubsQueryKeys.constants(metahubId, effectiveHubId, setId)
-                    : metahubsQueryKeys.constantsDirect(metahubId, setId),
+                    ? metahubsQueryKeys.constants(metahubId, effectiveHubId, setId, kindKey)
+                    : metahubsQueryKeys.constantsDirect(metahubId, setId, kindKey),
                 entityId: constantId
             })
             enqueueSnackbar(pendingInteractionMessage, { variant: 'info' })
         },
-        [effectiveHubId, enqueueSnackbar, metahubId, pendingInteractionMessage, queryClient, setId]
+        [effectiveHubId, enqueueSnackbar, kindKey, metahubId, pendingInteractionMessage, queryClient, setId]
     )
 
     const createConstantMutation = useCreateConstant()
@@ -389,6 +390,7 @@ export const ConstantListContent = ({
                     await updateConstantMutation.mutateAsync({
                         metahubId,
                         hubId: effectiveHubId,
+                        kindKey,
                         setId,
                         constantId: editingConstant.id,
                         data: {
@@ -408,6 +410,7 @@ export const ConstantListContent = ({
                     await copyConstantMutation.mutateAsync({
                         metahubId,
                         hubId: effectiveHubId,
+                        kindKey,
                         setId,
                         constantId: copySource.id,
                         data: payload
@@ -416,6 +419,7 @@ export const ConstantListContent = ({
                     await createConstantMutation.mutateAsync({
                         metahubId,
                         hubId: effectiveHubId,
+                        kindKey,
                         setId,
                         data: payload
                     })
@@ -450,13 +454,14 @@ export const ConstantListContent = ({
         },
         [
             buildPayload,
+            close,
             copyConstantMutation,
             copySource,
             createConstantMutation,
             editingConstant,
             effectiveHubId,
+            kindKey,
             metahubId,
-            close,
             openConflict,
             setId,
             t,
@@ -471,6 +476,7 @@ export const ConstantListContent = ({
                 await moveConstantMutation.mutateAsync({
                     metahubId,
                     hubId: effectiveHubId,
+                    kindKey,
                     setId,
                     constantId: id,
                     direction
@@ -483,7 +489,7 @@ export const ConstantListContent = ({
                 enqueueSnackbar(message, { variant: 'error' })
             }
         },
-        [effectiveHubId, enqueueSnackbar, metahubId, moveConstantMutation, setId, t]
+        [effectiveHubId, enqueueSnackbar, kindKey, metahubId, moveConstantMutation, setId, t]
     )
 
     const handleSortableDragEnd = useCallback(
@@ -510,6 +516,7 @@ export const ConstantListContent = ({
                 await reorderConstantMutation.mutateAsync({
                     metahubId,
                     hubId: effectiveHubId,
+                    kindKey,
                     setId,
                     constantId: String(active.id),
                     newSortOrder: overConstant.sortOrder ?? 1,
@@ -521,7 +528,7 @@ export const ConstantListContent = ({
                 enqueueSnackbar(message, { variant: 'error' })
             }
         },
-        [effectiveHubId, enqueueSnackbar, includeShared, metahubId, reorderConstantMutation, setId, tableData, t]
+        [effectiveHubId, enqueueSnackbar, includeShared, kindKey, metahubId, reorderConstantMutation, setId, tableData, t]
     )
 
     const renderDragOverlay = useCallback(
@@ -707,7 +714,7 @@ export const ConstantListContent = ({
                         ...patch
                     }
                 })
-                await invalidateConstantsQueries.all(queryClient, metahubId, setId, effectiveHubId ?? undefined)
+                await invalidateConstantsQueries.all(queryClient, metahubId, setId, effectiveHubId ?? undefined, kindKey)
                 enqueueSnackbar(successMessage, { variant: 'success' })
             } catch (error: unknown) {
                 const message =
@@ -718,7 +725,7 @@ export const ConstantListContent = ({
                 enqueueSnackbar(message, { variant: 'error' })
             }
         },
-        [effectiveHubId, enqueueSnackbar, metahubId, queryClient, setId, t, upsertSharedEntityOverrideMutation]
+        [effectiveHubId, enqueueSnackbar, kindKey, metahubId, queryClient, setId, t, upsertSharedEntityOverrideMutation]
     )
 
     if (!metahubId || !setId) {
@@ -1069,6 +1076,7 @@ export const ConstantListContent = ({
                         {
                             metahubId,
                             hubId: effectiveHubId,
+                            kindKey,
                             setId,
                             constantId: dialogs.delete.item.id
                         },
@@ -1092,11 +1100,11 @@ export const ConstantListContent = ({
                     close('conflict')
                     if (metahubId && setId) {
                         if (effectiveHubId) {
-                            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.constants(metahubId, effectiveHubId, setId) })
+                            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.constants(metahubId, effectiveHubId, setId, kindKey) })
                         } else {
-                            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.constantsDirect(metahubId, setId) })
+                            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.constantsDirect(metahubId, setId, kindKey) })
                         }
-                        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allConstantCodenames(metahubId, setId) })
+                        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allConstantCodenames(metahubId, setId, kindKey) })
                     }
                 }}
                 onOverwrite={async () => {
@@ -1106,6 +1114,7 @@ export const ConstantListContent = ({
                     await updateConstantMutation.mutateAsync({
                         metahubId,
                         hubId: effectiveHubId,
+                        kindKey,
                         setId,
                         constantId: pendingUpdate.id,
                         data: pendingUpdate.patch
@@ -1152,6 +1161,7 @@ export const ConstantListContent = ({
                                 updateSetMutation.mutate({
                                     metahubId,
                                     setId: id,
+                                    kindKey,
                                     data: { ...patch, expectedVersion: setForHubResolution.version }
                                 })
                             }
@@ -1160,10 +1170,10 @@ export const ConstantListContent = ({
                             refreshList: () => {
                                 if (metahubId && setId) {
                                     void queryClient.invalidateQueries({
-                                        queryKey: metahubsQueryKeys.setDetail(metahubId, setId)
+                                        queryKey: metahubsQueryKeys.setDetail(metahubId, setId, kindKey)
                                     })
                                     void queryClient.invalidateQueries({
-                                        queryKey: metahubsQueryKeys.allSets(metahubId)
+                                        queryKey: metahubsQueryKeys.allSets(metahubId, kindKey)
                                     })
                                     void queryClient.invalidateQueries({
                                         queryKey: ['breadcrumb', 'set-standalone', metahubId, setId]

@@ -28,11 +28,12 @@ import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaServi
 import { CURRENT_STRUCTURE_VERSION, structureVersionToSemver } from '../../metahubs/services/structureVersions'
 import { escapeLikeWildcards } from '../../../utils'
 import { OptimisticLockError } from '@universo/utils'
+import { EntityTypeService } from '../../entities/services/EntityTypeService'
 import { buildManagedDynamicSchemaName, isManagedDynamicSchemaName, quoteIdentifier } from '@universo/migrations-core'
 import { createLogger } from '../../../utils/logger'
 import { getCodenamePayloadText, resolveCodenamePayload } from '../../shared/codenamePayload'
 import { MetahubDomainError, MetahubNotFoundError, MetahubConflictError, MetahubValidationError } from '../../shared/domainErrors'
-
+import { resolveLegacyCompatibleKindsInSchema, type ManagedLegacyCompatibleKind } from '../../shared/legacyCompatibility'
 const log = createLogger('MetahubBranchesService')
 
 export interface BranchListOptions {
@@ -66,6 +67,14 @@ class BranchCopyCompatibilityError extends Error {
     }
 }
 
+type BranchSchemaCompatibilityContext = {
+    hubKinds: string[]
+    catalogKinds: string[]
+    setKinds: string[]
+    enumerationKinds: string[]
+    legacyKindByKind: Map<string, ManagedLegacyCompatibleKind>
+}
+
 const normalizeSql = (value: string): string => value.replace(/\s+/g, ' ').trim()
 
 const branchCodenameTextSql = (columnRef: string): string =>
@@ -90,18 +99,52 @@ export class MetahubBranchesService {
         }
     }
 
-    private async assertCopyCompatibility(exec: SqlQueryable, schemaName: string, options: BranchCopyOptions): Promise<void> {
+    private async loadSchemaCompatibilityContext(
+        exec: SqlQueryable,
+        schemaName: string
+    ): Promise<BranchSchemaCompatibilityContext> {
+        this.assertSafeSchemaName(schemaName)
+
+        const entityTypeService = new EntityTypeService(this.exec, new MetahubSchemaService(this.exec))
+        const [hubKinds, catalogKinds, setKinds, enumerationKinds] = await Promise.all([
+            resolveLegacyCompatibleKindsInSchema(entityTypeService, schemaName, 'hub', exec),
+            resolveLegacyCompatibleKindsInSchema(entityTypeService, schemaName, 'catalog', exec),
+            resolveLegacyCompatibleKindsInSchema(entityTypeService, schemaName, 'set', exec),
+            resolveLegacyCompatibleKindsInSchema(entityTypeService, schemaName, 'enumeration', exec)
+        ])
+
+        const legacyKindByKind = new Map<string, ManagedLegacyCompatibleKind>()
+        for (const kind of hubKinds) legacyKindByKind.set(kind, 'hub')
+        for (const kind of catalogKinds) legacyKindByKind.set(kind, 'catalog')
+        for (const kind of setKinds) legacyKindByKind.set(kind, 'set')
+        for (const kind of enumerationKinds) legacyKindByKind.set(kind, 'enumeration')
+
+        return {
+            hubKinds,
+            catalogKinds,
+            setKinds,
+            enumerationKinds,
+            legacyKindByKind
+        }
+    }
+
+    private async assertCopyCompatibility(
+        exec: SqlQueryable,
+        schemaName: string,
+        options: BranchCopyOptions,
+        compatibility: BranchSchemaCompatibilityContext
+    ): Promise<void> {
         const keptKinds: string[] = []
-        if (options.copyCatalogs) keptKinds.push('catalog')
-        if (options.copySets) keptKinds.push('set')
-        if (options.copyHubs) keptKinds.push('hub')
-        if (options.copyEnumerations) keptKinds.push('enumeration')
+        if (options.copyCatalogs) keptKinds.push(...compatibility.catalogKinds)
+        if (options.copySets) keptKinds.push(...compatibility.setKinds)
+        if (options.copyHubs) keptKinds.push(...compatibility.hubKinds)
+        if (options.copyEnumerations) keptKinds.push(...compatibility.enumerationKinds)
 
         const removedKinds: string[] = []
-        if (!options.copyCatalogs) removedKinds.push('catalog')
-        if (!options.copySets) removedKinds.push('set')
-        if (!options.copyHubs) removedKinds.push('hub')
-        if (!options.copyEnumerations) removedKinds.push('enumeration')
+        if (!options.copyCatalogs) removedKinds.push(...compatibility.catalogKinds)
+        if (!options.copySets) removedKinds.push(...compatibility.setKinds)
+        if (!options.copyHubs) removedKinds.push(...compatibility.hubKinds)
+        if (!options.copyEnumerations) removedKinds.push(...compatibility.enumerationKinds)
 
         if (keptKinds.length === 0 || removedKinds.length === 0) return
 
@@ -136,23 +179,32 @@ export class MetahubBranchesService {
             [keptKinds, removedKinds]
         )
 
-        const incompatibleKinds = new Set(rows.map((row) => row.target_kind).filter((kind): kind is string => typeof kind === 'string'))
-        if (incompatibleKinds.size === 0) return
+        const incompatibleLegacyKinds = new Set(
+            rows
+                .map((row) => (typeof row.target_kind === 'string' ? compatibility.legacyKindByKind.get(row.target_kind) : null))
+                .filter((kind): kind is ManagedLegacyCompatibleKind => kind !== undefined && kind !== null)
+        )
+        if (incompatibleLegacyKinds.size === 0) return
 
-        if (incompatibleKinds.has('enumeration')) {
+        if (incompatibleLegacyKinds.has('enumeration')) {
             throw new BranchCopyCompatibilityError('BRANCH_COPY_ENUM_REFERENCES')
         }
 
         throw new BranchCopyCompatibilityError('BRANCH_COPY_DANGLING_REFERENCES')
     }
 
-    private async sanitizeHubReferencesInObjectConfigs(exec: SqlQueryable, schemaIdent: string, options: BranchCopyOptions): Promise<void> {
+    private async sanitizeHubReferencesInObjectConfigs(
+        exec: SqlQueryable,
+        schemaIdent: string,
+        options: BranchCopyOptions,
+        compatibility: BranchSchemaCompatibilityContext
+    ): Promise<void> {
         if (options.copyHubs) return
 
         const kindsWithHubConfig: string[] = []
-        if (options.copyCatalogs) kindsWithHubConfig.push('catalog')
-        if (options.copySets) kindsWithHubConfig.push('set')
-        if (options.copyEnumerations) kindsWithHubConfig.push('enumeration')
+        if (options.copyCatalogs) kindsWithHubConfig.push(...compatibility.catalogKinds)
+        if (options.copySets) kindsWithHubConfig.push(...compatibility.setKinds)
+        if (options.copyEnumerations) kindsWithHubConfig.push(...compatibility.enumerationKinds)
         if (kindsWithHubConfig.length === 0) return
 
         await exec.query(
@@ -177,11 +229,14 @@ export class MetahubBranchesService {
         )
     }
 
-    private async sanitizeHubParentReferences(exec: SqlQueryable, schemaIdent: string): Promise<void> {
-        await exec.query(`
+    private async sanitizeHubParentReferences(exec: SqlQueryable, schemaIdent: string, hubKinds: string[]): Promise<void> {
+        if (hubKinds.length === 0) return
+
+        await exec.query(
+            `
             UPDATE ${schemaIdent}._mhb_objects AS child
             SET config = jsonb_set(COALESCE(child.config, '{}'::jsonb), '{parentHubId}', 'null'::jsonb, true)
-            WHERE child.kind = 'hub'
+            WHERE child.kind = ANY($1::text[])
               AND COALESCE(child._upl_deleted, false) = false
               AND COALESCE(child._mhb_deleted, false) = false
               AND COALESCE(child.config->>'parentHubId', '') <> ''
@@ -190,16 +245,23 @@ export class MetahubBranchesService {
                   OR NOT EXISTS (
                       SELECT 1
                       FROM ${schemaIdent}._mhb_objects AS parent
-                      WHERE parent.kind = 'hub'
+                      WHERE parent.kind = ANY($1::text[])
                         AND COALESCE(parent._upl_deleted, false) = false
                         AND COALESCE(parent._mhb_deleted, false) = false
                         AND parent.id = child.config->>'parentHubId'
                   )
               )
-        `)
+        `,
+            [hubKinds]
+        )
     }
 
-    private async pruneClonedSchema(exec: SqlQueryable, schemaName: string, options: BranchCopyOptions): Promise<void> {
+    private async pruneClonedSchema(
+        exec: SqlQueryable,
+        schemaName: string,
+        options: BranchCopyOptions,
+        compatibility: BranchSchemaCompatibilityContext
+    ): Promise<void> {
         this.assertSafeSchemaName(schemaName)
         const schemaIdent = quoteIdentifier(schemaName)
 
@@ -207,20 +269,20 @@ export class MetahubBranchesService {
             await exec.query(`DELETE FROM ${schemaIdent}._mhb_layouts`)
         }
 
-        await this.sanitizeHubReferencesInObjectConfigs(exec, schemaIdent, options)
+        await this.sanitizeHubReferencesInObjectConfigs(exec, schemaIdent, options, compatibility)
 
         const kindsToDelete: string[] = []
-        if (!options.copyHubs) kindsToDelete.push('hub')
-        if (!options.copyCatalogs) kindsToDelete.push('catalog')
-        if (!options.copySets) kindsToDelete.push('set')
-        if (!options.copyEnumerations) kindsToDelete.push('enumeration')
+        if (!options.copyHubs) kindsToDelete.push(...compatibility.hubKinds)
+        if (!options.copyCatalogs) kindsToDelete.push(...compatibility.catalogKinds)
+        if (!options.copySets) kindsToDelete.push(...compatibility.setKinds)
+        if (!options.copyEnumerations) kindsToDelete.push(...compatibility.enumerationKinds)
 
         if (kindsToDelete.length > 0) {
             await exec.query(`DELETE FROM ${schemaIdent}._mhb_objects WHERE kind = ANY($1::text[])`, [kindsToDelete])
         }
 
         // Ensure hubs never keep dangling/self parent links after prune.
-        await this.sanitizeHubParentReferences(exec, schemaIdent)
+        await this.sanitizeHubParentReferences(exec, schemaIdent, compatibility.hubKinds)
     }
 
     private async cleanupSchemaWithDiagnostics(schemaName: string, context: string): Promise<string | null> {
@@ -579,9 +641,10 @@ export class MetahubBranchesService {
                         createTargetSchema: true,
                         copyData: true
                     })
-                    await this.assertCopyCompatibility(tx, schemaName, normalizedCopyOptions)
+                    const compatibility = await this.loadSchemaCompatibilityContext(tx, schemaName)
+                    await this.assertCopyCompatibility(tx, schemaName, normalizedCopyOptions, compatibility)
                     if (!normalizedCopyOptions.fullCopy) {
-                        await this.pruneClonedSchema(tx, schemaName, normalizedCopyOptions)
+                        await this.pruneClonedSchema(tx, schemaName, normalizedCopyOptions, compatibility)
                     }
                     branchStructureVersion = structureVersionToSemver(sourceBranch.structureVersion)
                     templateVersionSyncId = sourceBranch.lastTemplateVersionId ?? null

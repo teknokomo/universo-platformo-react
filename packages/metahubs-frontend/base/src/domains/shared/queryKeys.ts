@@ -15,6 +15,17 @@ const normalizeLayoutScope = (catalogId?: string | null) => ({
     catalogId: normalizeLayoutScopeCatalogId(catalogId)
 })
 
+const normalizeLegacyCompatibleKindKey = (kindKey?: string | null): string | undefined => {
+    if (typeof kindKey !== 'string') return undefined
+    const trimmed = kindKey.trim()
+    return trimmed.length > 0 ? trimmed : undefined
+}
+
+const normalizeLegacyCompatibleScope = (kindKey?: string | null): { kindKey: string } | null => {
+    const normalizedKindKey = normalizeLegacyCompatibleKindKey(kindKey)
+    return normalizedKindKey ? { kindKey: normalizedKindKey } : null
+}
+
 /**
  * Centralized query key factory for metahubs
  * Following TanStack Query v5 best practices
@@ -127,31 +138,40 @@ export const metahubsQueryKeys = {
     // Hubs scoped to a specific metahub
     hubs: (metahubId: string) => [...metahubsQueryKeys.detail(metahubId), 'hubs'] as const,
 
-    hubsList: (metahubId: string, params?: PaginationParams) => {
-        const normalized = {
-            limit: params?.limit ?? 100,
-            offset: params?.offset ?? 0,
-            sortBy: params?.sortBy ?? 'updated',
-            sortOrder: params?.sortOrder ?? 'desc',
-            search: params?.search?.trim() || undefined
-        }
-        return [...metahubsQueryKeys.hubs(metahubId), 'list', normalized] as const
+    hubsScope: (metahubId: string, kindKey?: string | null) => {
+        const scope = normalizeLegacyCompatibleScope(kindKey)
+        return scope ? ([...metahubsQueryKeys.hubs(metahubId), scope] as const) : metahubsQueryKeys.hubs(metahubId)
     },
 
-    hubDetail: (metahubId: string, hubId: string) => [...metahubsQueryKeys.hubs(metahubId), 'detail', hubId] as const,
-
-    // Child hubs for a specific parent hub
-    childHubs: (metahubId: string, hubId: string) => [...metahubsQueryKeys.hubDetail(metahubId, hubId), 'hubs'] as const,
-
-    childHubsList: (metahubId: string, hubId: string, params?: PaginationParams) => {
+    hubsList: (metahubId: string, params?: PaginationParams & { kindKey?: string }) => {
         const normalized = {
             limit: params?.limit ?? 100,
             offset: params?.offset ?? 0,
             sortBy: params?.sortBy ?? 'updated',
             sortOrder: params?.sortOrder ?? 'desc',
-            search: params?.search?.trim() || undefined
+            search: params?.search?.trim() || undefined,
+            kindKey: normalizeLegacyCompatibleKindKey(params?.kindKey)
         }
-        return [...metahubsQueryKeys.childHubs(metahubId, hubId), 'list', normalized] as const
+        return [...metahubsQueryKeys.hubsScope(metahubId, normalized.kindKey), 'list', normalized] as const
+    },
+
+    hubDetail: (metahubId: string, hubId: string, kindKey?: string | null) =>
+        [...metahubsQueryKeys.hubsScope(metahubId, kindKey), 'detail', hubId] as const,
+
+    // Child hubs for a specific parent hub
+    childHubs: (metahubId: string, hubId: string, kindKey?: string | null) =>
+        [...metahubsQueryKeys.hubDetail(metahubId, hubId, kindKey), 'hubs'] as const,
+
+    childHubsList: (metahubId: string, hubId: string, params?: PaginationParams & { kindKey?: string }) => {
+        const normalized = {
+            limit: params?.limit ?? 100,
+            offset: params?.offset ?? 0,
+            sortBy: params?.sortBy ?? 'updated',
+            sortOrder: params?.sortOrder ?? 'desc',
+            search: params?.search?.trim() || undefined,
+            kindKey: normalizeLegacyCompatibleKindKey(params?.kindKey)
+        }
+        return [...metahubsQueryKeys.childHubs(metahubId, hubId, normalized.kindKey), 'list', normalized] as const
     },
 
     // Layouts scoped to a specific metahub
@@ -208,7 +228,8 @@ export const metahubsQueryKeys = {
         [...metahubsQueryKeys.migrations(metahubId), 'status', branchId ?? 'default', cleanupMode] as const,
 
     // Blocking catalogs for hub deletion (catalogs with isRequiredHub=true that would become orphaned)
-    blockingCatalogs: (metahubId: string, hubId: string) => [...metahubsQueryKeys.hubDetail(metahubId, hubId), 'blockingCatalogs'] as const,
+    blockingCatalogs: (metahubId: string, hubId: string, kindKey?: string | null) =>
+        [...metahubsQueryKeys.hubDetail(metahubId, hubId, kindKey), 'blockingCatalogs'] as const,
 
     // Blocking references for catalog deletion (REF attributes in other catalogs)
     blockingCatalogReferences: (metahubId: string, catalogId: string) =>
@@ -250,53 +271,66 @@ export const metahubsQueryKeys = {
         [...metahubsQueryKeys.catalogs(metahubId, hubId), 'detail', catalogId] as const,
 
     // Blocking references for set deletion (REF attributes in catalogs)
-    blockingSetReferences: (metahubId: string, setId: string) =>
-        [...metahubsQueryKeys.setDetail(metahubId, setId), 'blockingReferences'] as const,
+    blockingSetReferences: (metahubId: string, setId: string, kindKey?: string | null) =>
+        [...metahubsQueryKeys.setDetail(metahubId, setId, kindKey), 'blockingReferences'] as const,
 
     // Sets scoped to a specific hub
     sets: (metahubId: string, hubId: string) => [...metahubsQueryKeys.hubDetail(metahubId, hubId), 'sets'] as const,
 
-    setsList: (metahubId: string, hubId: string, params?: PaginationParams) => {
+    setsScope: (metahubId: string, hubId: string, kindKey?: string | null) => {
+        const scope = normalizeLegacyCompatibleScope(kindKey)
+        return scope ? ([...metahubsQueryKeys.sets(metahubId, hubId), scope] as const) : metahubsQueryKeys.sets(metahubId, hubId)
+    },
+
+    setsList: (metahubId: string, hubId: string, params?: PaginationParams & { kindKey?: string }) => {
         const normalized = {
             limit: params?.limit ?? 100,
             offset: params?.offset ?? 0,
             sortBy: params?.sortBy ?? 'updated',
             sortOrder: params?.sortOrder ?? 'desc',
-            search: params?.search?.trim() || undefined
+            search: params?.search?.trim() || undefined,
+            kindKey: normalizeLegacyCompatibleKindKey(params?.kindKey)
         }
-        return [...metahubsQueryKeys.sets(metahubId, hubId), 'list', normalized] as const
+        return [...metahubsQueryKeys.setsScope(metahubId, hubId, normalized.kindKey), 'list', normalized] as const
     },
 
     // All sets across all hubs in a metahub
     allSets: (metahubId: string) => [...metahubsQueryKeys.detail(metahubId), 'allSets'] as const,
 
-    allSetsList: (metahubId: string, params?: PaginationParams) => {
+    allSetsScope: (metahubId: string, kindKey?: string | null) => {
+        const scope = normalizeLegacyCompatibleScope(kindKey)
+        return scope ? ([...metahubsQueryKeys.allSets(metahubId), scope] as const) : metahubsQueryKeys.allSets(metahubId)
+    },
+
+    allSetsList: (metahubId: string, params?: PaginationParams & { kindKey?: string }) => {
         const normalized = {
             limit: params?.limit ?? 100,
             offset: params?.offset ?? 0,
             sortBy: params?.sortBy ?? 'updated',
             sortOrder: params?.sortOrder ?? 'desc',
-            search: params?.search?.trim() || undefined
+            search: params?.search?.trim() || undefined,
+            kindKey: normalizeLegacyCompatibleKindKey(params?.kindKey)
         }
-        return [...metahubsQueryKeys.allSets(metahubId), 'list', normalized] as const
+        return [...metahubsQueryKeys.allSetsScope(metahubId, normalized.kindKey), 'list', normalized] as const
     },
 
     // Set detail without hub context
-    setDetail: (metahubId: string, setId: string) => [...metahubsQueryKeys.allSets(metahubId), 'detail', setId] as const,
+    setDetail: (metahubId: string, setId: string, kindKey?: string | null) =>
+        [...metahubsQueryKeys.allSetsScope(metahubId, kindKey), 'detail', setId] as const,
 
     // Set detail scoped to a specific hub
-    setDetailInHub: (metahubId: string, hubId: string, setId: string) =>
-        [...metahubsQueryKeys.sets(metahubId, hubId), 'detail', setId] as const,
+    setDetailInHub: (metahubId: string, hubId: string, setId: string, kindKey?: string | null) =>
+        [...metahubsQueryKeys.setsScope(metahubId, hubId, kindKey), 'detail', setId] as const,
 
     // Constants scoped to a specific set in hub context
-    constants: (metahubId: string, hubId: string, setId: string) =>
-        [...metahubsQueryKeys.setDetailInHub(metahubId, hubId, setId), 'constants'] as const,
+    constants: (metahubId: string, hubId: string, setId: string, kindKey?: string | null) =>
+        [...metahubsQueryKeys.setDetailInHub(metahubId, hubId, setId, kindKey), 'constants'] as const,
 
     constantsList: (
         metahubId: string,
         hubId: string,
         setId: string,
-        params?: PaginationParams & { locale?: string; includeShared?: boolean }
+        params?: PaginationParams & { locale?: string; includeShared?: boolean; kindKey?: string }
     ) => {
         const normalized = {
             limit: params?.limit ?? 100,
@@ -305,15 +339,21 @@ export const metahubsQueryKeys = {
             sortOrder: params?.sortOrder ?? 'desc',
             search: params?.search?.trim() || undefined,
             locale: params?.locale,
-            includeShared: params?.includeShared ?? false
+            includeShared: params?.includeShared ?? false,
+            kindKey: normalizeLegacyCompatibleKindKey(params?.kindKey)
         }
-        return [...metahubsQueryKeys.constants(metahubId, hubId, setId), 'list', normalized] as const
+        return [...metahubsQueryKeys.constants(metahubId, hubId, setId, normalized.kindKey), 'list', normalized] as const
     },
 
     // Constants scoped directly to set (without hub context)
-    constantsDirect: (metahubId: string, setId: string) => [...metahubsQueryKeys.setDetail(metahubId, setId), 'constants'] as const,
+    constantsDirect: (metahubId: string, setId: string, kindKey?: string | null) =>
+        [...metahubsQueryKeys.setDetail(metahubId, setId, kindKey), 'constants'] as const,
 
-    constantsListDirect: (metahubId: string, setId: string, params?: PaginationParams & { locale?: string; includeShared?: boolean }) => {
+    constantsListDirect: (
+        metahubId: string,
+        setId: string,
+        params?: PaginationParams & { locale?: string; includeShared?: boolean; kindKey?: string }
+    ) => {
         const normalized = {
             limit: params?.limit ?? 100,
             offset: params?.offset ?? 0,
@@ -321,65 +361,83 @@ export const metahubsQueryKeys = {
             sortOrder: params?.sortOrder ?? 'desc',
             search: params?.search?.trim() || undefined,
             locale: params?.locale,
-            includeShared: params?.includeShared ?? false
+            includeShared: params?.includeShared ?? false,
+            kindKey: normalizeLegacyCompatibleKindKey(params?.kindKey)
         }
-        return [...metahubsQueryKeys.constantsDirect(metahubId, setId), 'list', normalized] as const
+        return [...metahubsQueryKeys.constantsDirect(metahubId, setId, normalized.kindKey), 'list', normalized] as const
     },
 
     // All constant codenames for a set (for global duplicate check)
-    allConstantCodenames: (metahubId: string, setId: string) =>
-        [...metahubsQueryKeys.setDetail(metahubId, setId), 'constantCodenames'] as const,
+    allConstantCodenames: (metahubId: string, setId: string, kindKey?: string | null) =>
+        [...metahubsQueryKeys.setDetail(metahubId, setId, kindKey), 'constantCodenames'] as const,
 
     // Enumerations scoped to a specific hub
     enumerations: (metahubId: string, hubId: string) => [...metahubsQueryKeys.hubDetail(metahubId, hubId), 'enumerations'] as const,
 
-    enumerationsList: (metahubId: string, hubId: string, params?: PaginationParams) => {
+    enumerationsScope: (metahubId: string, hubId: string, kindKey?: string | null) => {
+        const scope = normalizeLegacyCompatibleScope(kindKey)
+        return scope
+            ? ([...metahubsQueryKeys.enumerations(metahubId, hubId), scope] as const)
+            : metahubsQueryKeys.enumerations(metahubId, hubId)
+    },
+
+    enumerationsList: (metahubId: string, hubId: string, params?: PaginationParams & { kindKey?: string }) => {
         const normalized = {
             limit: params?.limit ?? 100,
             offset: params?.offset ?? 0,
             sortBy: params?.sortBy ?? 'updated',
             sortOrder: params?.sortOrder ?? 'desc',
-            search: params?.search?.trim() || undefined
+            search: params?.search?.trim() || undefined,
+            kindKey: normalizeLegacyCompatibleKindKey(params?.kindKey)
         }
-        return [...metahubsQueryKeys.enumerations(metahubId, hubId), 'list', normalized] as const
+        return [...metahubsQueryKeys.enumerationsScope(metahubId, hubId, normalized.kindKey), 'list', normalized] as const
     },
 
     // All enumerations across all hubs in a metahub
     allEnumerations: (metahubId: string) => [...metahubsQueryKeys.detail(metahubId), 'allEnumerations'] as const,
 
-    allEnumerationsList: (metahubId: string, params?: PaginationParams) => {
+    allEnumerationsScope: (metahubId: string, kindKey?: string | null) => {
+        const scope = normalizeLegacyCompatibleScope(kindKey)
+        return scope
+            ? ([...metahubsQueryKeys.allEnumerations(metahubId), scope] as const)
+            : metahubsQueryKeys.allEnumerations(metahubId)
+    },
+
+    allEnumerationsList: (metahubId: string, params?: PaginationParams & { kindKey?: string }) => {
         const normalized = {
             limit: params?.limit ?? 100,
             offset: params?.offset ?? 0,
             sortBy: params?.sortBy ?? 'updated',
             sortOrder: params?.sortOrder ?? 'desc',
-            search: params?.search?.trim() || undefined
+            search: params?.search?.trim() || undefined,
+            kindKey: normalizeLegacyCompatibleKindKey(params?.kindKey)
         }
-        return [...metahubsQueryKeys.allEnumerations(metahubId), 'list', normalized] as const
+        return [...metahubsQueryKeys.allEnumerationsScope(metahubId, normalized.kindKey), 'list', normalized] as const
     },
 
     // Enumeration detail without hub context
-    enumerationDetail: (metahubId: string, enumerationId: string) =>
-        [...metahubsQueryKeys.allEnumerations(metahubId), 'detail', enumerationId] as const,
+    enumerationDetail: (metahubId: string, enumerationId: string, kindKey?: string | null) =>
+        [...metahubsQueryKeys.allEnumerationsScope(metahubId, kindKey), 'detail', enumerationId] as const,
 
     // Enumeration detail scoped to a specific hub
-    enumerationDetailInHub: (metahubId: string, hubId: string, enumerationId: string) =>
-        [...metahubsQueryKeys.enumerations(metahubId, hubId), 'detail', enumerationId] as const,
+    enumerationDetailInHub: (metahubId: string, hubId: string, enumerationId: string, kindKey?: string | null) =>
+        [...metahubsQueryKeys.enumerationsScope(metahubId, hubId, kindKey), 'detail', enumerationId] as const,
 
     // Blocking references for enumeration deletion (REF attributes in other catalogs)
-    blockingEnumerationReferences: (metahubId: string, enumerationId: string) =>
-        [...metahubsQueryKeys.enumerationDetail(metahubId, enumerationId), 'blockingReferences'] as const,
+    blockingEnumerationReferences: (metahubId: string, enumerationId: string, kindKey?: string | null) =>
+        [...metahubsQueryKeys.enumerationDetail(metahubId, enumerationId, kindKey), 'blockingReferences'] as const,
 
     // Enumeration values
-    enumerationValues: (metahubId: string, enumerationId: string) =>
-        [...metahubsQueryKeys.enumerationDetail(metahubId, enumerationId), 'values'] as const,
+    enumerationValues: (metahubId: string, enumerationId: string, kindKey?: string | null) =>
+        [...metahubsQueryKeys.enumerationDetail(metahubId, enumerationId, kindKey), 'values'] as const,
 
-    enumerationValuesList: (metahubId: string, enumerationId: string, params?: { includeShared?: boolean }) =>
-        [
-            ...metahubsQueryKeys.enumerationValues(metahubId, enumerationId),
-            'list',
-            { includeShared: params?.includeShared ?? false }
-        ] as const,
+    enumerationValuesList: (metahubId: string, enumerationId: string, params?: { includeShared?: boolean; kindKey?: string }) => {
+        const normalized = {
+            includeShared: params?.includeShared ?? false,
+            kindKey: normalizeLegacyCompatibleKindKey(params?.kindKey)
+        }
+        return [...metahubsQueryKeys.enumerationValues(metahubId, enumerationId, normalized.kindKey), 'list', normalized] as const
+    },
 
     // Attributes scoped to a specific catalog
     attributes: (metahubId: string, hubId: string, catalogId: string) =>
@@ -585,30 +643,34 @@ export const invalidateSetsQueries = {
             queryKey: hubId ? metahubsQueryKeys.setsList(metahubId, hubId) : metahubsQueryKeys.allSetsList(metahubId)
         }),
 
-    detail: (queryClient: QueryClient, metahubId: string, setId: string, hubId?: string) =>
+    detail: (queryClient: QueryClient, metahubId: string, setId: string, hubId?: string, kindKey?: string | null) =>
         queryClient.invalidateQueries({
-            queryKey: hubId ? metahubsQueryKeys.setDetailInHub(metahubId, hubId, setId) : metahubsQueryKeys.setDetail(metahubId, setId)
+            queryKey: hubId
+                ? metahubsQueryKeys.setDetailInHub(metahubId, hubId, setId, kindKey)
+                : metahubsQueryKeys.setDetail(metahubId, setId, kindKey)
         }),
 
-    blockingReferences: (queryClient: QueryClient, metahubId: string, setId: string) =>
-        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.blockingSetReferences(metahubId, setId) })
+    blockingReferences: (queryClient: QueryClient, metahubId: string, setId: string, kindKey?: string | null) =>
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.blockingSetReferences(metahubId, setId, kindKey) })
 }
 
 export const invalidateConstantsQueries = {
-    all: (queryClient: QueryClient, metahubId: string, setId: string, hubId?: string) =>
-        queryClient.invalidateQueries({
-            queryKey: hubId ? metahubsQueryKeys.constants(metahubId, hubId, setId) : metahubsQueryKeys.constantsDirect(metahubId, setId)
-        }),
-
-    lists: (queryClient: QueryClient, metahubId: string, setId: string, hubId?: string) =>
+    all: (queryClient: QueryClient, metahubId: string, setId: string, hubId?: string, kindKey?: string | null) =>
         queryClient.invalidateQueries({
             queryKey: hubId
-                ? metahubsQueryKeys.constantsList(metahubId, hubId, setId)
-                : metahubsQueryKeys.constantsListDirect(metahubId, setId)
+                ? metahubsQueryKeys.constants(metahubId, hubId, setId, kindKey)
+                : metahubsQueryKeys.constantsDirect(metahubId, setId, kindKey)
         }),
 
-    allCodenames: (queryClient: QueryClient, metahubId: string, setId: string) =>
-        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allConstantCodenames(metahubId, setId) })
+    lists: (queryClient: QueryClient, metahubId: string, setId: string, hubId?: string, kindKey?: string | null) =>
+        queryClient.invalidateQueries({
+            queryKey: hubId
+                ? metahubsQueryKeys.constantsList(metahubId, hubId, setId, { kindKey })
+                : metahubsQueryKeys.constantsListDirect(metahubId, setId, { kindKey })
+        }),
+
+    allCodenames: (queryClient: QueryClient, metahubId: string, setId: string, kindKey?: string | null) =>
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allConstantCodenames(metahubId, setId, kindKey) })
 }
 
 export const invalidateEnumerationsQueries = {
@@ -622,20 +684,20 @@ export const invalidateEnumerationsQueries = {
             queryKey: hubId ? metahubsQueryKeys.enumerationsList(metahubId, hubId) : metahubsQueryKeys.allEnumerationsList(metahubId)
         }),
 
-    detail: (queryClient: QueryClient, metahubId: string, enumerationId: string, hubId?: string) =>
+    detail: (queryClient: QueryClient, metahubId: string, enumerationId: string, hubId?: string, kindKey?: string | null) =>
         queryClient.invalidateQueries({
             queryKey: hubId
-                ? metahubsQueryKeys.enumerationDetailInHub(metahubId, hubId, enumerationId)
-                : metahubsQueryKeys.enumerationDetail(metahubId, enumerationId)
+                ? metahubsQueryKeys.enumerationDetailInHub(metahubId, hubId, enumerationId, kindKey)
+                : metahubsQueryKeys.enumerationDetail(metahubId, enumerationId, kindKey)
         })
 }
 
 export const invalidateEnumerationValuesQueries = {
-    all: (queryClient: QueryClient, metahubId: string, enumerationId: string) =>
-        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.enumerationValues(metahubId, enumerationId) }),
+    all: (queryClient: QueryClient, metahubId: string, enumerationId: string, kindKey?: string | null) =>
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.enumerationValues(metahubId, enumerationId, kindKey) }),
 
-    lists: (queryClient: QueryClient, metahubId: string, enumerationId: string) =>
-        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.enumerationValuesList(metahubId, enumerationId) })
+    lists: (queryClient: QueryClient, metahubId: string, enumerationId: string, kindKey?: string | null) =>
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.enumerationValuesList(metahubId, enumerationId, { kindKey }) })
 }
 
 export const invalidateAttributesQueries = {

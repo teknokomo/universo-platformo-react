@@ -96,10 +96,31 @@ describe('MetahubAttributesService active-row filtering', () => {
     })
 
     it('uses primary codename text when matching enum value blockers against element data keys', async () => {
-        await service.findElementEnumValueBlockers('metahub-1', 'enum-1', 'value-1', 'user-1')
+        await service.findElementEnumValueBlockers('metahub-1', 'enum-1', 'value-1', 'user-1', [
+            'enumeration',
+            'custom.enumeration-v2'
+        ])
 
         expect(mockExecQuery).toHaveBeenCalled()
+        expect(mockExecQuery.mock.calls[0][0]).toContain("attr.target_object_kind = ANY($3::text[])")
         expect(mockExecQuery.mock.calls[0][0]).toContain(`el.data ->> (${codenamePrimaryTextSql('attr.codename')}) = $2`)
+        expect(mockExecQuery.mock.calls[0][1]).toEqual(['enum-1', 'value-1', ['enumeration', 'custom.enumeration-v2']])
+    })
+
+    it('matches compatible target kinds when finding reference blockers by target', async () => {
+        await service.findReferenceBlockersByTarget('metahub-1', 'enum-1', ['enumeration', 'custom.enumeration-v2'], 'user-1')
+
+        expect(mockExecQuery).toHaveBeenCalled()
+        expect(mockExecQuery.mock.calls[0][0]).toContain('attr.target_object_kind = ANY($2::text[])')
+        expect(mockExecQuery.mock.calls[0][1]).toEqual(['enum-1', ['enumeration', 'custom.enumeration-v2']])
+    })
+
+    it('matches compatible enumeration target kinds when finding default enum value blockers', async () => {
+        await service.findDefaultEnumValueBlockers('metahub-1', 'value-1', 'user-1', ['enumeration', 'custom.enumeration-v2'])
+
+        expect(mockExecQuery).toHaveBeenCalled()
+        expect(mockExecQuery.mock.calls[0][0]).toContain('attr.target_object_kind = ANY($2::text[])')
+        expect(mockExecQuery.mock.calls[0][1]).toEqual(['value-1', ['enumeration', 'custom.enumeration-v2']])
     })
 
     it('adds branch active-row predicates to getAllAttributes reads', async () => {

@@ -14,11 +14,13 @@ import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaServi
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
 import { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
+import { EntityTypeService } from '../../entities/services/EntityTypeService'
 import { validateListQuery } from '../../shared/queryParams'
 import { MetahubNotFoundError } from '../../shared/domainErrors'
 import { ensureMetahubAccess } from '../../shared/guards'
 import { resolveUserId } from '../../shared/routeAuth'
 import type { createMetahubHandlerFactory } from '../../shared/createMetahubHandler'
+import { codenamePrimaryTextSql } from '../../shared/codename'
 import {
     getCodenameSettings,
     codenameErrorMessage,
@@ -33,6 +35,18 @@ import {
     syncOptionalCodenamePayloadText,
     syncCodenamePayloadText
 } from '../../shared/codenamePayload'
+import {
+    createLegacyCompatibleKindSet,
+    resolveLegacyCompatibleKinds,
+    resolveRequestedLegacyCompatibleKind,
+    resolveRequestedLegacyCompatibleKinds
+} from '../../shared/legacyCompatibility'
+import {
+    findBlockingHubObjects,
+    loadHubCompatibilityContext,
+    removeHubFromObjectAssociations,
+    type HubCompatibilityContext
+} from '../services/hubCompatibility'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -40,6 +54,7 @@ import {
 
 type HubListItemRow = {
     id: string
+    kind?: string
     codename: unknown
     name?: unknown
     description?: unknown
@@ -50,22 +65,9 @@ type HubListItemRow = {
     updated_at?: unknown
 }
 
-type RelatedObjectRow = {
-    config?: {
-        hubs?: unknown
-        isSingleHub?: unknown
-    }
-}
-
 type CopiedHubRow = HubListItemRow & {
     name?: unknown
     description?: unknown
-}
-
-type BlockingHubObject = {
-    id: string
-    name: unknown
-    codename: string
 }
 
 // ---------------------------------------------------------------------------
@@ -122,6 +124,14 @@ const resolveParentHubId = (hub: Record<string, unknown> | null | undefined): st
     return null
 }
 
+const getRequestedKindKey = (query: Request['query']): string | undefined =>
+    typeof query.kindKey === 'string' && query.kindKey.trim().length > 0 ? query.kindKey : undefined
+
+const getStoredHubKind = (hub: Record<string, unknown> | null | undefined): string => {
+    const kind = typeof hub?.kind === 'string' ? hub.kind.trim() : ''
+    return kind.length > 0 ? kind : MetaEntityKind.HUB
+}
+
 // ---------------------------------------------------------------------------
 // Zod Schemas
 // ---------------------------------------------------------------------------
@@ -134,6 +144,7 @@ const optionalLocalizedInputSchema = z
 const createHubSchema = z
     .object({
         codename: requiredCodenamePayloadSchema,
+        kindKey: z.string().min(1).optional(),
         name: localizedInputSchema.optional(),
         description: optionalLocalizedInputSchema.optional(),
         namePrimaryLocale: z.string().optional(),
@@ -178,154 +189,33 @@ const reorderHubsSchema = z
     })
     .strict()
 
-// ---------------------------------------------------------------------------
-// DB helper functions
-// ---------------------------------------------------------------------------
-
-const findBlockingHubObjects = async (
-    metahubId: string,
-    hubId: string,
-    schemaService: MetahubSchemaService,
-    userId: string | undefined,
-    db: SqlQueryable
-) => {
-    const schemaName = await schemaService.ensureSchema(metahubId, userId)
-    const objQt = qSchemaTable(schemaName, '_mhb_objects')
-
-    const objects = await queryMany<{
-        id: string
-        kind: string
-        codename: string
-        presentation?: { name?: unknown }
-    }>(
-        db,
-        `SELECT id, kind, codename, presentation FROM ${objQt}
-         WHERE kind IN ($1, $2, $3)
-           AND config->'hubs' @> $4::jsonb
-           AND jsonb_typeof(config->'hubs') = 'array'
-           AND COALESCE((config->>'isRequiredHub')::boolean, false) = true
-           AND jsonb_array_length(config->'hubs') = 1`,
-        [MetaEntityKind.CATALOG, MetaEntityKind.SET, MetaEntityKind.ENUMERATION, JSON.stringify([hubId])]
-    )
-
-    const blockingCatalogs: BlockingHubObject[] = []
-    const blockingSets: BlockingHubObject[] = []
-    const blockingEnumerations: BlockingHubObject[] = []
-    const blockingChildHubs: BlockingHubObject[] = []
-
-    for (const objectRow of objects) {
-        const mapped: BlockingHubObject = {
-            id: objectRow.id,
-            name: objectRow.presentation?.name,
-            codename: objectRow.codename
-        }
-
-        if (objectRow.kind === MetaEntityKind.CATALOG) {
-            blockingCatalogs.push(mapped)
-            continue
-        }
-        if (objectRow.kind === MetaEntityKind.SET) {
-            blockingSets.push(mapped)
-            continue
-        }
-        if (objectRow.kind === MetaEntityKind.ENUMERATION) {
-            blockingEnumerations.push(mapped)
-        }
-    }
-
-    const childHubs = await queryMany<{
-        id: string
-        codename: string
-        presentation?: { name?: unknown }
-    }>(
-        db,
-        `SELECT id, codename, presentation FROM ${objQt}
-         WHERE kind = $1 AND _upl_deleted = false AND _mhb_deleted = false
-           AND config->>'parentHubId' = $2`,
-        [MetaEntityKind.HUB, hubId]
-    )
-
-    for (const childHub of childHubs) {
-        blockingChildHubs.push({
-            id: childHub.id,
-            name: childHub.presentation?.name,
-            codename: childHub.codename
-        })
-    }
-
-    return {
-        blockingCatalogs,
-        blockingSets,
-        blockingEnumerations,
-        blockingChildHubs
-    }
-}
-
-const removeHubFromObjectAssociations = async (
-    metahubId: string,
-    hubId: string,
-    schemaService: MetahubSchemaService,
-    userId: string | undefined,
-    hubExec: DbExecutor
-) => {
-    const schemaName = await schemaService.ensureSchema(metahubId, userId)
-    const objQt = qSchemaTable(schemaName, '_mhb_objects')
-
-    await hubExec.transaction(async (trx: SqlQueryable) => {
-        const linkedObjects = await queryMany<{ id: string; config?: Record<string, unknown> }>(
-            trx,
-            `SELECT id, config FROM ${objQt}
-             WHERE kind IN ($1, $2, $3)
-               AND _upl_deleted = false AND _mhb_deleted = false
-               AND config->'hubs' @> $4::jsonb
-             FOR UPDATE`,
-            [MetaEntityKind.CATALOG, MetaEntityKind.SET, MetaEntityKind.ENUMERATION, JSON.stringify([hubId])]
-        )
-
-        if (linkedObjects.length === 0) return
-
-        const now = new Date()
-        for (const objectRow of linkedObjects) {
-            const currentConfig =
-                objectRow.config && typeof objectRow.config === 'object' ? { ...(objectRow.config as Record<string, unknown>) } : {}
-
-            const currentHubs = Array.isArray(currentConfig.hubs) ? (currentConfig.hubs as unknown[]) : []
-            const filteredHubIds = currentHubs.filter((value): value is string => typeof value === 'string' && value !== hubId)
-
-            if (filteredHubIds.length === currentHubs.length) continue
-
-            currentConfig.hubs = filteredHubIds
-
-            await trx.query(
-                `UPDATE ${objQt}
-                 SET config = $1, _upl_updated_at = $2, _upl_updated_by = $3, _upl_version = _upl_version + 1
-                 WHERE id = $4`,
-                [JSON.stringify(currentConfig), now, userId ?? null, objectRow.id]
-            )
-        }
-    })
-}
-
 const getAllowHubNesting = async (metahubId: string, settingsService: MetahubSettingsService, userId?: string): Promise<boolean> => {
     const row = await settingsService.findByKey(metahubId, 'hubs.allowNesting', userId)
     if (!row) return true
     return (row.value as { _value?: unknown })._value !== false
 }
 
-const loadHubParentMap = async (
-    metahubId: string,
-    schemaService: MetahubSchemaService,
-    userId?: string,
+const loadHubParentMap = async ({
+    metahubId,
+    schemaService,
+    userId,
+    db,
+    hubKinds
+}: {
+    metahubId: string
+    schemaService: MetahubSchemaService
+    userId?: string
     db?: SqlQueryable
-): Promise<Map<string, string | null>> => {
+    hubKinds: readonly string[]
+}): Promise<Map<string, string | null>> => {
     const schemaName = await schemaService.ensureSchema(metahubId, userId)
     const objQt = qSchemaTable(schemaName, '_mhb_objects')
 
     const rows = await queryMany<{ id: string; config?: { parentHubId?: unknown } }>(
         db!,
         `SELECT id, config FROM ${objQt}
-         WHERE kind = $1 AND _upl_deleted = false AND _mhb_deleted = false`,
-        [MetaEntityKind.HUB]
+         WHERE kind = ANY($1::text[]) AND _upl_deleted = false AND _mhb_deleted = false`,
+        [hubKinds]
     )
 
     const map = new Map<string, string | null>()
@@ -342,7 +232,8 @@ const validateHubParentRelation = async ({
     parentHubId,
     schemaService,
     userId,
-    db
+    db,
+    hubKinds
 }: {
     metahubId: string
     hubId: string
@@ -350,13 +241,14 @@ const validateHubParentRelation = async ({
     schemaService: MetahubSchemaService
     userId?: string
     db?: SqlQueryable
+    hubKinds: readonly string[]
 }): Promise<{ ok: true } | { ok: false; message: string }> => {
     if (!parentHubId) return { ok: true }
     if (parentHubId === hubId) {
         return { ok: false, message: 'Hub cannot be a parent of itself' }
     }
 
-    const parentMap = await loadHubParentMap(metahubId, schemaService, userId, db)
+    const parentMap = await loadHubParentMap({ metahubId, schemaService, userId, db, hubKinds })
     if (!parentMap.has(parentHubId)) {
         return { ok: false, message: 'Parent hub not found' }
     }
@@ -385,7 +277,8 @@ function createDomainServices(exec: DbExecutor, schemaService: MetahubSchemaServ
     return {
         objectsService: new MetahubObjectsService(exec, schemaService),
         hubsService: new MetahubHubsService(exec, schemaService),
-        settingsService: new MetahubSettingsService(exec, schemaService)
+        settingsService: new MetahubSettingsService(exec, schemaService),
+        entityTypeService: new EntityTypeService(exec, schemaService)
     }
 }
 
@@ -395,7 +288,7 @@ function createDomainServices(exec: DbExecutor, schemaService: MetahubSchemaServ
 
 export function createHubsController(createHandler: ReturnType<typeof createMetahubHandlerFactory>, getDbExecutor: () => DbExecutor) {
     const list = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {
-        const { hubsService, objectsService } = createDomainServices(exec, schemaService)
+        const { hubsService, objectsService, entityTypeService } = createDomainServices(exec, schemaService)
 
         let validatedQuery
         try {
@@ -409,6 +302,12 @@ export function createHubsController(createHandler: ReturnType<typeof createMeta
 
         const { limit, offset, sortBy, sortOrder, search } = validatedQuery
 
+        const requestedKindKey = getRequestedKindKey(req.query)
+        const [requestedKinds, compatibility] = await Promise.all([
+            resolveRequestedLegacyCompatibleKinds(entityTypeService, metahubId, 'hub', requestedKindKey, userId),
+            loadHubCompatibilityContext(entityTypeService, metahubId, userId)
+        ])
+
         const { items: hubs, total } = await hubsService.findAll(
             metahubId,
             {
@@ -416,22 +315,31 @@ export function createHubsController(createHandler: ReturnType<typeof createMeta
                 offset,
                 sortBy,
                 sortOrder,
-                search
+                search,
+                kinds: requestedKinds
             },
             userId
         )
 
         // Calculate aggregated items per hub (catalogs + sets + enumerations)
         const [catalogs, sets, enumerations] = await Promise.all([
-            objectsService.findAllByKind(metahubId, MetaEntityKind.CATALOG, userId),
-            objectsService.findAllByKind(metahubId, MetaEntityKind.SET, userId),
-            objectsService.findAllByKind(metahubId, MetaEntityKind.ENUMERATION, userId)
+            objectsService.findAllByKinds(metahubId, compatibility.catalogKinds, userId),
+            objectsService.findAllByKinds(metahubId, compatibility.setKinds, userId),
+            objectsService.findAllByKinds(metahubId, compatibility.enumerationKinds, userId)
         ])
 
         const catalogsCountByHub = new Map<string, number>()
         const itemsCountByHub = new Map<string, number>()
 
-        const registerCounts = (rows: RelatedObjectRow[], counter?: Map<string, number>) => {
+        const registerCounts = (
+            rows: Array<{
+                config?: {
+                    hubs?: unknown
+                    isSingleHub?: unknown
+                }
+            }>,
+            counter?: Map<string, number>
+        ) => {
             for (const row of rows) {
                 const hubIds = Array.isArray(row.config?.hubs)
                     ? row.config.hubs.filter((value): value is string => typeof value === 'string')
@@ -471,9 +379,15 @@ export function createHubsController(createHandler: ReturnType<typeof createMeta
 
     const listChildHubs = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {
         const { hubId } = req.params
-        const { hubsService } = createDomainServices(exec, schemaService)
+        const { hubsService, entityTypeService } = createDomainServices(exec, schemaService)
 
-        const parentHub = await hubsService.findById(metahubId, hubId, userId)
+        const requestedKindKey = getRequestedKindKey(req.query)
+        const [requestedKinds, compatibility] = await Promise.all([
+            resolveRequestedLegacyCompatibleKinds(entityTypeService, metahubId, 'hub', requestedKindKey, userId),
+            loadHubCompatibilityContext(entityTypeService, metahubId, userId)
+        ])
+
+        const parentHub = await hubsService.findByIdWithKinds(metahubId, hubId, userId, compatibility.hubKinds)
         if (!parentHub) {
             return res.status(404).json({ error: 'Hub not found' })
         }
@@ -490,13 +404,13 @@ export function createHubsController(createHandler: ReturnType<typeof createMeta
         const schemaName = await schemaService.ensureSchema(metahubId, userId)
         const objQt = qSchemaTable(schemaName, '_mhb_objects')
 
-        const baseWhere = `kind = $1 AND _upl_deleted = false AND _mhb_deleted = false AND config->>'parentHubId' = $2`
-        const baseParams: unknown[] = [MetaEntityKind.HUB, hubId]
+        const baseWhere = `kind = ANY($1::text[]) AND _upl_deleted = false AND _mhb_deleted = false AND config->>'parentHubId' = $2`
+        const baseParams: unknown[] = [requestedKinds, hubId]
 
         let searchFilter = ''
         if (parsed.search) {
             const escapedSearch = `%${parsed.search.replace(/[%_]/g, '\\$&')}%`
-            searchFilter = ` AND (codename ILIKE $3 OR presentation::text ILIKE $3)`
+            searchFilter = ` AND (${codenamePrimaryTextSql('codename')} ILIKE $3 OR presentation::text ILIKE $3)`
             baseParams.push(escapedSearch)
         }
 
@@ -558,16 +472,22 @@ export function createHubsController(createHandler: ReturnType<typeof createMeta
 
     const reorder = createHandler(
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
-            const { objectsService } = createDomainServices(exec, schemaService)
+            const { objectsService, hubsService, entityTypeService } = createDomainServices(exec, schemaService)
 
             const parsed = reorderHubsSchema.safeParse(req.body)
             if (!parsed.success) {
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
+            const compatibleHubKinds = await resolveLegacyCompatibleKinds(entityTypeService, metahubId, 'hub', userId)
+            const existing = await hubsService.findByIdWithKinds(metahubId, parsed.data.hubId, userId, compatibleHubKinds)
+            if (!existing) {
+                throw new MetahubNotFoundError('hub', parsed.data.hubId)
+            }
+
             const updated = await objectsService.reorderByKind(
                 metahubId,
-                MetaEntityKind.HUB,
+                getStoredHubKind(existing),
                 parsed.data.hubId,
                 parsed.data.newSortOrder,
                 userId
@@ -582,9 +502,11 @@ export function createHubsController(createHandler: ReturnType<typeof createMeta
 
     const getById = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {
         const { hubId } = req.params
-        const { hubsService } = createDomainServices(exec, schemaService)
+        const { hubsService, entityTypeService } = createDomainServices(exec, schemaService)
 
-        const hub = await hubsService.findById(metahubId, hubId, userId)
+        const compatibleHubKinds = await resolveLegacyCompatibleKinds(entityTypeService, metahubId, 'hub', userId)
+
+        const hub = await hubsService.findByIdWithKinds(metahubId, hubId, userId, compatibleHubKinds)
 
         if (!hub) {
             throw new MetahubNotFoundError('hub', hubId)
@@ -605,7 +527,7 @@ export function createHubsController(createHandler: ReturnType<typeof createMeta
 
     const create = createHandler(
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
-            const { hubsService, settingsService } = createDomainServices(exec, schemaService)
+            const { hubsService, settingsService, entityTypeService } = createDomainServices(exec, schemaService)
 
             // Verify metahub exists
             const metahub = await findMetahubById(exec, metahubId)
@@ -618,7 +540,12 @@ export function createHubsController(createHandler: ReturnType<typeof createMeta
                 return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
             }
 
-            const { codename, name, description, sortOrder, parentHubId, namePrimaryLocale, descriptionPrimaryLocale } = parsed.data
+            const { codename, name, description, sortOrder, parentHubId, namePrimaryLocale, descriptionPrimaryLocale, kindKey } = parsed.data
+
+            const [compatibleHubKinds, targetKind] = await Promise.all([
+                resolveLegacyCompatibleKinds(entityTypeService, metahubId, 'hub', userId),
+                resolveRequestedLegacyCompatibleKind(entityTypeService, metahubId, 'hub', kindKey, userId)
+            ])
 
             const allowHubNesting = await getAllowHubNesting(metahubId, settingsService, userId)
             if (!allowHubNesting && parentHubId) {
@@ -639,7 +566,7 @@ export function createHubsController(createHandler: ReturnType<typeof createMeta
             }
 
             // Check for duplicate codename
-            const existing = await hubsService.findByCodename(metahubId, normalizedCodename, userId)
+            const existing = await hubsService.findByCodenameWithKinds(metahubId, normalizedCodename, userId, [targetKind])
             if (existing) {
                 return res.status(409).json({ error: 'Hub with this codename already exists' })
             }
@@ -669,7 +596,8 @@ export function createHubsController(createHandler: ReturnType<typeof createMeta
                 hubId: 'new-hub',
                 parentHubId: parentHubId ?? null,
                 schemaService,
-                userId
+                userId,
+                hubKinds: compatibleHubKinds
             })
             if (!parentValidation.ok) {
                 return res.status(400).json({ error: parentValidation.message })
@@ -685,7 +613,8 @@ export function createHubsController(createHandler: ReturnType<typeof createMeta
                         description: descriptionVlc as unknown as Record<string, unknown> | undefined,
                         sortOrder,
                         parentHubId: parentHubId ?? null,
-                        createdBy: userId
+                        createdBy: userId,
+                        kind: targetKind
                     },
                     userId
                 )
@@ -730,7 +659,8 @@ export function createHubsController(createHandler: ReturnType<typeof createMeta
         await ensureMetahubAccess(exec, userId, metahubId, 'editContent', dbSession)
 
         const schemaService = new MetahubSchemaService(exec)
-        const { hubsService, settingsService } = createDomainServices(exec, schemaService)
+        const { hubsService, settingsService, entityTypeService } = createDomainServices(exec, schemaService)
+        const compatibility = await loadHubCompatibilityContext(entityTypeService, metahubId, userId)
 
         // Check allowCopy setting
         const allowCopyRow = await settingsService.findByKey(metahubId, 'hubs.allowCopy', userId)
@@ -739,7 +669,7 @@ export function createHubsController(createHandler: ReturnType<typeof createMeta
             return res.status(403).json({ error: 'Copying hubs is disabled by metahub settings' })
         }
 
-        const sourceHub = await hubsService.findById(metahubId, hubId, userId)
+        const sourceHub = await hubsService.findByIdWithKinds(metahubId, hubId, userId, compatibility.hubKinds)
         if (!sourceHub) {
             throw new MetahubNotFoundError('hub', hubId)
         }
@@ -809,7 +739,13 @@ export function createHubsController(createHandler: ReturnType<typeof createMeta
         }
 
         if (targetParentHubId) {
-            const parentMap = await loadHubParentMap(metahubId, schemaService, userId, exec)
+            const parentMap = await loadHubParentMap({
+                metahubId,
+                schemaService,
+                userId,
+                db: exec,
+                hubKinds: compatibility.hubKinds
+            })
             if (!parentMap.has(targetParentHubId)) {
                 return res.status(400).json({ error: 'Parent hub not found' })
             }
@@ -844,7 +780,8 @@ export function createHubsController(createHandler: ReturnType<typeof createMeta
                         name: nameVlc as unknown as Record<string, unknown>,
                         description: (descriptionVlc as unknown as Record<string, unknown> | undefined) ?? undefined,
                         parentHubId: targetParentHubId ?? null,
-                        createdBy: userId
+                        createdBy: userId,
+                        kind: getStoredHubKind(sourceHub)
                     },
                     userId,
                     trx
@@ -852,27 +789,25 @@ export function createHubsController(createHandler: ReturnType<typeof createMeta
 
                 const now = new Date()
 
-                const relationKinds: MetaEntityKind[] = []
-                if (copyOptions.copyCatalogRelations) relationKinds.push(MetaEntityKind.CATALOG)
-                if (copyOptions.copySetRelations) relationKinds.push(MetaEntityKind.SET)
-                if (copyOptions.copyEnumerationRelations) relationKinds.push(MetaEntityKind.ENUMERATION)
+                const relationKinds: string[] = []
+                if (copyOptions.copyCatalogRelations) relationKinds.push(...compatibility.catalogKinds)
+                if (copyOptions.copySetRelations) relationKinds.push(...compatibility.setKinds)
+                if (copyOptions.copyEnumerationRelations) relationKinds.push(...compatibility.enumerationKinds)
 
                 if (relationKinds.length > 0) {
-                    const kindPlaceholders = relationKinds.map((_, i) => `$${i + 1}`).join(', ')
-                    const hubsJsonIdx = relationKinds.length + 1
                     const relatedObjects = await queryMany<{
                         id: string
-                        kind: MetaEntityKind
+                        kind: string
                         config?: Record<string, unknown>
                         _upl_version: number
                     }>(
                         trx,
                         `SELECT id, kind, config, _upl_version FROM ${objQt}
-                             WHERE kind IN (${kindPlaceholders})
+                             WHERE kind = ANY($1::text[])
                                AND _upl_deleted = false AND _mhb_deleted = false
-                               AND config->'hubs' @> $${hubsJsonIdx}::jsonb
+                               AND config->'hubs' @> $2::jsonb
                              FOR UPDATE`,
-                        [...relationKinds, JSON.stringify([hubId])]
+                        [relationKinds, JSON.stringify([hubId])]
                     )
 
                     const eligibleRelatedObjects = relatedObjects.filter((row) => {
@@ -969,12 +904,16 @@ export function createHubsController(createHandler: ReturnType<typeof createMeta
     const update = createHandler(
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
             const { hubId } = req.params
-            const { hubsService, settingsService } = createDomainServices(exec, schemaService)
+            const { hubsService, settingsService, entityTypeService } = createDomainServices(exec, schemaService)
 
-            const hub = await hubsService.findById(metahubId, hubId, userId)
+            const compatibleHubKinds = await resolveLegacyCompatibleKinds(entityTypeService, metahubId, 'hub', userId)
+
+            const hub = await hubsService.findByIdWithKinds(metahubId, hubId, userId, compatibleHubKinds)
             if (!hub) {
                 throw new MetahubNotFoundError('hub', hubId)
             }
+
+            const hubKind = getStoredHubKind(hub)
 
             const parsed = updateHubSchema.safeParse(req.body)
             if (!parsed.success) {
@@ -1001,7 +940,7 @@ export function createHubsController(createHandler: ReturnType<typeof createMeta
                     })
                 }
                 if (normalizedCodename !== getHubCodenameText(hub.codename)) {
-                    const existing = await hubsService.findByCodename(metahubId, normalizedCodename, userId)
+                    const existing = await hubsService.findByCodenameWithKinds(metahubId, normalizedCodename, userId, [hubKind])
                     if (existing) {
                         return res.status(409).json({ error: 'Hub with this codename already exists' })
                     }
@@ -1076,12 +1015,13 @@ export function createHubsController(createHandler: ReturnType<typeof createMeta
                             parentHubId,
                             schemaService,
                             userId,
-                            db: trx
+                            db: trx,
+                            hubKinds: compatibleHubKinds
                         })
                         if (!relationValidation.ok) {
                             throw new HubParentRelationValidationError(relationValidation.message)
                         }
-                        return hubsService.update(metahubId, hubId, updateData, userId, trx)
+                        return hubsService.update(metahubId, hubId, { ...updateData, kind: hubKind }, userId, trx)
                     })
                 } catch (error) {
                     if (error instanceof HubParentRelationValidationError) {
@@ -1090,7 +1030,7 @@ export function createHubsController(createHandler: ReturnType<typeof createMeta
                     throw error
                 }
             } else {
-                saved = await hubsService.update(metahubId, hubId, updateData, userId)
+                saved = await hubsService.update(metahubId, hubId, { ...updateData, kind: hubKind }, userId)
             }
 
             res.json({
@@ -1110,20 +1050,22 @@ export function createHubsController(createHandler: ReturnType<typeof createMeta
 
     const getBlockingCatalogs = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {
         const { hubId } = req.params
-        const { hubsService } = createDomainServices(exec, schemaService)
+        const { hubsService, entityTypeService } = createDomainServices(exec, schemaService)
+        const compatibility = await loadHubCompatibilityContext(entityTypeService, metahubId, userId)
 
-        const hub = await hubsService.findById(metahubId, hubId, userId)
+        const hub = await hubsService.findByIdWithKinds(metahubId, hubId, userId, compatibility.hubKinds)
         if (!hub) {
             throw new MetahubNotFoundError('hub', hubId)
         }
 
-        const { blockingCatalogs, blockingSets, blockingEnumerations, blockingChildHubs } = await findBlockingHubObjects(
+        const { blockingCatalogs, blockingSets, blockingEnumerations, blockingChildHubs } = await findBlockingHubObjects({
             metahubId,
             hubId,
             schemaService,
             userId,
-            exec
-        )
+            db: exec,
+            compatibility
+        })
         const totalBlocking = blockingCatalogs.length + blockingSets.length + blockingEnumerations.length + blockingChildHubs.length
 
         res.json({
@@ -1140,9 +1082,10 @@ export function createHubsController(createHandler: ReturnType<typeof createMeta
     const deleteHub = createHandler(
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
             const { hubId } = req.params
-            const { hubsService, settingsService } = createDomainServices(exec, schemaService)
+            const { hubsService, settingsService, entityTypeService } = createDomainServices(exec, schemaService)
+            const compatibility = await loadHubCompatibilityContext(entityTypeService, metahubId, userId)
 
-            const hub = await hubsService.findById(metahubId, hubId, userId)
+            const hub = await hubsService.findByIdWithKinds(metahubId, hubId, userId, compatibility.hubKinds)
             if (!hub) {
                 throw new MetahubNotFoundError('hub', hubId)
             }
@@ -1154,13 +1097,14 @@ export function createHubsController(createHandler: ReturnType<typeof createMeta
                 return res.status(403).json({ error: 'Deleting hubs is disabled by metahub settings' })
             }
 
-            const { blockingCatalogs, blockingSets, blockingEnumerations, blockingChildHubs } = await findBlockingHubObjects(
+            const { blockingCatalogs, blockingSets, blockingEnumerations, blockingChildHubs } = await findBlockingHubObjects({
                 metahubId,
                 hubId,
                 schemaService,
                 userId,
-                exec
-            )
+                db: exec,
+                compatibility
+            })
             const totalBlocking = blockingCatalogs.length + blockingSets.length + blockingEnumerations.length + blockingChildHubs.length
 
             if (totalBlocking > 0) {
@@ -1174,8 +1118,15 @@ export function createHubsController(createHandler: ReturnType<typeof createMeta
                 })
             }
 
-            await removeHubFromObjectAssociations(metahubId, hubId, schemaService, userId, exec)
-            await hubsService.delete(metahubId, hubId, userId)
+            await removeHubFromObjectAssociations({
+                metahubId,
+                hubId,
+                schemaService,
+                userId,
+                hubExec: exec,
+                compatibility
+            })
+            await hubsService.delete(metahubId, hubId, userId, getStoredHubKind(hub))
             res.status(204).send()
         },
         { permission: 'deleteContent' }

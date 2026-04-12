@@ -15,6 +15,13 @@ It combines SQL-first domain services with isolated DDL boundaries, template see
 - Publication-driven application sync is composed through package boundaries instead of duplicating runtime ownership here.
 - Service-level mutations fail closed and use `RETURNING` when row confirmation matters.
 
+## Legacy-Compatible Entity V2 Contract
+
+- `config.compatibility.legacyObjectKind` is the source of truth for catalog, hub, set, and enumeration compatibility.
+- Custom V2 rows keep their custom `kindKey` in `_mhb_objects.kind`; controllers widen legacy kind sets through compatibility helpers instead of rewriting stored kinds.
+- Hubs, catalogs, sets, and enumerations controllers accept `kindKey`-aware compatibility filters so the legacy route family can serve both built-in and compatible custom rows.
+- Publication, runtime, and schema seams classify V2 kinds through compatibility metadata so only catalog-compatible sections materialize in runtime navigation.
+
 ## Main Responsibilities
 
 - Expose authenticated CRUD routes for design-time metahub resources.

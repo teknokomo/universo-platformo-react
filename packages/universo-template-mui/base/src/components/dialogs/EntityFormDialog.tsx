@@ -62,6 +62,32 @@ function a11yProps(index: number) {
     }
 }
 
+const isRecord = (value: unknown): value is Record<string, any> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
+const isBlankLocalizedScaffold = (value: unknown): boolean => {
+    if (!isRecord(value) || !isRecord(value.locales)) {
+        return false
+    }
+
+    const localeEntries = Object.values(value.locales).filter(isRecord)
+    if (localeEntries.length === 0) {
+        return false
+    }
+
+    return localeEntries.every((entry) => {
+        const content = entry.content
+        return typeof content !== 'string' || content.trim().length === 0
+    })
+}
+
+const shouldPreserveAsyncHydration = (fieldName: string, previousValue: unknown, nextValue: unknown): boolean => {
+    if (fieldName.startsWith('_')) {
+        return true
+    }
+
+    return (previousValue === null || previousValue === undefined) && isBlankLocalizedScaffold(nextValue)
+}
+
 export interface EntityFormDialogProps {
     open: boolean
     title: string
@@ -167,17 +193,25 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [activeTab, setActiveTab] = useState(initialTabIndex)
     const nameInputRef = useRef<HTMLInputElement>(null)
+    const extraValuesRef = useRef<Record<string, any>>(normalizedInitialExtraValues)
+    const wasOpenRef = useRef(false)
+
+    useEffect(() => {
+        extraValuesRef.current = extraValues
+    }, [extraValues])
 
     // Only reset form when dialog opens, not when initialExtraValues change
     useEffect(() => {
-        if (open) {
+        if (open && !wasOpenRef.current) {
             setName(initialName)
             setDescription(initialDescription)
+            setExtraValues(normalizedInitialExtraValues)
             setHasTouchedExtraValues(false)
             setFieldErrors({})
             setActiveTab(initialTabIndex)
         }
-    }, [open, initialName, initialDescription, initialTabIndex])
+        wasOpenRef.current = open
+    }, [open, initialName, initialDescription, initialTabIndex, normalizedInitialExtraValues])
 
     useEffect(() => {
         if (open && !hideDefaultFields) {
@@ -193,7 +227,8 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
     }, [open, normalizedInitialExtraValues, hasTouchedExtraValues])
 
     const handleExtraValueChange = useCallback((fieldName: string, value: any) => {
-        if (!fieldName.startsWith('_')) {
+        const previousValue = extraValuesRef.current[fieldName]
+        if (!shouldPreserveAsyncHydration(fieldName, previousValue, value)) {
             setHasTouchedExtraValues(true)
         }
         setExtraValues((prev) => ({ ...prev, [fieldName]: value }))

@@ -231,6 +231,30 @@ describe('SchemaGenerator', () => {
             expect(result.schemaName).toBe('app_test123')
         })
 
+        it('should skip physical table creation for legacy-compatible custom hub kinds', async () => {
+            const catalogId = 'catalog-1111-2222-3333-444455556666'
+            const customHubId = 'hub-1111-2222-3333-444455556666'
+
+            const result = await generator.generateFullSchema('profiles', [
+                {
+                    id: catalogId,
+                    codename: 'products',
+                    kind: 'catalog',
+                    fields: []
+                },
+                {
+                    id: customHubId,
+                    codename: 'workspace_hub',
+                    kind: 'custom.hub-v2' as import('../types').RuntimeEntityKind,
+                    config: { compatibility: { legacyObjectKind: 'hub' } },
+                    fields: []
+                }
+            ])
+
+            expect(result.tablesCreated).toContain('products')
+            expect(result.tablesCreated).not.toContain('workspace_hub')
+        })
+
         it('should create business tables using explicit physical table names when provided', async () => {
             await generator.generateFullSchema('profiles', [
                 {
@@ -299,14 +323,14 @@ describe('SchemaGenerator', () => {
     })
 
     describe('addForeignKey', () => {
-        it('skips physical FK for REF fields targeting set constants', async () => {
+        it('skips physical FK for REF fields targeting legacy-compatible custom set constants', async () => {
             const field = {
                 id: 'field-ref-set-0000-0000-0000-000000000001',
                 codename: 'version',
                 dataType: AttributeDataType.REF,
                 isRequired: false,
                 targetEntityId: 'set-0000-0000-0000-000000000001',
-                targetEntityKind: 'set'
+                targetEntityKind: 'custom.set-v2' as import('../types').RuntimeEntityKind
             }
             const entity = {
                 id: 'catalog-0000-0000-0000-000000000001',

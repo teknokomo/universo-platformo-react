@@ -1,5 +1,61 @@
 # System Patterns
 > **Note**: Reusable architectural patterns and best practices. For completed work -> progress.md. For current tasks -> tasks.md.
+## Legacy-Compatible V2 Preset Automation Uplift Pattern (IMPORTANT)
+**Rule**: Legacy-compatible V2 presets built on top of automation-disabled built-in kinds must explicitly override their component manifest; do not spread `HUB_TYPE.components` or `ENUMERATION_TYPE.components` verbatim when the product contract promises V2-only automation capabilities.
+**Required**:
+- Hub V2 must explicitly enable `scripting`, `actions`, and `events` on top of `HUB_TYPE.components`.
+- Enumeration V2 must explicitly enable `actions` and `events` on top of `ENUMERATION_TYPE.components`; inherited scripting must stay asserted alongside the uplifted components.
+- Direct preset regression coverage must assert the upgraded component set instead of only validating manifest schema shape.
+- Fixture-facing canonical contracts must also assert the exported V2 entity definition components so preset drift is caught after template seeding/export, not only in unit tests.
+**Detection**: `grep -RIn "hub-v2.entity-preset\|enumeration-v2.entity-preset\|templateManifestValidator\|assertSelfHostedAppEntityTypeDefinition" packages tools`
+**Why**: The 2026-04-12 QA completion follow-up found that the shipped route/runtime parity work was green, but Hub V2 and Enumeration V2 still inherited the legacy-disabled automation component set because their presets copied the built-in component maps verbatim. Preserving the explicit override rule prevents future parity waves from silently shipping "V2" presets that still lack the promised automation uplift.
+## Compatibility-Aware Blocker Query Kind Array Pattern (IMPORTANT)
+**Rule**: Low-level delete blocker queries for legacy-compatible kinds must accept the full compatible target-kind set and query with `ANY($n::text[])`; do not hardcode exact built-in `set` or `enumeration` literals once compatibility metadata allows custom V2 kinds.
+**Required**:
+- Resolve compatible kinds from the same compatibility helper layer used by the owning controller or delete plan before calling blocker services.
+- `MetahubConstantsService.findSetReferenceBlockers(...)`, `MetahubConstantsService.findAttributeReferenceBlockersByConstant(...)`, `MetahubAttributesService.findReferenceBlockersByTarget(...)`, `findDefaultEnumValueBlockers(...)`, and `findElementEnumValueBlockers(...)` must stay array-aware and use `ANY($n::text[])` semantics.
+- Apply the same contract to both generic custom-entity delete flows and legacy set/enumeration/constant child-delete flows, because both route families reuse the same low-level blocker services.
+- Keep direct service-level SQL regressions plus one real browser negative-path proof whenever this seam changes, so route-level mocks cannot hide an exact-kind regression.
+**Detection**: `rg "find(SetReferenceBlockers|AttributeReferenceBlockersByConstant|ReferenceBlockersByTarget|DefaultEnumValueBlockers|ElementEnumValueBlockers)|ANY\(\$[0-9]+::text\[\]\)|target_object_kind = 'set'|target_object_kind = 'enumeration'" packages/metahubs-backend tools/testing/e2e`
+**Why**: The 2026-04-12 QA completion pass found that route-level compatibility work was not sufficient on its own. Delete safety still drifted because the low-level SQL services filtered only exact built-in target kinds, which meant compatible `custom.set-v2*` and `custom.enumeration-v2*` references could bypass blocked-delete behavior until the query seam became array-aware.
+## Exact Requested Legacy-Compatible Kind Scope Pattern (IMPORTANT)
+**Rule**: Compatibility helpers may widen list scopes only when no explicit compatible custom `kindKey` was requested; once a route asks for a specific compatible kind, backend and frontend helpers must preserve that exact scope.
+**Required**:
+- Shared backend list helpers such as `resolveRequestedLegacyCompatibleKinds(...)` must return `[requestedKindKey]` when the requested kind is already validated as legacy-compatible.
+- Do not widen an explicit compatible custom request back to `[builtInKind, requestedCustomKind]`; that leaks built-in rows into V2 filtered surfaces and breaks coexistence guarantees.
+- Shared kind-recognition helpers must treat preset-derived keys as compatible when they extend known defaults with suffixes, for example `custom.hub-v2-demo`, `custom.set-v2-demo`, or `custom.enumeration-v2-demo`.
+- Keep focused regression coverage on shared kind-resolution helpers, backend hubs/sets/enumerations route tests, and the broad legacy-compatible V2 Playwright coexistence flow whenever this seam changes.
+**Detection**: `rg "resolveRequestedLegacyCompatibleKinds|getLegacyCompatibleObjectKindForKindKey|custom\.(hub|set|enumeration)-v2-" packages/metahubs-backend packages/universo-types tools/testing/e2e`
+**Why**: The 2026-04-12 post-rebuild remediation found two coupled regressions on the shipped V2 coexistence surface: preset-derived compatible kinds were not always recognized by the shared helper layer, and explicit custom-kind list requests were silently widened back to the built-in/custom union. Preserving exact requested-kind scope prevents delegated V2 routes from leaking legacy built-in rows after future compatibility refactors.
+## Legacy-Compatible E2E Pathname Matcher Pattern (IMPORTANT)
+**Rule**: Playwright response matchers for legacy-compatible V2 entity routes must match on the response pathname, not on the raw full URL string.
+**Required**:
+- Use a helper based on `new URL(response.url()).pathname` when matching direct set/enumeration/hub/entity-owned mutation routes.
+- Expect optional compatibility query params such as `kindKey` on delegated direct endpoints once entity-route ownership is wired correctly.
+- Keep targeted browser proof on the affected flow whenever route query params or compatibility propagation change.
+**Detection**: `rg "waitForResponse|response\.url\(\)\.endsWith|kindKey=" tools/testing/e2e/specs/flows`
+**Why**: The 2026-04-11 Entity V2 completion remediation found that the fixed Set V2 delegated leaf flow was still failing in Playwright only because the spec compared the full URL suffix and ignored the expected `?kindKey=...` query param. Matching by pathname preserves the real product proof instead of turning compatibility context into a false-negative timeout.
+## Compatibility-Metadata Legacy V2 Pattern (IMPORTANT)
+**Rule**: Legacy-compatible V2 kinds must preserve their stored custom `kindKey` and derive legacy catalog/hub/set/enumeration behavior through compatibility metadata or known V2 kind-key helpers across frontend caches, backend controllers, publications, runtime, and schema-ddl.
+**Required**:
+- Do not rewrite `custom.catalog-v2`, `custom.hub-v2`, `custom.set-v2`, or `custom.enumeration-v2` rows to built-in literals in `_mhb_objects.kind`, publication snapshots, or route params.
+- Resolve legacy behavior through `config.compatibility.legacyObjectKind`, fallback `config.legacyObjectKind`, and known built-in V2 kind keys before falling back to literal `kind` checks.
+- Scope hubs/sets/enumerations frontend query keys, API adapters, and optimistic cache updates by optional `kindKey`; legacy-compatible entity routes must not share unscoped caches with the legacy built-in pages.
+- Runtime/publication/schema code must classify section, hub, set, enumeration, and catalog behavior through shared compatibility helpers instead of exact-kind branching.
+- Compatibility helpers that promise the narrow `catalog | hub | set | enumeration | null` union must explicitly filter out `document` when the lower-level helper can return it.
+- Keep focused regression coverage on scoped frontend query keys plus `SnapshotSerializer`, `runtimeRowsController`, `SchemaGenerator`, `diff`, and `SchemaMigrator` whenever this seam changes.
+**Detection**: `rg "legacyObjectKind|custom\.(catalog|hub|set|enumeration)-v2|RUNTIME_LEGACY_COMPATIBLE_KIND_SQL|allSetsScope|allEnumerationsScope|getLegacyCompatibleObjectKindForKindKey" packages/metahubs-frontend packages/metahubs-backend packages/applications-backend packages/schema-ddl`
+**Why**: The 2026-04-11 Entity V2 generalization closure found that route-level compatibility was not sufficient on its own. Custom V2 kinds only stay coherent when storage identity, scoped frontend caches, backend mutations, publication snapshots, runtime section filters, and schema-ddl classification all resolve the same legacy behavior from compatibility metadata instead of silently drifting back to exact built-in kind checks.
+## Publication Executable Table-Name And Compatibility Propagation Pattern (IMPORTANT)
+**Rule**: Publication-to-executable normalization must carry explicit table naming and legacy-compatible V2 metadata through the whole pipeline; applications-backend must not reconstruct physical table names or compatibility behavior from exact-kind defaults alone.
+**Required**:
+- `SnapshotSerializer` must preserve merged compatibility metadata for legacy-compatible custom V2 kinds in publication snapshots instead of flattening behavior back to built-in literal kinds.
+- `publishedApplicationRuntimeSnapshot`, `publishedApplicationSnapshotEntities`, and release-bundle consumers must classify custom hub/set/enumeration-compatible rows through compatibility metadata or known V2 kind helpers instead of exact built-in `kind` checks.
+- When a snapshot entity definition includes `tableName`, executable entity payloads must propagate it into `physicalTableName`; do not silently fall back to generated names for explicitly persisted tables.
+- Shared contracts such as `SnapshotEntityDefinition` must declare optional `tableName` so full-build type checks stay aligned with the runtime payload seam.
+- Keep focused regression coverage on `SnapshotSerializer` and `applicationReleaseBundle` whenever publication/runtime compatibility normalization changes.
+**Detection**: `rg "tableName|physicalTableName|SnapshotEntityDefinition|publishedApplication(RuntimeSnapshot|SnapshotEntities)|legacyObjectKind" packages/metahubs-backend packages/applications-backend`
+**Why**: The 2026-04-11 Entity V2 QA closure completion found that the upstream serializer merge fix was not sufficient on its own. Downstream applications-backend normalization still drifted on exact-kind checks and dropped explicit table names until the compatibility metadata and `tableName -> physicalTableName` contract were carried through the full publication-to-executable pipeline.
 ## Entities Workspace Live-Row Resolution And Namespaced i18n Pattern (IMPORTANT)
 **Rule**: `EntitiesWorkspace` display and action handlers must resolve the current entity definition from live state and must tolerate built-in `namespace:key` UI labels coming through the consolidated metahubs namespace.
 **Required**:
@@ -10,15 +66,16 @@
 **Detection**: `rg "resolveEntityTypeForAction|namespaceSeparatorIndex|documents.title|group: 'danger'" packages/metahubs-frontend/base/src/domains/entities`
 **Why**: The 2026-04-11 post-rebuild QA closure found two real shipped-surface drifts that package builds alone did not catch: list-view menu actions could open a blank dialog when table rows omitted `raw`, and built-in Documents rows leaked `metahubs:documents.title` because the consolidated namespace path needed an explicit namespace/key fallback.
 
-## Catalog-Compatible Entity Route Ownership Pattern (IMPORTANT)
-**Rule**: Catalog-compatible entity authoring may reuse the legacy catalog UI components, but navigation must stay on the entity-based route tree whenever the current route carries `:kindKey`.
+## Legacy-Compatible Entity Route Ownership Pattern (IMPORTANT)
+**Rule**: Legacy-compatible entity authoring may reuse the mature legacy hub/catalog/set/enumeration UI components, but navigation must stay on the entity-based route tree whenever the current route carries `:kindKey`.
 **Required**:
-- Build catalog authoring links through one route-aware helper that prefers `/metahub/:metahubId/entities/:kindKey/instance/:catalogId/{attributes|system|elements}` over legacy `/catalog/:catalogId/*` paths when `kindKey` is present.
-- Keep `CatalogList`, `AttributeList`, `ElementList`, and blocking-reference dialogs aligned to that same helper so row links, pending-navigation fallbacks, tabs, and blocking-reference links cannot drift between route trees.
-- Register entity detail routes for `attributes`, `system`, and `elements` in the core frontend instead of relying on a legacy redirect after the list click.
-- Recognize the known `custom.catalog-v2` route as catalog-compatible before entity-type metadata finishes loading so the page does not flash the generic entity shell first.
-**Detection**: `rg "buildCatalogAuthoringPath|entities/:kindKey/instance/:catalogId/(attributes|system|elements)|custom.catalog-v2" packages/metahubs-frontend packages/universo-core-frontend`
-**Why**: The 2026-04-10 isolated-route recovery found that the earlier shared-surface closure still hardwired catalog-compatible entity navigation back into legacy `/catalog/:id/*` routes and briefly rendered the generic entity shell before delegating. The durable contract is UI reuse with entity-route ownership, not legacy-route fallback.
+- Build hub/catalog/set/enumeration authoring links through shared route-aware helpers that prefer `/metahub/:metahubId/entities/:kindKey/...` paths over legacy `/hub|catalog|set|enumeration/...` paths whenever `kindKey` is present.
+- Keep `HubList`, `CatalogList`, `SetList`, `EnumerationList`, `AttributeList`, `ElementList`, and the related pending-navigation/blocking-dialog flows aligned to those helpers so row links, tabs, and fallback navigation cannot drift between route trees.
+- Register entity-owned nested routes for the hub scope (`hubs`, `catalogs`, `sets`, `enumerations`) plus hub-scoped catalog detail, top-level set detail, hub-scoped set detail, top-level enumeration detail, and hub-scoped enumeration detail.
+- Extend breadcrumbs through the same contract: resolve legacy-compatible detail labels through `useHubName`, `useCatalogName(_Standalone)`, `useSetNameStandalone`, and `useEnumerationName` instead of assuming the generic custom-entity detail route applies to those ids.
+- Recognize the known V2 kind keys (`custom.catalog-v2`, `custom.hub-v2`, `custom.set-v2`, `custom.enumeration-v2`) as legacy-compatible before entity-type metadata finishes loading so the page does not flash the generic entity shell first.
+**Detection**: `rg "buildCatalogAuthoringPath|buildHubAuthoringPath|buildSetAuthoringPath|buildEnumerationAuthoringPath|entities/:kindKey/instance/:hubId/(hubs|catalogs|sets|enumerations)" packages/metahubs-frontend packages/universo-core-frontend packages/universo-template-mui`
+**Why**: The 2026-04-10 Catalogs V2 isolation recovery established the durable rule for catalog-compatible routes, and the 2026-04-11 Entity V2 generalization closure extended the same route-ownership contract to hub/set/enumeration-compatible V2 kinds. The stable contract is legacy UI reuse under entity-route ownership, not legacy-route fallback or a second generic CRUD shell.
 ## Shared GeneralTabFields Explicit Label Pattern (IMPORTANT)
 **Rule**: Every caller that mounts `GeneralTabFields` must pass explicit localized `nameLabel`, `descriptionLabel`, `codenameLabel`, and `codenameHelper` props from its own translation scope; do not rely on implicit defaults inside the shared field component.
 **Required**:
@@ -134,6 +191,16 @@
 - Preserve focused backend/frontend regressions for the negative paths so future refactors cannot silently reopen the parity drift.
 **Detection**: `rg "catalogCompatibility|catalogs\\.allowCopy|catalogs\\.allowDelete|CatalogDeleteDialog|useEntityPermissions\('catalogs'\)|editContent|deleteContent" packages/metahubs-backend packages/metahubs-frontend`
 **Why**: The 2026-04-10 QA closure found that catalog-compatible custom kinds had drifted from legacy catalog governance: the generic surface narrowed authoring to `manageMetahub` and bypassed legacy copy/delete safety. Locking the adapter contract preserves strict parity without reopening the generic built-in route gate.
+## Legacy-Compatible Generic Delete Parity Pattern (IMPORTANT)
+**Rule**: Generic custom-entity delete and permanent-delete flows for legacy-compatible kinds must reuse the same kind-specific safety behavior as the matching legacy controllers instead of preserving only catalog-compatible blocker handling.
+**Required**:
+- Build one compatibility-aware delete plan before generic `remove` / `permanentRemove`; do not branch ad hoc inside the final delete call.
+- Catalog-compatible custom kinds must continue reusing legacy catalog settings and blocking-reference safety.
+- Set-compatible custom kinds must reuse constant-reference blocker checks, and enumeration-compatible custom kinds must reuse attribute-reference blocker checks, before generic delete continues.
+- Hub-compatible custom kinds must reuse the legacy hub blocker path and must remove hub associations from related objects before the final delete so generic delete cannot orphan nested relations.
+- Shared hub delete helpers should stay reusable by both `hubsController` and the generic entity controller, and focused route regressions must cover blocked-delete plus hub-cleanup paths for compatible custom kinds.
+**Detection**: `rg "buildLegacyCompatibleDeletePlan|findBlockingHubObjects|removeHubFromObjectAssociations|findSetReferenceBlockers|findReferenceBlockersByTarget" packages/metahubs-backend`
+**Why**: The 2026-04-12 QA-gap closure found a real product regression: generic custom-entity delete had preserved the catalog-compatible branch but still bypassed the legacy Set/Enumeration/Hub delete safety contract. Centralizing a legacy-compatible delete plan closed that gap without widening generic routes onto built-in kinds.
 ## Generic Entity Deleted Detail Read Pattern (IMPORTANT)
 **Rule**: Generic custom-entity detail reads must remain active-row-only by default; any flow that needs to inspect a soft-deleted row must opt in explicitly through `includeDeleted=true` instead of widening the default `GET /entity/:entityId` contract.
 **Required**:

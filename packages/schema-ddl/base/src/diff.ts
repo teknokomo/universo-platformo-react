@@ -1,11 +1,6 @@
-import { MetaEntityKind } from '@universo/types'
 import type { EntityDefinition, RuntimeEntityKind, SchemaSnapshot } from './types'
 import { resolveFieldColumnName, resolveEntityTableName, generateChildTableName } from './naming'
-
-const ENUMERATION_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { ENUMERATION?: MetaEntityKind }).ENUMERATION ??
-    'enumeration') as MetaEntityKind
-const SET_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { SET?: MetaEntityKind }).SET ?? 'set') as MetaEntityKind
-const HUB_KIND: MetaEntityKind = ((MetaEntityKind as unknown as { HUB?: MetaEntityKind }).HUB ?? 'hub') as MetaEntityKind
+import { isNonPhysicalLegacyCompatibleEntity, isSetCompatibleKind } from './legacyCompatibleKinds'
 
 export enum ChangeType {
     ADD_TABLE = 'ADD_TABLE',
@@ -67,7 +62,7 @@ const shouldHavePhysicalForeignKey = (field: {
 }): boolean => {
     if (field.dataType !== 'REF') return false
     if (!field.targetEntityId) return false
-    if (field.targetEntityKind === SET_KIND) return false
+    if (isSetCompatibleKind(field.targetEntityKind)) return false
     return true
 }
 
@@ -78,12 +73,10 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
         destructive: [],
         summary: ''
     }
-    const newPhysicalEntities = newEntities.filter(
-        (entity) => entity.kind !== ENUMERATION_KIND && entity.kind !== SET_KIND && entity.kind !== HUB_KIND
-    )
+    const newPhysicalEntities = newEntities.filter((entity) => !isNonPhysicalLegacyCompatibleEntity(entity))
     const oldPhysicalEntities = oldSnapshot?.entities
         ? Object.entries(oldSnapshot.entities)
-              .filter(([, entity]) => entity.kind !== ENUMERATION_KIND && entity.kind !== SET_KIND && entity.kind !== HUB_KIND)
+              .filter(([, entity]) => !isNonPhysicalLegacyCompatibleEntity(entity))
               .map(([entityId, entity]) => ({
                   ...entity,
                   id: entityId

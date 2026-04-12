@@ -27,7 +27,7 @@ describe('systemTables helpers', () => {
                 includeLayouts: false,
                 includeWidgets: false
             })
-        ).toEqual(['_app_migrations', '_app_settings', '_app_objects'])
+        ).toEqual(['_app_migrations', '_app_settings', '_app_objects', '_app_scripts'])
     })
 
     it('resolves the deterministic system-table preview for capability-rich fixed schemas', () => {
@@ -38,6 +38,15 @@ describe('systemTables helpers', () => {
                 includeLayouts: true,
                 includeWidgets: true
             })
-        ).toEqual(['_app_migrations', '_app_settings', '_app_objects', '_app_attributes', '_app_values', '_app_layouts', '_app_widgets'])
+        ).toEqual([
+            '_app_migrations',
+            '_app_settings',
+            '_app_objects',
+            '_app_attributes',
+            '_app_values',
+            '_app_scripts',
+            '_app_layouts',
+            '_app_widgets'
+        ])
     })
 })

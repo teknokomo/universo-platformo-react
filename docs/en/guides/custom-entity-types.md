@@ -15,12 +15,19 @@ Custom entity types let a metahub define new authoring and runtime sections on t
 ## Typical Flow
 
 1. Open the Entities workspace below Common.
-2. Start from a preset such as Catalogs v2 or from an empty type.
+2. Start from a preset such as Hubs V2, Catalogs V2, Sets V2, Enumerations V2, or from an empty type.
 3. Fill the kind key, codename, name, and tab configuration.
 4. Enable only the components that match the intended behavior.
 5. Save the type, open its instances page, and create the first instance before opening automation tabs.
 6. Use the edit dialog to configure Scripts, then Actions, then Events for the saved instance.
 7. Mark the type as published only when it should become a runtime section.
+
+## Legacy-Compatible V2 Presets
+
+- Hubs V2 reuses the delegated HubList surface, nested entity-route ownership, and save-first automation tabs.
+- Catalogs V2 reuses CatalogList and remains the runtime-visible control case after publication sync.
+- Sets V2 reuses SetList and keeps constants authoring plus automation on the shared legacy routes.
+- Enumerations V2 reuses EnumerationList and keeps values authoring plus action/event automation on the shared legacy routes.
 
 ## Current Component Set
 
@@ -41,8 +48,10 @@ Custom entity types let a metahub define new authoring and runtime sections on t
 ## Guardrails
 
 - Prefer presets for parity-heavy flows instead of rebuilding the same manifest by hand.
-- Automation authoring on generic custom entity routes follows the manageMetahub contract; catalog-compatible presets reuse the legacy CatalogList surface instead of mounting the generic automation tabs.
+- Automation authoring on generic custom entity routes follows the manageMetahub contract; legacy-compatible presets reuse the matching legacy list/detail surface instead of mounting a second generic CRUD shell.
 - Publishing affects the dynamic menu and runtime only after publication sync or application sync.
+- Catalog-compatible presets can appear as runtime sections after publication sync, while hub-compatible, set-compatible, and enumeration-compatible presets stay filtered out of runtime section navigation.
+- Legacy `/hubs`, `/sets`, and `/enumerations` routes keep showing compatible custom rows during coexistence, while each V2 entity route stays filtered to its own custom kind.
 - Generic instance routes are for custom kinds; built-in kinds still stay on their legacy routes.
 - Advanced visual composition remains out of scope for the current parity wave.
 
@@ -60,5 +69,5 @@ Custom entity types let a metahub define new authoring and runtime sections on t
 
 - Confirm the type saves with the expected component manifest.
 - Confirm the custom instances page opens from the dynamic menu.
-- Confirm publication sync materializes the section in runtime.
+- Confirm publication sync materializes catalog-compatible sections in runtime and keeps hub/set/enumeration-compatible sections out of runtime navigation.
 - Confirm focused tests or browser flows cover the shipped path before wider rollout.

@@ -28,15 +28,15 @@ export function useCreateHub() {
 
     return useMutation({
         mutationKey: ['hubs', 'create'],
-        mutationFn: async ({ metahubId, data }: CreateHubParams) => {
-            const response = await hubsApi.createHub(metahubId, data)
+        mutationFn: async ({ metahubId, kindKey, data }: CreateHubParams) => {
+            const response = await hubsApi.createHub(metahubId, kindKey ? { ...data, kindKey } : data)
             return response.data
         },
-        onMutate: async ({ metahubId, data }) => {
+        onMutate: async ({ metahubId, kindKey, data }) => {
             const optimisticId = generateOptimisticId()
             const lang = getCurrentLanguageKey()
             const displayName = getVLCString(data.name, lang) || data.codename || ''
-            const queryKeyPrefix = metahubsQueryKeys.hubs(metahubId)
+            const queryKeyPrefix = metahubsQueryKeys.hubsScope(metahubId, kindKey)
             const optimisticSortOrder = data.sortOrder ?? getNextOptimisticSortOrderFromQueries(queryClient, queryKeyPrefix)
 
             const optimisticEntity = {
@@ -80,9 +80,15 @@ export function useCreateHub() {
                 realId: data?.id
             })
             if (context?.optimisticId && data?.id) {
-                confirmOptimisticCreate(queryClient, metahubsQueryKeys.hubs(variables.metahubId), context.optimisticId, data.id, {
+                confirmOptimisticCreate(
+                    queryClient,
+                    metahubsQueryKeys.hubsScope(variables.metahubId, variables.kindKey),
+                    context.optimisticId,
+                    data.id,
+                    {
                     serverEntity: data
-                })
+                    }
+                )
             }
             enqueueSnackbar(t('hubs.createSuccess', 'Hub created'), { variant: 'success' })
         },
@@ -109,7 +115,7 @@ export function useUpdateHub() {
             const response = await hubsApi.updateHub(metahubId, hubId, data)
             return response.data
         },
-        onMutate: async ({ metahubId, hubId, data }) => {
+        onMutate: async ({ metahubId, hubId, kindKey, data }) => {
             const lang = getCurrentLanguageKey()
             const displayName = data.name ? getVLCString(data.name, lang) : undefined
 
@@ -117,14 +123,14 @@ export function useUpdateHub() {
 
             const context = await applyOptimisticUpdate({
                 queryClient,
-                queryKeyPrefix: metahubsQueryKeys.hubs(metahubId),
+                queryKeyPrefix: metahubsQueryKeys.hubsScope(metahubId, kindKey),
                 entityId: hubId,
                 updater: {
                     ...data,
                     updatedAt: new Date().toISOString()
                 },
                 moveToFront: true,
-                detailQueryKey: metahubsQueryKeys.hubDetail(metahubId, hubId),
+                detailQueryKey: metahubsQueryKeys.hubDetail(metahubId, hubId, kindKey),
                 breadcrumb: displayName ? { queryKey: ['breadcrumb', 'hub', metahubId, hubId, lang], name: displayName } : undefined
             })
 
@@ -137,14 +143,14 @@ export function useUpdateHub() {
         },
         onSuccess: async (data, variables) => {
             console.info('[hub:update] onSuccess', { metahubId: variables.metahubId, hubId: variables.hubId })
-            await queryClient.cancelQueries({ queryKey: metahubsQueryKeys.hubs(variables.metahubId) })
-            confirmOptimisticUpdate(queryClient, metahubsQueryKeys.hubs(variables.metahubId), variables.hubId, {
+            await queryClient.cancelQueries({ queryKey: metahubsQueryKeys.hubsScope(variables.metahubId, variables.kindKey) })
+            confirmOptimisticUpdate(queryClient, metahubsQueryKeys.hubsScope(variables.metahubId, variables.kindKey), variables.hubId, {
                 serverEntity: data ?? null,
                 moveToFront: true
             })
             // Seed detail cache
             if (data) {
-                queryClient.setQueryData(metahubsQueryKeys.hubDetail(variables.metahubId, variables.hubId), data)
+                queryClient.setQueryData(metahubsQueryKeys.hubDetail(variables.metahubId, variables.hubId, variables.kindKey), data)
             }
             enqueueSnackbar(t('hubs.updateSuccess', 'Hub updated'), { variant: 'success' })
         },
@@ -170,11 +176,11 @@ export function useDeleteHub() {
         mutationFn: async ({ metahubId, hubId }: DeleteHubParams) => {
             await hubsApi.deleteHub(metahubId, hubId)
         },
-        onMutate: async ({ metahubId, hubId }) => {
+        onMutate: async ({ metahubId, hubId, kindKey }) => {
             console.info('[hub:delete] onMutate', { metahubId, hubId })
             return applyOptimisticDelete({
                 queryClient,
-                queryKeyPrefix: metahubsQueryKeys.hubs(metahubId),
+                queryKeyPrefix: metahubsQueryKeys.hubsScope(metahubId, kindKey),
                 entityId: hubId,
                 strategy: 'remove'
             })
@@ -212,10 +218,10 @@ export function useCopyHub() {
             const response = await hubsApi.copyHub(metahubId, hubId, data)
             return response.data
         },
-        onMutate: async ({ metahubId, hubId, data }) => {
+        onMutate: async ({ metahubId, hubId, kindKey, data }) => {
             const optimisticId = generateOptimisticId()
             const lang = getCurrentLanguageKey()
-            const queryKeyPrefix = metahubsQueryKeys.hubs(metahubId)
+            const queryKeyPrefix = metahubsQueryKeys.hubsScope(metahubId, kindKey)
             const optimisticSortOrder = getNextOptimisticSortOrderFromQueries(queryClient, queryKeyPrefix)
             const existingHub = queryClient
                 .getQueriesData<{ items?: Array<Record<string, unknown>> }>({ queryKey: ['metahubs'] })
@@ -256,9 +262,15 @@ export function useCopyHub() {
         },
         onSuccess: (data, _variables, context) => {
             if (context?.optimisticId && data?.id) {
-                confirmOptimisticCreate(queryClient, metahubsQueryKeys.hubs(_variables.metahubId), context.optimisticId, data.id, {
-                    serverEntity: data
-                })
+                confirmOptimisticCreate(
+                    queryClient,
+                    metahubsQueryKeys.hubsScope(_variables.metahubId, _variables.kindKey),
+                    context.optimisticId,
+                    data.id,
+                    {
+                        serverEntity: data
+                    }
+                )
             }
             console.info('[optimistic-copy:hubs] onSuccess', {
                 metahubId: _variables.metahubId,
@@ -298,7 +310,7 @@ export function useReorderHub() {
         onMutate: async (variables) => {
             const snapshots = await applyOptimisticReorder(
                 queryClient,
-                metahubsQueryKeys.hubs(variables.metahubId),
+                metahubsQueryKeys.hubsScope(variables.metahubId, variables.kindKey),
                 variables.hubId,
                 variables.newSortOrder
             )

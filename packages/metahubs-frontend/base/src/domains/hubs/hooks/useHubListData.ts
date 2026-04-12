@@ -9,7 +9,7 @@ import * as hubsApi from '../api'
 import { useEntityPermissions } from '../../settings/hooks/useEntityPermissions'
 
 export function useHubListData() {
-    const { metahubId, hubId } = useParams<{ metahubId: string; hubId?: string }>()
+    const { metahubId, hubId, kindKey } = useParams<{ metahubId: string; hubId?: string; kindKey?: string }>()
     const isHubScoped = Boolean(hubId)
 
     const { allowCopy, allowDelete, allowAttachExistingEntities, allowHubNesting } = useEntityPermissions('hubs')
@@ -19,11 +19,14 @@ export function useHubListData() {
         queryKeyFn: metahubId
             ? (params) =>
                   isHubScoped && hubId
-                      ? metahubsQueryKeys.childHubsList(metahubId, hubId, params)
-                      : metahubsQueryKeys.hubsList(metahubId, params)
+                      ? metahubsQueryKeys.childHubsList(metahubId, hubId, { ...params, kindKey })
+                      : metahubsQueryKeys.hubsList(metahubId, { ...params, kindKey })
             : () => ['empty'],
         queryFn: metahubId
-            ? (params) => (isHubScoped && hubId ? hubsApi.listChildHubs(metahubId, hubId, params) : hubsApi.listHubs(metahubId, params))
+            ? (params) =>
+                  isHubScoped && hubId
+                      ? hubsApi.listChildHubs(metahubId, hubId, { ...params, kindKey })
+                      : hubsApi.listHubs(metahubId, { ...params, kindKey })
             : async () => ({ items: [], pagination: { limit: 20, offset: 0, count: 0, total: 0, hasMore: false } }),
         initialLimit: 20,
         sortBy: 'sortOrder',
@@ -37,11 +40,11 @@ export function useHubListData() {
     // All hubs for attach dialog and parent resolution
     const { data: allHubsResponse } = useQuery<PaginatedResponse<Hub>>({
         queryKey: metahubId
-            ? metahubsQueryKeys.hubsList(metahubId, { limit: 1000, offset: 0, sortBy: 'sortOrder', sortOrder: 'asc' })
+            ? metahubsQueryKeys.hubsList(metahubId, { limit: 1000, offset: 0, sortBy: 'sortOrder', sortOrder: 'asc', kindKey })
             : ['hubs-all'],
         enabled: Boolean(metahubId),
         queryFn: () =>
-            fetchAllPaginatedItems((params) => hubsApi.listHubs(String(metahubId), params), {
+            fetchAllPaginatedItems((params) => hubsApi.listHubs(String(metahubId), { ...params, kindKey }), {
                 limit: 1000,
                 sortBy: 'sortOrder',
                 sortOrder: 'asc'

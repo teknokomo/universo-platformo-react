@@ -20,6 +20,7 @@ const entityTypeUiSchema = z
         iconName: z.string().trim().min(1),
         tabs: z.array(z.string().trim().min(1)).min(1),
         sidebarSection: z.enum(['objects', 'admin']).default('objects'),
+        sidebarOrder: z.number().int().min(0).optional(),
         nameKey: z.string().trim().min(1),
         descriptionKey: z.string().trim().min(1).optional()
     })

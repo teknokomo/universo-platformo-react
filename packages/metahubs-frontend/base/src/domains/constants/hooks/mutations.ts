@@ -30,29 +30,36 @@ const invalidateSetConstantScopes = async (queryClient: ReturnType<typeof useQue
         await safeInvalidateQueries(
             queryClient,
             ['constants'],
-            metahubsQueryKeys.constants(variables.metahubId, variables.hubId, variables.setId),
-            metahubsQueryKeys.constantsDirect(variables.metahubId, variables.setId)
+            metahubsQueryKeys.constants(variables.metahubId, variables.hubId, variables.setId, variables.kindKey),
+            metahubsQueryKeys.constantsDirect(variables.metahubId, variables.setId, variables.kindKey)
         )
         await queryClient.invalidateQueries({
             queryKey: metahubsQueryKeys.sets(variables.metahubId, variables.hubId),
             refetchType: 'inactive'
         })
     } else {
-        await safeInvalidateQueries(queryClient, ['constants'], metahubsQueryKeys.constantsDirect(variables.metahubId, variables.setId))
+        await safeInvalidateQueries(
+            queryClient,
+            ['constants'],
+            metahubsQueryKeys.constantsDirect(variables.metahubId, variables.setId, variables.kindKey)
+        )
     }
 
-    await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.setDetail(variables.metahubId, variables.setId) })
-    await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allSets(variables.metahubId), refetchType: 'inactive' })
+    await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.setDetail(variables.metahubId, variables.setId, variables.kindKey) })
     await queryClient.invalidateQueries({
-        queryKey: metahubsQueryKeys.allConstantCodenames(variables.metahubId, variables.setId),
+        queryKey: metahubsQueryKeys.allSets(variables.metahubId, variables.kindKey),
+        refetchType: 'inactive'
+    })
+    await queryClient.invalidateQueries({
+        queryKey: metahubsQueryKeys.allConstantCodenames(variables.metahubId, variables.setId, variables.kindKey),
         refetchType: 'inactive'
     })
 }
 
 const getConstantQueryKeyPrefix = (variables: BaseConstantScope) =>
     variables.hubId
-        ? metahubsQueryKeys.constants(variables.metahubId, variables.hubId, variables.setId)
-        : metahubsQueryKeys.constantsDirect(variables.metahubId, variables.setId)
+        ? metahubsQueryKeys.constants(variables.metahubId, variables.hubId, variables.setId, variables.kindKey)
+        : metahubsQueryKeys.constantsDirect(variables.metahubId, variables.setId, variables.kindKey)
 
 export function useCreateConstant() {
     const queryClient = useQueryClient()
@@ -61,12 +68,12 @@ export function useCreateConstant() {
 
     return useMutation({
         mutationKey: ['constants', 'create'],
-        mutationFn: async ({ metahubId, hubId, setId, data }: CreateConstantParams) => {
+        mutationFn: async ({ metahubId, hubId, setId, kindKey, data }: CreateConstantParams) => {
             if (hubId) {
                 const response = await constantsApi.createConstant(metahubId, hubId, setId, data)
                 return response.data
             }
-            const response = await constantsApi.createConstantDirect(metahubId, setId, data)
+            const response = await constantsApi.createConstantDirect(metahubId, setId, data, kindKey)
             return response.data
         },
         onMutate: async (variables) => {
@@ -120,12 +127,12 @@ export function useUpdateConstant() {
 
     return useMutation({
         mutationKey: ['constants', 'update'],
-        mutationFn: async ({ metahubId, hubId, setId, constantId, data }: UpdateConstantParams) => {
+        mutationFn: async ({ metahubId, hubId, setId, kindKey, constantId, data }: UpdateConstantParams) => {
             if (hubId) {
                 const response = await constantsApi.updateConstant(metahubId, hubId, setId, constantId, data)
                 return response.data
             }
-            const response = await constantsApi.updateConstantDirect(metahubId, setId, constantId, data)
+            const response = await constantsApi.updateConstantDirect(metahubId, setId, constantId, data, kindKey)
             return response.data
         },
         onMutate: async (variables) => {
@@ -165,11 +172,11 @@ export function useDeleteConstant() {
 
     return useMutation({
         mutationKey: ['constants', 'delete'],
-        mutationFn: async ({ metahubId, hubId, setId, constantId }: DeleteConstantParams) => {
+        mutationFn: async ({ metahubId, hubId, setId, kindKey, constantId }: DeleteConstantParams) => {
             if (hubId) {
                 await constantsApi.deleteConstant(metahubId, hubId, setId, constantId)
             } else {
-                await constantsApi.deleteConstantDirect(metahubId, setId, constantId)
+                await constantsApi.deleteConstantDirect(metahubId, setId, constantId, kindKey)
             }
         },
         onMutate: async (variables) => {
@@ -202,12 +209,12 @@ export function useMoveConstant() {
 
     return useMutation({
         mutationKey: ['constants', 'move'],
-        mutationFn: async ({ metahubId, hubId, setId, constantId, direction }: MoveConstantParams) => {
+        mutationFn: async ({ metahubId, hubId, setId, kindKey, constantId, direction }: MoveConstantParams) => {
             if (hubId) {
                 const response = await constantsApi.moveConstant(metahubId, hubId, setId, constantId, direction)
                 return response.data
             }
-            const response = await constantsApi.moveConstantDirect(metahubId, setId, constantId, direction)
+            const response = await constantsApi.moveConstantDirect(metahubId, setId, constantId, direction, kindKey)
             return response.data
         },
         onSuccess: () => {
@@ -229,12 +236,12 @@ export function useReorderConstant() {
 
     return useMutation({
         mutationKey: ['constants', 'reorder'],
-        mutationFn: async ({ metahubId, hubId, setId, constantId, newSortOrder, mergedOrderIds }: ReorderConstantParams) => {
+        mutationFn: async ({ metahubId, hubId, setId, kindKey, constantId, newSortOrder, mergedOrderIds }: ReorderConstantParams) => {
             if (hubId) {
                 const response = await constantsApi.reorderConstant(metahubId, hubId, setId, constantId, newSortOrder, mergedOrderIds)
                 return response.data
             }
-            const response = await constantsApi.reorderConstantDirect(metahubId, setId, constantId, newSortOrder, mergedOrderIds)
+            const response = await constantsApi.reorderConstantDirect(metahubId, setId, constantId, newSortOrder, mergedOrderIds, kindKey)
             return response.data
         },
         onMutate: async (variables) => {
@@ -293,12 +300,12 @@ export function useCopyConstant() {
 
     return useMutation({
         mutationKey: ['constants', 'copy'],
-        mutationFn: async ({ metahubId, hubId, setId, constantId, data }: CopyConstantParams) => {
+        mutationFn: async ({ metahubId, hubId, setId, kindKey, constantId, data }: CopyConstantParams) => {
             if (hubId) {
                 const response = await constantsApi.copyConstant(metahubId, hubId, setId, constantId, data)
                 return response.data
             }
-            const response = await constantsApi.copyConstantDirect(metahubId, setId, constantId, data)
+            const response = await constantsApi.copyConstantDirect(metahubId, setId, constantId, data, kindKey)
             return response.data
         },
         onMutate: async (variables) => {

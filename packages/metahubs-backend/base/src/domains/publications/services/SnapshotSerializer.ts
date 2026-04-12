@@ -5,6 +5,8 @@ import {
     BUILTIN_ENTITY_TYPE_REGISTRY,
     MetaEntityKind,
     SHARED_OBJECT_KINDS,
+    getLegacyCompatibleObjectKind,
+    getLegacyCompatibleObjectKindForKindKey,
     isEnabledComponentConfig,
     type CatalogSystemFieldsSnapshot,
     type ComponentManifest,
@@ -38,7 +40,44 @@ import { createLogger } from '../../../utils/logger'
 
 const log = createLogger('SnapshotSerializer')
 
+const resolveLegacyCompatibleKind = (kind: unknown, config?: unknown): 'catalog' | 'hub' | 'set' | 'enumeration' | null => {
+    if (kind === MetaEntityKind.CATALOG || kind === MetaEntityKind.HUB || kind === MetaEntityKind.SET || kind === MetaEntityKind.ENUMERATION) {
+        return kind
+    }
+
+    const fromConfig = getLegacyCompatibleObjectKind(config)
+    if (fromConfig && fromConfig !== 'document') {
+        return fromConfig
+    }
+
+    const fromKindKey = getLegacyCompatibleObjectKindForKindKey(kind)
+    return fromKindKey && fromKindKey !== 'document' ? fromKindKey : null
+}
+
 export type SnapshotCodenameValue = VersionedLocalizedContent<string> | string
+
+const mergeEntitySnapshotConfig = (definitionConfig: unknown, entityConfig: unknown): Record<string, unknown> => {
+    const baseDefinitionConfig = ensureRecord(definitionConfig)
+    const baseEntityConfig = ensureRecord(entityConfig)
+    const definitionCompatibility = ensureRecord(baseDefinitionConfig.compatibility)
+    const entityCompatibility = ensureRecord(baseEntityConfig.compatibility)
+
+    if (Object.keys(definitionCompatibility).length === 0 && Object.keys(entityCompatibility).length === 0) {
+        return {
+            ...baseDefinitionConfig,
+            ...baseEntityConfig
+        }
+    }
+
+    return {
+        ...baseDefinitionConfig,
+        ...baseEntityConfig,
+        compatibility: {
+            ...definitionCompatibility,
+            ...entityCompatibility
+        }
+    }
+}
 
 export interface MetahubSnapshot {
     version: 1
@@ -412,7 +451,7 @@ export class SnapshotSerializer {
 
         const entities = Object.fromEntries(
             Object.entries(snapshot.entities ?? {}).map(([entityId, entity]) => {
-                if (entity.kind !== MetaEntityKind.CATALOG || sharedAttributes.length === 0) {
+                if (resolveLegacyCompatibleKind(entity.kind, entity.config) !== MetaEntityKind.CATALOG || sharedAttributes.length === 0) {
                     return [entityId, entity]
                 }
 
@@ -433,7 +472,7 @@ export class SnapshotSerializer {
 
         const constantsByObjectId: Record<string, MetaConstantSnapshot[]> = { ...(snapshot.constants ?? {}) }
         for (const entity of Object.values(snapshot.entities ?? {})) {
-            if (entity.kind !== MetaEntityKind.SET) {
+            if (resolveLegacyCompatibleKind(entity.kind, entity.config) !== MetaEntityKind.SET) {
                 continue
             }
 
@@ -460,7 +499,7 @@ export class SnapshotSerializer {
             ...(snapshot.enumerationValues ?? {})
         }
         for (const entity of Object.values(snapshot.entities ?? {})) {
-            if (entity.kind !== MetaEntityKind.ENUMERATION) {
+            if (resolveLegacyCompatibleKind(entity.kind, entity.config) !== MetaEntityKind.ENUMERATION) {
                 continue
             }
 
@@ -535,10 +574,10 @@ export class SnapshotSerializer {
     }
 
     private async loadSnapshotTypeDefinitions(metahubId: string): Promise<{
-        typeByKind: Map<string, { components: ComponentManifest }>
+        typeByKind: Map<string, { components: ComponentManifest; config?: Record<string, unknown> }>
         entityTypeDefinitions?: Record<string, MetahubEntityTypeDefinitionSnapshot>
     }> {
-        const typeByKind = new Map<string, { components: ComponentManifest }>()
+        const typeByKind = new Map<string, { components: ComponentManifest; config?: Record<string, unknown> }>()
         for (const [kindKey, definition] of BUILTIN_ENTITY_TYPE_REGISTRY.entries()) {
             typeByKind.set(kindKey, definition)
         }
@@ -551,7 +590,10 @@ export class SnapshotSerializer {
         const entityTypeDefinitions: Record<string, MetahubEntityTypeDefinitionSnapshot> = {}
 
         for (const definition of customDefinitions) {
-            typeByKind.set(definition.kindKey, definition)
+            typeByKind.set(definition.kindKey, {
+                components: definition.components,
+                config: ensureRecord(definition.config)
+            })
             entityTypeDefinitions[definition.kindKey] = {
                 id: definition.id ?? definition.kindKey,
                 kindKey: definition.kindKey,
@@ -574,9 +616,13 @@ export class SnapshotSerializer {
     private async loadSystemFieldsSnapshotForObject(
         metahubId: string,
         objectId: string,
-        kind: string
+        kind: string,
+        typeConfig?: Record<string, unknown>
     ): Promise<CatalogSystemFieldsSnapshot | null> {
-        if (kind === MetaEntityKind.CATALOG && typeof this.attributesService.getCatalogSystemFieldsSnapshot === 'function') {
+        if (
+            resolveLegacyCompatibleKind(kind, typeConfig) === MetaEntityKind.CATALOG &&
+            typeof this.attributesService.getCatalogSystemFieldsSnapshot === 'function'
+        ) {
             return this.attributesService.getCatalogSystemFieldsSnapshot(metahubId, objectId)
         }
 
@@ -605,7 +651,10 @@ export class SnapshotSerializer {
      */
     async serializeMetahub(metahubId: string, versionEnvelope?: Partial<MetahubSnapshotVersionEnvelope>): Promise<MetahubSnapshot> {
         const { typeByKind, entityTypeDefinitions } = await this.loadSnapshotTypeDefinitions(metahubId)
-        const objectKinds = [...typeByKind.keys()].filter((kind) => kind !== MetaEntityKind.HUB)
+        const objectKinds = [...typeByKind.keys()].filter((kind) => {
+            const definition = typeByKind.get(kind)
+            return resolveLegacyCompatibleKind(kind, definition?.config) !== MetaEntityKind.HUB
+        })
         const objectsByKindEntries = await Promise.all(
             objectKinds.map(async (kind) => [kind, await this.objectsService.findAllByKind(metahubId, kind)] as const)
         )
@@ -722,18 +771,20 @@ export class SnapshotSerializer {
             const hubId = hub.id as string
             const hubName = hub.name as unknown as import('@universo/types').VersionedLocalizedContent<string>
             const hubDescription = hub.description as unknown as import('@universo/types').VersionedLocalizedContent<string>
+            const hubKind = typeof hub.kind === 'string' && hub.kind.trim().length > 0 ? hub.kind : MetaEntityKind.HUB
+            const hubDefinition = typeByKind.get(hubKind)
             entities[hubId] = {
                 id: hubId,
-                kind: 'hub',
+                kind: hubKind,
                 codename: SnapshotSerializer.toSnapshotCodenameValue(hub.codename),
                 presentation: {
                     name: hubName,
                     description: hubDescription
                 },
-                config: {
+                config: mergeEntitySnapshotConfig(hubDefinition?.config, {
                     sortOrder: (hub.sort_order as number) ?? 0,
                     parentHubId: typeof hub.parent_hub_id === 'string' ? hub.parent_hub_id : null
-                },
+                }),
                 fields: [],
                 hubs: []
             }
@@ -750,6 +801,7 @@ export class SnapshotSerializer {
             const physicalTableConfig = isEnabledComponentConfig(definition.components.physicalTable)
                 ? definition.components.physicalTable
                 : null
+            const legacyCompatibleKind = resolveLegacyCompatibleKind(kind, definition.config)
 
             const hubIds = Array.isArray(object.config?.hubs)
                 ? object.config.hubs.filter((hubId: unknown): hubId is string => typeof hubId === 'string')
@@ -764,14 +816,14 @@ export class SnapshotSerializer {
                         ? object.table_name
                         : physicalTableConfig
                         ? generateTableName(object.id, kind, physicalTableConfig.prefix)
-                        : kind === MetaEntityKind.SET || kind === MetaEntityKind.ENUMERATION
-                        ? generateTableName(object.id, kind)
+                        : legacyCompatibleKind === MetaEntityKind.SET || legacyCompatibleKind === MetaEntityKind.ENUMERATION
+                        ? generateTableName(object.id, legacyCompatibleKind)
                         : undefined,
                 presentation: {
                     name: (objectPresentation.name ?? {}) as MetaEntitySnapshot['presentation']['name'],
                     description: (objectPresentation.description ?? {}) as MetaEntitySnapshot['presentation']['description']
                 },
-                config: ensureRecord(object.config),
+                config: mergeEntitySnapshotConfig(definition.config, object.config),
                 fields: [],
                 hubs: hubIds
             }
@@ -786,7 +838,7 @@ export class SnapshotSerializer {
                 const businessAttributes = allAttributes.filter((attribute) => attribute.system?.isSystem !== true)
                 entitySnapshot.fields = SnapshotSerializer.buildFieldSnapshots(businessAttributes)
 
-                const systemFields = await this.loadSystemFieldsSnapshotForObject(metahubId, object.id, kind)
+                const systemFields = await this.loadSystemFieldsSnapshotForObject(metahubId, object.id, kind, definition.config)
                 if (systemFields) {
                     systemFieldsByObject[object.id] = systemFields
                 }

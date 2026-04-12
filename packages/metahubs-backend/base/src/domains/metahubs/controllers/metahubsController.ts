@@ -74,6 +74,7 @@ import { structureVersionToSemver } from '../services/structureVersions'
 import { MetahubBranchesService } from '../../branches/services/MetahubBranchesService'
 import { getDDLServices, uuidToLockKey, acquirePoolAdvisoryLock, releasePoolAdvisoryLock } from '../../ddl'
 import { MetahubNotFoundError, MetahubDomainError } from '../../shared/domainErrors'
+import { resolveLegacyCompatibleKindsInSchema } from '../../shared/legacyCompatibility'
 import { DEFAULT_TEMPLATE_CODENAME } from '../../templates/data'
 import { createLogger } from '../../../utils/logger'
 
@@ -169,22 +170,32 @@ const assertManagedMetahubSchemaName = (schemaName: string): void => {
     }
 }
 
-const loadMetahubObjectCounts = async (exec: SqlQueryable, schemaName: string): Promise<{ hubsCount: number; catalogsCount: number }> => {
+const loadMetahubObjectCounts = async (
+    exec: SqlQueryable,
+    schemaName: string,
+    entityTypeService: Pick<EntityTypeService, 'listCustomTypesInSchema'>
+): Promise<{ hubsCount: number; catalogsCount: number }> => {
     if (!isManagedMetahubSchemaName(schemaName)) {
         return { hubsCount: 0, catalogsCount: 0 }
     }
 
     const schemaIdent = quoteIdentifier(schemaName)
+    const [hubKinds, catalogKinds] = await Promise.all([
+        resolveLegacyCompatibleKindsInSchema(entityTypeService, schemaName, 'hub'),
+        resolveLegacyCompatibleKindsInSchema(entityTypeService, schemaName, 'catalog')
+    ])
+    const countedKinds = [...new Set([...hubKinds, ...catalogKinds])]
 
     try {
         const countsResult = await exec.query<{ hubsCount: number; catalogsCount: number }>(
             `SELECT
-                 COUNT(*) FILTER (WHERE kind = 'hub')::int AS "hubsCount",
-                 COUNT(*) FILTER (WHERE kind = 'catalog')::int AS "catalogsCount"
+                 COUNT(*) FILTER (WHERE kind = ANY($1::text[]))::int AS "hubsCount",
+                 COUNT(*) FILTER (WHERE kind = ANY($2::text[]))::int AS "catalogsCount"
              FROM ${schemaIdent}._mhb_objects
-             WHERE kind IN ('hub', 'catalog')
+             WHERE kind = ANY($3::text[])
                AND _upl_deleted = false
-               AND _mhb_deleted = false`
+               AND _mhb_deleted = false`,
+            [hubKinds, catalogKinds, countedKinds]
         )
 
         return {
@@ -631,6 +642,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
         })
 
         const globalRoleName = isSu ? await getGlobalRoleCodename(q, userId) : null
+        const entityTypeService = new EntityTypeService(exec, new MetahubSchemaService(exec))
         const metahubCounts = await Promise.all(
             metahubs.map(async (metahub) => {
                 const defaultBranchId = metahub.defaultBranchId ?? null
@@ -645,7 +657,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                     return { hubsCount: 0, catalogsCount: 0 }
                 }
 
-                return loadMetahubObjectCounts(exec, schemaName)
+                return loadMetahubObjectCounts(exec, schemaName, entityTypeService)
             })
         )
 
@@ -760,7 +772,8 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             const schemaName = activeBranch?.schemaName ?? null
 
             if (schemaName) {
-                const counts = await loadMetahubObjectCounts(exec, schemaName)
+                const entityTypeService = new EntityTypeService(exec, new MetahubSchemaService(exec))
+                const counts = await loadMetahubObjectCounts(exec, schemaName, entityTypeService)
                 hubsCount = counts.hubsCount
                 catalogsCount = counts.catalogsCount
             }
@@ -1931,6 +1944,8 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             )?.versionEnvelope
 
             const schemaService = new MetahubSchemaService(exec, freshMetahub.defaultBranchId)
+            await schemaService.rewriteBaselineMigrationVersion(branch.schemaName, importedVersionEnvelope?.structureVersion)
+
             const objectsService = new MetahubObjectsService(exec, schemaService)
             const attributesService = new MetahubAttributesService(exec, schemaService)
             const elementsService = new MetahubElementsService(exec, schemaService, objectsService, attributesService)
@@ -1957,7 +1972,9 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             )
             const canonicalPublicationSnapshot = await serializer.serializeMetahub(metahub.id, {
                 structureVersion:
-                    typeof importedVersionEnvelope?.structureVersion === 'string' ? importedVersionEnvelope.structureVersion : undefined,
+                    typeof importedVersionEnvelope?.structureVersion === 'string'
+                        ? importedVersionEnvelope.structureVersion
+                        : await schemaService.resolvePublicStructureVersion(branch.schemaName, branch.structureVersion),
                 templateVersion:
                     typeof importedVersionEnvelope?.templateVersion === 'string' ? importedVersionEnvelope.templateVersion : undefined
             })
@@ -2104,8 +2121,10 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             eventBindingService
         )
 
+        const publicStructureVersion = await schemaService.resolvePublicStructureVersion(branch.schemaName, branch.structureVersion)
+
         const snapshot = await serializer.serializeMetahub(metahubId, {
-            structureVersion: structureVersionToSemver(branch.structureVersion)
+            structureVersion: publicStructureVersion
         })
 
         await attachLayoutsToSnapshot({ schemaService, snapshot, metahubId, userId })

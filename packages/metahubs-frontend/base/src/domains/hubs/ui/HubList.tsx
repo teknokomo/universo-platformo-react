@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { useLocation, useNavigate, Link } from 'react-router-dom'
+import { useLocation, useNavigate, Link, useParams } from 'react-router-dom'
 import { Box, ButtonBase, Chip, Divider, Skeleton, Stack, Tab, Tabs, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
@@ -60,6 +60,7 @@ import {
     extractResponseMessage
 } from './hubListUtils'
 import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
+import { buildHubAuthoringPath, type HubAuthoringTab } from '../../shared/legacyCompatibleRoutePaths'
 
 type GenericFormValues = Record<string, unknown>
 
@@ -150,6 +151,7 @@ const HubFormFields = ({
 const HubListContent = () => {
     const codenameConfig = useCodenameConfig()
     const navigate = useNavigate()
+    const { kindKey } = useParams<{ kindKey?: string }>()
     const location = useLocation()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
@@ -178,6 +180,16 @@ const HubListContent = () => {
         allowAttachExistingEntities,
         allowHubNesting
     } = useHubListData()
+    const buildHubPath = useCallback(
+        (nextHubId: string, tab: HubAuthoringTab = 'hubs') =>
+            buildHubAuthoringPath({
+                metahubId,
+                hubId: nextHubId,
+                kindKey,
+                tab
+            }),
+        [kindKey, metahubId]
+    )
 
     const { dialogs, openCreate, openDelete, openConflict, close } = useListDialogs<Hub>()
     const [editDialogOpen, setEditDialogOpen] = useState(false)
@@ -198,13 +210,16 @@ const HubListContent = () => {
             }
             revealPendingEntityFeedback({
                 queryClient,
-                queryKeyPrefix: isHubScoped && hubId ? metahubsQueryKeys.childHubs(metahubId, hubId) : metahubsQueryKeys.hubs(metahubId),
+                queryKeyPrefix:
+                    isHubScoped && hubId
+                        ? metahubsQueryKeys.childHubs(metahubId, hubId, kindKey)
+                        : metahubsQueryKeys.hubsScope(metahubId, kindKey),
                 entityId: pendingHubId,
-                extraQueryKeys: [metahubsQueryKeys.hubDetail(metahubId, pendingHubId)]
+                extraQueryKeys: [metahubsQueryKeys.hubDetail(metahubId, pendingHubId, kindKey)]
             })
             enqueueSnackbar(pendingInteractionMessage, { variant: 'info' })
         },
-        [enqueueSnackbar, hubId, hubs, isHubScoped, metahubId, pendingInteractionMessage, queryClient]
+        [enqueueSnackbar, hubId, hubs, isHubScoped, kindKey, metahubId, pendingInteractionMessage, queryClient]
     )
 
     const { confirm } = useConfirm()
@@ -237,8 +252,11 @@ const HubListContent = () => {
         if (!resolvedHub) return
 
         setPendingHubNavigation(null)
-        navigate(`/metahub/${metahubId}/hub/${resolvedHub.id}/hubs`)
-    }, [metahubId, navigate, pendingHubNavigation, sortedHubs])
+        const nextPath = buildHubPath(resolvedHub.id)
+        if (nextPath) {
+            navigate(nextPath)
+        }
+    }, [buildHubPath, metahubId, navigate, pendingHubNavigation, sortedHubs])
 
     useEffect(() => {
         const state = location.state as { openHubSettings?: boolean } | null
@@ -433,7 +451,7 @@ const HubListContent = () => {
                             </Typography>
                         </ButtonBase>
                     ) : (
-                        <Link to={`/metahub/${metahubId}/hub/${row.id}/hubs`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                        <Link to={buildHubPath(row.id)} style={{ textDecoration: 'none', color: 'inherit' }}>
                             <Typography
                                 sx={{
                                     fontSize: 14,
@@ -521,7 +539,7 @@ const HubListContent = () => {
                             }}
                         />
                     ) : (
-                        <Link to={`/metahub/${metahubId}/hub/${parentHub.id}/hubs`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                        <Link to={buildHubPath(parentHub.id)} style={{ textDecoration: 'none', color: 'inherit' }}>
                             <Chip
                                 label={parentHub.name}
                                 size='small'
@@ -577,6 +595,7 @@ const HubListContent = () => {
                         {
                             metahubId,
                             hubId: id,
+                            kindKey,
                             data: { ...patch, codename: codenamePayload, expectedVersion }
                         },
                         {
@@ -598,13 +617,14 @@ const HubListContent = () => {
                 },
                 deleteEntity: (id: string) => {
                     if (!metahubId) return
-                    return deleteHubMutation.mutateAsync({ metahubId, hubId: id })
+                    return deleteHubMutation.mutateAsync({ metahubId, hubId: id, kindKey })
                 },
                 copyEntity: (id: string, payload: HubLocalizedPayload & Record<string, unknown>) => {
                     if (!metahubId) return Promise.resolve()
                     copyHubMutation.mutate({
                         metahubId,
                         hubId: id,
+                        kindKey,
                         data: payload
                     })
 
@@ -797,6 +817,7 @@ const HubListContent = () => {
         // cache invalidation via onSettled. Dialog closes immediately.
         createHubMutation.mutate({
             metahubId,
+            kindKey,
             data: {
                 codename: codenamePayload,
                 name: nameInput ?? {},
@@ -809,7 +830,10 @@ const HubListContent = () => {
     }
 
     const goToHub = (hub: Hub) => {
-        navigate(`/metahub/${metahubId}/hub/${hub.id}/hubs`)
+        const nextPath = buildHubPath(hub.id)
+        if (nextPath) {
+            navigate(nextPath)
+        }
     }
 
     const handleChange = (_event: unknown, nextView: string | null) => {
@@ -823,19 +847,10 @@ const HubListContent = () => {
             setEditDialogOpen(true)
             return
         }
-        if (tabValue === 'catalogs') {
-            navigate(`/metahub/${metahubId}/hub/${hubId}/catalogs`)
-            return
+        const nextPath = buildHubPath(hubId, tabValue)
+        if (nextPath) {
+            navigate(nextPath)
         }
-        if (tabValue === 'sets') {
-            navigate(`/metahub/${metahubId}/hub/${hubId}/sets`)
-            return
-        }
-        if (tabValue === 'enumerations') {
-            navigate(`/metahub/${metahubId}/hub/${hubId}/enumerations`)
-            return
-        }
-        navigate(`/metahub/${metahubId}/hub/${hubId}/hubs`)
     }
 
     const handleSortableDragEnd = async (event: DragEndEvent) => {
@@ -850,6 +865,7 @@ const HubListContent = () => {
             await reorderHubMutation.mutateAsync({
                 metahubId,
                 hubId: String(active.id),
+                kindKey,
                 newSortOrder: overHub.sortOrder ?? 1
             })
             enqueueSnackbar(t('hubs.reorderSuccess', 'Hub order updated'), { variant: 'success' })
@@ -1079,9 +1095,7 @@ const HubListContent = () => {
                                                 dragDisabled={reorderHubMutation.isPending || isLoading}
                                                 onSortableDragEnd={handleSortableDragEnd}
                                                 renderDragOverlay={renderDragOverlay}
-                                                getRowLink={(row: HubDisplay) =>
-                                                    row?.id ? `/metahub/${metahubId}/hub/${row.id}/hubs` : undefined
-                                                }
+                                                getRowLink={(row: HubDisplay) => (row?.id ? buildHubPath(row.id) || undefined : undefined)}
                                                 onPendingInteractionAttempt={(row: HubDisplay) => handlePendingHubInteraction(row.id)}
                                                 customColumns={hubColumns}
                                                 i18nNamespace='flowList'
@@ -1212,7 +1226,8 @@ const HubListContent = () => {
                         deleteHubMutation.mutate(
                             {
                                 metahubId,
-                                hubId: hub.id
+                                hubId: hub.id,
+                                kindKey
                             },
                             {
                                 onError: (err: unknown) => {
@@ -1250,6 +1265,7 @@ const HubListContent = () => {
                             await updateHubMutation.mutateAsync({
                                 metahubId,
                                 hubId: id,
+                                kindKey,
                                 data: patch
                             })
                             close('conflict')

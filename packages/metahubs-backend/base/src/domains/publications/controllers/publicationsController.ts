@@ -48,7 +48,6 @@ import { MetahubScriptsService } from '../../scripts/services/MetahubScriptsServ
 import { EntityTypeService } from '../../entities/services/EntityTypeService'
 import { ActionService } from '../../entities/services/ActionService'
 import { EventBindingService } from '../../entities/services/EventBindingService'
-import { structureVersionToSemver } from '../../metahubs/services/structureVersions'
 import { SharedContainerService } from '../../shared/services/SharedContainerService'
 import { SharedEntityOverridesService } from '../../shared/services/SharedEntityOverridesService'
 import { enrichDefinitionsWithSetConstants } from '../../shared/setConstantRefs'
@@ -688,8 +687,9 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             scriptsService
         })
         const templateVersionLabel = await resolveTemplateVersionLabel(exec, metahub.templateVersionId)
+        const publicStructureVersion = await schemaService.resolvePublicStructureVersion(branch.schemaName, branch.structureVersion)
         const snapshot = await serializer.serializeMetahub(metahubId, {
-            structureVersion: structureVersionToSemver(branch.structureVersion),
+            structureVersion: publicStructureVersion,
             templateVersion: templateVersionLabel
         })
 
@@ -1599,8 +1599,9 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             scriptsService
         })
         const templateVersionLabel = await resolveTemplateVersionLabel(exec, metahub.templateVersionId)
+        const publicStructureVersion = await schemaService.resolvePublicStructureVersion(branch.schemaName, branch.structureVersion)
         const snapshot = await serializer.serializeMetahub(metahubId ?? publication.metahubId, {
-            structureVersion: structureVersionToSemver(branch.structureVersion),
+            structureVersion: publicStructureVersion,
             templateVersion: templateVersionLabel
         })
 

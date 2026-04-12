@@ -65,6 +65,7 @@ import {
     toCatalogWithHubsDisplay
 } from './catalogListUtils'
 import { buildCatalogAuthoringPath } from './catalogRoutePaths'
+import { buildHubAuthoringPath } from '../../shared/legacyCompatibleRoutePaths'
 
 const CatalogListContent = () => {
     const navigate = useNavigate()
@@ -107,6 +108,16 @@ const CatalogListContent = () => {
                 tab: 'attributes'
             }),
         [hubId, isHubScoped, kindKey, metahubId]
+    )
+    const buildHubPath = useCallback(
+        (tab: 'hubs' | 'catalogs' | 'sets' | 'enumerations') =>
+            buildHubAuthoringPath({
+                metahubId,
+                hubId,
+                kindKey,
+                tab
+            }),
+        [hubId, kindKey, metahubId]
     )
     const metahubDetailsQuery = useMetahubDetails(metahubId ?? '', { enabled: Boolean(metahubId) })
     const canEditCatalogs = metahubDetailsQuery.data?.permissions?.editContent === true
@@ -897,22 +908,37 @@ const CatalogListContent = () => {
     const handleHubTabChange = (_event: unknown, tabValue: 'hubs' | 'catalogs' | 'sets' | 'enumerations' | 'settings') => {
         if (!metahubId || !hubId) return
         if (tabValue === 'hubs') {
-            navigate(`/metahub/${metahubId}/hub/${hubId}/hubs`)
+            const nextPath = buildHubPath('hubs')
+            if (nextPath) {
+                navigate(nextPath)
+            }
             return
         }
         if (tabValue === 'settings') {
-            navigate(`/metahub/${metahubId}/hub/${hubId}/hubs`, { state: { openHubSettings: true } })
+            const nextPath = buildHubPath('hubs')
+            if (nextPath) {
+                navigate(nextPath, { state: { openHubSettings: true } })
+            }
             return
         }
         if (tabValue === 'sets') {
-            navigate(`/metahub/${metahubId}/hub/${hubId}/sets`)
+            const nextPath = buildHubPath('sets')
+            if (nextPath) {
+                navigate(nextPath)
+            }
             return
         }
         if (tabValue === 'enumerations') {
-            navigate(`/metahub/${metahubId}/hub/${hubId}/enumerations`)
+            const nextPath = buildHubPath('enumerations')
+            if (nextPath) {
+                navigate(nextPath)
+            }
             return
         }
-        navigate(`/metahub/${metahubId}/hub/${hubId}/catalogs`)
+        const nextPath = buildHubPath('catalogs')
+        if (nextPath) {
+            navigate(nextPath)
+        }
     }
 
     // Transform Catalog data for display - use hub-aware version for global mode

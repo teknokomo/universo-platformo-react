@@ -15,6 +15,7 @@ import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
 import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
 import { MetahubEnumerationValuesService } from '../../metahubs/services/MetahubEnumerationValuesService'
 import { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
+import { EntityTypeService } from '../../entities/services/EntityTypeService'
 import {
     getCodenameSettings,
     codenameErrorMessage,
@@ -35,11 +36,26 @@ import {
     executeLegacyReorder
 } from '../../entities/services/legacyBuiltinObjectCompatibility'
 import { copyDesignTimeObjectChildren } from '../../entities/services/designTimeObjectChildrenCopy'
+import {
+    createLegacyCompatibleKindSet,
+    resolveLegacyCompatibleKinds,
+    resolveRequestedLegacyCompatibleKind,
+    resolveRequestedLegacyCompatibleKinds
+} from '../../shared/legacyCompatibility'
 
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 const { normalizeEnumerationCopyOptions } = validation
-const isEnumerationContextKind = (kind: unknown): boolean =>
-    kind === MetaEntityKind.ENUMERATION || kind === SHARED_OBJECT_KINDS.SHARED_ENUM_POOL
+const isEnumerationContextKind = (kind: unknown, allowedKinds?: Set<string>): boolean => {
+    if (typeof kind !== 'string') {
+        return false
+    }
+
+    if (allowedKinds) {
+        return allowedKinds.has(kind) || kind === SHARED_OBJECT_KINDS.SHARED_ENUM_POOL
+    }
+
+    return kind === MetaEntityKind.ENUMERATION || kind === SHARED_OBJECT_KINDS.SHARED_ENUM_POOL
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -53,6 +69,7 @@ type HubSummaryRow = {
 
 type EnumerationObjectRow = {
     id: string
+    kind?: string
     codename: unknown
     presentation?: {
         name?: unknown
@@ -173,24 +190,39 @@ const respondUniqueViolation = (res: Response, error: unknown, fallbackMessage: 
 const findBlockingEnumerationReferences = async (
     metahubId: string,
     enumerationId: string,
+    compatibleEnumerationKinds: readonly string[],
     attributesService: MetahubAttributesService,
     userId?: string
-) => attributesService.findReferenceBlockersByTarget(metahubId, enumerationId, MetaEntityKind.ENUMERATION, userId)
+) => attributesService.findReferenceBlockersByTarget(metahubId, enumerationId, compatibleEnumerationKinds, userId)
 
 const findBlockingDefaultValueReferences = async (
     metahubId: string,
     valueId: string,
+    compatibleEnumerationKinds: readonly string[],
     attributesService: MetahubAttributesService,
     userId?: string
-) => attributesService.findDefaultEnumValueBlockers(metahubId, valueId, userId)
+) => attributesService.findDefaultEnumValueBlockers(metahubId, valueId, userId, compatibleEnumerationKinds)
 
 const findBlockingElementValueReferences = async (
     metahubId: string,
     enumerationId: string,
     valueId: string,
+    compatibleEnumerationKinds: readonly string[],
     attributesService: MetahubAttributesService,
     userId?: string
-) => attributesService.findElementEnumValueBlockers(metahubId, enumerationId, valueId, userId)
+) => attributesService.findElementEnumValueBlockers(metahubId, enumerationId, valueId, userId, compatibleEnumerationKinds)
+
+const loadCompatibleEnumerationKinds = async (
+    entityTypeService: EntityTypeService,
+    metahubId: string,
+    userId?: string
+): Promise<string[]> => resolveLegacyCompatibleKinds(entityTypeService, metahubId, 'enumeration', userId)
+
+const loadCompatibleEnumerationKindSet = async (
+    entityTypeService: EntityTypeService,
+    metahubId: string,
+    userId?: string
+): Promise<Set<string>> => createLegacyCompatibleKindSet(await loadCompatibleEnumerationKinds(entityTypeService, metahubId, userId))
 
 const mapHubSummary = (hub: Record<string, unknown>): HubSummaryRow => ({
     id: String(hub.id),
@@ -341,7 +373,8 @@ const createEnumerationSchema = z
         sortOrder: z.number().int().optional(),
         isSingleHub: z.boolean().optional(),
         isRequiredHub: z.boolean().optional(),
-        hubIds: z.array(z.string().uuid()).optional()
+        hubIds: z.array(z.string().uuid()).optional(),
+        kindKey: z.string().trim().min(1).max(128).optional()
     })
     .strict()
 
@@ -493,7 +526,8 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
             hubsService: new MetahubHubsService(exec, schemaService),
             attributesService: new MetahubAttributesService(exec, schemaService),
             valuesService: new MetahubEnumerationValuesService(exec, schemaService),
-            settingsService: new MetahubSettingsService(exec, schemaService)
+            settingsService: new MetahubSettingsService(exec, schemaService),
+            entityTypeService: new EntityTypeService(exec, schemaService)
         }
     }
 
@@ -501,7 +535,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
 
     const list = async (req: Request, res: Response) => {
         const { metahubId } = req.params
-        const { objectsService, hubsService, valuesService } = services(req)
+        const { objectsService, hubsService, valuesService, entityTypeService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId)
         if (!userId) return
 
@@ -516,15 +550,22 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
         }
 
         const { limit, offset, sortBy, sortOrder, search } = validatedQuery
-        const rawEnumerations = (await objectsService.findAllByKind(
+        const requestedKindKey = typeof req.query.kindKey === 'string' ? req.query.kindKey : undefined
+        const requestedKinds = await resolveRequestedLegacyCompatibleKinds(
+            entityTypeService,
             metahubId,
-            MetaEntityKind.ENUMERATION,
+            'enumeration',
+            requestedKindKey,
             userId
-        )) as EnumerationObjectRow[]
+        )
+        const requestedKindSet = createLegacyCompatibleKindSet(requestedKinds)
+        const rawEnumerations = (await objectsService.findAllByKinds(metahubId, requestedKinds, userId)) as EnumerationObjectRow[]
         const enumerationIds = rawEnumerations.map((row) => row.id)
         const valuesCounts = await valuesService.countByObjectIds(metahubId, enumerationIds, userId)
 
-        let items = rawEnumerations.map((row) => mapEnumerationSummary(row, metahubId, valuesCounts.get(row.id) || 0))
+        let items = rawEnumerations
+            .filter((row) => isEnumerationContextKind(row.kind, requestedKindSet))
+            .map((row) => mapEnumerationSummary(row, metahubId, valuesCounts.get(row.id) || 0))
 
         if (search) {
             const searchLower = search.toLowerCase()
@@ -545,7 +586,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
 
     const create = async (req: Request, res: Response) => {
         const { metahubId } = req.params
-        const { objectsService, hubsService, settingsService } = services(req)
+        const { objectsService, hubsService, settingsService, entityTypeService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
         if (!userId) return
 
@@ -554,8 +595,19 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
             return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
         }
 
-        const { codename, name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale, isSingleHub, isRequiredHub, hubIds } =
-            parsed.data
+        const {
+            codename,
+            name,
+            description,
+            sortOrder,
+            namePrimaryLocale,
+            descriptionPrimaryLocale,
+            isSingleHub,
+            isRequiredHub,
+            hubIds,
+            kindKey
+        } = parsed.data
+        const targetKind = await resolveRequestedLegacyCompatibleKind(entityTypeService, metahubId, 'enumeration', kindKey, userId)
 
         const {
             style: codenameStyle,
@@ -570,7 +622,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
             })
         }
 
-        const existing = await objectsService.findByCodenameAndKind(metahubId, normalizedCodename, MetaEntityKind.ENUMERATION, userId)
+        const existing = await objectsService.findByCodenameAndKind(metahubId, normalizedCodename, targetKind, userId)
         if (existing) {
             return res.status(409).json({ error: 'Enumeration with this codename already exists in this metahub' })
         }
@@ -623,8 +675,9 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
 
         let created
         try {
-            created = await objectsService.createEnumeration(
+            created = await objectsService.createObject(
                 metahubId,
+                targetKind,
                 {
                     codename: codenamePayload,
                     name: nameVlc,
@@ -669,7 +722,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
 
     const copy = async (req: Request, res: Response) => {
         const { metahubId, enumerationId } = req.params
-        const { exec, objectsService, hubsService, schemaService, settingsService } = services(req)
+        const { exec, objectsService, hubsService, schemaService, settingsService, entityTypeService } = services(req)
         const userId = resolveUserId(req)
         const dbSession = getRequestDbSession(req)
 
@@ -688,8 +741,10 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
             return res.status(403).json({ error: 'Copying enumerations is disabled by metahub settings' })
         }
 
+        const compatibleKinds = await resolveLegacyCompatibleKinds(entityTypeService, metahubId, 'enumeration', userId)
+        const compatibleKindSet = createLegacyCompatibleKindSet(compatibleKinds)
         const sourceEnumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!sourceEnumeration || sourceEnumeration.kind !== MetaEntityKind.ENUMERATION) {
+        if (!sourceEnumeration || !isEnumerationContextKind(sourceEnumeration.kind, compatibleKindSet)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
@@ -772,8 +827,9 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
                     ? sourceConfig.hubs.filter((value: unknown): value is string => typeof value === 'string')
                     : []
 
-                const createdEnumeration = (await objectsService.createEnumeration(
+                const createdEnumeration = (await objectsService.createObject(
                     metahubId,
+                    sourceEnumeration.kind,
                     {
                         codename: codenamePayloadForCopy,
                         name: nameVlc,
@@ -853,12 +909,14 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
 
     const update = async (req: Request, res: Response) => {
         const { metahubId, enumerationId } = req.params
-        const { objectsService, hubsService, settingsService } = services(req)
+        const { objectsService, hubsService, settingsService, entityTypeService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
         if (!userId) return
 
+        const compatibleKinds = await resolveLegacyCompatibleKinds(entityTypeService, metahubId, 'enumeration', userId)
+        const compatibleKindSet = createLegacyCompatibleKindSet(compatibleKinds)
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind, compatibleKindSet)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
@@ -923,7 +981,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
                 const existing = await objectsService.findByCodenameAndKind(
                     metahubId,
                     normalizedCodename,
-                    MetaEntityKind.ENUMERATION,
+                    enumeration.kind,
                     userId
                 )
                 if (existing && existing.id !== enumerationId) {
@@ -982,9 +1040,10 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
 
         let updated: EnumerationObjectRow
         try {
-            updated = (await objectsService.updateEnumeration(
+            updated = (await objectsService.updateObject(
                 metahubId,
                 enumerationId,
+                enumeration.kind ?? MetaEntityKind.ENUMERATION,
                 {
                     codename: finalCodenameText !== getEnumerationCodenameText(enumeration.codename) ? finalCodename : undefined,
                     name: finalName,
@@ -1029,7 +1088,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
 
     const listByHub = async (req: Request, res: Response) => {
         const { metahubId, hubId } = req.params
-        const { objectsService, hubsService, valuesService } = services(req)
+        const { objectsService, hubsService, valuesService, entityTypeService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId)
         if (!userId) return
 
@@ -1044,9 +1103,18 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
         }
 
         const { limit, offset, sortBy, sortOrder, search } = validatedQuery
-        const allEnumerations = await objectsService.findAllByKind(metahubId, MetaEntityKind.ENUMERATION, userId)
-        const hubEnumerations = (allEnumerations as EnumerationObjectRow[]).filter((enumeration) =>
-            getEnumerationHubIds(enumeration).includes(hubId)
+        const requestedKindKey = typeof req.query.kindKey === 'string' ? req.query.kindKey : undefined
+        const requestedKinds = await resolveRequestedLegacyCompatibleKinds(
+            entityTypeService,
+            metahubId,
+            'enumeration',
+            requestedKindKey,
+            userId
+        )
+        const requestedKindSet = createLegacyCompatibleKindSet(requestedKinds)
+        const allEnumerations = await objectsService.findAllByKinds(metahubId, requestedKinds, userId)
+        const hubEnumerations = (allEnumerations as EnumerationObjectRow[]).filter(
+            (enumeration) => isEnumerationContextKind(enumeration.kind, requestedKindSet) && getEnumerationHubIds(enumeration).includes(hubId)
         )
 
         if (hubEnumerations.length === 0) {
@@ -1077,7 +1145,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
 
     const reorder = async (req: Request, res: Response) => {
         const { metahubId } = req.params
-        const { exec, objectsService } = services(req)
+        const { exec, objectsService, entityTypeService } = services(req)
         const userId = resolveUserId(req)
 
         if (!userId) return res.status(401).json({ error: 'Unauthorized' })
@@ -1088,6 +1156,13 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
             return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
         }
 
+        const compatibleKinds = await resolveLegacyCompatibleKinds(entityTypeService, metahubId, 'enumeration', userId)
+        const compatibleKindSet = createLegacyCompatibleKindSet(compatibleKinds)
+        const existing = await objectsService.findById(metahubId, parsed.data.enumerationId, userId)
+        if (!existing || !isEnumerationContextKind(existing.kind, compatibleKindSet)) {
+            return res.status(404).json({ error: 'Enumeration not found' })
+        }
+
         const result = await executeLegacyReorder({
             entityLabel: 'Enumeration',
             notFoundErrorMessage: 'enumeration not found',
@@ -1095,7 +1170,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
             reorderEntity: () =>
                 objectsService.reorderByKind(
                     metahubId,
-                    MetaEntityKind.ENUMERATION,
+                    existing.kind,
                     parsed.data.enumerationId,
                     parsed.data.newSortOrder,
                     userId
@@ -1111,12 +1186,14 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
 
     const getById = async (req: Request, res: Response) => {
         const { metahubId, hubId, enumerationId } = req.params
-        const { objectsService, hubsService, valuesService } = services(req)
+        const { objectsService, hubsService, valuesService, entityTypeService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId)
         if (!userId) return
 
+        const compatibleKinds = await loadCompatibleEnumerationKinds(entityTypeService, metahubId, userId)
+        const compatibleKindSet = createLegacyCompatibleKindSet(compatibleKinds)
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind, compatibleKindSet)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
@@ -1151,7 +1228,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
 
     const createInHub = async (req: Request, res: Response) => {
         const { metahubId, hubId } = req.params
-        const { objectsService, hubsService, settingsService } = services(req)
+        const { objectsService, hubsService, settingsService, entityTypeService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
         if (!userId) return
 
@@ -1165,8 +1242,19 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
             return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues })
         }
 
-        const { codename, name, description, sortOrder, namePrimaryLocale, descriptionPrimaryLocale, isSingleHub, isRequiredHub, hubIds } =
-            parsed.data
+        const {
+            codename,
+            name,
+            description,
+            sortOrder,
+            namePrimaryLocale,
+            descriptionPrimaryLocale,
+            isSingleHub,
+            isRequiredHub,
+            hubIds,
+            kindKey
+        } = parsed.data
+        const targetKind = await resolveRequestedLegacyCompatibleKind(entityTypeService, metahubId, 'enumeration', kindKey, userId)
 
         const {
             style: codenameStyle,
@@ -1181,7 +1269,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
             })
         }
 
-        const existing = await objectsService.findByCodenameAndKind(metahubId, normalizedCodename, MetaEntityKind.ENUMERATION, userId)
+        const existing = await objectsService.findByCodenameAndKind(metahubId, normalizedCodename, targetKind, userId)
         if (existing) {
             return res.status(409).json({ error: 'Enumeration with this codename already exists in this metahub' })
         }
@@ -1228,8 +1316,9 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
 
         let created
         try {
-            created = await objectsService.createEnumeration(
+            created = await objectsService.createObject(
                 metahubId,
+                targetKind,
                 {
                     codename: codenamePayload,
                     name: nameVlc,
@@ -1274,12 +1363,14 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
 
     const updateInHub = async (req: Request, res: Response) => {
         const { metahubId, hubId, enumerationId } = req.params
-        const { objectsService, hubsService, settingsService } = services(req)
+        const { objectsService, hubsService, settingsService, entityTypeService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
         if (!userId) return
 
+        const compatibleKinds = await resolveLegacyCompatibleKinds(entityTypeService, metahubId, 'enumeration', userId)
+        const compatibleKindSet = createLegacyCompatibleKindSet(compatibleKinds)
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind, compatibleKindSet)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
@@ -1351,7 +1442,7 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
                 const existing = await objectsService.findByCodenameAndKind(
                     metahubId,
                     normalizedCodename,
-                    MetaEntityKind.ENUMERATION,
+                    enumeration.kind,
                     userId
                 )
                 if (existing && existing.id !== enumerationId) {
@@ -1399,9 +1490,10 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
 
         let updated: EnumerationObjectRow
         try {
-            updated = (await objectsService.updateEnumeration(
+            updated = (await objectsService.updateObject(
                 metahubId,
                 enumerationId,
+                enumeration.kind,
                 {
                     codename: finalCodenameText !== getEnumerationCodenameText(enumeration.codename) ? finalCodename : undefined,
                     name: finalName,
@@ -1446,16 +1538,18 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
 
     const blockingReferences = async (req: Request, res: Response) => {
         const { metahubId, enumerationId } = req.params
-        const { objectsService, attributesService } = services(req)
+        const { objectsService, attributesService, entityTypeService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId)
         if (!userId) return
 
+        const compatibleKinds = await loadCompatibleEnumerationKinds(entityTypeService, metahubId, userId)
+        const compatibleKindSet = createLegacyCompatibleKindSet(compatibleKinds)
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind, compatibleKindSet)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
-        const refs = await findBlockingEnumerationReferences(metahubId, enumerationId, attributesService, userId)
+        const refs = await findBlockingEnumerationReferences(metahubId, enumerationId, compatibleKinds, attributesService, userId)
         return res.json({
             enumerationId,
             blockingReferences: refs,
@@ -1467,13 +1561,15 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
 
     const deleteFromHub = async (req: Request, res: Response) => {
         const { metahubId, hubId, enumerationId } = req.params
-        const { objectsService, attributesService, settingsService } = services(req)
+        const { objectsService, attributesService, settingsService, entityTypeService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'deleteContent')
         if (!userId) return
 
+        const compatibleKinds = await loadCompatibleEnumerationKinds(entityTypeService, metahubId, userId)
+        const compatibleKindSet = createLegacyCompatibleKindSet(compatibleKinds)
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
         const result = await executeHubScopedDelete({
-            entity: enumeration && isEnumerationContextKind(enumeration.kind) ? enumeration : null,
+            entity: enumeration && isEnumerationContextKind(enumeration.kind, compatibleKindSet) ? enumeration : null,
             entityLabel: 'Enumeration',
             notFoundMessage: 'Enumeration not found',
             notFoundInHubMessage: 'Enumeration not found in this hub',
@@ -1493,7 +1589,13 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
                     }
                 }
 
-                const refs = await findBlockingEnumerationReferences(metahubId, enumerationId, attributesService, userId)
+                const refs = await findBlockingEnumerationReferences(
+                    metahubId,
+                    enumerationId,
+                    compatibleKinds,
+                    attributesService,
+                    userId
+                )
                 if (refs.length > 0) {
                     return {
                         status: 409,
@@ -1507,9 +1609,10 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
                 return null
             },
             detachFromHub: async (nextHubIds) => {
-                await objectsService.updateEnumeration(
+                await objectsService.updateObject(
                     metahubId,
                     enumerationId,
+                    enumeration?.kind ?? MetaEntityKind.ENUMERATION,
                     {
                         config: { hubs: nextHubIds },
                         updatedBy: userId,
@@ -1533,13 +1636,15 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
 
     const remove = async (req: Request, res: Response) => {
         const { metahubId, enumerationId } = req.params
-        const { objectsService, attributesService, settingsService } = services(req)
+        const { objectsService, attributesService, settingsService, entityTypeService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'deleteContent')
         if (!userId) return
 
+        const compatibleKinds = await loadCompatibleEnumerationKinds(entityTypeService, metahubId, userId)
+        const compatibleKindSet = createLegacyCompatibleKindSet(compatibleKinds)
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
         const result = await executeBlockedDelete({
-            entity: enumeration && isEnumerationContextKind(enumeration.kind) ? enumeration : null,
+            entity: enumeration && isEnumerationContextKind(enumeration.kind, compatibleKindSet) ? enumeration : null,
             entityLabel: 'Enumeration',
             notFoundMessage: 'Enumeration not found',
             beforeDelete: async () => {
@@ -1552,7 +1657,13 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
                     }
                 }
 
-                const refs = await findBlockingEnumerationReferences(metahubId, enumerationId, attributesService, userId)
+                const refs = await findBlockingEnumerationReferences(
+                    metahubId,
+                    enumerationId,
+                    compatibleKinds,
+                    attributesService,
+                    userId
+                )
                 if (refs.length > 0) {
                     return {
                         status: 409,
@@ -1579,11 +1690,12 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
 
     const listTrash = async (req: Request, res: Response) => {
         const { metahubId } = req.params
-        const { objectsService } = services(req)
+        const { objectsService, entityTypeService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId)
         if (!userId) return
 
-        const deletedEnumerations = await objectsService.findDeletedByKind(metahubId, MetaEntityKind.ENUMERATION, userId)
+        const compatibleKinds = await resolveLegacyCompatibleKinds(entityTypeService, metahubId, 'enumeration', userId)
+        const deletedEnumerations = await objectsService.findDeletedByKinds(metahubId, compatibleKinds, userId)
         const items = (deletedEnumerations as EnumerationObjectRow[]).map((row) => ({
             id: row.id,
             metahubId,
@@ -1601,12 +1713,13 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
 
     const restore = async (req: Request, res: Response) => {
         const { metahubId, enumerationId } = req.params
-        const { objectsService } = services(req)
+        const { objectsService, entityTypeService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
         if (!userId) return
 
+        const compatibleKindSet = await loadCompatibleEnumerationKindSet(entityTypeService, metahubId, userId)
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId, { onlyDeleted: true })
-        if (!enumeration || enumeration.kind !== MetaEntityKind.ENUMERATION) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind, compatibleKindSet)) {
             return res.status(404).json({ error: 'Enumeration not found in trash' })
         }
 
@@ -1627,13 +1740,15 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
 
     const permanentDelete = async (req: Request, res: Response) => {
         const { metahubId, enumerationId } = req.params
-        const { objectsService, attributesService, settingsService } = services(req)
+        const { objectsService, attributesService, settingsService, entityTypeService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'deleteContent')
         if (!userId) return
 
+        const compatibleKinds = await loadCompatibleEnumerationKinds(entityTypeService, metahubId, userId)
+        const compatibleKindSet = createLegacyCompatibleKindSet(compatibleKinds)
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId, { includeDeleted: true })
         const result = await executeBlockedDelete({
-            entity: enumeration && isEnumerationContextKind(enumeration.kind) ? enumeration : null,
+            entity: enumeration && isEnumerationContextKind(enumeration.kind, compatibleKindSet) ? enumeration : null,
             entityLabel: 'Enumeration',
             notFoundMessage: 'Enumeration not found',
             beforeDelete: async () => {
@@ -1646,7 +1761,13 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
                     }
                 }
 
-                const refs = await findBlockingEnumerationReferences(metahubId, enumerationId, attributesService, userId)
+                const refs = await findBlockingEnumerationReferences(
+                    metahubId,
+                    enumerationId,
+                    compatibleKinds,
+                    attributesService,
+                    userId
+                )
                 if (refs.length > 0) {
                     return {
                         status: 409,
@@ -1673,12 +1794,14 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
 
     const listValues = async (req: Request, res: Response) => {
         const { metahubId, enumerationId } = req.params
-        const { objectsService, valuesService } = services(req)
+        const { objectsService, valuesService, entityTypeService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId)
         if (!userId) return
 
+        const compatibleKinds = await loadCompatibleEnumerationKinds(entityTypeService, metahubId, userId)
+        const compatibleKindSet = createLegacyCompatibleKindSet(compatibleKinds)
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind, compatibleKindSet)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
@@ -1697,12 +1820,14 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
 
     const getValueById = async (req: Request, res: Response) => {
         const { metahubId, enumerationId, valueId } = req.params
-        const { objectsService, valuesService } = services(req)
+        const { objectsService, valuesService, entityTypeService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId)
         if (!userId) return
 
+        const compatibleKinds = await loadCompatibleEnumerationKinds(entityTypeService, metahubId, userId)
+        const compatibleKindSet = createLegacyCompatibleKindSet(compatibleKinds)
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind, compatibleKindSet)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
@@ -1718,12 +1843,14 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
 
     const valueBlockingReferences = async (req: Request, res: Response) => {
         const { metahubId, enumerationId, valueId } = req.params
-        const { objectsService, valuesService, attributesService } = services(req)
+        const { objectsService, valuesService, attributesService, entityTypeService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId)
         if (!userId) return
 
+        const compatibleKindSet = await loadCompatibleEnumerationKindSet(entityTypeService, metahubId, userId)
+        const compatibleKinds = Array.from(compatibleKindSet)
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind, compatibleKindSet)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
@@ -1733,8 +1860,8 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
         }
 
         const [blockingDefaults, blockingElements] = await Promise.all([
-            findBlockingDefaultValueReferences(metahubId, valueId, attributesService, userId),
-            findBlockingElementValueReferences(metahubId, enumerationId, valueId, attributesService, userId)
+            findBlockingDefaultValueReferences(metahubId, valueId, compatibleKinds, attributesService, userId),
+            findBlockingElementValueReferences(metahubId, enumerationId, valueId, compatibleKinds, attributesService, userId)
         ])
 
         return res.json({
@@ -1749,12 +1876,14 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
 
     const createValue = async (req: Request, res: Response) => {
         const { metahubId, enumerationId } = req.params
-        const { objectsService, valuesService, settingsService } = services(req)
+        const { objectsService, valuesService, settingsService, entityTypeService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
         if (!userId) return
 
+        const compatibleKinds = await loadCompatibleEnumerationKinds(entityTypeService, metahubId, userId)
+        const compatibleKindSet = createLegacyCompatibleKindSet(compatibleKinds)
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind, compatibleKindSet)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
@@ -1842,12 +1971,13 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
 
     const updateValue = async (req: Request, res: Response) => {
         const { metahubId, enumerationId, valueId } = req.params
-        const { objectsService, valuesService, settingsService } = services(req)
+        const { objectsService, valuesService, settingsService, entityTypeService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
         if (!userId) return
 
+        const compatibleKindSet = await loadCompatibleEnumerationKindSet(entityTypeService, metahubId, userId)
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind, compatibleKindSet)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
@@ -1944,12 +2074,13 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
 
     const moveValue = async (req: Request, res: Response) => {
         const { metahubId, enumerationId, valueId } = req.params
-        const { objectsService, valuesService } = services(req)
+        const { objectsService, valuesService, entityTypeService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
         if (!userId) return
 
+        const compatibleKindSet = await loadCompatibleEnumerationKindSet(entityTypeService, metahubId, userId)
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind, compatibleKindSet)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
@@ -1973,12 +2104,13 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
 
     const reorderValue = async (req: Request, res: Response) => {
         const { metahubId, enumerationId } = req.params
-        const { objectsService, valuesService } = services(req)
+        const { objectsService, valuesService, entityTypeService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
         if (!userId) return
 
+        const compatibleKindSet = await loadCompatibleEnumerationKindSet(entityTypeService, metahubId, userId)
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind, compatibleKindSet)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
@@ -2010,12 +2142,13 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
 
     const copyValue = async (req: Request, res: Response) => {
         const { metahubId, enumerationId, valueId } = req.params
-        const { objectsService, valuesService, settingsService } = services(req)
+        const { objectsService, valuesService, settingsService, entityTypeService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
         if (!userId) return
 
+        const compatibleKindSet = await loadCompatibleEnumerationKindSet(entityTypeService, metahubId, userId)
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind, compatibleKindSet)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
@@ -2134,12 +2267,14 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
 
     const deleteValue = async (req: Request, res: Response) => {
         const { metahubId, enumerationId, valueId } = req.params
-        const { objectsService, valuesService, attributesService } = services(req)
+        const { objectsService, valuesService, attributesService, entityTypeService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'deleteContent')
         if (!userId) return
 
+        const compatibleKindSet = await loadCompatibleEnumerationKindSet(entityTypeService, metahubId, userId)
+        const compatibleKinds = Array.from(compatibleKindSet)
         const enumeration = await objectsService.findById(metahubId, enumerationId, userId)
-        if (!enumeration || !isEnumerationContextKind(enumeration.kind)) {
+        if (!enumeration || !isEnumerationContextKind(enumeration.kind, compatibleKindSet)) {
             return res.status(404).json({ error: 'Enumeration not found' })
         }
 
@@ -2148,7 +2283,13 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
             return res.status(404).json({ error: 'Enumeration value not found' })
         }
 
-        const blockingDefaults = await findBlockingDefaultValueReferences(metahubId, valueId, attributesService, userId)
+        const blockingDefaults = await findBlockingDefaultValueReferences(
+            metahubId,
+            valueId,
+            compatibleKinds,
+            attributesService,
+            userId
+        )
         if (blockingDefaults.length > 0) {
             return res.status(409).json({
                 error: 'Cannot delete enumeration value: it is configured as default in attributes',
@@ -2156,7 +2297,14 @@ export function createEnumerationsController(getDbExecutor: () => DbExecutor) {
             })
         }
 
-        const blockingElements = await findBlockingElementValueReferences(metahubId, enumerationId, valueId, attributesService, userId)
+        const blockingElements = await findBlockingElementValueReferences(
+            metahubId,
+            enumerationId,
+            valueId,
+            compatibleKinds,
+            attributesService,
+            userId
+        )
         if (blockingElements.length > 0) {
             return res.status(409).json({
                 error: 'Cannot delete enumeration value: it is used in predefined elements',

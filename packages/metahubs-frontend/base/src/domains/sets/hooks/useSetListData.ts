@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { usePaginated, useDebouncedSearch } from '@universo/template-mui'
 import { fetchAllPaginatedItems, metahubsQueryKeys } from '../../shared'
+import { resolveLegacyCompatibleChildKindKey } from '../../shared/legacyCompatibleRoutePaths'
 import { useEntityPermissions } from '../../settings/hooks/useEntityPermissions'
 import * as setsApi from '../api'
 import type { SetWithHubs } from '../api'
@@ -11,22 +12,23 @@ import { useMetahubHubs } from '../../hubs/hooks'
 import type { PaginatedResponse } from '../../../types'
 
 export function useSetListData() {
-    const { metahubId, hubId } = useParams<{ metahubId: string; hubId?: string }>()
+    const { metahubId, hubId, kindKey: routeKindKey } = useParams<{ metahubId: string; hubId?: string; kindKey?: string }>()
     const { i18n } = useTranslation()
     const isHubScoped = Boolean(hubId)
     const { allowCopy, allowDelete, allowAttachExistingEntities } = useEntityPermissions('sets')
+    const entityKindKey = resolveLegacyCompatibleChildKindKey({ routeKindKey, childObjectKind: 'set' })
 
     const hubs = useMetahubHubs(metahubId)
 
     const { data: allSetsResponse } = useQuery<PaginatedResponse<SetWithHubs>>({
         queryKey: metahubId
-            ? metahubsQueryKeys.allSetsList(metahubId, { limit: 1000, offset: 0, sortBy: 'sortOrder', sortOrder: 'asc' })
+            ? metahubsQueryKeys.allSetsList(metahubId, { limit: 1000, offset: 0, sortBy: 'sortOrder', sortOrder: 'asc', kindKey: entityKindKey })
             : ['metahubs', 'sets', 'all', 'empty'],
         queryFn: async () => {
             if (!metahubId) {
                 return { items: [], pagination: { limit: 1000, offset: 0, count: 0, total: 0, hasMore: false } }
             }
-            return fetchAllPaginatedItems((params) => setsApi.listAllSets(metahubId, params), {
+            return fetchAllPaginatedItems((params) => setsApi.listAllSets(metahubId, { ...params, kindKey: entityKindKey }), {
                 limit: 1000,
                 sortBy: 'sortOrder',
                 sortOrder: 'asc'
@@ -43,13 +45,13 @@ export function useSetListData() {
     const paginationResult = usePaginated<SetWithHubs, 'codename' | 'created' | 'updated' | 'sortOrder'>({
         queryKeyFn: metahubId
             ? isHubScoped
-                ? (params) => metahubsQueryKeys.setsList(metahubId, hubId!, params)
-                : (params) => metahubsQueryKeys.allSetsList(metahubId, params)
+                ? (params) => metahubsQueryKeys.setsList(metahubId, hubId!, { ...params, kindKey: entityKindKey })
+                : (params) => metahubsQueryKeys.allSetsList(metahubId, { ...params, kindKey: entityKindKey })
             : () => ['empty'],
         queryFn: metahubId
             ? isHubScoped
-                ? (params) => setsApi.listSets(metahubId, hubId!, params)
-                : (params) => setsApi.listAllSets(metahubId, params)
+                ? (params) => setsApi.listSets(metahubId, hubId!, { ...params, kindKey: entityKindKey })
+                : (params) => setsApi.listAllSets(metahubId, { ...params, kindKey: entityKindKey })
             : async () => ({ items: [], pagination: { limit: 20, offset: 0, count: 0, total: 0, hasMore: false } }),
         initialLimit: 20,
         sortBy: 'sortOrder',
@@ -113,6 +115,7 @@ export function useSetListData() {
     return {
         metahubId,
         hubId,
+        entityKindKey,
         isHubScoped,
         hubs,
         allSetsResponse,

@@ -22,6 +22,7 @@ jest.mock('../../persistence', () => ({
 }))
 
 const mockEnsureMetahubAccess = jest.fn()
+const mockEnsureSchema = jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 
 jest.mock('../../domains/shared/guards', () => ({
     __esModule: true,
@@ -33,11 +34,11 @@ jest.mock('../../domains/ddl', () => ({
 }))
 
 const mockObjectsService = {
-    findAllByKind: jest.fn(),
+    findAllByKinds: jest.fn(),
     findById: jest.fn(),
     findByCodenameAndKind: jest.fn(),
-    createSet: jest.fn(),
-    updateSet: jest.fn(),
+    createObject: jest.fn(),
+    updateObject: jest.fn(),
     delete: jest.fn(),
     reorderByKind: jest.fn()
 }
@@ -56,9 +57,16 @@ const mockConstantsService = {
     ensureUniqueCodenameWithRetries: jest.fn()
 }
 
+const mockEntityTypeService = {
+    listCustomTypes: jest.fn(),
+    resolveType: jest.fn()
+}
+
 jest.mock('../../domains/metahubs/services/MetahubSchemaService', () => ({
     __esModule: true,
-    MetahubSchemaService: jest.fn().mockImplementation(() => ({}))
+    MetahubSchemaService: jest.fn().mockImplementation(() => ({
+        ensureSchema: (...args: unknown[]) => mockEnsureSchema(...args)
+    }))
 }))
 
 jest.mock('../../domains/metahubs/services/MetahubObjectsService', () => ({
@@ -74,6 +82,11 @@ jest.mock('../../domains/metahubs/services/MetahubHubsService', () => ({
 jest.mock('../../domains/metahubs/services/MetahubConstantsService', () => ({
     __esModule: true,
     MetahubConstantsService: jest.fn().mockImplementation(() => mockConstantsService)
+}))
+
+jest.mock('../../domains/entities/services/EntityTypeService', () => ({
+    __esModule: true,
+    EntityTypeService: jest.fn().mockImplementation(() => mockEntityTypeService)
 }))
 
 const mockSettingsService = {
@@ -136,11 +149,11 @@ describe('Sets Routes', () => {
     beforeEach(() => {
         jest.clearAllMocks()
 
-        mockObjectsService.findAllByKind.mockResolvedValue([])
+        mockObjectsService.findAllByKinds.mockResolvedValue([])
         mockObjectsService.findById.mockResolvedValue(null)
         mockObjectsService.findByCodenameAndKind.mockResolvedValue(null)
-        mockObjectsService.createSet.mockResolvedValue(null)
-        mockObjectsService.updateSet.mockResolvedValue(null)
+        mockObjectsService.createObject.mockResolvedValue(null)
+        mockObjectsService.updateObject.mockResolvedValue(null)
         mockObjectsService.delete.mockResolvedValue(undefined)
         mockObjectsService.reorderByKind.mockResolvedValue({
             id: '33333333-3333-4333-8333-333333333333',
@@ -159,12 +172,15 @@ describe('Sets Routes', () => {
             async ({ desiredCodename }: { desiredCodename: string }) => desiredCodename
         )
 
+        mockEntityTypeService.listCustomTypes.mockResolvedValue([])
+        mockEntityTypeService.resolveType.mockResolvedValue(null)
         mockFindMetahubById.mockResolvedValue({ id: 'test-metahub-id' })
         mockEnsureMetahubAccess.mockResolvedValue(undefined)
+        mockEnsureSchema.mockResolvedValue('mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
     })
 
     it('GET /metahub/:metahubId/sets returns paginated items with hub and constants counts', async () => {
-        mockObjectsService.findAllByKind.mockResolvedValue([
+        mockObjectsService.findAllByKinds.mockResolvedValue([
             {
                 id: 'set-1',
                 kind: 'set',
@@ -192,6 +208,51 @@ describe('Sets Routes', () => {
         expect(response.body.items[0].hubs).toEqual([{ id: 'hub-1', name: { en: 'Hub One' }, codename: 'HubOne' }])
     })
 
+    it('GET /metahub/:metahubId/sets uses the requested legacy-compatible custom set kind as an exact list scope', async () => {
+        mockEntityTypeService.listCustomTypes.mockResolvedValue([
+            {
+                kindKey: 'custom.set-v2-compatible',
+                config: { compatibility: { legacyObjectKind: 'set' } }
+            }
+        ])
+        mockEntityTypeService.resolveType.mockResolvedValue({
+            source: 'custom',
+            kindKey: 'custom.set-v2-compatible',
+            config: { compatibility: { legacyObjectKind: 'set' } }
+        })
+        mockObjectsService.findAllByKinds.mockResolvedValue([
+            {
+                id: 'set-v2-1',
+                kind: 'custom.set-v2-compatible',
+                codename: 'ProductsSetV2',
+                presentation: { name: { en: 'Products V2' }, description: { en: 'Compatibility set' } },
+                config: { hubs: [], isSingleHub: false, isRequiredHub: false, sortOrder: 4 },
+                _upl_version: 2,
+                _upl_created_at: '2026-03-04T10:00:00.000Z',
+                _upl_updated_at: '2026-03-04T11:00:00.000Z'
+            }
+        ])
+        mockConstantsService.countByObjectIds.mockResolvedValue(new Map([['set-v2-1', 3]]))
+
+        const app = buildApp()
+        const response = await request(app)
+            .get('/metahub/test-metahub-id/sets?kindKey=custom.set-v2-compatible')
+            .expect(200)
+
+        expect(response.body.pagination).toMatchObject({ total: 1, limit: 100, offset: 0 })
+        expect(response.body.items[0]).toMatchObject({
+            id: 'set-v2-1',
+            codename: 'ProductsSetV2',
+            constantsCount: 3,
+            sortOrder: 4
+        })
+        expect(mockObjectsService.findAllByKinds).toHaveBeenCalledWith(
+            'test-metahub-id',
+            ['custom.set-v2-compatible'],
+            'test-user-id'
+        )
+    })
+
     it('POST /metahub/:metahubId/sets creates set and returns enriched item', async () => {
         const created = {
             id: 'set-new',
@@ -204,7 +265,7 @@ describe('Sets Routes', () => {
             _upl_updated_at: '2026-03-04T12:00:00.000Z'
         }
 
-        mockObjectsService.createSet.mockResolvedValue(created)
+        mockObjectsService.createObject.mockResolvedValue(created)
         mockObjectsService.findById.mockResolvedValue(created)
 
         const app = buildApp()
@@ -213,8 +274,9 @@ describe('Sets Routes', () => {
             .send({ codename: testCodenameVlc('products-set'), name: 'Products' })
             .expect(201)
 
-        expect(mockObjectsService.createSet).toHaveBeenCalledWith(
+        expect(mockObjectsService.createObject).toHaveBeenCalledWith(
             'test-metahub-id',
+            'set',
             expect.objectContaining({
                 codename: expect.objectContaining({
                     _primary: 'en',
@@ -248,7 +310,7 @@ describe('Sets Routes', () => {
         }
 
         mockObjectsService.findById.mockResolvedValueOnce(sourceSet).mockResolvedValueOnce(copiedSet)
-        mockObjectsService.createSet.mockResolvedValue(copiedSet)
+        mockObjectsService.createObject.mockResolvedValue(copiedSet)
         mockConstantsService.findAll.mockResolvedValue([
             {
                 id: 'const-1',
@@ -272,8 +334,9 @@ describe('Sets Routes', () => {
                 desiredCodename: 'TaxRate'
             })
         )
-        expect(mockObjectsService.createSet).toHaveBeenCalledWith(
+        expect(mockObjectsService.createObject).toHaveBeenCalledWith(
             'test-metahub-id',
+            'set',
             expect.objectContaining({
                 codename: expect.objectContaining({
                     _primary: 'en',
@@ -322,7 +385,7 @@ describe('Sets Routes', () => {
         }
 
         mockObjectsService.findById.mockResolvedValue(sourceSet)
-        mockObjectsService.createSet.mockResolvedValue(copiedSet)
+        mockObjectsService.createObject.mockResolvedValue(copiedSet)
         mockConstantsService.findAll.mockResolvedValue([
             {
                 id: 'const-1',
@@ -359,9 +422,10 @@ describe('Sets Routes', () => {
         expect(response.status).toBe(200)
 
         expect(response.body).toMatchObject({ remainingHubs: 1 })
-        expect(mockObjectsService.updateSet).toHaveBeenCalledWith(
+        expect(mockObjectsService.updateObject).toHaveBeenCalledWith(
             'test-metahub-id',
             'set-1',
+            'set',
             expect.objectContaining({ config: expect.objectContaining({ hubs: ['hub-2'] }), expectedVersion: 7 }),
             'test-user-id'
         )
@@ -376,7 +440,7 @@ describe('Sets Routes', () => {
             config: { hubs: ['hub-1', 'hub-2'] },
             _upl_version: 3
         })
-        mockObjectsService.updateSet.mockRejectedValue(
+        mockObjectsService.updateObject.mockRejectedValue(
             new OptimisticLockError({
                 entityId: 'set-1',
                 entityType: 'set',
@@ -420,6 +484,13 @@ describe('Sets Routes', () => {
     })
 
     it('PATCH /metahub/:metahubId/sets/reorder reorders set and returns updated sort order', async () => {
+        mockObjectsService.findById.mockResolvedValueOnce({
+            id: '33333333-3333-4333-8333-333333333333',
+            kind: 'set',
+            codename: 'Products',
+            config: { sortOrder: 1 }
+        })
+
         const app = buildApp()
         const response = await request(app)
             .patch('/metahub/test-metahub-id/sets/reorder')
