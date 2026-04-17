@@ -296,7 +296,7 @@ const BranchCopyOptionsFields = ({ values, setValue, isLoading, t }: BranchCopyO
                         disabled={controlDisabled}
                     />
                 }
-                label={t('metahubs:branches.copy.options.copyTreeEntities', 'Tree entities')}
+                label={t('metahubs:branches.copy.options.copyTreeEntities', 'Hubs')}
             />
             <FormControlLabel
                 control={
@@ -306,7 +306,7 @@ const BranchCopyOptionsFields = ({ values, setValue, isLoading, t }: BranchCopyO
                         disabled={controlDisabled}
                     />
                 }
-                label={t('metahubs:branches.copy.options.copyLinkedCollections', 'Linked collections')}
+                label={t('metahubs:branches.copy.options.copyLinkedCollections', 'Catalogs')}
             />
             <FormControlLabel
                 control={
@@ -316,7 +316,7 @@ const BranchCopyOptionsFields = ({ values, setValue, isLoading, t }: BranchCopyO
                         disabled={controlDisabled}
                     />
                 }
-                label={t('metahubs:branches.copy.options.copyValueGroups', 'Value groups')}
+                label={t('metahubs:branches.copy.options.copyValueGroups', 'Sets')}
             />
             <FormControlLabel
                 control={
@@ -326,7 +326,7 @@ const BranchCopyOptionsFields = ({ values, setValue, isLoading, t }: BranchCopyO
                         disabled={controlDisabled}
                     />
                 }
-                label={t('metahubs:branches.copy.options.copyOptionLists', 'Option lists')}
+                label={t('metahubs:branches.copy.options.copyOptionLists', 'Enumerations')}
             />
         </Stack>
     )
@@ -639,6 +639,8 @@ const BranchList = () => {
             deleteBranchMutation,
             enqueueSnackbar,
             metahubId,
+            openConflict,
+            openDelete,
             preferredVlcLocale,
             queryClient,
             setDefaultBranchMutation,

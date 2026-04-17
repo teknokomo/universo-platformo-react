@@ -402,7 +402,7 @@ export function createBranchesController(createHandler: ReturnType<typeof create
                 if (branchCopyErrorCode === 'BRANCH_COPY_OPTION_LIST_REFERENCES') {
                     return res.status(400).json({
                         code: 'BRANCH_COPY_OPTION_LIST_REFERENCES',
-                        error: 'Cannot disable option list copy while copied entity groups still reference option lists.'
+                        error: 'Cannot disable enumeration copy while copied entity groups still reference enumerations.'
                     })
                 }
                 if (branchCopyErrorCode === 'BRANCH_COPY_DANGLING_ENTITY_REFERENCES') {

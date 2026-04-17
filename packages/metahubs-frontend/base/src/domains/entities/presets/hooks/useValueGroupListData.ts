@@ -13,7 +13,7 @@ import type { PaginatedResponse } from '../../../../types'
 
 export function useValueGroupListData() {
     const { metahubId, treeEntityId, kindKey: routeKindKey } = useParams<{ metahubId: string; treeEntityId?: string; kindKey?: string }>()
-    const { i18n } = useTranslation()
+    const { i18n: _i18n } = useTranslation()
     const isHubScoped = Boolean(treeEntityId)
     const { allowCopy, allowDelete, allowAttachExistingEntities } = useEntityPermissions('valueGroup')
     const entityKindKey = resolveEntityChildKindKey({ routeKindKey, childObjectKind: 'set' })

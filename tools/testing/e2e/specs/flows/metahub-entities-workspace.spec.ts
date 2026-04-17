@@ -288,9 +288,9 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
     const attributeName = `Title ${kindSuffix}`
     const attributeCodename = `title-${kindSuffix}`
     const standardManagedSurfaces = [
-        { kindKey: 'hub', heading: 'Tree entities' },
-        { kindKey: 'set', heading: 'Value groups' },
-        { kindKey: 'enumeration', heading: 'Option lists' }
+        { kindKey: 'hub', heading: 'Hubs' },
+        { kindKey: 'set', heading: 'Sets' },
+        { kindKey: 'enumeration', heading: 'Enumerations' }
     ]
 
     try {
@@ -317,7 +317,7 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
         await page.goto(`/metahub/${metahub.id}/entities`)
 
         await expect(page.locator('html')).toHaveAttribute('lang', 'en')
-        await expect(page.getByRole('heading', { name: 'Entities' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Entity Types' })).toBeVisible()
         await expect(page.getByTestId(toolbarSelectors.primaryAction)).toContainText('Create')
 
         for (const surface of standardManagedSurfaces) {
@@ -576,7 +576,7 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
         const customEntityLink = page.locator(`a[href="/metahub/${metahub.id}/entities/${customKindKey}/instances"]`).first()
         await expect(customEntityLink).toBeVisible()
         await customEntityLink.click()
-        await expect(page.getByRole('heading', { name: /Связанные коллекции|Linked collections/ })).toBeVisible()
+        await expect(page.getByRole('heading', { name: /Каталоги|Catalogs/ })).toBeVisible()
         await expect(page.getByTestId(toolbarSelectors.primaryAction)).toContainText('Создать')
         await page.goto(`/metahub/${metahub.id}/entities`)
 

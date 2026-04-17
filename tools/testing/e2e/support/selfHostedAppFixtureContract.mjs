@@ -142,7 +142,7 @@ export const SELF_HOSTED_APP_HUB_ENTITY_TYPE = createSelfHostedAppEntityType({
         tabs: ['general'],
         sidebarSection: 'objects',
         sidebarOrder: 10,
-        nameKey: 'metahubs:treeEntities.title'
+        nameKey: 'metahubs:hubs.title'
     }
 })
 
@@ -174,7 +174,7 @@ export const SELF_HOSTED_APP_CATALOG_ENTITY_TYPE = createSelfHostedAppEntityType
         tabs: ['general', 'hubs', 'layout', 'scripts'],
         sidebarSection: 'objects',
         sidebarOrder: 20,
-        nameKey: 'metahubs:linkedCollections.title'
+        nameKey: 'metahubs:catalogs.title'
     },
     physicalTable: {
         enabled: true,
@@ -211,7 +211,7 @@ export const SELF_HOSTED_APP_SET_ENTITY_TYPE = createSelfHostedAppEntityType({
         tabs: ['general', 'scripts'],
         sidebarSection: 'objects',
         sidebarOrder: 30,
-        nameKey: 'metahubs:valueGroups.title'
+        nameKey: 'metahubs:sets.title'
     }
 })
 
@@ -244,7 +244,7 @@ export const SELF_HOSTED_APP_ENUMERATION_ENTITY_TYPE = createSelfHostedAppEntity
         tabs: ['general', 'scripts'],
         sidebarSection: 'objects',
         sidebarOrder: 40,
-        nameKey: 'metahubs:optionLists.title'
+        nameKey: 'metahubs:enumerations.title'
     }
 })
 

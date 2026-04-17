@@ -217,9 +217,9 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         })
 
         await page.goto(`/metahub/${metahub.id}/entities/hub/instances`)
-        await expect(page.getByRole('heading', { name: 'Tree entities' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Hubs' })).toBeVisible()
 
-        const hubDialog = await openEntityDialog(page, 'Create TreeEntity')
+        const hubDialog = await openEntityDialog(page, 'Create Hub')
         await fillNameAndCodename(hubDialog, { name: hubName, codename: hubCodename })
 
         const createHubResponse = waitForSettledMutationResponse(
@@ -243,7 +243,7 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         await page.getByTestId(buildEntityMenuTriggerSelector('hub', createdHub.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('hub', 'edit', createdHub.id)).click()
 
-        const editHubDialog = page.getByRole('dialog', { name: 'Edit TreeEntity' })
+        const editHubDialog = page.getByRole('dialog', { name: 'Edit Hub' })
         await expect(editHubDialog).toBeVisible()
         await expect(editHubDialog.getByLabel('Name').first()).toBeVisible()
         await expect(editHubDialog.getByLabel('Description').first()).toBeVisible()
@@ -262,7 +262,7 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         await page.getByTestId(buildEntityMenuTriggerSelector('hub', createdHub.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('hub', 'copy', createdHub.id)).click()
 
-        const copyHubDialog = page.getByRole('dialog', { name: 'Copying TreeEntity' })
+        const copyHubDialog = page.getByRole('dialog', { name: 'Copying Hub' })
         await expect(copyHubDialog).toBeVisible()
         await fillNameAndCodename(copyHubDialog, { codename: copiedHubCodename })
 
@@ -286,7 +286,7 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         await page.getByTestId(buildEntityMenuTriggerSelector('hub', copiedHub.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('hub', 'delete', copiedHub.id)).click()
 
-        const deleteHubDialog = page.getByRole('dialog', { name: 'Delete TreeEntity' })
+        const deleteHubDialog = page.getByRole('dialog', { name: 'Delete Hub' })
         await expect(deleteHubDialog).toBeVisible()
 
         const deleteHubResponse = waitForSettledMutationResponse(
@@ -302,9 +302,9 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         await waitForEntityAbsence(() => listTreeEntities(api, metahub.id, { limit: 100, offset: 0 }), copiedHub.id, 'copied hub')
 
         await page.goto(`/metahub/${metahub.id}/entities/catalog/instances`)
-        await expect(page.getByRole('heading', { name: 'Linked collections' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Catalogs' })).toBeVisible()
 
-        const catalogDialog = await openEntityDialog(page, 'Create LinkedCollectionEntity')
+        const catalogDialog = await openEntityDialog(page, 'Create Catalog')
         await fillNameAndCodename(catalogDialog, { name: catalogName, codename: catalogCodename })
 
         const createCatalogResponse = waitForSettledMutationResponse(
@@ -327,7 +327,7 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         await page.getByTestId(buildEntityMenuTriggerSelector('catalog', createdCatalog.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('catalog', 'edit', createdCatalog.id)).click()
 
-        const editCatalogDialog = page.getByRole('dialog', { name: 'Edit LinkedCollectionEntity' })
+        const editCatalogDialog = page.getByRole('dialog', { name: 'Edit Catalog' })
         await expect(editCatalogDialog).toBeVisible()
         await expect(editCatalogDialog.getByLabel('Name').first()).toBeVisible()
         await expect(editCatalogDialog.getByLabel('Description').first()).toBeVisible()
@@ -347,7 +347,7 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         await page.getByTestId(buildEntityMenuTriggerSelector('catalog', createdCatalog.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('catalog', 'copy', createdCatalog.id)).click()
 
-        const copyCatalogDialog = page.getByRole('dialog', { name: 'Copying LinkedCollectionEntity' })
+        const copyCatalogDialog = page.getByRole('dialog', { name: 'Copying Catalog' })
         await expect(copyCatalogDialog).toBeVisible()
         await fillNameAndCodename(copyCatalogDialog, { codename: copiedCatalogCodename })
 
@@ -371,7 +371,7 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         await page.getByTestId(buildEntityMenuTriggerSelector('catalog', copiedCatalog.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('catalog', 'delete', copiedCatalog.id)).click()
 
-        const deleteCatalogDialog = page.getByRole('dialog', { name: 'Delete linked collection' })
+        const deleteCatalogDialog = page.getByRole('dialog', { name: 'Delete Catalog' })
         await expect(deleteCatalogDialog).toBeVisible()
 
         const deleteCatalogResponse = waitForSettledMutationResponse(
@@ -391,9 +391,9 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         )
 
         await page.goto(`/metahub/${metahub.id}/entities/enumeration/instances`)
-        await expect(page.getByRole('heading', { name: 'Option lists' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Enumerations' })).toBeVisible()
 
-        const enumerationDialog = await openEntityDialog(page, 'Create OptionListEntity')
+        const enumerationDialog = await openEntityDialog(page, 'Create Enumeration')
         await fillNameAndCodename(enumerationDialog, { name: enumerationName, codename: enumerationCodename })
 
         const createEnumerationResponse = waitForSettledMutationResponse(
@@ -422,7 +422,7 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         await page.getByTestId(buildEntityMenuTriggerSelector('enumeration', createdEnumeration.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('enumeration', 'edit', createdEnumeration.id)).click()
 
-        const editEnumerationDialog = page.getByRole('dialog', { name: 'Edit OptionListEntity' })
+        const editEnumerationDialog = page.getByRole('dialog', { name: 'Edit Enumeration' })
         await expect(editEnumerationDialog).toBeVisible()
         await expect(editEnumerationDialog.getByLabel('Name').first()).toBeVisible()
         await expect(editEnumerationDialog.getByLabel('Description').first()).toBeVisible()
@@ -441,7 +441,7 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         await page.getByTestId(buildEntityMenuTriggerSelector('enumeration', createdEnumeration.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('enumeration', 'copy', createdEnumeration.id)).click()
 
-        const copyEnumerationDialog = page.getByRole('dialog', { name: 'Copying OptionListEntity' })
+        const copyEnumerationDialog = page.getByRole('dialog', { name: 'Copying Enumeration' })
         await expect(copyEnumerationDialog).toBeVisible()
         await fillNameAndCodename(copyEnumerationDialog, { codename: copiedEnumerationCodename })
 
@@ -469,7 +469,7 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         await page.getByTestId(buildEntityMenuTriggerSelector('enumeration', copiedEnumeration.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('enumeration', 'delete', copiedEnumeration.id)).click()
 
-        const deleteEnumerationDialog = page.getByRole('dialog', { name: 'Delete option list' })
+        const deleteEnumerationDialog = page.getByRole('dialog', { name: 'Delete Enumeration' })
         await expect(deleteEnumerationDialog).toBeVisible()
 
         const deleteEnumerationResponse = waitForSettledMutationResponse(
@@ -489,9 +489,9 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         )
 
         await page.goto(`/metahub/${metahub.id}/entities/set/instances`)
-        await expect(page.getByRole('heading', { name: 'Value groups' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Sets' })).toBeVisible()
 
-        const setDialog = await openEntityDialog(page, 'Create Value Group')
+        const setDialog = await openEntityDialog(page, 'Create Set')
         await fillNameAndCodename(setDialog, { name: setName, codename: setCodename })
 
         const createSetResponse = waitForSettledMutationResponse(
@@ -515,7 +515,7 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         await page.getByTestId(buildEntityMenuTriggerSelector('set', createdSet.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('set', 'edit', createdSet.id)).click()
 
-        const editSetDialog = page.getByRole('dialog', { name: 'Edit Value Group' })
+        const editSetDialog = page.getByRole('dialog', { name: 'Edit Set' })
         await expect(editSetDialog).toBeVisible()
         await expect(editSetDialog.getByLabel('Name').first()).toBeVisible()
         await expect(editSetDialog.getByLabel('Description').first()).toBeVisible()
@@ -534,7 +534,7 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         await page.getByTestId(buildEntityMenuTriggerSelector('set', createdSet.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('set', 'copy', createdSet.id)).click()
 
-        const copySetDialog = page.getByRole('dialog', { name: 'Copying Value Group' })
+        const copySetDialog = page.getByRole('dialog', { name: 'Copying Set' })
         await expect(copySetDialog).toBeVisible()
         await fillNameAndCodename(copySetDialog, { codename: copiedSetCodename })
 
@@ -558,7 +558,7 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         await page.getByTestId(buildEntityMenuTriggerSelector('set', copiedSet.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('set', 'delete', copiedSet.id)).click()
 
-        const deleteSetDialog = page.getByRole('dialog', { name: 'Delete value group' })
+        const deleteSetDialog = page.getByRole('dialog', { name: 'Delete Set' })
         await expect(deleteSetDialog).toBeVisible()
 
         const deleteSetResponse = waitForSettledMutationResponse(

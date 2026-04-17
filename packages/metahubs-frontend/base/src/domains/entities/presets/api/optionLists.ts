@@ -12,7 +12,7 @@ import type { OptionListCopyOptions, VersionedLocalizedContent } from '@universo
 
 type EntityInstancePaginationParams = PaginationParams & { kindKey?: string }
 
-const buildKindKeyParams = (kindKey?: string) => (kindKey ? { kindKey } : undefined)
+const _buildKindKeyParams = (kindKey?: string) => (kindKey ? { kindKey } : undefined)
 
 const resolveEnumerationKindKey = (kindKey?: string) => kindKey?.trim() || 'enumeration'
 

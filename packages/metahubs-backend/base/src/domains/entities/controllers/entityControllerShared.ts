@@ -361,7 +361,8 @@ export const applyDesignTimeCopyOverrides = (
 
     return {
         ...plan,
-        copyFieldDefinitions: plan.copyFieldDefinitions && copyOptions.copyFieldDefinitions && treeCopyOptions.copyLinkedCollectionRelations,
+        copyFieldDefinitions:
+            plan.copyFieldDefinitions && copyOptions.copyFieldDefinitions && treeCopyOptions.copyLinkedCollectionRelations,
         copyRecords: plan.copyRecords && copyOptions.copyRecords,
         copyFixedValues: plan.copyFixedValues && valueGroupCopyOptions.copyFixedValues && treeCopyOptions.copyValueGroupRelations,
         copyOptionValues: plan.copyOptionValues && optionListCopyOptions.copyOptionValues && treeCopyOptions.copyOptionListRelations

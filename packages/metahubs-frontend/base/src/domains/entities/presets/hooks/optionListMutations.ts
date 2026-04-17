@@ -81,7 +81,7 @@ export function useCreateOptionListAtMetahub() {
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('optionLists.createError', 'Failed to create option list'), { variant: 'error' })
+            enqueueSnackbar(error.message || t('enumerations.createError', 'Failed to create enumeration'), { variant: 'error' })
         },
         onSuccess: (data, variables, context) => {
             if (context?.optimisticId && data?.id) {
@@ -95,7 +95,7 @@ export function useCreateOptionListAtMetahub() {
                     }
                 )
             }
-            enqueueSnackbar(t('optionLists.createSuccess', 'OptionListEntity created'), { variant: 'success' })
+            enqueueSnackbar(t('enumerations.createSuccess', 'Enumeration created'), { variant: 'success' })
         },
         onSettled: (_data, _error, variables) => {
             if (queryClient.isMutating({ mutationKey: ['optionLists'] }) <= 1) {
@@ -149,7 +149,7 @@ export function useCreateOptionList() {
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('optionLists.createError', 'Failed to create option list'), { variant: 'error' })
+            enqueueSnackbar(error.message || t('enumerations.createError', 'Failed to create enumeration'), { variant: 'error' })
         },
         onSuccess: (data, variables, context) => {
             if (context?.optimisticId && data?.id) {
@@ -161,7 +161,7 @@ export function useCreateOptionList() {
                     { serverEntity: data }
                 )
             }
-            enqueueSnackbar(t('optionLists.createSuccess', 'OptionListEntity created'), { variant: 'success' })
+            enqueueSnackbar(t('enumerations.createSuccess', 'Enumeration created'), { variant: 'success' })
         },
         onSettled: (_data, _error, variables) => {
             safeInvalidateQueries(
@@ -196,7 +196,7 @@ export function useUpdateOptionList() {
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('optionLists.updateError', 'Failed to update option list'), { variant: 'error' })
+            enqueueSnackbar(error.message || t('enumerations.updateError', 'Failed to update enumeration'), { variant: 'error' })
         },
         onSuccess: async (data, variables) => {
             await queryClient.cancelQueries({
@@ -208,7 +208,7 @@ export function useUpdateOptionList() {
                 variables.optionListId,
                 { serverEntity: data ?? null, moveToFront: true }
             )
-            enqueueSnackbar(t('optionLists.updateSuccess', 'OptionListEntity updated'), { variant: 'success' })
+            enqueueSnackbar(t('enumerations.updateSuccess', 'Enumeration updated'), { variant: 'success' })
         },
         onSettled: (_data, _error, variables) => {
             safeInvalidateQueriesInactive(
@@ -245,7 +245,7 @@ export function useUpdateOptionListAtMetahub() {
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('optionLists.updateError', 'Failed to update option list'), { variant: 'error' })
+            enqueueSnackbar(error.message || t('enumerations.updateError', 'Failed to update enumeration'), { variant: 'error' })
         },
         onSuccess: async (data, variables) => {
             await queryClient.cancelQueries({ queryKey: metahubsQueryKeys.allOptionListsScope(variables.metahubId, variables.kindKey) })
@@ -258,7 +258,7 @@ export function useUpdateOptionListAtMetahub() {
                     moveToFront: true
                 }
             )
-            enqueueSnackbar(t('optionLists.updateSuccess', 'OptionListEntity updated'), { variant: 'success' })
+            enqueueSnackbar(t('enumerations.updateSuccess', 'Enumeration updated'), { variant: 'success' })
         },
         onSettled: (_data, _error, variables) => {
             safeInvalidateQueriesInactive(
@@ -299,10 +299,10 @@ export function useDeleteOptionList() {
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('optionLists.deleteError', 'Failed to delete option list'), { variant: 'error' })
+            enqueueSnackbar(error.message || t('enumerations.deleteError', 'Failed to delete enumeration'), { variant: 'error' })
         },
         onSuccess: () => {
-            enqueueSnackbar(t('optionLists.deleteSuccess', 'OptionListEntity deleted'), { variant: 'success' })
+            enqueueSnackbar(t('enumerations.deleteSuccess', 'Enumeration deleted'), { variant: 'success' })
         },
         onSettled: (_data, _error, variables) => {
             safeInvalidateQueries(
@@ -381,7 +381,7 @@ export function useCopyOptionList() {
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('optionLists.copyError', 'Failed to copy option list'), { variant: 'error' })
+            enqueueSnackbar(error.message || t('enumerations.copyError', 'Failed to copy enumeration'), { variant: 'error' })
         },
         onSuccess: (data, variables, context) => {
             if (context?.optimisticId && data?.id) {
@@ -393,7 +393,7 @@ export function useCopyOptionList() {
                     { serverEntity: data }
                 )
             }
-            enqueueSnackbar(t('optionLists.copySuccess', 'OptionListEntity copied'), { variant: 'success' })
+            enqueueSnackbar(t('enumerations.copySuccess', 'Enumeration copied'), { variant: 'success' })
         },
         onSettled: async (copiedOptionList, _error, variables) => {
             safeInvalidateQueries(
@@ -516,7 +516,7 @@ export function useCreateOptionValue() {
                     { serverEntity: data }
                 )
             }
-            enqueueSnackbar(t('optionValues.createSuccess', 'OptionListEntity value created'), { variant: 'success' })
+            enqueueSnackbar(t('optionValues.createSuccess', 'Enumeration value created'), { variant: 'success' })
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
@@ -560,7 +560,7 @@ export function useUpdateOptionValue() {
                 variables.valueId,
                 { serverEntity: data ?? null }
             )
-            enqueueSnackbar(t('optionValues.updateSuccess', 'OptionListEntity value updated'), { variant: 'success' })
+            enqueueSnackbar(t('optionValues.updateSuccess', 'Enumeration value updated'), { variant: 'success' })
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
@@ -593,7 +593,7 @@ export function useDeleteOptionValue() {
             })
         },
         onSuccess: () => {
-            enqueueSnackbar(t('optionValues.deleteSuccess', 'OptionListEntity value deleted'), { variant: 'success' })
+            enqueueSnackbar(t('optionValues.deleteSuccess', 'Enumeration value deleted'), { variant: 'success' })
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
@@ -756,7 +756,7 @@ export function useCopyOptionValue() {
                     { serverEntity: data }
                 )
             }
-            enqueueSnackbar(t('optionValues.copySuccess', 'OptionListEntity value copied'), { variant: 'success' })
+            enqueueSnackbar(t('optionValues.copySuccess', 'Enumeration value copied'), { variant: 'success' })
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)

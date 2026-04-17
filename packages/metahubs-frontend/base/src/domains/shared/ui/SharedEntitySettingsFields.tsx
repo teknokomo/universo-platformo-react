@@ -86,17 +86,17 @@ const getTargetLabels = (entityKind: SharedEntityKind) => {
         case 'attribute':
             return {
                 singular: 'catalog',
-                plural: 'linkedCollections'
+                plural: 'catalogs'
             }
         case 'constant':
             return {
                 singular: 'set',
-                plural: 'valueGroups'
+                plural: 'sets'
             }
         default:
             return {
                 singular: 'enumeration',
-                plural: 'optionLists'
+                plural: 'enumerations'
             }
     }
 }

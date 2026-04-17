@@ -234,7 +234,7 @@ describe('RecordList settings continuity', () => {
         )
 
         await user.click(await screen.findByRole('tab', { name: /^(Settings|settings\.title)$/ }))
-        expect(screen.getByRole('dialog')).toHaveTextContent('Edit linked collection')
+        expect(screen.getByRole('dialog')).toHaveTextContent('Edit catalog')
 
         await user.click(screen.getByRole('tab', { name: 'System' }))
         expect(navigateMock).toHaveBeenCalledWith('/metahub/metahub-1/entities/catalog/instance/catalog-1/system')

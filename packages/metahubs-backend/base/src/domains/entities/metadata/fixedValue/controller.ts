@@ -177,12 +177,12 @@ const ensureValueGroupContext = async (
 ): Promise<Record<string, unknown>> => {
     const valueGroupObject = await objectsService.findById(metahubId, valueGroupId, userId)
     if (!valueGroupObject) {
-        throw new MetahubNotFoundError('Value group', valueGroupId)
+        throw new MetahubNotFoundError('Set', valueGroupId)
     }
 
     const compatibleValueGroupKinds = await resolveEntityMetadataKinds(entityTypeService, metahubId, 'set', userId)
     if (!isValueGroupContextKind(valueGroupObject.kind, createEntityMetadataKindSet(compatibleValueGroupKinds))) {
-        throw new MetahubNotFoundError('Value group', valueGroupId)
+        throw new MetahubNotFoundError('Set', valueGroupId)
     }
 
     if (treeEntityId) {
@@ -191,7 +191,7 @@ const ensureValueGroupContext = async (
             : []
         const hasHub = hubs.some((id) => typeof id === 'string' && id === treeEntityId)
         if (!hasHub) {
-            throw new MetahubNotFoundError('Value group', valueGroupId)
+            throw new MetahubNotFoundError('Set', valueGroupId)
         }
     }
 
@@ -492,7 +492,7 @@ export function createFixedValuesController(createHandler: ReturnType<typeof cre
             const totalAll = await fixedValuesService.countByObjectId(metahubId, valueGroupId, userId)
             if (totalAll >= FIXED_VALUE_LIMIT) {
                 return res.status(409).json({
-                    error: `Fixed value limit reached: maximum ${FIXED_VALUE_LIMIT} entries per value group`,
+                    error: `Fixed value limit reached: maximum ${FIXED_VALUE_LIMIT} entries per set`,
                     code: 'FIXED_VALUE_LIMIT_REACHED',
                     limit: FIXED_VALUE_LIMIT
                 })
@@ -573,7 +573,7 @@ export function createFixedValuesController(createHandler: ReturnType<typeof cre
                 )
             } catch (error) {
                 if (isUniqueViolation(error)) {
-                    throw new MetahubConflictError('Fixed value with this codename already exists in selected value group')
+                    throw new MetahubConflictError('Fixed value with this codename already exists in selected set')
                 }
                 throw error
             }
@@ -682,7 +682,7 @@ export function createFixedValuesController(createHandler: ReturnType<typeof cre
                 )
             } catch (error) {
                 if (isUniqueViolation(error)) {
-                    throw new MetahubConflictError('Fixed value with this codename already exists in selected value group')
+                    throw new MetahubConflictError('Fixed value with this codename already exists in selected set')
                 }
                 throw error
             }
@@ -804,7 +804,7 @@ export function createFixedValuesController(createHandler: ReturnType<typeof cre
             const totalAll = await fixedValuesService.countByObjectId(metahubId, valueGroupId, userId)
             if (totalAll >= FIXED_VALUE_LIMIT) {
                 return res.status(409).json({
-                    error: `Fixed value limit reached: maximum ${FIXED_VALUE_LIMIT} entries per value group`,
+                    error: `Fixed value limit reached: maximum ${FIXED_VALUE_LIMIT} entries per set`,
                     code: 'FIXED_VALUE_LIMIT_REACHED',
                     limit: FIXED_VALUE_LIMIT
                 })
@@ -891,7 +891,7 @@ export function createFixedValuesController(createHandler: ReturnType<typeof cre
                 )
             } catch (error) {
                 if (isUniqueViolation(error)) {
-                    throw new MetahubConflictError('Fixed value with this codename already exists in selected value group')
+                    throw new MetahubConflictError('Fixed value with this codename already exists in selected set')
                 }
                 throw error
             }

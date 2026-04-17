@@ -430,7 +430,7 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         createTreeEntityRequest.resolve({ data: { id: 'hub-2' } })
 
         await waitFor(() => {
-            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('TreeEntity created', { variant: 'success' })
+            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Hub created', { variant: 'success' })
         })
 
         act(() => {
@@ -456,7 +456,7 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         updateHubRequest.resolve({ data: { id: 'hub-1' } })
 
         await waitFor(() => {
-            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('TreeEntity updated', { variant: 'success' })
+            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Hub updated', { variant: 'success' })
         })
 
         act(() => {
@@ -472,7 +472,7 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         deleteHubRequest.resolve()
 
         await waitFor(() => {
-            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('TreeEntity deleted', { variant: 'success' })
+            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Hub deleted', { variant: 'success' })
         })
 
         act(() => {
@@ -489,7 +489,7 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         copyHubRequest.resolve({ data: { id: 'hub-copy' } })
 
         await waitFor(() => {
-            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('TreeEntity copied', { variant: 'success' })
+            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Hub copied', { variant: 'success' })
         })
     })
 
@@ -733,7 +733,7 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         copyCatalogRequest.resolve({ data: { id: 'catalog-copy', treeEntities: [{ id: 'hub-1' }] } })
 
         await waitFor(() => {
-            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('LinkedCollectionEntity copied', { variant: 'success' })
+            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Catalog copied', { variant: 'success' })
             const hubData = queryClient.getQueryData<{ items: Array<Record<string, unknown>> }>(hubListKey)
             expect(hubData?.items.at(0)?.id).toBe('catalog-copy')
         })
@@ -841,7 +841,7 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         copyEnumerationRequest.resolve({ data: { id: 'enum-copy', treeEntities: [{ id: 'hub-1' }] } })
 
         await waitFor(() => {
-            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('OptionListEntity copied', { variant: 'success' })
+            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Enumeration copied', { variant: 'success' })
             const hubData = queryClient.getQueryData<{ items: Array<Record<string, unknown>> }>(hubListKey)
             expect(hubData?.items.at(0)?.id).toBe('enum-copy')
         })
@@ -895,7 +895,7 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         createOptionListRequest.resolve({ data: { id: 'enum-custom-2' } })
 
         await waitFor(() => {
-            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('OptionListEntity created', { variant: 'success' })
+            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Enumeration created', { variant: 'success' })
         })
     })
 
@@ -969,7 +969,7 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         createValueRequest.resolve({ data: { id: 'value-2' } })
 
         await waitFor(() => {
-            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('OptionListEntity value created', { variant: 'success' })
+            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Enumeration value created', { variant: 'success' })
         })
 
         act(() => {
@@ -1022,7 +1022,7 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         copyValueRequest.resolve({ data: { id: 'value-2-copy' } })
 
         await waitFor(() => {
-            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('OptionListEntity value copied', { variant: 'success' })
+            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Enumeration value copied', { variant: 'success' })
         })
     })
 

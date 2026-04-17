@@ -1272,14 +1272,14 @@ const RecordList = () => {
         return (
             <EmptyListState
                 image={APIEmptySVG}
-                imageAlt={t('records.parentCollectionMissingTitle', 'No linked collection selected')}
-                title={t('records.parentCollectionMissingTitle', 'No linked collection selected')}
-                description={t('records.parentCollectionMissingDescription', 'Select a linked collection to manage records.')}
+                imageAlt={t('records.parentCollectionMissingTitle', 'No catalog selected')}
+                title={t('records.parentCollectionMissingTitle', 'No catalog selected')}
+                description={t('records.parentCollectionMissingDescription', 'Select a catalog to manage records.')}
             />
         )
     }
 
-    // Show loading state while resolving the parent linked collection.
+    // Show loading state while resolving the parent catalog.
     if (!hubIdParam && isCatalogResolutionLoading) {
         return (
             <EmptyListState
@@ -1296,8 +1296,8 @@ const RecordList = () => {
         return (
             <EmptyListState
                 image={APIEmptySVG}
-                imageAlt={t('records.parentCollectionLoadError', 'Error loading linked collection')}
-                title={t('records.parentCollectionLoadError', 'Error loading linked collection')}
+                imageAlt={t('records.parentCollectionLoadError', 'Error loading catalog')}
+                title={t('records.parentCollectionLoadError', 'Error loading catalog')}
                 description={
                     catalogResolutionError instanceof Error ? catalogResolutionError.message : String(catalogResolutionError || '')
                 }
@@ -1527,7 +1527,7 @@ const RecordList = () => {
                         <Tabs
                             value='records'
                             onChange={handleCatalogTabChange}
-                            aria-label={t('records.parentCollectionTabsLabel', 'Linked collection tabs')}
+                            aria-label={t('records.parentCollectionTabsLabel', 'Catalog tabs')}
                             textColor='primary'
                             indicatorColor='primary'
                             sx={{
@@ -1816,7 +1816,7 @@ const RecordList = () => {
                         <EntityFormDialog
                             open={editDialogOpen}
                             mode='edit'
-                            title={t('records.parentCollectionEditTitle', 'Edit linked collection')}
+                            title={t('records.parentCollectionEditTitle', 'Edit catalog')}
                             nameLabel={tc('fields.name', 'Name')}
                             descriptionLabel={tc('fields.description', 'Description')}
                             saveButtonText={tc('actions.save', 'Save')}

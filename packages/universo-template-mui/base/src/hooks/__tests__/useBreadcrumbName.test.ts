@@ -283,10 +283,7 @@ describe('useBreadcrumbName', () => {
             })
 
             expect(mockClientGet).toHaveBeenNthCalledWith(1, '/metahub/mh-1/entities/hub/instance/hub-1')
-            expect(mockClientGet).toHaveBeenNthCalledWith(
-                2,
-                '/metahub/mh-1/entities/catalog/instance/hub-1/catalog/catalog-1'
-            )
+            expect(mockClientGet).toHaveBeenNthCalledWith(2, '/metahub/mh-1/entities/catalog/instance/hub-1/catalog/catalog-1')
             expect(mockClientGet).toHaveBeenNthCalledWith(3, '/metahub/mh-1/entities/catalog/instance/catalog-1')
         })
 

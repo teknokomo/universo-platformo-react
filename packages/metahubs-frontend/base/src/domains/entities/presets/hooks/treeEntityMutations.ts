@@ -77,7 +77,7 @@ export function useCreateTreeEntity() {
             if (context?.breadcrumbKey) {
                 cleanupBreadcrumbCache(queryClient, context.breadcrumbKey)
             }
-            enqueueSnackbar(error.message || t('treeEntities.createError', 'Failed to create hub'), { variant: 'error' })
+            enqueueSnackbar(error.message || t('hubs.createError', 'Failed to create hub'), { variant: 'error' })
         },
         onSuccess: (data, variables, context) => {
             console.info('[hub:create] onSuccess', {
@@ -96,7 +96,7 @@ export function useCreateTreeEntity() {
                     }
                 )
             }
-            enqueueSnackbar(t('treeEntities.createSuccess', 'TreeEntity created'), { variant: 'success' })
+            enqueueSnackbar(t('hubs.createSuccess', 'Hub created'), { variant: 'success' })
         },
         onSettled: (_data, _error, variables) => {
             console.info('[hub:create] onSettled', { metahubId: variables.metahubId })
@@ -145,7 +145,7 @@ export function useUpdateTreeEntity() {
         onError: (error: Error, _variables, context) => {
             console.info('[hub:update] onError', { error: error.message })
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('treeEntities.updateError', 'Failed to update hub'), { variant: 'error' })
+            enqueueSnackbar(error.message || t('hubs.updateError', 'Failed to update hub'), { variant: 'error' })
         },
         onSuccess: async (data, variables) => {
             console.info('[hub:update] onSuccess', { metahubId: variables.metahubId, treeEntityId: variables.treeEntityId })
@@ -166,7 +166,7 @@ export function useUpdateTreeEntity() {
                     data
                 )
             }
-            enqueueSnackbar(t('treeEntities.updateSuccess', 'TreeEntity updated'), { variant: 'success' })
+            enqueueSnackbar(t('hubs.updateSuccess', 'Hub updated'), { variant: 'success' })
         },
         onSettled: (_data, _error, variables) => {
             console.info('[hub:update] onSettled', { metahubId: variables.metahubId, treeEntityId: variables.treeEntityId })
@@ -202,11 +202,11 @@ export function useDeleteTreeEntity() {
         onError: (error: Error, _variables, context) => {
             console.info('[hub:delete] onError', { error: error.message })
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('treeEntities.deleteError', 'Failed to delete hub'), { variant: 'error' })
+            enqueueSnackbar(error.message || t('hubs.deleteError', 'Failed to delete hub'), { variant: 'error' })
         },
         onSuccess: (_data, variables) => {
             console.info('[hub:delete] onSuccess', { metahubId: variables.metahubId, treeEntityId: variables.treeEntityId })
-            enqueueSnackbar(t('treeEntities.deleteSuccess', 'TreeEntity deleted'), { variant: 'success' })
+            enqueueSnackbar(t('hubs.deleteSuccess', 'Hub deleted'), { variant: 'success' })
         },
         onSettled: (_data, _error, variables) => {
             console.info('[hub:delete] onSettled', { metahubId: variables.metahubId, treeEntityId: variables.treeEntityId })
@@ -246,7 +246,7 @@ export function useCopyTreeEntity() {
                 ...(existingHub ?? {}),
                 id: optimisticId,
                 codename: data.codename || (typeof existingHub?.codename === 'string' ? existingHub.codename : ''),
-                name: data.name || existingHub?.name || { [lang]: t('treeEntities.copyInProgress', 'Copying…') },
+                name: data.name || existingHub?.name || { [lang]: t('hubs.copyInProgress', 'Copying…') },
                 description: data.description ?? existingHub?.description,
                 sortOrder: optimisticSortOrder,
                 createdAt: new Date().toISOString(),
@@ -272,7 +272,7 @@ export function useCopyTreeEntity() {
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('treeEntities.copyError', 'Failed to copy hub'), { variant: 'error' })
+            enqueueSnackbar(error.message || t('hubs.copyError', 'Failed to copy hub'), { variant: 'error' })
         },
         onSuccess: (data, _variables, context) => {
             if (context?.optimisticId && data?.id) {
@@ -292,7 +292,7 @@ export function useCopyTreeEntity() {
                 optimisticId: context?.optimisticId,
                 realId: data?.id ?? null
             })
-            enqueueSnackbar(t('treeEntities.copySuccess', 'TreeEntity copied'), { variant: 'success' })
+            enqueueSnackbar(t('hubs.copySuccess', 'Hub copied'), { variant: 'success' })
         },
         onSettled: async (_data, _error, variables) => {
             safeInvalidateQueries(

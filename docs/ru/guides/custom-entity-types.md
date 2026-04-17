@@ -4,13 +4,13 @@ description: Практическое руководство по создани
 
 # Custom Entity Types
 
-Пользовательские типы сущностей позволяют metahub определять новые authoring и runtime sections поверх общего entity pipeline вместо добавления очередного one-off built-in object.
+Пользовательские типы сущностей позволяют metahub определять новые authoring и runtime sections поверх общего entity pipeline. Система сущностей является полностью универсальным конструктором — Хабы, Каталоги, Наборы и Перечисления являются шаблонами типов сущностей (entity type presets), определёнными в шаблонах метахабов, а не захардкоженными типами.
 
 ## When To Use Them
 
 - Используйте custom entity type, когда объект специфичен для metahub и не должен становиться новым фиксированным модулем платформы.
 - Используйте reusable preset, когда форма должна оставаться одинаковой между разными metahubs.
-- Используйте прямые standard presets для Linked Collections, Tree Entities, Value Groups и Option Lists вместо legacy V2 aliases.
+- Используйте стандартные пресеты для Хабов, Каталогов, Наборов и Перечислений при создании известных типов ресурсов.
 
 ## Typical Flow
 
@@ -24,10 +24,10 @@ description: Практическое руководство по создани
 
 ## Standard Presets
 
-- Tree Entities переиспользуют делегированную поверхность tree entities, ownership вложенных entity routes и save-first automation tabs.
-- Linked Collections переиспользуют общую authoring-поверхность связанных коллекций и остаются runtime-visible контрольным случаем после publication sync.
-- Value Groups сохраняют authoring фиксированных значений и automation на общих entity-owned routes.
-- Option Lists сохраняют authoring значений опций и action/event automation на общих entity-owned routes.
+- Хабы переиспользуют делегированную поверхность хабов, ownership вложенных entity routes и save-first automation tabs.
+- Каталоги переиспользуют общую authoring-поверхность каталогов и остаются runtime-visible контрольным случаем после publication sync.
+- Наборы сохраняют authoring фиксированных значений и automation на общих entity-owned routes.
+- Перечисления сохраняют authoring значений опций и action/event automation на общих entity-owned routes.
 
 ## Current Component Set
 

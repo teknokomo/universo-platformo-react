@@ -186,9 +186,9 @@ const MetahubBoard = () => {
                     {/* Second row: Hubs */}
                     <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard
-                            title={t('board.stats.treeEntities.title')}
+                            title={t('board.stats.hubs.title')}
                             value={treeEntitiesCount}
-                            interval={t('board.stats.treeEntities.interval')}
+                            interval={t('board.stats.hubs.interval')}
                             data={treeEntitiesData}
                             dataTestId='metahub-board-stat-card-treeEntities'
                         />
@@ -197,9 +197,9 @@ const MetahubBoard = () => {
                     {/* Second row: Catalogs */}
                     <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard
-                            title={t('board.stats.linkedCollections.title')}
+                            title={t('board.stats.catalogs.title')}
                             value={linkedCollectionsCount}
-                            interval={t('board.stats.linkedCollections.interval')}
+                            interval={t('board.stats.catalogs.interval')}
                             data={linkedCollectionsData}
                             dataTestId='metahub-board-stat-card-linkedCollections'
                         />

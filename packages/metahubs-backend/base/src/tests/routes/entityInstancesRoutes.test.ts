@@ -439,7 +439,7 @@ describe('Entity instance routes', () => {
         })
     })
 
-    it('lists nested tree entities through the entity-owned child route without tree controller dispatch', async () => {
+    it('lists nested hubs through the entity-owned child route without tree controller dispatch', async () => {
         mockEntityTypeService.listEditableTypes.mockResolvedValueOnce([])
         mockExec.query
             .mockResolvedValueOnce([
@@ -539,7 +539,7 @@ describe('Entity instance routes', () => {
         expect(mockOptionValuesService.findAll).toHaveBeenCalledWith('metahub-1', 'enumeration-1', 'user-1')
     })
 
-    it('loads a nested value group through the entity-owned route surface', async () => {
+    it('loads a nested set through the entity-owned route surface', async () => {
         mockObjectsService.findById.mockResolvedValueOnce({
             id: 'set-1',
             kind: 'set',
@@ -564,7 +564,7 @@ describe('Entity instance routes', () => {
         expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', undefined, mockDbSession)
     })
 
-    it('loads a nested linked collection through the entity-owned route surface', async () => {
+    it('loads a nested catalog through the entity-owned route surface', async () => {
         mockObjectsService.findById.mockResolvedValueOnce({
             id: 'catalog-1',
             kind: 'catalog',
@@ -1084,9 +1084,7 @@ describe('Entity instance routes', () => {
 
         const response = await request(app).delete('/metahub/metahub-1/entity/entity-1').expect(409)
 
-        expect(response.body.error).toBe(
-            'Cannot delete linked collection: it is referenced by field definitions in other linked collections'
-        )
+        expect(response.body.error).toBe('Cannot delete catalog: it is referenced by field definitions in other catalogs')
         expect(response.body.blockingReferences).toHaveLength(1)
         expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'deleteContent', mockDbSession)
         expect(mockObjectsService.delete).not.toHaveBeenCalled()
@@ -1116,7 +1114,7 @@ describe('Entity instance routes', () => {
 
         const response = await request(app).delete('/metahub/metahub-1/entity/entity-1').expect(409)
 
-        expect(response.body.error).toBe('Cannot delete value group because there are blocking references')
+        expect(response.body.error).toBe('Cannot delete set because there are blocking references')
         expect(response.body.code).toBe('SET_DELETE_BLOCKED_BY_REFERENCES')
         expect(response.body.blockingReferences).toHaveLength(1)
         expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'deleteContent', mockDbSession)
@@ -1152,7 +1150,7 @@ describe('Entity instance routes', () => {
 
         const response = await request(app).delete('/metahub/metahub-1/entity/entity-1').expect(409)
 
-        expect(response.body.error).toBe('Cannot delete tree entity: required objects would become orphaned')
+        expect(response.body.error).toBe('Cannot delete hub: required objects would become orphaned')
         expect(response.body.totalBlocking).toBe(1)
         expect(response.body.blockingChildTreeEntities).toHaveLength(1)
         expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'deleteContent', mockDbSession)
@@ -1358,7 +1356,7 @@ describe('Entity instance routes', () => {
 
         const response = await request(app).delete('/metahub/metahub-1/entity/entity-1/permanent').expect(409)
 
-        expect(response.body.error).toBe('Cannot delete option list: it is referenced by field definitions')
+        expect(response.body.error).toBe('Cannot delete enumeration: it is referenced by field definitions')
         expect(response.body.blockingReferences).toHaveLength(1)
         expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'deleteContent', mockDbSession)
         expect(mockEnsureMetahubAccess).not.toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
@@ -1387,7 +1385,7 @@ describe('Entity instance routes', () => {
 
         const response = await request(app).delete('/metahub/metahub-1/entity/entity-1/permanent').expect(403)
 
-        expect(response.body.error).toBe('Deleting linked collections is disabled in metahub settings')
+        expect(response.body.error).toBe('Deleting catalogs is disabled in metahub settings')
         expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'deleteContent', mockDbSession)
         expect(mockObjectsService.permanentDelete).not.toHaveBeenCalled()
     })
@@ -1414,7 +1412,7 @@ describe('Entity instance routes', () => {
 
         const response = await request(app).delete('/metahub/metahub-1/entity/entity-1/permanent').expect(403)
 
-        expect(response.body.error).toBe('Deleting option lists is disabled in metahub settings')
+        expect(response.body.error).toBe('Deleting enumerations is disabled in metahub settings')
         expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'deleteContent', mockDbSession)
         expect(mockEnsureMetahubAccess).not.toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
         expect(mockObjectsService.permanentDelete).not.toHaveBeenCalled()

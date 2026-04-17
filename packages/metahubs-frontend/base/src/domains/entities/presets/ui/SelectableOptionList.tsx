@@ -316,7 +316,7 @@ export const SelectableOptionListContent = ({
                 enqueueSnackbar(message, { variant: 'error' })
             }
         },
-        [metahubId, optionListId, reorderMutation, enqueueSnackbar, t]
+        [metahubId, optionListId, reorderMutation, enqueueSnackbar, t, kindKey]
     )
 
     const {
@@ -729,7 +729,7 @@ export const SelectableOptionListContent = ({
                 )
             }
         ],
-        [firstLocalRowId, hasSharedRows, i18n.language, includeSharedValues, t, tc]
+        [includeSharedValues, t, tc]
     )
 
     const formDefaults = useMemo<ValueFormValues>(
@@ -1428,7 +1428,7 @@ export const SelectableOptionListContent = ({
                         <EntityFormDialog
                             open={editDialogOpen}
                             mode='edit'
-                            title={t('optionLists.editTitle', 'Edit OptionListEntity')}
+                            title={t('enumerations.editTitle', 'Edit OptionListEntity')}
                             nameLabel={tc('fields.name', 'Name')}
                             descriptionLabel={tc('fields.description', 'Description')}
                             saveButtonText={tc('actions.save', 'Save')}

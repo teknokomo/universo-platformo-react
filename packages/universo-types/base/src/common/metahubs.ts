@@ -75,10 +75,10 @@ const SETTINGS_KIND_TO_ENTITY_SURFACE_MAP: Record<EntitySettingsKind, EntitySurf
 }
 
 export const ENTITY_SURFACE_LABELS: Record<EntitySurfaceKey, { singular: string; plural: string }> = {
-    treeEntity: { singular: 'Tree entity', plural: 'Tree entities' },
-    linkedCollection: { singular: 'Linked collection', plural: 'Linked collections' },
-    valueGroup: { singular: 'Value group', plural: 'Value groups' },
-    optionList: { singular: 'Option list', plural: 'Option lists' }
+    treeEntity: { singular: 'Hub', plural: 'Hubs' },
+    linkedCollection: { singular: 'Catalog', plural: 'Catalogs' },
+    valueGroup: { singular: 'Set', plural: 'Sets' },
+    optionList: { singular: 'Enumeration', plural: 'Enumerations' }
 }
 
 export const isEntitySurfaceKey = (value: string): value is EntitySurfaceKey =>

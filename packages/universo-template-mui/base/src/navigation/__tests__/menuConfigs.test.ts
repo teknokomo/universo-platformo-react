@@ -13,12 +13,12 @@ describe('menuConfigs', () => {
         )
     })
 
-    it('includes entities in the metahub menu', () => {
+    it('includes entity types in the metahub menu', () => {
         expect(getMetahubMenuItems('mhb-1', { canManageMetahub: true, canManageMembers: true })).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({
                     id: 'metahub-entities',
-                    titleKey: 'entities',
+                    titleKey: 'entityTypes',
                     url: '/metahub/mhb-1/entities'
                 })
             ])

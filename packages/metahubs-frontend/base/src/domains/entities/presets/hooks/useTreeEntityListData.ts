@@ -101,7 +101,7 @@ export function useTreeEntityListData() {
         return map
     }, [allTreeEntities])
 
-    // Ancestor ids for current tree entity (cycle-safe)
+    // Ancestor ids for current hub (cycle-safe)
     const currentHubAncestorIds = useMemo(() => {
         const ancestors = new Set<string>()
         if (!isHubScoped || !treeEntityId) return ancestors

@@ -39,20 +39,20 @@ export const ValueGroupDeleteDialog = ({
 
     const labels: BlockingEntitiesDeleteDialogLabels = useMemo(
         () => ({
-            title: t('valueGroups.deleteDialog.title', 'Delete ValueGroupEntity'),
+            title: t('sets.deleteDialog.title', 'Delete set'),
             confirmMessage: t(
-                'valueGroups.deleteDialog.confirmMessage',
-                'Are you sure you want to delete this value group? This action cannot be undone.'
+                'sets.deleteDialog.confirmMessage',
+                'Are you sure you want to delete this set? This action cannot be undone.'
             ),
             blockingWarning: t(
-                'valueGroups.deleteDialog.hasBlockingReferences',
-                'Cannot delete value group. Remove these references from linked-collection field definitions first:'
+                'sets.deleteDialog.hasBlockingReferences',
+                'Cannot delete set. Remove these references from catalog field definitions first:'
             ),
             resolutionHint: t(
-                'valueGroups.deleteDialog.resolutionHint',
-                'Open source linked collections from the table and adjust the listed field definitions.'
+                'sets.deleteDialog.resolutionHint',
+                'Open source catalogs from the table and adjust the listed field definitions.'
             ),
-            fetchError: t('valueGroups.deleteDialog.fetchBlockingError', 'Failed to check for blocking references'),
+            fetchError: t('sets.deleteDialog.fetchBlockingError', 'Failed to check for blocking references'),
             cancelButton: t('common:actions.cancel', 'Cancel'),
             deleteButton: t('common:actions.delete', 'Delete'),
             deletingButton: t('common:actions.deleting', 'Deleting...')
@@ -71,14 +71,14 @@ export const ValueGroupDeleteDialog = ({
             },
             {
                 id: 'sourceCatalog',
-                label: t('valueGroups.deleteDialog.blockingTable.catalog', 'LinkedCollectionEntity'),
+                label: t('sets.deleteDialog.blockingTable.catalog', 'LinkedCollectionEntity'),
                 render: (row) => (
                     <Typography sx={{ fontSize: 14, fontWeight: 500, wordBreak: 'break-word' }}>{row.sourceCatalogDisplayName}</Typography>
                 )
             },
             {
                 id: 'attribute',
-                label: t('valueGroups.deleteDialog.blockingTable.attribute', 'Field definition'),
+                label: t('sets.deleteDialog.blockingTable.attribute', 'Field definition'),
                 render: (row) => (
                     <Typography sx={{ fontSize: 14, color: 'text.secondary', wordBreak: 'break-word' }}>
                         {row.attributeDisplayName}

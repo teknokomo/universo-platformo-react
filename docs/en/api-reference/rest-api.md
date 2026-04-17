@@ -20,8 +20,8 @@ applications, connectors, admin, public metahub, and metahub design-time APIs.
 
 ## Generic Entity Authoring Endpoints
 
-- `GET /metahub/{metahubId}/entity-types` and `POST /metahub/{metahubId}/entity-types` list and create custom entity type definitions for the Entities workspace.
-- `GET /metahub/{metahubId}/entity-type/{entityTypeId}`, `PATCH /metahub/{metahubId}/entity-type/{entityTypeId}`, and `DELETE /metahub/{metahubId}/entity-type/{entityTypeId}` manage one custom entity type, including its publication flag.
+- `GET /metahub/{metahubId}/entity-types` and `POST /metahub/{metahubId}/entity-types` list and create entity type definitions for the Entity Types section (in admin).
+- `GET /metahub/{metahubId}/entity-type/{entityTypeId}`, `PATCH /metahub/{metahubId}/entity-type/{entityTypeId}`, and `DELETE /metahub/{metahubId}/entity-type/{entityTypeId}` manage one entity type, including its publication flag.
 - `GET /metahub/{metahubId}/entities`, `POST /metahub/{metahubId}/entities`, and `POST /metahub/{metahubId}/entities/reorder` list, create, and reorder design-time instances for one custom kind.
 - `GET /metahub/{metahubId}/entity/{entityId}`, `PATCH /metahub/{metahubId}/entity/{entityId}`, `DELETE /metahub/{metahubId}/entity/{entityId}`, `POST /metahub/{metahubId}/entity/{entityId}/restore`, `DELETE /metahub/{metahubId}/entity/{entityId}/permanent`, and `POST /metahub/{metahubId}/entity/{entityId}/copy` manage one custom entity instance through the generic route surface.
 

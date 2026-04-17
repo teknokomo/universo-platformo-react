@@ -74,7 +74,7 @@ export function useCreateLinkedCollectionAtMetahub() {
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('linkedCollections.createError', 'Failed to create linked collection'), { variant: 'error' })
+            enqueueSnackbar(error.message || t('catalogs.createError', 'Failed to create catalog'), { variant: 'error' })
         },
         onSuccess: (data, variables, context) => {
             if (context?.optimisticId && data?.id) {
@@ -88,7 +88,7 @@ export function useCreateLinkedCollectionAtMetahub() {
                     }
                 )
             }
-            enqueueSnackbar(t('linkedCollections.createSuccess', 'LinkedCollectionEntity created'), { variant: 'success' })
+            enqueueSnackbar(t('catalogs.createSuccess', 'Catalog created'), { variant: 'success' })
         },
         onSettled: (_data, _error, variables) => {
             if (queryClient.isMutating({ mutationKey: ['linkedCollections'] }) <= 1) {
@@ -144,7 +144,7 @@ export function useCreateLinkedCollection() {
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('linkedCollections.createError', 'Failed to create linked collection'), { variant: 'error' })
+            enqueueSnackbar(error.message || t('catalogs.createError', 'Failed to create catalog'), { variant: 'error' })
         },
         onSuccess: (data, variables, context) => {
             if (context?.optimisticId && data?.id) {
@@ -156,7 +156,7 @@ export function useCreateLinkedCollection() {
                     { serverEntity: data }
                 )
             }
-            enqueueSnackbar(t('linkedCollections.createSuccess', 'LinkedCollectionEntity created'), { variant: 'success' })
+            enqueueSnackbar(t('catalogs.createSuccess', 'Catalog created'), { variant: 'success' })
         },
         onSettled: (_data, _error, variables) => {
             safeInvalidateQueries(
@@ -197,7 +197,7 @@ export function useUpdateLinkedCollection() {
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('linkedCollections.updateError', 'Failed to update linked collection'), { variant: 'error' })
+            enqueueSnackbar(error.message || t('catalogs.updateError', 'Failed to update catalog'), { variant: 'error' })
         },
         onSuccess: async (data, variables) => {
             await queryClient.cancelQueries({
@@ -212,7 +212,7 @@ export function useUpdateLinkedCollection() {
                     moveToFront: true
                 }
             )
-            enqueueSnackbar(t('linkedCollections.updateSuccess', 'LinkedCollectionEntity updated'), { variant: 'success' })
+            enqueueSnackbar(t('catalogs.updateSuccess', 'Catalog updated'), { variant: 'success' })
         },
         onSettled: (_data, _error, variables) => {
             safeInvalidateQueriesInactive(
@@ -254,7 +254,7 @@ export function useUpdateLinkedCollectionAtMetahub() {
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('linkedCollections.updateError', 'Failed to update linked collection'), { variant: 'error' })
+            enqueueSnackbar(error.message || t('catalogs.updateError', 'Failed to update catalog'), { variant: 'error' })
         },
         onSuccess: async (data, variables) => {
             await queryClient.cancelQueries({
@@ -269,7 +269,7 @@ export function useUpdateLinkedCollectionAtMetahub() {
                     moveToFront: true
                 }
             )
-            enqueueSnackbar(t('linkedCollections.updateSuccess', 'LinkedCollectionEntity updated'), { variant: 'success' })
+            enqueueSnackbar(t('catalogs.updateSuccess', 'Catalog updated'), { variant: 'success' })
         },
         onSettled: (_data, _error, variables) => {
             safeInvalidateQueriesInactive(
@@ -311,10 +311,10 @@ export function useDeleteLinkedCollection() {
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('linkedCollections.deleteError', 'Failed to delete linked collection'), { variant: 'error' })
+            enqueueSnackbar(error.message || t('catalogs.deleteError', 'Failed to delete catalog'), { variant: 'error' })
         },
         onSuccess: () => {
-            enqueueSnackbar(t('linkedCollections.deleteSuccess', 'LinkedCollectionEntity deleted'), { variant: 'success' })
+            enqueueSnackbar(t('catalogs.deleteSuccess', 'Catalog deleted'), { variant: 'success' })
         },
         onSettled: (_data, _error, variables) => {
             // Use active refetch to ensure the deleted entity is gone from the list
@@ -395,7 +395,7 @@ export function useCopyLinkedCollection() {
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('linkedCollections.copyError', 'Failed to copy linked collection'), { variant: 'error' })
+            enqueueSnackbar(error.message || t('catalogs.copyError', 'Failed to copy catalog'), { variant: 'error' })
         },
         onSuccess: (data, variables, context) => {
             if (context?.optimisticId && data?.id) {
@@ -409,7 +409,7 @@ export function useCopyLinkedCollection() {
                     }
                 )
             }
-            enqueueSnackbar(t('linkedCollections.copySuccess', 'LinkedCollectionEntity copied'), { variant: 'success' })
+            enqueueSnackbar(t('catalogs.copySuccess', 'Catalog copied'), { variant: 'success' })
         },
         onSettled: async (copiedCatalog, _error, variables) => {
             // Use active refetch to ensure copied entity is visible

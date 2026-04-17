@@ -265,8 +265,8 @@ export const PublicationApplicationList: React.FC = () => {
             goToPage: (p: number) => setPage(p - 1),
             nextPage: () => setPage((prev) => prev + 1),
             previousPage: () => setPage((prev) => Math.max(0, prev - 1)),
-            setSearch: () => {},
-            setSort: () => {},
+            setSearch: () => undefined,
+            setSort: () => undefined,
             setPageSize: (size: number) => {
                 setPageSize(size)
                 setPage(0)
@@ -283,7 +283,7 @@ export const PublicationApplicationList: React.FC = () => {
         setCreateSchema(false)
         setIsPublic(false)
         setWorkspacesEnabled(false)
-    }, [])
+    }, [close])
     const createDialogPresentation = useDialogPresentation({
         open: dialogs.create.open,
         onClose: handleCloseCreateDialog,
@@ -403,7 +403,7 @@ export const PublicationApplicationList: React.FC = () => {
                                     data={paginatedApplications}
                                     customColumns={appColumns}
                                     isLoading={isLoading}
-                                    renderActions={(row: any) => (
+                                    renderActions={(row: ApplicationTableRow) => (
                                         <IconButton
                                             size='small'
                                             sx={{ width: 28, height: 28, p: 0.5 }}
@@ -623,9 +623,9 @@ export const PublicationApplicationList: React.FC = () => {
                             hideDefaultFields
                             initialExtraValues={buildPubInitialValues(settingsCtx)}
                             tabs={buildPubFormTabs(settingsCtx, metahubId)}
-                            validate={(values: Record<string, any>) => validatePublicationForm(settingsCtx, values)}
+                            validate={(values: Record<string, unknown>) => validatePublicationForm(settingsCtx, values)}
                             canSave={canSavePublicationForm}
-                            onSave={(data: Record<string, any>) => {
+                            onSave={(data: Record<string, unknown>) => {
                                 const payload = pubToPayload(data)
                                 void settingsCtx.api.updateEntity(publicationData.id, payload)
                             }}

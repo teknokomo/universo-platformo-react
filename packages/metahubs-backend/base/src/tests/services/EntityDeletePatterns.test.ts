@@ -78,7 +78,7 @@ describe('entityDeletePatterns', () => {
             blockedOutcome: (blockers) => ({
                 status: 409,
                 body: {
-                    error: 'Cannot delete value group because there are blocking references',
+                    error: 'Cannot delete set because there are blocking references',
                     blockingReferences: blockers
                 }
             }),
@@ -88,7 +88,7 @@ describe('entityDeletePatterns', () => {
         expect(result).toEqual({
             status: 409,
             body: {
-                error: 'Cannot delete value group because there are blocking references',
+                error: 'Cannot delete set because there are blocking references',
                 blockingReferences: [{ id: 'ref-1' }]
             }
         })

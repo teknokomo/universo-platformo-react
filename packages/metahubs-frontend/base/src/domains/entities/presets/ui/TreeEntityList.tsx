@@ -271,11 +271,11 @@ export const TreeEntityListContent = () => {
 
     const attachExistingHubSelectionLabels = useMemo<EntitySelectionLabels>(
         () => ({
-            title: t('treeEntities.attachExisting.selectionTitle', 'TreeEntities'),
+            title: t('hubs.attachExisting.selectionTitle', 'TreeEntities'),
             addButton: t('common:actions.add', 'Add'),
-            dialogTitle: t('treeEntities.attachExisting.selectDialogTitle', 'Select treeEntities'),
-            emptyMessage: t('treeEntities.attachExisting.emptySelection', 'No treeEntities selected'),
-            noAvailableMessage: t('treeEntities.attachExisting.noAvailable', 'No treeEntities available to add'),
+            dialogTitle: t('hubs.attachExisting.selectDialogTitle', 'Select treeEntities'),
+            emptyMessage: t('hubs.attachExisting.emptySelection', 'No treeEntities selected'),
+            noAvailableMessage: t('hubs.attachExisting.noAvailable', 'No treeEntities available to add'),
             searchPlaceholder: t('common:search', 'Search...'),
             cancelButton: t('common:actions.cancel', 'Cancel'),
             confirmButton: t('common:actions.add', 'Add'),
@@ -309,11 +309,11 @@ export const TreeEntityListContent = () => {
             const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
             const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
             if (!normalizedCodename) {
-                errors.codename = t('treeEntities.validation.codenameRequired', 'Codename is required')
+                errors.codename = t('hubs.validation.codenameRequired', 'Codename is required')
             } else if (
                 !isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)
             ) {
-                errors.codename = t('treeEntities.validation.codenameInvalid', 'Codename contains invalid characters')
+                errors.codename = t('hubs.validation.codenameInvalid', 'Codename contains invalid characters')
             }
             return Object.keys(errors).length > 0 ? errors : null
         },
@@ -355,7 +355,7 @@ export const TreeEntityListContent = () => {
             const tabs: TabConfig[] = [
                 {
                     id: 'general',
-                    label: t('treeEntities.tabs.general', 'General'),
+                    label: t('hubs.tabs.general', 'General'),
                     content: (
                         <TreeEntityFormFields
                             values={values}
@@ -365,8 +365,8 @@ export const TreeEntityListContent = () => {
                             uiLocale={preferredVlcLocale}
                             nameLabel={tc('fields.name', 'Name')}
                             descriptionLabel={tc('fields.description', 'Description')}
-                            codenameLabel={t('treeEntities.codename', 'Codename')}
-                            codenameHelper={t('treeEntities.codenameHelper', 'Unique identifier')}
+                            codenameLabel={t('hubs.codename', 'Codename')}
+                            codenameHelper={t('hubs.codenameHelper', 'Unique identifier')}
                         />
                     )
                 }
@@ -377,7 +377,7 @@ export const TreeEntityListContent = () => {
 
             tabs.push({
                 id: 'treeEntities',
-                label: t('treeEntities.tabs.treeEntities', 'TreeEntities'),
+                label: t('hubs.tabs.treeEntities', 'TreeEntities'),
                 content: (
                     <ContainerParentSelectionPanel
                         availableContainers={allTreeEntities}
@@ -491,7 +491,7 @@ export const TreeEntityListContent = () => {
             },
             {
                 id: 'codename',
-                label: t('treeEntities.codename', 'Codename'),
+                label: t('hubs.codename', 'Codename'),
                 width: isHubScoped ? '15%' : '14%',
                 align: 'left' as const,
                 sortable: true,
@@ -514,7 +514,7 @@ export const TreeEntityListContent = () => {
         if (!isHubScoped) {
             columns.push({
                 id: 'treeEntities',
-                label: t('treeEntities.title', 'TreeEntities'),
+                label: t('hubs.title', 'TreeEntities'),
                 width: '18%',
                 align: 'left' as const,
                 render: (row: TreeEntityDisplay) => {
@@ -562,7 +562,7 @@ export const TreeEntityListContent = () => {
 
         columns.push({
             id: 'itemsCount',
-            label: t('treeEntities.itemsTitle', 'Items'),
+            label: t('hubs.itemsTitle', 'Items'),
             width: '10%',
             align: 'center' as const,
             render: (row: TreeEntityDisplay) => {
@@ -572,7 +572,7 @@ export const TreeEntityListContent = () => {
         })
 
         return columns
-    }, [getDirectParentHub, handlePendingHubInteraction, isHubScoped, metahubId, t, tc])
+    }, [buildHubPath, getDirectParentHub, handlePendingHubInteraction, isHubScoped, t, tc])
 
     const createTreeEntityContext = useCallback(
         (baseContext: TreeEntityMenuBaseContext) => ({
@@ -589,7 +589,7 @@ export const TreeEntityListContent = () => {
                     const rawCodename = getVLCString(patch.codename, patch.codename?._primary ?? 'en')
                     const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
                     if (!normalizedCodename) {
-                        throw new Error(t('treeEntities.validation.codenameRequired', 'Codename is required'))
+                        throw new Error(t('hubs.validation.codenameRequired', 'Codename is required'))
                     }
                     const codenamePayload = ensureLocalizedContent(patch.codename, patch.codename?._primary ?? 'en', normalizedCodename)
                     const hub = hubMap.get(id)
@@ -674,7 +674,10 @@ export const TreeEntityListContent = () => {
             enqueueSnackbar,
             hubMap,
             treeEntityId,
+            kindKey,
             metahubId,
+            openConflict,
+            openDelete,
             preferredVlcLocale,
             queryClient,
             allTreeEntities,
@@ -746,7 +749,7 @@ export const TreeEntityListContent = () => {
                         getVLCString(targetHub.name, preferredVlcLocale) || getVLCString(targetHub.name, 'en') || targetHub.codename
                     )
                     // eslint-disable-next-line no-console
-                    console.error('Failed to attach existing hub to current tree entity', error)
+                    console.error('Failed to attach existing hub to current hub', error)
                 }
             }
 
@@ -754,7 +757,7 @@ export const TreeEntityListContent = () => {
 
             if (failed.length === 0) {
                 enqueueSnackbar(
-                    t('treeEntities.attachExisting.success', {
+                    t('hubs.attachExisting.success', {
                         count: selectedTreeEntities.length,
                         defaultValue: 'Added {{count}} hub(s).'
                     }),
@@ -769,7 +772,7 @@ export const TreeEntityListContent = () => {
             const successCount = selectedTreeEntities.length - failed.length
             if (successCount > 0) {
                 enqueueSnackbar(
-                    t('treeEntities.attachExisting.partialSuccess', {
+                    t('hubs.attachExisting.partialSuccess', {
                         successCount,
                         failCount: failed.length,
                         defaultValue: 'Added {{successCount}} hub(s). {{failCount}} hub(s) could not be linked.'
@@ -781,7 +784,7 @@ export const TreeEntityListContent = () => {
             }
 
             setAttachDialogError(
-                t('treeEntities.attachExisting.failedAll', {
+                t('hubs.attachExisting.failedAll', {
                     defaultValue:
                         'Selected treeEntities could not be linked to this hub. Please review parent/child constraints and try again.'
                 })
@@ -807,10 +810,10 @@ export const TreeEntityListContent = () => {
         // Confirm dialog for detached hub (async — throws DIALOG_SAVE_CANCEL if cancelled)
         if (isHubScoped && treeEntityId && parentTreeEntityId !== treeEntityId) {
             const confirmed = await confirm({
-                title: t('treeEntities.detachedConfirm.title', 'Create hub outside current tree entity?'),
+                title: t('hubs.detachedConfirm.title', 'Create hub outside current hub?'),
                 description: t(
-                    'treeEntities.detachedConfirm.description',
-                    'This hub is not linked as a child of the current tree entity and will not appear in this hub after creation.'
+                    'hubs.detachedConfirm.description',
+                    'This hub is not linked as a child of the current hub and will not appear in this hub after creation.'
                 ),
                 confirmButtonName: t('common:actions.create', 'Create'),
                 cancelButtonName: t('common:actions.cancel', 'Cancel')
@@ -878,7 +881,7 @@ export const TreeEntityListContent = () => {
                 kindKey,
                 newSortOrder: overHub.sortOrder ?? 1
             })
-            enqueueSnackbar(t('treeEntities.reorderSuccess', 'TreeEntity order updated'), { variant: 'success' })
+            enqueueSnackbar(t('hubs.reorderSuccess', 'TreeEntity order updated'), { variant: 'success' })
         } catch (error: unknown) {
             const message =
                 typeof error === 'object' &&
@@ -886,7 +889,7 @@ export const TreeEntityListContent = () => {
                 'message' in error &&
                 typeof (error as { message?: unknown }).message === 'string'
                     ? (error as { message: string }).message
-                    : t('treeEntities.reorderError', 'Failed to reorder hub')
+                    : t('hubs.reorderError', 'Failed to reorder hub')
             enqueueSnackbar(message, { variant: 'error' })
         }
     }
@@ -946,9 +949,9 @@ export const TreeEntityListContent = () => {
                     <Stack flexDirection='column' sx={{ gap: 1 }}>
                         <ViewHeader
                             search={true}
-                            searchPlaceholder={t('treeEntities.searchPlaceholder')}
+                            searchPlaceholder={t('hubs.searchPlaceholder')}
                             onSearchChange={handleSearchChange}
-                            title={t('treeEntities.title')}
+                            title={t('hubs.title')}
                         >
                             <ToolbarControls
                                 viewToggleEnabled
@@ -981,7 +984,7 @@ export const TreeEntityListContent = () => {
                                     <Tabs
                                         value='treeEntities'
                                         onChange={handleHubTabChange}
-                                        aria-label={t('treeEntities.title', 'TreeEntities')}
+                                        aria-label={t('hubs.title', 'TreeEntities')}
                                         textColor='primary'
                                         indicatorColor='primary'
                                         sx={{
@@ -992,10 +995,10 @@ export const TreeEntityListContent = () => {
                                             }
                                         }}
                                     >
-                                        <Tab value='treeEntities' label={t('treeEntities.title')} />
-                                        <Tab value='linkedCollections' label={t('linkedCollections.title')} />
-                                        <Tab value='valueGroups' label={t('valueGroups.title')} />
-                                        <Tab value='optionLists' label={t('optionLists.title')} />
+                                        <Tab value='treeEntities' label={t('hubs.title')} />
+                                        <Tab value='linkedCollections' label={t('catalogs.title')} />
+                                        <Tab value='valueGroups' label={t('sets.title')} />
+                                        <Tab value='optionLists' label={t('enumerations.title')} />
                                         <Tab value='settings' label={t('settings.title')} />
                                     </Tabs>
                                 </Box>
@@ -1003,7 +1006,7 @@ export const TreeEntityListContent = () => {
                                     <Box sx={{ px: 2, pt: 1 }}>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t(
-                                                'treeEntities.nestingDisabledHint',
+                                                'hubs.nestingDisabledHint',
                                                 'TreeEntity nesting is disabled in settings. You can still edit and unlink existing parent relations.'
                                             )}
                                         </Typography>
@@ -1023,8 +1026,8 @@ export const TreeEntityListContent = () => {
                                 <EmptyListState
                                     image={APIEmptySVG}
                                     imageAlt='No treeEntities'
-                                    title={t('treeEntities.empty')}
-                                    description={t('treeEntities.emptyDescription')}
+                                    title={t('hubs.empty')}
+                                    description={t('hubs.emptyDescription')}
                                 />
                             ) : (
                                 <>
@@ -1068,7 +1071,7 @@ export const TreeEntityListContent = () => {
                                                                     )}
                                                                     {showItemsCount && (
                                                                         <Typography variant='caption' color='text.secondary'>
-                                                                            {t('treeEntities.itemsCount', { count: itemsCount })}
+                                                                            {t('hubs.itemsCount', { count: itemsCount })}
                                                                         </Typography>
                                                                     )}
                                                                 </Stack>
@@ -1100,7 +1103,7 @@ export const TreeEntityListContent = () => {
                                                 isLoading={isLoading}
                                                 sortableRows
                                                 sortableItemIds={sortedTreeEntities.map((hub) => hub.id)}
-                                                dragHandleAriaLabel={t('treeEntities.dnd.dragHandle', 'Drag to reorder')}
+                                                dragHandleAriaLabel={t('hubs.dnd.dragHandle', 'Drag to reorder')}
                                                 dragDisabled={reorderTreeEntityMutation.isPending || isLoading}
                                                 onSortableDragEnd={handleSortableDragEnd}
                                                 renderDragOverlay={renderDragOverlay}
@@ -1155,7 +1158,7 @@ export const TreeEntityListContent = () => {
 
                 <EntityFormDialog
                     open={dialogs.create.open}
-                    title={t('treeEntities.createDialog.title', 'Create TreeEntity')}
+                    title={t('hubs.createDialog.title', 'Create TreeEntity')}
                     nameLabel={tc('fields.name', 'Name')}
                     descriptionLabel={tc('fields.description', 'Description')}
                     saveButtonText={tc('actions.create', 'Create')}
@@ -1172,7 +1175,7 @@ export const TreeEntityListContent = () => {
 
                 <EntityFormDialog
                     open={isAttachDialogOpen}
-                    title={t('treeEntities.attachExisting.dialogTitle', 'Add Existing TreeEntities')}
+                    title={t('hubs.attachExisting.dialogTitle', 'Add Existing TreeEntities')}
                     nameLabel={tc('fields.name', 'Name')}
                     descriptionLabel={tc('fields.description', 'Description')}
                     saveButtonText={t('common:actions.add', 'Add')}
@@ -1191,7 +1194,7 @@ export const TreeEntityListContent = () => {
                         return [
                             {
                                 id: 'treeEntities',
-                                label: t('treeEntities.tabs.treeEntities', 'TreeEntities'),
+                                label: t('hubs.tabs.treeEntities', 'TreeEntities'),
                                 content: (
                                     <EntitySelectionPanel<TreeEntity>
                                         availableEntities={attachableExistingTreeEntities}
@@ -1218,7 +1221,7 @@ export const TreeEntityListContent = () => {
                             : []
                         if (selectedTreeEntityIds.length > 0) return null
                         return {
-                            selectedTreeEntityIds: t('treeEntities.attachExisting.requiredSelection', 'Select at least one hub to add.')
+                            selectedTreeEntityIds: t('hubs.attachExisting.requiredSelection', 'Select at least one hub to add.')
                         }
                     }}
                     canSave={(values) => {
@@ -1253,7 +1256,7 @@ export const TreeEntityListContent = () => {
                                             ? err.message
                                             : typeof err === 'string'
                                             ? err
-                                            : t('treeEntities.deleteError')
+                                            : t('hubs.deleteError')
                                     enqueueSnackbar(message, { variant: 'error' })
                                 }
                             }
@@ -1305,7 +1308,7 @@ export const TreeEntityListContent = () => {
                             <EntityFormDialog
                                 open={editDialogOpen}
                                 mode='edit'
-                                title={t('treeEntities.editTitle', 'Edit TreeEntity')}
+                                title={t('hubs.editTitle', 'Edit TreeEntity')}
                                 nameLabel={tc('fields.name', 'Name')}
                                 descriptionLabel={tc('fields.description', 'Description')}
                                 saveButtonText={tc('actions.save', 'Save')}

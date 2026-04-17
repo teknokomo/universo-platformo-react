@@ -70,4 +70,5 @@ export const defaultLinkedCollectionRuntimeViewConfig: ResolvedLinkedCollectionR
     copySurface: 'dialog'
 }
 
-export const defaultLinkedCollectionLayoutBehaviorConfig: ResolvedLinkedCollectionLayoutBehaviorConfig = defaultLinkedCollectionRuntimeViewConfig
+export const defaultLinkedCollectionLayoutBehaviorConfig: ResolvedLinkedCollectionLayoutBehaviorConfig =
+    defaultLinkedCollectionRuntimeViewConfig

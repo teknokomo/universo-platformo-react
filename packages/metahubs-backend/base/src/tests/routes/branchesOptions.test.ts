@@ -194,7 +194,7 @@ describe('Branches Options Routes', () => {
 
         expect(response.body).toEqual({
             code: 'BRANCH_COPY_OPTION_LIST_REFERENCES',
-            error: 'Cannot disable option list copy while copied entity groups still reference option lists.'
+            error: 'Cannot disable enumeration copy while copied entity groups still reference enumerations.'
         })
     })
 

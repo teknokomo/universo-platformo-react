@@ -171,7 +171,7 @@ export const validateLinkedCollectionForm = (
     const treeEntityIds = Array.isArray(values.treeEntityIds) ? values.treeEntityIds : []
     const isRequiredHub = Boolean(values.isRequiredHub)
     if (isRequiredHub && treeEntityIds.length === 0) {
-        errors.treeEntityIds = ctx.t('linkedCollections.validation.hubRequired', 'At least one hub is required')
+        errors.treeEntityIds = ctx.t('catalogs.validation.hubRequired', 'At least one hub is required')
     }
 
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
@@ -185,9 +185,9 @@ export const validateLinkedCollectionForm = (
     const normalizedCodename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
 
     if (!normalizedCodename) {
-        errors.codename = ctx.t('linkedCollections.validation.codenameRequired', 'Codename is required')
+        errors.codename = ctx.t('catalogs.validation.codenameRequired', 'Codename is required')
     } else if (!isValidCodenameForStyle(normalizedCodename, cc.style, cc.alphabet, cc.allowMixed)) {
-        errors.codename = ctx.t('linkedCollections.validation.codenameInvalid', 'Codename contains invalid characters')
+        errors.codename = ctx.t('catalogs.validation.codenameInvalid', 'Codename contains invalid characters')
     }
 
     return Object.keys(errors).length > 0 ? errors : null
@@ -230,7 +230,7 @@ export const LinkedCollectionLayoutTabFields = ({
                 <>
                     <Typography variant='body2' color='text.secondary'>
                         {t(
-                            'linkedCollections.layoutTab.catalogLayoutsHelper',
+                            'catalogs.layoutTab.catalogLayoutsHelper',
                             'LinkedCollectionEntity layouts own widget composition and catalog runtime behavior. The active global layout continues to work until you create a catalog-specific override.'
                         )}
                     </Typography>
@@ -239,9 +239,9 @@ export const LinkedCollectionLayoutTabFields = ({
                         linkedCollectionId={linkedCollectionId ?? undefined}
                         detailBasePath={detailBasePath}
                         title={null}
-                        emptyTitle={t('linkedCollections.layoutTab.emptyTitle', 'No catalog layouts')}
+                        emptyTitle={t('catalogs.layoutTab.emptyTitle', 'No catalog layouts')}
                         emptyDescription={t(
-                            'linkedCollections.layoutTab.emptyDescription',
+                            'catalogs.layoutTab.emptyDescription',
                             'This catalog currently uses the active global layout. Create the first catalog layout to override widgets and catalog runtime behavior.'
                         )}
                         embedded
@@ -250,7 +250,7 @@ export const LinkedCollectionLayoutTabFields = ({
             ) : (
                 <Typography variant='body2' color='text.secondary'>
                     {t(
-                        'linkedCollections.layoutTab.unavailable',
+                        'catalogs.layoutTab.unavailable',
                         'LinkedCollectionEntity layouts are available when this catalog is opened inside a metahub context.'
                     )}
                 </Typography>
@@ -337,7 +337,7 @@ const LinkedCollectionCopyOptionsTab = ({
                         disabled={isLoading}
                     />
                 }
-                label={t('linkedCollections.copy.options.copyFieldDefinitions', 'Copy field definitions')}
+                label={t('catalogs.copy.options.copyFieldDefinitions', 'Copy field definitions')}
             />
             <FormControlLabel
                 control={
@@ -347,7 +347,7 @@ const LinkedCollectionCopyOptionsTab = ({
                         disabled={isLoading || !options.copyFieldDefinitions}
                     />
                 }
-                label={t('linkedCollections.copy.options.copyRecords', 'Copy records')}
+                label={t('catalogs.copy.options.copyRecords', 'Copy records')}
             />
         </Stack>
     )
@@ -378,7 +378,7 @@ export const buildFormTabs = (
         const tabs: TabConfig[] = [
             {
                 id: 'general',
-                label: ctx.t('linkedCollections.tabs.general', 'Основное'),
+                label: ctx.t('catalogs.tabs.general', 'Основное'),
                 content: (
                     <GeneralTabFields
                         values={values}
@@ -388,8 +388,8 @@ export const buildFormTabs = (
                         uiLocale={ctx.uiLocale as string}
                         nameLabel={ctx.t('common:fields.name', 'Name')}
                         descriptionLabel={ctx.t('common:fields.description', 'Description')}
-                        codenameLabel={ctx.t('linkedCollections.codename', 'Codename')}
-                        codenameHelper={ctx.t('linkedCollections.codenameHelper', 'Unique identifier')}
+                        codenameLabel={ctx.t('catalogs.codename', 'Codename')}
+                        codenameHelper={ctx.t('catalogs.codenameHelper', 'Unique identifier')}
                         editingEntityId={editingEntityId}
                     />
                 )
@@ -405,7 +405,7 @@ export const buildFormTabs = (
 
             tabs.push({
                 id: 'treeEntities',
-                label: ctx.t('linkedCollections.tabs.treeEntities', 'Древовидные сущности'),
+                label: ctx.t('catalogs.tabs.treeEntities', 'Хабы'),
                 content: (
                     <ContainerSelectionPanel
                         availableContainers={treeEntities}
@@ -425,7 +425,7 @@ export const buildFormTabs = (
 
             tabs.push({
                 id: 'layout',
-                label: ctx.t('linkedCollections.tabs.layout', 'Layout'),
+                label: ctx.t('catalogs.tabs.layout', 'Layout'),
                 content: (
                     <LinkedCollectionLayoutTabFields
                         values={values}
@@ -474,7 +474,7 @@ const linkedCollectionActions: readonly ActionDescriptor<LinkedCollectionDisplay
                 return {
                     open: true,
                     mode: 'edit' as const,
-                    title: ctx.t('linkedCollections.editTitle', 'Edit LinkedCollectionEntity'),
+                    title: ctx.t('catalogs.editTitle', 'Edit LinkedCollectionEntity'),
                     nameLabel: ctx.t('common:fields.name'),
                     descriptionLabel: ctx.t('common:fields.description'),
                     saveButtonText: ctx.t('common:actions.save'),
@@ -504,13 +504,10 @@ const linkedCollectionActions: readonly ActionDescriptor<LinkedCollectionDisplay
                                 !payload.treeEntityIds.includes(currentTreeEntityId)
                             if (detachedFromCurrentHub && ctx.helpers?.confirm) {
                                 const confirmed = await ctx.helpers.confirm({
-                                    title: ctx.t(
-                                        'linkedCollections.detachedConfirm.editTitle',
-                                        'Save catalog without current tree entity?'
-                                    ),
+                                    title: ctx.t('catalogs.detachedConfirm.editTitle', 'Save catalog without current hub?'),
                                     description: ctx.t(
-                                        'linkedCollections.detachedConfirm.description',
-                                        'This catalog is not linked to the current tree entity and will not appear in this hub after saving.'
+                                        'catalogs.detachedConfirm.description',
+                                        'This catalog is not linked to the current hub and will not appear in this hub after saving.'
                                     ),
                                     confirmButtonName: ctx.t('common:actions.save', 'Save'),
                                     cancelButtonName: ctx.t('common:actions.cancel', 'Cancel')
@@ -554,11 +551,11 @@ const linkedCollectionActions: readonly ActionDescriptor<LinkedCollectionDisplay
                 return {
                     open: true,
                     mode: 'create' as const,
-                    title: ctx.t('linkedCollections.copyTitle', 'Copying LinkedCollectionEntity'),
+                    title: ctx.t('catalogs.copyTitle', 'Copying LinkedCollectionEntity'),
                     nameLabel: ctx.t('common:fields.name'),
                     descriptionLabel: ctx.t('common:fields.description'),
-                    saveButtonText: ctx.t('linkedCollections.copy.action', 'Copy'),
-                    savingButtonText: ctx.t('linkedCollections.copy.actionLoading', 'Copying...'),
+                    saveButtonText: ctx.t('catalogs.copy.action', 'Copy'),
+                    savingButtonText: ctx.t('catalogs.copy.actionLoading', 'Copying...'),
                     cancelButtonText: ctx.t('common:actions.cancel'),
                     hideDefaultFields: true,
                     initialExtraValues: initial,
@@ -575,7 +572,7 @@ const linkedCollectionActions: readonly ActionDescriptor<LinkedCollectionDisplay
                         }),
                         {
                             id: 'options',
-                            label: ctx.t('linkedCollections.tabs.options', 'Options'),
+                            label: ctx.t('catalogs.tabs.options', 'Options'),
                             content: (
                                 <LinkedCollectionCopyOptionsTab
                                     values={args.values}
@@ -609,13 +606,10 @@ const linkedCollectionActions: readonly ActionDescriptor<LinkedCollectionDisplay
                                 !payload.treeEntityIds.includes(currentTreeEntityId)
                             if (detachedFromCurrentHub && ctx.helpers?.confirm) {
                                 const confirmed = await ctx.helpers.confirm({
-                                    title: ctx.t(
-                                        'linkedCollections.detachedConfirm.copyTitle',
-                                        'Create catalog copy without current tree entity?'
-                                    ),
+                                    title: ctx.t('catalogs.detachedConfirm.copyTitle', 'Create catalog copy without current hub?'),
                                     description: ctx.t(
-                                        'linkedCollections.detachedConfirm.description',
-                                        'This catalog is not linked to the current tree entity and will not appear in this hub after saving.'
+                                        'catalogs.detachedConfirm.description',
+                                        'This catalog is not linked to the current hub and will not appear in this hub after saving.'
                                     ),
                                     confirmButtonName: ctx.t('common:actions.create', 'Create'),
                                     cancelButtonName: ctx.t('common:actions.cancel', 'Cancel')
@@ -659,8 +653,8 @@ const linkedCollectionActions: readonly ActionDescriptor<LinkedCollectionDisplay
             }
 
             const confirmed = await ctx.helpers?.confirm?.({
-                title: ctx.t('linkedCollections.deleteDialog.title', 'Delete LinkedCollectionEntity'),
-                description: ctx.t('linkedCollections.deleteDialog.message'),
+                title: ctx.t('catalogs.deleteDialog.title', 'Delete LinkedCollectionEntity'),
+                description: ctx.t('catalogs.deleteDialog.message'),
                 confirmButtonName: ctx.t('common:actions.delete'),
                 cancelButtonName: ctx.t('common:actions.cancel')
             })

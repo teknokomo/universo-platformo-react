@@ -4,21 +4,88 @@
 
 ---
 
-## Current Focus: Final Legacy Snapshot Key + Preset KindKey Cleanup (2026-04-21)
+## Current Focus: QA Closure — i18n, Resources, Lint, Documentation — Complete ✅ (2026-04-18)
 
+## Current Focus: PR #767 Bot Review Triage — Complete ✅ (2026-04-18)
+
+- **Scope**: Review bot feedback on PR #767, apply only verified safe fixes, and avoid speculative changes that could regress current entity-first behavior.
+- **Reviewed feedback**:
+  - `SharedResourcesPage.tsx`: bot suggested synchronizing `activeTab` state with `effectiveTab` fallback. After code review, this was not applied because rendering already uses the safe derived tab, no other logic consumes `activeTab`, and forcing synchronization would add effect-driven state churn without a confirmed bug.
+  - `PublicationList.tsx`: bot flagged an unsafe cast used to access `baseContext.t` inside the confirm helper. This was valid and replaced with typed `PublicationMenuBaseContext` / `PublicationConfirmSpec` definitions.
+- **Validated**: root `pnpm build` passed after the `PublicationList.tsx` type-safety fix.
+
+- **Scope**: Fixed 5 critical issues identified after entity-first migration: broken i18n keys, confusing Resources tab labels, fixture hash mismatch, documentation drift, and lint debt in production files.
 - **Completed in this session**:
-  - Renamed snapshot output keys in `SnapshotSerializer.ts`: `sharedAttributes` → `sharedFieldDefinitions`, `sharedEnumerationValues` → `sharedOptionValues`. Both reading paths accept old keys as backward-compat fallback.
-  - Updated `SnapshotRestoreService.ts` to read `sharedFieldDefinitions ?? sharedAttributes` and `sharedOptionValues ?? sharedEnumerationValues`.
-  - Updated `PublicationSnapshotHashInput` in `publicationSnapshotHash.ts` with new canonical key names plus deprecated fallbacks for hash stability on old snapshots.
-  - Updated `PublishedApplicationSnapshot` in `applicationSyncContracts.ts` with new canonical keys plus `@deprecated` markers on old names.
-  - Updated all affected backend/application tests (4 test files) to use new key names.
-  - Updated `tools/fixtures/metahubs-self-hosted-app-snapshot.json` to use new key names.
-  - Updated `selfHostedAppFixtureContract.mjs` to read new keys with fallback to old.
-  - Renamed `constants-library` preset `kindKey`/`codename` → `fixed-values-library` and renamed export `constantsLibraryEntityPreset` → `fixedValuesLibraryEntityPreset` (2 files).
-  - Removed two instances of `legacyObjectKind` IIFE + `compatibility.legacyObjectKind` fallback in `publicMetahubsController.ts`; replaced with direct `entity.kind` string check.
-- **Validated in this session**:
-  - Full workspace build: 30/30 packages successful, zero TypeScript errors.
-- **No remaining legacy items**: snapshot keys, preset kindKey, and controller variable all now use neutral entity-first vocabulary.
+  - Added complete `records.*` i18n section (~44 keys) to EN/RU locales fixing raw `records.title` key in Catalogs UI.
+  - Added `tabs.treeEntities` keys to all 4 entity type sections in both locales.
+  - Translated ~25 untranslated English strings in RU locale across deleteDialog sections.
+  - Fixed mixed pluralization (`constantsCount_*` → `fixedValuesCount_*`) and EN/RU key asymmetry.
+  - Renamed RU Resources tab labels: "Поля" → "Определения полей", "Списки значений" → "Значения перечислений".
+  - Made Resources tabs dynamic — visibility derives from entity type `ComponentManifest` fields (no new fields needed).
+  - Fixed all 19 production-file lint warnings (exhaustive-deps, no-explicit-any, unused vars).
+  - Fixed README drift: `src/constants/` → `src/view-preferences/` in both EN and RU.
+  - Updated `systemPatterns.md` with dynamic shared resources tab pattern.
+  - Updated `techContext.md` with shared resources architecture, i18n key structure, and fixture contract.
+- **Validated**: `pnpm build` 30/30, backend 68/68 suites (583 passed), frontend 64/64 suites (253 passed), lint 0 errors.
+- **Remaining (test files)**: 181 lint warnings in test files only (no-explicit-any, no-empty-function in mocks). These are low risk and do not affect production code.
+
+## Previous Focus: Entity Type Naming Refactoring — Complete ✅ (2026-04-17)
+
+## Previous Focus: Distributed Noodling Ullman Plan Continuation — Complete ✅ (2026-04-17)
+
+- **Scope**: Finished the interrupted QA-closure continuation session after Phases A/B, including fixture regeneration, documentation screenshot generators, targeted entity-first flow regressions, and final validation.
+- **Completed in this continuation session**:
+  - Revalidated the post-Phase-A/B workspace state with canonical checks: `pnpm build` and `pnpm --filter @universo/metahubs-backend test`.
+  - Regenerated both canonical snapshot fixtures through Playwright generators:
+    - `tools/fixtures/metahubs-self-hosted-app-snapshot.json`
+    - `tools/fixtures/metahubs-quiz-app-snapshot.json`
+  - Stabilized documentation screenshot generators:
+    - `docs-entity-screenshots.spec.ts`
+    - `docs-quiz-tutorial-screenshots.spec.ts`
+  - Closed Playwright drift in regression/full-cycle flows by updating shipped UI/snapshot assertions:
+    - `codename-mode.spec.ts`
+    - `snapshot-export-import.spec.ts`
+    - `exports.test.ts`
+  - Revalidated the key entity-first browser flows:
+    - `metahub-domain-entities.spec.ts`
+    - `metahub-entity-full-lifecycle.spec.ts`
+    - `metahub-settings.spec.ts`
+    - `snapshot-export-import.spec.ts`
+    - `snapshot-import-quiz-runtime.spec.ts`
+    - `codename-mode.spec.ts`
+- **Validation summary**:
+  - Documentation generators are green.
+  - Snapshot import/export and quiz runtime import flows are green.
+  - Entity-first full lifecycle and settings regressions are green.
+  - Continuation fixes are additive drift corrections; no new schema/template version bump was introduced.
+- Details: progress.md#2026-04-17-distributed-noodling-ullman-plan-continuation-closure
+
+- **Scope**: Renamed all entity type display names from surface-key terminology (Tree Entities, Linked Collections, Value Groups, Option Lists) to traditional names (Hubs, Catalogs, Sets, Enumerations) across the entire monorepo.
+- **Key decision**: Internal surface keys preserved unchanged; only preset definitions, display strings, i18n labels, and documentation updated.
+- **Architecture confirmation**: Entity system is a fully generic constructor. Hubs, Catalogs, Sets, Enumerations are entity type presets defined in templates, not hardcoded types.
+- **Completed**:
+  - Backend preset definitions: VLC names, descriptions, UI configs, component constants, default instance constants
+  - i18n sections: renamed JSON sections in both EN and RU `metahubs.json` files
+  - Frontend i18n key references: updated 25+ source files referencing old i18n keys
+  - Sidebar menu restructured: dynamic entity types under Resources; "Entity Types" admin link moved after divider; added i18n keys for `entityTypes`
+  - Surface labels: updated `ENTITY_SURFACE_LABELS` display strings in `@universo/types`
+  - Unit tests: updated all test assertions and mocks across backend/frontend/template-mui
+  - Remaining source code: comprehensive sweep of error messages, fallback strings, JSDoc comments across 30+ files
+  - Fixture generation script: updated to use unified entity API endpoints
+  - Playwright E2E tests: updated 11 test files with new terminology
+  - Documentation: updated 14 files across `docs/en/` and `docs/ru/`
+- **Validated**: Full workspace build (30 packages), lint, 934 tests passing
+- **Pending follow-ups**:
+  - Playwright fixture regeneration was manual (full regeneration needs running server)
+  - Documentation screenshots need updating when server is available
+- Details: progress.md#2026-04-17-entity-type-naming-refactoring
+
+## Previous Focus: Final Legacy Snapshot Key + Preset KindKey Cleanup (2026-04-21)
+
+- Renamed snapshot output keys in `SnapshotSerializer.ts`, updated restore/hash services, tests, and fixtures.
+- Renamed `constants-library` preset → `fixed-values-library`; removed `legacyObjectKind` fallback.
+- Build: 30/30 packages, zero TypeScript errors.
+- No remaining legacy items: snapshot keys, preset kindKey, controller variable all use neutral entity-first vocabulary.
 
 ## Current Focus: QA Closure + Entities Copy Contract Stabilization (2026-04-17)
 

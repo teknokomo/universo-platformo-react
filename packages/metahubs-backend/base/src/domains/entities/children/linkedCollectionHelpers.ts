@@ -575,7 +575,7 @@ export const createLinkedCollectionByHub = async ({ req, res, metahubId, userId,
 
     const existing = await objectsService.findByCodenameInKinds(metahubId, normalizedCodename, catalogCompatibleKinds, userId)
     if (existing) {
-        return res.status(409).json({ error: 'Linked collection with this codename already exists in this metahub' })
+        return res.status(409).json({ error: 'Catalog with this codename already exists in this metahub' })
     }
 
     const sanitizedName = sanitizeLocalizedInput(name ?? {})
@@ -647,7 +647,7 @@ export const createLinkedCollectionByHub = async ({ req, res, metahubId, userId,
         })
     } catch (error) {
         if (database.isUniqueViolation(error)) {
-            return res.status(409).json({ error: 'Linked collection with this codename already exists in this metahub' })
+            return res.status(409).json({ error: 'Catalog with this codename already exists in this metahub' })
         }
         throw error
     }
@@ -749,7 +749,7 @@ export const updateLinkedCollectionByHub = async ({ req, res, metahubId, userId,
         if (normalizedCodename !== getLinkedCollectionCodenameText(catalog.codename)) {
             const existing = await objectsService.findByCodenameInKinds(metahubId, normalizedCodename, catalogCompatibleKinds, userId)
             if (existing && existing.id !== linkedCollectionId) {
-                return res.status(409).json({ error: 'Linked collection with this codename already exists' })
+                return res.status(409).json({ error: 'Catalog with this codename already exists' })
             }
         }
         const nextCodename = syncOptionalCodenamePayloadText(

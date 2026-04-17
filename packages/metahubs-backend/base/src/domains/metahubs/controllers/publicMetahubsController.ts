@@ -50,7 +50,7 @@ const resolveTreeEntity = async (
 ): Promise<Record<string, unknown> & { id: string }> => {
     const treeEntity = await treeEntitiesService.findByCodename(metahubId, treeEntityCodename)
     if (!treeEntity) {
-        throw new MetahubNotFoundError('Tree entity')
+        throw new MetahubNotFoundError('Hub')
     }
     return treeEntity as Record<string, unknown> & { id: string }
 }
@@ -63,15 +63,15 @@ const resolveLinkedCollectionInTreeEntity = async (
 ): Promise<MetahubObjectRow> => {
     const linkedCollection = await objectsService.findByCodename(metahubId, linkedCollectionCodename)
     if (!linkedCollection) {
-        throw new MetahubNotFoundError('Linked collection')
+        throw new MetahubNotFoundError('Catalog')
     }
     const objectKind = typeof linkedCollection.kind === 'string' ? linkedCollection.kind.trim() : ''
     if (objectKind !== 'catalog') {
-        throw new MetahubNotFoundError('Linked collection')
+        throw new MetahubNotFoundError('Catalog')
     }
     const treeEntityIds: string[] = ((linkedCollection.config as Record<string, unknown>)?.hubs as string[]) || []
     if (!treeEntityIds.includes(treeEntityId)) {
-        throw new MetahubNotFoundError('Linked collection')
+        throw new MetahubNotFoundError('Catalog')
     }
     return linkedCollection
 }

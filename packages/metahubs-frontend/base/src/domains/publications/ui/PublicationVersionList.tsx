@@ -485,7 +485,7 @@ export const PublicationVersionList: React.FC = () => {
                                     data={paginatedVersions}
                                     customColumns={versionColumns}
                                     isLoading={isLoading}
-                                    renderActions={(row: any) => (
+                                    renderActions={(row: { id: string }) => (
                                         <IconButton
                                             size='small'
                                             sx={{ width: 28, height: 28, p: 0.5 }}
@@ -797,9 +797,9 @@ export const PublicationVersionList: React.FC = () => {
                             hideDefaultFields
                             initialExtraValues={buildPubInitialValues(settingsCtx)}
                             tabs={buildPubFormTabs(settingsCtx, metahubId!)}
-                            validate={(values: Record<string, any>) => validatePublicationForm(settingsCtx, values)}
+                            validate={(values: Record<string, unknown>) => validatePublicationForm(settingsCtx, values)}
                             canSave={canSavePublicationForm}
-                            onSave={(data: Record<string, any>) => {
+                            onSave={(data: Record<string, unknown>) => {
                                 const payload = pubToPayload(data)
                                 void settingsCtx.api.updateEntity(publicationData.id, payload)
                             }}

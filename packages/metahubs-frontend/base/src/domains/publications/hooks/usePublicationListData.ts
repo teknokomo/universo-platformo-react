@@ -36,7 +36,7 @@ export function usePublicationListData() {
         enabled: !!metahubId
     })
 
-    const branches = branchesResponse?.items ?? []
+    const branches = useMemo(() => branchesResponse?.items ?? [], [branchesResponse?.items])
     const defaultBranchId = branchesResponse?.meta?.defaultBranchId ?? branches[0]?.id ?? null
 
     const getBranchLabel = useCallback(
@@ -51,7 +51,7 @@ export function usePublicationListData() {
         [branches, i18n.language]
     )
 
-    const publications = publicationsResponse?.items ?? []
+    const publications = useMemo(() => publicationsResponse?.items ?? [], [publicationsResponse?.items])
 
     // Local (client-side) search + pagination.
     const [currentPage, setCurrentPage] = useState(1)

@@ -56,10 +56,7 @@ type MenuEntityTypesResponse = {
     items?: MenuEntityTypeSummary[]
 }
 
-const resolveEntityTypeMenuTitle = (
-    item: MenuEntityTypeSummary,
-    t: (key: string, options?: Record<string, unknown>) => string
-): string => {
+const resolveEntityTypeMenuTitle = (item: MenuEntityTypeSummary, t: (key: string, options?: Record<string, unknown>) => string): string => {
     const uiNameKey = item.ui?.nameKey?.trim() || ''
     const translatedUiName =
         uiNameKey.length > 0 && isBuiltinEntityKind(item.kindKey) ? t(uiNameKey, { defaultValue: uiNameKey }).trim() : uiNameKey

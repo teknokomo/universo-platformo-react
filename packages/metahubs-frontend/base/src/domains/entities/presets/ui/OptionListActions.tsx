@@ -167,7 +167,7 @@ export const validateOptionListForm = (
     if (isRequiredHub) {
         const treeEntityIds = Array.isArray(values.treeEntityIds) ? values.treeEntityIds : []
         if (treeEntityIds.length === 0) {
-            errors.treeEntityIds = ctx.t('optionLists.validation.hubRequired', 'At least one hub is required')
+            errors.treeEntityIds = ctx.t('enumerations.validation.hubRequired', 'At least one hub is required')
         }
     }
 
@@ -180,9 +180,9 @@ export const validateOptionListForm = (
     const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
     const normalizedCodename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
     if (!normalizedCodename) {
-        errors.codename = ctx.t('optionLists.validation.codenameRequired', 'Codename is required')
+        errors.codename = ctx.t('enumerations.validation.codenameRequired', 'Codename is required')
     } else if (!isValidCodenameForStyle(normalizedCodename, cc.style, cc.alphabet, cc.allowMixed)) {
-        errors.codename = ctx.t('optionLists.validation.codenameInvalid', 'Codename contains invalid characters')
+        errors.codename = ctx.t('enumerations.validation.codenameInvalid', 'Codename contains invalid characters')
     }
     return Object.keys(errors).length > 0 ? errors : null
 }
@@ -260,7 +260,7 @@ const OptionListCopyOptionsTab = ({
                         disabled={isLoading}
                     />
                 }
-                label={t('optionLists.copy.options.copyOptionValues', 'Copy option values')}
+                label={t('enumerations.copy.options.copyOptionValues', 'Copy option values')}
             />
         </Stack>
     )
@@ -291,7 +291,7 @@ export const buildFormTabs = (
         const tabs: TabConfig[] = [
             {
                 id: 'general',
-                label: ctx.t('optionLists.tabs.general', 'Основное'),
+                label: ctx.t('enumerations.tabs.general', 'Основное'),
                 content: (
                     <GeneralTabFields
                         values={values}
@@ -301,8 +301,8 @@ export const buildFormTabs = (
                         uiLocale={ctx.uiLocale as string}
                         nameLabel={ctx.t('common:fields.name', 'Name')}
                         descriptionLabel={ctx.t('common:fields.description', 'Description')}
-                        codenameLabel={ctx.t('optionLists.codename', 'Codename')}
-                        codenameHelper={ctx.t('optionLists.codenameHelper', 'Unique identifier')}
+                        codenameLabel={ctx.t('enumerations.codename', 'Codename')}
+                        codenameHelper={ctx.t('enumerations.codenameHelper', 'Unique identifier')}
                         editingEntityId={editingEntityId}
                     />
                 )
@@ -318,7 +318,7 @@ export const buildFormTabs = (
 
             tabs.push({
                 id: 'treeEntities',
-                label: ctx.t('optionLists.tabs.treeEntities', 'Древовидные сущности'),
+                label: ctx.t('enumerations.tabs.treeEntities', 'Хабы'),
                 content: (
                     <ContainerSelectionPanel
                         availableContainers={treeEntities}
@@ -370,7 +370,7 @@ const optionListActions: readonly ActionDescriptor<OptionListDisplayWithContaine
                 return {
                     open: true,
                     mode: 'edit' as const,
-                    title: ctx.t('optionLists.editTitle', 'Edit OptionListEntity'),
+                    title: ctx.t('enumerations.editTitle', 'Edit OptionListEntity'),
                     nameLabel: ctx.t('common:fields.name'),
                     descriptionLabel: ctx.t('common:fields.description'),
                     saveButtonText: ctx.t('common:actions.save'),
@@ -400,10 +400,10 @@ const optionListActions: readonly ActionDescriptor<OptionListDisplayWithContaine
                                 !payload.treeEntityIds.includes(currentTreeEntityId)
                             if (detachedFromCurrentHub && ctx.helpers?.confirm) {
                                 const confirmed = await ctx.helpers.confirm({
-                                    title: ctx.t('optionLists.detachedConfirm.editTitle', 'Save enumeration without current tree entity?'),
+                                    title: ctx.t('enumerations.detachedConfirm.editTitle', 'Save enumeration without current hub?'),
                                     description: ctx.t(
-                                        'optionLists.detachedConfirm.description',
-                                        'This enumeration is not linked to the current tree entity and will not appear in this hub after saving.'
+                                        'enumerations.detachedConfirm.description',
+                                        'This enumeration is not linked to the current hub and will not appear in this hub after saving.'
                                     ),
                                     confirmButtonName: ctx.t('common:actions.save', 'Save'),
                                     cancelButtonName: ctx.t('common:actions.cancel', 'Cancel')
@@ -447,11 +447,11 @@ const optionListActions: readonly ActionDescriptor<OptionListDisplayWithContaine
                 return {
                     open: true,
                     mode: 'create' as const,
-                    title: ctx.t('optionLists.copyTitle', 'Copying OptionListEntity'),
+                    title: ctx.t('enumerations.copyTitle', 'Copying OptionListEntity'),
                     nameLabel: ctx.t('common:fields.name'),
                     descriptionLabel: ctx.t('common:fields.description'),
-                    saveButtonText: ctx.t('optionLists.copy.action', 'Copy'),
-                    savingButtonText: ctx.t('optionLists.copy.actionLoading', 'Copying...'),
+                    saveButtonText: ctx.t('enumerations.copy.action', 'Copy'),
+                    savingButtonText: ctx.t('enumerations.copy.actionLoading', 'Copying...'),
                     cancelButtonText: ctx.t('common:actions.cancel'),
                     hideDefaultFields: true,
                     initialExtraValues: initial,
@@ -468,7 +468,7 @@ const optionListActions: readonly ActionDescriptor<OptionListDisplayWithContaine
                         }),
                         {
                             id: 'options',
-                            label: ctx.t('optionLists.tabs.options', 'Options'),
+                            label: ctx.t('enumerations.tabs.options', 'Options'),
                             content: (
                                 <OptionListCopyOptionsTab
                                     values={args.values}
@@ -502,13 +502,10 @@ const optionListActions: readonly ActionDescriptor<OptionListDisplayWithContaine
                                 !payload.treeEntityIds.includes(currentTreeEntityId)
                             if (detachedFromCurrentHub && ctx.helpers?.confirm) {
                                 const confirmed = await ctx.helpers.confirm({
-                                    title: ctx.t(
-                                        'optionLists.detachedConfirm.copyTitle',
-                                        'Create enumeration copy without current tree entity?'
-                                    ),
+                                    title: ctx.t('enumerations.detachedConfirm.copyTitle', 'Create enumeration copy without current hub?'),
                                     description: ctx.t(
-                                        'optionLists.detachedConfirm.description',
-                                        'This enumeration is not linked to the current tree entity and will not appear in this hub after saving.'
+                                        'enumerations.detachedConfirm.description',
+                                        'This enumeration is not linked to the current hub and will not appear in this hub after saving.'
                                     ),
                                     confirmButtonName: ctx.t('common:actions.create', 'Create'),
                                     cancelButtonName: ctx.t('common:actions.cancel', 'Cancel')
@@ -552,8 +549,8 @@ const optionListActions: readonly ActionDescriptor<OptionListDisplayWithContaine
             }
 
             const confirmed = await ctx.helpers?.confirm?.({
-                title: ctx.t('optionLists.deleteDialog.title', 'Delete OptionListEntity'),
-                description: ctx.t('optionLists.deleteDialog.message'),
+                title: ctx.t('enumerations.deleteDialog.title', 'Delete OptionListEntity'),
+                description: ctx.t('enumerations.deleteDialog.message'),
                 confirmButtonName: ctx.t('common:actions.delete'),
                 cancelButtonName: ctx.t('common:actions.cancel')
             })

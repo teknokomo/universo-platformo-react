@@ -91,7 +91,7 @@ test('@flow @combined published custom entities survive publication sync and ope
 
         await applyBrowserPreferences(page, { language: 'en' })
         await page.goto(`/metahub/${metahub.id}/entities`)
-        await expect(page.getByRole('heading', { name: 'Entities' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Entity Types' })).toBeVisible()
 
         await page.getByTestId(toolbarSelectors.primaryAction).click()
 

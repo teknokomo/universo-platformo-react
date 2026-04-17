@@ -544,8 +544,12 @@ export function useImportMetahubFromSnapshot() {
             try {
                 const { data } = await metahubsApi.importMetahubFromSnapshot(envelopeJson)
                 return data
-            } catch (error: any) {
-                const message = error?.response?.data?.details || error?.response?.data?.error || error?.message || 'Snapshot import failed'
+            } catch (error: unknown) {
+                const err = error as Record<string, unknown> & {
+                    response?: { data?: { details?: string; error?: string; message?: string } }
+                    message?: string
+                }
+                const message = err?.response?.data?.details || err?.response?.data?.error || err?.message || 'Snapshot import failed'
                 throw new Error(message)
             }
         },

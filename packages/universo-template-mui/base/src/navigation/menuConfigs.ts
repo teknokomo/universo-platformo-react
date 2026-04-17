@@ -196,18 +196,18 @@ export const getMetahubMenuItems = (
             type: 'item',
             requiredPermission: 'manageMetahub'
         },
-        {
-            id: 'metahub-entities',
-            titleKey: 'entities',
-            url: `/metahub/${metahubId}/entities`,
-            icon: IconBox,
-            type: 'item',
-            requiredPermission: 'manageMetahub'
-        },
         ...objectMenuItems,
         {
             id: 'metahub-divider-secondary',
             type: 'divider'
+        },
+        {
+            id: 'metahub-entities',
+            titleKey: 'entityTypes',
+            url: `/metahub/${metahubId}/entities`,
+            icon: IconBox,
+            type: 'item',
+            requiredPermission: 'manageMetahub'
         },
         {
             id: 'metahub-publications',

@@ -55,7 +55,7 @@ describe('builtinKindCapabilities', () => {
             policyOutcome: {
                 status: 409,
                 body: {
-                    error: 'Cannot delete catalog: it is referenced by attributes in other catalogs',
+                    error: 'Cannot delete catalog: it is referenced by field definitions in other catalogs',
                     blockingReferences: [{ id: 'attr-1' }]
                 }
             }
@@ -75,7 +75,7 @@ describe('builtinKindCapabilities', () => {
             policyOutcome: {
                 status: 409,
                 body: {
-                    error: 'Cannot delete value group because there are blocking references',
+                    error: 'Cannot delete set because there are blocking references',
                     code: 'SET_DELETE_BLOCKED_BY_REFERENCES',
                     valueGroupId: 'entity-1',
                     blockingReferences: [{ id: 'const-1' }]

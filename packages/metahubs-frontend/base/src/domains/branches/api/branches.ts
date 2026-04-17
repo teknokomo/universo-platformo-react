@@ -63,7 +63,7 @@ export const listBranches = async (metahubId: string, params?: PaginationParams)
             total: backendPagination?.total ?? 0,
             hasMore: (backendPagination?.offset ?? 0) + (response.data.items?.length ?? 0) < (backendPagination?.total ?? 0)
         },
-        meta: (response.data as any).meta
+        meta: (response.data as Record<string, unknown>).meta as BranchListResponse['meta']
     }
 }
 

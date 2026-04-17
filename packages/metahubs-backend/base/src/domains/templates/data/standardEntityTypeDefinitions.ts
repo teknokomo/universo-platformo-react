@@ -1,31 +1,31 @@
 import type { ComponentManifest, EntityTypeUIConfig, PresetDefaultInstance } from '@universo/types'
 import { vlc } from './basic.template'
 
-export const STANDARD_TREE_ENTITY_NAME = vlc('Tree Entities', 'Древовидные сущности')
-export const STANDARD_TREE_ENTITY_DESCRIPTION = vlc(
-    'Standard tree entity type for organizing metahub content with design-time automation hooks.',
-    'Стандартный тип древовидной сущности для организации контента метахаба и design-time автоматизации.'
+export const STANDARD_HUB_NAME = vlc('Hubs', 'Хабы')
+export const STANDARD_HUB_DESCRIPTION = vlc(
+    'Standard hub entity type for organizing metahub content with design-time automation hooks.',
+    'Стандартный тип хаба для организации контента метахаба и design-time автоматизации.'
 )
 
-export const STANDARD_LINKED_COLLECTION_NAME = vlc('Linked Collections', 'Связанные коллекции')
-export const STANDARD_LINKED_COLLECTION_DESCRIPTION = vlc(
-    'Standard linked collection entity type with schema, hierarchy, references, scripts, and runtime layout support.',
-    'Стандартный тип связанной коллекции со схемой, иерархией, связями, скриптами и поддержкой runtime layout.'
+export const STANDARD_CATALOG_NAME = vlc('Catalogs', 'Каталоги')
+export const STANDARD_CATALOG_DESCRIPTION = vlc(
+    'Standard catalog entity type with schema, hierarchy, references, scripts, and runtime layout support.',
+    'Стандартный тип каталога со схемой, иерархией, связями, скриптами и поддержкой runtime layout.'
 )
 
-export const STANDARD_VALUE_GROUP_NAME = vlc('Value Groups', 'Группы значений')
-export const STANDARD_VALUE_GROUP_DESCRIPTION = vlc(
-    'Standard value group entity type for typed fixed values and design-time automation.',
-    'Стандартный тип группы значений для типизированных фиксированных значений и design-time автоматизации.'
+export const STANDARD_SET_NAME = vlc('Sets', 'Наборы')
+export const STANDARD_SET_DESCRIPTION = vlc(
+    'Standard set entity type for typed fixed values and design-time automation.',
+    'Стандартный тип набора для типизированных фиксированных значений и design-time автоматизации.'
 )
 
-export const STANDARD_OPTION_LIST_NAME = vlc('Option Lists', 'Списки опций')
-export const STANDARD_OPTION_LIST_DESCRIPTION = vlc(
-    'Standard option list entity type for enumerated values and design-time automation.',
-    'Стандартный тип списка опций для перечислимых значений и design-time автоматизации.'
+export const STANDARD_ENUMERATION_NAME = vlc('Enumerations', 'Перечисления')
+export const STANDARD_ENUMERATION_DESCRIPTION = vlc(
+    'Standard enumeration entity type for enumerated values and design-time automation.',
+    'Стандартный тип перечисления для перечислимых значений и design-time автоматизации.'
 )
 
-export const TREE_ENTITY_TYPE_COMPONENTS: ComponentManifest = {
+export const HUB_TYPE_COMPONENTS: ComponentManifest = {
     dataSchema: false,
     records: false,
     treeAssignment: false,
@@ -42,15 +42,15 @@ export const TREE_ENTITY_TYPE_COMPONENTS: ComponentManifest = {
     physicalTable: false
 }
 
-export const TREE_ENTITY_TYPE_UI: EntityTypeUIConfig = {
+export const HUB_TYPE_UI: EntityTypeUIConfig = {
     iconName: 'IconHierarchy',
     tabs: ['general'],
     sidebarSection: 'objects',
     sidebarOrder: 10,
-    nameKey: 'metahubs:treeEntities.title'
+    nameKey: 'metahubs:hubs.title'
 }
 
-export const LINKED_COLLECTION_TYPE_COMPONENTS: ComponentManifest = {
+export const CATALOG_TYPE_COMPONENTS: ComponentManifest = {
     dataSchema: { enabled: true },
     records: { enabled: true },
     treeAssignment: { enabled: true },
@@ -67,15 +67,15 @@ export const LINKED_COLLECTION_TYPE_COMPONENTS: ComponentManifest = {
     physicalTable: { enabled: true, prefix: 'cat' }
 }
 
-export const LINKED_COLLECTION_TYPE_UI: EntityTypeUIConfig = {
+export const CATALOG_TYPE_UI: EntityTypeUIConfig = {
     iconName: 'IconDatabase',
     tabs: ['general', 'hubs', 'layout', 'scripts'],
     sidebarSection: 'objects',
     sidebarOrder: 20,
-    nameKey: 'metahubs:linkedCollections.title'
+    nameKey: 'metahubs:catalogs.title'
 }
 
-export const VALUE_GROUP_TYPE_COMPONENTS: ComponentManifest = {
+export const SET_TYPE_COMPONENTS: ComponentManifest = {
     dataSchema: { enabled: true },
     records: false,
     treeAssignment: false,
@@ -92,15 +92,15 @@ export const VALUE_GROUP_TYPE_COMPONENTS: ComponentManifest = {
     physicalTable: false
 }
 
-export const VALUE_GROUP_TYPE_UI: EntityTypeUIConfig = {
+export const SET_TYPE_UI: EntityTypeUIConfig = {
     iconName: 'IconFileText',
     tabs: ['general', 'scripts'],
     sidebarSection: 'objects',
     sidebarOrder: 30,
-    nameKey: 'metahubs:valueGroups.title'
+    nameKey: 'metahubs:sets.title'
 }
 
-export const OPTION_LIST_TYPE_COMPONENTS: ComponentManifest = {
+export const ENUMERATION_TYPE_COMPONENTS: ComponentManifest = {
     dataSchema: false,
     records: false,
     treeAssignment: false,
@@ -117,15 +117,15 @@ export const OPTION_LIST_TYPE_COMPONENTS: ComponentManifest = {
     physicalTable: false
 }
 
-export const OPTION_LIST_TYPE_UI: EntityTypeUIConfig = {
+export const ENUMERATION_TYPE_UI: EntityTypeUIConfig = {
     iconName: 'IconFiles',
     tabs: ['general', 'scripts'],
     sidebarSection: 'objects',
     sidebarOrder: 40,
-    nameKey: 'metahubs:optionLists.title'
+    nameKey: 'metahubs:enumerations.title'
 }
 
-export const TREE_ENTITY_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
+export const HUB_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
     {
         codename: 'MainHub',
         name: vlc('Main', 'Основной'),
@@ -133,7 +133,7 @@ export const TREE_ENTITY_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
     }
 ]
 
-export const LINKED_COLLECTION_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
+export const CATALOG_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
     {
         codename: 'MainCatalog',
         name: vlc('Main', 'Основной'),
@@ -158,7 +158,7 @@ export const LINKED_COLLECTION_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
     }
 ]
 
-export const VALUE_GROUP_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
+export const SET_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
     {
         codename: 'MainSet',
         name: vlc('Main', 'Основной'),
@@ -178,7 +178,7 @@ export const VALUE_GROUP_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
     }
 ]
 
-export const OPTION_LIST_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
+export const ENUMERATION_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
     {
         codename: 'MainEnumeration',
         name: vlc('Main', 'Основное'),

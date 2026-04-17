@@ -13,6 +13,7 @@ const mockFixedValueListContent = vi.fn()
 const mockSelectableOptionListContent = vi.fn()
 const mockEntityScriptsTab = vi.fn()
 const mockUseSharedContainerIds = vi.fn()
+const mockUseEntityTypesQuery = vi.fn()
 
 vi.mock('@universo/template-mui', () => ({
     TemplateMainCard: ({ children }: { children: ReactNode }) => <div data-testid='shared-resources-main-card'>{children}</div>,
@@ -63,10 +64,24 @@ vi.mock('../../../../shared/hooks/useSharedContainerIds', () => ({
     useSharedContainerIds: (metahubId: string | undefined) => mockUseSharedContainerIds(metahubId)
 }))
 
+vi.mock('../../../hooks/queries', () => ({
+    useEntityTypesQuery: (metahubId: string | undefined, params?: Record<string, unknown>) => mockUseEntityTypesQuery(metahubId, params)
+}))
+
 import '../../../../../i18n'
 import SharedResourcesPage from '../SharedResourcesPage'
 
 const i18n = getI18nInstance()
+
+const STANDARD_ENTITY_TYPES = {
+    items: [
+        { kindKey: 'hub', components: { dataSchema: false, fixedValues: false, optionValues: false } },
+        { kindKey: 'catalog', components: { dataSchema: { enabled: true }, fixedValues: false, optionValues: false } },
+        { kindKey: 'set', components: { dataSchema: { enabled: true }, fixedValues: { enabled: true }, optionValues: false } },
+        { kindKey: 'enumeration', components: { dataSchema: false, fixedValues: false, optionValues: { enabled: true } } }
+    ],
+    pagination: { limit: 100, offset: 0, count: 4, total: 4, hasMore: false }
+}
 
 describe('SharedResourcesPage', () => {
     beforeEach(async () => {
@@ -77,6 +92,11 @@ describe('SharedResourcesPage', () => {
                 [SHARED_OBJECT_KINDS.SHARED_SET_POOL]: 'shared-set-pool-1',
                 [SHARED_OBJECT_KINDS.SHARED_ENUM_POOL]: 'shared-enum-pool-1'
             },
+            isLoading: false,
+            error: null
+        })
+        mockUseEntityTypesQuery.mockReturnValue({
+            data: STANDARD_ENTITY_TYPES,
             isLoading: false,
             error: null
         })
@@ -99,9 +119,9 @@ describe('SharedResourcesPage', () => {
         expect(screen.getByTestId('shared-resources-main-card')).toBeInTheDocument()
         expect(screen.getByRole('heading', { name: 'Ресурсы' })).toBeInTheDocument()
         expect(screen.getByRole('tab', { name: 'Макеты' })).toHaveAttribute('aria-selected', 'true')
-        expect(screen.getByRole('tab', { name: 'Поля' })).toBeInTheDocument()
+        expect(screen.getByRole('tab', { name: 'Определения полей' })).toBeInTheDocument()
         expect(screen.getByRole('tab', { name: 'Фиксированные значения' })).toBeInTheDocument()
-        expect(screen.getByRole('tab', { name: 'Списки значений' })).toBeInTheDocument()
+        expect(screen.getByRole('tab', { name: 'Значения перечислений' })).toBeInTheDocument()
         expect(screen.getByRole('tab', { name: 'Скрипты' })).toBeInTheDocument()
         expect(screen.getByTestId('metahub-shared-resources-content')).toBeInTheDocument()
         expect(screen.getByTestId('shared-resources-layouts-content')).toBeInTheDocument()
@@ -121,7 +141,7 @@ describe('SharedResourcesPage', () => {
 
         expect(mockUseSharedContainerIds).toHaveBeenCalledWith('metahub-1')
 
-        await user.click(screen.getByRole('tab', { name: 'Поля' }))
+        await user.click(screen.getByRole('tab', { name: 'Определения полей' }))
 
         expect(screen.getByTestId('shared-resources-field-definitions-content')).toBeInTheDocument()
         expect(mockFieldDefinitionListContent).toHaveBeenCalledWith(
@@ -151,7 +171,7 @@ describe('SharedResourcesPage', () => {
             })
         )
 
-        await user.click(screen.getByRole('tab', { name: 'Списки значений' }))
+        await user.click(screen.getByRole('tab', { name: 'Значения перечислений' }))
 
         expect(screen.getByTestId('shared-resources-option-values-content')).toBeInTheDocument()
         expect(mockSelectableOptionListContent).toHaveBeenCalledWith(
@@ -178,5 +198,32 @@ describe('SharedResourcesPage', () => {
                 t: expect.any(Function)
             })
         )
+    })
+
+    it('hides shared tabs when no entity types have the corresponding component enabled', async () => {
+        mockUseEntityTypesQuery.mockReturnValue({
+            data: {
+                items: [{ kindKey: 'hub', components: { dataSchema: false, fixedValues: false, optionValues: false } }],
+                pagination: { limit: 100, offset: 0, count: 1, total: 1, hasMore: false }
+            },
+            isLoading: false,
+            error: null
+        })
+
+        render(
+            <I18nextProvider i18n={i18n}>
+                <MemoryRouter initialEntries={['/metahub/metahub-1/resources']}>
+                    <Routes>
+                        <Route path='/metahub/:metahubId/resources' element={<SharedResourcesPage />} />
+                    </Routes>
+                </MemoryRouter>
+            </I18nextProvider>
+        )
+
+        expect(screen.getByRole('tab', { name: 'Макеты' })).toBeInTheDocument()
+        expect(screen.getByRole('tab', { name: 'Скрипты' })).toBeInTheDocument()
+        expect(screen.queryByRole('tab', { name: 'Определения полей' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('tab', { name: 'Фиксированные значения' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('tab', { name: 'Значения перечислений' })).not.toBeInTheDocument()
     })
 })

@@ -939,7 +939,7 @@ export const FieldDefinitionListContent = ({
         }
 
         return columns
-    }, [attributeMap, firstLocalRowId, hasSharedRows, i18n.language, includeShared, isSystemView, t, tc])
+    }, [attributeMap, includeShared, isSystemView, t, tc])
 
     const createAttributeContext = useCallback(
         (baseContext: ActionContext<FieldDefinitionDisplay, FieldDefinitionLocalizedPayload>) => ({
@@ -1477,7 +1477,7 @@ export const FieldDefinitionListContent = ({
                             <Tabs
                                 value={activeCatalogTab}
                                 onChange={handleCatalogTabChange}
-                                aria-label={t('linkedCollections.title', 'Catalogs')}
+                                aria-label={t('catalogs.title', 'Catalogs')}
                                 textColor='primary'
                                 indicatorColor='primary'
                                 sx={{
@@ -1853,7 +1853,7 @@ export const FieldDefinitionListContent = ({
                         <EntityFormDialog
                             open={editDialogOpen}
                             mode='edit'
-                            title={t('linkedCollections.editTitle', 'Edit LinkedCollectionEntity')}
+                            title={t('catalogs.editTitle', 'Edit LinkedCollectionEntity')}
                             nameLabel={tc('fields.name', 'Name')}
                             descriptionLabel={tc('fields.description', 'Description')}
                             saveButtonText={tc('actions.save', 'Save')}

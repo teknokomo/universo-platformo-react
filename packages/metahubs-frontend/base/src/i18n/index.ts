@@ -18,11 +18,11 @@ interface MetahubsBundle {
     branches?: Record<string, unknown>
     entities?: Record<string, unknown>
     documents?: Record<string, unknown>
-    treeEntities?: Record<string, unknown>
-    linkedCollections?: Record<string, unknown>
-    valueGroups?: Record<string, unknown>
+    hubs?: Record<string, unknown>
+    catalogs?: Record<string, unknown>
+    sets?: Record<string, unknown>
     fixedValues?: Record<string, unknown>
-    optionLists?: Record<string, unknown>
+    enumerations?: Record<string, unknown>
     optionValues?: Record<string, unknown>
     fieldDefinitions?: Record<string, unknown>
     records?: Record<string, unknown>
@@ -61,11 +61,11 @@ const consolidateMetahubsNamespace = (bundle: MetahubsBundle) => {
         members: bundle?.members ?? {},
         entities: bundle?.entities ?? {},
         documents: bundle?.documents ?? {},
-        treeEntities: bundle?.treeEntities ?? {},
-        linkedCollections: bundle?.linkedCollections ?? {},
-        valueGroups: bundle?.valueGroups ?? {},
+        hubs: bundle?.hubs ?? {},
+        catalogs: bundle?.catalogs ?? {},
+        sets: bundle?.sets ?? {},
         fixedValues: bundle?.fixedValues ?? {},
-        optionLists: bundle?.optionLists ?? {},
+        enumerations: bundle?.enumerations ?? {},
         optionValues: bundle?.optionValues ?? {},
         fieldDefinitions: bundle?.fieldDefinitions ?? {},
         records: bundle?.records ?? {},
@@ -100,11 +100,11 @@ interface MetahubsTranslation {
     branches?: Record<string, unknown>
     entities?: Record<string, unknown>
     documents?: Record<string, unknown>
-    treeEntities?: Record<string, unknown>
-    linkedCollections?: Record<string, unknown>
-    valueGroups?: Record<string, unknown>
+    hubs?: Record<string, unknown>
+    catalogs?: Record<string, unknown>
+    sets?: Record<string, unknown>
     fixedValues?: Record<string, unknown>
-    optionLists?: Record<string, unknown>
+    enumerations?: Record<string, unknown>
     optionValues?: Record<string, unknown>
     publications?: Record<string, unknown>
     migrations?: Record<string, unknown>

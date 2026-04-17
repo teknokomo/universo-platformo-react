@@ -70,7 +70,7 @@ export function useCreateValueGroupAtMetahub() {
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('valueGroups.createError', 'Failed to create value group'), { variant: 'error' })
+            enqueueSnackbar(error.message || t('sets.createError', 'Failed to create set'), { variant: 'error' })
         },
         onSuccess: (data, variables, context) => {
             if (context?.optimisticId && data?.id) {
@@ -82,7 +82,7 @@ export function useCreateValueGroupAtMetahub() {
                     { serverEntity: data }
                 )
             }
-            enqueueSnackbar(t('valueGroups.createSuccess', 'Value group created'), { variant: 'success' })
+            enqueueSnackbar(t('sets.createSuccess', 'Set created'), { variant: 'success' })
         },
         onSettled: (_data, _error, variables) => {
             if (queryClient.isMutating({ mutationKey: ['valueGroups'] }) <= 1) {
@@ -136,7 +136,7 @@ export function useCreateValueGroup() {
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('valueGroups.createError', 'Failed to create value group'), { variant: 'error' })
+            enqueueSnackbar(error.message || t('sets.createError', 'Failed to create set'), { variant: 'error' })
         },
         onSuccess: (data, variables, context) => {
             if (context?.optimisticId && data?.id) {
@@ -148,7 +148,7 @@ export function useCreateValueGroup() {
                     { serverEntity: data }
                 )
             }
-            enqueueSnackbar(t('valueGroups.createSuccess', 'Value group created'), { variant: 'success' })
+            enqueueSnackbar(t('sets.createSuccess', 'Set created'), { variant: 'success' })
         },
         onSettled: (_data, _error, variables) => {
             safeInvalidateQueries(
@@ -183,7 +183,7 @@ export function useUpdateValueGroup() {
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('valueGroups.updateError', 'Failed to update value group'), { variant: 'error' })
+            enqueueSnackbar(error.message || t('sets.updateError', 'Failed to update set'), { variant: 'error' })
         },
         onSuccess: async (data, variables) => {
             await queryClient.cancelQueries({
@@ -198,7 +198,7 @@ export function useUpdateValueGroup() {
                     moveToFront: true
                 }
             )
-            enqueueSnackbar(t('valueGroups.updateSuccess', 'Value group updated'), { variant: 'success' })
+            enqueueSnackbar(t('sets.updateSuccess', 'Set updated'), { variant: 'success' })
         },
         onSettled: (_data, _error, variables) => {
             safeInvalidateQueriesInactive(
@@ -235,7 +235,7 @@ export function useUpdateValueGroupAtMetahub() {
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('valueGroups.updateError', 'Failed to update value group'), { variant: 'error' })
+            enqueueSnackbar(error.message || t('sets.updateError', 'Failed to update set'), { variant: 'error' })
         },
         onSuccess: async (data, variables) => {
             await queryClient.cancelQueries({ queryKey: metahubsQueryKeys.allValueGroupsScope(variables.metahubId, variables.kindKey) })
@@ -248,7 +248,7 @@ export function useUpdateValueGroupAtMetahub() {
                     moveToFront: true
                 }
             )
-            enqueueSnackbar(t('valueGroups.updateSuccess', 'Value group updated'), { variant: 'success' })
+            enqueueSnackbar(t('sets.updateSuccess', 'Set updated'), { variant: 'success' })
         },
         onSettled: (_data, _error, variables) => {
             safeInvalidateQueriesInactive(
@@ -289,10 +289,10 @@ export function useDeleteValueGroup() {
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('valueGroups.deleteError', 'Failed to delete value group'), { variant: 'error' })
+            enqueueSnackbar(error.message || t('sets.deleteError', 'Failed to delete set'), { variant: 'error' })
         },
         onSuccess: () => {
-            enqueueSnackbar(t('valueGroups.deleteSuccess', 'Value group deleted'), { variant: 'success' })
+            enqueueSnackbar(t('sets.deleteSuccess', 'Set deleted'), { variant: 'success' })
         },
         onSettled: (_data, _error, variables) => {
             safeInvalidateQueriesInactive(
@@ -371,7 +371,7 @@ export function useCopyValueGroup() {
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('valueGroups.copyError', 'Failed to copy value group'), { variant: 'error' })
+            enqueueSnackbar(error.message || t('sets.copyError', 'Failed to copy set'), { variant: 'error' })
         },
         onSuccess: (data, variables, context) => {
             if (context?.optimisticId && data?.id) {
@@ -385,7 +385,7 @@ export function useCopyValueGroup() {
                     }
                 )
             }
-            enqueueSnackbar(t('valueGroups.copySuccess', 'Value group copied'), { variant: 'success' })
+            enqueueSnackbar(t('sets.copySuccess', 'Set copied'), { variant: 'success' })
         },
         onSettled: async (copiedValueGroup, _error, variables) => {
             if (queryClient.isMutating({ mutationKey: ['valueGroups'] }) <= 1) {

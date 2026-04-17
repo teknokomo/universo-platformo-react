@@ -39,20 +39,20 @@ export const OptionListDeleteDialog = ({
 
     const labels: BlockingEntitiesDeleteDialogLabels = useMemo(
         () => ({
-            title: t('optionLists.deleteDialog.title', 'Delete OptionListEntity'),
+            title: t('enumerations.deleteDialog.title', 'Delete enumeration'),
             confirmMessage: t(
-                'optionLists.deleteDialog.confirmMessage',
-                'Are you sure you want to delete this option list? This action cannot be undone.'
+                'enumerations.deleteDialog.confirmMessage',
+                'Are you sure you want to delete this enumeration? This action cannot be undone.'
             ),
             blockingWarning: t(
-                'optionLists.deleteDialog.hasBlockingReferences',
-                'Cannot delete option list. Remove these references from field definitions first:'
+                'enumerations.deleteDialog.hasBlockingReferences',
+                'Cannot delete enumeration. Remove these references from field definitions first:'
             ),
             resolutionHint: t(
-                'optionLists.deleteDialog.resolutionHint',
-                'Open the source linked collections and update or remove the reference field definitions.'
+                'enumerations.deleteDialog.resolutionHint',
+                'Open the source catalogs and update or remove the reference field definitions.'
             ),
-            fetchError: t('optionLists.deleteDialog.fetchBlockingError', 'Failed to check for blocking references'),
+            fetchError: t('enumerations.deleteDialog.fetchBlockingError', 'Failed to check for blocking references'),
             cancelButton: t('common:actions.cancel', 'Cancel'),
             deleteButton: t('common:actions.delete', 'Delete'),
             deletingButton: t('common:actions.deleting', 'Deleting...')
@@ -71,14 +71,14 @@ export const OptionListDeleteDialog = ({
             },
             {
                 id: 'sourceCatalog',
-                label: t('optionLists.deleteDialog.blockingTable.catalog', 'LinkedCollectionEntity'),
+                label: t('enumerations.deleteDialog.blockingTable.catalog', 'LinkedCollectionEntity'),
                 render: (row) => (
                     <Typography sx={{ fontSize: 14, fontWeight: 500, wordBreak: 'break-word' }}>{row.sourceCatalogDisplayName}</Typography>
                 )
             },
             {
                 id: 'attribute',
-                label: t('optionLists.deleteDialog.blockingTable.attribute', 'Field definition'),
+                label: t('enumerations.deleteDialog.blockingTable.attribute', 'Field definition'),
                 render: (row) => (
                     <Typography sx={{ fontSize: 14, color: 'text.secondary', wordBreak: 'break-word' }}>
                         {row.attributeDisplayName}

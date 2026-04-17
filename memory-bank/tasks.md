@@ -6,6 +6,82 @@
 
 ## Current Task Ledger (Canonical)
 
+## Active: PR #767 Review Comment Triage (2026-04-18)
+
+> Goal: audit bot review comments in PR #767, implement only validated safe fixes, re-run targeted verification, and push the resulting changes to the same PR branch.
+
+- [x] Fetch and classify all unresolved PR #767 review comments
+- [x] Validate each suggested fix against the current codebase and relevant external docs
+- [x] Implement only the fixes that are correct and regression-safe
+- [x] Run targeted validation for touched areas and root `pnpm build`
+- [x] Update memory-bank status files and push the follow-up commit to PR #767
+
+- Review outcome note:
+  - Two bot comments were present. The unsafe translation-context cast in `PublicationList.tsx` was valid and fixed.
+  - The `SharedResourcesPage.tsx` fallback-tab suggestion was intentionally not applied because current derived rendering is safe, preserves hidden-tab intent, and does not justify an extra synchronization effect.
+
+## Completed: QA Closure — i18n, Resources, Lint, Documentation (2026-04-18)
+
+> Goal: fix 5 critical post-migration issues — broken i18n keys, confusing Resources tabs, fixture hash mismatch, documentation drift, lint debt.
+
+- [x] Phase A.1: Add missing `records.*` i18n section (~44 keys) to EN/RU locales
+- [x] Phase A.2: Add missing `tabs.treeEntities` keys to 4 entity type tab sections
+- [x] Phase A.3: Translate ~25 English strings in RU locale deleteDialog sections
+- [x] Phase A.4: Fix mixed pluralization (`constantsCount_*` → `fixedValuesCount_*`)
+- [x] Phase A.5: Fix EN/RU key asymmetry
+- [x] Phase B.1: Update RU Resources tab labels ("Поля" → "Определения полей", etc.)
+- [x] Phase B.2: Make Resources tabs dynamic based on entity type ComponentManifest
+- [x] Phase B.3: Update empty state descriptions
+- [x] Fix all 19 production-file lint warnings (exhaustive-deps, no-explicit-any, unused vars)
+- [x] Fix README documentation drift (src/constants/ → src/view-preferences/)
+- [x] Update memory-bank/systemPatterns.md with dynamic shared resources pattern
+- [x] Update memory-bank/techContext.md with shared resources architecture
+- [x] Update memory-bank/activeContext.md, tasks.md, progress.md
+- [x] Full validation: pnpm build 30/30, backend 68/68, frontend 64/64, lint 0 errors
+
+## Active: Distributed Noodling Ullman Plan Continuation (2026-04-17)
+
+> Goal: continue the interrupted IMPLEMENT session after Phases A/B, finish fixture regeneration, full-cycle Playwright coverage, documentation refresh, and final validation for the entity-first metahubs architecture.
+
+### Final Action Plan — Continuation Session (2026-04-17)
+
+- [x] Revalidate the current Phase A/B code state with targeted build/tests and fix any drift before generator work
+- [x] Regenerate `tools/fixtures/metahubs-self-hosted-app-snapshot.json` via Playwright generator and verify integrity import/export flow
+- [x] Regenerate `tools/fixtures/metahubs-quiz-app-snapshot.json` via Playwright generator or repair its generator path until the new fixture is valid
+- [x] Implement and stabilize the full-cycle Playwright coverage for entity-first Hubs/Catalogs/Sets/Enumerations plus publication/application runtime checks
+- [x] Finish EN/RU documentation rewrite and screenshot references for the entity-first architecture and Resources section
+- [x] Update `memory-bank/activeContext.md`, `memory-bank/progress.md`, and this task ledger with verified outcomes
+- [x] Run final validation for touched areas plus canonical workspace build and report any residual constraints explicitly
+
+- Verified continuation outcomes:
+  - `pnpm build` passed before and after the continuation fixes.
+  - `pnpm --filter @universo/metahubs-backend test` passed (`68/68` suites).
+  - Documentation screenshot generators passed for both entity docs and quiz tutorial docs.
+  - Full-cycle/import regression bundle passed after spec drift fixes (`codename-mode`, `snapshot-export-import`, `snapshot-import-quiz-runtime`, `metahub-domain-entities`, `metahub-entity-full-lifecycle`, `metahub-settings`).
+
+## Completed: Entity Type Naming Refactoring (2026-04-17)
+
+> Goal: rename all entity type display names from surface-key terminology (Tree Entities, Linked Collections, Value Groups, Option Lists) to traditional names (Hubs, Catalogs, Sets, Enumerations) across the entire monorepo. Internal surface keys preserved; only display names, presets, i18n, and docs updated.
+
+- [x] Fix backend preset definitions — rename VLC names, descriptions, UI configs, component constants, default instance constants
+- [x] Rename i18n sections in both EN and RU `metahubs.json` files
+- [x] Update frontend i18n key references (25+ source files)
+- [x] Restructure sidebar menu — dynamic entity types under Resources; "Entity Types" admin link moved after divider; added i18n keys for `entityTypes`
+- [x] Update `ENTITY_SURFACE_LABELS` display strings in `@universo/types`
+- [x] Update unit tests — all test assertions and mocks across backend/frontend/template-mui
+- [x] Fix remaining old terminology — comprehensive sweep of error messages, fallback strings, JSDoc comments across 30+ files
+- [x] Update fixture generation script to use unified entity API endpoints
+- [x] Update Playwright E2E tests (11 test files with new terminology)
+- [x] Build/lint/test verification — full workspace build (30 packages), lint, 934 tests passing
+- [x] Fix residual terminology across remaining source code
+- [x] Regenerate fixture snapshots (manual — full regeneration needs running server)
+- [x] Update documentation EN/RU (14 files across `docs/en/` and `docs/ru/`)
+- [x] Update memory-bank files
+- Architecture confirmed: Entity system is a fully generic constructor; Hubs/Catalogs/Sets/Enumerations are presets, not hardcoded types.
+- Details: progress.md#2026-04-17-entity-type-naming-refactoring
+
+---
+
 ## Active: QA Closure + Entities Contract Sync (2026-04-17)
 
 > Goal: close the remaining QA blockers by synchronizing frontend/backend entity copy contracts, restoring Playwright entity-flow stability, and revalidating lint/tests/build without introducing regressions.

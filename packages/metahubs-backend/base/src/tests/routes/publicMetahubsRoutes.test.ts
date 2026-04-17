@@ -2,7 +2,7 @@
  * Public Metahubs Routes Tests
  *
  * Tests for the public API that exposes published metahubs without authentication.
- * Hierarchy: Metahub → Tree Entity → Linked Collection → Field Definitions/Records
+ * Hierarchy: Metahub → Hub → Catalog → Field Definitions/Records
  */
 
 const mockFindPublicMetahubBySlug = jest.fn()
@@ -143,7 +143,7 @@ describe('publicMetahubsRoutes', () => {
     })
 
     // ── GET /:slug/tree-entities ──────────────────────────────
-    it('lists tree entities for a metahub', async () => {
+    it('lists hubs for a metahub', async () => {
         mockTreeEntitiesFindAll.mockResolvedValue({ items: [TREE_ENTITY] })
 
         const res = await request(buildApp()).get('/public/my-project/tree-entities')
@@ -152,13 +152,13 @@ describe('publicMetahubsRoutes', () => {
     })
 
     // ── GET /:slug/tree-entity/:treeEntityCodename ───────────
-    it('returns a tree entity by codename', async () => {
+    it('returns a hub by codename', async () => {
         const res = await request(buildApp()).get('/public/my-project/tree-entity/main-hub')
         expect(res.status).toBe(200)
         expect(res.body.codename).toBe('main-hub')
     })
 
-    it('returns 404 for unknown tree entity codename', async () => {
+    it('returns 404 for unknown hub codename', async () => {
         mockTreeEntitiesFindByCodename.mockResolvedValue(null)
 
         const res = await request(buildApp()).get('/public/my-project/tree-entity/nope')
@@ -166,7 +166,7 @@ describe('publicMetahubsRoutes', () => {
     })
 
     // ── GET /:slug/tree-entity/:treeEntityCodename/linked-collections ──
-    it('lists linked collections in a tree entity', async () => {
+    it('lists catalogs in a hub', async () => {
         mockObjectsFindAll.mockResolvedValue([LINKED_COLLECTION])
 
         const res = await request(buildApp()).get('/public/my-project/tree-entity/main-hub/linked-collections')
@@ -174,7 +174,7 @@ describe('publicMetahubsRoutes', () => {
         expect(res.body.items).toHaveLength(1)
     })
 
-    it('filters linked collections not belonging to the tree entity', async () => {
+    it('filters catalogs not belonging to the hub', async () => {
         const otherLinkedCollection = { ...LINKED_COLLECTION, id: 'cat-2', config: { hubs: ['other-hub'] } }
         mockObjectsFindAll.mockResolvedValue([LINKED_COLLECTION, otherLinkedCollection])
 
@@ -184,7 +184,7 @@ describe('publicMetahubsRoutes', () => {
         expect(res.body.items[0].id).toBe('cat-1')
     })
 
-    it('filters objects that are not linked collection compatible kinds', async () => {
+    it('filters objects that are not catalog compatible kinds', async () => {
         const nonLinkedCollection = { ...LINKED_COLLECTION, id: 'cat-2', kind: 'set', config: { hubs: ['hub-1'] } }
         mockObjectsFindAll.mockResolvedValue([LINKED_COLLECTION, nonLinkedCollection])
 
@@ -195,13 +195,13 @@ describe('publicMetahubsRoutes', () => {
     })
 
     // ── GET /:slug/tree-entity/:treeEntityCodename/linked-collection/:linkedCollectionCodename ──
-    it('returns a linked collection by codename', async () => {
+    it('returns a catalog by codename', async () => {
         const res = await request(buildApp()).get('/public/my-project/tree-entity/main-hub/linked-collection/products')
         expect(res.status).toBe(200)
         expect(res.body.codename).toBe('products')
     })
 
-    it('returns 404 for linked collection not in tree entity', async () => {
+    it('returns 404 for catalog not in hub', async () => {
         mockObjectsFindByCodename.mockResolvedValue({
             ...LINKED_COLLECTION,
             config: { hubs: ['other-hub-id'] }
@@ -211,7 +211,7 @@ describe('publicMetahubsRoutes', () => {
         expect(res.status).toBe(404)
     })
 
-    it('returns 404 for object codename that is not linked collection compatible', async () => {
+    it('returns 404 for object codename that is not catalog compatible', async () => {
         mockObjectsFindByCodename.mockResolvedValue({ ...LINKED_COLLECTION, kind: 'set' })
 
         const res = await request(buildApp()).get('/public/my-project/tree-entity/main-hub/linked-collection/products')
@@ -219,7 +219,7 @@ describe('publicMetahubsRoutes', () => {
     })
 
     // ── GET .../field-definitions ─────────────────────────────
-    it('lists field definitions for a linked collection', async () => {
+    it('lists field definitions for a catalog', async () => {
         mockFieldDefinitionsFindAll.mockResolvedValue([FIELD_DEFINITION])
 
         const res = await request(buildApp()).get('/public/my-project/tree-entity/main-hub/linked-collection/products/field-definitions')
