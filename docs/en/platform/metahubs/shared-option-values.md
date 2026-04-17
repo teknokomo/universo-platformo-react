@@ -4,14 +4,14 @@ description: Platform reference for shared option values authored from the Resou
 
 # Shared Option Values
 
-Shared option values live in the Common Option Values tab and belong to the virtual shared option list pool instead of one option list.
+Shared option values live in the Shared Option Values tab of the Resources workspace and belong to the virtual shared option list pool instead of one option list.
 They let one option value definition stay reusable while multiple option lists inherit the same source row.
 
 ## Design-Time Rules
 
-- Create the option value from Common when the same meaning must appear in more than one option list.
+- Create the option value from the Shared Option Values tab when the same meaning must appear in more than one option list.
 - Keep shared behavior on the shared row and sparse target changes in override rows.
-- Use target option lists to inspect inherited state, but keep the base shared authoring flow in Common.
+- Use target option lists to inspect inherited state, but keep the base shared authoring flow in the Shared Option Values tab.
 - Use local option list values only when one option list needs a value that others must not inherit.
 
 ## Target Controls

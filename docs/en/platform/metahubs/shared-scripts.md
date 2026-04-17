@@ -1,5 +1,5 @@
 ---
-description: Platform reference for Common shared library scripts and their fail-closed delivery rules.
+description: Platform reference for shared library scripts authored from the Resources workspace and their fail-closed delivery rules.
 ---
 
 # Shared Scripts
@@ -9,7 +9,7 @@ They are import-only design assets and are not exposed as direct runtime entrypo
 
 ## Authoring Rules
 
-- Create shared scripts only from Common -> Scripts.
+- Create shared scripts only from the Scripts tab in the Resources workspace.
 - Pair `attachedToKind=general` with `moduleRole=library` every time.
 - Keep library code pure and move executable behavior into consumer scripts.
 - Import shared helpers from consumers through `@shared/<codename>`.

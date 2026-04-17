@@ -1,17 +1,17 @@
 ---
-description: Объясняет, чем владеют metahubs, как устроены resources workspace и уровни настроек, и как publications питают applications.
+description: Объясняет, чем владеют metahubs, как устроено рабочее пространство ресурсов и уровни настроек, и как publications питают applications.
 ---
 
 # Метахабы
 
-Метахабы являются design-time источником истины для структур, assets в resources workspace, скриптов и контента, готового к publication.
+Метахабы являются design-time источником истины для структур, assets в рабочем пространстве ресурсов, скриптов и контента, готового к publication.
 Это не просто папки: каждый metahub владеет моделью настройки, которая позже становится publication data и состоянием runtime в application.
 
 ## Чем владеет metahub
 
 - ветвями для design-time evolution;
 - entity types, entity instances, field definitions, fixed values, records и другими authoring resources;
-- выделенной рабочей областью Resources, включая shared layouts, reusable metadata pools и reusable scripts;
+- выделенным рабочим пространством ресурсов, включая shared layouts, reusable metadata pools и reusable scripts;
 - scripts, прикреплёнными на уровне resources, metahub или entity;
 - publications, которые упаковывают текущее approved state.
 
@@ -36,7 +36,7 @@ description: Объясняет, чем владеют metahubs, как устр
 | Entity layout behavior | Selected entity layout config | `showCreateButton`, `searchMode` и поведение create/edit/copy для выбранного layout entity. |
 | Application settings | Application record | Только dialogs панели управления application, а не dialogs настройки в metahub. |
 
-## Область действия resources workspace
+## Область действия рабочего пространства ресурсов
 
 Реальная точка входа для cross-cutting-настройки теперь находится в выделенной рабочей области `/resources`.
 Shared layouts остаются централизованными, reusable metadata pools остаются переиспользуемыми, а resources scripts сохраняют shared-контракт импортов `@shared/<codename>`.

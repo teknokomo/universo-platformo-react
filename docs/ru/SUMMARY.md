@@ -15,7 +15,7 @@
 * [Узлы и рабочие пространства](platform/workspaces.md)
 * [Пространства знаний](platform/spaces.md)
 * [Метахабы](platform/metahubs.md)
-  * [Рабочая область Resources](platform/metahubs/common-section.md)
+  * [Рабочее пространство ресурсов](platform/metahubs/common-section.md)
   * [Общие определения полей](platform/metahubs/shared-field-definitions.md)
   * [Общие фиксированные значения](platform/metahubs/shared-fixed-values.md)
   * [Общие значения опций](platform/metahubs/shared-option-values.md)
@@ -75,7 +75,7 @@
 ## Руководства
 
 * [Обзор](guides/README.md)
-* [Рабочая область Resources](guides/general-section.md)
+* [Рабочее пространство ресурсов](guides/general-section.md)
 * [Пользовательские типы сущностей](guides/custom-entity-types.md)
 * [Макеты каталогов](guides/catalog-layouts.md)
 * [Скрипты Metahub](guides/metahub-scripting.md)

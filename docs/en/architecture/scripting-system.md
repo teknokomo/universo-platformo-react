@@ -18,7 +18,7 @@ Each layer normalizes the same shared manifest contract so role, source kind, an
 ## Safety Boundaries
 
 - Embedded authoring is the only supported source mode in v1.
-- Embedded scripts may import from `@universo/extension-sdk`, and consumer scripts may additionally import Common libraries through `@shared/<codename>`; other static imports, `require()`, dynamic `import()`, and `import.meta` fail compilation.
+- Embedded scripts may import from `@universo/extension-sdk`, and consumer scripts may additionally import Resources workspace libraries through `@shared/<codename>`; other static imports, `require()`, dynamic `import()`, and `import.meta` fail compilation.
 - The `general` attachment scope is reserved for `library`, and new `library` authoring is rejected outside the Resources workspace before bundles are stored.
 - Shared libraries must stay pure: decorators, runtime ctx access, and executable runtime entrypoints are rejected during validation.
 - Dependency-sensitive shared-library deletes, codename changes, and circular `@shared/*` graphs fail closed before publication sync can produce runtime state.

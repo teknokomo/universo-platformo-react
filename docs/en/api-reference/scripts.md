@@ -5,21 +5,21 @@ description: REST reference for metahub design-time scripts and application runt
 # Scripts API
 
 The scripts API spans metahub design-time authoring routes and application runtime delivery routes.
-It keeps Common libraries, consumer scripts, client bundles, and server calls under one fail-closed contract.
+It keeps Resources workspace libraries, consumer scripts, client bundles, and server calls under one fail-closed contract.
 
 ## Metahub Design-Time Endpoints
 
 - `GET /metahub/{metahubId}/scripts` lists design-time scripts for one attachment scope.
 - `POST /metahub/{metahubId}/scripts` creates a design-time script.
 - `GET /metahub/{metahubId}/script/{scriptId}`, `PATCH /metahub/{metahubId}/script/{scriptId}`, and `DELETE /metahub/{metahubId}/script/{scriptId}` read, update, or remove one script.
-- Common authoring must pair `attachedToKind=general` with `moduleRole=library`.
+- Resources workspace authoring must pair `attachedToKind=general` with `moduleRole=library`.
 
 ## Application Runtime Endpoints
 
 - `GET /applications/{applicationId}/runtime/scripts` lists published runtime script metadata without inline bundles.
 - `GET /applications/{applicationId}/runtime/scripts/{scriptId}/client` returns the cacheable client JavaScript bundle.
 - `POST /applications/{applicationId}/runtime/scripts/{scriptId}/call` executes only allowed non-lifecycle server methods.
-- Runtime routes expose consumer scripts, not direct Common library rows.
+- Runtime routes expose consumer scripts, not direct Resources workspace library rows.
 
 ## Fail-Closed Notes
 

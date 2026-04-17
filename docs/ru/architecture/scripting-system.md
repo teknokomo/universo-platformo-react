@@ -18,7 +18,7 @@ description: Архитектура перехода от design-time к runtime
 ## Границы безопасности
 
 - Во v1 поддерживается только embedded-authoring.
-- Embedded-скрипты могут импортировать `@universo/extension-sdk`, а consumer scripts могут дополнительно импортировать Common libraries через `@shared/<codename>`; остальные static imports, `require()`, dynamic `import()` и `import.meta` завершают compilation с ошибкой.
+- Embedded-скрипты могут импортировать `@universo/extension-sdk`, а consumer scripts могут дополнительно импортировать библиотеки рабочего пространства ресурсов через `@shared/<codename>`; остальные static imports, `require()`, dynamic `import()` и `import.meta` завершают compilation с ошибкой.
 - Scope привязки `general` зарезервирован для `library`, а новый authoring `library` вне рабочей области Resources отклоняется до сохранения bundles.
 - Shared libraries должны оставаться чистыми: decorators, runtime ctx access и исполняемые runtime entrypoints отклоняются на этапе validation.
 - Dependency-sensitive удаление shared-library, смена codename и циклы `@shared/*` завершаются fail-closed до того, как publication sync сможет произвести runtime state.

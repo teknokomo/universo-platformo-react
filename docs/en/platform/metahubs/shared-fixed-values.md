@@ -4,14 +4,14 @@ description: Platform reference for shared fixed values authored from the Resour
 
 # Shared Fixed Values
 
-Shared fixed values live in the Common Fixed Values tab and belong to the virtual shared value group pool instead of one value group.
+Shared fixed values live in the Shared Fixed Values tab of the Resources workspace and belong to the virtual shared value group pool instead of one value group.
 They let one fixed value definition stay central while multiple value groups inherit the same design-time source.
 
 ## Design-Time Rules
 
-- Create the fixed value from Common when more than one value group should reuse it.
+- Create the fixed value from the Shared Fixed Values tab when more than one value group should reuse it.
 - Keep shared behavior on the fixed value itself and sparse target changes in override rows.
-- Inspect inherited state from the target value group route, but edit the base shared row from Common.
+- Inspect inherited state from the target value group route, but edit the base shared row from the Shared Fixed Values tab.
 - Use local value group fixed values only when the value should not spread across value groups.
 
 ## Target Controls

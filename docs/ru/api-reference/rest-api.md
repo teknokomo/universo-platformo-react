@@ -46,10 +46,10 @@ onboarding, applications, connectors, admin, public metahub и metahub design-ti
 
 ## Metahub Shared Authoring Endpoints
 
-- `GET /metahub/{metahubId}/shared-containers` разрешает виртуальные контейнеры Common, которые используются для shared attributes, constants и values.
+- `GET /metahub/{metahubId}/shared-containers` разрешает виртуальные контейнеры рабочего пространства ресурсов, которые используются для общих определений полей, фиксированных значений и значений опций.
 - `GET /metahub/{metahubId}/shared-entity-overrides` перечисляет sparse overrides исключения или порядка для одной shared entity либо одного target object.
 - `PATCH /metahub/{metahubId}/shared-entity-overrides` выполняет fail-closed upsert overrides исключения, active-state или sort-order для shared entities.
-- `GET /metahub/{metahubId}/scripts` и `POST /metahub/{metahubId}/scripts` перечисляют и создают design-time scripts; authoring в Common обязан сочетать `attachedToKind=general` с `moduleRole=library`.
+- `GET /metahub/{metahubId}/scripts` и `POST /metahub/{metahubId}/scripts` перечисляют и создают design-time scripts; authoring в рабочем пространстве ресурсов обязан сочетать `attachedToKind=general` с `moduleRole=library`.
 - `GET /metahub/{metahubId}/script/{scriptId}`, `PATCH /metahub/{metahubId}/script/{scriptId}` и `DELETE /metahub/{metahubId}/script/{scriptId}` завершаются fail-closed, если rename, delete или circular dependency shared-library сломают consumer-ы `@shared/<codename>`.
 - `GET /metahub/{metahubId}/export` и `POST /metahubs/import` сохраняют shared snapshot sections вместе с layouts, scripts и publication-ready metadata.
 

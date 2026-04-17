@@ -1,8 +1,8 @@
 ---
-description: Как использовать resources workspace в metahub как реальную точку входа для layout, reusable metadata resources и shared library scripts.
+description: Как использовать рабочее пространство ресурсов в metahub как реальную точку входа для layout, reusable metadata resources и shared library scripts.
 ---
 
-# Рабочая область Resources
+# Рабочее пространство ресурсов
 
 Страница Resources является реальной точкой входа для настройки layout, reusable metadata resources и shared library scripts внутри metahub.
 Живая навигация теперь ведёт прямо на `/resources`, поэтому активный контракт больше не зависит от legacy Common или surface `/layouts`.

@@ -1,5 +1,5 @@
 ---
-description: Reference for the exact difference between Common libraries, metahub scripts, and object-attached scripts.
+description: Reference for the exact difference between Resources workspace libraries, metahub scripts, and object-attached scripts.
 ---
 
 # Script Scopes
@@ -11,7 +11,7 @@ Choose scope first, then choose the compatible module role and runtime behavior.
 
 | Scope | Allowed roles | Direct runtime entrypoint | Typical use |
 | --- | --- | --- | --- |
-| `general` | `library` only | No | Common shared helpers imported through `@shared/<codename>`. |
+| `general` | `library` only | No | Resources workspace shared helpers imported through `@shared/<codename>`. |
 | `metahub` | `module`, `lifecycle`, `widget` | Yes | Metahub-level runtime logic and widgets. |
 | `hub` / `catalog` / `set` / `enumeration` / `attribute` | `module`, `lifecycle`, `widget` | Yes | Object-attached consumers close to one design surface. |
 
