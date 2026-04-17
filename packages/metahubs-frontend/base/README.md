@@ -136,7 +136,7 @@ packages/metahubs-frontend/base/
 ├── __tests__/            # Package-level smoke and export tests
 ├── src/
 │   ├── components/       # Shared metahub-specific UI building blocks
-│   ├── constants/        # Package constants and storage keys
+│   ├── view-preferences/  # View preference storage keys and helpers
 │   ├── domains/          # Entity-first feature domains and screens
 │   │   ├── branches/     # Branch management routes and UI
 │   │   ├── entities/     # Entity types, instances, metadata, actions, events

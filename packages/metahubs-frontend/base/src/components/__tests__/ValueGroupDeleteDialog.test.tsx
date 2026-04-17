@@ -127,7 +127,7 @@ describe('ValueGroupDeleteDialog', () => {
         const [firstRow] = result.blockingEntities
 
         expect(getBlockingValueGroupReferences).toHaveBeenCalledWith('metahub-1', 'set-1', undefined)
-        expect(dialogProps.labels.blockingWarning).toContain('linked-collection field definitions')
+        expect(dialogProps.labels.blockingWarning).toContain('catalog field definitions')
         expect(firstRow.sourceCatalogDisplayName).toBe('ProductsCatalog')
         expect(firstRow.attributeDisplayName).toBe('OwnerRef')
         expect(dialogProps.getBlockingEntityLink(firstRow)).toBe('/metahub/metahub-1/entities/catalog/instance/catalog-1/field-definitions')

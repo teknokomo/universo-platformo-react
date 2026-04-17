@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Box, Tab, Tabs, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router-dom'
-import { SHARED_OBJECT_KINDS } from '@universo/types'
+import { isEnabledComponentConfig, type ComponentManifest, SHARED_OBJECT_KINDS } from '@universo/types'
 
 import { TemplateMainCard as MainCard, ViewHeaderMUI as ViewHeader } from '@universo/template-mui'
 
@@ -12,14 +12,58 @@ import { SelectableOptionListContent } from '../../metadata/optionValue/ui/Selec
 import { LayoutListContent } from '../../../layouts/ui/LayoutList'
 import { EntityScriptsTab } from '../../../scripts/ui/EntityScriptsTab'
 import { useSharedContainerIds } from '../../../shared/hooks/useSharedContainerIds'
+import { useEntityTypesQuery } from '../../hooks/queries'
 
 type SharedResourcesTab = 'layouts' | 'fieldDefinitions' | 'fixedValues' | 'optionValues' | 'scripts'
+
+interface TabConfig {
+    value: SharedResourcesTab
+    labelKey: string
+    labelFallback: string
+    visible: boolean
+}
+
+function hasAnyEnabledComponent(manifests: ComponentManifest[], component: keyof ComponentManifest): boolean {
+    return manifests.some((m) => isEnabledComponentConfig(m[component]))
+}
 
 export default function SharedResourcesPage() {
     const { metahubId } = useParams<{ metahubId: string }>()
     const { t } = useTranslation('metahubs')
     const [activeTab, setActiveTab] = useState<SharedResourcesTab>('layouts')
     const sharedContainerIdsQuery = useSharedContainerIds(metahubId)
+
+    const entityTypesQuery = useEntityTypesQuery(metahubId, { limit: 100 })
+
+    const tabs = useMemo<TabConfig[]>(() => {
+        const manifests = (entityTypesQuery.data?.items ?? []).map((et) => et.components)
+
+        return [
+            { value: 'layouts', labelKey: 'general.tabs.layouts', labelFallback: 'Layouts', visible: true },
+            {
+                value: 'fieldDefinitions',
+                labelKey: 'general.tabs.fieldDefinitions',
+                labelFallback: 'Field definitions',
+                visible: hasAnyEnabledComponent(manifests, 'dataSchema')
+            },
+            {
+                value: 'fixedValues',
+                labelKey: 'general.tabs.fixedValues',
+                labelFallback: 'Fixed values',
+                visible: hasAnyEnabledComponent(manifests, 'fixedValues')
+            },
+            {
+                value: 'optionValues',
+                labelKey: 'general.tabs.optionValues',
+                labelFallback: 'Option values',
+                visible: hasAnyEnabledComponent(manifests, 'optionValues')
+            },
+            { value: 'scripts', labelKey: 'general.tabs.scripts', labelFallback: 'Scripts', visible: true }
+        ]
+    }, [entityTypesQuery.data?.items])
+
+    const visibleTabs = tabs.filter((tab) => tab.visible)
+    const effectiveTab = visibleTabs.some((tab) => tab.value === activeTab) ? activeTab : visibleTabs[0]?.value ?? 'layouts'
 
     const renderSharedTabPlaceholder = (message: string) => (
         <Box sx={{ py: 2 }}>
@@ -89,21 +133,19 @@ export default function SharedResourcesPage() {
 
             <Box data-testid='metahub-shared-resources-tabs' sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
                 <Tabs
-                    value={activeTab}
+                    value={effectiveTab}
                     onChange={(_, nextValue: SharedResourcesTab) => setActiveTab(nextValue)}
                     variant='scrollable'
                     scrollButtons='auto'
                 >
-                    <Tab value='layouts' label={t('general.tabs.layouts', 'Layouts')} />
-                    <Tab value='fieldDefinitions' label={t('general.tabs.fieldDefinitions', 'Field definitions')} />
-                    <Tab value='fixedValues' label={t('general.tabs.fixedValues', 'Fixed values')} />
-                    <Tab value='optionValues' label={t('general.tabs.optionValues', 'Option values')} />
-                    <Tab value='scripts' label={t('general.tabs.scripts', 'Scripts')} />
+                    {visibleTabs.map((tab) => (
+                        <Tab key={tab.value} value={tab.value} label={t(tab.labelKey, tab.labelFallback)} />
+                    ))}
                 </Tabs>
             </Box>
 
             <Box data-testid='metahub-shared-resources-content' sx={{ py: 2 }}>
-                {activeTab === 'layouts' ? (
+                {effectiveTab === 'layouts' ? (
                     <LayoutListContent
                         metahubId={metahubId}
                         detailBasePath={metahubId ? `/metahub/${metahubId}/resources/layouts` : ''}
@@ -113,10 +155,10 @@ export default function SharedResourcesPage() {
                         renderPageShell={false}
                     />
                 ) : null}
-                {activeTab === 'fieldDefinitions' ? renderSharedContent('SHARED_CATALOG_POOL') : null}
-                {activeTab === 'fixedValues' ? renderSharedContent('SHARED_SET_POOL') : null}
-                {activeTab === 'optionValues' ? renderSharedContent('SHARED_ENUM_POOL') : null}
-                {activeTab === 'scripts' ? (
+                {effectiveTab === 'fieldDefinitions' ? renderSharedContent('SHARED_CATALOG_POOL') : null}
+                {effectiveTab === 'fixedValues' ? renderSharedContent('SHARED_SET_POOL') : null}
+                {effectiveTab === 'optionValues' ? renderSharedContent('SHARED_ENUM_POOL') : null}
+                {effectiveTab === 'scripts' ? (
                     <EntityScriptsTab metahubId={metahubId} attachedToKind='general' attachedToId={null} t={t} />
                 ) : null}
             </Box>

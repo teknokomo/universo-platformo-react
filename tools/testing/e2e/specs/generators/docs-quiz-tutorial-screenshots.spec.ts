@@ -5,7 +5,6 @@ import { applyBrowserPreferences } from '../../support/browser/preferences'
 import {
     createLoggedInApiContext,
     createMetahub,
-    createFieldDefinition,
     createPublication,
     createPublicationLinkedApplication,
     createPublicationVersion,
@@ -24,7 +23,6 @@ import { repoRoot } from '../../support/env/load-e2e-env.mjs'
 import {
     buildEntityMenuItemSelector,
     buildEntityMenuTriggerSelector,
-    buildLayoutZoneSelector,
     entityDialogSelectors
 } from '../../support/selectors/contracts'
 import {
@@ -188,14 +186,6 @@ test.describe('Docs Quiz Tutorial Screenshots', () => {
         const catalogId = await waitForCatalogId(api, metahub.id)
         const layoutId = await waitForLayoutId(api, metahub.id)
 
-        await createFieldDefinition(api, metahub.id, catalogId, {
-            name: { en: 'Title' },
-            namePrimaryLocale: 'en',
-            codename: createLocalizedContent('en', 'title'),
-            dataType: 'STRING',
-            isRequired: false
-        })
-
         await applyCenteredQuizLayout(api, metahub.id, layoutId)
 
         await expectJsonResponse(
@@ -274,8 +264,8 @@ test.describe('Docs Quiz Tutorial Screenshots', () => {
         await scriptsDialog.getByTestId(entityDialogSelectors.cancelButton).click()
         await expect(scriptsDialog).toHaveCount(0)
 
-        await page.goto(`/metahub/${metahub.id}/layouts/${layoutId}`)
-        await expect(page.getByTestId(buildLayoutZoneSelector('center'))).toBeVisible({ timeout: 30_000 })
+        await page.goto(`/metahub/${metahub.id}/resources/layouts/${layoutId}`)
+        await expect(page.getByText('Drag widgets between zones to change runtime composition.')).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText('Quiz widget').first()).toBeVisible({ timeout: 30_000 })
         await page.screenshot({ path: path.join(PRIMARY_SCREENSHOTS_DIR, 'layout-quiz-widget.png') })
 

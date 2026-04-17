@@ -35,7 +35,7 @@ export function createOptionValueHandlers(createHandler: ReturnType<typeof creat
         const compatibleKindSet = createEntityMetadataKindSet(compatibleKinds)
         const optionList = await objectsService.findById(metahubId, req.params.optionListId, userId)
         if (!optionList || !isOptionListContextKind(optionList.kind, compatibleKindSet)) {
-            return res.status(404).json({ error: 'Option list not found' })
+            return res.status(404).json({ error: 'Enumeration not found' })
         }
 
         const parsed = listValuesQuerySchema.safeParse(req.query)
@@ -55,7 +55,7 @@ export function createOptionValueHandlers(createHandler: ReturnType<typeof creat
         const compatibleKindSet = createEntityMetadataKindSet(compatibleKinds)
         const optionList = await objectsService.findById(metahubId, req.params.optionListId, userId)
         if (!optionList || !isOptionListContextKind(optionList.kind, compatibleKindSet)) {
-            return res.status(404).json({ error: 'Option list not found' })
+            return res.status(404).json({ error: 'Enumeration not found' })
         }
 
         const value = await valuesService.findById(metahubId, req.params.valueId, userId)
@@ -75,7 +75,7 @@ export function createOptionValueHandlers(createHandler: ReturnType<typeof creat
         const compatibleKinds = Array.from(compatibleKindSet)
         const optionList = await objectsService.findById(metahubId, req.params.optionListId, userId)
         if (!optionList || !isOptionListContextKind(optionList.kind, compatibleKindSet)) {
-            return res.status(404).json({ error: 'Option list not found' })
+            return res.status(404).json({ error: 'Enumeration not found' })
         }
 
         const value = await valuesService.findById(metahubId, req.params.valueId, userId)
@@ -110,7 +110,7 @@ export function createOptionValueHandlers(createHandler: ReturnType<typeof creat
             const compatibleKindSet = createEntityMetadataKindSet(compatibleKinds)
             const optionList = await objectsService.findById(metahubId, req.params.optionListId, userId)
             if (!optionList || !isOptionListContextKind(optionList.kind, compatibleKindSet)) {
-                return res.status(404).json({ error: 'Option list not found' })
+                return res.status(404).json({ error: 'Enumeration not found' })
             }
 
             const parsed = createOptionValueSchema.safeParse(req.body)
@@ -201,7 +201,7 @@ export function createOptionValueHandlers(createHandler: ReturnType<typeof creat
             const compatibleKindSet = await loadCompatibleOptionListKindSet(entityTypeService, metahubId, userId)
             const optionList = await objectsService.findById(metahubId, req.params.optionListId, userId)
             if (!optionList || !isOptionListContextKind(optionList.kind, compatibleKindSet)) {
-                return res.status(404).json({ error: 'Option list not found' })
+                return res.status(404).json({ error: 'Enumeration not found' })
             }
 
             const currentValue = await valuesService.findById(metahubId, req.params.valueId, userId)
@@ -300,7 +300,7 @@ export function createOptionValueHandlers(createHandler: ReturnType<typeof creat
             const compatibleKindSet = await loadCompatibleOptionListKindSet(entityTypeService, metahubId, userId)
             const optionList = await objectsService.findById(metahubId, req.params.optionListId, userId)
             if (!optionList || !isOptionListContextKind(optionList.kind, compatibleKindSet)) {
-                return res.status(404).json({ error: 'Option list not found' })
+                return res.status(404).json({ error: 'Enumeration not found' })
             }
 
             const parsed = moveOptionValueSchema.safeParse(req.body)
@@ -333,7 +333,7 @@ export function createOptionValueHandlers(createHandler: ReturnType<typeof creat
             const compatibleKindSet = await loadCompatibleOptionListKindSet(entityTypeService, metahubId, userId)
             const optionList = await objectsService.findById(metahubId, req.params.optionListId, userId)
             if (!optionList || !isOptionListContextKind(optionList.kind, compatibleKindSet)) {
-                return res.status(404).json({ error: 'Option list not found' })
+                return res.status(404).json({ error: 'Enumeration not found' })
             }
 
             const parsed = reorderValueSchema.safeParse(req.body)
@@ -374,7 +374,7 @@ export function createOptionValueHandlers(createHandler: ReturnType<typeof creat
             const compatibleKindSet = await loadCompatibleOptionListKindSet(entityTypeService, metahubId, userId)
             const optionList = await objectsService.findById(metahubId, req.params.optionListId, userId)
             if (!optionList || !isOptionListContextKind(optionList.kind, compatibleKindSet)) {
-                return res.status(404).json({ error: 'Option list not found' })
+                return res.status(404).json({ error: 'Enumeration not found' })
             }
 
             const sourceValue = await valuesService.findById(metahubId, req.params.valueId, userId)
@@ -504,7 +504,7 @@ export function createOptionValueHandlers(createHandler: ReturnType<typeof creat
             const compatibleKinds = Array.from(compatibleKindSet)
             const optionList = await objectsService.findById(metahubId, req.params.optionListId, userId)
             if (!optionList || !isOptionListContextKind(optionList.kind, compatibleKindSet)) {
-                return res.status(404).json({ error: 'Option list not found' })
+                return res.status(404).json({ error: 'Enumeration not found' })
             }
 
             const value = await valuesService.findById(metahubId, req.params.valueId, userId)

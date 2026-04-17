@@ -1,10 +1,10 @@
 import type { EntityTypePresetManifest } from '@universo/types'
 import {
-    OPTION_LIST_DEFAULT_INSTANCES,
-    OPTION_LIST_TYPE_COMPONENTS,
-    OPTION_LIST_TYPE_UI,
-    STANDARD_OPTION_LIST_DESCRIPTION,
-    STANDARD_OPTION_LIST_NAME
+    ENUMERATION_DEFAULT_INSTANCES,
+    ENUMERATION_TYPE_COMPONENTS,
+    ENUMERATION_TYPE_UI,
+    STANDARD_ENUMERATION_DESCRIPTION,
+    STANDARD_ENUMERATION_NAME
 } from './standardEntityTypeDefinitions'
 import { vlc } from './basic.template'
 
@@ -13,23 +13,23 @@ export const enumerationEntityPreset: EntityTypePresetManifest = {
     codename: 'enumeration',
     version: '0.1.0',
     minStructureVersion: '0.4.0',
-    name: STANDARD_OPTION_LIST_NAME,
-    description: STANDARD_OPTION_LIST_DESCRIPTION,
+    name: STANDARD_ENUMERATION_NAME,
+    description: STANDARD_ENUMERATION_DESCRIPTION,
     meta: {
         author: 'universo-platformo',
         tags: ['preset', 'standard', 'enumeration'],
-        icon: OPTION_LIST_TYPE_UI.iconName
+        icon: ENUMERATION_TYPE_UI.iconName
     },
     entityType: {
         kindKey: 'enumeration',
         codename: vlc('Enumeration', 'Enumeration'),
-        components: OPTION_LIST_TYPE_COMPONENTS,
-        ui: OPTION_LIST_TYPE_UI,
+        components: ENUMERATION_TYPE_COMPONENTS,
+        ui: ENUMERATION_TYPE_UI,
         presentation: {
-            name: STANDARD_OPTION_LIST_NAME,
-            description: STANDARD_OPTION_LIST_DESCRIPTION
+            name: STANDARD_ENUMERATION_NAME,
+            description: STANDARD_ENUMERATION_DESCRIPTION
         },
         config: {}
     },
-    defaultInstances: OPTION_LIST_DEFAULT_INSTANCES
+    defaultInstances: ENUMERATION_DEFAULT_INSTANCES
 }

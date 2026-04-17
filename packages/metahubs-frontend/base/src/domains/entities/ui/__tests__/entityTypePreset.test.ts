@@ -60,10 +60,10 @@ const presetManifest = {
         },
         ui: {
             iconName: 'IconDatabase',
-            tabs: ['general', 'treeEntities', 'layout', 'scripts'],
+            tabs: ['general', 'hubs', 'layout', 'scripts'],
             sidebarSection: 'objects' as const,
             sidebarOrder: 20,
-            nameKey: 'metahubs:linkedCollections.title',
+            nameKey: 'metahubs:catalogs.title',
             descriptionKey: 'Standard catalog preset'
         },
         presentation: {
@@ -124,7 +124,7 @@ describe('entityTypePreset helpers', () => {
         expect(patch).toMatchObject({
             kindKey: 'catalog',
             iconName: 'IconDatabase',
-            tabs: ['general', 'treeEntities', 'layout', 'scripts'],
+            tabs: ['general', 'hubs', 'layout', 'scripts'],
             customTabsInput: '',
             sidebarSection: 'objects',
             sidebarOrder: 20,

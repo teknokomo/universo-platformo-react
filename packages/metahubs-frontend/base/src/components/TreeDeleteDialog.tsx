@@ -34,10 +34,10 @@ interface BlockingTreeRow extends BlockingTreeDependency {
 }
 
 const GROUP_I18N_MAP: Record<BlockingGroup, { key: string; fallback: string }> = {
-    linkedCollection: { key: 'treeEntities.deleteDialog.sections.linkedCollections', fallback: 'Linked collection' },
-    optionList: { key: 'treeEntities.deleteDialog.sections.optionLists', fallback: 'Option list' },
-    valueGroup: { key: 'treeEntities.deleteDialog.sections.valueGroups', fallback: 'Value group' },
-    treeEntity: { key: 'treeEntities.deleteDialog.sections.treeEntities', fallback: 'Tree entity' }
+    linkedCollection: { key: 'hubs.deleteDialog.sections.catalogs', fallback: 'Catalog' },
+    optionList: { key: 'hubs.deleteDialog.sections.enumerations', fallback: 'Enumeration' },
+    valueGroup: { key: 'hubs.deleteDialog.sections.sets', fallback: 'Set' },
+    treeEntity: { key: 'hubs.deleteDialog.sections.hubs', fallback: 'Hub' }
 }
 
 export const TreeDeleteDialog = ({
@@ -102,20 +102,20 @@ export const TreeDeleteDialog = ({
 
     const labels: BlockingEntitiesDeleteDialogLabels = useMemo(
         () => ({
-            title: t('treeEntities.deleteDialog.title', 'Delete tree entity'),
+            title: t('hubs.deleteDialog.title', 'Delete hub'),
             confirmMessage: t(
-                'treeEntities.deleteDialog.confirmMessage',
-                'Are you sure you want to delete this tree entity? This action cannot be undone.'
+                'hubs.deleteDialog.confirmMessage',
+                'Are you sure you want to delete this hub? This action cannot be undone.'
             ),
             blockingWarning: t(
-                'treeEntities.deleteDialog.hasBlockingObjects',
-                'Cannot delete tree entity. The following entities require at least one tree entity and are only linked to this one:'
+                'hubs.deleteDialog.hasBlockingObjects',
+                'Cannot delete hub. The following entities require at least one hub and are only linked to this one:'
             ),
             resolutionHint: t(
-                'treeEntities.deleteDialog.resolutionHint',
-                'To delete this tree entity, first re-link child tree entities and add another tree entity to these linked collections, value groups, and option lists, or disable the required tree-entity option.'
+                'hubs.deleteDialog.resolutionHint',
+                'To delete this hub, first re-link child hubs and add another hub to these catalogs, sets, and enumerations, or disable the required hub option.'
             ),
-            fetchError: t('treeEntities.deleteDialog.fetchError', 'Failed to check for blocking entities'),
+            fetchError: t('hubs.deleteDialog.fetchError', 'Failed to check for blocking entities'),
             cancelButton: t('common:actions.cancel', 'Cancel'),
             deleteButton: t('common:actions.delete', 'Delete'),
             deletingButton: t('common:actions.deleting', 'Deleting...')

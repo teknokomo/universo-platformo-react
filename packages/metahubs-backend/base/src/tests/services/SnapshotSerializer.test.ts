@@ -103,7 +103,7 @@ describe('SnapshotSerializer system field propagation', () => {
                         iconName: 'IconDatabase',
                         tabs: ['general'],
                         sidebarSection: 'objects',
-                        nameKey: 'metahubs:linkedCollections.title'
+                        nameKey: 'metahubs:catalogs.title'
                     },
                     config: {},
                     published: true
@@ -455,7 +455,7 @@ describe('SnapshotSerializer system field propagation', () => {
                     id: 'type-value-group',
                     kindKey: 'custom.value-group',
                     codename: createCodenameVlc('value_group'),
-                    presentation: { name: { en: 'Value Group' }, description: {} },
+                    presentation: { name: { en: 'Set' }, description: {} },
                     components: {
                         dataSchema: false,
                         records: false,
@@ -476,7 +476,7 @@ describe('SnapshotSerializer system field propagation', () => {
                         iconName: 'IconFileText',
                         tabs: ['general'],
                         sidebarSection: 'objects',
-                        nameKey: 'Value Groups'
+                        nameKey: 'Sets'
                     },
                     config: {
                         compatibility: { legacyObjectKind: 'set', lifecycleMode: 'legacy' },

@@ -76,7 +76,7 @@ export interface TargetEntitySelectorProps {
  * Component for selecting target entity for REF (reference) field type.
  * Allows selecting entity kind and then the specific entity.
  *
- * Loads available entities (linkedCollections/optionLists) automatically from the API.
+ * Loads available entities (catalogs/enumerations) automatically from the API.
  */
 export const TargetEntitySelector = ({
     metahubId,
@@ -266,11 +266,11 @@ export const TargetEntitySelector = ({
 
     const targetEntityNoOptionsText =
         targetEntityKind === 'catalog'
-            ? t('ref.noCatalogsAvailable', 'No linkedCollections available')
+            ? t('ref.noCatalogsAvailable', 'No catalogs available')
             : targetEntityKind === 'enumeration'
-            ? t('ref.noEnumerationsAvailable', 'No optionLists available')
+            ? t('ref.noEnumerationsAvailable', 'No enumerations available')
             : targetEntityKind === 'set'
-            ? t('ref.noSetsAvailable', 'No valueGroups available')
+            ? t('ref.noSetsAvailable', 'No sets available')
             : t('ref.noEntitiesAvailable', 'No entities available')
 
     const isKindSupported =

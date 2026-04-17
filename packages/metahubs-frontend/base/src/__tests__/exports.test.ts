@@ -79,21 +79,22 @@ describe('metahubs-frontend entry exports', () => {
         expect(typeof fallback).toBe('object')
 
         expect((en as any).general.title).toBe('Resources')
-        expect((en as any).linkedCollections.tabs.layout).toBe('Layouts')
-        expect((en as any).linkedCollections.runtime.showSearch).toBe('Search/filter bar')
-        expect((en as any).linkedCollections.runtime.createSurface).toBe('Create form type')
-        expect((en as any).linkedCollections.runtime.surfacePage).toBe('Page')
-        expect((en as any).entities.title).toBe('Entities')
-        expect((en as any).valueGroups.tabs).toEqual({
+        expect((en as any).catalogs.tabs.layout).toBe('Layouts')
+        expect((en as any).catalogs.runtime.showSearch).toBe('Search/filter bar')
+        expect((en as any).catalogs.runtime.createSurface).toBe('Create form type')
+        expect((en as any).catalogs.runtime.surfacePage).toBe('Page')
+        expect((en as any).entities.title).toBe('Entity Types')
+        expect((en as any).sets.tabs).toEqual({
             general: 'General',
+            treeEntities: 'Hubs',
             options: 'Options'
         })
-        expect((en as any).valueGroups.runtime).toBeUndefined()
+        expect((en as any).sets.runtime).toBeUndefined()
 
         expect((ru as any).general.title).toBe('Ресурсы')
-        expect((ru as any).linkedCollections.tabs.layout).toBe('Макеты')
-        expect((ru as any).linkedCollections.runtime.showSearch).toBe('Строка поиска/фильтрации')
-        expect((ru as any).linkedCollections.runtime.createSurface).toBe('Тип окна создания')
-        expect((ru as any).entities.title).toBe('Сущности')
+        expect((ru as any).catalogs.tabs.layout).toBe('Макеты')
+        expect((ru as any).catalogs.runtime.showSearch).toBe('Строка поиска/фильтрации')
+        expect((ru as any).catalogs.runtime.createSurface).toBe('Тип окна создания')
+        expect((ru as any).entities.title).toBe('Типы сущностей')
     })
 })

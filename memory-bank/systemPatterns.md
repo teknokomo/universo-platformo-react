@@ -46,6 +46,21 @@
 
 **Why**: the 2026-04-15 backend consolidation slices proved that hub `blocking-dependencies` and catalog/set/enumeration `blocking-references` could move onto the generic entity-controller + behavior-registry path without changing the frontend-visible contract, removing another real standard-kind ownership seam safely.
 
+## Dynamic Shared Resources Tab Pattern (IMPORTANT)
+
+**Rule**: Resources section tabs must be derived from entity type `ComponentManifest` fields, not hardcoded. Show shared pool tabs only when at least one entity type in the metahub has the corresponding component enabled.
+
+**Required**:
+- `SharedResourcesPage.tsx` fetches entity type definitions via `useEntityTypesQuery` and computes tab visibility using `isEnabledComponentConfig()`.
+- Tab mapping: `dataSchema.enabled` → Field Definitions tab, `fixedValues.enabled` → Fixed Values tab, `optionValues.enabled` → Option Values tab.
+- Layouts and Scripts tabs always show (not tied to entity types).
+- Active tab auto-falls-back to first visible tab if the current tab becomes hidden.
+- i18n keys follow `general.tabs.{fieldDefinitions|fixedValues|optionValues|layouts|scripts}` pattern.
+
+**Detection**: `rg "hasAnyEnabledComponent|TabConfig" packages/metahubs-frontend/base/src/domains/entities/shared`
+
+**Why**: the 2026-04-18 QA closure proved that deriving shared pool participation from existing ComponentManifest fields eliminates the need for a separate `hasSharedElements` toggle while making the system work for future custom entity types.
+
 ## Frontend Standard UI Local Alias Neutralization Pattern (IMPORTANT)
 
 ## Metadata API Helper Contract Neutralization Pattern (IMPORTANT)

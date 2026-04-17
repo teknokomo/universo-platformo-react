@@ -166,7 +166,7 @@ export const validateValueGroupForm = (
     if (isRequiredHub) {
         const treeEntityIds = Array.isArray(values.treeEntityIds) ? values.treeEntityIds : []
         if (treeEntityIds.length === 0) {
-            errors.treeEntityIds = ctx.t('valueGroups.validation.hubRequired', 'At least one hub is required')
+            errors.treeEntityIds = ctx.t('sets.validation.hubRequired', 'At least one hub is required')
         }
     }
 
@@ -179,9 +179,9 @@ export const validateValueGroupForm = (
     const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
     const normalizedCodename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
     if (!normalizedCodename) {
-        errors.codename = ctx.t('valueGroups.validation.codenameRequired', 'Codename is required')
+        errors.codename = ctx.t('sets.validation.codenameRequired', 'Codename is required')
     } else if (!isValidCodenameForStyle(normalizedCodename, cc.style, cc.alphabet, cc.allowMixed)) {
-        errors.codename = ctx.t('valueGroups.validation.codenameInvalid', 'Codename contains invalid characters')
+        errors.codename = ctx.t('sets.validation.codenameInvalid', 'Codename contains invalid characters')
     }
     return Object.keys(errors).length > 0 ? errors : null
 }
@@ -259,7 +259,7 @@ const ValueGroupCopyOptionsTab = ({
                         disabled={isLoading}
                     />
                 }
-                label={t('valueGroups.copy.options.copyFixedValues', 'Copy fixed values')}
+                label={t('sets.copy.options.copyFixedValues', 'Copy fixed values')}
             />
         </Stack>
     )
@@ -290,7 +290,7 @@ export const buildFormTabs = (
         const tabs: TabConfig[] = [
             {
                 id: 'general',
-                label: ctx.t('valueGroups.tabs.general', 'Основное'),
+                label: ctx.t('sets.tabs.general', 'Основное'),
                 content: (
                     <GeneralTabFields
                         values={values}
@@ -300,8 +300,8 @@ export const buildFormTabs = (
                         uiLocale={ctx.uiLocale as string}
                         nameLabel={ctx.t('common:fields.name', 'Name')}
                         descriptionLabel={ctx.t('common:fields.description', 'Description')}
-                        codenameLabel={ctx.t('valueGroups.codename', 'Codename')}
-                        codenameHelper={ctx.t('valueGroups.codenameHelper', 'Unique identifier')}
+                        codenameLabel={ctx.t('sets.codename', 'Codename')}
+                        codenameHelper={ctx.t('sets.codenameHelper', 'Unique identifier')}
                         editingEntityId={editingEntityId}
                     />
                 )
@@ -317,7 +317,7 @@ export const buildFormTabs = (
 
             tabs.push({
                 id: 'treeEntities',
-                label: ctx.t('valueGroups.tabs.treeEntities', 'Древовидные сущности'),
+                label: ctx.t('sets.tabs.treeEntities', 'Хабы'),
                 content: (
                     <ContainerSelectionPanel
                         availableContainers={treeEntities}
@@ -369,7 +369,7 @@ const valueGroupActions: readonly ActionDescriptor<ValueGroupDisplayWithContaine
                 return {
                     open: true,
                     mode: 'edit' as const,
-                    title: ctx.t('valueGroups.editTitle', 'Edit Set'),
+                    title: ctx.t('sets.editTitle', 'Edit Set'),
                     nameLabel: ctx.t('common:fields.name'),
                     descriptionLabel: ctx.t('common:fields.description'),
                     saveButtonText: ctx.t('common:actions.save'),
@@ -399,10 +399,10 @@ const valueGroupActions: readonly ActionDescriptor<ValueGroupDisplayWithContaine
                                 !payload.treeEntityIds.includes(currentTreeEntityId)
                             if (detachedFromCurrentHub && ctx.helpers?.confirm) {
                                 const confirmed = await ctx.helpers.confirm({
-                                    title: ctx.t('valueGroups.detachedConfirm.editTitle', 'Save set without current tree entity?'),
+                                    title: ctx.t('sets.detachedConfirm.editTitle', 'Save set without current hub?'),
                                     description: ctx.t(
-                                        'valueGroups.detachedConfirm.description',
-                                        'This set is not linked to the current tree entity and will not appear in this hub after saving.'
+                                        'sets.detachedConfirm.description',
+                                        'This set is not linked to the current hub and will not appear in this hub after saving.'
                                     ),
                                     confirmButtonName: ctx.t('common:actions.save', 'Save'),
                                     cancelButtonName: ctx.t('common:actions.cancel', 'Cancel')
@@ -446,11 +446,11 @@ const valueGroupActions: readonly ActionDescriptor<ValueGroupDisplayWithContaine
                 return {
                     open: true,
                     mode: 'create' as const,
-                    title: ctx.t('valueGroups.copyTitle', 'Copying Set'),
+                    title: ctx.t('sets.copyTitle', 'Copying Set'),
                     nameLabel: ctx.t('common:fields.name'),
                     descriptionLabel: ctx.t('common:fields.description'),
-                    saveButtonText: ctx.t('valueGroups.copy.action', 'Copy'),
-                    savingButtonText: ctx.t('valueGroups.copy.actionLoading', 'Copying...'),
+                    saveButtonText: ctx.t('sets.copy.action', 'Copy'),
+                    savingButtonText: ctx.t('sets.copy.actionLoading', 'Copying...'),
                     cancelButtonText: ctx.t('common:actions.cancel'),
                     hideDefaultFields: true,
                     initialExtraValues: initial,
@@ -467,7 +467,7 @@ const valueGroupActions: readonly ActionDescriptor<ValueGroupDisplayWithContaine
                         }),
                         {
                             id: 'options',
-                            label: ctx.t('valueGroups.tabs.options', 'Options'),
+                            label: ctx.t('sets.tabs.options', 'Options'),
                             content: (
                                 <ValueGroupCopyOptionsTab
                                     values={args.values}
@@ -501,10 +501,10 @@ const valueGroupActions: readonly ActionDescriptor<ValueGroupDisplayWithContaine
                                 !payload.treeEntityIds.includes(currentTreeEntityId)
                             if (detachedFromCurrentHub && ctx.helpers?.confirm) {
                                 const confirmed = await ctx.helpers.confirm({
-                                    title: ctx.t('valueGroups.detachedConfirm.copyTitle', 'Create set copy without current tree entity?'),
+                                    title: ctx.t('sets.detachedConfirm.copyTitle', 'Create set copy without current hub?'),
                                     description: ctx.t(
-                                        'valueGroups.detachedConfirm.description',
-                                        'This set is not linked to the current tree entity and will not appear in this hub after saving.'
+                                        'sets.detachedConfirm.description',
+                                        'This set is not linked to the current hub and will not appear in this hub after saving.'
                                     ),
                                     confirmButtonName: ctx.t('common:actions.create', 'Create'),
                                     cancelButtonName: ctx.t('common:actions.cancel', 'Cancel')
@@ -548,8 +548,8 @@ const valueGroupActions: readonly ActionDescriptor<ValueGroupDisplayWithContaine
             }
 
             const confirmed = await ctx.helpers?.confirm?.({
-                title: ctx.t('valueGroups.deleteDialog.title', 'Delete ValueGroupEntity'),
-                description: ctx.t('valueGroups.deleteDialog.message'),
+                title: ctx.t('sets.deleteDialog.title', 'Delete ValueGroupEntity'),
+                description: ctx.t('sets.deleteDialog.message'),
                 confirmButtonName: ctx.t('common:actions.delete'),
                 cancelButtonName: ctx.t('common:actions.cancel')
             })

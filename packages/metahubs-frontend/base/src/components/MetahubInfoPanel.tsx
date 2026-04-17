@@ -81,9 +81,9 @@ export const MetahubInfoPanel = ({
     }
 
     // No-op handlers since the panel is disabled
-    const handleSelectionChange = () => {}
-    const handleRequiredChange = () => {}
-    const handleSingleChange = () => {}
+    const handleSelectionChange = () => undefined
+    const handleRequiredChange = () => undefined
+    const handleSingleChange = () => undefined
 
     if (isLoading) {
         return null

@@ -28,8 +28,7 @@ export const METAHUB_PAGE_GUTTER_PX = { xs: 1, md: 1.5 } as const
 export const isMetahubShellRoute = (pathname: string): boolean => /^\/metahubs?(?:\/|$)/.test(pathname)
 
 /** Route-aware page gutter for the shared shell stack. */
-export const getPageGutterPx = (pathname: string) =>
-	isMetahubShellRoute(pathname) ? METAHUB_PAGE_GUTTER_PX : DEFAULT_PAGE_GUTTER_PX
+export const getPageGutterPx = (pathname: string) => (isMetahubShellRoute(pathname) ? METAHUB_PAGE_GUTTER_PX : DEFAULT_PAGE_GUTTER_PX)
 
 /** Route-aware header inset that keeps shell breadcrumbs aligned with the accepted metahub body inset. */
 export const getHeaderInsetPx = (pathname: string) => (isMetahubShellRoute(pathname) ? METAHUB_PAGE_GUTTER_PX : 0)

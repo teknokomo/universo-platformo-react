@@ -69,8 +69,8 @@ type PublicationFormValues = {
 }
 
 type PublicationFormFieldsProps = {
-    values: Record<string, any>
-    setValue: (name: string, value: any) => void
+    values: Record<string, unknown>
+    setValue: (name: string, value: unknown) => void
     isLoading: boolean
     errors: Record<string, string>
     uiLocale: string
@@ -201,7 +201,7 @@ const PublicationList = () => {
     }, [metahub, defaultBranchId, i18n.language])
 
     const validatePublicationForm = useCallback(
-        (values: Record<string, any>) => {
+        (values: Record<string, unknown>) => {
             const errors: Record<string, string> = {}
             const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
             if (!hasPrimaryContent(nameVlc)) {
@@ -212,7 +212,7 @@ const PublicationList = () => {
         [tc]
     )
 
-    const canSavePublicationForm = useCallback((values: Record<string, any>) => {
+    const canSavePublicationForm = useCallback((values: Record<string, unknown>) => {
         const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
         return hasPrimaryContent(nameVlc)
     }, [])
@@ -231,8 +231,8 @@ const PublicationList = () => {
             isLoading: isFormLoading,
             errors
         }: {
-            values: Record<string, any>
-            setValue: (name: string, value: any) => void
+            values: Record<string, unknown>
+            setValue: (name: string, value: unknown) => void
             isLoading: boolean
             errors: Record<string, string>
         }): TabConfig[] => {
@@ -448,10 +448,13 @@ const PublicationList = () => {
     )
 
     // Access mode chip colors
-    const accessModeColors: Record<'full' | 'restricted', 'success' | 'warning'> = {
-        full: 'success',
-        restricted: 'warning'
-    }
+    const accessModeColors = useMemo<Record<'full' | 'restricted', 'success' | 'warning'>>(
+        () => ({
+            full: 'success',
+            restricted: 'warning'
+        }),
+        []
+    )
 
     const publicationColumns = useMemo(
         () => [
@@ -531,11 +534,11 @@ const PublicationList = () => {
                 )
             }
         ],
-        [handlePendingPublicationInteraction, metahubId, t, tc]
+        [accessModeColors, handlePendingPublicationInteraction, metahubId, t, tc]
     )
 
     const createPublicationContext = useCallback(
-        (baseContext: any) => ({
+        (baseContext: Record<string, unknown>) => ({
             ...baseContext,
             publicationMap,
             uiLocale: i18n.language,
@@ -544,7 +547,7 @@ const PublicationList = () => {
             isMetahubLoading, // Pass loading state for metahub
             canDeletePublication: true,
             api: {
-                updateEntity: (id: string, data: any) => {
+                updateEntity: (id: string, data: Record<string, unknown>) => {
                     if (!metahubId) return Promise.resolve()
                     const publication = publicationMap.get(id)
                     const expectedVersion = publication?.version
@@ -590,16 +593,19 @@ const PublicationList = () => {
                         openDelete(publication)
                     }
                 },
-                confirm: async (spec: any) => {
+                confirm: async (spec: Record<string, unknown>) => {
+                    const t = (baseContext as Record<string, unknown> & { t: (key: string, args?: unknown) => string }).t
                     const confirmed = await confirm({
-                        title: spec.titleKey ? baseContext.t(spec.titleKey, spec.interpolate) : spec.title,
-                        description: spec.descriptionKey ? baseContext.t(spec.descriptionKey, spec.interpolate) : spec.description,
+                        title: spec.titleKey ? t(spec.titleKey as string, spec.interpolate) : (spec.title as string),
+                        description: spec.descriptionKey
+                            ? t(spec.descriptionKey as string, spec.interpolate)
+                            : (spec.description as string),
                         confirmButtonName: spec.confirmKey
-                            ? baseContext.t(spec.confirmKey)
-                            : spec.confirmButtonName || baseContext.t('confirm.delete.confirm'),
+                            ? t(spec.confirmKey as string)
+                            : (spec.confirmButtonName as string) || t('confirm.delete.confirm'),
                         cancelButtonName: spec.cancelKey
-                            ? baseContext.t(spec.cancelKey)
-                            : spec.cancelButtonName || baseContext.t('confirm.delete.cancel')
+                            ? t(spec.cancelKey as string)
+                            : (spec.cancelButtonName as string) || t('confirm.delete.cancel')
                     })
                     return confirmed
                 },
@@ -624,6 +630,8 @@ const PublicationList = () => {
             metahub,
             metahubId,
             navigate,
+            openConflict,
+            openDelete,
             queryClient,
             syncPublicationMutation,
             updatePublicationMutation
@@ -654,7 +662,7 @@ const PublicationList = () => {
         close('create')
     }
 
-    const handleCreatePublication = (data: Record<string, any>) => {
+    const handleCreatePublication = (data: Record<string, unknown>) => {
         setDialogError(null)
         const nameVlc = data.nameVlc as VersionedLocalizedContent<string> | null | undefined
         const descriptionVlc = data.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
@@ -708,7 +716,7 @@ const PublicationList = () => {
         handleDialogSave()
     }
 
-    const handleChange = (_event: any, nextView: string | null) => {
+    const handleChange = (_event: React.MouseEvent<HTMLElement>, nextView: string | null) => {
         if (nextView === null) return
         setView(nextView as 'card' | 'table')
     }
@@ -735,7 +743,9 @@ const PublicationList = () => {
                     image={APIEmptySVG}
                     imageAlt='Connection error'
                     title={t('errors.connectionFailed')}
-                    description={!(error as any)?.response?.status ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
+                    description={
+                        !(error as Record<string, unknown>)?.response?.status ? t('errors.checkConnection') : t('errors.pleaseTryLater')
+                    }
                     action={{
                         label: t('common:actions.retry', 'Retry'),
                         onClick: () => refetch()
@@ -836,7 +846,7 @@ const PublicationList = () => {
                                                 headerAction={
                                                     descriptors.length > 0 ? (
                                                         <Box onClick={(e) => e.stopPropagation()}>
-                                                            <BaseEntityMenu<PublicationDisplay, Record<string, any>>
+                                                            <BaseEntityMenu<PublicationDisplay, Record<string, unknown>>
                                                                 entity={cardData}
                                                                 entityKind='publication'
                                                                 descriptors={descriptors}
@@ -858,14 +868,14 @@ const PublicationList = () => {
                                         images={images}
                                         isLoading={isLoading}
                                         customColumns={publicationColumns}
-                                        getRowLink={(row: any) =>
+                                        getRowLink={(row: PublicationDisplay) =>
                                             row?.id ? `/metahub/${metahubId}/publication/${row.id}/versions` : undefined
                                         }
                                         onPendingInteractionAttempt={(row: PublicationDisplay) =>
                                             handlePendingPublicationInteraction(row.id)
                                         }
                                         i18nNamespace='flowList'
-                                        renderActions={(row: any) => {
+                                        renderActions={(row: PublicationDisplay) => {
                                             const originalPublication = publications.find((a) => a.id === row.id)
                                             if (!originalPublication) return null
 
@@ -873,7 +883,7 @@ const PublicationList = () => {
                                             if (!descriptors.length) return null
 
                                             return (
-                                                <BaseEntityMenu<PublicationDisplay, Record<string, any>>
+                                                <BaseEntityMenu<PublicationDisplay, Record<string, unknown>>
                                                     entity={getPublicationCardData(originalPublication)}
                                                     entityKind='publication'
                                                     descriptors={descriptors}
@@ -946,7 +956,9 @@ const PublicationList = () => {
                             },
                             onError: (err: unknown) => {
                                 const responseMessage =
-                                    err && typeof err === 'object' && 'response' in err ? (err as any)?.response?.data?.message : undefined
+                                    err && typeof err === 'object' && 'response' in err
+                                        ? (err as Record<string, unknown>)?.response?.data?.message
+                                        : undefined
                                 const message =
                                     typeof responseMessage === 'string'
                                         ? responseMessage
@@ -971,7 +983,8 @@ const PublicationList = () => {
                     }
                 }}
                 onOverwrite={async () => {
-                    const pendingUpdate = (dialogs.conflict.data as { pendingUpdate?: { id: string; patch: any } })?.pendingUpdate
+                    const pendingUpdate = (dialogs.conflict.data as { pendingUpdate?: { id: string; patch: Record<string, unknown> } })
+                        ?.pendingUpdate
                     if (pendingUpdate && metahubId) {
                         const { id, patch } = pendingUpdate
                         await updatePublicationMutation.mutateAsync({

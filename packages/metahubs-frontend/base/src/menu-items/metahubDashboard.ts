@@ -67,18 +67,19 @@ const metahubDashboard: MenuItem = {
             icon: icons.IconLayoutDashboard,
             breadcrumbs: true
         },
-        {
-            id: 'entities',
-            title: 'menu:entities',
-            type: 'item',
-            url: '/entities',
-            icon: icons.IconBox,
-            breadcrumbs: true
-        },
+        // Dynamic entity-type items (Hubs, Catalogs, Sets, Enumerations) appear here
         {
             id: 'divider-secondary',
             title: '',
             type: 'divider'
+        },
+        {
+            id: 'entities',
+            title: 'menu:entityTypes',
+            type: 'item',
+            url: '/entities',
+            icon: icons.IconBox,
+            breadcrumbs: true
         },
         {
             id: 'publications',

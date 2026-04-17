@@ -473,7 +473,7 @@ export function createNestedChildHandlers(createHandler: ReturnType<typeof creat
             const blockedOutcome = (blockers: Awaited<ReturnType<typeof getValueGroupBlockingReferences>>) => ({
                 status: 409,
                 body: {
-                    error: 'Cannot delete value group because there are blocking references',
+                    error: 'Cannot delete set because there are blocking references',
                     code: 'SET_DELETE_BLOCKED_BY_REFERENCES',
                     valueGroupId,
                     blockingReferences: blockers
@@ -702,13 +702,13 @@ export function createNestedChildHandlers(createHandler: ReturnType<typeof creat
             const compatibleKindSet = createEntityMetadataKindSet(compatibleKinds)
             const existing = await objectsService.findById(metahubId, parsed.data.optionListId, userId)
             if (!existing || !isOptionListContextKind(existing.kind, compatibleKindSet)) {
-                return res.status(404).json({ error: 'Option list not found' })
+                return res.status(404).json({ error: 'Enumeration not found' })
             }
 
             const result = await executeEntityReorder({
                 entityLabel: 'OptionList',
                 notFoundErrorMessage: 'optionList not found',
-                notFoundResponseMessage: 'Option list not found',
+                notFoundResponseMessage: 'Enumeration not found',
                 reorderEntity: () =>
                     objectsService.reorderByKind(metahubId, existing.kind, parsed.data.optionListId, parsed.data.newSortOrder, userId),
                 getId: (updated) => updated.id,
@@ -726,12 +726,12 @@ export function createNestedChildHandlers(createHandler: ReturnType<typeof creat
         const compatibleKindSet = createEntityMetadataKindSet(compatibleKinds)
         const optionList = await objectsService.findById(metahubId, req.params.optionListId, userId)
         if (!optionList || !isOptionListContextKind(optionList.kind, compatibleKindSet)) {
-            return res.status(404).json({ error: 'Option list not found' })
+            return res.status(404).json({ error: 'Enumeration not found' })
         }
 
         const currentHubs = optionList.config?.hubs || []
         if (req.params.treeEntityId && !currentHubs.includes(req.params.treeEntityId)) {
-            return res.status(404).json({ error: 'Option list not found in this tree entity' })
+            return res.status(404).json({ error: 'Enumeration not found in this hub' })
         }
 
         const hubs = currentHubs.length > 0 ? await treeEntitiesService.findByIds(metahubId, currentHubs, userId) : []
@@ -800,7 +800,7 @@ export function createNestedChildHandlers(createHandler: ReturnType<typeof creat
 
             const existing = await objectsService.findByCodenameAndKind(metahubId, normalizedCodename, targetKind, userId)
             if (existing) {
-                return res.status(409).json({ error: 'Option list with this codename already exists in this metahub' })
+                return res.status(409).json({ error: 'Enumeration with this codename already exists in this metahub' })
             }
 
             const sanitizedName = sanitizeLocalizedInput(name ?? {})
@@ -862,7 +862,7 @@ export function createNestedChildHandlers(createHandler: ReturnType<typeof creat
                     userId
                 )
             } catch (error) {
-                if (respondUniqueViolation(res, error, 'Option list with this codename already exists in this metahub')) {
+                if (respondUniqueViolation(res, error, 'Enumeration with this codename already exists in this metahub')) {
                     return
                 }
                 throw error
@@ -898,12 +898,12 @@ export function createNestedChildHandlers(createHandler: ReturnType<typeof creat
             const compatibleKindSet = createEntityMetadataKindSet(compatibleKinds)
             const optionList = await objectsService.findById(metahubId, req.params.optionListId, userId)
             if (!optionList || !isOptionListContextKind(optionList.kind, compatibleKindSet)) {
-                return res.status(404).json({ error: 'Option list not found' })
+                return res.status(404).json({ error: 'Enumeration not found' })
             }
 
             const currentHubs = optionList.config?.hubs || []
             if (!currentHubs.includes(req.params.treeEntityId)) {
-                return res.status(404).json({ error: 'Option list not found in this tree entity' })
+                return res.status(404).json({ error: 'Enumeration not found in this hub' })
             }
 
             const parsed = updateOptionListSchema.safeParse(req.body)
@@ -965,7 +965,7 @@ export function createNestedChildHandlers(createHandler: ReturnType<typeof creat
                 if (normalizedCodename !== getOptionListCodenameText(optionList.codename)) {
                     const existing = await objectsService.findByCodenameAndKind(metahubId, normalizedCodename, optionList.kind, userId)
                     if (existing && existing.id !== req.params.optionListId) {
-                        return res.status(409).json({ error: 'Option list with this codename already exists' })
+                        return res.status(409).json({ error: 'Enumeration with this codename already exists' })
                     }
                 }
                 const nextCodename = syncCodenamePayloadText(
@@ -1031,7 +1031,7 @@ export function createNestedChildHandlers(createHandler: ReturnType<typeof creat
                     userId
                 )
             } catch (error) {
-                if (respondUniqueViolation(res, error, 'Option list with this codename already exists in this metahub')) {
+                if (respondUniqueViolation(res, error, 'Enumeration with this codename already exists in this metahub')) {
                     return
                 }
                 throw error
@@ -1069,8 +1069,8 @@ export function createNestedChildHandlers(createHandler: ReturnType<typeof creat
             const result = await executeHubScopedDelete({
                 entity: optionList && isOptionListContextKind(optionList.kind, compatibleKindSet) ? optionList : null,
                 entityLabel: 'OptionList',
-                notFoundMessage: 'Option list not found',
-                notFoundInHubMessage: 'Option list not found in this tree entity',
+                notFoundMessage: 'Enumeration not found',
+                notFoundInHubMessage: 'Enumeration not found in this hub',
                 treeEntityId: req.params.treeEntityId,
                 forceDelete: req.query.force === 'true',
                 getTreeEntityIds: getOptionListContainerIds,
@@ -1083,7 +1083,7 @@ export function createNestedChildHandlers(createHandler: ReturnType<typeof creat
                     if (!allowDelete) {
                         return {
                             status: 403,
-                            body: { error: 'Deleting option lists is disabled by metahub settings' }
+                            body: { error: 'Deleting enumerations is disabled by metahub settings' }
                         }
                     }
 
@@ -1098,7 +1098,7 @@ export function createNestedChildHandlers(createHandler: ReturnType<typeof creat
                         return {
                             status: 409,
                             body: {
-                                error: 'Cannot delete optionList: it is referenced by attributes',
+                                error: 'Cannot delete enumeration: it is referenced by attributes',
                                 blockingReferences: refs
                             }
                         }
@@ -1119,7 +1119,7 @@ export function createNestedChildHandlers(createHandler: ReturnType<typeof creat
                         userId
                     )
                 },
-                detachedMessage: 'Option list removed from tree entity',
+                detachedMessage: 'Enumeration removed from hub',
                 deleteEntity: () => objectsService.delete(metahubId, req.params.optionListId, userId)
             })
 

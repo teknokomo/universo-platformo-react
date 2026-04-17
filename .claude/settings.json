@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "mcp__zai-mcp-server__analyze_image",
+      "mcp__web-search-prime__web_search_prime",
+      "mcp__web-reader__webReader",
+      "Bash(pnpm --filter *)",
+      "Bash(pnpm build *)",
+      "Bash(pnpm vitest *)",
+      "Bash(grep *)",
+      "Bash(tail *)",
+      "Bash(python3 -c *)",
+      "Bash(npx eslint *)",
+      "Bash(pnpm test *)",
+      "Bash(pnpm install *)",
+      "Bash(pnpm playwright *)"
+    ]
+  }
+}

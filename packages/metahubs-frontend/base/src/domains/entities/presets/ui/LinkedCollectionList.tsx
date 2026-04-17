@@ -190,7 +190,7 @@ export const LinkedCollectionListContent = () => {
         if (nextPath) {
             navigate(nextPath)
         }
-    }, [buildCatalogPath, navigate, pendingCatalogNavigation, sortedLinkedCollections])
+    }, [buildCatalogPath, metahubId, navigate, pendingCatalogNavigation, sortedLinkedCollections])
 
     const handlePendingCatalogInteraction = useCallback(
         (pendingLinkedCollectionId: string) => {
@@ -224,11 +224,11 @@ export const LinkedCollectionListContent = () => {
 
     const attachExistingCatalogSelectionLabels = useMemo<EntitySelectionLabels>(
         () => ({
-            title: t('linkedCollections.attachExisting.selectionTitle', 'LinkedCollections'),
+            title: t('catalogs.attachExisting.selectionTitle', 'LinkedCollections'),
             addButton: t('common:actions.add', 'Add'),
-            dialogTitle: t('linkedCollections.attachExisting.selectDialogTitle', 'Select linkedCollections'),
-            emptyMessage: t('linkedCollections.attachExisting.emptySelection', 'No linkedCollections selected'),
-            noAvailableMessage: t('linkedCollections.attachExisting.noAvailable', 'No linkedCollections available to add'),
+            dialogTitle: t('catalogs.attachExisting.selectDialogTitle', 'Select linkedCollections'),
+            emptyMessage: t('catalogs.attachExisting.emptySelection', 'No linkedCollections selected'),
+            noAvailableMessage: t('catalogs.attachExisting.noAvailable', 'No linkedCollections available to add'),
             searchPlaceholder: t('common:search', 'Search...'),
             cancelButton: t('common:actions.cancel', 'Cancel'),
             confirmButton: t('common:actions.add', 'Add'),
@@ -239,14 +239,14 @@ export const LinkedCollectionListContent = () => {
         [t]
     )
 
-    // Form defaults with current tree entity auto-selected in hub-scoped mode (N:M relationship)
+    // Form defaults with current hub auto-selected in hub-scoped mode (N:M relationship)
     const localizedFormDefaults = useMemo<LinkedCollectionFormValues>(
         () => ({
             nameVlc: null,
             descriptionVlc: null,
             codename: null,
             codenameTouched: false,
-            treeEntityIds: treeEntityId ? [treeEntityId] : [], // Auto-select current tree entity
+            treeEntityIds: treeEntityId ? [treeEntityId] : [], // Auto-select current hub
             isSingleHub: false,
             isRequiredHub: false // Default: catalog can exist without treeEntities
         }),
@@ -260,7 +260,7 @@ export const LinkedCollectionListContent = () => {
             const isRequiredHub = Boolean(values.isRequiredHub)
             // TreeEntity validation only if isRequiredHub is true
             if (isRequiredHub && treeEntityIds.length === 0) {
-                errors.treeEntityIds = t('linkedCollections.validation.hubRequired', 'At least one hub is required')
+                errors.treeEntityIds = t('catalogs.validation.hubRequired', 'At least one hub is required')
             }
             const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
             if (!hasPrimaryContent(nameVlc)) {
@@ -271,11 +271,11 @@ export const LinkedCollectionListContent = () => {
             const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
             const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
             if (!normalizedCodename) {
-                errors.codename = t('linkedCollections.validation.codenameRequired', 'Codename is required')
+                errors.codename = t('catalogs.validation.codenameRequired', 'Codename is required')
             } else if (
                 !isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)
             ) {
-                errors.codename = t('linkedCollections.validation.codenameInvalid', 'Codename contains invalid characters')
+                errors.codename = t('catalogs.validation.codenameInvalid', 'Codename contains invalid characters')
             }
             return Object.keys(errors).length > 0 ? errors : null
         },
@@ -307,7 +307,7 @@ export const LinkedCollectionListContent = () => {
     /**
      * Build tabs for the EntityFormDialog (N:M relationship)
      * Tab 1: General (name, description, codename)
-     * Tab 2: TreeEntities (tree-entity selection panel with isSingleHub toggle, current tree entity pre-selected)
+     * Tab 2: TreeEntities (hub selection panel with isSingleHub toggle, current hub pre-selected)
      */
     const buildFormTabs = useCallback(
         ({
@@ -329,7 +329,7 @@ export const LinkedCollectionListContent = () => {
             return [
                 {
                     id: 'general',
-                    label: t('linkedCollections.tabs.general', 'Основное'),
+                    label: t('catalogs.tabs.general', 'Основное'),
                     content: (
                         <GeneralTabFields
                             values={values}
@@ -339,14 +339,14 @@ export const LinkedCollectionListContent = () => {
                             uiLocale={preferredVlcLocale}
                             nameLabel={tc('fields.name', 'Name')}
                             descriptionLabel={tc('fields.description', 'Description')}
-                            codenameLabel={t('linkedCollections.codename', 'Codename')}
-                            codenameHelper={t('linkedCollections.codenameHelper', 'Unique identifier')}
+                            codenameLabel={t('catalogs.codename', 'Codename')}
+                            codenameHelper={t('catalogs.codenameHelper', 'Unique identifier')}
                         />
                     )
                 },
                 {
                     id: 'treeEntities',
-                    label: t('linkedCollections.tabs.treeEntities', 'Древовидные сущности'),
+                    label: t('catalogs.tabs.treeEntities', 'Хабы'),
                     content: (
                         <ContainerSelectionPanel
                             availableContainers={treeEntities}
@@ -365,7 +365,7 @@ export const LinkedCollectionListContent = () => {
                 },
                 {
                     id: 'layout',
-                    label: t('linkedCollections.tabs.layout', 'Layout'),
+                    label: t('catalogs.tabs.layout', 'Layout'),
                     content: (
                         <LinkedCollectionLayoutTabFields
                             values={values}
@@ -464,7 +464,7 @@ export const LinkedCollectionListContent = () => {
             },
             {
                 id: 'codename',
-                label: t('linkedCollections.codename', 'Codename'),
+                label: t('catalogs.codename', 'Codename'),
                 width: '15%',
                 align: 'left' as const,
                 sortable: true,
@@ -487,7 +487,7 @@ export const LinkedCollectionListContent = () => {
         // TreeEntity column only for global mode
         const hubColumn = {
             id: 'hub',
-            label: t('treeEntities.title', 'TreeEntity'),
+            label: t('hubs.title', 'TreeEntity'),
             width: '15%',
             align: 'left' as const,
             render: (row: LinkedCollectionWithContainersDisplay) => (
@@ -541,7 +541,7 @@ export const LinkedCollectionListContent = () => {
         const countColumns = [
             {
                 id: 'fieldDefinitionsCount',
-                label: t('linkedCollections.attributesHeader', 'FieldDefinitions'),
+                label: t('catalogs.attributesHeader', 'FieldDefinitions'),
                 width: '10%',
                 align: 'center' as const,
                 render: (row: LinkedCollectionWithContainersDisplay) =>
@@ -581,7 +581,7 @@ export const LinkedCollectionListContent = () => {
             },
             {
                 id: 'recordsCount',
-                label: t('linkedCollections.elementsHeader', 'Records'),
+                label: t('catalogs.elementsHeader', 'Records'),
                 width: '10%',
                 align: 'center' as const,
                 render: (row: LinkedCollectionWithContainersDisplay) => (typeof row.recordsCount === 'number' ? row.recordsCount : '—')
@@ -612,7 +612,7 @@ export const LinkedCollectionListContent = () => {
                     const rawCodename = getVLCString(patch.codename, patch.codename?._primary ?? 'en')
                     const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
                     if (!normalizedCodename) {
-                        throw new Error(t('linkedCollections.validation.codenameRequired', 'Codename is required'))
+                        throw new Error(t('catalogs.validation.codenameRequired', 'Codename is required'))
                     }
                     const codenamePayload = ensureLocalizedContent(patch.codename, patch.codename?._primary ?? 'en', normalizedCodename)
                     // Include expectedVersion for optimistic locking if catalog has version
@@ -751,7 +751,11 @@ export const LinkedCollectionListContent = () => {
             treeEntities,
             treeEntityId,
             isHubScoped,
+            kindKey,
             metahubId,
+            openBlockingDelete,
+            openConflict,
+            openDelete,
             preferredVlcLocale,
             queryClient,
             t,
@@ -823,7 +827,7 @@ export const LinkedCollectionListContent = () => {
                 } catch (error) {
                     failed.push(getVLCString(catalog.name, preferredVlcLocale) || getVLCString(catalog.name, 'en') || catalog.codename)
                     // eslint-disable-next-line no-console
-                    console.error('Failed to attach existing catalog to current tree entity', error)
+                    console.error('Failed to attach existing catalog to current hub', error)
                 }
             }
 
@@ -834,7 +838,7 @@ export const LinkedCollectionListContent = () => {
 
             if (failed.length === 0) {
                 enqueueSnackbar(
-                    t('linkedCollections.attachExisting.success', {
+                    t('catalogs.attachExisting.success', {
                         count: selectedLinkedCollections.length,
                         defaultValue: 'Added {{count}} catalog(s).'
                     }),
@@ -847,7 +851,7 @@ export const LinkedCollectionListContent = () => {
             const successCount = selectedLinkedCollections.length - failed.length
             if (successCount > 0) {
                 enqueueSnackbar(
-                    t('linkedCollections.attachExisting.partialSuccess', {
+                    t('catalogs.attachExisting.partialSuccess', {
                         successCount,
                         failCount: failed.length,
                         defaultValue: 'Added {{successCount}} catalog(s). {{failCount}} catalog(s) could not be linked.'
@@ -859,7 +863,7 @@ export const LinkedCollectionListContent = () => {
             }
 
             setAttachDialogError(
-                t('linkedCollections.attachExisting.failedAll', {
+                t('catalogs.attachExisting.failedAll', {
                     defaultValue: 'Selected linkedCollections could not be linked to this hub. Please review restrictions and try again.'
                 })
             )
@@ -887,10 +891,10 @@ export const LinkedCollectionListContent = () => {
         // Confirm dialog for detached catalog (async — throws DIALOG_SAVE_CANCEL if cancelled)
         if (isHubScoped && treeEntityId && !treeEntityIds.includes(treeEntityId)) {
             const confirmed = await confirm({
-                title: t('linkedCollections.detachedConfirm.title', 'Create catalog without current tree entity?'),
+                title: t('catalogs.detachedConfirm.title', 'Create catalog without current hub?'),
                 description: t(
-                    'linkedCollections.detachedConfirm.description',
-                    'This catalog is not linked to the current tree entity and will not appear in this hub after creation.'
+                    'catalogs.detachedConfirm.description',
+                    'This catalog is not linked to the current hub and will not appear in this hub after creation.'
                 ),
                 confirmButtonName: t('common:actions.create', 'Create'),
                 cancelButtonName: t('common:actions.cancel', 'Cancel')
@@ -1003,7 +1007,7 @@ export const LinkedCollectionListContent = () => {
                 newSortOrder: overCatalog.sortOrder ?? 1,
                 kindKey: entityKindKey
             })
-            enqueueSnackbar(t('linkedCollections.reorderSuccess', 'LinkedCollectionEntity order updated'), { variant: 'success' })
+            enqueueSnackbar(t('catalogs.reorderSuccess', 'LinkedCollectionEntity order updated'), { variant: 'success' })
         } catch (error: unknown) {
             const message =
                 typeof error === 'object' &&
@@ -1011,7 +1015,7 @@ export const LinkedCollectionListContent = () => {
                 'message' in error &&
                 typeof (error as { message?: unknown }).message === 'string'
                     ? (error as { message: string }).message
-                    : t('linkedCollections.reorderError', 'Failed to reorder catalog')
+                    : t('catalogs.reorderError', 'Failed to reorder catalog')
             enqueueSnackbar(message, { variant: 'error' })
         }
     }
@@ -1065,9 +1069,9 @@ export const LinkedCollectionListContent = () => {
                     <Stack flexDirection='column' sx={{ gap: 1 }}>
                         <ViewHeader
                             search={true}
-                            searchPlaceholder={t('linkedCollections.searchPlaceholder')}
+                            searchPlaceholder={t('catalogs.searchPlaceholder')}
                             onSearchChange={handleSearchChange}
-                            title={isHubScoped ? t('linkedCollections.title') : t('linkedCollections.allTitle')}
+                            title={isHubScoped ? t('catalogs.title') : t('catalogs.allTitle')}
                         >
                             <ToolbarControls
                                 viewToggleEnabled
@@ -1102,7 +1106,7 @@ export const LinkedCollectionListContent = () => {
                                 <Tabs
                                     value='linkedCollections'
                                     onChange={handleHubTabChange}
-                                    aria-label={t('treeEntities.title', 'TreeEntities')}
+                                    aria-label={t('hubs.title', 'TreeEntities')}
                                     textColor='primary'
                                     indicatorColor='primary'
                                     sx={{
@@ -1113,10 +1117,10 @@ export const LinkedCollectionListContent = () => {
                                         }
                                     }}
                                 >
-                                    <Tab value='treeEntities' label={t('treeEntities.title')} />
-                                    <Tab value='linkedCollections' label={t('linkedCollections.title')} />
-                                    <Tab value='valueGroups' label={t('valueGroups.title')} />
-                                    <Tab value='optionLists' label={t('optionLists.title')} />
+                                    <Tab value='treeEntities' label={t('hubs.title')} />
+                                    <Tab value='linkedCollections' label={t('catalogs.title')} />
+                                    <Tab value='valueGroups' label={t('sets.title')} />
+                                    <Tab value='optionLists' label={t('enumerations.title')} />
                                     <Tab value='settings' label={t('settings.title')} />
                                 </Tabs>
                             </Box>
@@ -1133,10 +1137,8 @@ export const LinkedCollectionListContent = () => {
                                 <EmptyListState
                                     image={APIEmptySVG}
                                     imageAlt='No linkedCollections'
-                                    title={searchValue ? t('linkedCollections.noSearchResults') : t('linkedCollections.empty')}
-                                    description={
-                                        searchValue ? t('linkedCollections.noSearchResultsHint') : t('linkedCollections.emptyDescription')
-                                    }
+                                    title={searchValue ? t('catalogs.noSearchResults') : t('catalogs.empty')}
+                                    description={searchValue ? t('catalogs.noSearchResultsHint') : t('catalogs.emptyDescription')}
                                 />
                             ) : (
                                 <>
@@ -1182,7 +1184,7 @@ export const LinkedCollectionListContent = () => {
                                                                 )}
                                                                 {typeof catalog.fieldDefinitionsCount === 'number' && (
                                                                     <Typography variant='caption' color='text.secondary'>
-                                                                        {t('linkedCollections.attributesCount', {
+                                                                        {t('catalogs.attributesCount', {
                                                                             count: catalog.fieldDefinitionsCount
                                                                         })}
                                                                     </Typography>
@@ -1218,7 +1220,7 @@ export const LinkedCollectionListContent = () => {
                                                 isLoading={isLoading}
                                                 sortableRows
                                                 sortableItemIds={sortedLinkedCollections.map((catalog) => catalog.id)}
-                                                dragHandleAriaLabel={t('linkedCollections.dnd.dragHandle', 'Drag to reorder')}
+                                                dragHandleAriaLabel={t('catalogs.dnd.dragHandle', 'Drag to reorder')}
                                                 dragDisabled={reorderLinkedCollectionMutation.isPending || isLoading}
                                                 onSortableDragEnd={handleSortableDragEnd}
                                                 renderDragOverlay={renderDragOverlay}
@@ -1276,7 +1278,7 @@ export const LinkedCollectionListContent = () => {
 
                 <EntityFormDialog
                     open={dialogs.create.open}
-                    title={t('linkedCollections.createDialog.title', 'Create LinkedCollectionEntity')}
+                    title={t('catalogs.createDialog.title', 'Create LinkedCollectionEntity')}
                     nameLabel={tc('fields.name', 'Name')}
                     descriptionLabel={tc('fields.description', 'Description')}
                     saveButtonText={tc('actions.create', 'Create')}
@@ -1293,7 +1295,7 @@ export const LinkedCollectionListContent = () => {
 
                 <EntityFormDialog
                     open={isAttachDialogOpen}
-                    title={t('linkedCollections.attachExisting.dialogTitle', 'Add Existing LinkedCollections')}
+                    title={t('catalogs.attachExisting.dialogTitle', 'Add Existing LinkedCollections')}
                     nameLabel={tc('fields.name', 'Name')}
                     descriptionLabel={tc('fields.description', 'Description')}
                     saveButtonText={t('common:actions.add', 'Add')}
@@ -1312,7 +1314,7 @@ export const LinkedCollectionListContent = () => {
                         return [
                             {
                                 id: 'linkedCollections',
-                                label: t('linkedCollections.title', 'LinkedCollections'),
+                                label: t('catalogs.title', 'LinkedCollections'),
                                 content: (
                                     <EntitySelectionPanel<LinkedCollectionWithContainers>
                                         availableEntities={attachableExistingLinkedCollections}
@@ -1340,7 +1342,7 @@ export const LinkedCollectionListContent = () => {
                         if (selectedLinkedCollectionIds.length > 0) return null
                         return {
                             selectedLinkedCollectionIds: t(
-                                'linkedCollections.attachExisting.requiredSelection',
+                                'catalogs.attachExisting.requiredSelection',
                                 'Select at least one catalog to add.'
                             )
                         }
@@ -1356,8 +1358,8 @@ export const LinkedCollectionListContent = () => {
                 {/* Independent ConfirmDeleteDialog */}
                 <ConfirmDeleteDialog
                     open={dialogs.delete.open}
-                    title={t('linkedCollections.deleteDialog.title')}
-                    description={t('linkedCollections.deleteDialog.message')}
+                    title={t('catalogs.deleteDialog.title')}
+                    description={t('catalogs.deleteDialog.message')}
                     confirmButtonText={tc('actions.delete', 'Delete')}
                     deletingButtonText={tc('actions.deleting', 'Deleting...')}
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
@@ -1394,7 +1396,7 @@ export const LinkedCollectionListContent = () => {
                                             ? err.message
                                             : typeof err === 'string'
                                             ? err
-                                            : t('linkedCollections.deleteError')
+                                            : t('catalogs.deleteError')
                                     enqueueSnackbar(message, { variant: 'error' })
                                 }
                             }
@@ -1432,7 +1434,7 @@ export const LinkedCollectionListContent = () => {
                                             ? err.message
                                             : typeof err === 'string'
                                             ? err
-                                            : t('linkedCollections.deleteError')
+                                            : t('catalogs.deleteError')
                                     enqueueSnackbar(message, { variant: 'error' })
                                 }
                             }
@@ -1474,10 +1476,10 @@ export const LinkedCollectionListContent = () => {
                                 })
                             }
                             close('conflict')
-                            enqueueSnackbar(t('linkedCollections.updateSuccess', 'LinkedCollectionEntity updated'), { variant: 'success' })
+                            enqueueSnackbar(t('catalogs.updateSuccess', 'LinkedCollectionEntity updated'), { variant: 'success' })
                         } catch (e) {
                             console.error('Failed to overwrite catalog', e)
-                            enqueueSnackbar(t('linkedCollections.updateError', 'Failed to update catalog'), { variant: 'error' })
+                            enqueueSnackbar(t('catalogs.updateError', 'Failed to update catalog'), { variant: 'error' })
                         }
                     }}
                     onReload={async () => {

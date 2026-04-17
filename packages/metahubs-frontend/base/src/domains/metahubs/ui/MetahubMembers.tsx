@@ -109,7 +109,7 @@ export const MetahubMembers = () => {
     const removeMemberMutation = useRemoveMember()
 
     const images = useMemo(() => {
-        const imagesMap: Record<string, any[]> = {}
+        const imagesMap: Record<string, unknown[]> = {}
         if (Array.isArray(members)) {
             members.forEach((member) => {
                 if (member?.id) {
@@ -330,7 +330,9 @@ export const MetahubMembers = () => {
                     image={APIEmptySVG}
                     imageAlt='Connection error'
                     title={tc('errors.connectionFailed')}
-                    description={!(error as any)?.response?.status ? tc('errors.checkConnection') : tc('errors.pleaseTryLater')}
+                    description={
+                        !(error as Record<string, unknown>)?.response?.status ? tc('errors.checkConnection') : tc('errors.pleaseTryLater')
+                    }
                     action={{
                         label: tc('actions.retry'),
                         onClick: () => paginationResult.actions.goToPage(1)

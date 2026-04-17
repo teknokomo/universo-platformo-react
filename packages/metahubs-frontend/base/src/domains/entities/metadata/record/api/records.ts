@@ -13,7 +13,7 @@ const buildContainerScopedCollectionPath = (metahubId: string, containerId: stri
     )}/instance/${containerId}/instance/${collectionId}`
 
 /**
- * List records for a specific linked collection within a tree-entity scope.
+ * List records for a specific catalog within a hub scope.
  */
 export const listRecords = async (
     metahubId: string,
@@ -49,7 +49,7 @@ export const listRecords = async (
 }
 
 /**
- * Get a single record from a tree-entity-scoped linked collection.
+ * Get a single record from a hub-scoped catalog.
  */
 export const getRecord = (metahubId: string, treeEntityId: string, linkedCollectionId: string, recordId: string, kindKey?: string) =>
     apiClient.get<RecordItem>(
@@ -145,11 +145,11 @@ export const reorderRecord = (
     )
 
 // ============================================================================
-// Direct API - for linked collections without a tree-entity association
+// Direct API - for catalogs without a hub association
 // ============================================================================
 
 /**
- * List records for a linked collection without a tree-entity association.
+ * List records for a catalog without a hub association.
  */
 export const listRecordsDirect = async (
     metahubId: string,

@@ -46,6 +46,60 @@
 | 0.22.0-alpha | 2025-07-27 | 0.22.0 Alpha — 2025-07-27 (Global Impulse) ⚡️ | Memory Bank, MMOOMM improvements |
 | 0.21.0-alpha | 2025-07-20 | 0.21.0 Alpha — 2025-07-20 (Firm Resolve) 💪 | Handler refactoring, PlayCanvas stabilization |
 
+## 2026-04-18 QA Closure — i18n, Resources, Lint, Documentation
+
+Completed the final QA closure session addressing 5 issues: broken i18n keys, confusing Resources tab labels, fixture hash mismatch, documentation drift, and lint debt.
+
+| Area | Resolution |
+| --- | --- |
+| i18n records namespace | Added complete `records.*` section (~44 keys) to both EN and RU locale files. Fixed raw `records.title` key showing in Catalogs UI. |
+| i18n tabs.treeEntities | Added `treeEntities` key to all 4 entity type tab sections (hubs, catalogs, sets, enumerations) in both locales. |
+| RU locale translations | Translated ~25 untranslated English strings across deleteDialog sections (hubs, catalogs, sets, enumerations, fixedValues, entities.instances). Fixed mixed pluralization (`constantsCount_*` → `fixedValuesCount_*`). Aligned EN/RU asymmetry. |
+| Resources tab labels | Renamed RU labels: "Поля" → "Определения полей", "Списки значений" → "Значения перечислений". |
+| Dynamic Resources tabs | `SharedResourcesPage.tsx` now derives tab visibility from entity type `ComponentManifest` fields. Shared pool tabs appear only when at least one entity type has the corresponding component enabled. Added new test for dynamic tab hiding. |
+| Lint debt — production files | Fixed all 19 production-file lint warnings: 9 `react-hooks/exhaustive-deps` (real potential bugs), 8 `no-explicit-any`, 2 unused variables. Production files now have 0 warnings. |
+| README documentation drift | Fixed both EN/RU README.md: `src/constants/` → `src/view-preferences/` in directory structure. |
+| Memory-bank | Updated `systemPatterns.md` (dynamic shared resources tab pattern), `techContext.md` (shared resources architecture, i18n key structure, fixture contract). |
+| Validation | `pnpm build` 30/30, backend tests 68/68 suites (583 passed), frontend tests 64/64 suites (253 passed), lint 0 errors. |
+
+## 2026-04-17 Distributed Noodling Ullman Plan Continuation Closure
+
+Finished the interrupted continuation session for the entity-first metahubs QA closure. The remaining work after Phases A/B was fixture regeneration, documentation screenshot generators, key full-cycle/import regressions, and final workspace validation.
+
+| Area | Resolution |
+| --- | --- |
+| Workspace revalidation | Reconfirmed the continuation baseline with `pnpm build` and `pnpm --filter @universo/metahubs-backend test` (`68/68` suites). |
+| Fixture regeneration | Regenerated both canonical fixtures through Playwright generators: `tools/fixtures/metahubs-self-hosted-app-snapshot.json` and `tools/fixtures/metahubs-quiz-app-snapshot.json`. |
+| Documentation generators | Stabilized and reran `docs-entity-screenshots.spec.ts` and `docs-quiz-tutorial-screenshots.spec.ts`; both generator specs now pass and refreshed the GitBook screenshot assets. |
+| Snapshot/import drift | Updated `snapshot-export-import.spec.ts` to read canonical shared snapshot keys (`sharedFieldDefinitions`, `sharedFixedValues`, `sharedOptionValues`) with compatibility fallbacks where needed. |
+| Codename flow drift | Updated `codename-mode.spec.ts` to current entity-first headings and hardened metahub creation detection against current list payload timing/shape. |
+| i18n/export drift | Synced `packages/metahubs-frontend/base/src/__tests__/exports.test.ts` with current consolidated entity-first translations (`Entity Types`, `treeEntities: Hubs`). |
+| Full-cycle regression proof | Revalidated the core browser flows: `metahub-domain-entities.spec.ts`, `metahub-entity-full-lifecycle.spec.ts`, `metahub-settings.spec.ts`, `snapshot-export-import.spec.ts`, `snapshot-import-quiz-runtime.spec.ts`, and `codename-mode.spec.ts`. |
+| Final status | The continuation session closed green for the targeted QA bundle; no schema/template version bump was required and no residual blocker remained in the validated path. |
+
+## 2026-04-17 Entity Type Naming Refactoring — Complete ✅
+
+Renamed all entity type display names from surface-key terminology to traditional names across the entire monorepo. Internal surface keys preserved unchanged; only preset definitions, display strings, i18n labels, and documentation updated.
+
+**Key decision**: Keep internal surface keys (`tree_entity`, `linked_collection`, `value_group`, `option_list`) as-is. Only rename user-facing display names to traditional terminology (Hubs, Catalogs, Sets, Enumerations).
+
+**Architecture confirmation**: Entity system is a fully generic constructor. Hubs, Catalogs, Sets, Enumerations are entity type presets defined in templates, not hardcoded types.
+
+| Area | Resolution |
+| --- | --- |
+| Backend preset definitions | Renamed VLC names, descriptions, UI configs, component constants, and default instance constants from surface-key to traditional names. |
+| i18n sections | Renamed JSON sections in both EN and RU `metahubs.json` files. |
+| Frontend i18n key references | Updated 25+ source files referencing old i18n keys. |
+| Sidebar menu | Restructured: dynamic entity types under Resources; "Entity Types" admin link moved after divider; added i18n keys for `entityTypes`. |
+| Surface labels | Updated `ENTITY_SURFACE_LABELS` display strings in `@universo/types`. |
+| Unit tests | Updated all test assertions and mocks across backend/frontend/template-mui. |
+| Source code sweep | Comprehensive sweep of error messages, fallback strings, JSDoc comments across 30+ files. |
+| Fixture generation script | Updated to use unified entity API endpoints. |
+| Playwright E2E tests | Updated 11 test files with new terminology. |
+| Documentation | Updated 14 files across `docs/en/` and `docs/ru/`. |
+| Validation | Full workspace build (30 packages), lint, 934 tests passing. |
+| Pending follow-ups | Playwright fixture regeneration was manual (needs server for full regen); documentation screenshots need updating when server is available. |
+
 ## 2026-04-17 QA Closure — Entity Copy Contract + Playwright Stability
 
 Closed the remaining QA blockers from the latest review by fixing copy-contract drift, removing the last metahubs legacy folder seam, and rerunning targeted build/lint/test/e2e validation.

@@ -128,7 +128,7 @@ const resolveRuntimeLinkedCollection = async (manager: DbExecutor, schemaIdent: 
         config?: Record<string, unknown> | null
     }>
 
-    if (linkedCollections.length === 0) return { linkedCollection: null, attrs: [], error: 'No linked collections available' } as const
+    if (linkedCollections.length === 0) return { linkedCollection: null, attrs: [], error: 'No catalogs available' } as const
 
     const selectedLinkedCollection =
         (requestedLinkedCollectionId ? linkedCollections.find((c) => c.id === requestedLinkedCollectionId) : undefined) ??
@@ -139,7 +139,7 @@ const resolveRuntimeLinkedCollection = async (manager: DbExecutor, schemaIdent: 
               lifecycleContract: resolveApplicationLifecycleContractFromConfig(selectedLinkedCollection.config)
           }
         : null
-    if (!linkedCollection) return { linkedCollection: null, attrs: [], error: 'Linked collection not found' } as const
+    if (!linkedCollection) return { linkedCollection: null, attrs: [], error: 'Catalog not found' } as const
     if (!IDENTIFIER_REGEX.test(linkedCollection.table_name))
         return { linkedCollection: null, attrs: [], error: 'Invalid table name' } as const
 

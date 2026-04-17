@@ -528,7 +528,7 @@ describe('EntityInstanceList', () => {
                             iconName: 'IconBox',
                             tabs: ['general', 'treeEntities', 'layout', 'scripts'],
                             sidebarSection: 'objects',
-                            nameKey: 'metahubs:linkedCollections.title'
+                            nameKey: 'metahubs:catalogs.title'
                         },
                         components: {
                             dataSchema: { enabled: true },
@@ -672,7 +672,7 @@ describe('EntityInstanceList', () => {
                             iconName: 'IconBox',
                             tabs: ['general', 'treeEntities', 'layout', 'scripts'],
                             sidebarSection: 'objects',
-                            nameKey: 'metahubs:linkedCollections.title'
+                            nameKey: 'metahubs:catalogs.title'
                         },
                         components: {
                             dataSchema: { enabled: true },

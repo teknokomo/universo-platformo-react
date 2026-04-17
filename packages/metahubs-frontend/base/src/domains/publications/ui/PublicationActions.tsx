@@ -43,7 +43,7 @@ export const buildInitialValues = (ctx: ActionContext<PublicationDisplay, Public
  */
 export const validatePublicationForm = (
     ctx: ActionContext<PublicationDisplay, PublicationLocalizedPayload>,
-    values: Record<string, any>
+    values: Record<string, unknown>
 ) => {
     const errors: Record<string, string> = {}
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
@@ -56,7 +56,7 @@ export const validatePublicationForm = (
 /**
  * Check if form can be saved
  */
-export const canSavePublicationForm = (values: Record<string, any>) => {
+export const canSavePublicationForm = (values: Record<string, unknown>) => {
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     return hasPrimaryContent(nameVlc)
 }
@@ -64,7 +64,7 @@ export const canSavePublicationForm = (values: Record<string, any>) => {
 /**
  * Convert form values to API payload
  */
-export const toPayload = (values: Record<string, any>): PublicationLocalizedPayload => {
+export const toPayload = (values: Record<string, unknown>): PublicationLocalizedPayload => {
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
     const { input: nameInput, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
@@ -89,8 +89,8 @@ const PublicationEditFields = ({
     t,
     uiLocale
 }: {
-    values: Record<string, any>
-    setValue: (name: string, value: any) => void
+    values: Record<string, unknown>
+    setValue: (name: string, value: unknown) => void
     isLoading: boolean
     errors?: Record<string, string>
     t: ActionContext<PublicationDisplay, PublicationLocalizedPayload>['t']
@@ -139,8 +139,8 @@ export const buildFormTabs = (ctx: ActionContext<PublicationDisplay, Publication
         isLoading: isFormLoading,
         errors
     }: {
-        values: Record<string, any>
-        setValue: (name: string, value: any) => void
+        values: Record<string, unknown>
+        setValue: (name: string, value: unknown) => void
         isLoading: boolean
         errors: Record<string, string>
     }): TabConfig[] => {
@@ -192,7 +192,7 @@ const publicationActions: ActionDescriptor<PublicationDisplay, PublicationLocali
             },
             buildProps: (ctx) => {
                 const initial = buildInitialValues(ctx)
-                const metahubId = (ctx as any).metahubId as string | undefined
+                const metahubId = (ctx as Record<string, unknown>).metahubId as string | undefined
 
                 return {
                     open: true,
@@ -206,10 +206,10 @@ const publicationActions: ActionDescriptor<PublicationDisplay, PublicationLocali
                     hideDefaultFields: true,
                     initialExtraValues: initial,
                     tabs: buildFormTabs(ctx, metahubId ?? ''),
-                    validate: (values: Record<string, any>) => validatePublicationForm(ctx, values),
+                    validate: (values: Record<string, unknown>) => validatePublicationForm(ctx, values),
                     canSave: canSavePublicationForm,
                     showDeleteButton: true,
-                    deleteButtonDisabled: !(ctx as any).canDeletePublication,
+                    deleteButtonDisabled: !(ctx as Record<string, unknown>).canDeletePublication,
                     deleteButtonDisabledReason: ctx.t(
                         'publications.deleteDisabledReason',
                         'Publication deletion is temporarily unavailable in this mode.'
@@ -221,7 +221,7 @@ const publicationActions: ActionDescriptor<PublicationDisplay, PublicationLocali
                     onClose: () => {
                         // BaseEntityMenu handles dialog closing
                     },
-                    onSave: async (data: Record<string, any>) => {
+                    onSave: async (data: Record<string, unknown>) => {
                         try {
                             const payload = toPayload(data)
                             void ctx.api?.updateEntity?.(ctx.entity.id, payload)
@@ -241,7 +241,7 @@ const publicationActions: ActionDescriptor<PublicationDisplay, PublicationLocali
         tone: 'danger',
         order: 100,
         group: 'danger',
-        enabled: (ctx) => Boolean((ctx as any).canDeletePublication),
+        enabled: (ctx) => Boolean((ctx as Record<string, unknown>).canDeletePublication),
         // Use custom onSelect to open ConfirmDeleteDialog via helper (defined in PublicationList.tsx)
         onSelect: async (ctx: ActionContext<PublicationDisplay, PublicationLocalizedPayload>) => {
             // Open the ConfirmDeleteDialog via helper

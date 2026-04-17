@@ -195,8 +195,8 @@ const EntityActionsTab = ({
         staleTime: 30_000
     })
 
-    const actions = actionsQuery.data ?? []
-    const scripts = scriptsQuery.data ?? []
+    const actions = useMemo(() => actionsQuery.data ?? [], [actionsQuery.data])
+    const scripts = useMemo(() => scriptsQuery.data ?? [], [scriptsQuery.data])
     const selectedAction = useMemo(() => actions.find((action) => action.id === selectedActionId) ?? null, [actions, selectedActionId])
     const scriptNameById = useMemo(() => new Map(scripts.map((script) => [script.id, buildScriptLabel(script)])), [scripts])
 
@@ -565,9 +565,9 @@ const EntityEventBindingsTab = ({
         staleTime: 30_000
     })
 
-    const actions = actionsQuery.data ?? []
-    const bindings = bindingsQuery.data ?? []
-    const scripts = scriptsQuery.data ?? []
+    const actions = useMemo(() => actionsQuery.data ?? [], [actionsQuery.data])
+    const bindings = useMemo(() => bindingsQuery.data ?? [], [bindingsQuery.data])
+    const scripts = useMemo(() => scriptsQuery.data ?? [], [scriptsQuery.data])
     const selectedBinding = useMemo(
         () => bindings.find((binding) => binding.id === selectedBindingId) ?? null,
         [bindings, selectedBindingId]

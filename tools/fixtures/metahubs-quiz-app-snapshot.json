@@ -1,9 +1,9 @@
 {
   "kind": "metahub_snapshot_bundle",
   "bundleVersion": 1,
-  "exportedAt": "2026-04-06T19:49:37.715Z",
+  "exportedAt": "2026-04-17T19:44:38.413Z",
   "metahub": {
-    "id": "019d6457-6fd1-7c39-b5da-ba506b23d146",
+    "id": "019d9cf8-d1de-7e01-be5a-83a846e11529",
     "name": {
       "_schema": "1",
       "locales": {
@@ -11,15 +11,15 @@
           "content": "Space Quiz Metahub",
           "version": 1,
           "isActive": true,
-          "createdAt": "2026-04-06T19:49:04.839Z",
-          "updatedAt": "2026-04-06T19:49:04.839Z"
+          "createdAt": "2026-04-17T19:44:05.344Z",
+          "updatedAt": "2026-04-17T19:44:05.344Z"
         },
         "ru": {
           "content": "Метахаб космической викторины",
           "version": 1,
           "isActive": true,
-          "createdAt": "2026-04-06T19:49:04.839Z",
-          "updatedAt": "2026-04-06T19:49:04.839Z"
+          "createdAt": "2026-04-17T19:44:05.344Z",
+          "updatedAt": "2026-04-17T19:44:05.344Z"
         }
       },
       "_primary": "en"
@@ -31,15 +31,15 @@
           "content": "Canonical metahub fixture for the full scripting-powered Space Quiz experience with 10 questions, scoring, and restart flow.",
           "version": 1,
           "isActive": true,
-          "createdAt": "2026-04-06T19:49:04.839Z",
-          "updatedAt": "2026-04-06T19:49:04.839Z"
+          "createdAt": "2026-04-17T19:44:05.344Z",
+          "updatedAt": "2026-04-17T19:44:05.344Z"
         },
         "ru": {
           "content": "Канонический fixture метахаба для полноценной космической викторины на скриптах: 10 вопросов, подсчёт баллов и перезапуск.",
           "version": 1,
           "isActive": true,
-          "createdAt": "2026-04-06T19:49:04.839Z",
-          "updatedAt": "2026-04-06T19:49:04.839Z"
+          "createdAt": "2026-04-17T19:44:05.344Z",
+          "updatedAt": "2026-04-17T19:44:05.344Z"
         }
       },
       "_primary": "en"
@@ -51,32 +51,32 @@
           "content": "SpaceQuizMetahub",
           "version": 2,
           "isActive": true,
-          "createdAt": "2026-04-06T19:49:04.404Z",
-          "updatedAt": "2026-04-06T19:49:04.840Z"
+          "createdAt": "2026-04-17T19:44:04.914Z",
+          "updatedAt": "2026-04-17T19:44:05.344Z"
         },
         "ru": {
           "content": "МетахабКосмическойВикторины",
           "version": 1,
           "isActive": true,
-          "createdAt": "2026-04-06T19:49:04.404Z",
-          "updatedAt": "2026-04-06T19:49:04.404Z"
+          "createdAt": "2026-04-17T19:44:04.914Z",
+          "updatedAt": "2026-04-17T19:44:04.914Z"
         }
       },
       "_primary": "en"
     }
   },
   "snapshot": {
-    "metahubId": "019d6457-6fd1-7c39-b5da-ba506b23d146",
-    "generatedAt": "2026-04-06T19:49:36.889Z",
+    "metahubId": "019d9cf8-d1de-7e01-be5a-83a846e11529",
+    "generatedAt": "2026-04-17T19:44:37.476Z",
     "version": 1,
     "versionEnvelope": {
-      "structureVersion": "0.3.0",
+      "structureVersion": "0.1.0",
       "templateVersion": null,
-      "snapshotFormatVersion": 1
+      "snapshotFormatVersion": 3
     },
     "entities": {
-      "019d6457-9a67-74c0-a07c-ccaca25d9ad9": {
-        "id": "019d6457-9a67-74c0-a07c-ccaca25d9ad9",
+      "019d9cf9-02e3-7b54-ade0-c991181b6e1c": {
+        "id": "019d9cf9-02e3-7b54-ade0-c991181b6e1c",
         "kind": "hub",
         "codename": {
           "_schema": "1",
@@ -85,15 +85,15 @@
               "content": "Main",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T19:49:15.967Z",
-              "updatedAt": "2026-04-06T19:49:15.967Z"
+              "createdAt": "2026-04-17T19:44:18.105Z",
+              "updatedAt": "2026-04-17T19:44:18.105Z"
             },
             "ru": {
               "content": "Основной",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T19:49:15.967Z",
-              "updatedAt": "2026-04-06T19:49:15.967Z"
+              "createdAt": "2026-04-17T19:44:18.105Z",
+              "updatedAt": "2026-04-17T19:44:18.105Z"
             }
           },
           "_primary": "en"
@@ -142,13 +142,13 @@
         },
         "config": {
           "sortOrder": 1,
-          "parentHubId": null
+          "parentTreeEntityId": null
         },
         "fields": [],
         "hubs": []
       },
-      "019d6457-9b01-781b-8d62-57bb1e1c80a5": {
-        "id": "019d6457-9b01-781b-8d62-57bb1e1c80a5",
+      "019d9cf9-036f-7a67-ace3-de89a972da4f": {
+        "id": "019d9cf9-036f-7a67-ace3-de89a972da4f",
         "kind": "catalog",
         "codename": {
           "_schema": "1",
@@ -157,19 +157,20 @@
               "content": "Main",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T19:49:16.120Z",
-              "updatedAt": "2026-04-06T19:49:16.120Z"
+              "createdAt": "2026-04-17T19:44:18.247Z",
+              "updatedAt": "2026-04-17T19:44:18.247Z"
             },
             "ru": {
               "content": "Основной",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T19:49:16.120Z",
-              "updatedAt": "2026-04-06T19:49:16.120Z"
+              "createdAt": "2026-04-17T19:44:18.247Z",
+              "updatedAt": "2026-04-17T19:44:18.247Z"
             }
           },
           "_primary": "en"
         },
+        "tableName": "cat_019d9cf9036f7a67ace3de89a972da4f",
         "presentation": {
           "name": {
             "_schema": "1",
@@ -213,22 +214,70 @@
           }
         },
         "config": {
-          "sortOrder": 1,
-          "isSingleHub": false,
-          "isRequiredHub": false
+          "sortOrder": 1
         },
         "fields": [
           {
-            "id": "019d6457-b7c6-74fe-9a71-8586a1b81c73",
+            "id": "019d9cf9-0a51-7f15-8cd9-7ca75ecca172",
             "codename": {
               "_schema": "1",
               "locales": {
                 "en": {
                   "content": "Title",
-                  "version": 2,
+                  "version": 1,
                   "isActive": true,
-                  "createdAt": "2026-04-06T19:49:21.213Z",
-                  "updatedAt": "2026-04-06T19:49:22.510Z"
+                  "createdAt": "2026-04-17T19:44:20.009Z",
+                  "updatedAt": "2026-04-17T19:44:20.009Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "dataType": "STRING",
+            "isRequired": false,
+            "isDisplayAttribute": true,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Title",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  },
+                  "ru": {
+                    "content": "Название",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {
+              "maxLength": 255
+            },
+            "uiConfig": {
+              "isDisplay": true
+            },
+            "sortOrder": 1
+          },
+          {
+            "id": "019d9cf9-0ada-7761-ac56-41d203c81f7e",
+            "codename": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Description",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "2026-04-17T19:44:20.146Z",
+                  "updatedAt": "2026-04-17T19:44:20.146Z"
                 }
               },
               "_primary": "en"
@@ -242,11 +291,18 @@
                 "_schema": "1",
                 "locales": {
                   "en": {
-                    "content": "Title",
+                    "content": "Description",
                     "version": 1,
                     "isActive": true,
-                    "createdAt": "2026-04-06T19:49:22.510Z",
-                    "updatedAt": "2026-04-06T19:49:22.510Z"
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  },
+                  "ru": {
+                    "content": "Описание",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
                   }
                 },
                 "_primary": "en"
@@ -255,13 +311,13 @@
             },
             "validationRules": {},
             "uiConfig": {},
-            "sortOrder": 1
+            "sortOrder": 2
           }
         ],
         "hubs": []
       },
-      "019d6457-a0f5-7b0b-8627-b2ef30c36bec": {
-        "id": "019d6457-a0f5-7b0b-8627-b2ef30c36bec",
+      "019d9cf9-0932-7631-9a6e-f81bd0bd08ec": {
+        "id": "019d9cf9-0932-7631-9a6e-f81bd0bd08ec",
         "kind": "enumeration",
         "codename": {
           "_schema": "1",
@@ -270,20 +326,20 @@
               "content": "Main",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T19:49:17.644Z",
-              "updatedAt": "2026-04-06T19:49:17.644Z"
+              "createdAt": "2026-04-17T19:44:19.722Z",
+              "updatedAt": "2026-04-17T19:44:19.722Z"
             },
             "ru": {
               "content": "Основное",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T19:49:17.644Z",
-              "updatedAt": "2026-04-06T19:49:17.644Z"
+              "createdAt": "2026-04-17T19:44:19.722Z",
+              "updatedAt": "2026-04-17T19:44:19.722Z"
             }
           },
           "_primary": "en"
         },
-        "tableName": "enum_019d6457a0f57b0b8627b2ef30c36bec",
+        "tableName": "enum_019d9cf9093276319a6ef81bd0bd08ec",
         "presentation": {
           "name": {
             "_schema": "1",
@@ -327,15 +383,13 @@
           }
         },
         "config": {
-          "sortOrder": 1,
-          "isSingleHub": false,
-          "isRequiredHub": false
+          "sortOrder": 1
         },
         "fields": [],
         "hubs": []
       },
-      "019d6457-a05e-723a-bf90-1405619f0e5a": {
-        "id": "019d6457-a05e-723a-bf90-1405619f0e5a",
+      "019d9cf9-08ab-7b65-9a18-47ca10b21889": {
+        "id": "019d9cf9-08ab-7b65-9a18-47ca10b21889",
         "kind": "set",
         "codename": {
           "_schema": "1",
@@ -344,20 +398,20 @@
               "content": "Main",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T19:49:17.492Z",
-              "updatedAt": "2026-04-06T19:49:17.492Z"
+              "createdAt": "2026-04-17T19:44:19.587Z",
+              "updatedAt": "2026-04-17T19:44:19.587Z"
             },
             "ru": {
               "content": "Основной",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T19:49:17.492Z",
-              "updatedAt": "2026-04-06T19:49:17.492Z"
+              "createdAt": "2026-04-17T19:44:19.587Z",
+              "updatedAt": "2026-04-17T19:44:19.587Z"
             }
           },
           "_primary": "en"
         },
-        "tableName": "set_019d6457a05e723abf901405619f0e5a",
+        "tableName": "set_019d9cf908ab7b659a1847ca10b21889",
         "presentation": {
           "name": {
             "_schema": "1",
@@ -401,16 +455,580 @@
           }
         },
         "config": {
-          "sortOrder": 1,
-          "isSingleHub": false,
-          "isRequiredHub": false
+          "sortOrder": 1
         },
         "fields": [],
         "hubs": []
       }
     },
+    "entityTypeDefinitions": {
+      "catalog": {
+        "id": "019d9cf8-f5ea-79db-ba37-c8007cd86e13",
+        "kindKey": "catalog",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Catalog",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            },
+            "ru": {
+              "content": "Catalog",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Catalogs",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Каталоги",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Standard catalog entity type with schema, hierarchy, references, scripts, and runtime layout support.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Стандартный тип каталога со схемой, иерархией, связями, скриптами и поддержкой runtime layout.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "components": {
+          "events": {
+            "enabled": true
+          },
+          "actions": {
+            "enabled": true
+          },
+          "records": {
+            "enabled": true
+          },
+          "hierarchy": {
+            "enabled": true,
+            "supportsFolders": true
+          },
+          "relations": {
+            "enabled": true,
+            "allowedRelationTypes": [
+              "manyToOne"
+            ]
+          },
+          "scripting": {
+            "enabled": true
+          },
+          "dataSchema": {
+            "enabled": true
+          },
+          "fixedValues": false,
+          "layoutConfig": {
+            "enabled": true
+          },
+          "optionValues": false,
+          "physicalTable": {
+            "prefix": "cat",
+            "enabled": true
+          },
+          "treeAssignment": {
+            "enabled": true
+          },
+          "runtimeBehavior": {
+            "enabled": true
+          },
+          "nestedCollections": false
+        },
+        "ui": {
+          "iconName": "IconDatabase",
+          "tabs": [
+            "general",
+            "hubs",
+            "layout",
+            "scripts"
+          ],
+          "sidebarSection": "objects",
+          "sidebarOrder": 20,
+          "nameKey": "metahubs:catalogs.title"
+        },
+        "config": {},
+        "published": true
+      },
+      "enumeration": {
+        "id": "019d9cf8-f6fe-7c78-8dec-051db0000cff",
+        "kindKey": "enumeration",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Enumeration",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            },
+            "ru": {
+              "content": "Enumeration",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Enumerations",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Перечисления",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Standard enumeration entity type for enumerated values and design-time automation.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Стандартный тип перечисления для перечислимых значений и design-time автоматизации.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "components": {
+          "events": {
+            "enabled": true
+          },
+          "actions": {
+            "enabled": true
+          },
+          "records": false,
+          "hierarchy": false,
+          "relations": false,
+          "scripting": {
+            "enabled": true
+          },
+          "dataSchema": false,
+          "fixedValues": false,
+          "layoutConfig": false,
+          "optionValues": {
+            "enabled": true
+          },
+          "physicalTable": false,
+          "treeAssignment": false,
+          "runtimeBehavior": false,
+          "nestedCollections": false
+        },
+        "ui": {
+          "iconName": "IconFiles",
+          "tabs": [
+            "general",
+            "scripts"
+          ],
+          "sidebarSection": "objects",
+          "sidebarOrder": 40,
+          "nameKey": "metahubs:enumerations.title"
+        },
+        "config": {},
+        "published": true
+      },
+      "hub": {
+        "id": "019d9cf8-f553-73a0-a1e5-c4c3642e4f24",
+        "kindKey": "hub",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Hub",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            },
+            "ru": {
+              "content": "Hub",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Hubs",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Хабы",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Standard hub entity type for organizing metahub content with design-time automation hooks.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Стандартный тип хаба для организации контента метахаба и design-time автоматизации.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "components": {
+          "events": {
+            "enabled": true
+          },
+          "actions": {
+            "enabled": true
+          },
+          "records": false,
+          "hierarchy": false,
+          "relations": false,
+          "scripting": {
+            "enabled": true
+          },
+          "dataSchema": false,
+          "fixedValues": false,
+          "layoutConfig": false,
+          "optionValues": false,
+          "physicalTable": false,
+          "treeAssignment": false,
+          "runtimeBehavior": false,
+          "nestedCollections": false
+        },
+        "ui": {
+          "iconName": "IconHierarchy",
+          "tabs": [
+            "general"
+          ],
+          "sidebarSection": "objects",
+          "sidebarOrder": 10,
+          "nameKey": "metahubs:hubs.title"
+        },
+        "config": {},
+        "published": true
+      },
+      "set": {
+        "id": "019d9cf8-f674-7a19-aec4-90b1ce6add57",
+        "kindKey": "set",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Set",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            },
+            "ru": {
+              "content": "Set",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Sets",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Наборы",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Standard set entity type for typed fixed values and design-time automation.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Стандартный тип набора для типизированных фиксированных значений и design-time автоматизации.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "components": {
+          "events": {
+            "enabled": true
+          },
+          "actions": {
+            "enabled": true
+          },
+          "records": false,
+          "hierarchy": false,
+          "relations": false,
+          "scripting": {
+            "enabled": true
+          },
+          "dataSchema": {
+            "enabled": true
+          },
+          "fixedValues": {
+            "enabled": true
+          },
+          "layoutConfig": {
+            "enabled": true
+          },
+          "optionValues": false,
+          "physicalTable": false,
+          "treeAssignment": false,
+          "runtimeBehavior": false,
+          "nestedCollections": false
+        },
+        "ui": {
+          "iconName": "IconFileText",
+          "tabs": [
+            "general",
+            "scripts"
+          ],
+          "sidebarSection": "objects",
+          "sidebarOrder": 30,
+          "nameKey": "metahubs:sets.title"
+        },
+        "config": {},
+        "published": true
+      }
+    },
+    "optionValues": {
+      "019d9cf9-0932-7631-9a6e-f81bd0bd08ec": [
+        {
+          "id": "019d9cf9-0bac-73b5-a4b7-6b356970bd46",
+          "objectId": "019d9cf9-0932-7631-9a6e-f81bd0bd08ec",
+          "codename": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Active",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-17T19:44:20.356Z",
+                "updatedAt": "2026-04-17T19:44:20.356Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "presentation": {
+            "name": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Active",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Активный",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            }
+          },
+          "sortOrder": 1,
+          "isDefault": true
+        },
+        {
+          "id": "019d9cf9-0c3c-7ada-b6db-0857519d0307",
+          "objectId": "019d9cf9-0932-7631-9a6e-f81bd0bd08ec",
+          "codename": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Inactive",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-17T19:44:20.500Z",
+                "updatedAt": "2026-04-17T19:44:20.500Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "presentation": {
+            "name": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Inactive",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Неактивный",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            }
+          },
+          "sortOrder": 2,
+          "isDefault": false
+        }
+      ]
+    },
+    "fixedValues": {
+      "019d9cf9-08ab-7b65-9a18-47ca10b21889": [
+        {
+          "id": "019d9cf9-09c3-76e7-a97b-7a9c8375697a",
+          "objectId": "019d9cf9-08ab-7b65-9a18-47ca10b21889",
+          "codename": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "AppName",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "2026-04-17T19:44:19.860Z",
+                "updatedAt": "2026-04-17T19:44:19.860Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "dataType": "STRING",
+          "presentation": {
+            "name": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Application Name",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Название приложения",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            }
+          },
+          "validationRules": {},
+          "uiConfig": {},
+          "value": "My Application",
+          "sortOrder": 1
+        }
+      ]
+    },
     "systemFields": {
-      "019d6457-9b01-781b-8d62-57bb1e1c80a5": {
+      "019d9cf9-036f-7a67-ace3-de89a972da4f": {
         "fields": [
           {
             "key": "app.published",
@@ -494,7 +1112,7 @@
     },
     "scripts": [
       {
-        "id": "019d6457-d950-7e14-a9c4-fba7829096c0",
+        "id": "019d9cf9-313f-7c35-b028-c02287f67102",
         "codename": {
           "_schema": "1",
           "locales": {
@@ -502,8 +1120,8 @@
               "content": "quiz-widget",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T19:49:31.930Z",
-              "updatedAt": "2026-04-06T19:49:31.930Z"
+              "createdAt": "2026-04-17T19:44:29.832Z",
+              "updatedAt": "2026-04-17T19:44:29.832Z"
             }
           },
           "_primary": "en"
@@ -516,8 +1134,8 @@
                 "content": "Space quiz widget",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T19:49:31.502Z",
-                "updatedAt": "2026-04-06T19:49:31.502Z"
+                "createdAt": "2026-04-17T19:44:29.021Z",
+                "updatedAt": "2026-04-17T19:44:29.021Z"
               }
             },
             "_primary": "en"
@@ -529,8 +1147,8 @@
                 "content": "Canonical Space Quiz widget script for snapshot export",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-06T19:49:31.503Z",
-                "updatedAt": "2026-04-06T19:49:31.503Z"
+                "createdAt": "2026-04-17T19:44:29.021Z",
+                "updatedAt": "2026-04-17T19:44:29.021Z"
               }
             },
             "_primary": "en"
@@ -578,7 +1196,7 @@
     ],
     "layouts": [
       {
-        "id": "019d6457-8e9e-7b38-9b28-d8cea3e26ad9",
+        "id": "019d9cf8-f7ca-7871-8823-8c531aa4505e",
         "templateKey": "dashboard",
         "name": {
           "_schema": "1",
@@ -587,15 +1205,15 @@
               "content": "Main",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T19:49:25.520Z",
-              "updatedAt": "2026-04-06T19:49:25.520Z"
+              "createdAt": "2026-04-17T19:44:23.660Z",
+              "updatedAt": "2026-04-17T19:44:23.660Z"
             },
             "ru": {
               "content": "Основной",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T19:49:25.520Z",
-              "updatedAt": "2026-04-06T19:49:25.520Z"
+              "createdAt": "2026-04-17T19:44:23.660Z",
+              "updatedAt": "2026-04-17T19:44:23.660Z"
             }
           },
           "_primary": "en"
@@ -607,15 +1225,15 @@
               "content": "Main layout for published applications",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T19:49:25.520Z",
-              "updatedAt": "2026-04-06T19:49:25.520Z"
+              "createdAt": "2026-04-17T19:44:23.660Z",
+              "updatedAt": "2026-04-17T19:44:23.660Z"
             },
             "ru": {
               "content": "Основной макет для опубликованных приложений",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-06T19:49:25.520Z",
-              "updatedAt": "2026-04-06T19:49:25.520Z"
+              "createdAt": "2026-04-17T19:44:23.660Z",
+              "updatedAt": "2026-04-17T19:44:23.660Z"
             }
           },
           "_primary": "en"
@@ -647,7 +1265,7 @@
       }
     ],
     "catalogLayouts": [],
-    "defaultLayoutId": "019d6457-8e9e-7b38-9b28-d8cea3e26ad9",
+    "defaultLayoutId": "019d9cf8-f7ca-7871-8823-8c531aa4505e",
     "layoutConfig": {
       "showFooter": false,
       "showHeader": true,
@@ -671,8 +1289,8 @@
     },
     "layoutZoneWidgets": [
       {
-        "id": "019d6457-ddfd-7072-9642-bce7d603b01b",
-        "layoutId": "019d6457-8e9e-7b38-9b28-d8cea3e26ad9",
+        "id": "019d9cf9-35d2-7876-ad30-e1ce7ab5b5fc",
+        "layoutId": "019d9cf8-f7ca-7871-8823-8c531aa4505e",
         "zone": "center",
         "widgetKey": "quizWidget",
         "sortOrder": 1,
@@ -683,8 +1301,8 @@
         "isActive": true
       },
       {
-        "id": "019d6457-9027-71a7-8977-c04aa0b1347e",
-        "layoutId": "019d6457-8e9e-7b38-9b28-d8cea3e26ad9",
+        "id": "019d9cf8-f931-7dbe-b73c-e9ddf0ae6fe1",
+        "layoutId": "019d9cf8-f7ca-7871-8823-8c531aa4505e",
         "zone": "top",
         "widgetKey": "appNavbar",
         "sortOrder": 1,
@@ -692,8 +1310,8 @@
         "isActive": true
       },
       {
-        "id": "019d6457-90bc-7cb6-9beb-f3cf6946bea0",
-        "layoutId": "019d6457-8e9e-7b38-9b28-d8cea3e26ad9",
+        "id": "019d9cf8-f9bb-7f52-a84d-a1a993fa6c95",
+        "layoutId": "019d9cf8-f7ca-7871-8823-8c531aa4505e",
         "zone": "top",
         "widgetKey": "header",
         "sortOrder": 2,
@@ -703,5 +1321,5 @@
     ],
     "catalogLayoutWidgetOverrides": []
   },
-  "snapshotHash": "588bc7c81e4d898d613d0733415ad70e6815dbfa1356da75302212edb97b4a59"
+  "snapshotHash": "3ea6d451c76edb5c7798a5ad0aae29bd914b0e046857350a0d99b81ed9400182"
 }

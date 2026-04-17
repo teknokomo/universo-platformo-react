@@ -82,7 +82,8 @@ const LEGACY_COMPATIBLE_ENTITY_LABEL_KEYS: Record<BuiltinEntityKind, string> = {
 
 const truncateEntityBreadcrumbLabel = (value: string): string => (value.length > 36 ? `${value.slice(0, 33)}...` : value)
 
-const buildEntityInstancesPath = (metahubId: string, kindSegment: string): string => `/metahub/${metahubId}/entities/${kindSegment}/instances`
+const buildEntityInstancesPath = (metahubId: string, kindSegment: string): string =>
+    `/metahub/${metahubId}/entities/${kindSegment}/instances`
 const ENTITY_METADATA_TAB_SEGMENTS: Record<'attributes' | 'system' | 'elements', string> = {
     attributes: 'field-definitions',
     system: 'system',
@@ -110,8 +111,12 @@ const buildEntityInstanceDefaultPath = (
     return `/metahub/${metahubId}/entities/${kindSegment}/instance/${entityId}/field-definitions`
 }
 
-const buildEntityTreeEntityScopePath = (metahubId: string, kindSegment: string, treeEntityId: string, tab: 'hubs' | 'catalogs' | 'sets' | 'enumerations') =>
-    `/metahub/${metahubId}/entities/${kindSegment}/instance/${treeEntityId}/${tab}`
+const buildEntityTreeEntityScopePath = (
+    metahubId: string,
+    kindSegment: string,
+    treeEntityId: string,
+    tab: 'hubs' | 'catalogs' | 'sets' | 'enumerations'
+) => `/metahub/${metahubId}/entities/${kindSegment}/instance/${treeEntityId}/${tab}`
 
 const buildEntityTreeEntityLinkedCollectionPath = (
     metahubId: string,
@@ -119,7 +124,8 @@ const buildEntityTreeEntityLinkedCollectionPath = (
     treeEntityId: string,
     linkedCollectionId: string,
     tab: 'attributes' | 'system' | 'elements'
-) => `/metahub/${metahubId}/entities/${kindSegment}/instance/${treeEntityId}/catalog/${linkedCollectionId}/${ENTITY_METADATA_TAB_SEGMENTS[tab]}`
+) =>
+    `/metahub/${metahubId}/entities/${kindSegment}/instance/${treeEntityId}/catalog/${linkedCollectionId}/${ENTITY_METADATA_TAB_SEGMENTS[tab]}`
 
 const buildEntityTreeEntityValueGroupPath = (metahubId: string, kindSegment: string, treeEntityId: string, valueGroupId: string) =>
     `/metahub/${metahubId}/entities/${kindSegment}/instance/${treeEntityId}/set/${valueGroupId}/fixed-values`
@@ -156,16 +162,8 @@ export default function NavbarBreadcrumbs() {
     // /metahub/:metahubId/entities/:kindKey/instance/:entityId/layout/:layoutId
     const layoutDetailMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/resources\/layouts\/([^/]+)/)
     const entityLayoutDetailMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/entities\/[^/]+\/instance\/[^/]+\/layout\/([^/]+)/)
-    const layoutParentMetahubId = layoutDetailMatch
-        ? layoutDetailMatch[1]
-        : entityLayoutDetailMatch
-        ? entityLayoutDetailMatch[1]
-        : null
-    const layoutId = layoutDetailMatch
-        ? layoutDetailMatch[2]
-        : entityLayoutDetailMatch
-        ? entityLayoutDetailMatch[2]
-        : null
+    const layoutParentMetahubId = layoutDetailMatch ? layoutDetailMatch[1] : entityLayoutDetailMatch ? entityLayoutDetailMatch[1] : null
+    const layoutId = layoutDetailMatch ? layoutDetailMatch[2] : entityLayoutDetailMatch ? entityLayoutDetailMatch[2] : null
     const layoutName = useLayoutName(layoutParentMetahubId, layoutId)
 
     const entityRouteMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/entities\/([^/]+)(?:\/|$)/)
@@ -174,8 +172,12 @@ export default function NavbarBreadcrumbs() {
     const entityRouteKindKey = entityRouteKindSegment ? decodeURIComponent(entityRouteKindSegment) : null
     const entityRouteDetailMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/entities\/[^/]+\/instance\/([^/]+)(?:\/|$)/)
     const entityRouteEntityId = entityRouteDetailMatch ? entityRouteDetailMatch[2] : null
-    const entityRouteTreeEntityLinkedCollectionMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/entities\/[^/]+\/instance\/([^/]+)\/catalog\/([^/]+)(?:\/|$)/)
-    const entityRouteTreeEntityValueGroupMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/entities\/[^/]+\/instance\/([^/]+)\/set\/([^/]+)(?:\/|$)/)
+    const entityRouteTreeEntityLinkedCollectionMatch = location.pathname.match(
+        /^\/metahubs?\/([^/]+)\/entities\/[^/]+\/instance\/([^/]+)\/catalog\/([^/]+)(?:\/|$)/
+    )
+    const entityRouteTreeEntityValueGroupMatch = location.pathname.match(
+        /^\/metahubs?\/([^/]+)\/entities\/[^/]+\/instance\/([^/]+)\/set\/([^/]+)(?:\/|$)/
+    )
     const entityRouteTreeEntityOptionListMatch = location.pathname.match(
         /^\/metahubs?\/([^/]+)\/entities\/[^/]+\/instance\/([^/]+)\/enumeration\/([^/]+)(?:\/|$)/
     )
@@ -426,7 +428,12 @@ export default function NavbarBreadcrumbs() {
                             })
 
                             if (entityRouteLegacyCompatibleKind === 'hub') {
-                                if (segments[6] === 'hubs' || segments[6] === 'catalogs' || segments[6] === 'sets' || segments[6] === 'enumerations') {
+                                if (
+                                    segments[6] === 'hubs' ||
+                                    segments[6] === 'catalogs' ||
+                                    segments[6] === 'sets' ||
+                                    segments[6] === 'enumerations'
+                                ) {
                                     items.push({
                                         label: t(segments[6]),
                                         to: buildEntityTreeEntityScopePath(segments[1], segments[3], segments[5], segments[6])
@@ -437,8 +444,16 @@ export default function NavbarBreadcrumbs() {
                                         to: buildEntityTreeEntityScopePath(segments[1], segments[3], segments[5], 'catalogs')
                                     })
                                     items.push({
-                                        label: entityRouteTreeEntityLinkedCollectionName ? truncateLinkedCollectionName(entityRouteTreeEntityLinkedCollectionName) : '...',
-                                        to: buildEntityTreeEntityLinkedCollectionPath(segments[1], segments[3], segments[5], segments[7], 'attributes')
+                                        label: entityRouteTreeEntityLinkedCollectionName
+                                            ? truncateLinkedCollectionName(entityRouteTreeEntityLinkedCollectionName)
+                                            : '...',
+                                        to: buildEntityTreeEntityLinkedCollectionPath(
+                                            segments[1],
+                                            segments[3],
+                                            segments[5],
+                                            segments[7],
+                                            'attributes'
+                                        )
                                     })
 
                                     if (segments[8] === 'attributes') {

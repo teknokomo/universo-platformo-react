@@ -173,9 +173,9 @@ export const validateTreeEntityForm = (ctx: ActionContext<TreeEntityDisplay, Tre
     const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
     const normalizedCodename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
     if (!normalizedCodename) {
-        errors.codename = ctx.t('treeEntities.validation.codenameRequired', 'Codename is required')
+        errors.codename = ctx.t('hubs.validation.codenameRequired', 'Codename is required')
     } else if (!isValidCodenameForStyle(normalizedCodename, cc.style, cc.alphabet, cc.allowMixed)) {
-        errors.codename = ctx.t('treeEntities.validation.codenameInvalid', 'Codename contains invalid characters')
+        errors.codename = ctx.t('hubs.validation.codenameInvalid', 'Codename contains invalid characters')
     }
     return Object.keys(errors).length > 0 ? errors : null
 }
@@ -315,8 +315,8 @@ const HubEditFields = ({
                 onTouchedChange={(touched) => setValue('codenameTouched', touched)}
                 onDuplicateStatusChange={(dup) => setValue('_hasCodenameDuplicate', dup)}
                 uiLocale={uiLocale as string}
-                label={t('treeEntities.codename', 'Codename')}
-                helperText={t('treeEntities.codenameHelper', 'Unique identifier')}
+                label={t('hubs.codename', 'Codename')}
+                helperText={t('hubs.codenameHelper', 'Unique identifier')}
                 error={fieldErrors.codename}
                 disabled={isLoading}
                 required
@@ -352,7 +352,7 @@ const TreeEntityCopyOptionsTab = ({
                         disabled={isLoading}
                     />
                 }
-                label={t('treeEntities.copy.options.copyAllRelations', 'Copy all relations')}
+                label={t('hubs.copy.options.copyAllRelations', 'Copy all relations')}
             />
             <FormControlLabel
                 control={
@@ -364,7 +364,7 @@ const TreeEntityCopyOptionsTab = ({
                         disabled={isLoading}
                     />
                 }
-                label={t('treeEntities.copy.options.copyLinkedCollectionRelations', 'Linked collection relations')}
+                label={t('hubs.copy.options.copyLinkedCollectionRelations', 'Catalog relations')}
             />
             <FormControlLabel
                 control={
@@ -374,7 +374,7 @@ const TreeEntityCopyOptionsTab = ({
                         disabled={isLoading}
                     />
                 }
-                label={t('treeEntities.copy.options.copyValueGroupRelations', 'Value group relations')}
+                label={t('hubs.copy.options.copyValueGroupRelations', 'Set relations')}
             />
             <FormControlLabel
                 control={
@@ -384,13 +384,10 @@ const TreeEntityCopyOptionsTab = ({
                         disabled={isLoading}
                     />
                 }
-                label={t('treeEntities.copy.options.copyOptionListRelations', 'Option list relations')}
+                label={t('hubs.copy.options.copyOptionListRelations', 'Enumeration relations')}
             />
             <Alert severity='info' sx={{ py: 0.5 }}>
-                {t(
-                    'treeEntities.copy.options.singleHubNotice',
-                    'Relations to entities with the "Single hub" restriction will not be copied.'
-                )}
+                {t('hubs.copy.options.singleHubNotice', 'Relations to entities with the "Single hub" restriction will not be copied.')}
             </Alert>
         </Stack>
     )
@@ -427,7 +424,7 @@ export const buildFormTabs = (
         const baseTabs: TabConfig[] = [
             {
                 id: 'general',
-                label: ctx.t('treeEntities.tabs.general', 'General'),
+                label: ctx.t('hubs.tabs.general', 'General'),
                 content: (
                     <HubEditFields
                         values={values}
@@ -449,7 +446,7 @@ export const buildFormTabs = (
 
         baseTabs.push({
             id: 'treeEntities',
-            label: ctx.t('treeEntities.tabs.treeEntities', 'TreeEntities'),
+            label: ctx.t('hubs.tabs.treeEntities', 'TreeEntities'),
             content: (
                 <ContainerParentSelectionPanel
                     availableContainers={availableParentTreeEntities}
@@ -497,7 +494,7 @@ const treeEntityActions: readonly ActionDescriptor<TreeEntityDisplay, TreeEntity
                 return {
                     open: true,
                     mode: 'edit' as const,
-                    title: ctx.t('treeEntities.editTitle', 'Edit TreeEntity'),
+                    title: ctx.t('hubs.editTitle', 'Edit TreeEntity'),
                     nameLabel: ctx.t('common:fields.name'),
                     descriptionLabel: ctx.t('common:fields.description'),
                     saveButtonText: ctx.t('common:actions.save'),
@@ -526,10 +523,10 @@ const treeEntityActions: readonly ActionDescriptor<TreeEntityDisplay, TreeEntity
                                 payload.parentTreeEntityId !== currentTreeEntityId
                             if (detachedFromCurrentHub && ctx.helpers?.confirm) {
                                 const confirmed = await ctx.helpers.confirm({
-                                    title: ctx.t('treeEntities.detachedConfirm.editTitle', 'Save hub outside current tree entity?'),
+                                    title: ctx.t('hubs.detachedConfirm.editTitle', 'Save hub outside current hub?'),
                                     description: ctx.t(
-                                        'treeEntities.detachedConfirm.description',
-                                        'This hub is not linked as a child of the current tree entity and will not appear in this hub after saving.'
+                                        'hubs.detachedConfirm.description',
+                                        'This hub is not linked as a child of the current hub and will not appear in this hub after saving.'
                                     ),
                                     confirmButtonName: ctx.t('common:actions.save', 'Save'),
                                     cancelButtonName: ctx.t('common:actions.cancel', 'Cancel')
@@ -573,11 +570,11 @@ const treeEntityActions: readonly ActionDescriptor<TreeEntityDisplay, TreeEntity
                 return {
                     open: true,
                     mode: 'create' as const,
-                    title: ctx.t('treeEntities.copyTitle', 'Copying TreeEntity'),
+                    title: ctx.t('hubs.copyTitle', 'Copying TreeEntity'),
                     nameLabel: ctx.t('common:fields.name'),
                     descriptionLabel: ctx.t('common:fields.description'),
-                    saveButtonText: ctx.t('treeEntities.copy.action', 'Copy'),
-                    savingButtonText: ctx.t('treeEntities.copy.actionLoading', 'Copying...'),
+                    saveButtonText: ctx.t('hubs.copy.action', 'Copy'),
+                    savingButtonText: ctx.t('hubs.copy.actionLoading', 'Copying...'),
                     cancelButtonText: ctx.t('common:actions.cancel'),
                     hideDefaultFields: true,
                     initialExtraValues: initial,
@@ -590,7 +587,7 @@ const treeEntityActions: readonly ActionDescriptor<TreeEntityDisplay, TreeEntity
                         }),
                         {
                             id: 'options',
-                            label: ctx.t('treeEntities.tabs.options', 'Options'),
+                            label: ctx.t('hubs.tabs.options', 'Options'),
                             content: <TreeEntityCopyOptionsTab values={values} setValue={setValue} isLoading={isLoading} t={ctx.t} />
                         }
                     ],
@@ -610,10 +607,10 @@ const treeEntityActions: readonly ActionDescriptor<TreeEntityDisplay, TreeEntity
                                 payload.parentTreeEntityId !== currentTreeEntityId
                             if (detachedFromCurrentHub && ctx.helpers?.confirm) {
                                 const confirmed = await ctx.helpers.confirm({
-                                    title: ctx.t('treeEntities.detachedConfirm.copyTitle', 'Create hub copy outside current tree entity?'),
+                                    title: ctx.t('hubs.detachedConfirm.copyTitle', 'Create hub copy outside current hub?'),
                                     description: ctx.t(
-                                        'treeEntities.detachedConfirm.description',
-                                        'This hub is not linked as a child of the current tree entity and will not appear in this hub after saving.'
+                                        'hubs.detachedConfirm.description',
+                                        'This hub is not linked as a child of the current hub and will not appear in this hub after saving.'
                                     ),
                                     confirmButtonName: ctx.t('common:actions.create', 'Create'),
                                     cancelButtonName: ctx.t('common:actions.cancel', 'Cancel')

@@ -203,14 +203,14 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
         const catalogId = await waitForFirstEntityId(() => listLinkedCollections(api, metahub.id, { limit: 100, offset: 0 }), 'catalog')
 
         await page.goto(`/metahub/${metahub.id}/entities/set/instances`)
-        await expect(page.getByRole('heading', { name: 'Value groups' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Sets' })).toBeVisible()
         await page.getByTestId(buildEntityMenuTriggerSelector('set', setId)).click()
         await page.getByTestId(buildEntityMenuItemSelector('set', 'edit', setId)).click()
 
-        const editSetDialog = page.getByRole('dialog', { name: 'Edit Value Group' })
+        const editSetDialog = page.getByRole('dialog', { name: 'Edit Set' })
         await expect(editSetDialog).toBeVisible()
         await expect(editSetDialog.getByRole('tab', { name: 'General' })).toBeVisible()
-        await expect(editSetDialog.getByRole('tab', { name: 'Tree entities' })).toBeVisible()
+        await expect(editSetDialog.getByRole('tab', { name: 'Hubs' })).toBeVisible()
         await expect(editSetDialog.getByRole('tab', { name: 'Scripts' })).toBeVisible()
         await expect(editSetDialog.getByLabel('Name').first()).toBeVisible()
         await expect(editSetDialog.getByLabel('Description').first()).toBeVisible()
@@ -220,7 +220,7 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
 
         const initialDialogBox = await editSetDialog.boundingBox()
         if (!initialDialogBox) {
-            throw new Error('Edit Value Group dialog bounding box is unavailable')
+            throw new Error('Edit Set dialog bounding box is unavailable')
         }
 
         await page.mouse.click(12, 12)
@@ -239,7 +239,7 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
         await expect(editSetDialog.getByTestId('entity-scripts-layout')).toHaveAttribute('data-layout-mode', 'compact')
         await expect(editSetDialog.getByTestId('entity-scripts-list-toggle')).toBeVisible()
         await expect(editSetDialog.getByTestId('entity-scripts-editor-shell')).toBeVisible()
-        await expectNoHorizontalOverflow(editSetDialog, 'Edit Value Group dialog')
+        await expectNoHorizontalOverflow(editSetDialog, 'Edit Set dialog')
         await expectViewportWithoutHorizontalOverflow(page)
 
         await editSetDialog.getByRole('tab', { name: 'General' }).click()
@@ -249,10 +249,10 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
         await page.getByTestId(buildEntityMenuTriggerSelector('set', setId)).click()
         await page.getByTestId(buildEntityMenuItemSelector('set', 'copy', setId)).click()
 
-        const copySetDialog = page.getByRole('dialog', { name: 'Copying Value Group' })
+        const copySetDialog = page.getByRole('dialog', { name: 'Copying Set' })
         await expect(copySetDialog).toBeVisible()
         await expect(copySetDialog.getByRole('tab', { name: 'General' })).toBeVisible()
-        await expect(copySetDialog.getByRole('tab', { name: 'Tree entities' })).toBeVisible()
+        await expect(copySetDialog.getByRole('tab', { name: 'Hubs' })).toBeVisible()
         await expect(copySetDialog.getByLabel('Name').first()).toBeVisible()
         await expect(copySetDialog.getByLabel('Description').first()).toBeVisible()
         await expect(copySetDialog.getByLabel('Codename').first()).toBeVisible()
@@ -260,14 +260,14 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
         await expect(copySetDialog).toHaveCount(0)
 
         await page.goto(`/metahub/${metahub.id}/entities/enumeration/instances`)
-        await expect(page.getByRole('heading', { name: 'Option lists' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Enumerations' })).toBeVisible()
         await page.getByTestId(buildEntityMenuTriggerSelector('enumeration', enumerationId)).click()
         await page.getByTestId(buildEntityMenuItemSelector('enumeration', 'edit', enumerationId)).click()
 
-        const editEnumerationDialog = page.getByRole('dialog', { name: 'Edit OptionListEntity' })
+        const editEnumerationDialog = page.getByRole('dialog', { name: 'Edit Enumeration' })
         await expect(editEnumerationDialog).toBeVisible()
         await expect(editEnumerationDialog.getByRole('tab', { name: 'General' })).toBeVisible()
-        await expect(editEnumerationDialog.getByRole('tab', { name: 'Tree entities' })).toBeVisible()
+        await expect(editEnumerationDialog.getByRole('tab', { name: 'Hubs' })).toBeVisible()
         await expect(editEnumerationDialog.getByLabel('Name').first()).toBeVisible()
         await expect(editEnumerationDialog.getByLabel('Description').first()).toBeVisible()
         await expect(editEnumerationDialog.getByLabel('Codename').first()).toBeVisible()
@@ -277,10 +277,10 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
         await page.getByTestId(buildEntityMenuTriggerSelector('enumeration', enumerationId)).click()
         await page.getByTestId(buildEntityMenuItemSelector('enumeration', 'copy', enumerationId)).click()
 
-        const copyEnumerationDialog = page.getByRole('dialog', { name: 'Copying OptionListEntity' })
+        const copyEnumerationDialog = page.getByRole('dialog', { name: 'Copying Enumeration' })
         await expect(copyEnumerationDialog).toBeVisible()
         await expect(copyEnumerationDialog.getByRole('tab', { name: 'General' })).toBeVisible()
-        await expect(copyEnumerationDialog.getByRole('tab', { name: 'Tree entities' })).toBeVisible()
+        await expect(copyEnumerationDialog.getByRole('tab', { name: 'Hubs' })).toBeVisible()
         await expect(copyEnumerationDialog.getByLabel('Name').first()).toBeVisible()
         await expect(copyEnumerationDialog.getByLabel('Description').first()).toBeVisible()
         await expect(copyEnumerationDialog.getByLabel('Codename').first()).toBeVisible()
@@ -480,26 +480,26 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
         })
 
         await page.goto(`/metahub/${metahub.id}/entities/set/instances`)
-        await expect(page.getByRole('heading', { name: 'Value groups' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Sets' })).toBeVisible()
         await page.getByTestId(buildEntityMenuTriggerSelector('set', setId)).click()
         await page.getByTestId(buildEntityMenuItemSelector('set', 'delete', setId)).click()
 
-        const setDeleteDialog = page.getByRole('dialog', { name: 'Delete value group' })
+        const setDeleteDialog = page.getByRole('dialog', { name: 'Delete Set' })
         await expect(setDeleteDialog).toBeVisible()
-        await expect(setDeleteDialog.getByText('Cannot delete value group. Remove these references from linked-collection field definitions first:')).toBeVisible()
+        await expect(setDeleteDialog.getByText('Cannot delete set. Remove these references from catalog field definitions first:')).toBeVisible()
         await expect(setDeleteDialog.locator(`a[href*="/entities/catalog/instance/${catalogId}/field-definitions"]`).first()).toBeVisible()
         await setDeleteDialog.locator(`a[href*="/entities/catalog/instance/${catalogId}/field-definitions"]`).first().click()
         await expect(page).toHaveURL(new RegExp(`/metahub/${metahub.id}/entities/catalog/instance/${catalogId}/field-definitions$`))
         await expect(page.getByRole('heading', { name: 'Field Definitions' })).toBeVisible()
 
         await page.goto(`/metahub/${metahub.id}/entities/enumeration/instances`)
-        await expect(page.getByRole('heading', { name: 'Option lists' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Enumerations' })).toBeVisible()
         await page.getByTestId(buildEntityMenuTriggerSelector('enumeration', enumerationId)).click()
         await page.getByTestId(buildEntityMenuItemSelector('enumeration', 'delete', enumerationId)).click()
 
-        const enumerationDeleteDialog = page.getByRole('dialog', { name: 'Delete option list' })
+        const enumerationDeleteDialog = page.getByRole('dialog', { name: 'Delete Enumeration' })
         await expect(enumerationDeleteDialog).toBeVisible()
-        await expect(enumerationDeleteDialog.getByText('Cannot delete option list. Remove these references from field definitions first:')).toBeVisible()
+        await expect(enumerationDeleteDialog.getByText('Cannot delete enumeration. Remove these references from field definitions first:')).toBeVisible()
         await expect(enumerationDeleteDialog.locator(`a[href*="/entities/catalog/instance/${catalogId}/field-definitions"]`).first()).toBeVisible()
         await enumerationDeleteDialog.locator(`a[href*="/entities/catalog/instance/${catalogId}/field-definitions"]`).first().click()
         await expect(page).toHaveURL(new RegExp(`/metahub/${metahub.id}/entities/catalog/instance/${catalogId}/field-definitions$`))

@@ -78,12 +78,12 @@ describe('TargetEntitySelector', () => {
                 {
                     kindKey: 'catalog',
                     components: { dataSchema: { enabled: true } },
-                    ui: { iconName: 'IconDatabase', tabs: [], sidebarSection: 'objects', nameKey: 'LinkedCollectionEntity' }
+                    ui: { iconName: 'IconDatabase', tabs: [], sidebarSection: 'objects', nameKey: 'Catalog' }
                 },
                 {
                     kindKey: 'enumeration',
                     components: { dataSchema: false },
-                    ui: { iconName: 'IconFiles', tabs: [], sidebarSection: 'objects', nameKey: 'OptionListEntity' }
+                    ui: { iconName: 'IconFiles', tabs: [], sidebarSection: 'objects', nameKey: 'Enumeration' }
                 },
                 {
                     kindKey: 'set',

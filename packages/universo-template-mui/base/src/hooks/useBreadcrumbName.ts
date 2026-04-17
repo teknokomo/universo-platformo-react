@@ -244,7 +244,11 @@ export function useTreeEntityName(metahubId: string | null, treeEntityId: string
  * Hook to fetch LinkedCollection name for breadcrumb display.
  * Requires metahubId, treeEntityId, and linkedCollectionId since LinkedCollection API is nested under TreeEntity.
  */
-export function useLinkedCollectionName(metahubId: string | null, treeEntityId: string | null, linkedCollectionId: string | null): string | null {
+export function useLinkedCollectionName(
+    metahubId: string | null,
+    treeEntityId: string | null,
+    linkedCollectionId: string | null
+): string | null {
     const { client, loading: authLoading } = useAuth()
     const language = getCurrentLanguageKey()
     const query = useQuery({

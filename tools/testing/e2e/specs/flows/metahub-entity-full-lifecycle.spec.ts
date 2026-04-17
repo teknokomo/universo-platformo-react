@@ -150,32 +150,32 @@ test('@flow @combined full entity lifecycle: create, author metadata, copy, publ
 
         await recordCreatedMetahub({ id: metahub.id, name: metahubName, codename: metahubCodename })
 
-        // ─── Step 2: Create tree entity via browser ──────────────
+        // ─── Step 2: Create hub via browser ──────────────
         await page.goto(`/metahub/${metahub.id}/entities/hub/instances`)
-        await expect(page.getByRole('heading', { name: 'Tree entities' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Hubs' })).toBeVisible()
 
-        const treeEntityDialog = await openEntityDialog(page, 'Create TreeEntity')
+        const treeEntityDialog = await openEntityDialog(page, 'Create Hub')
         await fillNameAndCodename(treeEntityDialog, { name: treeEntityName, codename: treeEntityCodename })
 
         const createTreeEntityResponse = waitForSettledMutationResponse(
             page,
             (response) =>
                 response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/entities/hub/instances`),
-            { label: 'Creating tree entity' }
+            { label: 'Creating hub' }
         )
         await treeEntityDialog.getByTestId(entityDialogSelectors.submitButton).click()
 
-        const createdTreeEntity = await parseJsonResponse<EntityRecord>(await createTreeEntityResponse, 'Creating tree entity')
-        if (!createdTreeEntity.id) throw new Error('Tree entity creation did not return an id')
+        const createdTreeEntity = await parseJsonResponse<EntityRecord>(await createTreeEntityResponse, 'Creating hub')
+        if (!createdTreeEntity.id) throw new Error('Hub creation did not return an id')
 
         await expect(page.getByText(treeEntityName, { exact: true })).toBeVisible()
-        await waitForListEntity(() => listTreeEntities(api, metahub.id, { limit: 100, offset: 0 }), createdTreeEntity.id, 'tree entity')
+        await waitForListEntity(() => listTreeEntities(api, metahub.id, { limit: 100, offset: 0 }), createdTreeEntity.id, 'hub')
 
-        // ─── Step 3: Create linked collection via browser ────────
+        // ─── Step 3: Create catalog via browser ────────
         await page.goto(`/metahub/${metahub.id}/entities/catalog/instances`)
-        await expect(page.getByRole('heading', { name: 'Linked collections' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Catalogs' })).toBeVisible()
 
-        const linkedCollectionDialog = await openEntityDialog(page, 'Create LinkedCollectionEntity')
+        const linkedCollectionDialog = await openEntityDialog(page, 'Create Catalog')
         await fillNameAndCodename(linkedCollectionDialog, { name: linkedCollectionName, codename: linkedCollectionCodename })
 
         const createLinkedCollectionResponse = waitForSettledMutationResponse(
@@ -183,24 +183,24 @@ test('@flow @combined full entity lifecycle: create, author metadata, copy, publ
             (response) =>
                 response.request().method() === 'POST' &&
                 response.url().endsWith(`/api/v1/metahub/${metahub.id}/entities/catalog/instances`),
-            { label: 'Creating linked collection' }
+            { label: 'Creating catalog' }
         )
         await linkedCollectionDialog.getByTestId(entityDialogSelectors.submitButton).click()
 
         const createdLinkedCollection = await parseJsonResponse<EntityRecord>(
             await createLinkedCollectionResponse,
-            'Creating linked collection'
+            'Creating catalog'
         )
-        if (!createdLinkedCollection.id) throw new Error('Linked collection creation did not return an id')
+        if (!createdLinkedCollection.id) throw new Error('Catalog creation did not return an id')
 
         await expect(page.getByText(linkedCollectionName, { exact: true })).toBeVisible()
         await waitForListEntity(
             () => listLinkedCollections(api, metahub.id, { limit: 100, offset: 0 }),
             createdLinkedCollection.id,
-            'linked collection'
+            'catalog'
         )
 
-        // ─── Step 4: Author metadata — add field definition to linked collection ──
+        // ─── Step 4: Author metadata — add field definition to catalog ──
         const fieldDef = await createFieldDefinition(api, metahub.id, createdLinkedCollection.id, {
             name: { en: attributeName },
             namePrimaryLocale: 'en',
@@ -217,14 +217,14 @@ test('@flow @combined full entity lifecycle: create, author metadata, copy, publ
             'field definition'
         )
 
-        // ─── Step 5: Copy linked collection via browser ──────────
+        // ─── Step 5: Copy catalog via browser ──────────
         await page.goto(`/metahub/${metahub.id}/entities/catalog/instances`)
         await expect(page.getByText(linkedCollectionName, { exact: true })).toBeVisible()
 
         await page.getByTestId(buildEntityMenuTriggerSelector('catalog', createdLinkedCollection.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('catalog', 'copy', createdLinkedCollection.id)).click()
 
-        const copyLinkedCollectionDialog = page.getByRole('dialog', { name: 'Copying LinkedCollectionEntity' })
+        const copyLinkedCollectionDialog = page.getByRole('dialog', { name: 'Copying Catalog' })
         await expect(copyLinkedCollectionDialog).toBeVisible()
         await fillNameAndCodename(copyLinkedCollectionDialog, { codename: copiedLinkedCollectionCodename })
 
@@ -233,23 +233,23 @@ test('@flow @combined full entity lifecycle: create, author metadata, copy, publ
             (response) =>
                 response.request().method() === 'POST' &&
                 response.url().endsWith(`/api/v1/metahub/${metahub.id}/entities/catalog/instance/${createdLinkedCollection.id}/copy`),
-            { label: 'Copying linked collection' }
+            { label: 'Copying catalog' }
         )
         await copyLinkedCollectionDialog.getByTestId(entityDialogSelectors.submitButton).click()
 
         const copiedLinkedCollection = await parseJsonResponse<EntityRecord>(
             await copyLinkedCollectionResponse,
-            'Copying linked collection'
+            'Copying catalog'
         )
-        if (!copiedLinkedCollection.id) throw new Error('Linked collection copy did not return an id')
+        if (!copiedLinkedCollection.id) throw new Error('Catalog copy did not return an id')
 
         await waitForListEntity(
             () => listLinkedCollections(api, metahub.id, { limit: 100, offset: 0 }),
             copiedLinkedCollection.id,
-            'copied linked collection'
+            'copied catalog'
         )
 
-        // Verify copied linked collection inherited the field definition
+        // Verify copied catalog inherited the field definition
         const copiedFieldDefs = await listFieldDefinitions(api, metahub.id, copiedLinkedCollection.id, {
             limit: 100,
             offset: 0

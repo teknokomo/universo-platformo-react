@@ -84,12 +84,12 @@ jest.mock('../../../hooks', () => ({
     useTreeEntityName: (_metahubId: string | null, treeEntityId: string | null) => (treeEntityId ? `Hub ${treeEntityId}` : null),
     useLinkedCollectionName: (_metahubId: string | null, _hubId: string | null, linkedCollectionId: string | null) =>
         linkedCollectionId ? `Catalog ${linkedCollectionId}` : null,
-    useLinkedCollectionNameStandalone: (_metahubId: string | null, linkedCollectionId: string | null) => (linkedCollectionId ? `Catalog ${linkedCollectionId}` : null),
+    useLinkedCollectionNameStandalone: (_metahubId: string | null, linkedCollectionId: string | null) =>
+        linkedCollectionId ? `Catalog ${linkedCollectionId}` : null,
     useValueGroupNameStandalone: (_metahubId: string | null, valueGroupId: string | null) => (valueGroupId ? `Set ${valueGroupId}` : null),
     truncateLinkedCollectionName: (value: string) => value,
     truncateValueGroupName: (value: string) => value,
-    useOptionListName: (_metahubId: string | null, optionListId: string | null) =>
-        optionListId ? `Enumeration ${optionListId}` : null,
+    useOptionListName: (_metahubId: string | null, optionListId: string | null) => (optionListId ? `Enumeration ${optionListId}` : null),
     truncateOptionListName: (value: string) => value,
     truncatePublicationName: (value: string) => value,
     useConnectorName: () => null,
@@ -154,8 +154,9 @@ describe('NavbarBreadcrumbs', () => {
         renderBreadcrumbs('/metahub/mhb-1/entities/catalog/instances')
 
         await waitFor(() => {
-            expect(screen.getByRole('link', { name: 'Catalogs' })).toHaveAttribute('href', '/metahub/mhb-1/entities/catalog/instances')
+            expect(screen.getByText('Catalogs')).toBeInTheDocument()
         })
+        expect(screen.getByRole('link', { name: 'Entities' })).toHaveAttribute('href', '/metahub/mhb-1/entities')
     })
 
     it('renders entity-route hub instance with nested catalogs breadcrumbs', async () => {
@@ -166,17 +167,15 @@ describe('NavbarBreadcrumbs', () => {
         })
 
         expect(screen.getByRole('link', { name: 'Hub hub-1' })).toHaveAttribute('href', '/metahub/mhb-1/entities/hub/instance/hub-1/hubs')
-        expect(screen.getByRole('link', { name: 'Catalogs' })).toHaveAttribute(
-            'href',
-            '/metahub/mhb-1/entities/hub/instance/hub-1/catalogs'
-        )
+        expect(screen.getByText('Catalogs')).toBeInTheDocument()
     })
 
     it('renders entity-route set list breadcrumbs', async () => {
         renderBreadcrumbs('/metahub/mhb-1/entities/set/instances')
 
         await waitFor(() => {
-            expect(screen.getByRole('link', { name: 'Sets' })).toHaveAttribute('href', '/metahub/mhb-1/entities/set/instances')
+            expect(screen.getByText('Sets')).toBeInTheDocument()
         })
+        expect(screen.getByRole('link', { name: 'Entities' })).toHaveAttribute('href', '/metahub/mhb-1/entities')
     })
 })

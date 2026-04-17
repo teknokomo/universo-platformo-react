@@ -181,19 +181,19 @@ test('@flow metahub settings persist entity-scoped controls across managed metad
         await page.goto(`/metahub/${metahub.id}/settings`)
         await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
 
-        await page.getByRole('tab', { name: 'Tree entities' }).click()
-        await expect(page.getByRole('heading', { name: 'Allow TreeEntity Nesting' })).toBeVisible()
+        await page.getByRole('tab', { name: 'Hubs' }).click()
+        await expect(page.getByRole('heading', { name: 'Allow Hub Nesting' })).toBeVisible()
         await page.getByRole('switch').nth(2).click()
 
-        await page.getByRole('tab', { name: 'Linked collections' }).click()
+        await page.getByRole('tab', { name: 'Catalogs' }).click()
         await expect(page.getByRole('heading', { name: 'Allow Attribute Delete' })).toBeVisible()
         await page.getByRole('switch').nth(3).click()
 
-        await page.getByRole('tab', { name: 'Value groups' }).click()
+        await page.getByRole('tab', { name: 'Sets' }).click()
         await expect(page.getByRole('heading', { name: 'Allow Constant Delete' })).toBeVisible()
         await page.getByRole('switch').nth(3).click()
 
-        await page.getByRole('tab', { name: 'Option lists' }).click()
+        await page.getByRole('tab', { name: 'Enumerations' }).click()
         await expect(page.getByRole('heading', { name: 'Allow Delete' })).toBeVisible()
         await page.getByRole('switch').nth(1).click()
 

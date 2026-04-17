@@ -211,11 +211,11 @@ export const OptionListContent = () => {
 
     const attachExistingEnumerationSelectionLabels = useMemo<EntitySelectionLabels>(
         () => ({
-            title: t('optionLists.attachExisting.selectionTitle', 'OptionLists'),
+            title: t('enumerations.attachExisting.selectionTitle', 'OptionLists'),
             addButton: t('common:actions.add', 'Add'),
-            dialogTitle: t('optionLists.attachExisting.selectDialogTitle', 'Select optionLists'),
-            emptyMessage: t('optionLists.attachExisting.emptySelection', 'No optionLists selected'),
-            noAvailableMessage: t('optionLists.attachExisting.noAvailable', 'No optionLists available to add'),
+            dialogTitle: t('enumerations.attachExisting.selectDialogTitle', 'Select optionLists'),
+            emptyMessage: t('enumerations.attachExisting.emptySelection', 'No optionLists selected'),
+            noAvailableMessage: t('enumerations.attachExisting.noAvailable', 'No optionLists available to add'),
             searchPlaceholder: t('common:search', 'Search...'),
             cancelButton: t('common:actions.cancel', 'Cancel'),
             confirmButton: t('common:actions.add', 'Add'),
@@ -226,14 +226,14 @@ export const OptionListContent = () => {
         [t]
     )
 
-    // Form defaults with current tree entity auto-selected in hub-scoped mode (N:M relationship)
+    // Form defaults with current hub auto-selected in hub-scoped mode (N:M relationship)
     const localizedFormDefaults = useMemo<OptionListFormValues>(
         () => ({
             nameVlc: null,
             descriptionVlc: null,
             codename: null,
             codenameTouched: false,
-            treeEntityIds: treeEntityId ? [treeEntityId] : [], // Auto-select current tree entity
+            treeEntityIds: treeEntityId ? [treeEntityId] : [], // Auto-select current hub
             isSingleHub: false,
             isRequiredHub: false // Default: enumeration can exist without treeEntities
         }),
@@ -247,7 +247,7 @@ export const OptionListContent = () => {
             const isRequiredHub = Boolean(values.isRequiredHub)
             // TreeEntity validation only if isRequiredHub is true
             if (isRequiredHub && treeEntityIds.length === 0) {
-                errors.treeEntityIds = t('optionLists.validation.hubRequired', 'At least one hub is required')
+                errors.treeEntityIds = t('enumerations.validation.hubRequired', 'At least one hub is required')
             }
             const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
             if (!hasPrimaryContent(nameVlc)) {
@@ -258,11 +258,11 @@ export const OptionListContent = () => {
             const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
             const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
             if (!normalizedCodename) {
-                errors.codename = t('optionLists.validation.codenameRequired', 'Codename is required')
+                errors.codename = t('enumerations.validation.codenameRequired', 'Codename is required')
             } else if (
                 !isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)
             ) {
-                errors.codename = t('optionLists.validation.codenameInvalid', 'Codename contains invalid characters')
+                errors.codename = t('enumerations.validation.codenameInvalid', 'Codename contains invalid characters')
             }
             return Object.keys(errors).length > 0 ? errors : null
         },
@@ -294,7 +294,7 @@ export const OptionListContent = () => {
     /**
      * Build tabs for the EntityFormDialog (N:M relationship)
      * Tab 1: General (name, description, codename)
-     * Tab 2: TreeEntities (tree-entity selection panel with isSingleHub toggle, current tree entity pre-selected)
+     * Tab 2: TreeEntities (hub selection panel with isSingleHub toggle, current hub pre-selected)
      */
     const buildFormTabs = useCallback(
         ({
@@ -316,7 +316,7 @@ export const OptionListContent = () => {
             return [
                 {
                     id: 'general',
-                    label: t('optionLists.tabs.general', 'Основное'),
+                    label: t('enumerations.tabs.general', 'Основное'),
                     content: (
                         <GeneralTabFields
                             values={values}
@@ -326,14 +326,14 @@ export const OptionListContent = () => {
                             uiLocale={preferredVlcLocale}
                             nameLabel={tc('fields.name', 'Name')}
                             descriptionLabel={tc('fields.description', 'Description')}
-                            codenameLabel={t('optionLists.codename', 'Codename')}
-                            codenameHelper={t('optionLists.codenameHelper', 'Unique identifier')}
+                            codenameLabel={t('enumerations.codename', 'Codename')}
+                            codenameHelper={t('enumerations.codenameHelper', 'Unique identifier')}
                         />
                     )
                 },
                 {
                     id: 'treeEntities',
-                    label: t('optionLists.tabs.treeEntities', 'Древовидные сущности'),
+                    label: t('enumerations.tabs.treeEntities', 'Хабы'),
                     content: (
                         <ContainerSelectionPanel
                             availableContainers={treeEntities}
@@ -438,7 +438,7 @@ export const OptionListContent = () => {
             },
             {
                 id: 'codename',
-                label: t('optionLists.codename', 'Codename'),
+                label: t('enumerations.codename', 'Codename'),
                 width: '15%',
                 align: 'left' as const,
                 sortable: true,
@@ -461,7 +461,7 @@ export const OptionListContent = () => {
         // TreeEntity column only for global mode
         const hubColumn = {
             id: 'hub',
-            label: t('treeEntities.title', 'TreeEntity'),
+            label: t('hubs.title', 'TreeEntity'),
             width: '15%',
             align: 'left' as const,
             render: (row: OptionListWithContainersDisplay) => (
@@ -515,7 +515,7 @@ export const OptionListContent = () => {
         const countColumns = [
             {
                 id: 'optionValuesCount',
-                label: t('optionLists.valuesHeader', 'Values'),
+                label: t('enumerations.valuesHeader', 'Values'),
                 width: '15%',
                 align: 'center' as const,
                 render: (row: OptionListWithContainersDisplay) =>
@@ -561,7 +561,7 @@ export const OptionListContent = () => {
         } else {
             return [...baseColumns, hubColumn, ...countColumns]
         }
-    }, [buildAssociatedHubEnumerationPath, handlePendingEnumerationInteraction, treeEntityId, isHubScoped, metahubId, t, tc])
+    }, [buildEnumerationPath, buildAssociatedHubEnumerationPath, handlePendingEnumerationInteraction, isHubScoped, t, tc])
 
     const createOptionListContext = useCallback(
         (baseContext: OptionListMenuBaseContext) => ({
@@ -578,7 +578,7 @@ export const OptionListContent = () => {
                     const rawCodename = getVLCString(patch.codename, patch.codename?._primary ?? 'en')
                     const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
                     if (!normalizedCodename) {
-                        throw new Error(t('optionLists.validation.codenameRequired', 'Codename is required'))
+                        throw new Error(t('enumerations.validation.codenameRequired', 'Codename is required'))
                     }
                     const codenamePayload = ensureLocalizedContent(patch.codename, patch.codename?._primary ?? 'en', normalizedCodename)
                     // Include expectedVersion for optimistic locking if enumeration has version
@@ -711,6 +711,9 @@ export const OptionListContent = () => {
             deleteOptionListMutation,
             enqueueSnackbar,
             enumerationMap,
+            openBlockingDelete,
+            openConflict,
+            openDelete,
             treeEntities,
             treeEntityId,
             isHubScoped,
@@ -794,7 +797,7 @@ export const OptionListContent = () => {
                         getVLCString(enumeration.name, preferredVlcLocale) || getVLCString(enumeration.name, 'en') || enumeration.codename
                     )
                     // eslint-disable-next-line no-console
-                    console.error('Failed to attach existing enumeration to current tree entity', error)
+                    console.error('Failed to attach existing enumeration to current hub', error)
                 }
             }
 
@@ -805,7 +808,7 @@ export const OptionListContent = () => {
 
             if (failed.length === 0) {
                 enqueueSnackbar(
-                    t('optionLists.attachExisting.success', {
+                    t('enumerations.attachExisting.success', {
                         count: selectedOptionLists.length,
                         defaultValue: 'Added {{count}} enumeration(s).'
                     }),
@@ -818,7 +821,7 @@ export const OptionListContent = () => {
             const successCount = selectedOptionLists.length - failed.length
             if (successCount > 0) {
                 enqueueSnackbar(
-                    t('optionLists.attachExisting.partialSuccess', {
+                    t('enumerations.attachExisting.partialSuccess', {
                         successCount,
                         failCount: failed.length,
                         defaultValue: 'Added {{successCount}} enumeration(s). {{failCount}} enumeration(s) could not be linked.'
@@ -830,7 +833,7 @@ export const OptionListContent = () => {
             }
 
             setAttachDialogError(
-                t('optionLists.attachExisting.failedAll', {
+                t('enumerations.attachExisting.failedAll', {
                     defaultValue: 'Selected optionLists could not be linked to this hub. Please review restrictions and try again.'
                 })
             )
@@ -858,10 +861,10 @@ export const OptionListContent = () => {
         // Confirm dialog for detached enumeration (async — throws DIALOG_SAVE_CANCEL if cancelled)
         if (isHubScoped && treeEntityId && !treeEntityIds.includes(treeEntityId)) {
             const confirmed = await confirm({
-                title: t('optionLists.detachedConfirm.title', 'Create enumeration without current tree entity?'),
+                title: t('enumerations.detachedConfirm.title', 'Create enumeration without current hub?'),
                 description: t(
-                    'optionLists.detachedConfirm.description',
-                    'This enumeration is not linked to the current tree entity and will not appear in this hub after creation.'
+                    'enumerations.detachedConfirm.description',
+                    'This enumeration is not linked to the current hub and will not appear in this hub after creation.'
                 ),
                 confirmButtonName: t('common:actions.create', 'Create'),
                 cancelButtonName: t('common:actions.cancel', 'Cancel')
@@ -972,7 +975,7 @@ export const OptionListContent = () => {
                 kindKey,
                 newSortOrder: overEnumeration.sortOrder ?? 1
             })
-            enqueueSnackbar(t('optionLists.reorderSuccess', 'OptionListEntity order updated'), { variant: 'success' })
+            enqueueSnackbar(t('enumerations.reorderSuccess', 'OptionListEntity order updated'), { variant: 'success' })
         } catch (error: unknown) {
             const message =
                 typeof error === 'object' &&
@@ -980,7 +983,7 @@ export const OptionListContent = () => {
                 'message' in error &&
                 typeof (error as { message?: unknown }).message === 'string'
                     ? (error as { message: string }).message
-                    : t('optionLists.reorderError', 'Failed to reorder enumeration')
+                    : t('enumerations.reorderError', 'Failed to reorder enumeration')
             enqueueSnackbar(message, { variant: 'error' })
         }
     }
@@ -1037,9 +1040,9 @@ export const OptionListContent = () => {
                     <Stack flexDirection='column' sx={{ gap: 1 }}>
                         <ViewHeader
                             search={true}
-                            searchPlaceholder={t('optionLists.searchPlaceholder')}
+                            searchPlaceholder={t('enumerations.searchPlaceholder')}
                             onSearchChange={handleSearchChange}
-                            title={isHubScoped ? t('optionLists.title') : t('optionLists.allTitle')}
+                            title={isHubScoped ? t('enumerations.title') : t('enumerations.allTitle')}
                         >
                             <ToolbarControls
                                 viewToggleEnabled
@@ -1070,7 +1073,7 @@ export const OptionListContent = () => {
                                 <Tabs
                                     value='optionLists'
                                     onChange={handleHubTabChange}
-                                    aria-label={t('treeEntities.title', 'TreeEntities')}
+                                    aria-label={t('hubs.title', 'TreeEntities')}
                                     textColor='primary'
                                     indicatorColor='primary'
                                     sx={{
@@ -1081,10 +1084,10 @@ export const OptionListContent = () => {
                                         }
                                     }}
                                 >
-                                    <Tab value='treeEntities' label={t('treeEntities.title')} />
-                                    <Tab value='linkedCollections' label={t('linkedCollections.title')} />
-                                    <Tab value='valueGroups' label={t('valueGroups.title')} />
-                                    <Tab value='optionLists' label={t('optionLists.title')} />
+                                    <Tab value='treeEntities' label={t('hubs.title')} />
+                                    <Tab value='linkedCollections' label={t('catalogs.title')} />
+                                    <Tab value='valueGroups' label={t('sets.title')} />
+                                    <Tab value='optionLists' label={t('enumerations.title')} />
                                     <Tab value='settings' label={t('settings.title')} />
                                 </Tabs>
                             </Box>
@@ -1101,8 +1104,8 @@ export const OptionListContent = () => {
                                 <EmptyListState
                                     image={APIEmptySVG}
                                     imageAlt='No optionLists'
-                                    title={searchValue ? t('optionLists.noSearchResults') : t('optionLists.empty')}
-                                    description={searchValue ? t('optionLists.noSearchResultsHint') : t('optionLists.emptyDescription')}
+                                    title={searchValue ? t('enumerations.noSearchResults') : t('enumerations.empty')}
+                                    description={searchValue ? t('enumerations.noSearchResultsHint') : t('enumerations.emptyDescription')}
                                 />
                             ) : (
                                 <>
@@ -1150,7 +1153,7 @@ export const OptionListContent = () => {
                                                                 )}
                                                                 {typeof enumeration.optionValuesCount === 'number' && (
                                                                     <Typography variant='caption' color='text.secondary'>
-                                                                        {t('optionLists.valuesCount', {
+                                                                        {t('enumerations.valuesCount', {
                                                                             count: enumeration.optionValuesCount
                                                                         })}
                                                                     </Typography>
@@ -1186,7 +1189,7 @@ export const OptionListContent = () => {
                                                 isLoading={isLoading}
                                                 sortableRows
                                                 sortableItemIds={sortedOptionLists.map((enumeration) => enumeration.id)}
-                                                dragHandleAriaLabel={t('optionLists.dnd.dragHandle', 'Drag to reorder')}
+                                                dragHandleAriaLabel={t('enumerations.dnd.dragHandle', 'Drag to reorder')}
                                                 dragDisabled={reorderOptionListMutation.isPending || isLoading}
                                                 onSortableDragEnd={handleSortableDragEnd}
                                                 renderDragOverlay={renderDragOverlay}
@@ -1241,7 +1244,7 @@ export const OptionListContent = () => {
 
                 <EntityFormDialog
                     open={dialogs.create.open}
-                    title={t('optionLists.createDialog.title', 'Create OptionListEntity')}
+                    title={t('enumerations.createDialog.title', 'Create OptionListEntity')}
                     nameLabel={tc('fields.name', 'Name')}
                     descriptionLabel={tc('fields.description', 'Description')}
                     saveButtonText={tc('actions.create', 'Create')}
@@ -1258,7 +1261,7 @@ export const OptionListContent = () => {
 
                 <EntityFormDialog
                     open={isAttachDialogOpen}
-                    title={t('optionLists.attachExisting.dialogTitle', 'Add Existing OptionLists')}
+                    title={t('enumerations.attachExisting.dialogTitle', 'Add Existing OptionLists')}
                     nameLabel={tc('fields.name', 'Name')}
                     descriptionLabel={tc('fields.description', 'Description')}
                     saveButtonText={t('common:actions.add', 'Add')}
@@ -1277,7 +1280,7 @@ export const OptionListContent = () => {
                         return [
                             {
                                 id: 'optionLists',
-                                label: t('optionLists.title', 'OptionLists'),
+                                label: t('enumerations.title', 'OptionLists'),
                                 content: (
                                     <EntitySelectionPanel<OptionListWithContainers>
                                         availableEntities={attachableExistingOptionLists}
@@ -1305,7 +1308,7 @@ export const OptionListContent = () => {
                         if (selectedOptionListIds.length > 0) return null
                         return {
                             selectedOptionListIds: t(
-                                'optionLists.attachExisting.requiredSelection',
+                                'enumerations.attachExisting.requiredSelection',
                                 'Select at least one enumeration to add.'
                             )
                         }
@@ -1321,8 +1324,8 @@ export const OptionListContent = () => {
                 {/* Independent ConfirmDeleteDialog */}
                 <ConfirmDeleteDialog
                     open={dialogs.delete.open}
-                    title={t('optionLists.deleteDialog.title')}
-                    description={t('optionLists.deleteDialog.message')}
+                    title={t('enumerations.deleteDialog.title')}
+                    description={t('enumerations.deleteDialog.message')}
                     confirmButtonText={tc('actions.delete', 'Delete')}
                     deletingButtonText={tc('actions.deleting', 'Deleting...')}
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
@@ -1355,7 +1358,7 @@ export const OptionListContent = () => {
                                             ? err.message
                                             : typeof err === 'string'
                                             ? err
-                                            : t('optionLists.deleteError')
+                                            : t('enumerations.deleteError')
                                     enqueueSnackbar(message, { variant: 'error' })
                                 }
                             }
@@ -1393,7 +1396,7 @@ export const OptionListContent = () => {
                                             ? err.message
                                             : typeof err === 'string'
                                             ? err
-                                            : t('optionLists.deleteError')
+                                            : t('enumerations.deleteError')
                                     enqueueSnackbar(message, { variant: 'error' })
                                 }
                             }
@@ -1435,10 +1438,10 @@ export const OptionListContent = () => {
                                 })
                             }
                             close('conflict')
-                            enqueueSnackbar(t('optionLists.updateSuccess', 'OptionListEntity updated'), { variant: 'success' })
+                            enqueueSnackbar(t('enumerations.updateSuccess', 'OptionListEntity updated'), { variant: 'success' })
                         } catch (e) {
                             console.error('Failed to overwrite enumeration', e)
-                            enqueueSnackbar(t('optionLists.updateError', 'Failed to update enumeration'), { variant: 'error' })
+                            enqueueSnackbar(t('enumerations.updateError', 'Failed to update enumeration'), { variant: 'error' })
                         }
                     }}
                     onReload={async () => {

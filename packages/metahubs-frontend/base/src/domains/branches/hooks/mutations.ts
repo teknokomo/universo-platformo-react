@@ -101,7 +101,7 @@ export function useCreateBranch() {
                 enqueueSnackbar(
                     t(
                         'branches.copyOptionListReferencesError',
-                        'Cannot disable option list copy while copied entity groups still reference option lists.'
+                        'Cannot disable enumeration copy while copied entity groups still reference enumerations.'
                     ),
                     { variant: 'warning' }
                 )
@@ -197,7 +197,7 @@ export function useCopyBranch() {
                 enqueueSnackbar(
                     t(
                         'branches.copyOptionListReferencesError',
-                        'Cannot disable option list copy while copied entity groups still reference option lists.'
+                        'Cannot disable enumeration copy while copied entity groups still reference enumerations.'
                     ),
                     { variant: 'warning' }
                 )

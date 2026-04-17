@@ -91,10 +91,7 @@ async function api(method, urlPath, body) {
 /* ────── Data definitions ────── */
 
 function getSectionPath(metahubId, section) {
-    if (section.kind === 'hub') return `/metahub/${metahubId}/hubs`
-    if (section.kind === 'set') return `/metahub/${metahubId}/sets`
-    if (section.kind === 'enumeration') return `/metahub/${metahubId}/enumerations`
-    return `/metahub/${metahubId}/catalogs`
+    return `/metahub/${metahubId}/entities/${section.kind}/instances`
 }
 
 function buildSectionPayload(section, hubId) {

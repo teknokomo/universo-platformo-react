@@ -10,7 +10,13 @@ export const DEFAULT_APPLICATION_COPY_OPTIONS: ApplicationCopyOptions = {
     copyAccess: false
 }
 
-export const BRANCH_COPY_OPTION_KEYS = ['copyLayouts', 'copyTreeEntities', 'copyLinkedCollections', 'copyValueGroups', 'copyOptionLists'] as const
+export const BRANCH_COPY_OPTION_KEYS = [
+    'copyLayouts',
+    'copyTreeEntities',
+    'copyLinkedCollections',
+    'copyValueGroups',
+    'copyOptionLists'
+] as const
 
 export type BranchCopyOptionKey = (typeof BRANCH_COPY_OPTION_KEYS)[number]
 

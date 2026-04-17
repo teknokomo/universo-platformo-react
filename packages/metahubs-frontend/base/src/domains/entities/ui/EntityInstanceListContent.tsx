@@ -743,7 +743,7 @@ const EntityInstanceListContent = () => {
                             codenameHelper={
                                 usesLinkedCollectionAuthoring
                                     ? t(
-                                          'linkedCollections.codenameHelper',
+                                          'catalogs.codenameHelper',
                                           'Unique identifier for URLs (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.'
                                       )
                                     : t(
@@ -809,7 +809,7 @@ const EntityInstanceListContent = () => {
             if (options.mode === 'edit' && options.entityId && showLayoutTab && metahubId) {
                 tabs.push({
                     id: 'layout',
-                    label: t('linkedCollections.tabs.layout', 'Layouts'),
+                    label: t('catalogs.tabs.layout', 'Layouts'),
                     content: (
                         <LayoutList
                             metahubId={metahubId}
@@ -818,13 +818,13 @@ const EntityInstanceListContent = () => {
                             title={null}
                             emptyTitle={
                                 usesLinkedCollectionAuthoring
-                                    ? t('linkedCollections.layoutTab.emptyTitle', 'No catalog layouts')
+                                    ? t('catalogs.layoutTab.emptyTitle', 'No catalog layouts')
                                     : t('entities.instances.layouts.emptyTitle', 'No layouts')
                             }
                             emptyDescription={
                                 usesLinkedCollectionAuthoring
                                     ? t(
-                                          'linkedCollections.layoutTab.emptyDescription',
+                                          'catalogs.layoutTab.emptyDescription',
                                           'This catalog currently uses the active global layout. Create the first catalog layout to override widgets and catalog runtime behavior.'
                                       )
                                     : t(
@@ -874,7 +874,7 @@ const EntityInstanceListContent = () => {
             if (options.mode === 'copy' && usesLinkedCollectionAuthoring) {
                 tabs.push({
                     id: 'options',
-                    label: t('linkedCollections.tabs.options', 'Options'),
+                    label: t('catalogs.tabs.options', 'Options'),
                     content: <LinkedCollectionCopyOptionsTab values={values} setValue={setValue} isLoading={isLoading} t={translate} />
                 })
             }
@@ -1238,7 +1238,7 @@ const EntityInstanceListContent = () => {
                                 canManageEntityInstances
                                     ? {
                                           label: usesLinkedCollectionAuthoring
-                                              ? t('linkedCollections.create', 'Create LinkedCollectionEntity')
+                                              ? t('catalogs.create', 'Create LinkedCollectionEntity')
                                               : t('entities.instances.actions.create', 'Create entity'),
                                           onClick: handleOpenCreate,
                                           startIcon: <AddRoundedIcon />,
@@ -1390,7 +1390,7 @@ const EntityInstanceListContent = () => {
                     mode='create'
                     title={
                         usesLinkedCollectionAuthoring
-                            ? t('linkedCollections.createDialog.title', 'Create LinkedCollectionEntity')
+                            ? t('catalogs.createDialog.title', 'Create LinkedCollectionEntity')
                             : t('entities.instances.createDialog.title', 'Create Entity')
                     }
                     nameLabel={tc('fields.name', 'Name')}
@@ -1415,7 +1415,7 @@ const EntityInstanceListContent = () => {
                     mode='edit'
                     title={
                         usesLinkedCollectionAuthoring
-                            ? t('linkedCollections.editDialog.title', 'Edit LinkedCollectionEntity')
+                            ? t('catalogs.editDialog.title', 'Edit LinkedCollectionEntity')
                             : t('entities.instances.editDialog.title', 'Edit Entity')
                     }
                     nameLabel={tc('fields.name', 'Name')}
@@ -1438,15 +1438,15 @@ const EntityInstanceListContent = () => {
                     mode='copy'
                     title={
                         usesLinkedCollectionAuthoring
-                            ? t('linkedCollections.copyTitle', 'Copying LinkedCollectionEntity')
+                            ? t('catalogs.copyTitle', 'Copying LinkedCollectionEntity')
                             : t('entities.instances.copyDialog.title', 'Copy Entity')
                     }
                     nameLabel={tc('fields.name', 'Name')}
                     descriptionLabel={tc('fields.description', 'Description')}
-                    saveButtonText={usesLinkedCollectionAuthoring ? t('linkedCollections.copy.action', 'Copy') : tc('actions.copy', 'Copy')}
+                    saveButtonText={usesLinkedCollectionAuthoring ? t('catalogs.copy.action', 'Copy') : tc('actions.copy', 'Copy')}
                     savingButtonText={
                         usesLinkedCollectionAuthoring
-                            ? t('linkedCollections.copy.actionLoading', 'Copying...')
+                            ? t('catalogs.copy.actionLoading', 'Copying...')
                             : t('entities.instances.copyDialog.copying', 'Copying...')
                     }
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
@@ -1464,7 +1464,7 @@ const EntityInstanceListContent = () => {
                     open={dialogs.delete.open && !usesLinkedCollectionAuthoring && canDeleteEntityInstances}
                     title={
                         usesLinkedCollectionAuthoring
-                            ? t('linkedCollections.deleteDialog.title', 'Delete LinkedCollectionEntity')
+                            ? t('catalogs.deleteDialog.title', 'Delete LinkedCollectionEntity')
                             : t('entities.instances.deleteDialog.title', 'Delete Entity')
                     }
                     description={
@@ -1473,8 +1473,7 @@ const EntityInstanceListContent = () => {
                                   name: dialogs.delete.item
                                       ? buildInstanceDisplayRow(dialogs.delete.item, preferredVlcLocale, translate).name
                                       : resolvedEntityTypeName,
-                                  defaultValue:
-                                      'Delete linked collection "{{name}}"? You can restore it later while deleted items are visible.'
+                                  defaultValue: 'Delete catalog "{{name}}"? You can restore it later while deleted items are visible.'
                               })
                             : t('entities.instances.deleteDialog.description', {
                                   name: dialogs.delete.item
@@ -1520,7 +1519,7 @@ const EntityInstanceListContent = () => {
                     open={Boolean(permanentDeleteTarget) && canDeleteEntityInstances}
                     title={
                         usesLinkedCollectionAuthoring
-                            ? t('entities.instances.linkedCollectionDeletePermanentDialog.title', 'Delete Linked Collection Permanently')
+                            ? t('entities.instances.linkedCollectionDeletePermanentDialog.title', 'Delete Catalog Permanently')
                             : t('entities.instances.deletePermanentDialog.title', 'Delete Entity Permanently')
                     }
                     description={
@@ -1529,7 +1528,7 @@ const EntityInstanceListContent = () => {
                                   name: permanentDeleteTarget
                                       ? buildInstanceDisplayRow(permanentDeleteTarget, preferredVlcLocale, translate).name
                                       : '',
-                                  defaultValue: 'Permanently delete linked collection "{{name}}"? This action cannot be undone.'
+                                  defaultValue: 'Permanently delete catalog "{{name}}"? This action cannot be undone.'
                               })
                             : t('entities.instances.deletePermanentDialog.description', {
                                   name: permanentDeleteTarget

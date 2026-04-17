@@ -4,13 +4,13 @@ description: Practical guide for creating and publishing custom entity types.
 
 # Custom Entity Types
 
-Custom entity types let a metahub define new authoring and runtime sections on top of the shared entity pipeline instead of adding a one-off built-in object.
+Custom entity types let a metahub define new authoring and runtime sections on top of the shared entity pipeline. The entity system is a fully generic constructor—Hubs, Catalogs, Sets, and Enumerations are entity type presets defined in metahub templates, not hardcoded types.
 
 ## When To Use Them
 
 - Use a custom entity type when the object is metahub-specific and should not become a new fixed platform module.
 - Use a reusable preset when the shape should stay consistent across metahubs.
-- Use the direct standard presets for Linked Collections, Tree Entities, Value Groups, and Option Lists instead of legacy V2 aliases.
+- Use the standard presets for Hubs, Catalogs, Sets, and Enumerations when creating well-known resource types.
 
 ## Typical Flow
 
@@ -24,10 +24,10 @@ Custom entity types let a metahub define new authoring and runtime sections on t
 
 ## Standard Presets
 
-- Tree Entities reuse the delegated tree-entity surface, nested entity-route ownership, and save-first automation tabs.
-- Linked Collections reuse the linked-collection authoring surface and remain the runtime-visible control case after publication sync.
-- Value Groups keep fixed-value authoring plus automation on the shared entity-owned routes.
-- Option Lists keep option-value authoring plus action/event automation on the shared entity-owned routes.
+- Hubs reuse the delegated hub surface, nested entity-route ownership, and save-first automation tabs.
+- Catalogs reuse the catalog authoring surface and remain the runtime-visible control case after publication sync.
+- Sets keep fixed-value authoring plus automation on the shared entity-owned routes.
+- Enumerations keep option-value authoring plus action/event automation on the shared entity-owned routes.
 
 ## Current Component Set
 

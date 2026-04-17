@@ -91,7 +91,7 @@ export interface MetahubMembersResponse {
 
 // ============ METAHUB ENTITY ============
 
-/** Metahub root entity for tree entities, linked collections, and related metadata. */
+/** Metahub root entity for hubs, catalogs, and related metadata. */
 export interface Metahub {
     id: string
     codename: CodenameVLC
@@ -273,11 +273,11 @@ export interface PublicationDisplay {
     accessMode: 'full' | 'restricted'
 }
 
-// ============ TREE ENTITY ============
+// ============ HUB ============
 
 /**
  * TreeEntity - a hierarchical container within a Metahub.
- * Linked collections can be associated through an N:M relationship.
+ * Catalogs can be associated through an N:M relationship.
  */
 export interface TreeEntity {
     id: string
@@ -320,11 +320,11 @@ export interface TreeEntityRef {
     codename: string
 }
 
-// ============ LINKED COLLECTION ENTITY ============
+// ============ CATALOG ENTITY ============
 
 /**
  * LinkedCollectionEntity - a design-time collection inside a Metahub.
- * Can be associated with multiple tree entities via a junction table.
+ * Can be associated with multiple hubs via a junction table.
  *
  * TreeEntity association constraints (orthogonal flags):
  * - isSingleHub: max 1 hub (true) or unlimited (false)
@@ -368,7 +368,7 @@ export interface LinkedCollectionDisplay {
     permissions?: MetahubPermissions
 }
 
-// ============ VALUE GROUP ENTITY ============
+// ============ SET ENTITY ============
 
 /**
  * ValueGroupEntity - a container for grouped fixed values.
@@ -410,7 +410,7 @@ export interface ValueGroupDisplay {
     permissions?: MetahubPermissions
 }
 
-// ============ OPTION LIST ENTITY ============
+// ============ ENUMERATION ENTITY ============
 
 /**
  * OptionListEntity - fixed list of selectable values.

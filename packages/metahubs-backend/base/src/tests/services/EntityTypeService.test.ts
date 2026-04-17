@@ -44,7 +44,7 @@ describe('EntityTypeService', () => {
                             iconName: 'IconDatabase',
                             tabs: ['general'],
                             sidebarSection: 'objects',
-                            nameKey: 'metahubs:linkedCollections.title'
+                            nameKey: 'metahubs:catalogs.title'
                         },
                         config: {},
                         _mhb_published: true,

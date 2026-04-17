@@ -93,7 +93,7 @@ const BranchCopyOptionsTab = ({
                         disabled={isLoading}
                     />
                 }
-                label={t('metahubs:branches.copy.options.copyLinkedCollections', 'Связанные коллекции')}
+                label={t('metahubs:branches.copy.options.copyLinkedCollections', 'Каталоги')}
             />
             <FormControlLabel
                 control={
@@ -103,7 +103,7 @@ const BranchCopyOptionsTab = ({
                         disabled={isLoading}
                     />
                 }
-                label={t('metahubs:branches.copy.options.copyValueGroups', 'Группы значений')}
+                label={t('metahubs:branches.copy.options.copyValueGroups', 'Наборы')}
             />
             <FormControlLabel
                 control={
@@ -113,7 +113,7 @@ const BranchCopyOptionsTab = ({
                         disabled={isLoading}
                     />
                 }
-                label={t('metahubs:branches.copy.options.copyOptionLists', 'Списки опций')}
+                label={t('metahubs:branches.copy.options.copyOptionLists', 'Перечисления')}
             />
         </Stack>
     )

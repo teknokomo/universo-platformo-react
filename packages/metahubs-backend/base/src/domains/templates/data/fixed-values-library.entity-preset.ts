@@ -1,5 +1,5 @@
 import type { EntityTypePresetManifest } from '@universo/types'
-import { VALUE_GROUP_TYPE_COMPONENTS, VALUE_GROUP_TYPE_UI } from './standardEntityTypeDefinitions'
+import { SET_TYPE_COMPONENTS, SET_TYPE_UI } from './standardEntityTypeDefinitions'
 import { vlc } from './basic.template'
 
 export const fixedValuesLibraryEntityPreset: EntityTypePresetManifest = {
@@ -15,14 +15,14 @@ export const fixedValuesLibraryEntityPreset: EntityTypePresetManifest = {
     meta: {
         author: 'universo-platformo',
         tags: ['preset', 'ecae', 'set'],
-        icon: VALUE_GROUP_TYPE_UI.iconName
+        icon: SET_TYPE_UI.iconName
     },
     entityType: {
         kindKey: 'fixed-values-library',
         codename: vlc('ConstantsLibrary', 'ConstantsLibrary'),
-        components: VALUE_GROUP_TYPE_COMPONENTS,
+        components: SET_TYPE_COMPONENTS,
         ui: {
-            ...VALUE_GROUP_TYPE_UI,
+            ...SET_TYPE_UI,
             nameKey: 'Constants Library',
             descriptionKey: 'Set-style custom entity for typed constants, scripts, and lightweight design-time automation.'
         },

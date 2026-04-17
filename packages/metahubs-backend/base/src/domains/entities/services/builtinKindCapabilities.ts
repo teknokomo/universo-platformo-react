@@ -153,7 +153,7 @@ export const buildBuiltinKindDeletePlan = async (
                 policyOutcome: {
                     status: 409,
                     body: {
-                        error: 'Cannot delete linked collection: it is referenced by field definitions in other linked collections',
+                        error: 'Cannot delete catalog: it is referenced by field definitions in other catalogs',
                         blockingReferences
                     }
                 }
@@ -171,7 +171,7 @@ export const buildBuiltinKindDeletePlan = async (
                 policyOutcome: {
                     status: 409,
                     body: {
-                        error: 'Cannot delete value group because there are blocking references',
+                        error: 'Cannot delete set because there are blocking references',
                         code: 'SET_DELETE_BLOCKED_BY_REFERENCES',
                         valueGroupId: entityId,
                         blockingReferences
@@ -196,7 +196,7 @@ export const buildBuiltinKindDeletePlan = async (
                 policyOutcome: {
                     status: 409,
                     body: {
-                        error: 'Cannot delete option list: it is referenced by field definitions',
+                        error: 'Cannot delete enumeration: it is referenced by field definitions',
                         blockingReferences
                     }
                 }
@@ -232,7 +232,7 @@ export const buildBuiltinKindDeletePlan = async (
             policyOutcome: {
                 status: 409,
                 body: {
-                    error: 'Cannot delete tree entity: required objects would become orphaned',
+                    error: 'Cannot delete hub: required objects would become orphaned',
                     blockingLinkedCollections,
                     blockingValueGroups,
                     blockingOptionLists,

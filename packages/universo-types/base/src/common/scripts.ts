@@ -36,11 +36,9 @@ export type ScriptCapability = (typeof SCRIPT_CAPABILITIES)[number]
 export const SCRIPT_METHOD_TARGETS = ['server', 'client', 'server_and_client'] as const
 export type ScriptMethodTarget = (typeof SCRIPT_METHOD_TARGETS)[number]
 
-export const isServerScriptMethodTarget = (target: ScriptMethodTarget): boolean =>
-    target === 'server' || target === 'server_and_client'
+export const isServerScriptMethodTarget = (target: ScriptMethodTarget): boolean => target === 'server' || target === 'server_and_client'
 
-export const isClientScriptMethodTarget = (target: ScriptMethodTarget): boolean =>
-    target === 'client' || target === 'server_and_client'
+export const isClientScriptMethodTarget = (target: ScriptMethodTarget): boolean => target === 'client' || target === 'server_and_client'
 
 export const SCRIPT_LIFECYCLE_EVENTS = [
     'beforeCreate',
@@ -189,7 +187,8 @@ export interface ScriptMethodManifest {
 export const canCallScriptMethodOverPublicRpc = (
     manifest: { moduleRole?: unknown; capabilities?: unknown } | null | undefined,
     method: Pick<ScriptMethodManifest, 'target' | 'eventName'> | null | undefined
-): boolean => Boolean(method) && isServerScriptMethodTarget(method.target) && !method.eventName && hasScriptCapability(manifest, 'rpc.client')
+): boolean =>
+    Boolean(method) && isServerScriptMethodTarget(method.target) && !method.eventName && hasScriptCapability(manifest, 'rpc.client')
 
 export interface ScriptManifest {
     className: string

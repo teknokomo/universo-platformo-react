@@ -335,15 +335,21 @@ test.describe('Snapshot Export/Import Flow', () => {
                   >)
                 : {}
         )
-        const importedSharedAttributes = Array.isArray(importedSnapshot.sharedAttributes) ? importedSnapshot.sharedAttributes : []
-                const importedSharedConstants = Array.isArray(importedSnapshot.sharedFixedValues)
-                        ? importedSnapshot.sharedFixedValues
-                        : Array.isArray(importedSnapshot.sharedConstants)
-                            ? importedSnapshot.sharedConstants
-                            : []
+        const importedSharedAttributes = Array.isArray(importedSnapshot.sharedFieldDefinitions)
+            ? importedSnapshot.sharedFieldDefinitions
+            : Array.isArray(importedSnapshot.sharedAttributes)
+                ? importedSnapshot.sharedAttributes
+                : []
+        const importedSharedConstants = Array.isArray(importedSnapshot.sharedFixedValues)
+            ? importedSnapshot.sharedFixedValues
+            : Array.isArray(importedSnapshot.sharedConstants)
+                ? importedSnapshot.sharedConstants
+                : []
         const importedSharedEnumerationValues = Array.isArray(importedSnapshot.sharedEnumerationValues)
             ? importedSnapshot.sharedEnumerationValues
-            : []
+            : Array.isArray(importedSnapshot.sharedOptionValues)
+                ? importedSnapshot.sharedOptionValues
+                : []
         const importedSharedEntityOverrides = Array.isArray(importedSnapshot.sharedEntityOverrides)
             ? importedSnapshot.sharedEntityOverrides
             : []
@@ -432,7 +438,7 @@ test.describe('Snapshot Export/Import Flow', () => {
         expect(detailsTitleWidgetOverride?.isActive).toBe(false)
 
         await page.goto(`/metahub/${importedId}/entities/catalog/instances`)
-        await expect(page.getByRole('heading', { name: 'Linked collections' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Catalogs' })).toBeVisible()
 
         for (const catalogName of fixture.expectedCatalogNames) {
             await expect(page.getByText(catalogName, { exact: true }).first()).toBeVisible()

@@ -88,7 +88,7 @@ import SharedEntitySettingsFields from '../../../../shared/ui/SharedEntitySettin
 import { createScriptsTab } from '../../../../scripts/ui/EntityScriptsTab'
 import { readSharedExcludedTargetIdsField, SHARED_EXCLUDED_TARGET_IDS_FIELD } from '../../../../shared/sharedEntityExclusions'
 
-const DIALOG_SAVE_CANCEL = { __dialogCancelled: true } as const
+const _DIALOG_SAVE_CANCEL = { __dialogCancelled: true } as const
 
 const FIELD_DEFINITION_DATA_TYPES = new Set<FieldDefinition['dataType']>(['STRING', 'NUMBER', 'BOOLEAN', 'DATE', 'REF', 'JSON', 'TABLE'])
 

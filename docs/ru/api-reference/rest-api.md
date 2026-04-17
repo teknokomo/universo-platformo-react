@@ -20,8 +20,8 @@ onboarding, applications, connectors, admin, public metahub и metahub design-ti
 
 ## Generic Entity Authoring Endpoints
 
-- `GET /metahub/{metahubId}/entity-types` и `POST /metahub/{metahubId}/entity-types` перечисляют и создают определения custom entity type для workspace Entities.
-- `GET /metahub/{metahubId}/entity-type/{entityTypeId}`, `PATCH /metahub/{metahubId}/entity-type/{entityTypeId}` и `DELETE /metahub/{metahubId}/entity-type/{entityTypeId}` управляют одним custom entity type, включая его publication flag.
+- `GET /metahub/{metahubId}/entity-types` и `POST /metahub/{metahubId}/entity-types` перечисляют и создают определения entity type для раздела Entity Types (в администрировании).
+- `GET /metahub/{metahubId}/entity-type/{entityTypeId}`, `PATCH /metahub/{metahubId}/entity-type/{entityTypeId}` и `DELETE /metahub/{metahubId}/entity-type/{entityTypeId}` управляют одним entity type, включая его publication flag.
 - `GET /metahub/{metahubId}/entities`, `POST /metahub/{metahubId}/entities` и `POST /metahub/{metahubId}/entities/reorder` перечисляют, создают и переупорядочивают design-time instances для одного custom kind.
 - `GET /metahub/{metahubId}/entity/{entityId}`, `PATCH /metahub/{metahubId}/entity/{entityId}`, `DELETE /metahub/{metahubId}/entity/{entityId}`, `POST /metahub/{metahubId}/entity/{entityId}/restore`, `DELETE /metahub/{metahubId}/entity/{entityId}/permanent` и `POST /metahub/{metahubId}/entity/{entityId}/copy` управляют одним custom entity instance через generic route surface.
 

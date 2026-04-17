@@ -482,6 +482,7 @@ export const FixedValueListContent = ({
             kindKey,
             metahubId,
             openConflict,
+            sharedEntityMode,
             valueGroupId,
             t,
             updateFixedValueMutation
@@ -689,7 +690,7 @@ export const FixedValueListContent = ({
                 )
             }
         ],
-        [boolValueLabels, dataTypeLabels, firstLocalRowId, hasSharedRows, i18n.language, includeShared, t, tc]
+        [boolValueLabels, dataTypeLabels, i18n.language, includeShared, t, tc]
     )
 
     const createActionContext = useCallback(
@@ -1217,7 +1218,7 @@ export const FixedValueListContent = ({
                         <EntityFormDialog
                             open={editDialogOpen}
                             mode='edit'
-                            title={t('valueGroups.editTitle', 'Edit Set')}
+                            title={t('sets.editTitle', 'Edit Set')}
                             nameLabel={tc('fields.name', 'Name')}
                             descriptionLabel={tc('fields.description', 'Description')}
                             saveButtonText={tc('actions.save', 'Save')}

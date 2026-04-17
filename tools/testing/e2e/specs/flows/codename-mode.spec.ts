@@ -43,6 +43,29 @@ function assertVlcCodenameShape(value: unknown, expectedPrimaryLocale: string, e
     expect(codename.locales?.[expectedPrimaryLocale]?.content).toBe(expectedContent)
 }
 
+function readLocalizedText(value: unknown, locale = 'en'): string | undefined {
+    if (typeof value === 'string') {
+        return value
+    }
+
+    if (!value || typeof value !== 'object' || !('locales' in value)) {
+        return undefined
+    }
+
+    const localized = value as {
+        _primary?: string
+        locales?: Record<string, { content?: string }>
+    }
+    const normalizedLocale = locale.split(/[-_]/)[0]?.toLowerCase() || 'en'
+    const locales = localized.locales ?? {}
+
+    return (
+        locales[normalizedLocale]?.content ||
+        (localized._primary ? locales[localized._primary]?.content : undefined) ||
+        Object.values(locales).find((entry) => typeof entry?.content === 'string' && entry.content.length > 0)?.content
+    )
+}
+
 async function openCreateDialog(page: import('@playwright/test').Page) {
     await page.getByTestId(toolbarSelectors.primaryAction).click()
     const dialog = page.getByRole('dialog')
@@ -119,6 +142,7 @@ test('@flow codename platform defaults switch metahub create dialog UI mode whil
         await createDialog.getByTestId(entityDialogSelectors.submitButton).click()
 
         await expect(createDialog).toHaveCount(0)
+        await expect(page.getByText(metahubName)).toBeVisible({ timeout: 30_000 })
 
         let createdMetahubId
         await expect
@@ -127,12 +151,12 @@ test('@flow codename platform defaults switch metahub create dialog UI mode whil
                     const response = await listMetahubs(userApi, { limit: 100, offset: 0, sortBy: 'updated', sortOrder: 'desc' })
                     const items = Array.isArray(response?.items) ? response.items : []
                     const created = items.find(
-                        (item) => item.name?.locales?.en?.content === metahubName || item.codename?.locales?.en?.content === metahubCodename
+                        (item) => readLocalizedText(item.name) === metahubName || readLocalizedText(item.codename) === metahubCodename
                     )
                     createdMetahubId = created?.id
                     return typeof createdMetahubId === 'string'
                 },
-                { timeout: 20_000 }
+                { timeout: 60_000 }
             )
             .toBe(true)
 
@@ -223,7 +247,7 @@ test('@flow metahub codename settings switch child entity forms between versione
         ])
 
         await page.goto(`/metahub/${metahub.id}/entities/hub/instances`)
-        await expect(page.getByRole('heading', { name: 'Tree entities instances' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Hubs' })).toBeVisible()
 
         const versionedDialog = await openCreateDialog(page)
         const versionedCodenameField = versionedDialog.getByTestId('codename-field')

@@ -68,11 +68,11 @@
 ## Self-Hosted Fixture Contract
 
 - Canonical source: `tools/testing/e2e/support/selfHostedAppFixtureContract.mjs`.
-- Regeneration path: use the supported Playwright generator, not hand edits.
-- The committed fixture exports all four published legacy-compatible V2 entity definitions.
-- The fixture contract asserts expected automation components for the V2 presets.
-- `versionEnvelope.structureVersion` in the committed fixture stays pinned to the canonical contract until the generator contract changes.
+- Regeneration path: use the supported Playwright generator on port 3100, not hand edits.
+- Current snapshot format version: 3.
+- Hash mismatch after manual edits means the fixture must be regenerated through Playwright generators.
 - Browser import/export proof must validate the full self-hosted envelope contract after re-export.
+- The quiz fixture (`metahubs-quiz-app-snapshot.json`) must also be regenerated after any normalization or entity-first changes.
 
 ## ECAE / Entity Architecture Technical Baseline
 
@@ -159,6 +159,23 @@
 - `@universo/metahubs-frontend` bridges those settings through `MetahubDialogSettingsProvider` and `withMetahubDialogSettings(...)`.
 - Dialog resize state is stored in localStorage and scoped by metahub id.
 - `EntityScriptsTab` uses `ResizeObserver` on the rendered container, not viewport breakpoints.
+
+## Shared Resources Architecture
+
+- Resources section lives at `/metahub/:metahubId/resources` (formerly `/common`, `/general`).
+- `SharedResourcesPage.tsx` renders dynamic tabs based on entity type definitions.
+- Tab visibility derives from `ComponentManifest`: `dataSchema.enabled` → Field Definitions, `fixedValues.enabled` → Fixed Values, `optionValues.enabled` → Option Values.
+- Shared pool containers use `SHARED_OBJECT_KINDS` constants in `@universo/types/shared.ts`.
+- Container codenames (`shared_attributes`, `shared_constants`, `shared_values`) are DB-stored legacy identifiers — not user-visible.
+- User-visible tab labels are controlled by i18n keys `general.tabs.*`.
+
+### i18n Key Structure For Shared Resources
+
+- Top-level `records.*` namespace provides ~44 keys for record management (title, dialogs, CRUD, table, parent collection, drag-and-drop).
+- Top-level `fieldDefinitions.*` namespace for field definition management.
+- `general.tabs.*` keys for Resources section tab labels.
+- `general.shared.*` keys for shared entity loading/empty states.
+- Each entity type has `tabs.treeEntities` key for hub navigation tab.
 
 ## Common Section And Catalog Layout Overlay Contract
 

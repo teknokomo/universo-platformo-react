@@ -666,7 +666,7 @@ const NestedFieldDefinitionList = ({
                 }
             }
         ],
-        [allowAttributeCopy, canDeleteChildAttribute, childAttributes, childAttributeMap]
+        [allowAttributeCopy, canDeleteChildAttribute, childAttributes, childAttributeMap, openCopy, openDelete, openEdit]
     )
 
     /** Factory function creating action context for BaseEntityMenu */
@@ -1173,7 +1173,7 @@ const NestedFieldDefinitionList = ({
             validationRules: attr.validationRules ?? {},
             uiConfig: attr.uiConfig ?? {}
         }
-    }, [dialogs.edit.item, localizedDefaults])
+    }, [dialogs.edit.item, i18n.language, localizedDefaults])
 
     const copyInitialValues = useMemo(() => {
         if (!dialogs.copy.item) return null
@@ -1191,7 +1191,7 @@ const NestedFieldDefinitionList = ({
             validationRules: source.validationRules ?? {},
             uiConfig: source.uiConfig ?? {}
         }
-    }, [codenameConfig.alphabet, codenameConfig.style, dialogs.copy.item, i18n.language])
+    }, [dialogs.copy.item, i18n.language])
 
     // Filtered child fieldDefinitions (for search) and their display representations
     const filteredChildAttributes = useMemo(() => {

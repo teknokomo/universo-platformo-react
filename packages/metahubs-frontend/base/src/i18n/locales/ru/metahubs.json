@@ -101,6 +101,16 @@
           "title": "Участники",
           "interval": "За всё время",
           "description": "Пользователи с доступом к этому метахабу"
+        },
+        "hubs": {
+          "title": "Хабы",
+          "interval": "За всё время",
+          "description": "Всего хабов в этом метахабе"
+        },
+        "catalogs": {
+          "title": "Каталоги",
+          "interval": "За всё время",
+          "description": "Всего каталогов в этом метахабе"
         }
       },
       "documentation": {
@@ -321,15 +331,15 @@
       "itemTitle": "Заголовок",
       "itemIcon": "Иконка",
       "itemHref": "URL ссылки",
-      "itemCatalog": "Связанная коллекция",
-      "itemHub": "Древовидная сущность",
+      "itemCatalog": "Каталог",
+      "itemHub": "Хаб",
       "itemActive": "Активен",
       "selectCatalog": "Выберите каталог",
       "noCatalogs": "Нет доступных каталогов",
       "noHubs": "Нет доступных хабов",
-      "kindCatalog": "Связанная коллекция",
+      "kindCatalog": "Каталог",
       "kindCatalogsAll": "Все каталоги",
-      "kindHub": "Древовидная сущность",
+      "kindHub": "Хаб",
       "kindLink": "Ссылка",
       "validation": {
         "titleRequired": "Название обязательно.",
@@ -394,7 +404,7 @@
       "widgetTitle": "Переопределение заголовка виджета",
       "widgetDescription": "Переопределение описания виджета",
       "attachmentKind": "Тип привязки скрипта",
-      "attachmentKindHelp": "LinkedCollectionEntity-скрипты разрешаются относительно текущего каталога во время выполнения, а metahub-скрипты остаются глобальными.",
+      "attachmentKindHelp": "Catalog-скрипты разрешаются относительно текущего каталога во время выполнения, а metahub-скрипты остаются глобальными.",
       "attachmentKinds": {
         "metahub": "Метахаб",
         "catalog": "Текущий каталог"
@@ -495,7 +505,7 @@
     "copyError": "Не удалось скопировать ветку",
     "codenameExists": "Ветка с таким кодовым именем уже существует",
     "numberConflict": "Конфликт нумерации веток. Повторите попытку.",
-    "copyOptionListReferencesError": "Нельзя отключить копирование списков опций, пока скопированные группы сущностей всё ещё ссылаются на списки опций.",
+    "copyOptionListReferencesError": "Нельзя отключить копирование перечислений, пока скопированные группы сущностей всё ещё ссылаются на перечисления.",
     "copyDanglingEntityReferencesError": "Выбранные опции копирования приводят к некорректным ссылкам между сущностями. Оставьте включёнными все связанные группы сущностей.",
     "updateError": "Не удалось обновить ветку",
     "deleteError": "Не удалось удалить ветку",
@@ -514,10 +524,10 @@
       "options": {
         "fullCopy": "Полное копирование",
         "copyLayouts": "Макеты",
-        "copyTreeEntities": "Деревья сущностей",
-        "copyLinkedCollections": "Связанные коллекции",
-        "copyValueGroups": "Группы значений",
-        "copyOptionLists": "Списки опций"
+        "copyTreeEntities": "Хабы",
+        "copyLinkedCollections": "Каталоги",
+        "copyValueGroups": "Наборы",
+        "copyOptionLists": "Перечисления"
       }
     }
   },
@@ -538,7 +548,7 @@
     "componentsCount_many": "{{count}} компонентов",
     "componentsCount_other": "{{count}} компонента",
     "actions": {
-      "create": "Создать тип сущности",
+      "create": "Создать сущность",
       "instances": "Экземпляры"
     },
     "tabs": {
@@ -593,7 +603,7 @@
       "admin": "Администрирование"
     },
     "tabOptions": {
-      "general": "General",
+      "general": "Основное",
       "layout": "Лэйаут",
       "scripts": "Скрипты"
     },
@@ -602,10 +612,10 @@
       "dataSchemaHelper": "Включает моделирование на основе атрибутов и generated value editors для этого типа сущности.",
       "maxAttributes": "Максимум атрибутов",
       "records": "Предопределённые элементы",
-      "recordsHelper": "Переиспользует существующие потоки predefined elements для пресетов linked collection и других seed-типов сущностей.",
+      "recordsHelper": "Переиспользует существующие потоки predefined elements для пресетов catalog и других seed-типов сущностей.",
       "maxElements": "Максимум предопределённых элементов",
       "treeAssignment": "Привязка к хабам",
-      "treeAssignmentHelper": "Позволяет странице экземпляров сущностей переиспользовать общий tree-entity assignment control и вкладки в стиле linked collections.",
+      "treeAssignmentHelper": "Позволяет странице экземпляров сущностей переиспользовать общий hub assignment control и вкладки в стиле catalogs.",
       "singleHub": "Только один хаб",
       "requiredHub": "Требовать хотя бы один хаб",
       "hierarchy": "Иерархия",
@@ -625,7 +635,7 @@
       "scripting": "Скрипты",
       "scriptingHelper": "Открывает существующую вкладку EntityScriptsTab для привязки и переиспользования скриптов.",
       "layoutConfig": "Конфигурация лэйаута",
-      "layoutConfigHelper": "Включает конфигурацию лэйаутов в стиле LinkedCollectionEntity и отдельную вкладку authoring-а лэйаута.",
+      "layoutConfigHelper": "Включает конфигурацию лэйаутов в стиле Catalog и отдельную вкладку authoring-а лэйаута.",
       "runtimeBehavior": "Runtime-поведение",
       "runtimeBehaviorHelper": "Публикует layout-aware runtime behavior, чтобы generic application surfaces могли отрисовывать этот тип сущности.",
       "physicalTable": "Физическая таблица",
@@ -633,25 +643,25 @@
       "tablePrefix": "Префикс таблицы",
       "tablePrefixHelper": "Префикс, который используется, когда runtime DDL pipeline генерирует имя физической таблицы.",
       "optionValues": "Значения перечисления",
-      "optionValuesHelper": "Сохраняет совместимость типа с регистрами значений в стиле OptionListEntity.",
+      "optionValuesHelper": "Сохраняет совместимость типа с регистрами значений в стиле Enumeration.",
       "fixedValues": "Константы",
       "fixedValuesHelper": "Сохраняет совместимость типа с регистрами констант в стиле Set."
     },
     "createDialog": {
-      "title": "Создать тип сущности"
+      "title": "Создать сущность"
     },
     "editDialog": {
-      "title": "Редактировать тип сущности"
+      "title": "Редактировать сущность"
     },
     "copyDialog": {
-      "title": "Копировать тип сущности",
+      "title": "Копировать сущность",
       "copying": "Копирование..."
     },
     "deleteDialog": {
       "title": "Удалить тип сущности",
       "description": "Удалить тип сущности \"{{name}}\"? Platform-provided standard types нельзя удалять здесь."
     },
-    "copySuccess": "Тип сущности скопирован",
+    "copySuccess": "Сущность скопирована",
     "copyError": "Не удалось скопировать тип сущности",
     "validation": {
       "kindKeyRequired": "Ключ типа обязателен",
@@ -697,7 +707,7 @@
     "instances": {
       "title": "Экземпляры {{name}}",
       "description": "Управляйте экземплярами {{name}} на унифицированном entity-owned маршруте для вида {{kindKey}}.",
-      "linkedCollectionBanner": "Эта страница переиспользует общий контракт редактирования linked collection на унифицированном entity-owned маршруте, включая опции копирования, layout и scripts.",
+      "linkedCollectionBanner": "Эта страница переиспользует общий контракт редактирования catalog на унифицированном entity-owned маршруте, включая опции копирования, layout и scripts.",
       "searchPlaceholder": "Поиск экземпляров сущностей...",
       "banner": "Эта страница управляет design-time экземплярами выбранного вида сущности на унифицированном entity-owned маршруте.",
       "noManagePermission": "У вас нет прав на управление экземплярами сущностей в этом метахабе.",
@@ -721,8 +731,8 @@
       },
       "copy": {
         "options": {
-          "copyFieldDefinitions": "Копировать field definitions",
-          "copyRecords": "Копировать records"
+          "copyFieldDefinitions": "Копировать определения полей",
+          "copyRecords": "Копировать записи"
         }
       },
       "tabs": {
@@ -748,7 +758,7 @@
         "singleDisabledHelp": "Сущность может быть привязана к нескольким контейнерам"
       },
       "layouts": {
-        "emptyTitle": "Лэйаутов нет"
+        "emptyTitle": "Макетов нет"
       },
       "automation": {
         "actions": {
@@ -842,7 +852,7 @@
         "description": "Удалить сущность \"{{name}}\"? Позже её можно будет восстановить, пока удалённые элементы отображаются в списке."
       },
       "linkedCollectionDeleteDialog": {
-        "description": "Удалить linked collection \"{{name}}\"? Позже её можно будет восстановить, пока удалённые элементы отображаются в списке."
+        "description": "Удалить каталог \"{{name}}\"? Позже его можно будет восстановить, пока удалённые элементы отображаются в списке."
       },
       "deletePermanentDialog": {
         "title": "Удалить сущность навсегда",
@@ -850,8 +860,8 @@
         "deleting": "Удаляем навсегда..."
       },
       "linkedCollectionDeletePermanentDialog": {
-        "title": "Удалить linked collection навсегда",
-        "description": "Удалить linked collection \"{{name}}\" навсегда? Это действие нельзя отменить.",
+        "title": "Удалить каталог навсегда",
+        "description": "Удалить каталог \"{{name}}\" навсегда? Это действие нельзя отменить.",
         "deleting": "Удаляем навсегда..."
       },
       "validation": {
@@ -860,12 +870,12 @@
       }
     }
   },
-  "treeEntities": {
-    "title": "Древовидные сущности",
+  "hubs": {
+    "title": "Хабы",
     "description": "Контейнеры данных, определяющие структуру метахаба",
-    "searchPlaceholder": "Поиск древовидных сущностей...",
-    "empty": "Древовидных сущностей пока нет",
-    "emptyDescription": "Создайте первую древовидную сущность, чтобы начать определять структуры данных",
+    "searchPlaceholder": "Поиск хабов...",
+    "empty": "Хабов пока нет",
+    "emptyDescription": "Создайте первую хаб, чтобы начать определять структуры данных",
     "create": "Создать хаб",
     "editTitle": "Редактировать хаб",
     "copyTitle": "Копирование хаба",
@@ -876,13 +886,13 @@
       "title": "Редактировать хаб"
     },
     "deleteDialog": {
-      "title": "Удалить tree entity",
-      "message": "Вы уверены, что хотите удалить этот tree entity? Вложенные linked collections, field definitions и records могут стать недоступными.",
-      "confirmMessage": "Вы уверены, что хотите удалить этот tree entity? Это действие нельзя отменить.",
+      "title": "Удалить хаб",
+      "message": "Вы уверены, что хотите удалить этот хаб? Вложенные каталоги, определения полей и записи могут стать недоступными.",
+      "confirmMessage": "Вы уверены, что хотите удалить этот хаб? Это действие нельзя отменить.",
       "fetchError": "Не удалось проверить блокирующие объекты",
-      "hasBlockingCatalogs": "Нельзя удалить tree entity. Следующие linked collections требуют хотя бы один tree entity и привязаны только к этому:",
-      "hasBlockingObjects": "Нельзя удалить tree entity. Следующие сущности требуют хотя бы один tree entity и привязаны только к этому:",
-      "resolutionHint": "Чтобы удалить этот tree entity, сначала перепривяжите дочерние tree entities и добавьте другой tree entity к этим linked collections, value groups и option lists или отключите обязательную привязку к tree entity.",
+      "hasBlockingCatalogs": "Нельзя удалить хаб. Следующие каталоги требуют хотя бы один хаб и привязаны только к этому:",
+      "hasBlockingObjects": "Нельзя удалить хаб. Следующие сущности требуют хотя бы один хаб и привязаны только к этому:",
+      "resolutionHint": "Чтобы удалить этот хаб, сначала перепривяжите дочерние хабы и добавьте другой хаб к этим каталогам, наборам и перечислениям или отключите обязательную привязку к хабу.",
       "sections": {}
     },
     "codename": "Кодовое имя",
@@ -903,16 +913,17 @@
     "catalogsCount_few": "{{count}} каталога",
     "catalogsCount_many": "{{count}} каталогов",
     "catalogsCount_other": "{{count}} каталогов",
-    "createError": "Не удалось создать древовидную сущность",
-    "updateError": "Не удалось обновить древовидную сущность",
-    "deleteError": "Не удалось удалить древовидную сущность",
+    "createError": "Не удалось создать хаб",
+    "updateError": "Не удалось обновить хаб",
+    "deleteError": "Не удалось удалить хаб",
     "copySuccess": "Хаб скопирован",
     "copyError": "Не удалось скопировать хаб",
     "tabs": {
       "general": "Основное",
+      "treeEntities": "Хабы",
       "options": "Опции"
     },
-    "linkCurrentHubShort": "Текущая древовидная сущность",
+    "linkCurrentHubShort": "Текущая хаб",
     "nestingDisabledHint": "Вложенность хабов отключена в настройках. Вы можете редактировать и отвязывать существующие родительские связи.",
     "detachedConfirm": {
       "title": "Создать хаб вне текущего хаба?",
@@ -922,9 +933,9 @@
     },
     "attachExisting": {
       "dialogTitle": "Добавить существующие хабы",
-      "selectionTitle": "Древовидные сущности",
+      "selectionTitle": "Хабы",
       "selectDialogTitle": "Выберите хабы",
-      "emptySelection": "Древовидные сущности не выбраны",
+      "emptySelection": "Хабы не выбраны",
       "noAvailable": "Нет доступных хабов для добавления",
       "requiredSelection": "Выберите хотя бы один хаб для добавления.",
       "success": "Добавлено хабов: {{count}}.",
@@ -937,8 +948,8 @@
       "options": {
         "copyAllRelations": "Копировать все связи",
         "copyLinkedCollectionRelations": "Связи с коллекциями",
-        "copyValueGroupRelations": "Связи с группами значений",
-        "copyOptionListRelations": "Связи со списками опций",
+        "copyValueGroupRelations": "Связи с наборами",
+        "copyOptionListRelations": "Связи со перечислениями",
         "singleHubNotice": "Не будут скопированы связи с сущностями у которых стоит ограничение \"Только один хаб\"."
       }
     },
@@ -960,8 +971,8 @@
       "layouts": "Макеты",
       "fixedValues": "Фиксированные значения",
       "values": "Значения",
-      "fieldDefinitions": "Поля",
-      "optionValues": "Списки значений",
+      "fieldDefinitions": "Определения полей",
+      "optionValues": "Значения перечислений",
       "scripts": "Скрипты"
     },
     "shared": {
@@ -1021,16 +1032,16 @@
       }
     }
   },
-  "linkedCollections": {
-    "title": "Связанные коллекции",
-    "allTitle": "Связанные коллекции",
+  "catalogs": {
+    "title": "Каталоги",
+    "allTitle": "Каталоги",
     "allDescription": "Все каталоги из всех хабов в этом метахабе",
-    "description": "Коллекции сущностей для организации field definitions и records внутри древовидной сущности",
-    "searchPlaceholder": "Поиск связанных коллекций...",
-    "empty": "Связанных коллекций пока нет",
-    "emptyDescription": "Создайте первую связанную коллекцию для организации field definitions и records",
-    "emptyHint": "Создавайте связанные коллекции внутри конкретных древовидных сущностей",
-    "noSearchResults": "Связанные коллекции не найдены",
+    "description": "Коллекции сущностей для организации определений полей и записей внутри хаба",
+    "searchPlaceholder": "Поиск каталогов...",
+    "empty": "Каталогов пока нет",
+    "emptyDescription": "Создайте первый каталог для организации определений полей и записей",
+    "emptyHint": "Создавайте каталоги внутри конкретных хабов",
+    "noSearchResults": "Каталоги не найдены",
     "noSearchResultsHint": "Попробуйте другие поисковые запросы",
     "create": "Создать каталог",
     "editTitle": "Редактировать каталог",
@@ -1042,20 +1053,20 @@
       "title": "Редактировать каталог"
     },
     "deleteDialog": {
-      "title": "Удалить linked collection",
-      "message": "Вы уверены, что хотите удалить эту linked collection? Все field definitions и records будут безвозвратно удалены.",
-      "confirmMessage": "Вы уверены, что хотите удалить эту linked collection? Это действие нельзя отменить.",
+      "title": "Удалить каталог",
+      "message": "Вы уверены, что хотите удалить этот каталог? Все определения полей и записи будут безвозвратно удалены.",
+      "confirmMessage": "Вы уверены, что хотите удалить этот каталог? Это действие нельзя отменить.",
       "fetchBlockingError": "Не удалось проверить блокирующие ссылки",
-      "hasBlockingReferences": "Нельзя удалить linked collection. Сначала удалите ссылки на неё из других linked collections:",
-      "resolutionHint": "Откройте исходные linked collections из таблицы и удалите или перенастройте ссылочные field definitions.",
+      "hasBlockingReferences": "Нельзя удалить каталог. Сначала удалите ссылки на него из других каталогов:",
+      "resolutionHint": "Откройте исходные каталоги из таблицы и удалите или перенастройте ссылочные определения полей.",
       "blockingTable": {
-        "catalog": "Linked collection",
-        "attribute": "Field definition"
+        "catalog": "Каталог",
+        "attribute": "Определение поля"
       }
     },
-    "deleted": "Связанная коллекция удалена",
-    "deleteTitle": "Удалить связанную коллекцию",
-    "deleteMessage": "Вы уверены, что хотите удалить эту связанную коллекцию? Это действие нельзя отменить.",
+    "deleted": "Каталог удалена",
+    "deleteTitle": "Удалить каталог",
+    "deleteMessage": "Вы уверены, что хотите удалить эту каталог? Это действие нельзя отменить.",
     "codename": "Кодовое имя",
     "codenameHelper": "Уникальный идентификатор для URL (латиница, строчные буквы, цифры, дефисы). Формируется из названия с транслитерацией. Можно редактировать вручную.",
     "codenameHelperPascal": "Уникальный идентификатор (ПаскальКейс: начинается с заглавной, буквы, цифры, подчёркивания). Формируется из названия. Можно редактировать вручную.",
@@ -1088,6 +1099,7 @@
     },
     "tabs": {
       "general": "Основное",
+      "treeEntities": "Хабы",
       "layout": "Макеты",
       "options": "Опции"
     },
@@ -1134,7 +1146,7 @@
     "addHub": "Добавить",
     "removeHub": "Удалить",
     "selectHubs": "Выберите хабы",
-    "noHubsSelected": "Древовидные сущности не выбраны",
+    "noHubsSelected": "Хабы не выбраны",
     "requiredHubWarning": "Необходимо выбрать хотя бы один хаб",
     "noHubsAvailable": "Нет доступных хабов",
     "addSelected": "Добавить",
@@ -1158,9 +1170,9 @@
     },
     "attachExisting": {
       "dialogTitle": "Добавить существующие каталоги",
-      "selectionTitle": "Связанные коллекции",
+      "selectionTitle": "Каталоги",
       "selectDialogTitle": "Выберите каталоги",
-      "emptySelection": "Связанные коллекции не выбраны",
+      "emptySelection": "Каталоги не выбраны",
       "noAvailable": "Нет доступных каталогов для добавления",
       "requiredSelection": "Выберите хотя бы один каталог для добавления.",
       "success": "Добавлено каталогов: {{count}}.",
@@ -1168,14 +1180,14 @@
       "failedAll": "Не удалось привязать выбранные каталоги к текущему хабу. Проверьте ограничения и попробуйте снова."
     }
   },
-  "valueGroups": {
-    "title": "Группы значений",
-    "allTitle": "Группы значений",
+  "sets": {
+    "title": "Наборы",
+    "allTitle": "Наборы",
     "description": "Контейнеры, которые объединяют константы в метахабе",
-    "searchPlaceholder": "Поиск групп значений...",
-    "empty": "Групп значений пока нет",
-    "emptyDescription": "Создайте первую группу значений для организации фиксированных значений",
-    "noSearchResults": "Группы значений не найдены",
+    "searchPlaceholder": "Поиск наборов...",
+    "empty": "Наборов пока нет",
+    "emptyDescription": "Создайте первую набор для организации фиксированных значений",
+    "noSearchResults": "Наборы не найдены",
     "noSearchResultsHint": "Попробуйте изменить поисковый запрос",
     "createDialog": {
       "title": "Создать набор"
@@ -1191,8 +1203,8 @@
     "createError": "Не удалось создать набор",
     "updateSuccess": "Набор обновлён",
     "updateError": "Не удалось обновить набор",
-    "deleteSuccess": "Value group удалён",
-    "deleteError": "Не удалось удалить value group",
+    "deleteSuccess": "Набор удалён",
+    "deleteError": "Не удалось удалить набор",
     "codename": "Кодовое имя",
     "codenameHelper": "Уникальный идентификатор для URL (латиница в нижнем регистре, цифры, дефисы). Автоматически формируется из названия с транслитерацией. Можно изменить вручную.",
     "table": {
@@ -1200,6 +1212,7 @@
     },
     "tabs": {
       "general": "Основное",
+      "treeEntities": "Хабы",
       "options": "Опции"
     },
     "validation": {
@@ -1209,8 +1222,8 @@
     },
     "fixedValuesHeader": "Константы",
     "fixedValuesCount_one": "{{count}} константа",
-    "constantsCount_few": "{{count}} константы",
-    "constantsCount_many": "{{count}} констант",
+    "fixedValuesCount_few": "{{count}} константы",
+    "fixedValuesCount_many": "{{count}} констант",
     "fixedValuesCount_other": "{{count}} констант",
     "copy": {
       "action": "Копировать",
@@ -1220,15 +1233,15 @@
       }
     },
     "deleteDialog": {
-      "title": "Удалить value group",
-      "message": "Вы уверены, что хотите удалить этот value group?",
-      "confirmMessage": "Вы уверены, что хотите удалить этот value group? Это действие нельзя отменить.",
-      "hasBlockingReferences": "Нельзя удалить value group. Сначала удалите следующие ссылки из field definitions linked collections:",
-      "resolutionHint": "Откройте исходные linked collections из таблицы и скорректируйте указанные field definitions.",
+      "title": "Удалить набор",
+      "message": "Вы уверены, что хотите удалить этот набор?",
+      "confirmMessage": "Вы уверены, что хотите удалить этот набор? Это действие нельзя отменить.",
+      "hasBlockingReferences": "Нельзя удалить набор. Сначала удалите следующие ссылки из определений полей каталогов:",
+      "resolutionHint": "Откройте исходные каталоги из таблицы и скорректируйте указанные определения полей.",
       "fetchBlockingError": "Не удалось проверить блокирующие ссылки",
       "blockingTable": {
-        "catalog": "Linked collection",
-        "attribute": "Field definition"
+        "catalog": "Каталог",
+        "attribute": "Определение поля"
       }
     },
     "reorderSuccess": "Порядок наборов обновлён",
@@ -1244,9 +1257,9 @@
     },
     "attachExisting": {
       "dialogTitle": "Добавить существующие наборы",
-      "selectionTitle": "Группы значений",
+      "selectionTitle": "Наборы",
       "selectDialogTitle": "Выберите наборы",
-      "emptySelection": "Группы значений не выбраны",
+      "emptySelection": "Наборы не выбраны",
       "noAvailable": "Нет доступных наборов для добавления",
       "requiredSelection": "Выберите хотя бы один набор для добавления.",
       "success": "Добавлено наборов: {{count}}.",
@@ -1274,8 +1287,8 @@
     "createError": "Не удалось создать константу",
     "updateSuccess": "Константа обновлена",
     "updateError": "Не удалось обновить константу",
-    "deleteSuccess": "Fixed value удалён",
-    "deleteError": "Не удалось удалить fixed value",
+    "deleteSuccess": "Фиксированное значение удалено",
+    "deleteError": "Не удалось удалить фиксированное значение",
     "copySuccess": "Константа скопирована",
     "copyError": "Не удалось скопировать константу",
     "moveSuccess": "Порядок констант обновлён",
@@ -1336,45 +1349,45 @@
       "moveDown": "Переместить ниже"
     },
     "deleteDialog": {
-      "title": "Удалить fixed value",
-      "message": "Вы уверены, что хотите удалить этот fixed value?"
+      "title": "Удалить фиксированное значение",
+      "message": "Вы уверены, что хотите удалить это фиксированное значение?"
     },
     "dnd": {
       "dragHandle": "Перетащите для изменения порядка"
     }
   },
-  "optionLists": {
-    "title": "Списки опций",
-    "allTitle": "Списки опций",
+  "enumerations": {
+    "title": "Перечисления",
+    "allTitle": "Перечисления",
     "description": "Определите фиксированные наборы значений для этого метахаба",
-    "searchPlaceholder": "Поиск списков опций...",
-    "empty": "Списков опций пока нет",
-    "emptyDescription": "Создайте список опций, чтобы использовать фиксированные значения в атрибутах",
-    "noSearchResults": "Списки опций не найдены",
+    "searchPlaceholder": "Поиск перечислений...",
+    "empty": "Перечислений пока нет",
+    "emptyDescription": "Создайте перечисление, чтобы использовать фиксированные значения в атрибутах",
+    "noSearchResults": "Перечисления не найдены",
     "noSearchResultsHint": "Попробуйте изменить поисковый запрос",
-    "createSuccess": "Список опций создан",
-    "createError": "Не удалось создать список опций",
-    "updateSuccess": "Список опций обновлён",
-    "updateError": "Не удалось обновить список опций",
-    "deleteSuccess": "Option list удалён",
-    "deleteError": "Не удалось удалить option list",
+    "createSuccess": "Перечисление создан",
+    "createError": "Не удалось создать перечисление",
+    "updateSuccess": "Перечисление обновлён",
+    "updateError": "Не удалось обновить перечисление",
+    "deleteSuccess": "Перечисление удалено",
+    "deleteError": "Не удалось удалить перечисление",
     "editTitle": "Редактировать перечисление",
     "copyTitle": "Копирование перечисления",
-    "copySuccess": "Список опций скопирован",
-    "copyError": "Не удалось скопировать список опций",
+    "copySuccess": "Перечисление скопирован",
+    "copyError": "Не удалось скопировать перечисление",
     "createDialog": {
       "title": "Создать перечисление"
     },
     "deleteDialog": {
-      "title": "Удалить option list",
-      "message": "Вы уверены, что хотите удалить этот option list? Это действие нельзя отменить.",
-      "confirmMessage": "Вы уверены, что хотите удалить этот option list? Это действие нельзя отменить.",
-      "hasBlockingReferences": "Нельзя удалить option list. Сначала удалите ссылки из field definitions:",
-      "resolutionHint": "Откройте исходные linked collections и измените или удалите ссылочные field definitions.",
+      "title": "Удалить перечисление",
+      "message": "Вы уверены, что хотите удалить это перечисление? Это действие нельзя отменить.",
+      "confirmMessage": "Вы уверены, что хотите удалить это перечисление? Это действие нельзя отменить.",
+      "hasBlockingReferences": "Нельзя удалить перечисление. Сначала удалите ссылки из определений полей:",
+      "resolutionHint": "Откройте исходные каталоги и измените или удалите ссылочные определения полей.",
       "fetchBlockingError": "Не удалось проверить блокирующие ссылки",
       "blockingTable": {
-        "catalog": "Linked collection",
-        "attribute": "Field definition"
+        "catalog": "Каталог",
+        "attribute": "Определение поля"
       }
     },
     "codename": "Кодовое имя",
@@ -1388,6 +1401,7 @@
     "valuesCount_other": "{{count}} значений",
     "tabs": {
       "general": "Основное",
+      "treeEntities": "Хабы",
       "options": "Опции"
     },
     "copy": {
@@ -1417,9 +1431,9 @@
     },
     "attachExisting": {
       "dialogTitle": "Добавить существующие перечисления",
-      "selectionTitle": "Списки опций",
+      "selectionTitle": "Перечисления",
       "selectDialogTitle": "Выберите перечисления",
-      "emptySelection": "Списки опций не выбраны",
+      "emptySelection": "Перечисления не выбраны",
       "noAvailable": "Нет доступных перечислений для добавления",
       "requiredSelection": "Выберите хотя бы одно перечисление для добавления.",
       "success": "Добавлено перечислений: {{count}}.",
@@ -1490,23 +1504,23 @@
   "ref": {
     "targetEntityKind": "Тип целевой сущности",
     "notSelected": "Не выбрано",
-    "targetCatalog": "Целевая связанная коллекция",
+    "targetCatalog": "Целевая каталог",
     "targetEnumeration": "Целевой список вариантов",
-    "targetSet": "Целевая группа значений",
+    "targetSet": "Целевая набор",
     "targetConstant": "Целевое фиксированное значение",
-    "selectCatalog": "Выберите связанную коллекцию...",
+    "selectCatalog": "Выберите каталог...",
     "selectEnumeration": "Выберите список вариантов...",
-    "selectSet": "Выберите группу значений...",
+    "selectSet": "Выберите набор...",
     "selectConstant": "Выберите фиксированное значение...",
     "selectEnumerationValue": "Выберите значение...",
     "selectElement": "Выберите запись...",
-    "catalogRequired": "Выберите связанную коллекцию",
+    "catalogRequired": "Выберите каталог",
     "enumerationRequired": "Выберите список вариантов",
-    "setRequired": "Выберите группу значений",
-    "targetConstantHint": "Выберите фиксированное значение из выбранной группы значений",
-    "noCatalogsAvailable": "Связанных коллекций нет",
+    "setRequired": "Выберите набор",
+    "targetConstantHint": "Выберите фиксированное значение из выбранной наборы",
+    "noCatalogsAvailable": "Каталогов нет",
     "noEnumerationsAvailable": "Списков вариантов нет",
-    "noSetsAvailable": "Групп значений нет",
+    "noSetsAvailable": "Наборов нет",
     "noConstantsAvailable": "Фиксированных значений нет",
     "noOptionValuesAvailable": "Нет доступных значений",
     "noElementsAvailable": "Записей нет",
@@ -1516,10 +1530,10 @@
     "unknownEnumerationValue": "Значение {{id}}",
     "entityKindNotSupported": "Этот тип сущности пока не поддерживается для ссылок.",
     "entityKind": {
-      "catalog": "Связанная коллекция",
-      "enumeration": "Список опций",
-      "set": "Группа значений",
-      "hub": "Древовидная сущность"
+      "catalog": "Каталог",
+      "enumeration": "Перечисление",
+      "set": "Набор",
+      "hub": "Хаб"
     }
   },
   "members": {
@@ -1830,20 +1844,20 @@
     "branch": "Ветка (Основная)",
     "layout": "Макет (Основной)",
     "optionalEntities": "Стандартные сущности",
-    "hub": "Древовидная сущность",
-    "catalog": "Связанная коллекция",
-    "set": "Группа значений",
-    "enumeration": "Список опций"
+    "hub": "Хаб",
+    "catalog": "Каталог",
+    "set": "Набор",
+    "enumeration": "Перечисление"
   },
   "settings": {
     "title": "Настройки",
     "tabs": {
       "general": "Основное",
       "common": "Общие",
-      "hub": "Древовидные сущности",
-      "catalog": "Связанные коллекции",
-      "set": "Группы значений",
-      "enumeration": "Списки опций"
+      "hub": "Хабы",
+      "catalog": "Каталоги",
+      "set": "Наборы",
+      "enumeration": "Перечисления"
     },
     "search": "Поиск настроек...",
     "save": "Сохранить изменения",
@@ -1961,7 +1975,7 @@
       "pascal-case": {
         "en": "MyCatalogName",
         "ru": "МойКаталогИмя",
-        "mixed": "МойLinkedCollectionEntityИмя"
+        "mixed": "МойCatalogИмя"
       }
     },
     "codenameAlphabets": {
@@ -1996,11 +2010,11 @@
   },
   "fieldDefinitions": {
     "title": "Определения полей",
-    "description": "Задайте поля для этой связанной коллекции",
+    "description": "Задайте поля для этой каталога",
     "searchPlaceholder": "Поиск определений полей...",
     "empty": "Определений полей ещё нет",
-    "emptyDescription": "Добавьте определения полей для задания структуры данных связанной коллекции",
-    "limitReached": "Достигнут предел: максимум {{limit}} определений полей для связанной коллекции. Удалите определение поля, чтобы добавить новое.",
+    "emptyDescription": "Добавьте определения полей для задания структуры данных каталога",
+    "limitReached": "Достигнут предел: максимум {{limit}} определений полей для каталога. Удалите определение поля, чтобы добавить новое.",
     "create": "Добавить определение поля",
     "createDialog": {
       "title": "Добавить определение поля"
@@ -2107,9 +2121,9 @@
     },
     "system": {
       "title": "Системные определения полей",
-      "description": "Определения полей жизненного цикла и инфраструктуры для этой связанной коллекции",
+      "description": "Определения полей жизненного цикла и инфраструктуры для этой каталога",
       "empty": "Системных определений полей нет",
-      "emptyDescription": "У этой связанной коллекции нет настраиваемых системных определений полей.",
+      "emptyDescription": "У этой каталога нет настраиваемых системных определений полей.",
       "hint": "Системные определения полей предоставляются платформой. Можно только включить или отключить поддерживаемые.",
       "status": "Статус",
       "enabled": "Включено",
@@ -2154,8 +2168,8 @@
     },
     "isRequiredLabel": "Обязательный",
     "isDisplayAttributeLabel": "Отображаемое определение поля",
-    "isDisplayAttributeHelper": "Использовать это определение поля как представление при ссылках на записи этой связанной коллекции",
-    "isDisplayAttributeTooltip": "Это определение поля является отображаемым представлением для данной связанной коллекции",
+    "isDisplayAttributeHelper": "Использовать это определение поля как представление при ссылках на записи этой каталога",
+    "isDisplayAttributeTooltip": "Это определение поля является отображаемым представлением для данной каталога",
     "required": "Обязательный",
     "nameEn": "Название (English)",
     "nameRu": "Название (Русский)",
@@ -2174,8 +2188,8 @@
       "numberNonNegative": "Только неотрицательное значение",
       "targetEntityKindRequired": "Выберите тип целевой сущности для Ссылки",
       "targetEntityIdRequired": "Выберите целевую сущность для Ссылки",
-      "targetConstantIdRequired": "Целевое фиксированное значение обязательно для ссылок на группу значений",
-      "targetConstantOnlyForSet": "Целевое фиксированное значение можно выбрать только для ссылок на группу значений"
+      "targetConstantIdRequired": "Целевое фиксированное значение обязательно для ссылок на набор",
+      "targetConstantOnlyForSet": "Целевое фиксированное значение можно выбрать только для ссылок на набор"
     },
     "createError": "Не удалось создать определение поля",
     "updateError": "Не удалось обновить определение поля",
@@ -2204,7 +2218,7 @@
       "message": "Вы уверены, что хотите удалить это дочернее определение поля?"
     },
     "tableValidation": {
-      "maxTableAttributes": "Максимум {{max}} TABLE-определений полей для связанной коллекции",
+      "maxTableAttributes": "Максимум {{max}} TABLE-определений полей для каталога",
       "maxChildAttributes": "Максимум {{max}} дочерних определений полей в TABLE",
       "nestedTableNotAllowed": "Вложенные TABLE-определения полей не допускаются",
       "tableCannotBeDisplay": "TABLE-определения полей нельзя назначить отображаемыми"
@@ -2223,6 +2237,69 @@
       "firstChildAttributeTitle": "Первое дочернее определение поля",
       "firstChildAttributeDescription": "Это будет первое определение поля в таблице. Оно автоматически станет отображаемым и обязательным. После этого его нельзя переместить наружу, пока другое определение поля не будет назначено отображаемым.",
       "tableChildLimitTitle": "Нельзя переместить определение поля"
+    }
+  },
+  "records": {
+    "title": "Записи",
+    "searchPlaceholder": "Поиск записей...",
+    "empty": "Записей пока нет",
+    "emptyDescription": "Добавьте записи для хранения данных в этом каталоге",
+    "addAttributesFirst": "Сначала добавьте определения полей, чтобы начать создавать записи",
+    "noAttributes": "Определения полей не настроены. Добавьте определения полей для возможности создания записей.",
+    "createDialog": {
+      "title": "Добавить запись"
+    },
+    "editDialog": {
+      "title": "Редактировать запись"
+    },
+    "copyTitle": "Копирование записи",
+    "deleteDialog": {
+      "title": "Удалить запись"
+    },
+    "createSuccess": "Запись создана",
+    "createError": "Не удалось создать запись",
+    "updateSuccess": "Запись обновлена",
+    "updateError": "Не удалось обновить запись",
+    "deleteSuccess": "Запись удалена",
+    "deleteError": "Не удалось удалить запись",
+    "copySuccess": "Запись скопирована",
+    "copyError": "Не удалось скопировать запись",
+    "moveSuccess": "Порядок записей обновлён",
+    "moveError": "Не удалось обновить порядок записей",
+    "reorderSuccess": "Порядок записей обновлён",
+    "reorderError": "Не удалось изменить порядок записей",
+    "copy": {
+      "action": "Копировать",
+      "actionLoading": "Копирование..."
+    },
+    "dnd": {
+      "dragHandle": "Перетащите для изменения порядка"
+    },
+    "table": {
+      "order": "№",
+      "updated": "Обновлено",
+      "rowCount_one": "{{count}} запись",
+      "rowCount_few": "{{count}} записи",
+      "rowCount_many": "{{count}} записей",
+      "rowCount_other": "{{count}} записей",
+      "addRow": "Добавить строку",
+      "noRows": "Строк пока нет. Нажмите «Добавить строку» для добавления данных.",
+      "edit": "Редактировать",
+      "copy": "Копировать",
+      "delete": "Удалить",
+      "deleteTitle": "Удалить строку",
+      "deleteDescription": "Вы уверены, что хотите удалить эту строку?",
+      "cancel": "Отмена",
+      "actions": "Действия"
+    },
+    "parentCollectionTabsLabel": "Вкладки каталога",
+    "parentCollectionMissingTitle": "Каталог не выбран",
+    "parentCollectionMissingDescription": "Выберите каталог для управления записями.",
+    "parentCollectionLoadError": "Ошибка загрузки каталога",
+    "parentCollectionEditTitle": "Редактировать каталог",
+    "actions": {
+      "moveUp": "Переместить вверх",
+      "moveDown": "Переместить вниз"
     }
   }
 }

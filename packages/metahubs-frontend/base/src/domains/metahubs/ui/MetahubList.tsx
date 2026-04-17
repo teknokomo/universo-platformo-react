@@ -91,7 +91,7 @@ const GeneralTabFields = ({
     const descriptionVlc = (values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
     const codename = (values.codename as VersionedLocalizedContent<string> | null | undefined) ?? null
     const codenameTouched = Boolean(values.codenameTouched)
-    const primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
+    const _primaryLocale = nameVlc?._primary ?? normalizeLocale(uiLocale)
     const deriveCodename = useCallback(
         (nameContent: string) =>
             sanitizeCodenameForStyle(
@@ -174,14 +174,17 @@ interface MetahubCreateOptionsTabProps {
 function MetahubCreateOptionsTab({ values, setValue, isLoading, t }: MetahubCreateOptionsTabProps) {
     const { i18n } = useTranslation('metahubs')
     const selectedTemplateId = typeof values.templateId === 'string' ? values.templateId : undefined
-    const presetToggles = ((values.presetToggles as Record<string, boolean> | undefined) ?? {}) as Record<string, boolean>
+    const presetToggles = useMemo(
+        () => ((values.presetToggles as Record<string, boolean> | undefined) ?? {}) as Record<string, boolean>,
+        [values.presetToggles]
+    )
     const { data: templateDetail, isLoading: isTemplateLoading } = useTemplateDetail(selectedTemplateId)
     const { data: presetCatalog = [], isLoading: isPresetCatalogLoading } = useTemplates('entity_type_preset')
     const templateManifest =
         templateDetail?.activeVersionManifest && templateDetail.activeVersionManifest.$schema === 'metahub-template/v1'
             ? (templateDetail.activeVersionManifest as MetahubTemplateManifest)
             : null
-    const presetReferences = templateManifest?.presets ?? []
+    const presetReferences = useMemo(() => templateManifest?.presets ?? [], [templateManifest])
     const presetLabels = useMemo(() => {
         const locale = normalizeLocale(i18n.language)
         return new Map(presetCatalog.map((preset) => [preset.codename, getVLCString(preset.name, locale) || preset.codename]))
@@ -735,6 +738,8 @@ const MetahubList = () => {
             handleExportMetahub,
             i18n.language,
             metahubMap,
+            openConflict,
+            openDelete,
             queryClient,
             updateMetahubMutation
         ]

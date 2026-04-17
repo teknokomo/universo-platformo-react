@@ -1,10 +1,10 @@
 import type { EntityTypePresetManifest } from '@universo/types'
 import {
-    TREE_ENTITY_DEFAULT_INSTANCES,
-    TREE_ENTITY_TYPE_COMPONENTS,
-    TREE_ENTITY_TYPE_UI,
-    STANDARD_TREE_ENTITY_DESCRIPTION,
-    STANDARD_TREE_ENTITY_NAME
+    HUB_DEFAULT_INSTANCES,
+    HUB_TYPE_COMPONENTS,
+    HUB_TYPE_UI,
+    STANDARD_HUB_DESCRIPTION,
+    STANDARD_HUB_NAME
 } from './standardEntityTypeDefinitions'
 import { vlc } from './basic.template'
 
@@ -13,23 +13,23 @@ export const hubEntityPreset: EntityTypePresetManifest = {
     codename: 'hub',
     version: '0.1.0',
     minStructureVersion: '0.4.0',
-    name: STANDARD_TREE_ENTITY_NAME,
-    description: STANDARD_TREE_ENTITY_DESCRIPTION,
+    name: STANDARD_HUB_NAME,
+    description: STANDARD_HUB_DESCRIPTION,
     meta: {
         author: 'universo-platformo',
         tags: ['preset', 'standard', 'hub'],
-        icon: TREE_ENTITY_TYPE_UI.iconName
+        icon: HUB_TYPE_UI.iconName
     },
     entityType: {
         kindKey: 'hub',
         codename: vlc('Hub', 'Hub'),
-        components: TREE_ENTITY_TYPE_COMPONENTS,
-        ui: TREE_ENTITY_TYPE_UI,
+        components: HUB_TYPE_COMPONENTS,
+        ui: HUB_TYPE_UI,
         presentation: {
-            name: STANDARD_TREE_ENTITY_NAME,
-            description: STANDARD_TREE_ENTITY_DESCRIPTION
+            name: STANDARD_HUB_NAME,
+            description: STANDARD_HUB_DESCRIPTION
         },
         config: {}
     },
-    defaultInstances: TREE_ENTITY_DEFAULT_INSTANCES
+    defaultInstances: HUB_DEFAULT_INSTANCES
 }

@@ -216,11 +216,11 @@ export const ValueGroupListContent = () => {
 
     const attachExistingSetSelectionLabels = useMemo<EntitySelectionLabels>(
         () => ({
-            title: t('valueGroups.attachExisting.selectionTitle', 'ValueGroups'),
+            title: t('sets.attachExisting.selectionTitle', 'ValueGroups'),
             addButton: t('common:actions.add', 'Add'),
-            dialogTitle: t('valueGroups.attachExisting.selectDialogTitle', 'Select valueGroups'),
-            emptyMessage: t('valueGroups.attachExisting.emptySelection', 'No valueGroups selected'),
-            noAvailableMessage: t('valueGroups.attachExisting.noAvailable', 'No valueGroups available to add'),
+            dialogTitle: t('sets.attachExisting.selectDialogTitle', 'Select valueGroups'),
+            emptyMessage: t('sets.attachExisting.emptySelection', 'No valueGroups selected'),
+            noAvailableMessage: t('sets.attachExisting.noAvailable', 'No valueGroups available to add'),
             searchPlaceholder: t('common:search', 'Search...'),
             cancelButton: t('common:actions.cancel', 'Cancel'),
             confirmButton: t('common:actions.add', 'Add'),
@@ -231,14 +231,14 @@ export const ValueGroupListContent = () => {
         [t]
     )
 
-    // Form defaults with current tree entity auto-selected in hub-scoped mode (N:M relationship)
+    // Form defaults with current hub auto-selected in hub-scoped mode (N:M relationship)
     const localizedFormDefaults = useMemo<ValueGroupFormValues>(
         () => ({
             nameVlc: null,
             descriptionVlc: null,
             codename: null,
             codenameTouched: false,
-            treeEntityIds: treeEntityId ? [treeEntityId] : [], // Auto-select current tree entity
+            treeEntityIds: treeEntityId ? [treeEntityId] : [], // Auto-select current hub
             isSingleHub: false,
             isRequiredHub: false // Default: set can exist without treeEntities
         }),
@@ -252,7 +252,7 @@ export const ValueGroupListContent = () => {
             const isRequiredHub = Boolean(values.isRequiredHub)
             // TreeEntity validation only if isRequiredHub is true
             if (isRequiredHub && treeEntityIds.length === 0) {
-                errors.treeEntityIds = t('valueGroups.validation.hubRequired', 'At least one hub is required')
+                errors.treeEntityIds = t('sets.validation.hubRequired', 'At least one hub is required')
             }
             const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
             if (!hasPrimaryContent(nameVlc)) {
@@ -263,11 +263,11 @@ export const ValueGroupListContent = () => {
             const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
             const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
             if (!normalizedCodename) {
-                errors.codename = t('valueGroups.validation.codenameRequired', 'Codename is required')
+                errors.codename = t('sets.validation.codenameRequired', 'Codename is required')
             } else if (
                 !isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)
             ) {
-                errors.codename = t('valueGroups.validation.codenameInvalid', 'Codename contains invalid characters')
+                errors.codename = t('sets.validation.codenameInvalid', 'Codename contains invalid characters')
             }
             return Object.keys(errors).length > 0 ? errors : null
         },
@@ -299,7 +299,7 @@ export const ValueGroupListContent = () => {
     /**
      * Build tabs for the EntityFormDialog (N:M relationship)
      * Tab 1: General (name, description, codename)
-     * Tab 2: TreeEntities (tree-entity selection panel with isSingleHub toggle, current tree entity pre-selected)
+     * Tab 2: TreeEntities (hub selection panel with isSingleHub toggle, current hub pre-selected)
      */
     const buildFormTabs = useCallback(
         ({
@@ -320,7 +320,7 @@ export const ValueGroupListContent = () => {
             return [
                 {
                     id: 'general',
-                    label: t('valueGroups.tabs.general', 'Основное'),
+                    label: t('sets.tabs.general', 'Основное'),
                     content: (
                         <GeneralTabFields
                             values={values}
@@ -330,14 +330,14 @@ export const ValueGroupListContent = () => {
                             uiLocale={preferredVlcLocale}
                             nameLabel={tc('fields.name', 'Name')}
                             descriptionLabel={tc('fields.description', 'Description')}
-                            codenameLabel={t('valueGroups.codename', 'Codename')}
-                            codenameHelper={t('valueGroups.codenameHelper', 'Unique identifier')}
+                            codenameLabel={t('sets.codename', 'Codename')}
+                            codenameHelper={t('sets.codenameHelper', 'Unique identifier')}
                         />
                     )
                 },
                 {
                     id: 'treeEntities',
-                    label: t('valueGroups.tabs.treeEntities', 'Древовидные сущности'),
+                    label: t('sets.tabs.treeEntities', 'Хабы'),
                     content: (
                         <ContainerSelectionPanel
                             availableContainers={treeEntities}
@@ -364,7 +364,7 @@ export const ValueGroupListContent = () => {
         const baseColumns = [
             {
                 id: 'sortOrder',
-                label: t('valueGroups.table.order', '#'),
+                label: t('sets.table.order', '#'),
                 width: '4%',
                 align: 'center' as const,
                 sortable: true,
@@ -442,7 +442,7 @@ export const ValueGroupListContent = () => {
             },
             {
                 id: 'codename',
-                label: t('valueGroups.codename', 'Codename'),
+                label: t('sets.codename', 'Codename'),
                 width: '15%',
                 align: 'left' as const,
                 sortable: true,
@@ -465,7 +465,7 @@ export const ValueGroupListContent = () => {
         // TreeEntity column only for global mode
         const hubColumn = {
             id: 'hub',
-            label: t('treeEntities.title', 'TreeEntity'),
+            label: t('hubs.title', 'TreeEntity'),
             width: '15%',
             align: 'left' as const,
             render: (row: ValueGroupWithContainersDisplay) => (
@@ -515,7 +515,7 @@ export const ValueGroupListContent = () => {
         const countColumns = [
             {
                 id: 'fixedValuesCount',
-                label: t('valueGroups.fixedValuesHeader', 'Constants'),
+                label: t('sets.fixedValuesHeader', 'Constants'),
                 width: '10%',
                 align: 'center' as const,
                 render: (row: ValueGroupWithContainersDisplay) =>
@@ -561,7 +561,7 @@ export const ValueGroupListContent = () => {
         } else {
             return [...baseColumns, hubColumn, ...countColumns]
         }
-    }, [buildAssociatedHubSetPath, handlePendingSetInteraction, treeEntityId, isHubScoped, metahubId, t, tc])
+    }, [buildSetPath, buildAssociatedHubSetPath, handlePendingSetInteraction, isHubScoped, t, tc])
 
     const createValueGroupContext = useCallback(
         (baseContext: ValueGroupMenuBaseContext) => ({
@@ -578,7 +578,7 @@ export const ValueGroupListContent = () => {
                     const rawCodename = getVLCString(patch.codename, patch.codename?._primary ?? 'en')
                     const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
                     if (!normalizedCodename) {
-                        throw new Error(t('valueGroups.validation.codenameRequired', 'Codename is required'))
+                        throw new Error(t('sets.validation.codenameRequired', 'Codename is required'))
                     }
                     const codenamePayload = ensureLocalizedContent(patch.codename, patch.codename?._primary ?? 'en', normalizedCodename)
                     // Include expectedVersion for optimistic locking if set has version
@@ -710,6 +710,10 @@ export const ValueGroupListContent = () => {
             codenameConfig.style,
             deleteValueGroupMutation,
             enqueueSnackbar,
+            kindKey,
+            openBlockingDelete,
+            openConflict,
+            openDelete,
             setMap,
             treeEntities,
             treeEntityId,
@@ -789,7 +793,7 @@ export const ValueGroupListContent = () => {
                 } catch (error) {
                     failed.push(getVLCString(set.name, preferredVlcLocale) || getVLCString(set.name, 'en') || set.codename)
                     // eslint-disable-next-line no-console
-                    console.error('Failed to attach existing set to current tree entity', error)
+                    console.error('Failed to attach existing set to current hub', error)
                 }
             }
 
@@ -800,7 +804,7 @@ export const ValueGroupListContent = () => {
 
             if (failed.length === 0) {
                 enqueueSnackbar(
-                    t('valueGroups.attachExisting.success', { count: selectedValueGroups.length, defaultValue: 'Added {{count}} set(s).' }),
+                    t('sets.attachExisting.success', { count: selectedValueGroups.length, defaultValue: 'Added {{count}} set(s).' }),
                     {
                         variant: 'success'
                     }
@@ -812,7 +816,7 @@ export const ValueGroupListContent = () => {
             const successCount = selectedValueGroups.length - failed.length
             if (successCount > 0) {
                 enqueueSnackbar(
-                    t('valueGroups.attachExisting.partialSuccess', {
+                    t('sets.attachExisting.partialSuccess', {
                         successCount,
                         failCount: failed.length,
                         defaultValue: 'Added {{successCount}} set(s). {{failCount}} set(s) could not be linked.'
@@ -824,7 +828,7 @@ export const ValueGroupListContent = () => {
             }
 
             setAttachDialogError(
-                t('valueGroups.attachExisting.failedAll', {
+                t('sets.attachExisting.failedAll', {
                     defaultValue: 'Selected valueGroups could not be linked to this hub. Please review restrictions and try again.'
                 })
             )
@@ -852,10 +856,10 @@ export const ValueGroupListContent = () => {
         // Confirm dialog for detached set (async — throws DIALOG_SAVE_CANCEL if cancelled)
         if (isHubScoped && treeEntityId && !treeEntityIds.includes(treeEntityId)) {
             const confirmed = await confirm({
-                title: t('valueGroups.detachedConfirm.title', 'Create set without current tree entity?'),
+                title: t('sets.detachedConfirm.title', 'Create set without current hub?'),
                 description: t(
-                    'valueGroups.detachedConfirm.description',
-                    'This set is not linked to the current tree entity and will not appear in this hub after creation.'
+                    'sets.detachedConfirm.description',
+                    'This set is not linked to the current hub and will not appear in this hub after creation.'
                 ),
                 confirmButtonName: t('common:actions.create', 'Create'),
                 cancelButtonName: t('common:actions.cancel', 'Cancel')
@@ -968,7 +972,7 @@ export const ValueGroupListContent = () => {
                 kindKey,
                 newSortOrder: overSet.sortOrder ?? 1
             })
-            enqueueSnackbar(t('valueGroups.reorderSuccess', 'Set order updated'), { variant: 'success' })
+            enqueueSnackbar(t('sets.reorderSuccess', 'Set order updated'), { variant: 'success' })
         } catch (error: unknown) {
             const message =
                 typeof error === 'object' &&
@@ -976,7 +980,7 @@ export const ValueGroupListContent = () => {
                 'message' in error &&
                 typeof (error as { message?: unknown }).message === 'string'
                     ? (error as { message: string }).message
-                    : t('valueGroups.reorderError', 'Failed to reorder set')
+                    : t('sets.reorderError', 'Failed to reorder set')
             enqueueSnackbar(message, { variant: 'error' })
         }
     }
@@ -1030,9 +1034,9 @@ export const ValueGroupListContent = () => {
                     <Stack flexDirection='column' sx={{ gap: 1 }}>
                         <ViewHeader
                             search={true}
-                            searchPlaceholder={t('valueGroups.searchPlaceholder')}
+                            searchPlaceholder={t('sets.searchPlaceholder')}
                             onSearchChange={handleSearchChange}
-                            title={isHubScoped ? t('valueGroups.title') : t('valueGroups.allTitle')}
+                            title={isHubScoped ? t('sets.title') : t('sets.allTitle')}
                         >
                             <ToolbarControls
                                 viewToggleEnabled
@@ -1063,7 +1067,7 @@ export const ValueGroupListContent = () => {
                                 <Tabs
                                     value='valueGroups'
                                     onChange={handleHubTabChange}
-                                    aria-label={t('treeEntities.title', 'TreeEntities')}
+                                    aria-label={t('hubs.title', 'TreeEntities')}
                                     textColor='primary'
                                     indicatorColor='primary'
                                     sx={{
@@ -1074,10 +1078,10 @@ export const ValueGroupListContent = () => {
                                         }
                                     }}
                                 >
-                                    <Tab value='treeEntities' label={t('treeEntities.title')} />
-                                    <Tab value='linkedCollections' label={t('linkedCollections.title')} />
-                                    <Tab value='valueGroups' label={t('valueGroups.title')} />
-                                    <Tab value='optionLists' label={t('optionLists.title')} />
+                                    <Tab value='treeEntities' label={t('hubs.title')} />
+                                    <Tab value='linkedCollections' label={t('catalogs.title')} />
+                                    <Tab value='valueGroups' label={t('sets.title')} />
+                                    <Tab value='optionLists' label={t('enumerations.title')} />
                                     <Tab value='settings' label={t('settings.title')} />
                                 </Tabs>
                             </Box>
@@ -1094,8 +1098,8 @@ export const ValueGroupListContent = () => {
                                 <EmptyListState
                                     image={APIEmptySVG}
                                     imageAlt='No valueGroups'
-                                    title={searchValue ? t('valueGroups.noSearchResults') : t('valueGroups.empty')}
-                                    description={searchValue ? t('valueGroups.noSearchResultsHint') : t('valueGroups.emptyDescription')}
+                                    title={searchValue ? t('sets.noSearchResults') : t('sets.empty')}
+                                    description={searchValue ? t('sets.noSearchResultsHint') : t('sets.emptyDescription')}
                                 />
                             ) : (
                                 <>
@@ -1141,7 +1145,7 @@ export const ValueGroupListContent = () => {
                                                                 )}
                                                                 {typeof set.fixedValuesCount === 'number' && (
                                                                     <Typography variant='caption' color='text.secondary'>
-                                                                        {t('valueGroups.fixedValuesCount', { count: set.fixedValuesCount })}
+                                                                        {t('sets.fixedValuesCount', { count: set.fixedValuesCount })}
                                                                     </Typography>
                                                                 )}
                                                             </Stack>
@@ -1175,7 +1179,7 @@ export const ValueGroupListContent = () => {
                                                 isLoading={isLoading}
                                                 sortableRows
                                                 sortableItemIds={sortedValueGroups.map((set) => set.id)}
-                                                dragHandleAriaLabel={t('valueGroups.dnd.dragHandle', 'Drag to reorder')}
+                                                dragHandleAriaLabel={t('sets.dnd.dragHandle', 'Drag to reorder')}
                                                 dragDisabled={reorderValueGroupMutation.isPending || isLoading}
                                                 onSortableDragEnd={handleSortableDragEnd}
                                                 renderDragOverlay={renderDragOverlay}
@@ -1230,7 +1234,7 @@ export const ValueGroupListContent = () => {
 
                 <EntityFormDialog
                     open={dialogs.create.open}
-                    title={t('valueGroups.createDialog.title', 'Create Set')}
+                    title={t('sets.createDialog.title', 'Create Set')}
                     nameLabel={tc('fields.name', 'Name')}
                     descriptionLabel={tc('fields.description', 'Description')}
                     saveButtonText={tc('actions.create', 'Create')}
@@ -1247,7 +1251,7 @@ export const ValueGroupListContent = () => {
 
                 <EntityFormDialog
                     open={isAttachDialogOpen}
-                    title={t('valueGroups.attachExisting.dialogTitle', 'Add Existing ValueGroups')}
+                    title={t('sets.attachExisting.dialogTitle', 'Add Existing ValueGroups')}
                     nameLabel={tc('fields.name', 'Name')}
                     descriptionLabel={tc('fields.description', 'Description')}
                     saveButtonText={t('common:actions.add', 'Add')}
@@ -1266,7 +1270,7 @@ export const ValueGroupListContent = () => {
                         return [
                             {
                                 id: 'valueGroups',
-                                label: t('valueGroups.title', 'ValueGroups'),
+                                label: t('sets.title', 'ValueGroups'),
                                 content: (
                                     <EntitySelectionPanel<ValueGroupWithContainers>
                                         availableEntities={attachableExistingValueGroups}
@@ -1293,7 +1297,7 @@ export const ValueGroupListContent = () => {
                             : []
                         if (selectedValueGroupIds.length > 0) return null
                         return {
-                            selectedValueGroupIds: t('valueGroups.attachExisting.requiredSelection', 'Select at least one set to add.')
+                            selectedValueGroupIds: t('sets.attachExisting.requiredSelection', 'Select at least one set to add.')
                         }
                     }}
                     canSave={(values) => {
@@ -1307,8 +1311,8 @@ export const ValueGroupListContent = () => {
                 {/* Independent ConfirmDeleteDialog */}
                 <ConfirmDeleteDialog
                     open={dialogs.delete.open}
-                    title={t('valueGroups.deleteDialog.title')}
-                    description={t('valueGroups.deleteDialog.message')}
+                    title={t('sets.deleteDialog.title')}
+                    description={t('sets.deleteDialog.message')}
                     confirmButtonText={tc('actions.delete', 'Delete')}
                     deletingButtonText={tc('actions.deleting', 'Deleting...')}
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
@@ -1341,7 +1345,7 @@ export const ValueGroupListContent = () => {
                                             ? err.message
                                             : typeof err === 'string'
                                             ? err
-                                            : t('valueGroups.deleteError')
+                                            : t('sets.deleteError')
                                     enqueueSnackbar(message, { variant: 'error' })
                                 }
                             }
@@ -1379,7 +1383,7 @@ export const ValueGroupListContent = () => {
                                             ? err.message
                                             : typeof err === 'string'
                                             ? err
-                                            : t('valueGroups.deleteError')
+                                            : t('sets.deleteError')
                                     enqueueSnackbar(message, { variant: 'error' })
                                 }
                             }
@@ -1421,10 +1425,10 @@ export const ValueGroupListContent = () => {
                                 })
                             }
                             close('conflict')
-                            enqueueSnackbar(t('valueGroups.updateSuccess', 'Set updated'), { variant: 'success' })
+                            enqueueSnackbar(t('sets.updateSuccess', 'Set updated'), { variant: 'success' })
                         } catch (e) {
                             console.error('Failed to overwrite set', e)
-                            enqueueSnackbar(t('valueGroups.updateError', 'Failed to update set'), { variant: 'error' })
+                            enqueueSnackbar(t('sets.updateError', 'Failed to update set'), { variant: 'error' })
                         }
                     }}
                     onReload={async () => {

@@ -95,6 +95,16 @@
           "title": "Members",
           "interval": "All time",
           "description": "Users with access to this metahub"
+        },
+        "hubs": {
+          "title": "Hubs",
+          "interval": "All time",
+          "description": "Total hubs in this metahub"
+        },
+        "catalogs": {
+          "title": "Catalogs",
+          "interval": "All time",
+          "description": "Total catalogs in this metahub"
         }
       },
       "documentation": {
@@ -275,7 +285,7 @@
       "widgetCatalogTitle": "Available widgets",
       "inheritedBadge": "Inherited",
       "catalogBehaviorTitleGlobal": "Default catalog runtime behavior",
-      "catalogBehaviorTitleCatalog": "LinkedCollectionEntity runtime behavior",
+      "catalogBehaviorTitleCatalog": "Catalog runtime behavior",
       "catalogBehaviorDescriptionGlobal": "These settings define the default create/search behavior for catalogs that use this global layout until a catalog-specific layout overrides it.",
       "catalogBehaviorDescriptionCatalog": "This catalog layout overrides the create/search behavior inherited from its global base layout.",
       "viewSettings": "Application View Settings",
@@ -315,15 +325,15 @@
       "itemTitle": "Title",
       "itemIcon": "Icon",
       "itemHref": "Link URL",
-      "itemCatalog": "LinkedCollectionEntity",
-      "itemHub": "TreeEntity",
+      "itemCatalog": "Catalog",
+      "itemHub": "Hub",
       "itemActive": "Active",
       "selectCatalog": "Select catalog",
       "noCatalogs": "No catalogs available",
       "noHubs": "No hubs available",
-      "kindCatalog": "LinkedCollectionEntity",
+      "kindCatalog": "Catalog",
       "kindCatalogsAll": "All catalogs",
-      "kindHub": "TreeEntity",
+      "kindHub": "Hub",
       "kindLink": "Link",
       "validation": {
         "titleRequired": "Name is required.",
@@ -388,7 +398,7 @@
       "widgetTitle": "Widget title override",
       "widgetDescription": "Widget description override",
       "attachmentKind": "Script attachment kind",
-      "attachmentKindHelp": "LinkedCollectionEntity-scoped scripts resolve against the current catalog at runtime, while metahub scripts stay global.",
+      "attachmentKindHelp": "Catalog-scoped scripts resolve against the current catalog at runtime, while metahub scripts stay global.",
       "attachmentKinds": {
         "metahub": "Metahub",
         "catalog": "Current catalog"
@@ -489,7 +499,7 @@
     "copyError": "Failed to copy branch",
     "codenameExists": "Branch with this codename already exists",
     "numberConflict": "Branch numbering conflict. Please try again.",
-    "copyOptionListReferencesError": "Cannot disable option list copy while copied entity groups still reference option lists.",
+    "copyOptionListReferencesError": "Cannot disable enumeration copy while copied entity groups still reference enumerations.",
     "copyDanglingEntityReferencesError": "Copy options would create invalid entity references. Keep all referenced entity groups enabled.",
     "updateError": "Failed to update branch",
     "deleteError": "Failed to delete branch",
@@ -508,10 +518,10 @@
       "options": {
         "fullCopy": "Full copy",
         "copyLayouts": "Layouts",
-        "copyTreeEntities": "Tree entities",
-        "copyLinkedCollections": "Linked collections",
-        "copyValueGroups": "Value groups",
-        "copyOptionLists": "Option lists"
+        "copyTreeEntities": "Hubs",
+        "copyLinkedCollections": "Catalogs",
+        "copyValueGroups": "Sets",
+        "copyOptionLists": "Enumerations"
       }
     }
   },
@@ -530,7 +540,7 @@
     "componentsCount_one": "{{count}} component",
     "componentsCount_other": "{{count}} components",
     "actions": {
-      "create": "Create entity type",
+      "create": "Create entity",
       "instances": "Instances"
     },
     "tabs": {
@@ -594,10 +604,10 @@
       "dataSchemaHelper": "Enables attribute-driven modeling and generated value editors for the entity type.",
       "maxAttributes": "Maximum attributes",
       "records": "Predefined elements",
-      "recordsHelper": "Reuses the existing predefined-element flows for linked-collection presets and other seeded entity types.",
+      "recordsHelper": "Reuses the existing predefined-element flows for catalog presets and other seeded entity types.",
       "maxElements": "Maximum predefined elements",
-      "treeAssignment": "TreeEntity assignment",
-      "treeAssignmentHelper": "Allows the entity instances page to reuse the shared hub-assignment controls and linked-collection-style tabs.",
+      "treeAssignment": "Hub assignment",
+      "treeAssignmentHelper": "Allows the entity instances page to reuse the shared hub-assignment controls and catalog-style tabs.",
       "singleHub": "Single hub only",
       "requiredHub": "Require at least one hub",
       "hierarchy": "Hierarchy",
@@ -617,33 +627,33 @@
       "scripting": "Scripting",
       "scriptingHelper": "Exposes the existing EntityScriptsTab for script attachments and reuse.",
       "layoutConfig": "Layout config",
-      "layoutConfigHelper": "Enables LinkedCollectionEntity-compatible layout configuration and the dedicated layout authoring tab.",
+      "layoutConfigHelper": "Enables Catalog-compatible layout configuration and the dedicated layout authoring tab.",
       "runtimeBehavior": "Runtime behavior",
       "runtimeBehaviorHelper": "Publishes layout-aware runtime behavior so the generic application surfaces can render this entity type.",
       "physicalTable": "Physical table",
       "physicalTableHelper": "Creates a dedicated runtime table for publication and application sync pipelines.",
       "tablePrefix": "Table prefix",
       "tablePrefixHelper": "Prefix used when the runtime DDL pipeline generates a physical table name.",
-      "optionValues": "OptionListEntity values",
+      "optionValues": "Enumeration values",
       "optionValuesHelper": "Keeps the type compatible with enumeration-style value registries.",
       "fixedValues": "Constants",
       "fixedValuesHelper": "Keeps the type compatible with set-style constant registries."
     },
     "createDialog": {
-      "title": "Create Entity Type"
+      "title": "Create Entity"
     },
     "editDialog": {
-      "title": "Edit Entity Type"
+      "title": "Edit Entity"
     },
     "copyDialog": {
-      "title": "Copy Entity Type",
+      "title": "Copy Entity",
       "copying": "Copying..."
     },
     "deleteDialog": {
       "title": "Delete Entity Type",
       "description": "Delete entity type \"{{name}}\"? Platform-provided standard types cannot be deleted here."
     },
-    "copySuccess": "Entity type copied",
+    "copySuccess": "Entity copied",
     "copyError": "Failed to copy entity type",
     "validation": {
       "kindKeyRequired": "Kind key is required",
@@ -689,7 +699,7 @@
     "instances": {
       "title": "{{name}} instances",
       "description": "Manage {{name}} instances on the unified entity-owned route for kind {{kindKey}}.",
-      "linkedCollectionBanner": "This page reuses the shared linked-collection authoring contract on the unified entity-owned route, including linked-collection copy options, layouts, and scripts.",
+      "linkedCollectionBanner": "This page reuses the shared catalog authoring contract on the unified entity-owned route, including catalog copy options, layouts, and scripts.",
       "searchPlaceholder": "Search entity instances...",
       "banner": "This page authors design-time instances for the selected entity kind on the unified entity-owned route surface.",
       "noManagePermission": "You do not have permission to manage entity instances for this metahub.",
@@ -834,7 +844,7 @@
         "description": "Delete entity \"{{name}}\"? You can restore it later while deleted items are visible."
       },
       "linkedCollectionDeleteDialog": {
-        "description": "Delete linked collection \"{{name}}\"? You can restore it later while deleted items are visible."
+        "description": "Delete catalog \"{{name}}\"? You can restore it later while deleted items are visible."
       },
       "deletePermanentDialog": {
         "title": "Delete Entity Permanently",
@@ -842,39 +852,39 @@
         "deleting": "Deleting permanently..."
       },
       "linkedCollectionDeletePermanentDialog": {
-        "title": "Delete Linked Collection Permanently",
-        "description": "Permanently delete linked collection \"{{name}}\"? This action cannot be undone.",
+        "title": "Delete Catalog Permanently",
+        "description": "Permanently delete catalog \"{{name}}\"? This action cannot be undone.",
         "deleting": "Deleting permanently..."
       },
       "validation": {
-        "hubRequired": "At least one tree entity is required",
+        "hubRequired": "At least one hub is required",
         "singleHubInvalid": "Single hub entities cannot be linked to multiple hubs"
       }
     }
   },
-  "treeEntities": {
-    "title": "Tree entities",
+  "hubs": {
+    "title": "Hubs",
     "description": "Data containers that define the structure of your metahub",
-    "searchPlaceholder": "Search tree entities...",
-    "empty": "No tree entities yet",
-    "emptyDescription": "Create your first tree entity to start defining data structures",
-    "create": "Create TreeEntity",
-    "editTitle": "Edit TreeEntity",
-    "copyTitle": "Copying TreeEntity",
+    "searchPlaceholder": "Search hubs...",
+    "empty": "No hubs yet",
+    "emptyDescription": "Create your first hub to start defining data structures",
+    "create": "Create Hub",
+    "editTitle": "Edit Hub",
+    "copyTitle": "Copying Hub",
     "createDialog": {
-      "title": "Create TreeEntity"
+      "title": "Create Hub"
     },
     "editDialog": {
-      "title": "Edit TreeEntity"
+      "title": "Edit Hub"
     },
     "deleteDialog": {
-      "title": "Delete TreeEntity",
-      "message": "Are you sure you want to delete this tree entity? Nested linked collections, field definitions, and records may become unavailable.",
-      "confirmMessage": "Are you sure you want to delete this tree entity? This action cannot be undone.",
+      "title": "Delete Hub",
+      "message": "Are you sure you want to delete this hub? Nested catalogs, field definitions, and records may become unavailable.",
+      "confirmMessage": "Are you sure you want to delete this hub? This action cannot be undone.",
       "fetchError": "Failed to check for blocking entities",
-      "hasBlockingCatalogs": "Cannot delete tree entity. The following linked collections require at least one tree entity and are only linked to this one:",
-      "hasBlockingObjects": "Cannot delete tree entity. The following entities require at least one tree entity and are only linked to this one:",
-      "resolutionHint": "To delete this tree entity, first re-link child tree entities and add another tree entity to these linked collections, value groups, and option lists, or disable the required tree-entity option.",
+      "hasBlockingCatalogs": "Cannot delete hub. The following catalogs require at least one hub and are only linked to this one:",
+      "hasBlockingObjects": "Cannot delete hub. The following entities require at least one hub and are only linked to this one:",
+      "resolutionHint": "To delete this hub, first re-link child hubs and add another hub to these catalogs, sets, and enumerations, or disable the required hub option.",
       "sections": {}
     },
     "codename": "Codename",
@@ -889,44 +899,45 @@
     "itemsCount_one": "{{count}} item",
     "itemsCount_other": "{{count}} items",
     "catalogsCount": "catalogs",
-    "catalogsCount_one": "{{count}} linked collection",
-    "catalogsCount_other": "{{count}} linked collections",
-    "createError": "Failed to create tree entity",
-    "updateError": "Failed to update tree entity",
-    "deleteError": "Failed to delete tree entity",
-    "copySuccess": "TreeEntity copied",
-    "copyError": "Failed to copy tree entity",
+    "catalogsCount_one": "{{count}} catalog",
+    "catalogsCount_other": "{{count}} catalogs",
+    "createError": "Failed to create hub",
+    "updateError": "Failed to update hub",
+    "deleteError": "Failed to delete hub",
+    "copySuccess": "Hub copied",
+    "copyError": "Failed to copy hub",
     "tabs": {
       "general": "General",
+      "treeEntities": "Hubs",
       "options": "Options"
     },
-    "linkCurrentHubShort": "Current tree entity",
-    "nestingDisabledHint": "TreeEntity nesting is disabled in settings. You can still edit and unlink existing parent relations.",
+    "linkCurrentHubShort": "Current hub",
+    "nestingDisabledHint": "Hub nesting is disabled in settings. You can still edit and unlink existing parent relations.",
     "detachedConfirm": {
-      "title": "Create tree entity outside current tree entity?",
-      "editTitle": "Save tree entity outside current tree entity?",
-      "copyTitle": "Create tree entity copy outside current tree entity?",
-      "description": "This tree entity is not linked as a child of the current tree entity and will not appear in this tree entity after saving."
+      "title": "Create hub outside current hub?",
+      "editTitle": "Save hub outside current hub?",
+      "copyTitle": "Create hub copy outside current hub?",
+      "description": "This hub is not linked as a child of the current hub and will not appear in this hub after saving."
     },
     "attachExisting": {
-      "dialogTitle": "Add Existing Tree Entities",
-      "selectionTitle": "Tree entities",
-      "selectDialogTitle": "Select tree entities",
-      "emptySelection": "No tree entities selected",
-      "noAvailable": "No tree entities available to add",
-      "requiredSelection": "Select at least one tree entity to add.",
-      "success": "Added {{count}} tree entit(y/ies).",
-      "partialSuccess": "Added {{successCount}} tree entit(y/ies). {{failCount}} tree entit(y/ies) could not be linked.",
-      "failedAll": "Selected tree entities could not be linked to this tree entity. Please review parent/child constraints and try again."
+      "dialogTitle": "Add Existing Hubs",
+      "selectionTitle": "Hubs",
+      "selectDialogTitle": "Select hubs",
+      "emptySelection": "No hubs selected",
+      "noAvailable": "No hubs available to add",
+      "requiredSelection": "Select at least one hub to add.",
+      "success": "Added {{count}} hub(s).",
+      "partialSuccess": "Added {{successCount}} hub(s). {{failCount}} hub(s) could not be linked.",
+      "failedAll": "Selected hubs could not be linked to this hub. Please review parent/child constraints and try again."
     },
     "copy": {
       "action": "Copy",
       "actionLoading": "Copying...",
       "options": {
         "copyAllRelations": "Copy all relations",
-        "copyLinkedCollectionRelations": "Linked collection relations",
-        "copyValueGroupRelations": "Value group relations",
-        "copyOptionListRelations": "Option list relations",
+        "copyLinkedCollectionRelations": "Catalog relations",
+        "copyValueGroupRelations": "Set relations",
+        "copyOptionListRelations": "Enumeration relations",
         "singleHubNotice": "Relations to entities with the \"Single hub\" restriction will not be copied."
       }
     },
@@ -936,7 +947,7 @@
       "codenameInvalidPascal": "Start with uppercase letter; use letters, digits, and underscores only",
       "codenameInvalidPascalEn": "Start with uppercase letter; use English letters, digits, and underscores only"
     },
-    "reorderSuccess": "TreeEntity order updated",
+    "reorderSuccess": "Hub order updated",
     "reorderError": "Failed to reorder hub",
     "dnd": {
       "dragHandle": "Drag to reorder"
@@ -1009,41 +1020,41 @@
       }
     }
   },
-  "linkedCollections": {
-    "title": "Linked collections",
-    "allTitle": "Linked collections",
-    "allDescription": "All linked collections across all tree entities in this metahub",
-    "description": "Entity collections that organize field definitions and records within a tree entity",
-    "searchPlaceholder": "Search linked collections...",
-    "empty": "No linked collections yet",
-    "emptyDescription": "Create your first linked collection to organize field definitions and records",
-    "emptyHint": "Create linked collections in specific tree entities",
-    "noSearchResults": "No linked collections found",
+  "catalogs": {
+    "title": "Catalogs",
+    "allTitle": "Catalogs",
+    "allDescription": "All catalogs across all hubs in this metahub",
+    "description": "Entity collections that organize field definitions and records within a hub",
+    "searchPlaceholder": "Search catalogs...",
+    "empty": "No catalogs yet",
+    "emptyDescription": "Create your first catalog to organize field definitions and records",
+    "emptyHint": "Create catalogs in specific hubs",
+    "noSearchResults": "No catalogs found",
     "noSearchResultsHint": "Try different search terms",
-    "create": "Create LinkedCollectionEntity",
-    "editTitle": "Edit LinkedCollectionEntity",
-    "copyTitle": "Copying LinkedCollectionEntity",
+    "create": "Create Catalog",
+    "editTitle": "Edit Catalog",
+    "copyTitle": "Copying Catalog",
     "createDialog": {
-      "title": "Create LinkedCollectionEntity"
+      "title": "Create Catalog"
     },
     "editDialog": {
-      "title": "Edit LinkedCollectionEntity"
+      "title": "Edit Catalog"
     },
     "deleteDialog": {
-      "title": "Delete linked collection",
-      "message": "Are you sure you want to delete this linked collection? All field definitions and records will be permanently removed.",
-      "confirmMessage": "Are you sure you want to delete this linked collection? This action cannot be undone.",
+      "title": "Delete catalog",
+      "message": "Are you sure you want to delete this catalog? All field definitions and records will be permanently removed.",
+      "confirmMessage": "Are you sure you want to delete this catalog? This action cannot be undone.",
       "fetchBlockingError": "Failed to check for blocking references",
-      "hasBlockingReferences": "Cannot delete linked collection. The following references from other linked collections must be removed first:",
-      "resolutionHint": "Open the source linked collections from the table and remove or reconfigure reference field definitions.",
+      "hasBlockingReferences": "Cannot delete catalog. The following references from other catalogs must be removed first:",
+      "resolutionHint": "Open the source catalogs from the table and remove or reconfigure reference field definitions.",
       "blockingTable": {
-        "catalog": "LinkedCollectionEntity",
+        "catalog": "Catalog",
         "attribute": "Field definition"
       }
     },
-    "deleted": "LinkedCollectionEntity deleted",
-    "deleteTitle": "Delete LinkedCollectionEntity",
-    "deleteMessage": "Are you sure you want to delete this linked collection? This action cannot be undone.",
+    "deleted": "Catalog deleted",
+    "deleteTitle": "Delete Catalog",
+    "deleteMessage": "Are you sure you want to delete this catalog? This action cannot be undone.",
     "codename": "Codename",
     "codenameHelper": "Unique identifier for URLs (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.",
     "codenameHelperPascal": "Unique identifier (PascalCase: uppercase start, letters, digits, underscores). Auto-generated from the name. You can edit it manually.",
@@ -1058,28 +1069,29 @@
     "elementsCount_one": "{{count}} elem",
     "elementsCount_other": "{{count}} elem",
     "countsHeader": "Items",
-    "createError": "Failed to create linked collection",
-    "updateError": "Failed to update linked collection",
-    "deleteError": "Failed to delete linked collection",
-    "copySuccess": "LinkedCollectionEntity copied",
-    "copyError": "Failed to copy linked collection",
+    "createError": "Failed to create catalog",
+    "updateError": "Failed to update catalog",
+    "deleteError": "Failed to delete catalog",
+    "copySuccess": "Catalog copied",
+    "copyError": "Failed to copy catalog",
     "validation": {
       "codenameRequired": "Codename is required",
       "codenameInvalid": "Use lowercase letters, numbers, and hyphens only",
       "codenameInvalidPascal": "Start with uppercase letter; use letters, digits, and underscores only",
       "codenameInvalidPascalEn": "Start with uppercase letter; use English letters, digits, and underscores only",
-      "hubRequired": "Please select a tree entity"
+      "hubRequired": "Please select a hub"
     },
     "tabs": {
       "general": "General",
+      "treeEntities": "Hubs",
       "layout": "Layouts",
       "options": "Options"
     },
     "layoutTab": {
-      "catalogLayoutsHelper": "LinkedCollectionEntity layouts own widget composition and catalog runtime behavior. The active global layout continues to work until you create a catalog-specific override.",
+      "catalogLayoutsHelper": "Catalog layouts own widget composition and catalog runtime behavior. The active global layout continues to work until you create a catalog-specific override.",
       "emptyTitle": "No catalog layouts",
       "emptyDescription": "This catalog currently uses the active global layout. Create the first catalog layout to override widgets and catalog runtime behavior.",
-      "unavailable": "LinkedCollectionEntity layouts are available when this linked collection is opened inside a metahub context."
+      "unavailable": "Catalog layouts are available when this catalog is opened inside a metahub context."
     },
     "runtime": {
       "showSearch": "Search/filter bar",
@@ -1092,7 +1104,7 @@
       "reorderPersistenceField": "Reorder persistence field",
       "reorderPersistenceFieldHelper": "Enter the numeric field codename or column key that stores the persisted row order, for example sort_order.",
       "useLayoutOverrides": "Override application layout settings",
-      "useLayoutOverridesHelper": "When disabled, this linked collection inherits search, view, card, and row layout settings from the application layout.",
+      "useLayoutOverridesHelper": "When disabled, this catalog inherits search, view, card, and row layout settings from the application layout.",
       "defaultViewMode": "Default view mode",
       "viewModeTable": "Table",
       "viewModeCard": "Card",
@@ -1117,19 +1129,19 @@
     },
     "addHub": "Add",
     "removeHub": "Remove",
-    "selectHubs": "Select Tree Entities",
-    "noHubsSelected": "No tree entities selected",
-    "requiredHubWarning": "At least one tree entity must be selected",
-    "noHubsAvailable": "No available tree entities",
+    "selectHubs": "Select Hubs",
+    "noHubsSelected": "No hubs selected",
+    "requiredHubWarning": "At least one hub must be selected",
+    "noHubsAvailable": "No available hubs",
     "addSelected": "Add",
-    "isRequiredHub": "TreeEntity required",
-    "isRequiredHubEnabled": "LinkedCollectionEntity must have at least one hub",
-    "isRequiredHubDisabled": "LinkedCollectionEntity can exist without hubs",
+    "isRequiredHub": "Hub required",
+    "isRequiredHubEnabled": "Catalog must have at least one hub",
+    "isRequiredHubDisabled": "Catalog can exist without hubs",
     "isSingleHub": "Single hub only",
-    "isSingleHubEnabled": "LinkedCollectionEntity can only be in one hub",
-    "isSingleHubDisabled": "LinkedCollectionEntity can be visible in multiple hubs",
+    "isSingleHubEnabled": "Catalog can only be in one hub",
+    "isSingleHubDisabled": "Catalog can be visible in multiple hubs",
     "isSingleHubWarning": "Cannot enable while multiple hubs are selected",
-    "reorderSuccess": "LinkedCollectionEntity order updated",
+    "reorderSuccess": "Catalog order updated",
     "reorderError": "Failed to reorder catalog",
     "dnd": {
       "dragHandle": "Drag to reorder"
@@ -1141,8 +1153,8 @@
       "description": "This set is not linked to the current hub and will not appear in this hub after saving."
     },
     "attachExisting": {
-      "dialogTitle": "Add Existing Value Groups",
-      "selectionTitle": "Value groups",
+      "dialogTitle": "Add Existing Sets",
+      "selectionTitle": "Sets",
       "selectDialogTitle": "Select sets",
       "emptySelection": "No sets selected",
       "noAvailable": "No sets available to add",
@@ -1152,31 +1164,31 @@
       "failedAll": "Selected sets could not be linked to this hub. Please review restrictions and try again."
     }
   },
-  "valueGroups": {
-    "title": "Value groups",
-    "allTitle": "Value groups",
+  "sets": {
+    "title": "Sets",
+    "allTitle": "Sets",
     "description": "Collections that organize fixed values within a metahub",
-    "searchPlaceholder": "Search value groups...",
-    "empty": "No value groups yet",
-    "emptyDescription": "Create your first value group to organize fixed values",
-    "noSearchResults": "No value groups found",
+    "searchPlaceholder": "Search sets...",
+    "empty": "No sets yet",
+    "emptyDescription": "Create your first set to organize fixed values",
+    "noSearchResults": "No sets found",
     "noSearchResultsHint": "Try different search terms",
     "createDialog": {
-      "title": "Create Value Group"
+      "title": "Create Set"
     },
     "editDialog": {
-      "title": "Edit Value Group"
+      "title": "Edit Set"
     },
-    "editTitle": "Edit Value Group",
-    "copyTitle": "Copying Value Group",
-    "copySuccess": "Value group copied",
-    "copyError": "Failed to copy value group",
-    "createSuccess": "Value group created",
-    "createError": "Failed to create value group",
-    "updateSuccess": "Value group updated",
-    "updateError": "Failed to update value group",
-    "deleteSuccess": "Value group deleted",
-    "deleteError": "Failed to delete value group",
+    "editTitle": "Edit Set",
+    "copyTitle": "Copying Set",
+    "copySuccess": "Set copied",
+    "copyError": "Failed to copy set",
+    "createSuccess": "Set created",
+    "createError": "Failed to create set",
+    "updateSuccess": "Set updated",
+    "updateError": "Failed to update set",
+    "deleteSuccess": "Set deleted",
+    "deleteError": "Failed to delete set",
     "codename": "Codename",
     "codenameHelper": "Unique identifier for URLs (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.",
     "table": {
@@ -1184,12 +1196,13 @@
     },
     "tabs": {
       "general": "General",
+      "treeEntities": "Hubs",
       "options": "Options"
     },
     "validation": {
       "codenameRequired": "Codename is required",
       "codenameInvalid": "Codename contains invalid characters",
-      "hubRequired": "At least one tree entity is required"
+      "hubRequired": "At least one hub is required"
     },
     "fixedValuesHeader": "Constants",
     "fixedValuesCount_one": "{{count}} constant",
@@ -1202,38 +1215,38 @@
       }
     },
     "deleteDialog": {
-      "title": "Delete value group",
-      "message": "Are you sure you want to delete this value group?",
-      "confirmMessage": "Are you sure you want to delete this value group? This action cannot be undone.",
-      "hasBlockingReferences": "Cannot delete value group. Remove these references from linked-collection field definitions first:",
-      "resolutionHint": "Open source linked collections from the table and adjust the listed field definitions.",
+      "title": "Delete set",
+      "message": "Are you sure you want to delete this set?",
+      "confirmMessage": "Are you sure you want to delete this set? This action cannot be undone.",
+      "hasBlockingReferences": "Cannot delete set. Remove these references from catalog field definitions first:",
+      "resolutionHint": "Open source catalogs from the table and adjust the listed field definitions.",
       "fetchBlockingError": "Failed to check for blocking references",
       "blockingTable": {
-        "catalog": "LinkedCollectionEntity",
+        "catalog": "Catalog",
         "attribute": "Field definition"
       }
     },
-    "reorderSuccess": "Value group order updated",
-    "reorderError": "Failed to reorder value group",
+    "reorderSuccess": "Set order updated",
+    "reorderError": "Failed to reorder set",
     "dnd": {
       "dragHandle": "Drag to reorder"
     },
     "detachedConfirm": {
-      "title": "Create value group without current tree entity?",
-      "editTitle": "Save value group without current tree entity?",
-      "copyTitle": "Create value group copy without current tree entity?",
-      "description": "This value group is not linked to the current tree entity and will not appear in this tree entity after saving."
+      "title": "Create set without current hub?",
+      "editTitle": "Save set without current hub?",
+      "copyTitle": "Create set copy without current hub?",
+      "description": "This set is not linked to the current hub and will not appear in this hub after saving."
     },
     "attachExisting": {
-      "dialogTitle": "Add Existing Value Groups",
-      "selectionTitle": "Option lists",
-      "selectDialogTitle": "Select value groups",
-      "emptySelection": "No value groups selected",
-      "noAvailable": "No value groups available to add",
-      "requiredSelection": "Select at least one value group to add.",
-      "success": "Added {{count}} value group(s).",
-      "partialSuccess": "Added {{successCount}} value group(s). {{failCount}} value group(s) could not be linked.",
-      "failedAll": "Selected value groups could not be linked to this tree entity. Please review restrictions and try again."
+      "dialogTitle": "Add Existing Sets",
+      "selectionTitle": "Enumerations",
+      "selectDialogTitle": "Select sets",
+      "emptySelection": "No sets selected",
+      "noAvailable": "No sets available to add",
+      "requiredSelection": "Select at least one set to add.",
+      "success": "Added {{count}} set(s).",
+      "partialSuccess": "Added {{successCount}} set(s). {{failCount}} set(s) could not be linked.",
+      "failedAll": "Selected sets could not be linked to this hub. Please review restrictions and try again."
     }
   },
   "fixedValues": {
@@ -1241,8 +1254,8 @@
     "searchPlaceholder": "Search constants...",
     "empty": "No constants yet",
     "emptyDescription": "Create constants to store reusable typed values",
-    "setRequired": "Value group context is required",
-    "setNotFound": "Value group not found",
+    "setRequired": "Set context is required",
+    "setNotFound": "Set not found",
     "createDialog": {
       "title": "Create Constant"
     },
@@ -1325,37 +1338,37 @@
       "dragHandle": "Drag to reorder"
     }
   },
-  "optionLists": {
-    "title": "Option lists",
-    "allTitle": "Option lists",
+  "enumerations": {
+    "title": "Enumerations",
+    "allTitle": "Enumerations",
     "description": "Define fixed value lists for this metahub",
-    "searchPlaceholder": "Search option lists...",
-    "empty": "No option lists yet",
-    "emptyDescription": "Create an option list to define fixed values for fields",
-    "noSearchResults": "No option lists found",
+    "searchPlaceholder": "Search enumerations...",
+    "empty": "No enumerations yet",
+    "emptyDescription": "Create an enumeration to define fixed values for fields",
+    "noSearchResults": "No enumerations found",
     "noSearchResultsHint": "Try a different search query",
-    "createSuccess": "OptionListEntity created",
-    "createError": "Failed to create option list",
-    "updateSuccess": "OptionListEntity updated",
-    "updateError": "Failed to update option list",
-    "deleteSuccess": "OptionListEntity deleted",
-    "deleteError": "Failed to delete option list",
-    "editTitle": "Edit OptionListEntity",
-    "copyTitle": "Copying OptionListEntity",
-    "copySuccess": "OptionListEntity copied",
-    "copyError": "Failed to copy option list",
+    "createSuccess": "Enumeration created",
+    "createError": "Failed to create enumeration",
+    "updateSuccess": "Enumeration updated",
+    "updateError": "Failed to update enumeration",
+    "deleteSuccess": "Enumeration deleted",
+    "deleteError": "Failed to delete enumeration",
+    "editTitle": "Edit Enumeration",
+    "copyTitle": "Copying Enumeration",
+    "copySuccess": "Enumeration copied",
+    "copyError": "Failed to copy enumeration",
     "createDialog": {
-      "title": "Create OptionListEntity"
+      "title": "Create Enumeration"
     },
     "deleteDialog": {
-      "title": "Delete option list",
-      "message": "Are you sure you want to delete this option list? This action cannot be undone.",
-      "confirmMessage": "Are you sure you want to delete this option list? This action cannot be undone.",
-      "hasBlockingReferences": "Cannot delete option list. Remove these references from field definitions first:",
-      "resolutionHint": "Open the source linked collections and update or remove the reference field definitions.",
+      "title": "Delete enumeration",
+      "message": "Are you sure you want to delete this enumeration? This action cannot be undone.",
+      "confirmMessage": "Are you sure you want to delete this enumeration? This action cannot be undone.",
+      "hasBlockingReferences": "Cannot delete enumeration. Remove these references from field definitions first:",
+      "resolutionHint": "Open the source catalogs and update or remove the reference field definitions.",
       "fetchBlockingError": "Failed to check for blocking references",
       "blockingTable": {
-        "catalog": "LinkedCollectionEntity",
+        "catalog": "Catalog",
         "attribute": "Field definition"
       }
     },
@@ -1368,6 +1381,7 @@
     "valuesCount_other": "{{count}} values",
     "tabs": {
       "general": "General",
+      "treeEntities": "Hubs",
       "options": "Options"
     },
     "copy": {
@@ -1382,28 +1396,28 @@
       "codenameInvalid": "Use lowercase letters, numbers, and hyphens only",
       "codenameInvalidPascal": "Start with uppercase letter; use letters, digits, and underscores only",
       "codenameInvalidPascalEn": "Start with uppercase letter; use English letters, digits, and underscores only",
-      "hubRequired": "At least one tree entity is required"
+      "hubRequired": "At least one hub is required"
     },
-    "reorderSuccess": "OptionListEntity order updated",
-    "reorderError": "Failed to reorder option list",
+    "reorderSuccess": "Enumeration order updated",
+    "reorderError": "Failed to reorder enumeration",
     "dnd": {
       "dragHandle": "Drag to reorder"
     }
   },
   "optionValues": {
     "title": "Values",
-    "titleWithName": "OptionListEntity Values: {{name}}",
+    "titleWithName": "Enumeration Values: {{name}}",
     "searchPlaceholder": "Search values...",
     "empty": "No values yet",
-    "emptyDescription": "Add values to define available options in this option list",
+    "emptyDescription": "Add values to define available options in this enumeration",
     "createDialog": {
       "title": "Create value"
     },
     "editDialog": {
-      "title": "Edit OptionListEntity Value"
+      "title": "Edit Enumeration Value"
     },
     "deleteDialog": {
-      "title": "Delete OptionListEntity Value",
+      "title": "Delete Enumeration Value",
       "message": "Are you sure you want to delete this enumeration value? This action cannot be undone."
     },
     "createSuccess": "Value created",
@@ -1452,23 +1466,23 @@
   "ref": {
     "targetEntityKind": "Target Entity Type",
     "notSelected": "Not selected",
-    "targetCatalog": "Target LinkedCollectionEntity",
-    "targetEnumeration": "Target OptionListEntity",
-    "targetSet": "Target Value Group",
+    "targetCatalog": "Target Catalog",
+    "targetEnumeration": "Target Enumeration",
+    "targetSet": "Target Set",
     "targetConstant": "Target Fixed Value",
-    "selectCatalog": "Select linked collection...",
-    "selectEnumeration": "Select option list...",
-    "selectSet": "Select value group...",
+    "selectCatalog": "Select catalog...",
+    "selectEnumeration": "Select enumeration...",
+    "selectSet": "Select set...",
     "selectConstant": "Select fixed value...",
     "selectEnumerationValue": "Select value...",
     "selectElement": "Select record...",
-    "catalogRequired": "Please select a linked collection",
-    "enumerationRequired": "Please select an option list",
-    "setRequired": "Please select a value group",
-    "targetConstantHint": "Select fixed value from the selected value group",
-    "noCatalogsAvailable": "No linked collections available",
-    "noEnumerationsAvailable": "No option lists available",
-    "noSetsAvailable": "No value groups available",
+    "catalogRequired": "Please select a catalog",
+    "enumerationRequired": "Please select an enumeration",
+    "setRequired": "Please select a set",
+    "targetConstantHint": "Select fixed value from the selected set",
+    "noCatalogsAvailable": "No catalogs available",
+    "noEnumerationsAvailable": "No enumerations available",
+    "noSetsAvailable": "No sets available",
     "noConstantsAvailable": "No fixed values available",
     "noOptionValuesAvailable": "No values available",
     "noElementsAvailable": "No records available",
@@ -1478,10 +1492,10 @@
     "unknownEnumerationValue": "Value {{id}}",
     "entityKindNotSupported": "This entity type is not yet supported for references.",
     "entityKind": {
-      "catalog": "LinkedCollectionEntity",
-      "enumeration": "OptionListEntity",
-      "set": "Value group",
-      "hub": "TreeEntity"
+      "catalog": "Catalog",
+      "enumeration": "Enumeration",
+      "set": "Set",
+      "hub": "Hub"
     }
   },
   "members": {
@@ -1792,20 +1806,20 @@
     "branch": "Branch (Main)",
     "layout": "Layout (Main)",
     "optionalEntities": "Default entities",
-    "hub": "TreeEntity",
-    "catalog": "LinkedCollectionEntity",
-    "set": "Value group",
-    "enumeration": "OptionListEntity"
+    "hub": "Hub",
+    "catalog": "Catalog",
+    "set": "Set",
+    "enumeration": "Enumeration"
   },
   "settings": {
     "title": "Settings",
     "tabs": {
       "general": "General",
       "common": "Common",
-      "hub": "Tree entities",
-      "catalog": "Linked collections",
-      "set": "Value groups",
-      "enumeration": "Option lists"
+      "hub": "Hubs",
+      "catalog": "Catalogs",
+      "set": "Sets",
+      "enumeration": "Enumerations"
     },
     "search": "Search settings...",
     "save": "Save Changes",
@@ -1846,9 +1860,9 @@
       "entity.hub.allowCopy.description": "Allow copying hubs within this metahub",
       "entity.hub.allowDelete": "Allow Delete",
       "entity.hub.allowDelete.description": "Allow deleting hubs from this metahub",
-      "entity.hub.allowNesting": "Allow TreeEntity Nesting",
+      "entity.hub.allowNesting": "Allow Hub Nesting",
       "entity.hub.allowNesting.description": "Allow parent-child hub relations and creating child hubs inside hubs.",
-      "entity.hub.resetNestingOnce": "Remove Existing TreeEntity Nesting",
+      "entity.hub.resetNestingOnce": "Remove Existing Hub Nesting",
       "entity.hub.resetNestingOnce.description": "One-time action: after saving, removes all parent-child relations between hubs and resets back to Off.",
       "entity.hub.allowAttachExistingEntities": "Allow Adding Existing Entities",
       "entity.hub.allowAttachExistingEntities.description": "Allow using the Add action in hub-scoped tabs to link already created entities to the current hub.",
@@ -1923,7 +1937,7 @@
       "pascal-case": {
         "en": "MyCatalogName",
         "ru": "МойКаталогИмя",
-        "mixed": "МойLinkedCollectionEntityИмя"
+        "mixed": "МойCatalogИмя"
       }
     },
     "codenameAlphabets": {
@@ -1958,11 +1972,11 @@
   },
   "fieldDefinitions": {
     "title": "Field Definitions",
-    "description": "Define the fields for this linked collection",
+    "description": "Define the fields for this catalog",
     "searchPlaceholder": "Search field definitions...",
     "empty": "No field definitions yet",
-    "emptyDescription": "Add field definitions to define the structure of your linked collection data",
-    "limitReached": "Limit reached: maximum {{limit}} field definitions per linked collection. Remove a field definition to add a new one.",
+    "emptyDescription": "Add field definitions to define the structure of your catalog data",
+    "limitReached": "Limit reached: maximum {{limit}} field definitions per catalog. Remove a field definition to add a new one.",
     "create": "Add Field Definition",
     "createDialog": {
       "title": "Add Field Definition"
@@ -2058,9 +2072,9 @@
     },
     "system": {
       "title": "System Field Definitions",
-      "description": "Lifecycle and runtime infrastructure field definitions for this linked collection",
+      "description": "Lifecycle and runtime infrastructure field definitions for this catalog",
       "empty": "No system field definitions",
-      "emptyDescription": "This linked collection has no configurable system field definitions.",
+      "emptyDescription": "This catalog has no configurable system field definitions.",
       "hint": "System field definitions are provided by the platform. You can only enable or disable supported field definitions.",
       "status": "Status",
       "enabled": "Enabled",
@@ -2077,8 +2091,8 @@
       "multilineEditorHelper": "Renders this STRING field as a textarea in published runtime forms.",
       "multilineRows": "Textarea rows",
       "multilineRowsHelper": "Choose between 2 and 12 rows.",
-      "enumMode": "OptionListEntity view mode",
-      "enumModeHelper": "Applies to references that point to an option list in runtime forms.",
+      "enumMode": "Enumeration view mode",
+      "enumModeHelper": "Applies to references that point to an enumeration in runtime forms.",
       "enumModeOptions": {
         "select": "Input field",
         "radio": "Radio field",
@@ -2095,7 +2109,7 @@
         "dash": "Dash"
       },
       "labelEmptyDisplayHelper": "Used in label mode when default value is not selected.",
-      "enumTargetRequired": "Select a target option list on the General tab to configure presentation settings.",
+      "enumTargetRequired": "Select a target enumeration on the General tab to configure presentation settings.",
       "labelModeRequiresDefault": "Label mode renders selected text only. Set a default value to avoid an empty label.",
       "requiredWithoutDefault": "This attribute is required. Users must select a value before saving if default is empty."
     },
@@ -2105,8 +2119,8 @@
     },
     "isRequiredLabel": "Required",
     "isDisplayAttributeLabel": "Display field definition",
-    "isDisplayAttributeHelper": "Use this field definition as representation when referencing records of this linked collection",
-    "isDisplayAttributeTooltip": "This field definition is the display representation for this linked collection",
+    "isDisplayAttributeHelper": "Use this field definition as representation when referencing records of this catalog",
+    "isDisplayAttributeTooltip": "This field definition is the display representation for this catalog",
     "required": "Required",
     "nameEn": "Name (English)",
     "nameRu": "Name (Russian)",
@@ -2125,8 +2139,8 @@
       "numberNonNegative": "Non-negative value",
       "targetEntityKindRequired": "Target entity type is required for Reference",
       "targetEntityIdRequired": "Target entity is required for Reference",
-      "targetConstantIdRequired": "Target fixed value is required for references to value group",
-      "targetConstantOnlyForSet": "Target fixed value can be selected only for references to value group"
+      "targetConstantIdRequired": "Target fixed value is required for references to set",
+      "targetConstantOnlyForSet": "Target fixed value can be selected only for references to set"
     },
     "createError": "Failed to create field definition",
     "updateError": "Failed to update field definition",
@@ -2155,7 +2169,7 @@
       "message": "Are you sure you want to delete this child field definition?"
     },
     "tableValidation": {
-      "maxTableAttributes": "Maximum {{max}} TABLE field definitions per linked collection",
+      "maxTableAttributes": "Maximum {{max}} TABLE field definitions per catalog",
       "maxChildAttributes": "Maximum {{max}} child field definitions per TABLE",
       "nestedTableNotAllowed": "Nested TABLE field definitions are not allowed",
       "tableCannotBeDisplay": "TABLE field definitions cannot be set as the display field definition"
@@ -2174,6 +2188,67 @@
       "firstChildAttributeTitle": "First child field definition",
       "firstChildAttributeDescription": "This will be the first field definition in the table. It will automatically become the display field definition and required. After that, it cannot be moved out until another field definition is set as the display.",
       "tableChildLimitTitle": "Cannot move field definition"
+    }
+  },
+  "records": {
+    "title": "Records",
+    "searchPlaceholder": "Search records...",
+    "empty": "No records yet",
+    "emptyDescription": "Add records to store data in this catalog",
+    "addAttributesFirst": "Add field definitions first to start creating records",
+    "noAttributes": "No field definitions configured. Add field definitions to enable record creation.",
+    "createDialog": {
+      "title": "Add Record"
+    },
+    "editDialog": {
+      "title": "Edit Record"
+    },
+    "copyTitle": "Copy Record",
+    "deleteDialog": {
+      "title": "Delete Record"
+    },
+    "createSuccess": "Record created",
+    "createError": "Failed to create record",
+    "updateSuccess": "Record updated",
+    "updateError": "Failed to update record",
+    "deleteSuccess": "Record deleted",
+    "deleteError": "Failed to delete record",
+    "copySuccess": "Record copied",
+    "copyError": "Failed to copy record",
+    "moveSuccess": "Record order updated",
+    "moveError": "Failed to update record order",
+    "reorderSuccess": "Record order updated",
+    "reorderError": "Failed to reorder record",
+    "copy": {
+      "action": "Copy",
+      "actionLoading": "Copying..."
+    },
+    "dnd": {
+      "dragHandle": "Drag to reorder"
+    },
+    "table": {
+      "order": "#",
+      "updated": "Updated",
+      "rowCount_one": "{{count}} row",
+      "rowCount_other": "{{count}} rows",
+      "addRow": "Add Row",
+      "noRows": "No rows yet. Click \"Add Row\" to add data.",
+      "edit": "Edit",
+      "copy": "Copy",
+      "delete": "Delete",
+      "deleteTitle": "Delete Row",
+      "deleteDescription": "Are you sure you want to delete this row?",
+      "cancel": "Cancel",
+      "actions": "Actions"
+    },
+    "parentCollectionTabsLabel": "Catalog tabs",
+    "parentCollectionMissingTitle": "No catalog selected",
+    "parentCollectionMissingDescription": "Select a catalog to manage records.",
+    "parentCollectionLoadError": "Error loading catalog",
+    "parentCollectionEditTitle": "Edit catalog",
+    "actions": {
+      "moveUp": "Move up",
+      "moveDown": "Move down"
     }
   }
 }

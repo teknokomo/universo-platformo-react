@@ -125,7 +125,7 @@ const mockTemplatesList = [
         codename: 'catalog',
         definitionType: 'entity_type_preset',
         name: createVlc('Catalog preset', 'Пресет каталога'),
-        description: createVlc('Standard linked collection preset', 'Стандартный пресет связанной коллекции'),
+        description: createVlc('Standard catalog preset', 'Стандартный пресет каталога'),
         icon: 'IconDatabase',
         isSystem: true,
         sortOrder: 2,
@@ -246,7 +246,7 @@ export const handlers = [
                               },
                               ui: {
                                   iconName: 'IconDatabase',
-                                  tabs: ['general', 'treeEntities', 'layout', 'scripts'],
+                                  tabs: ['general', 'hubs', 'layout', 'scripts'],
                                   sidebarSection: 'objects',
                                   nameKey: 'Catalogs',
                                   descriptionKey: 'LinkedCollectionEntity-compatible entity preset'

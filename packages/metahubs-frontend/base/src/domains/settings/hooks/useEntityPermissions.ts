@@ -15,7 +15,7 @@ interface EntityPermissions {
     allowDelete: boolean
     /** Whether attaching previously created entities from hub-scoped lists is allowed */
     allowAttachExistingEntities: boolean
-    /** Whether nested treeEntities are allowed (tree entity parent-child relations) */
+    /** Whether nested hubs are allowed (hub parent-child relations) */
     allowTreeEntityNesting: boolean
     /** Backward-compatible alias for tree nesting checks */
     allowHubNesting: boolean
