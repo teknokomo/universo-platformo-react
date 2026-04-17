@@ -1,13 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { VersionedLocalizedContent } from '@universo/types'
 
-vi.mock('@universo/template-mui', () => ({
-    createEntityActions: vi.fn((config: unknown) => config),
-    createMemberActions: vi.fn((config: unknown) => config),
-    LocalizedInlineField: () => null,
-    useCodenameAutoFillVlc: () => undefined,
-    notifyError: vi.fn()
-}))
+vi.mock('@universo/template-mui', () => {
+    const createEntityActions = vi.fn((config: unknown) => config)
+
+    return {
+        createEntityActions,
+        createMemberActions: vi.fn((config: unknown) => config),
+        LocalizedInlineField: () => null,
+        useCodenameAutoFillVlc: () => undefined,
+        notifyError: vi.fn()
+    }
+})
 
 const makeVlc = (content: string): VersionedLocalizedContent<string> => ({
     _schema: 'v1',
@@ -96,9 +100,10 @@ describe('BranchActions copy options', () => {
             codename: makeVlc('main-copy'),
             fullCopy: false,
             copyLayouts: true,
-            copyHubs: true,
-            copyCatalogs: false,
-            copyEnumerations: true
+            copyTreeEntities: true,
+            copyLinkedCollections: false,
+            copyValueGroups: true,
+            copyOptionLists: true
         })
 
         expect(copyEntity).toHaveBeenCalledWith(
@@ -107,9 +112,10 @@ describe('BranchActions copy options', () => {
                 sourceBranchId: 'branch-1',
                 fullCopy: false,
                 copyLayouts: true,
-                copyHubs: true,
-                copyCatalogs: false,
-                copyEnumerations: true
+                copyTreeEntities: true,
+                copyLinkedCollections: false,
+                copyValueGroups: true,
+                copyOptionLists: true
             })
         )
         await expectImmediateSettlement(result)

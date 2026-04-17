@@ -15,13 +15,13 @@ import { buildDashboardLayoutConfig } from '../../shared'
 import { toJsonbValue } from '../../shared/jsonb'
 import { codenamePrimaryTextSql, ensureCodenameValue } from '../../shared/codename'
 import { resolveWidgetTableName } from './widgetTableResolver'
-import { ensureCatalogSystemAttributesSeed, readPlatformSystemAttributesPolicyWithKnex } from './systemAttributeSeed'
+import { ensureCatalogSystemFieldDefinitionsSeed, readPlatformSystemFieldDefinitionsPolicyWithKnex } from './systemFieldDefinitionSeed'
 import { createLogger } from '../../../utils/logger'
 
 const log = createLogger('TemplateSeedExecutor')
 
 const buildEntityMapKey = (kind: string, codename: string): string => `${kind}:${codename}`
-const buildConstantMapKey = (setCodename: string, constantCodename: string): string => `${setCodename}:${constantCodename}`
+const buildFixedValueMapKey = (setCodename: string, fixedValueCodename: string): string => `${setCodename}:${fixedValueCodename}`
 
 type TemplateSeedCodenameConfig = {
     style: CodenameStyle
@@ -117,6 +117,9 @@ const hasNonEmptyConfigObject = (value: unknown): value is Record<string, unknow
     return Boolean(value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value as Record<string, unknown>).length > 0)
 }
 
+const normalizeStringArray = (value: unknown): string[] =>
+    Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0) : []
+
 /**
  * TemplateSeedExecutor — populates system tables from a template manifest seed.
  *
@@ -150,8 +153,8 @@ export class TemplateSeedExecutor {
             if (seed.entities?.length) {
                 const entityIdMap = await this.createEntities(trx, seed.entities, codenameConfig)
 
-                if (seed.enumerationValues) {
-                    await this.createEnumerationValues(trx, seed.enumerationValues, entityIdMap)
+                if (seed.optionValues) {
+                    await this.createOptionValues(trx, seed.optionValues, entityIdMap)
                 }
 
                 // 5. Create elements if any
@@ -331,10 +334,10 @@ export class TemplateSeedExecutor {
         codenameConfig: TemplateSeedCodenameConfig
     ): Promise<Map<string, string>> {
         const entityIdMap = new Map<string, string>()
-        const constantIdMap = new Map<string, string>()
+        const fixedValueIdMap = new Map<string, string>()
         const now = new Date()
-        const platformSystemAttributesPolicy = entities.some((entity) => entity.kind === 'catalog')
-            ? await readPlatformSystemAttributesPolicyWithKnex(qb)
+        const platformSystemFieldDefinitionsPolicy = entities.some((entity) => entity.kind === 'catalog')
+            ? await readPlatformSystemFieldDefinitionsPolicyWithKnex(qb)
             : undefined
 
         // Track per-kind sort order counters (1-based)
@@ -353,8 +356,8 @@ export class TemplateSeedExecutor {
             if (existing) {
                 entityIdMap.set(buildEntityMapKey(entity.kind, entity.codename), existing.id)
                 if (entity.kind === 'catalog') {
-                    await ensureCatalogSystemAttributesSeed(qb, this.schemaName, existing.id, null, {
-                        policy: platformSystemAttributesPolicy
+                    await ensureCatalogSystemFieldDefinitionsSeed(qb, this.schemaName, existing.id, null, {
+                        policy: platformSystemFieldDefinitionsPolicy
                     })
                 }
                 continue
@@ -393,34 +396,36 @@ export class TemplateSeedExecutor {
             entityIdMap.set(buildEntityMapKey(entity.kind, entity.codename), inserted.id)
 
             if (entity.kind === 'catalog') {
-                await ensureCatalogSystemAttributesSeed(qb, this.schemaName, inserted.id, null, {
-                    policy: platformSystemAttributesPolicy
+                await ensureCatalogSystemFieldDefinitionsSeed(qb, this.schemaName, inserted.id, null, {
+                    policy: platformSystemFieldDefinitionsPolicy
                 })
             }
         }
 
+        await this.applyEntityHubAssignments(qb, entities, entityIdMap)
+
         // ── Pass 2: Insert set constants and build complete set+constant codename→id map ──
         for (const entity of entities) {
-            if (entity.kind !== 'set' || !entity.constants?.length) continue
+            if (entity.kind !== 'set' || !entity.fixedValues?.length) continue
 
-            const setId = entityIdMap.get(buildEntityMapKey(entity.kind, entity.codename))
-            if (!setId) continue
+            const valueGroupId = entityIdMap.get(buildEntityMapKey(entity.kind, entity.codename))
+            if (!valueGroupId) continue
 
-            for (let constantIndex = 0; constantIndex < entity.constants.length; constantIndex++) {
-                const constant = entity.constants[constantIndex]
+            for (let fixedValueIndex = 0; fixedValueIndex < entity.fixedValues.length; fixedValueIndex++) {
+                const fixedValue = entity.fixedValues[fixedValueIndex]
                 const existing = await qb
                     .withSchema(this.schemaName)
                     .from('_mhb_constants')
                     .where({
-                        object_id: setId,
+                        object_id: valueGroupId,
                         _upl_deleted: false,
                         _mhb_deleted: false
                     })
-                    .whereRaw(`${codenamePrimaryTextSql('codename')} = ?`, [constant.codename])
+                    .whereRaw(`${codenamePrimaryTextSql('codename')} = ?`, [fixedValue.codename])
                     .first()
 
                 if (existing) {
-                    constantIdMap.set(buildConstantMapKey(entity.codename, constant.codename), existing.id)
+                    fixedValueIdMap.set(buildFixedValueMapKey(entity.codename, fixedValue.codename), existing.id)
                     continue
                 }
 
@@ -428,18 +433,18 @@ export class TemplateSeedExecutor {
                     .withSchema(this.schemaName)
                     .into('_mhb_constants')
                     .insert({
-                        object_id: setId,
-                        codename: ensureCodenameValue(constant.codename),
-                        data_type: constant.dataType,
+                        object_id: valueGroupId,
+                        codename: ensureCodenameValue(fixedValue.codename),
+                        data_type: fixedValue.dataType,
                         presentation: {
                             codename: null,
-                            name: constant.name,
-                            description: constant.description ?? null
+                            name: fixedValue.name,
+                            description: fixedValue.description ?? null
                         },
-                        validation_rules: constant.validationRules ?? {},
-                        ui_config: constant.uiConfig ?? {},
-                        value_json: toJsonbValue(constant.value),
-                        sort_order: constant.sortOrder ?? constantIndex + 1,
+                        validation_rules: fixedValue.validationRules ?? {},
+                        ui_config: fixedValue.uiConfig ?? {},
+                        value_json: toJsonbValue(fixedValue.value),
+                        sort_order: fixedValue.sortOrder ?? fixedValueIndex + 1,
                         _upl_created_at: now,
                         _upl_created_by: null,
                         _upl_updated_at: now,
@@ -454,17 +459,17 @@ export class TemplateSeedExecutor {
                     })
                     .returning('id')
 
-                constantIdMap.set(buildConstantMapKey(entity.codename, constant.codename), inserted.id)
+                fixedValueIdMap.set(buildFixedValueMapKey(entity.codename, fixedValue.codename), inserted.id)
             }
         }
 
-        const resolveTargetConstantId = (
+        const resolveTargetFixedValueId = (
             targetEntityKind: string | null | undefined,
             targetEntityCodename: string | undefined,
             targetConstantCodename: string | undefined
         ): string | null => {
             if (targetEntityKind !== 'set' || !targetEntityCodename || !targetConstantCodename) return null
-            return constantIdMap.get(buildConstantMapKey(targetEntityCodename, targetConstantCodename)) ?? null
+            return fixedValueIdMap.get(buildFixedValueMapKey(targetEntityCodename, targetConstantCodename)) ?? null
         }
 
         // ── Pass 3: Insert attributes using the complete entity + constants maps ──
@@ -504,7 +509,7 @@ export class TemplateSeedExecutor {
                                 ? resolveEntityIdByCodename(entityIdMap, attr.targetEntityCodename, attr.targetEntityKind)
                                 : null,
                             target_object_kind: attr.targetEntityKind ?? null,
-                            target_constant_id: resolveTargetConstantId(
+                            target_constant_id: resolveTargetFixedValueId(
                                 attr.targetEntityKind,
                                 attr.targetEntityCodename,
                                 attr.targetConstantCodename
@@ -571,7 +576,7 @@ export class TemplateSeedExecutor {
                                           )
                                         : null,
                                 target_object_kind: (child.targetEntityKind as string | null | undefined) ?? null,
-                                target_constant_id: resolveTargetConstantId(
+                                target_constant_id: resolveTargetFixedValueId(
                                     (child.targetEntityKind as string | null | undefined) ?? null,
                                     (child.targetEntityCodename as string | undefined) ?? undefined,
                                     (child.targetConstantCodename as string | undefined) ?? undefined
@@ -596,7 +601,85 @@ export class TemplateSeedExecutor {
         return entityIdMap
     }
 
-    private async createEnumerationValues(
+    private resolveSeedEntityTreeEntityIds(
+        entity: NonNullable<MetahubTemplateSeed['entities']>[number],
+        entityIdMap: Map<string, string>
+    ): string[] {
+        const mappedTreeEntityIds: string[] = []
+
+        for (const hubCodename of entity.hubs ?? []) {
+            const treeEntityId =
+                resolveEntityIdByCodename(entityIdMap, hubCodename, 'hub') ?? resolveEntityIdByCodename(entityIdMap, hubCodename)
+
+            if (!treeEntityId) {
+                log.warn(
+                    `Hub codename "${hubCodename}" not found or ambiguous while seeding entity kind=${entity.kind} codename=${entity.codename}`
+                )
+                continue
+            }
+
+            if (!mappedTreeEntityIds.includes(treeEntityId)) {
+                mappedTreeEntityIds.push(treeEntityId)
+            }
+        }
+
+        return mappedTreeEntityIds
+    }
+
+    private async applyEntityHubAssignments(
+        qb: Knex,
+        entities: NonNullable<MetahubTemplateSeed['entities']>,
+        entityIdMap: Map<string, string>
+    ): Promise<void> {
+        const now = new Date()
+
+        for (const entity of entities) {
+            if (!entity.hubs?.length) continue
+
+            const entityId = entityIdMap.get(buildEntityMapKey(entity.kind, entity.codename))
+            if (!entityId) continue
+
+            const existing = await qb
+                .withSchema(this.schemaName)
+                .from('_mhb_objects')
+                .where({
+                    id: entityId,
+                    _upl_deleted: false,
+                    _mhb_deleted: false
+                })
+                .first<{ config?: unknown }>()
+
+            const currentConfig = hasNonEmptyConfigObject(existing?.config) ? { ...existing.config } : {}
+            const nextTreeEntityIds = this.resolveSeedEntityTreeEntityIds(entity, entityIdMap)
+            const currentTreeEntityIds = normalizeStringArray(currentConfig.hubs)
+
+            if (JSON.stringify(currentTreeEntityIds) === JSON.stringify(nextTreeEntityIds)) {
+                continue
+            }
+
+            if (nextTreeEntityIds.length > 0) {
+                currentConfig.hubs = nextTreeEntityIds
+            } else {
+                delete currentConfig.hubs
+            }
+
+            await qb
+                .withSchema(this.schemaName)
+                .from('_mhb_objects')
+                .where({
+                    id: entityId,
+                    _upl_deleted: false,
+                    _mhb_deleted: false
+                })
+                .update({
+                    config: currentConfig,
+                    _upl_updated_at: now,
+                    _upl_updated_by: null
+                })
+        }
+    }
+
+    private async createOptionValues(
         qb: Knex,
         valuesByEnumeration: Record<
             string,

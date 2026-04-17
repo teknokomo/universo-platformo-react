@@ -11,7 +11,7 @@ import type {
 import type { DashboardLayoutWidgetKey, DashboardLayoutZone, LayoutCopyOptions } from '@universo/types'
 
 export type LayoutScopeParams = {
-    catalogId?: string | null
+    linkedCollectionId?: string | null
 }
 
 export type LayoutListParams = PaginationParams & LayoutScopeParams
@@ -29,7 +29,7 @@ export const listLayouts = async (metahubId: string, params?: LayoutListParams):
                 sortBy: params?.sortBy,
                 sortOrder: params?.sortOrder,
                 search: params?.search,
-                catalogId: params?.catalogId ?? undefined
+                linkedCollectionId: params?.linkedCollectionId ?? undefined
             }
         }
     )

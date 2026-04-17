@@ -1,6 +1,11 @@
 import { Box, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button, CircularProgress, Stack } from '@mui/material'
 import { useTranslation } from 'react-i18next'
-import { mergeDialogPaperProps, mergeDialogSx, resolveDialogMaxWidth, useDialogPresentation } from '@universo/template-mui/components/dialogs'
+import {
+    mergeDialogPaperProps,
+    mergeDialogSx,
+    resolveDialogMaxWidth,
+    useDialogPresentation
+} from '@universo/template-mui/components/dialogs'
 import type { Connector } from '../types'
 import { getVLCString } from '../types'
 
@@ -35,6 +40,12 @@ export function ConnectorDeleteDialog({
 }: ConnectorDeleteDialogProps) {
     const { t } = useTranslation(['applications'])
 
+    const handleClose = () => {
+        if (!isDeleting) onClose()
+    }
+
+    const presentation = useDialogPresentation({ open, onClose: handleClose, fallbackMaxWidth: 'sm', isBusy: isDeleting })
+
     if (!connector) return null
 
     const connectorName = getVLCString(connector.name, uiLocale) || connector.codename
@@ -42,12 +53,6 @@ export function ConnectorDeleteDialog({
     const handleConfirm = () => {
         onConfirm(connector)
     }
-
-    const handleClose = () => {
-        if (!isDeleting) onClose()
-    }
-
-    const presentation = useDialogPresentation({ open, onClose: handleClose, fallbackMaxWidth: 'sm', isBusy: isDeleting })
     const titleNode = presentation.titleActions ? (
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
             <Box component='span' sx={{ minWidth: 0 }}>

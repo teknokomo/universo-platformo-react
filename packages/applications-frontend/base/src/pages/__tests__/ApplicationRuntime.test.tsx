@@ -87,7 +87,7 @@ vi.mock('@universo/apps-template-mui', async () => {
                     menus: [],
                     activeMenuId: null,
                     section: { name: 'Details', codename: 'details' },
-                    catalog: { name: 'Details' }
+                    linkedCollection: { name: 'Details' }
                 },
                 isLoading: false,
                 isFetching: false,
@@ -105,9 +105,9 @@ vi.mock('@universo/apps-template-mui', async () => {
                 activeSectionId: 'catalog-1',
                 selectedSectionId: 'catalog-1',
                 onSelectSection: vi.fn(),
-                activeCatalogId: 'catalog-1',
-                selectedCatalogId: 'catalog-1',
-                onSelectCatalog: vi.fn(),
+                activeLinkedCollectionId: 'catalog-1',
+                selectedLinkedCollectionId: 'catalog-1',
+                onSelectLinkedCollection: vi.fn(),
                 activeMenu: null,
                 dashboardMenuItems: [],
                 menuSlot: undefined,
@@ -266,7 +266,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
                 zoneWidgets: { left: [], right: [], center: [] },
                 menus: [],
                 activeMenuId: null,
-                catalog: { name: 'Details' },
+                linkedCollection: { name: 'Details' },
                 workspaceLimit: {
                     canCreate: false,
                     currentRows: 2,
@@ -289,12 +289,12 @@ describe('ApplicationRuntime pending interaction safety', () => {
                 menus: [],
                 activeMenuId: null,
                 section: { name: 'Orders', codename: 'orders' },
-                catalog: { name: 'Legacy Catalog' }
+                linkedCollection: { name: 'Legacy Catalog' }
             },
             activeSectionId: 'section-9',
             selectedSectionId: 'section-9',
-            activeCatalogId: 'catalog-legacy',
-            selectedCatalogId: 'catalog-legacy'
+            activeLinkedCollectionId: 'catalog-legacy',
+            selectedLinkedCollectionId: 'catalog-legacy'
         }
 
         renderRuntimePage()
@@ -324,7 +324,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
                 zoneWidgets: { left: [], right: [], center: [] },
                 menus: [],
                 activeMenuId: null,
-                catalog: {
+                linkedCollection: {
                     name: 'Details',
                     runtimeConfig: { showCreateButton: false }
                 }
@@ -342,7 +342,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
                 zoneWidgets: { left: [], right: [], center: [] },
                 menus: [],
                 activeMenuId: null,
-                catalog: {
+                linkedCollection: {
                     name: 'Details',
                     runtimeConfig: { createSurface: 'page' }
                 }
@@ -366,7 +366,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
                 zoneWidgets: { left: [], right: [], center: [] },
                 menus: [],
                 activeMenuId: null,
-                catalog: {
+                linkedCollection: {
                     name: 'Details',
                     runtimeConfig: { createSurface: 'page' }
                 }
@@ -411,7 +411,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
             zoneWidgets: { left: [], right: [], center: [] },
             menus: [],
             activeMenuId: null,
-            catalog: {
+            linkedCollection: {
                 name: 'Details',
                 runtimeConfig: { createSurface: 'page' }
             }
@@ -470,7 +470,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
                 zoneWidgets: { left: [], right: [], center: [] },
                 menus: [],
                 activeMenuId: null,
-                catalog: {
+                linkedCollection: {
                     name: 'Details',
                     runtimeConfig: { showCreateButton: false, createSurface: 'page' }
                 }
@@ -496,7 +496,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
                 codename: 'catalog-one',
                 runtimeConfig: { createSurface: 'page' }
             },
-            catalog: {
+            linkedCollection: {
                 name: 'Catalog One',
                 runtimeConfig: { createSurface: 'page' }
             }
@@ -507,8 +507,8 @@ describe('ApplicationRuntime pending interaction safety', () => {
             formOpen: false,
             activeSectionId: 'catalog-1',
             selectedSectionId: 'catalog-1',
-            activeCatalogId: 'catalog-1',
-            selectedCatalogId: 'catalog-1'
+            activeLinkedCollectionId: 'catalog-1',
+            selectedLinkedCollectionId: 'catalog-1'
         }
 
         renderRuntimeHarness('/applications/app-1/runtime?surface=page&mode=create')
@@ -522,8 +522,8 @@ describe('ApplicationRuntime pending interaction safety', () => {
             formOpen: true,
             activeSectionId: 'catalog-1',
             selectedSectionId: 'catalog-1',
-            activeCatalogId: 'catalog-1',
-            selectedCatalogId: 'catalog-1'
+            activeLinkedCollectionId: 'catalog-1',
+            selectedLinkedCollectionId: 'catalog-1'
         }
 
         act(() => {
@@ -544,7 +544,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
                     codename: 'catalog-two',
                     runtimeConfig: { createSurface: 'page' }
                 },
-                catalog: {
+                linkedCollection: {
                     name: 'Catalog Two',
                     runtimeConfig: { createSurface: 'page' }
                 }
@@ -552,8 +552,8 @@ describe('ApplicationRuntime pending interaction safety', () => {
             formOpen: true,
             activeSectionId: 'catalog-2',
             selectedSectionId: 'catalog-2',
-            activeCatalogId: 'catalog-2',
-            selectedCatalogId: 'catalog-2'
+            activeLinkedCollectionId: 'catalog-2',
+            selectedLinkedCollectionId: 'catalog-2'
         }
 
         act(() => {
@@ -573,7 +573,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
             zoneWidgets: { left: [], right: [], center: [] },
             menus: [],
             activeMenuId: null,
-            catalog: {
+            linkedCollection: {
                 name: 'Details',
                 runtimeConfig: { createSurface: 'page' }
             }

@@ -64,25 +64,25 @@ export {
 // Number validation utilities for precision/scale constraints
 export {
     normalizeApplicationCopyOptions,
-    normalizeAttributeCopyOptions,
+    normalizeFieldDefinitionCopyOptions,
     normalizeBranchCopyOptions,
-    normalizeElementCopyOptions,
-    normalizeHubCopyOptions,
-    normalizeCatalogCopyOptions,
-    normalizeSetCopyOptions,
-    normalizeEnumerationCopyOptions,
+    normalizeRecordCopyOptions,
+    normalizeTreeEntityCopyOptions,
+    normalizeLinkedCollectionCopyOptions,
+    normalizeValueGroupCopyOptions,
+    normalizeOptionListCopyOptions,
     normalizeLayoutCopyOptions,
-    normalizeConstantCopyOptions
+    normalizeFixedValueCopyOptions
 } from './validation/copyOptions'
 
 export {
-    extractCatalogLayoutBehaviorConfig,
-    normalizeCatalogRuntimeViewConfig,
-    resolveCatalogLayoutBehaviorConfig,
-    sanitizeCatalogRuntimeViewConfig,
-    setCatalogLayoutBehaviorConfig,
-    resolveCatalogRuntimeDashboardLayoutConfig
-} from './validation/catalogRuntimeConfig'
+    extractLinkedCollectionLayoutBehaviorConfig,
+    normalizeLinkedCollectionRuntimeViewConfig,
+    resolveLinkedCollectionLayoutBehaviorConfig,
+    sanitizeLinkedCollectionRuntimeViewConfig,
+    setLinkedCollectionLayoutBehaviorConfig,
+    resolveLinkedCollectionRuntimeDashboardLayoutConfig
+} from './validation/linkedCollectionRuntimeConfig'
 export { normalizeDashboardLayoutConfig } from './validation/dashboardLayout'
 
 export {
@@ -108,8 +108,8 @@ export {
     getCatalogSystemFieldDefinitions,
     getCatalogSystemFieldDefinition,
     getCatalogSystemFieldSeedInputs,
-    buildCatalogSystemAttributeSeedRecord,
-    getCatalogSystemAttributeSeedRecords,
+    buildCatalogSystemFieldDefinitionSeedRecord,
+    getCatalogSystemFieldDefinitionSeedRecords,
     getReservedCatalogSystemFieldCodenames,
     getDefaultCatalogSystemFieldStates,
     validateCatalogSystemFieldToggleSet,
@@ -121,8 +121,8 @@ export {
 } from './database/catalogSystemFields'
 export type {
     CatalogSystemFieldToggleValidationResult,
-    CatalogSystemAttributeSeedInput,
-    CatalogSystemAttributeSeedRecord,
+    CatalogSystemFieldDefinitionSeedInput,
+    CatalogSystemFieldDefinitionSeedRecord,
     PlatformSystemFieldFamilyContract,
     PlatformSystemFieldsContract
 } from './database/catalogSystemFields'

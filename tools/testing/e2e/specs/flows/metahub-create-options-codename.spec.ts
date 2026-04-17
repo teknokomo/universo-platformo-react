@@ -4,11 +4,11 @@ import {
     disposeApiContext,
     listLayouts,
     listMetahubBranches,
-    listMetahubCatalogs,
-    listMetahubEnumerations,
-    listMetahubHubs,
+    listLinkedCollections,
+    listOptionLists,
+    listTreeEntities,
     listMetahubs,
-    listMetahubSets
+    listValueGroups
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { entityDialogSelectors, toolbarSelectors } from '../../support/selectors/contracts'
@@ -106,10 +106,10 @@ async function createMetahubViaDialog(
         await dialog.getByRole('tab', { name: 'Options' }).click()
         const branchCheckbox = dialog.getByLabel('Branch')
         const layoutCheckbox = dialog.getByLabel('Layout')
-        const hubCheckbox = dialog.getByLabel('Hub')
-        const catalogCheckbox = dialog.getByLabel('Catalog')
-        const setCheckbox = dialog.getByLabel('Set')
-        const enumerationCheckbox = dialog.getByLabel('Enumeration')
+        const hubCheckbox = dialog.getByLabel('Tree entity')
+        const catalogCheckbox = dialog.getByLabel('Linked collection')
+        const setCheckbox = dialog.getByLabel('Value group')
+        const enumerationCheckbox = dialog.getByLabel('Option list')
 
         await expect(branchCheckbox).toBeDisabled()
         await expect(layoutCheckbox).toBeDisabled()
@@ -160,10 +160,10 @@ test('@flow metahub create dialog preserves codename auto-fill UX and supports d
         const [defaultBranches, defaultLayouts, defaultHubs, defaultCatalogs, defaultSets, defaultEnumerations] = await Promise.all([
             listMetahubBranches(api, defaultsOnMetahub.id, { limit: 100, offset: 0 }),
             listLayouts(api, defaultsOnMetahub.id, { limit: 100, offset: 0 }),
-            listMetahubHubs(api, defaultsOnMetahub.id, { limit: 100, offset: 0 }),
-            listMetahubCatalogs(api, defaultsOnMetahub.id, { limit: 100, offset: 0 }),
-            listMetahubSets(api, defaultsOnMetahub.id, { limit: 100, offset: 0 }),
-            listMetahubEnumerations(api, defaultsOnMetahub.id, { limit: 100, offset: 0 })
+            listTreeEntities(api, defaultsOnMetahub.id, { limit: 100, offset: 0 }),
+            listLinkedCollections(api, defaultsOnMetahub.id, { limit: 100, offset: 0 }),
+            listValueGroups(api, defaultsOnMetahub.id, { limit: 100, offset: 0 }),
+            listOptionLists(api, defaultsOnMetahub.id, { limit: 100, offset: 0 })
         ])
 
         expect((defaultBranches.items ?? []).length).toBeGreaterThan(0)
@@ -189,10 +189,10 @@ test('@flow metahub create dialog preserves codename auto-fill UX and supports d
         const [disabledBranches, disabledLayouts, disabledHubs, disabledCatalogs, disabledSets, disabledEnumerations] = await Promise.all([
             listMetahubBranches(api, defaultsOffMetahub.id, { limit: 100, offset: 0 }),
             listLayouts(api, defaultsOffMetahub.id, { limit: 100, offset: 0 }),
-            listMetahubHubs(api, defaultsOffMetahub.id, { limit: 100, offset: 0 }),
-            listMetahubCatalogs(api, defaultsOffMetahub.id, { limit: 100, offset: 0 }),
-            listMetahubSets(api, defaultsOffMetahub.id, { limit: 100, offset: 0 }),
-            listMetahubEnumerations(api, defaultsOffMetahub.id, { limit: 100, offset: 0 })
+            listTreeEntities(api, defaultsOffMetahub.id, { limit: 100, offset: 0 }),
+            listLinkedCollections(api, defaultsOffMetahub.id, { limit: 100, offset: 0 }),
+            listValueGroups(api, defaultsOffMetahub.id, { limit: 100, offset: 0 }),
+            listOptionLists(api, defaultsOffMetahub.id, { limit: 100, offset: 0 })
         ])
 
         expect((disabledBranches.items ?? []).length).toBeGreaterThan(0)

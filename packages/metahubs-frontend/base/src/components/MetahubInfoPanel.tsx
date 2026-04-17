@@ -23,7 +23,7 @@ export interface MetahubInfoPanelProps {
 
 /**
  * Panel for displaying locked Metahub info when creating Publication from Metahub context.
- * Uses EntitySelectionPanel for consistent UI with other selection panels (like HubSelectionPanel).
+ * Uses EntitySelectionPanel for consistent UI with other selection panels (like ContainerSelectionPanel).
  *
  * This panel is read-only because:
  * - The Metahub is determined by the URL context (metahubId)

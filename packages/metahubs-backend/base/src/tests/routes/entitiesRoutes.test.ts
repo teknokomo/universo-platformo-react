@@ -8,12 +8,12 @@ const mockResolveUserId = jest.fn<() => string | undefined>()
 const mockEnsureMetahubAccess = jest.fn()
 
 const mockEntityTypeService = {
-    listResolvedTypes: jest.fn(),
-    listCustomTypes: jest.fn(),
-    getCustomTypeById: jest.fn(),
-    createCustomType: jest.fn(),
-    updateCustomType: jest.fn(),
-    deleteCustomType: jest.fn(),
+    listTypes: jest.fn(),
+    listEditableTypes: jest.fn(),
+    getTypeById: jest.fn(),
+    createType: jest.fn(),
+    updateType: jest.fn(),
+    deleteType: jest.fn(),
     resolveTypeInSchema: jest.fn()
 }
 
@@ -123,29 +123,26 @@ describe('Entity ECAE routes', () => {
             isSynthetic: false
         })
 
-        mockEntityTypeService.listResolvedTypes.mockResolvedValue([
+        mockEntityTypeService.listTypes.mockResolvedValue([
             {
                 kindKey: 'catalog',
-                source: 'builtin',
                 ui: { nameKey: 'Catalog', iconName: 'IconBox', tabs: ['general'], sidebarSection: 'objects' },
                 codename: null
             },
             {
                 id: 'entity-type-1',
                 kindKey: 'custom-order',
-                source: 'custom',
                 ui: { nameKey: 'Custom Order', iconName: 'IconBolt', tabs: ['general'], sidebarSection: 'objects' },
                 codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-order' } } },
                 components: {},
-                isBuiltin: false,
                 published: true
             }
         ])
-        mockEntityTypeService.listCustomTypes.mockResolvedValue([])
-        mockEntityTypeService.getCustomTypeById.mockResolvedValue(null)
-        mockEntityTypeService.createCustomType.mockResolvedValue({ id: 'entity-type-1', kindKey: 'custom-order' })
-        mockEntityTypeService.updateCustomType.mockResolvedValue({ id: 'entity-type-1', kindKey: 'custom-order' })
-        mockEntityTypeService.deleteCustomType.mockResolvedValue(undefined)
+        mockEntityTypeService.listEditableTypes.mockResolvedValue([])
+        mockEntityTypeService.getTypeById.mockResolvedValue(null)
+        mockEntityTypeService.createType.mockResolvedValue({ id: 'entity-type-1', kindKey: 'custom-order' })
+        mockEntityTypeService.updateType.mockResolvedValue({ id: 'entity-type-1', kindKey: 'custom-order' })
+        mockEntityTypeService.deleteType.mockResolvedValue(undefined)
 
         mockActionService.listByObjectId.mockResolvedValue([{ id: 'action-1', objectId: 'object-1', actionType: 'builtin' }])
         mockActionService.getById.mockResolvedValue({ id: 'action-1', objectId: 'object-1', actionType: 'builtin' })
@@ -169,7 +166,7 @@ describe('Entity ECAE routes', () => {
         expect(response.body.items[0].kindKey).toBe('custom-order')
         expect(response.body.items[0].published).toBe(true)
         expect(response.body.pagination).toEqual({ limit: 1, offset: 0, total: 1, hasMore: false })
-        expect(mockEntityTypeService.listResolvedTypes).toHaveBeenCalledWith('metahub-1', 'user-1')
+        expect(mockEntityTypeService.listTypes).toHaveBeenCalledWith('metahub-1', 'user-1')
         expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', undefined, mockDbSession)
     })
 
@@ -180,11 +177,9 @@ describe('Entity ECAE routes', () => {
             metahubId: 'metahub-1',
             isSynthetic: false
         })
-        mockEntityTypeService.getCustomTypeById.mockResolvedValueOnce({
+        mockEntityTypeService.getTypeById.mockResolvedValueOnce({
             id: 'entity-type-1',
             kindKey: 'custom-order',
-            source: 'custom',
-            isBuiltin: false,
             ui: { nameKey: 'Custom Order', iconName: 'IconBolt', tabs: ['general'], sidebarSection: 'objects' },
             codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-order' } } },
             components: {},
@@ -196,7 +191,7 @@ describe('Entity ECAE routes', () => {
         const response = await request(app).get('/metahub/metahub-1/entity-type/entity-type-1').expect(200)
 
         expect(response.body.kindKey).toBe('custom-order')
-        expect(mockEntityTypeService.getCustomTypeById).toHaveBeenCalledWith('metahub-1', 'entity-type-1', 'user-1')
+        expect(mockEntityTypeService.getTypeById).toHaveBeenCalledWith('metahub-1', 'entity-type-1', 'user-1')
         expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', undefined, mockDbSession)
     })
 
@@ -215,7 +210,7 @@ describe('Entity ECAE routes', () => {
             .expect(201)
 
         expect(response.body.id).toBe('entity-type-1')
-        expect(mockEntityTypeService.createCustomType).toHaveBeenCalledWith(
+        expect(mockEntityTypeService.createType).toHaveBeenCalledWith(
             'metahub-1',
             expect.objectContaining({ kindKey: 'custom-order', published: false }),
             'user-1'
@@ -223,12 +218,37 @@ describe('Entity ECAE routes', () => {
         expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
     })
 
+    it('returns 409 when creating a custom entity type with a duplicate codename', async () => {
+        mockEntityTypeService.createType.mockRejectedValueOnce(
+            new MetahubConflictError('Entity type codename already exists', {
+                code: 'CODENAME_CONFLICT',
+                codename: 'custom-order',
+                kindKey: 'custom-order'
+            })
+        )
+        const app = buildApp()
+
+        const response = await request(app)
+            .post('/metahub/metahub-1/entity-types')
+            .send({
+                kindKey: 'custom-order',
+                codename: 'custom-order',
+                components: { dataSchema: { enabled: true } },
+                ui: { iconName: 'IconBolt', tabs: ['general'], sidebarSection: 'objects', nameKey: 'Custom Order' }
+            })
+            .expect(409)
+
+        expect(response.body.error).toBe('Entity type codename already exists')
+        expect(response.body.code).toBe('CODENAME_CONFLICT')
+        expect(response.body.codename).toBe('custom-order')
+    })
+
     it('updates a custom entity type publication flag through the guarded route surface', async () => {
         const app = buildApp()
 
         await request(app).patch('/metahub/metahub-1/entity-type/entity-type-1').send({ published: false, expectedVersion: 2 }).expect(200)
 
-        expect(mockEntityTypeService.updateCustomType).toHaveBeenCalledWith(
+        expect(mockEntityTypeService.updateType).toHaveBeenCalledWith(
             'metahub-1',
             'entity-type-1',
             expect.objectContaining({ published: false, expectedVersion: 2 }),
@@ -245,7 +265,7 @@ describe('Entity ECAE routes', () => {
     })
 
     it('returns 409 when deleting a custom entity type that still has dependent instances', async () => {
-        mockEntityTypeService.deleteCustomType.mockRejectedValueOnce(
+        mockEntityTypeService.deleteType.mockRejectedValueOnce(
             new MetahubConflictError('Entity type cannot be deleted while dependent entity instances still exist', {
                 dependentObjects: 2,
                 entityTypeId: 'entity-type-1',

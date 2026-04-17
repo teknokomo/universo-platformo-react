@@ -1,0 +1,182 @@
+import { render, screen, waitFor } from '@testing-library/react'
+import { ThemeProvider, createTheme } from '@mui/material/styles'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router-dom'
+
+import NavbarBreadcrumbs from '../NavbarBreadcrumbs'
+
+const mockClientGet = jest.fn()
+
+jest.mock('@universo/auth-frontend', () => ({
+    __esModule: true,
+    useAuth: () => ({
+        client: {
+            get: mockClientGet
+        },
+        loading: false
+    })
+}))
+
+jest.mock('@universo/store', () => ({
+    __esModule: true,
+    useHasGlobalAccess: () => ({
+        isSuperuser: false,
+        canAccessAdminPanel: false,
+        globalRoles: [],
+        ability: null,
+        loading: false
+    })
+}))
+
+jest.mock('@universo/i18n', () => ({
+    __esModule: true,
+    default: {
+        resolvedLanguage: 'en',
+        language: 'en',
+        t: (key: string, options?: { defaultValue?: string }) => options?.defaultValue || key
+    }
+}))
+
+jest.mock('react-i18next', () => ({
+    __esModule: true,
+    useTranslation: () => ({
+        t: (key: string, options?: { defaultValue?: string }) => {
+            const labels: Record<string, string> = {
+                metahubs: 'Metahubs',
+                applications: 'Applications',
+                administration: 'Administration',
+                access: 'Access',
+                settings: 'Settings',
+                branches: 'Branches',
+                entities: 'Entities',
+                commonSection: 'Resources',
+                publications: 'Publications',
+                versions: 'Versions',
+                migrations: 'Migrations',
+                connectors: 'Connectors',
+                users: 'Users',
+                roles: 'Roles',
+                board: 'Board',
+                locales: 'Locales',
+                instance: 'Instance',
+                role: 'Role',
+                hubs: 'Hubs',
+                catalogs: 'Catalogs',
+                sets: 'Sets',
+                enumerations: 'Enumerations',
+                attributes: 'Attributes',
+                elements: 'Elements',
+                constants: 'Constants',
+                values: 'Values',
+                'metahubs:attributes.system.title': 'System Attributes'
+            }
+
+            return labels[key] || options?.defaultValue || key
+        }
+    })
+}))
+
+jest.mock('../../../hooks', () => ({
+    __esModule: true,
+    truncateMetahubName: (value: string) => value,
+    truncateApplicationName: (value: string) => value,
+    useMetahubPublicationName: () => null,
+    useTreeEntityName: (_metahubId: string | null, treeEntityId: string | null) => (treeEntityId ? `Hub ${treeEntityId}` : null),
+    useLinkedCollectionName: (_metahubId: string | null, _hubId: string | null, linkedCollectionId: string | null) =>
+        linkedCollectionId ? `Catalog ${linkedCollectionId}` : null,
+    useLinkedCollectionNameStandalone: (_metahubId: string | null, linkedCollectionId: string | null) => (linkedCollectionId ? `Catalog ${linkedCollectionId}` : null),
+    useValueGroupNameStandalone: (_metahubId: string | null, valueGroupId: string | null) => (valueGroupId ? `Set ${valueGroupId}` : null),
+    truncateLinkedCollectionName: (value: string) => value,
+    truncateValueGroupName: (value: string) => value,
+    useOptionListName: (_metahubId: string | null, optionListId: string | null) =>
+        optionListId ? `Enumeration ${optionListId}` : null,
+    truncateOptionListName: (value: string) => value,
+    truncatePublicationName: (value: string) => value,
+    useConnectorName: () => null,
+    truncateConnectorName: (value: string) => value,
+    useLayoutName: () => null,
+    truncateLayoutName: (value: string) => value
+}))
+
+jest.mock('@universo/admin-frontend', () => ({
+    __esModule: true,
+    useInstanceName: () => null,
+    truncateInstanceName: (value: string) => value,
+    useRoleName: () => null,
+    truncateRoleName: (value: string) => value
+}))
+
+const theme = createTheme()
+
+const renderBreadcrumbs = (path: string) => {
+    const queryClient = new QueryClient({
+        defaultOptions: {
+            queries: { retry: false }
+        }
+    })
+
+    return render(
+        <ThemeProvider theme={theme}>
+            <QueryClientProvider client={queryClient}>
+                <MemoryRouter initialEntries={[path]}>
+                    <NavbarBreadcrumbs />
+                </MemoryRouter>
+            </QueryClientProvider>
+        </ThemeProvider>
+    )
+}
+
+describe('NavbarBreadcrumbs', () => {
+    beforeEach(() => {
+        mockClientGet.mockReset()
+        mockClientGet.mockImplementation((path: string) => {
+            if (path === '/metahub/mhb-1') {
+                return Promise.resolve({
+                    data: {
+                        name: {
+                            _schema: 'v1',
+                            _primary: 'en',
+                            locales: { en: { content: 'Metahub One' } }
+                        }
+                    }
+                })
+            }
+
+            if (path === '/metahub/mhb-1/entity-types') {
+                return Promise.resolve({ data: { items: [] } })
+            }
+
+            return Promise.reject(new Error(`Unexpected breadcrumb request: ${path}`))
+        })
+    })
+
+    it('renders entity-route catalog list breadcrumbs', async () => {
+        renderBreadcrumbs('/metahub/mhb-1/entities/catalog/instances')
+
+        await waitFor(() => {
+            expect(screen.getByRole('link', { name: 'Catalogs' })).toHaveAttribute('href', '/metahub/mhb-1/entities/catalog/instances')
+        })
+    })
+
+    it('renders entity-route hub instance with nested catalogs breadcrumbs', async () => {
+        renderBreadcrumbs('/metahub/mhb-1/entities/hub/instance/hub-1/catalogs')
+
+        await waitFor(() => {
+            expect(screen.getByRole('link', { name: 'Hubs' })).toHaveAttribute('href', '/metahub/mhb-1/entities/hub/instances')
+        })
+
+        expect(screen.getByRole('link', { name: 'Hub hub-1' })).toHaveAttribute('href', '/metahub/mhb-1/entities/hub/instance/hub-1/hubs')
+        expect(screen.getByRole('link', { name: 'Catalogs' })).toHaveAttribute(
+            'href',
+            '/metahub/mhb-1/entities/hub/instance/hub-1/catalogs'
+        )
+    })
+
+    it('renders entity-route set list breadcrumbs', async () => {
+        renderBreadcrumbs('/metahub/mhb-1/entities/set/instances')
+
+        await waitFor(() => {
+            expect(screen.getByRole('link', { name: 'Sets' })).toHaveAttribute('href', '/metahub/mhb-1/entities/set/instances')
+        })
+    })
+})

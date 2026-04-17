@@ -33,7 +33,7 @@ import type { MemberFormData } from '@universo/template-mui'
 
 import { useInviteMember, useRemoveMember, useUpdateMemberRole } from '../hooks/mutations'
 import { useViewPreference } from '../../../hooks/useViewPreference'
-import { STORAGE_KEYS } from '../../../constants/storage'
+import { STORAGE_KEYS } from '../../../view-preferences/storage'
 import * as metahubsApi from '../api'
 import { metahubsQueryKeys } from '../../shared'
 import { MetahubMember, getVLCString } from '../../../types'

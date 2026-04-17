@@ -73,9 +73,9 @@ t(`migrations.blockers.${blocker.code}`, {
 Five entity detail views now include a "Settings" tab that opens an edit dialog overlay (same form as the three-dots → Edit action). The tab uses `EntityFormDialog` with the exported builder functions from the corresponding `*Actions.tsx` file:
 
 - **HubList.tsx** — Hub settings via `HubActions` (buildInitialValues, buildFormTabs, validateHubForm, canSaveHubForm, toPayload)
-- **AttributeList.tsx** — Catalog settings via `CatalogActions` (parent catalog context)
-- **ConstantList.tsx** — Set settings via `SetActions` (parent set context)
-- **EnumerationValueList.tsx** — Enumeration settings via `EnumerationActions` (parent enumeration context)
+- **FieldDefinitionList.tsx** — Catalog settings via `CatalogActions` (parent catalog context)
+- **FixedValueList.tsx** — Set settings via `SetActions` (parent set context)
+- **SelectableOptionList.tsx** — Enumeration settings via `EnumerationActions` (parent enumeration context)
 - **PublicationVersionList.tsx** — Publication settings via `PublicationActions` (uses `buildFormTabs(ctx, metahubId)` signature)
 
 ## Create Options Tab

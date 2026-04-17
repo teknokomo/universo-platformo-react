@@ -1,4 +1,4 @@
-// Shared metahubs metadata types and constants.
+// Shared metahubs metadata types and fixed values and configuration.
 // Keep runtime-safe values for validation and enum-like usage.
 
 import type { VersionedLocalizedContent } from './admin'
@@ -11,28 +11,28 @@ import type { ScriptAttachmentKind } from './scripts'
  * Supported attribute data types.
  * Note: DATETIME was removed in favor of DATE with dateComposition setting.
  */
-export const ATTRIBUTE_DATA_TYPES = ['STRING', 'NUMBER', 'BOOLEAN', 'DATE', 'REF', 'JSON', 'TABLE'] as const
+export const FIELD_DEFINITION_DATA_TYPES = ['STRING', 'NUMBER', 'BOOLEAN', 'DATE', 'REF', 'JSON', 'TABLE'] as const
 
-export type AttributeDataType = (typeof ATTRIBUTE_DATA_TYPES)[number]
+export type FieldDefinitionDataType = (typeof FIELD_DEFINITION_DATA_TYPES)[number]
 
 // eslint-disable-next-line no-redeclare
-export const AttributeDataType = ATTRIBUTE_DATA_TYPES.reduce((acc, value) => {
+export const FieldDefinitionDataType = FIELD_DEFINITION_DATA_TYPES.reduce((acc, value) => {
     acc[value] = value
     return acc
-}, {} as Record<AttributeDataType, AttributeDataType>)
+}, {} as Record<FieldDefinitionDataType, FieldDefinitionDataType>)
 
 /**
  * Supported constant data types.
  * Constants use a strict subset of attribute types (no REF/JSON/TABLE at this stage).
  */
-export const CONSTANT_DATA_TYPES = ['STRING', 'NUMBER', 'BOOLEAN', 'DATE'] as const
-export type ConstantDataType = (typeof CONSTANT_DATA_TYPES)[number]
+export const FIXED_VALUE_DATA_TYPES = ['STRING', 'NUMBER', 'BOOLEAN', 'DATE'] as const
+export type FixedValueDataType = (typeof FIXED_VALUE_DATA_TYPES)[number]
 
 // eslint-disable-next-line no-redeclare
-export const ConstantDataType = CONSTANT_DATA_TYPES.reduce((acc, value) => {
+export const FixedValueDataType = FIXED_VALUE_DATA_TYPES.reduce((acc, value) => {
     acc[value] = value
     return acc
-}, {} as Record<ConstantDataType, ConstantDataType>)
+}, {} as Record<FixedValueDataType, FixedValueDataType>)
 
 // ═══════════════════════════════════════
 // Metahub Settings Types
@@ -50,8 +50,66 @@ export type DialogSizePreset = 'small' | 'medium' | 'large'
 /** How modal dialogs can be dismissed in metahub authoring surfaces. */
 export type DialogCloseBehavior = 'strict-modal' | 'backdrop-close'
 
+/** Entity metadata kinds that expose entity-scoped settings. */
+export const ENTITY_SETTINGS_KINDS = ['hub', 'catalog', 'set', 'enumeration'] as const
+export type EntitySettingsKind = (typeof ENTITY_SETTINGS_KINDS)[number]
+
+/** Neutral entity-authoring surface aliases that map to stored builtin kind values. */
+export const ENTITY_SURFACE_KEYS = ['treeEntity', 'linkedCollection', 'valueGroup', 'optionList'] as const
+export type EntitySurfaceKey = (typeof ENTITY_SURFACE_KEYS)[number]
+
+export type EntitySettingsScope = EntitySettingsKind | EntitySurfaceKey
+
+const ENTITY_SURFACE_TO_SETTINGS_KIND_MAP: Record<EntitySurfaceKey, EntitySettingsKind> = {
+    treeEntity: 'hub',
+    linkedCollection: 'catalog',
+    valueGroup: 'set',
+    optionList: 'enumeration'
+}
+
+const SETTINGS_KIND_TO_ENTITY_SURFACE_MAP: Record<EntitySettingsKind, EntitySurfaceKey> = {
+    hub: 'treeEntity',
+    catalog: 'linkedCollection',
+    set: 'valueGroup',
+    enumeration: 'optionList'
+}
+
+export const ENTITY_SURFACE_LABELS: Record<EntitySurfaceKey, { singular: string; plural: string }> = {
+    treeEntity: { singular: 'Tree entity', plural: 'Tree entities' },
+    linkedCollection: { singular: 'Linked collection', plural: 'Linked collections' },
+    valueGroup: { singular: 'Value group', plural: 'Value groups' },
+    optionList: { singular: 'Option list', plural: 'Option lists' }
+}
+
+export const isEntitySurfaceKey = (value: string): value is EntitySurfaceKey =>
+    Object.prototype.hasOwnProperty.call(ENTITY_SURFACE_TO_SETTINGS_KIND_MAP, value)
+
+export const resolveEntitySettingsKind = (scope: EntitySettingsScope): EntitySettingsKind =>
+    isEntitySurfaceKey(scope) ? ENTITY_SURFACE_TO_SETTINGS_KIND_MAP[scope] : scope
+
+export const resolveBuiltinEntityKindFromSurface = (surface: EntitySurfaceKey): BuiltinEntityKind =>
+    ENTITY_SURFACE_TO_SETTINGS_KIND_MAP[surface]
+
+export const resolveEntitySurfaceKey = (scope: EntitySettingsScope | string): EntitySurfaceKey | null => {
+    if (isEntitySurfaceKey(scope)) {
+        return scope
+    }
+
+    return Object.prototype.hasOwnProperty.call(SETTINGS_KIND_TO_ENTITY_SURFACE_MAP, scope)
+        ? SETTINGS_KIND_TO_ENTITY_SURFACE_MAP[scope as EntitySettingsKind]
+        : null
+}
+
 /** Tab groups for the Settings UI. */
-export type SettingsTab = 'general' | 'common' | 'hubs' | 'catalogs' | 'sets' | 'enumerations'
+export const METAHUB_SETTINGS_TABS = ['general', 'common', ...ENTITY_SETTINGS_KINDS] as const
+export type SettingsTab = (typeof METAHUB_SETTINGS_TABS)[number]
+
+/** Build an entity metadata setting key in the canonical entity-scoped namespace. */
+export const buildEntitySettingKey = (kind: EntitySettingsKind, suffix: string): string => `entity.${kind}.${suffix}`
+
+/** Build an entity metadata setting key from a neutral entity-surface alias. */
+export const buildEntitySurfaceSettingKey = (surface: EntitySurfaceKey, suffix: string): string =>
+    buildEntitySettingKey(resolveEntitySettingsKind(surface), suffix)
 
 /** Value type discriminator for settings. */
 export type SettingValueType = 'string' | 'boolean' | 'select' | 'multiselect' | 'number'
@@ -205,36 +263,36 @@ export const METAHUB_SETTINGS_REGISTRY: readonly SettingDefinition[] = [
     },
     // ── Hubs ──
     {
-        key: 'hubs.allowCopy',
-        tab: 'hubs',
+        key: buildEntitySettingKey('hub', 'allowCopy'),
+        tab: 'hub',
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 1
     },
     {
-        key: 'hubs.allowDelete',
-        tab: 'hubs',
+        key: buildEntitySettingKey('hub', 'allowDelete'),
+        tab: 'hub',
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 2
     },
     {
-        key: 'hubs.allowNesting',
-        tab: 'hubs',
+        key: buildEntitySettingKey('hub', 'allowNesting'),
+        tab: 'hub',
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 3
     },
     {
-        key: 'hubs.resetNestingOnce',
-        tab: 'hubs',
+        key: buildEntitySettingKey('hub', 'resetNestingOnce'),
+        tab: 'hub',
         valueType: 'boolean',
         defaultValue: false,
         sortOrder: 4
     },
     {
-        key: 'hubs.allowAttachExistingEntities',
-        tab: 'hubs',
+        key: buildEntitySettingKey('hub', 'allowAttachExistingEntities'),
+        tab: 'hub',
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 5
@@ -242,80 +300,80 @@ export const METAHUB_SETTINGS_REGISTRY: readonly SettingDefinition[] = [
 
     // ── Catalogs ──
     {
-        key: 'catalogs.allowCopy',
-        tab: 'catalogs',
+        key: buildEntitySettingKey('catalog', 'allowCopy'),
+        tab: 'catalog',
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 1
     },
     {
-        key: 'catalogs.allowDelete',
-        tab: 'catalogs',
+        key: buildEntitySettingKey('catalog', 'allowDelete'),
+        tab: 'catalog',
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 2
     },
     {
-        key: 'catalogs.attributeCodenameScope',
-        tab: 'catalogs',
+        key: buildEntitySettingKey('catalog', 'attributeCodenameScope'),
+        tab: 'catalog',
         valueType: 'select',
         defaultValue: 'per-level',
         options: ['per-level', 'global'] as const,
         sortOrder: 3
     },
     {
-        key: 'catalogs.allowedAttributeTypes',
-        tab: 'catalogs',
+        key: buildEntitySettingKey('catalog', 'allowedAttributeTypes'),
+        tab: 'catalog',
         valueType: 'multiselect',
-        defaultValue: [...ATTRIBUTE_DATA_TYPES],
-        options: ATTRIBUTE_DATA_TYPES,
+        defaultValue: [...FIELD_DEFINITION_DATA_TYPES],
+        options: FIELD_DEFINITION_DATA_TYPES,
         sortOrder: 4
     },
     {
-        key: 'catalogs.allowAttributeCopy',
-        tab: 'catalogs',
+        key: buildEntitySettingKey('catalog', 'allowAttributeCopy'),
+        tab: 'catalog',
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 5
     },
     {
-        key: 'catalogs.allowAttributeDelete',
-        tab: 'catalogs',
+        key: buildEntitySettingKey('catalog', 'allowAttributeDelete'),
+        tab: 'catalog',
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 6
     },
     {
-        key: 'catalogs.allowDeleteLastDisplayAttribute',
-        tab: 'catalogs',
+        key: buildEntitySettingKey('catalog', 'allowDeleteLastDisplayAttribute'),
+        tab: 'catalog',
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 7
     },
     {
-        key: 'catalogs.allowElementCopy',
-        tab: 'catalogs',
+        key: buildEntitySettingKey('catalog', 'allowElementCopy'),
+        tab: 'catalog',
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 8
     },
     {
-        key: 'catalogs.allowElementDelete',
-        tab: 'catalogs',
+        key: buildEntitySettingKey('catalog', 'allowElementDelete'),
+        tab: 'catalog',
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 9
     },
     {
-        key: 'catalogs.allowAttributeMoveBetweenRootAndChildren',
-        tab: 'catalogs',
+        key: buildEntitySettingKey('catalog', 'allowAttributeMoveBetweenRootAndChildren'),
+        tab: 'catalog',
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 10
     },
     {
-        key: 'catalogs.allowAttributeMoveBetweenChildLists',
-        tab: 'catalogs',
+        key: buildEntitySettingKey('catalog', 'allowAttributeMoveBetweenChildLists'),
+        tab: 'catalog',
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 11
@@ -323,45 +381,45 @@ export const METAHUB_SETTINGS_REGISTRY: readonly SettingDefinition[] = [
 
     // ── Sets ──
     {
-        key: 'sets.allowCopy',
-        tab: 'sets',
+        key: buildEntitySettingKey('set', 'allowCopy'),
+        tab: 'set',
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 1
     },
     {
-        key: 'sets.allowDelete',
-        tab: 'sets',
+        key: buildEntitySettingKey('set', 'allowDelete'),
+        tab: 'set',
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 2
     },
     {
-        key: 'sets.constantCodenameScope',
-        tab: 'sets',
+        key: buildEntitySettingKey('set', 'constantCodenameScope'),
+        tab: 'set',
         valueType: 'select',
         defaultValue: 'global',
         options: ['global'] as const,
         sortOrder: 3
     },
     {
-        key: 'sets.allowedConstantTypes',
-        tab: 'sets',
+        key: buildEntitySettingKey('set', 'allowedConstantTypes'),
+        tab: 'set',
         valueType: 'multiselect',
-        defaultValue: [...CONSTANT_DATA_TYPES],
-        options: CONSTANT_DATA_TYPES,
+        defaultValue: [...FIXED_VALUE_DATA_TYPES],
+        options: FIXED_VALUE_DATA_TYPES,
         sortOrder: 4
     },
     {
-        key: 'sets.allowConstantCopy',
-        tab: 'sets',
+        key: buildEntitySettingKey('set', 'allowConstantCopy'),
+        tab: 'set',
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 5
     },
     {
-        key: 'sets.allowConstantDelete',
-        tab: 'sets',
+        key: buildEntitySettingKey('set', 'allowConstantDelete'),
+        tab: 'set',
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 6
@@ -369,15 +427,15 @@ export const METAHUB_SETTINGS_REGISTRY: readonly SettingDefinition[] = [
 
     // ── Enumerations ──
     {
-        key: 'enumerations.allowCopy',
-        tab: 'enumerations',
+        key: buildEntitySettingKey('enumeration', 'allowCopy'),
+        tab: 'enumeration',
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 1
     },
     {
-        key: 'enumerations.allowDelete',
-        tab: 'enumerations',
+        key: buildEntitySettingKey('enumeration', 'allowDelete'),
+        tab: 'enumeration',
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 2
@@ -443,7 +501,7 @@ export interface DateTypeConfig {
  * Combined validation rules with type-specific settings.
  * Stored in attribute's validationRules field.
  */
-export interface AttributeValidationRules {
+export interface FieldDefinitionValidationRules {
     // Generic rules
     required?: boolean
 
@@ -479,7 +537,7 @@ export interface AttributeValidationRules {
 /**
  * Returns default validation rules for a given data type.
  */
-export function getDefaultValidationRules(dataType: AttributeDataType): Partial<AttributeValidationRules> {
+export function getDefaultValidationRules(dataType: FieldDefinitionDataType): Partial<FieldDefinitionValidationRules> {
     switch (dataType) {
         case 'STRING':
             return { maxLength: null, versioned: false, localized: false }
@@ -513,14 +571,14 @@ export interface PhysicalTypeInfo {
 }
 
 /**
- * Maps logical AttributeDataType + validation rules to physical PostgreSQL type.
+ * Maps logical FieldDefinitionDataType + validation rules to physical PostgreSQL type.
  * This mirrors SchemaGenerator.mapDataType() logic but without Knex dependency.
  *
- * @param dataType - Logical data type from AttributeDataType enum
+ * @param dataType - Logical data type from FieldDefinitionDataType enum
  * @param rules - Validation rules containing type-specific settings
  * @returns Physical type information for UI display
  */
-export function getPhysicalDataType(dataType: AttributeDataType, rules?: Partial<AttributeValidationRules>): PhysicalTypeInfo {
+export function getPhysicalDataType(dataType: FieldDefinitionDataType, rules?: Partial<FieldDefinitionValidationRules>): PhysicalTypeInfo {
     switch (dataType) {
         case 'STRING': {
             // If versioned or localized, store as JSONB for VLC structure
@@ -596,25 +654,30 @@ const _META_ENTITY_KIND_MAP = {
     CATALOG: 'catalog',
     SET: 'set',
     ENUMERATION: 'enumeration',
-    HUB: 'hub',
-    DOCUMENT: 'document'
+    HUB: 'hub'
 } as const
 
 export const MetaEntityKind = _META_ENTITY_KIND_MAP
 
+export const BuiltinEntityKinds = {
+    CATALOG: 'catalog',
+    SET: 'set',
+    ENUMERATION: 'enumeration',
+    HUB: 'hub'
+} as const
+
 // eslint-disable-next-line no-redeclare
 export type MetaEntityKind = (typeof _META_ENTITY_KIND_MAP)[keyof typeof _META_ENTITY_KIND_MAP]
 
-export const BuiltinEntityKinds = _META_ENTITY_KIND_MAP
-export type BuiltinEntityKind = MetaEntityKind
+export type BuiltinEntityKind = (typeof BuiltinEntityKinds)[keyof typeof BuiltinEntityKinds]
+export const BUILTIN_ENTITY_KIND_VALUES = Object.values(BuiltinEntityKinds) as [BuiltinEntityKind, ...BuiltinEntityKind[]]
+const BUILTIN_ENTITY_KIND_SET = new Set<string>(BUILTIN_ENTITY_KIND_VALUES)
+export const isBuiltinEntityKind = (kind: string): kind is BuiltinEntityKind => BUILTIN_ENTITY_KIND_SET.has(kind)
+
 export type EntityKind = BuiltinEntityKind | (string & {})
 
 /** Array of valid MetaEntityKind values for Zod validation */
 export const META_ENTITY_KINDS = Object.values(_META_ENTITY_KIND_MAP) as [MetaEntityKind, ...MetaEntityKind[]]
-
-const BUILTIN_ENTITY_KIND_SET = new Set<string>(META_ENTITY_KINDS)
-
-export const isBuiltinKind = (kind: string): kind is BuiltinEntityKind => BUILTIN_ENTITY_KIND_SET.has(kind)
 
 export interface MetaPresentation {
     name: VersionedLocalizedContent<string>
@@ -624,7 +687,7 @@ export interface MetaPresentation {
 export interface MetaFieldDefinition {
     id: string
     codename: string
-    dataType: AttributeDataType
+    dataType: FieldDefinitionDataType
     isRequired: boolean
     /** Whether this attribute is used to display the element when referenced */
     isDisplayAttribute?: boolean
@@ -871,7 +934,7 @@ export interface CatalogSystemFieldDefinition {
     layer: CatalogSystemFieldLayer
     family: CatalogSystemFieldFamily
     valueType: CatalogSystemFieldValueType
-    attributeDataType: AttributeDataType
+    fieldDefinitionDataType: FieldDefinitionDataType
     physicalType: 'boolean' | 'timestamptz' | 'uuid'
     sortOrder: number
     defaultEnabled: boolean
@@ -884,25 +947,25 @@ export interface CatalogSystemFieldState {
     enabled: boolean
 }
 
-export interface PlatformSystemAttributesPolicy {
+export interface PlatformSystemFieldDefinitionsPolicy {
     allowConfiguration: boolean
     forceCreate: boolean
     ignoreMetahubSettings: boolean
 }
 
 export const PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS = {
-    allowConfiguration: 'platformSystemAttributesConfigurable',
-    forceCreate: 'platformSystemAttributesRequired',
-    ignoreMetahubSettings: 'platformSystemAttributesIgnoreMetahubSettings'
+    allowConfiguration: 'platformSystemFieldDefinitionsConfigurable',
+    forceCreate: 'platformSystemFieldDefinitionsRequired',
+    ignoreMetahubSettings: 'platformSystemFieldDefinitionsIgnoreMetahubSettings'
 } as const
 
-export const DEFAULT_PLATFORM_SYSTEM_ATTRIBUTES_POLICY: PlatformSystemAttributesPolicy = {
+export const DEFAULT_PLATFORM_SYSTEM_FIELD_DEFINITIONS_POLICY: PlatformSystemFieldDefinitionsPolicy = {
     allowConfiguration: false,
     forceCreate: true,
     ignoreMetahubSettings: true
 }
 
-export interface CatalogAttributeSystemMetadata {
+export interface FieldDefinitionSystemMetadata {
     isSystem: boolean
     systemKey: CatalogSystemFieldKey | null
     isManaged: boolean
@@ -989,14 +1052,14 @@ export interface TemplateSeedSetting {
 /** Seed entity attribute (uses codenames for REF targets). */
 export interface TemplateSeedAttribute {
     codename: string
-    dataType: AttributeDataType
+    dataType: FieldDefinitionDataType
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
     isRequired?: boolean
     isDisplayAttribute?: boolean
     sortOrder?: number
     targetEntityCodename?: string
-    targetEntityKind?: MetaEntityKind
+    targetEntityKind?: EntityKind
     targetConstantCodename?: string
     validationRules?: Record<string, unknown>
     uiConfig?: Record<string, unknown>
@@ -1005,9 +1068,9 @@ export interface TemplateSeedAttribute {
 }
 
 /** Seed set constant definition (uses codename identity inside a set). */
-export interface TemplateSeedConstant {
+export interface TemplateSeedFixedValue {
     codename: string
-    dataType: ConstantDataType
+    dataType: FixedValueDataType
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
     sortOrder?: number
@@ -1016,16 +1079,16 @@ export interface TemplateSeedConstant {
     value?: unknown
 }
 
-/** Seed entity definition (catalog, hub, document). */
+/** Seed entity definition keyed by a concrete entity kind. */
 export interface TemplateSeedEntity {
     codename: string
-    kind: MetaEntityKind
+    kind: EntityKind
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
     config?: Record<string, unknown>
     attributes?: TemplateSeedAttribute[]
     /** Constants are supported only for entities with kind = set. */
-    constants?: TemplateSeedConstant[]
+    fixedValues?: TemplateSeedFixedValue[]
     hubs?: string[]
 }
 
@@ -1055,7 +1118,7 @@ export interface MetahubTemplateSeed {
     /** Predefined elements keyed by entity codename. */
     elements?: Record<string, TemplateSeedElement[]>
     /** Enumeration values keyed by enumeration codename. */
-    enumerationValues?: Record<string, TemplateSeedEnumerationValue[]>
+    optionValues?: Record<string, TemplateSeedEnumerationValue[]>
 }
 
 /**
@@ -1070,6 +1133,7 @@ export interface MetahubTemplateManifest {
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
     meta?: MetahubTemplateMeta
+    presets?: TemplatePresetReference[]
     seed: MetahubTemplateSeed
 }
 
@@ -1093,24 +1157,43 @@ export interface EntityTypePresetManifest {
         presentation?: Record<string, unknown>
         config?: Record<string, unknown>
     }
+    defaultInstances?: PresetDefaultInstance[]
+}
+
+export interface PresetDefaultInstance {
+    codename: string
+    name: VersionedLocalizedContent<string>
+    description?: VersionedLocalizedContent<string>
+    config?: Record<string, unknown>
+    hubs?: string[]
+    attributes?: TemplateSeedAttribute[]
+    fixedValues?: TemplateSeedFixedValue[]
+    elements?: TemplateSeedElement[]
+    optionValues?: TemplateSeedEnumerationValue[]
+}
+
+export interface TemplatePresetReference {
+    presetCodename: string
+    includedByDefault?: boolean
 }
 
 export type TemplateDefinitionManifest = MetahubTemplateManifest | EntityTypePresetManifest
 
 /**
- * Entity creation toggles passed at metahub creation time.
- * Determines which default entities from the template seed are created.
+ * Preset toggles passed at metahub creation time.
+ * Determines which preset-defined entity types and default instances are created.
  * Branch and Layout are always required (no toggle).
  */
 export interface MetahubCreateOptions {
-    /** Create default Hub entity. Default: true */
-    createHub?: boolean
-    /** Create default Catalog entity. Default: true */
-    createCatalog?: boolean
-    /** Create default Set entity. Default: true */
-    createSet?: boolean
-    /** Create default Enumeration entity. Default: true */
-    createEnumeration?: boolean
+    presetToggles?: Record<string, boolean>
+}
+
+export interface MetahubMenuEntityType {
+    kindKey: string
+    title: string
+    iconName: string
+    sidebarSection?: 'objects' | 'admin'
+    sidebarOrder?: number
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

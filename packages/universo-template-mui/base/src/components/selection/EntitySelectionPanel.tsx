@@ -123,8 +123,8 @@ export interface EntitySelectionPanelProps<T extends SelectableEntity> {
  * ```tsx
  * <EntitySelectionPanel
  *   availableEntities={hubs}
- *   selectedIds={selectedHubIds}
- *   onSelectionChange={setSelectedHubIds}
+ *   selectedIds={selectedTreeEntityIds}
+ *   onSelectionChange={setSelectedTreeEntityIds}
  *   getDisplayName={(hub) => getVLCString(hub.name, locale)}
  *   getCodename={(hub) => hub.codename}
  *   labels={hubSelectionLabels}

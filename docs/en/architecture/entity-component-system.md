@@ -4,13 +4,13 @@ description: Entity-Component-Action-Event architecture for custom metahub entit
 
 # Entity Component System
 
-The Entity-Component-Action-Event (ECAE) layer adds custom metahub entity types without replacing the legacy Catalogs, Sets, or Enumerations surfaces during the current rollout.
+The Entity-Component-Action-Event (ECAE) layer adds custom and standard metahub entity types through one entity-owned route model backed by shared authoring surfaces.
 
 ## Purpose
 
 - Keep new domain modeling inside one generic entity pipeline.
 - Reuse existing metahub authoring services and runtime publication flow.
-- Publish entity-based sections such as Hubs V2, Catalogs V2, Sets V2, and Enumerations V2 through metadata instead of hardcoded menus.
+- Publish entity-based sections such as Hubs, Catalogs, Sets, and Enumerations through metadata instead of hardcoded menus.
 
 ## Core Model
 
@@ -21,25 +21,25 @@ The Entity-Component-Action-Event (ECAE) layer adds custom metahub entity types 
 
 ## Current Boundaries
 
-- Built-in kinds still keep their dedicated legacy routes and UI entry points.
-- Generic entity instance routes currently target custom kinds only.
+- Generic entity instance routes still focus on true custom kinds.
+- Standard metadata kinds enter through entity-owned routes and reuse the matching authoring surfaces underneath.
 - Shared services and adapters let custom kinds reuse existing attribute, layout, and publication seams.
-- Runtime consumers resolve section-oriented aliases before falling back to legacy catalog naming.
+- Runtime consumers resolve section-oriented aliases from published entity metadata before falling back to older naming aliases.
 
 ## Builder Flow
 
 1. Create a type from the Entities workspace or from a reusable preset.
 2. Enable only the components that are already genericized or adapter-backed.
-3. Save the type and author instances from the generated custom-kind surface.
+3. Save the type and author instances from the generated entity-owned surface.
 4. Mark the type as published when it should appear in the dynamic menu zone.
 5. Publish the metahub and sync the linked application before checking runtime.
 
-## Coexistence Rules
+## Route Ownership Rules
 
-- Legacy Hubs, Catalogs, Sets, and Enumerations remain visible until parity is accepted.
-- Hubs V2, Catalogs V2, Sets V2, and Enumerations V2 reuse the matching legacy authoring primitives instead of a second policy layer.
-- Browser validation must cover design-time workspace flows, legacy/V2 coexistence, and the publication/runtime path.
-- Only catalog-compatible sections materialize in runtime navigation; hub/set/enumeration-compatible kinds stay filtered after publication sync.
+- Standard Hubs, Catalogs, Sets, and Enumerations are published through direct standard kind keys.
+- Entity-owned routes reuse the matching authoring primitives instead of introducing a second CRUD shell.
+- Browser validation must cover design-time workspace flows, entity-owned standard routes, and the publication/runtime path.
+- Runtime navigation materializes the sections described by the published entity metadata and current runtime adapters.
 
 ## Related Packages
 

@@ -18,8 +18,8 @@ export interface DashboardDetailsSlot {
     applicationId?: string
     sectionId?: string | null
     sectionCodename?: string | null
-    catalogId?: string | null
-    catalogCodename?: string | null
+    linkedCollectionId?: string | null
+    linkedCollectionCodename?: string | null
     apiBaseUrl?: string
     banner?: React.ReactNode
     content?: React.ReactNode
@@ -49,8 +49,8 @@ export interface DashboardMenuItem {
     icon?: string | null
     kind: 'catalog' | 'section' | 'hub' | 'link'
     sectionId?: string | null
-    catalogId?: string | null
-    hubId?: string | null
+    linkedCollectionId?: string | null
+    treeEntityId?: string | null
     href?: string | null
     selected?: boolean
 }
@@ -61,8 +61,8 @@ export interface DashboardMenuSlot {
     items: DashboardMenuItem[]
     activeSectionId?: string | null
     onSelectSection?: (sectionId: string) => void
-    activeCatalogId?: string | null
-    onSelectCatalog?: (catalogId: string) => void
+    activeLinkedCollectionId?: string | null
+    onSelectLinkedCollection?: (linkedCollectionId: string) => void
 }
 
 /** Map of menus keyed by widget ID. Each menuWidget resolves its menu via widget.id lookup. */

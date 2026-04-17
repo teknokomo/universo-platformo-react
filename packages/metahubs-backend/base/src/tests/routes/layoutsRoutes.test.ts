@@ -265,7 +265,7 @@ describe('Layouts Routes', () => {
         it('copies catalog layout scope and inherited overrides when deactivating copied widgets', async () => {
             mockGetLayoutById.mockResolvedValueOnce({
                 id: 'layout-1',
-                catalogId: 'catalog-1',
+                linkedCollectionId: 'catalog-1',
                 baseLayoutId: 'base-layout-1',
                 templateKey: 'dashboard',
                 name: {
@@ -349,7 +349,7 @@ describe('Layouts Routes', () => {
                 })
                 .expect(201)
 
-            expect(response.body.catalogId).toBe('catalog-1')
+            expect(response.body.linkedCollectionId).toBe('catalog-1')
             expect(response.body.baseLayoutId).toBe('base-layout-1')
             expect(trx.query).toHaveBeenCalledTimes(6)
 

@@ -1,5 +1,5 @@
 ---
-description: Справочная страница о точной разнице между Common libraries, metahub scripts и object-attached scripts.
+description: Справочная страница о точной разнице между библиотеками рабочего пространства ресурсов, metahub scripts и object-attached scripts.
 ---
 
 # Script Scopes
@@ -11,7 +11,7 @@ Metahub scripting использует один manifest contract, но scope п
 
 | Scope | Allowed roles | Direct runtime entrypoint | Typical use |
 | --- | --- | --- | --- |
-| `general` | `library` only | No | Common shared helper-ы, импортируемые через `@shared/<codename>`. |
+| `general` | `library` only | No | Shared helper-ы рабочего пространства ресурсов, импортируемые через `@shared/<codename>`. |
 | `metahub` | `module`, `lifecycle`, `widget` | Yes | Runtime logic и widgets на уровне metahub. |
 | `hub` / `catalog` / `set` / `enumeration` / `attribute` | `module`, `lifecycle`, `widget` | Yes | Object-attached consumer-ы рядом с одной design surface. |
 

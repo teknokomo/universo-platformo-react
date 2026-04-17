@@ -121,19 +121,19 @@ const mockTemplatesList = [
         }
     },
     {
-        id: 'template-entity-catalog-v2',
-        codename: 'catalog-v2',
+        id: 'template-entity-catalog',
+        codename: 'catalog',
         definitionType: 'entity_type_preset',
-        name: createVlc('Catalogs V2', 'Каталоги V2'),
-        description: createVlc('Catalog-compatible custom entity preset', 'Пресет пользовательской сущности в стиле каталога'),
+        name: createVlc('Catalog preset', 'Пресет каталога'),
+        description: createVlc('Standard linked collection preset', 'Стандартный пресет связанной коллекции'),
         icon: 'IconDatabase',
         isSystem: true,
         sortOrder: 2,
         activeVersion: {
-            id: 'template-entity-catalog-v2-v1',
+            id: 'template-entity-catalog-v1',
             versionNumber: 1,
             versionLabel: '0.1.0',
-            changelog: 'Catalogs V2 preset'
+            changelog: 'Catalog preset'
         }
     }
 ]
@@ -226,14 +226,14 @@ export const handlers = [
                           name: template.name,
                           description: template.description,
                           entityType: {
-                              kindKey: 'custom.catalog-v2',
-                              codename: createVlc('CatalogV2', 'CatalogV2'),
+                              kindKey: 'catalog',
+                              codename: createVlc('LinkedCollectionEntity', 'LinkedCollectionEntity'),
                               components: {
                                   dataSchema: { enabled: true },
-                                  predefinedElements: { enabled: true },
-                                  hubAssignment: { enabled: true },
-                                  enumerationValues: false,
-                                  constants: false,
+                                  records: { enabled: true },
+                                  treeAssignment: { enabled: true },
+                                  optionValues: false,
+                                  fixedValues: false,
                                   hierarchy: { enabled: true, supportsFolders: true },
                                   nestedCollections: false,
                                   relations: { enabled: true, allowedRelationTypes: ['manyToOne'] },
@@ -246,10 +246,10 @@ export const handlers = [
                               },
                               ui: {
                                   iconName: 'IconDatabase',
-                                  tabs: ['general', 'hubs', 'layout', 'scripts'],
+                                  tabs: ['general', 'treeEntities', 'layout', 'scripts'],
                                   sidebarSection: 'objects',
-                                  nameKey: 'Catalogs V2',
-                                  descriptionKey: 'Catalog-compatible custom entity preset'
+                                  nameKey: 'Catalogs',
+                                  descriptionKey: 'LinkedCollectionEntity-compatible entity preset'
                               },
                               presentation: {},
                               config: {

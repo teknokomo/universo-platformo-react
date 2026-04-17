@@ -2,8 +2,8 @@ import type { LoadPublishedPublicationRuntimeSource, PublishedApplicationSnapsho
 import { findPublicationById, findPublicationVersionById } from '../../../persistence'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
-import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
-import { enrichDefinitionsWithSetConstants } from '../../shared/setConstantRefs'
+import { MetahubFieldDefinitionsService } from '../../metahubs/services/MetahubFieldDefinitionsService'
+import { enrichDefinitionsWithValueGroupFixedValues } from '../../shared/valueGroupFixedValueRefs'
 import { SnapshotSerializer, type MetahubSnapshot } from './SnapshotSerializer'
 
 export const loadPublishedPublicationRuntimeSource: LoadPublishedPublicationRuntimeSource = async (executor, publicationId) => {
@@ -24,8 +24,8 @@ export const loadPublishedPublicationRuntimeSource: LoadPublishedPublicationRunt
 
     const schemaService = new MetahubSchemaService(executor)
     const objectsService = new MetahubObjectsService(executor, schemaService)
-    const attributesService = new MetahubAttributesService(executor, schemaService)
-    const serializer = new SnapshotSerializer(objectsService, attributesService)
+    const fieldDefinitionsService = new MetahubFieldDefinitionsService(executor, schemaService)
+    const serializer = new SnapshotSerializer(objectsService, fieldDefinitionsService)
     const runtimeSnapshot = SnapshotSerializer.materializeSharedEntitiesForRuntime(snapshot)
     const rawCatalogDefs = serializer.deserializeSnapshot(runtimeSnapshot)
 
@@ -34,7 +34,7 @@ export const loadPublishedPublicationRuntimeSource: LoadPublishedPublicationRunt
         publicationVersionId: activeVersion.id,
         snapshotHash: serializer.calculateHash(runtimeSnapshot as MetahubSnapshot),
         snapshot: runtimeSnapshot as unknown as PublishedApplicationSnapshot,
-        entities: enrichDefinitionsWithSetConstants(rawCatalogDefs, runtimeSnapshot),
+        entities: enrichDefinitionsWithValueGroupFixedValues(rawCatalogDefs, runtimeSnapshot),
         publicationSnapshot: snapshot as unknown as Record<string, unknown>
     }
 }

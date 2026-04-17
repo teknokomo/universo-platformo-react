@@ -50,15 +50,19 @@ import {
 } from '../../shared/codenamePayload'
 import type { CodenameStyle, CodenameAlphabet } from '@universo/types'
 import { OptimisticLockError } from '@universo/utils'
-import { buildManagedDynamicSchemaName, isManagedDynamicSchemaName, quoteIdentifier } from '@universo/migrations-core'
+import {
+    buildManagedDynamicSchemaName as buildDynamicSchemaName,
+    isManagedDynamicSchemaName as isDynamicSchemaName,
+    quoteIdentifier
+} from '@universo/migrations-core'
 import { escapeLikeWildcards, getRequestDbExecutor, getRequestDbSession, type DbExecutor } from '../../../utils'
 import { MetahubSchemaService } from '../services/MetahubSchemaService'
 import { MetahubObjectsService } from '../services/MetahubObjectsService'
-import { MetahubHubsService } from '../services/MetahubHubsService'
-import { MetahubAttributesService } from '../services/MetahubAttributesService'
-import { MetahubElementsService } from '../services/MetahubElementsService'
-import { MetahubEnumerationValuesService } from '../services/MetahubEnumerationValuesService'
-import { MetahubConstantsService } from '../services/MetahubConstantsService'
+import { MetahubTreeEntitiesService } from '../services/MetahubTreeEntitiesService'
+import { MetahubFieldDefinitionsService } from '../services/MetahubFieldDefinitionsService'
+import { MetahubRecordsService } from '../services/MetahubRecordsService'
+import { MetahubOptionValuesService } from '../services/MetahubOptionValuesService'
+import { MetahubFixedValuesService } from '../services/MetahubFixedValuesService'
 import { MetahubScriptsService } from '../../scripts/services/MetahubScriptsService'
 import { EntityTypeService } from '../../entities/services/EntityTypeService'
 import { ActionService } from '../../entities/services/ActionService'
@@ -74,7 +78,6 @@ import { structureVersionToSemver } from '../services/structureVersions'
 import { MetahubBranchesService } from '../../branches/services/MetahubBranchesService'
 import { getDDLServices, uuidToLockKey, acquirePoolAdvisoryLock, releasePoolAdvisoryLock } from '../../ddl'
 import { MetahubNotFoundError, MetahubDomainError } from '../../shared/domainErrors'
-import { resolveLegacyCompatibleKindsInSchema } from '../../shared/legacyCompatibility'
 import { DEFAULT_TEMPLATE_CODENAME } from '../../templates/data'
 import { createLogger } from '../../../utils/logger'
 
@@ -162,50 +165,49 @@ const getGlobalMetahubCodenameConfig = async (exec: SqlQueryable): Promise<Globa
 // Helpers
 // ---------------------------------------------------------------------------
 
-const isManagedMetahubSchemaName = (schemaName: string): boolean => schemaName.startsWith('mhb_') && isManagedDynamicSchemaName(schemaName)
+const isMetahubSchemaName = (schemaName: string): boolean => schemaName.startsWith('mhb_') && isDynamicSchemaName(schemaName)
 
-const assertManagedMetahubSchemaName = (schemaName: string): void => {
-    if (!isManagedMetahubSchemaName(schemaName)) {
+const assertMetahubSchemaName = (schemaName: string): void => {
+    if (!isMetahubSchemaName(schemaName)) {
         throw new Error(`Invalid metahub schema name: ${schemaName}`)
     }
 }
 
-const loadMetahubObjectCounts = async (
-    exec: SqlQueryable,
-    schemaName: string,
-    entityTypeService: Pick<EntityTypeService, 'listCustomTypesInSchema'>
-): Promise<{ hubsCount: number; catalogsCount: number }> => {
-    if (!isManagedMetahubSchemaName(schemaName)) {
-        return { hubsCount: 0, catalogsCount: 0 }
+const loadMetahubEntityCounts = async (exec: SqlQueryable, schemaName: string): Promise<Record<string, number>> => {
+    if (!isMetahubSchemaName(schemaName)) {
+        return {}
     }
 
     const schemaIdent = quoteIdentifier(schemaName)
-    const [hubKinds, catalogKinds] = await Promise.all([
-        resolveLegacyCompatibleKindsInSchema(entityTypeService, schemaName, 'hub'),
-        resolveLegacyCompatibleKindsInSchema(entityTypeService, schemaName, 'catalog')
-    ])
-    const countedKinds = [...new Set([...hubKinds, ...catalogKinds])]
 
     try {
-        const countsResult = await exec.query<{ hubsCount: number; catalogsCount: number }>(
-            `SELECT
-                 COUNT(*) FILTER (WHERE kind = ANY($1::text[]))::int AS "hubsCount",
-                 COUNT(*) FILTER (WHERE kind = ANY($2::text[]))::int AS "catalogsCount"
+        const countsResult = await exec.query<{ kind: string | null; count: number }>(
+            `SELECT kind, COUNT(*)::int AS count
              FROM ${schemaIdent}._mhb_objects
-             WHERE kind = ANY($3::text[])
-               AND _upl_deleted = false
-               AND _mhb_deleted = false`,
-            [hubKinds, catalogKinds, countedKinds]
+             WHERE _upl_deleted = false
+               AND _mhb_deleted = false
+             GROUP BY kind`
         )
 
-        return {
-            hubsCount: countsResult?.[0]?.hubsCount ?? 0,
-            catalogsCount: countsResult?.[0]?.catalogsCount ?? 0
-        }
+        return countsResult.reduce<Record<string, number>>((acc, row) => {
+            if (typeof row.kind === 'string' && row.kind.length > 0) {
+                acc[row.kind] = row.count ?? 0
+            }
+            return acc
+        }, {})
     } catch {
-        return { hubsCount: 0, catalogsCount: 0 }
+        return {}
     }
 }
+
+const getEntityCount = (entityCounts: Record<string, number>, kind: string): number => {
+    return typeof entityCounts[kind] === 'number' ? entityCounts[kind] : 0
+}
+
+const toMetahubCountsSummary = (entityCounts: Record<string, number>): { treeEntitiesCount: number; linkedCollectionsCount: number } => ({
+    treeEntitiesCount: getEntityCount(entityCounts, 'hub'),
+    linkedCollectionsCount: getEntityCount(entityCounts, 'catalog')
+})
 
 const safeErrorMessage = (error: unknown): string => {
     return error instanceof Error ? error.message : String(error)
@@ -270,7 +272,7 @@ const cleanupImportedMetahubInTx = async (tx: DbExecutor, metahubId: string, use
         .filter((schemaName): schemaName is string => Boolean(schemaName))
 
     for (const schemaName of schemasToDrop) {
-        assertManagedMetahubSchemaName(schemaName)
+        assertMetahubSchemaName(schemaName)
     }
 
     for (const schemaName of schemasToDrop) {
@@ -642,22 +644,21 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
         })
 
         const globalRoleName = isSu ? await getGlobalRoleCodename(q, userId) : null
-        const entityTypeService = new EntityTypeService(exec, new MetahubSchemaService(exec))
         const metahubCounts = await Promise.all(
             metahubs.map(async (metahub) => {
                 const defaultBranchId = metahub.defaultBranchId ?? null
                 if (!defaultBranchId) {
-                    return { hubsCount: 0, catalogsCount: 0 }
+                    return {}
                 }
 
                 const branch = await findBranchByIdAndMetahub(exec, defaultBranchId, metahub.id)
                 const schemaName = branch?.schemaName ?? null
 
                 if (!schemaName) {
-                    return { hubsCount: 0, catalogsCount: 0 }
+                    return {}
                 }
 
-                return loadMetahubObjectCounts(exec, schemaName, entityTypeService)
+                return loadMetahubEntityCounts(exec, schemaName)
             })
         )
 
@@ -665,7 +666,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             const role = m.membershipRole ? (m.membershipRole as MetahubRole) : globalRoleName ? 'owner' : 'member'
             const accessType = m.membershipRole ? 'member' : globalRoleName ?? 'member'
             const permissions = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.member
-            const counts = metahubCounts[index] ?? { hubsCount: 0, catalogsCount: 0 }
+            const counts = toMetahubCountsSummary(metahubCounts[index] ?? {})
 
             return {
                 id: m.id,
@@ -679,8 +680,8 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                 version: m._uplVersion || 1,
                 createdAt: m._uplCreatedAt,
                 updatedAt: m._uplUpdatedAt,
-                hubsCount: counts.hubsCount,
-                catalogsCount: counts.catalogsCount,
+                treeEntitiesCount: counts.treeEntitiesCount,
+                linkedCollectionsCount: counts.linkedCollectionsCount,
                 membersCount: m.membersCount,
                 role,
                 accessType,
@@ -705,18 +706,18 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
         const metahub = await findMetahubById(exec, metahubId)
         if (!metahub) return res.status(404).json({ error: 'Metahub not found' })
 
-        const hubsService = new MetahubHubsService(exec, new MetahubSchemaService(exec))
-        let hubsCount = 0
+        const treeEntitiesService = new MetahubTreeEntitiesService(exec, new MetahubSchemaService(exec))
+        let treeEntitiesCount = 0
         try {
-            const { total } = await hubsService.findAll(metahubId, { limit: 1, offset: 0 }, userId)
-            hubsCount = total
+            const { total } = await treeEntitiesService.findAll(metahubId, { limit: 1, offset: 0 }, userId)
+            treeEntitiesCount = total
         } catch {
             // Ignore errors (e.g. schema not found yet)
         }
 
-        let catalogsCount = 0
+        let linkedCollectionsCount = 0
         try {
-            catalogsCount = await objectsService.countByKind(metahubId, 'catalog', userId)
+            linkedCollectionsCount = await objectsService.countByKind(metahubId, 'catalog', userId)
         } catch {
             // Ignore error (e.g. schema not found)
         }
@@ -738,8 +739,8 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             version: metahub._uplVersion || 1,
             createdAt: metahub._uplCreatedAt,
             updatedAt: metahub._uplUpdatedAt,
-            hubsCount,
-            catalogsCount,
+            treeEntitiesCount,
+            linkedCollectionsCount,
             membersCount,
             role,
             accessType: ctx.isSynthetic ? ctx.globalRole : 'member',
@@ -764,18 +765,14 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
         const membership = await findMetahubMembership(exec, metahubId, userId)
         const activeBranchId = membership?.activeBranchId ?? metahub.defaultBranchId ?? null
 
-        let hubsCount = 0
-        let catalogsCount = 0
+        let entityCounts: Record<string, number> = {}
 
         if (activeBranchId) {
             const activeBranch = await findBranchByIdAndMetahub(exec, activeBranchId, metahubId)
             const schemaName = activeBranch?.schemaName ?? null
 
             if (schemaName) {
-                const entityTypeService = new EntityTypeService(exec, new MetahubSchemaService(exec))
-                const counts = await loadMetahubObjectCounts(exec, schemaName, entityTypeService)
-                hubsCount = counts.hubsCount
-                catalogsCount = counts.catalogsCount
+                entityCounts = await loadMetahubEntityCounts(exec, schemaName)
             }
         }
 
@@ -815,8 +812,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             metahubId,
             activeBranchId,
             branchesCount,
-            hubsCount,
-            catalogsCount,
+            entityCounts,
             membersCount,
             publicationsCount,
             publicationVersionsCount: versionsResult?.[0]?.count ?? 0,
@@ -853,10 +849,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             templateId: z.string().uuid().optional(),
             createOptions: z
                 .object({
-                    createHub: z.boolean().optional().default(true),
-                    createCatalog: z.boolean().optional().default(true),
-                    createSet: z.boolean().optional().default(true),
-                    createEnumeration: z.boolean().optional().default(true)
+                    presetToggles: z.record(z.boolean()).optional()
                 })
                 .optional()
         })
@@ -1181,7 +1174,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
         const branchClonePlan = selectedSourceBranches.map((sourceBranch, index) => ({
             sourceBranch,
             branchNumber: index + 1,
-            schemaName: buildManagedDynamicSchemaName({ prefix: 'mhb', ownerId: newMetahubId, branchNumber: index + 1 })
+            schemaName: buildDynamicSchemaName({ prefix: 'mhb', ownerId: newMetahubId, branchNumber: index + 1 })
         }))
 
         const { cloner, generator } = getDDLServices()
@@ -1562,7 +1555,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                     .filter((schemaName): schemaName is string => Boolean(schemaName))
 
                 for (const schemaName of schemasToDrop) {
-                    assertManagedMetahubSchemaName(schemaName)
+                    assertMetahubSchemaName(schemaName)
                 }
 
                 for (const schemaName of schemasToDrop) {
@@ -1896,10 +1889,12 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                 description: branchDescription ?? null,
                 createdBy: userId,
                 createOptions: {
-                    createHub: false,
-                    createCatalog: false,
-                    createSet: false,
-                    createEnumeration: false
+                    presetToggles: {
+                        hub: false,
+                        catalog: false,
+                        set: false,
+                        enumeration: false
+                    }
                 }
             })
 
@@ -1947,22 +1942,22 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             await schemaService.rewriteBaselineMigrationVersion(branch.schemaName, importedVersionEnvelope?.structureVersion)
 
             const objectsService = new MetahubObjectsService(exec, schemaService)
-            const attributesService = new MetahubAttributesService(exec, schemaService)
-            const elementsService = new MetahubElementsService(exec, schemaService, objectsService, attributesService)
-            const hubsService = new MetahubHubsService(exec, schemaService)
-            const enumerationValuesService = new MetahubEnumerationValuesService(exec, schemaService)
-            const constantsService = new MetahubConstantsService(exec, schemaService)
+            const fieldDefinitionsService = new MetahubFieldDefinitionsService(exec, schemaService)
+            const recordsService = new MetahubRecordsService(exec, schemaService, objectsService, fieldDefinitionsService)
+            const treeEntitiesService = new MetahubTreeEntitiesService(exec, schemaService)
+            const optionValuesService = new MetahubOptionValuesService(exec, schemaService)
+            const fixedValuesService = new MetahubFixedValuesService(exec, schemaService)
             const scriptsService = new MetahubScriptsService(exec, schemaService)
             const entityTypeService = new EntityTypeService(exec, schemaService)
             const actionService = new ActionService(exec, schemaService, entityTypeService)
             const eventBindingService = new EventBindingService(exec, schemaService, entityTypeService)
             const serializer = new SnapshotSerializer(
                 objectsService,
-                attributesService,
-                elementsService,
-                hubsService,
-                enumerationValuesService,
-                constantsService,
+                fieldDefinitionsService,
+                recordsService,
+                treeEntitiesService,
+                optionValuesService,
+                fixedValuesService,
                 scriptsService,
                 new SharedContainerService(exec, schemaService),
                 new SharedEntityOverridesService(exec, schemaService),
@@ -2096,11 +2091,11 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
 
         const schemaService = new MetahubSchemaService(exec, activeBranchId)
         const objectsService = new MetahubObjectsService(exec, schemaService)
-        const attributesService = new MetahubAttributesService(exec, schemaService)
-        const elementsService = new MetahubElementsService(exec, schemaService, objectsService, attributesService)
-        const hubsService = new MetahubHubsService(exec, schemaService)
-        const enumerationValuesService = new MetahubEnumerationValuesService(exec, schemaService)
-        const constantsService = new MetahubConstantsService(exec, schemaService)
+        const fieldDefinitionsService = new MetahubFieldDefinitionsService(exec, schemaService)
+        const recordsService = new MetahubRecordsService(exec, schemaService, objectsService, fieldDefinitionsService)
+        const treeEntitiesService = new MetahubTreeEntitiesService(exec, schemaService)
+        const optionValuesService = new MetahubOptionValuesService(exec, schemaService)
+        const fixedValuesService = new MetahubFixedValuesService(exec, schemaService)
         const scriptsService = new MetahubScriptsService(exec, schemaService)
 
         const entityTypeService = new EntityTypeService(exec, schemaService)
@@ -2108,11 +2103,11 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
         const eventBindingService = new EventBindingService(exec, schemaService, entityTypeService)
         const serializer = new SnapshotSerializer(
             objectsService,
-            attributesService,
-            elementsService,
-            hubsService,
-            enumerationValuesService,
-            constantsService,
+            fieldDefinitionsService,
+            recordsService,
+            treeEntitiesService,
+            optionValuesService,
+            fixedValuesService,
             scriptsService,
             new SharedContainerService(exec, schemaService),
             new SharedEntityOverridesService(exec, schemaService),

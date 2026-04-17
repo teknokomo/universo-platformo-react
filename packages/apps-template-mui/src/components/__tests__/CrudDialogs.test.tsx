@@ -36,24 +36,26 @@ describe('CrudDialogs', () => {
     it('keeps page-surface forms mounted while submit is pending', () => {
         render(
             <CrudDialogs
-                state={{
-                    formOpen: false,
-                    isFormReady: true,
-                    isSubmitting: true,
-                    fieldConfigs: [],
-                    formInitialData: undefined,
-                    formError: null,
-                    copyError: null,
-                    copyRowId: null,
-                    editRowId: null,
-                    handleCloseForm: vi.fn(),
-                    handleFormSubmit: vi.fn(),
-                    deleteRowId: null,
-                    deleteError: null,
-                    isDeleting: false,
-                    handleCloseDelete: vi.fn(),
-                    handleConfirmDelete: vi.fn()
-                } as any}
+                state={
+                    {
+                        formOpen: false,
+                        isFormReady: true,
+                        isSubmitting: true,
+                        fieldConfigs: [],
+                        formInitialData: undefined,
+                        formError: null,
+                        copyError: null,
+                        copyRowId: null,
+                        editRowId: null,
+                        handleCloseForm: vi.fn(),
+                        handleFormSubmit: vi.fn(),
+                        deleteRowId: null,
+                        deleteError: null,
+                        isDeleting: false,
+                        handleCloseDelete: vi.fn(),
+                        handleConfirmDelete: vi.fn()
+                    } as any
+                }
                 locale='en'
                 labels={labels}
                 surface='page'
@@ -67,24 +69,26 @@ describe('CrudDialogs', () => {
     it('does not force dialog-surface forms open during submit when the form is already closed', () => {
         render(
             <CrudDialogs
-                state={{
-                    formOpen: false,
-                    isFormReady: true,
-                    isSubmitting: true,
-                    fieldConfigs: [],
-                    formInitialData: undefined,
-                    formError: null,
-                    copyError: null,
-                    copyRowId: null,
-                    editRowId: null,
-                    handleCloseForm: vi.fn(),
-                    handleFormSubmit: vi.fn(),
-                    deleteRowId: null,
-                    deleteError: null,
-                    isDeleting: false,
-                    handleCloseDelete: vi.fn(),
-                    handleConfirmDelete: vi.fn()
-                } as any}
+                state={
+                    {
+                        formOpen: false,
+                        isFormReady: true,
+                        isSubmitting: true,
+                        fieldConfigs: [],
+                        formInitialData: undefined,
+                        formError: null,
+                        copyError: null,
+                        copyRowId: null,
+                        editRowId: null,
+                        handleCloseForm: vi.fn(),
+                        handleFormSubmit: vi.fn(),
+                        deleteRowId: null,
+                        deleteError: null,
+                        isDeleting: false,
+                        handleCloseDelete: vi.fn(),
+                        handleConfirmDelete: vi.fn()
+                    } as any
+                }
                 locale='en'
                 labels={labels}
                 surface='dialog'

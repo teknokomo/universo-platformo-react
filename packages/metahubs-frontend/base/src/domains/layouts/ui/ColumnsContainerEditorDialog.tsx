@@ -86,7 +86,7 @@ function SortableColumnRow({
     widgetOptions: Array<{ key: DashboardLayoutWidgetKey; label: string }>
     t: (key: string, options?: Record<string, unknown>) => string
 }) {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: column.id })
+    const { fieldDefinitions, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: column.id })
     const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
 
     return (
@@ -94,7 +94,7 @@ function SortableColumnRow({
             <Stack spacing={1}>
                 {/* Column header: drag handle, width slider, delete */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <IconButton size='small' sx={{ cursor: 'grab' }} {...attributes} {...listeners}>
+                    <IconButton size='small' sx={{ cursor: 'grab' }} {...fieldDefinitions} {...listeners}>
                         <DragIndicatorRoundedIcon fontSize='small' />
                     </IconButton>
                     <Box sx={{ flexGrow: 1, minWidth: 80 }}>

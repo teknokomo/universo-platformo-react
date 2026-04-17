@@ -1,4 +1,4 @@
-import { BUILTIN_ENTITY_TYPE_REGISTRY, type EntityKind, type ResolvedEntityType } from '@universo/types'
+import type { EntityKind, ResolvedEntityType } from '@universo/types'
 import type { EntityTypeService } from '../entities/services/EntityTypeService'
 
 interface ResolveEntityTypeOptions {
@@ -11,26 +11,8 @@ export class EntityTypeResolver {
 
     constructor(private readonly entityTypeService?: Pick<EntityTypeService, 'resolveType'>) {}
 
-    private resolveBuiltin(kind: EntityKind | string): ResolvedEntityType | null {
-        const definition = BUILTIN_ENTITY_TYPE_REGISTRY.get(kind)
-
-        if (!definition) {
-            return null
-        }
-
-        return {
-            ...definition,
-            source: 'builtin'
-        }
-    }
-
     async resolve(kind: EntityKind | string, options?: ResolveEntityTypeOptions): Promise<ResolvedEntityType | null> {
         const normalizedKind = String(kind).trim()
-        const builtin = this.resolveBuiltin(normalizedKind)
-        if (builtin) {
-            return builtin
-        }
-
         if (!options?.metahubId || !this.entityTypeService) {
             return null
         }

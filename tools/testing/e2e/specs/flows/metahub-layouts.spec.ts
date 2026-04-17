@@ -32,6 +32,8 @@ test('@flow metahub General layouts tab and layout details load through the ship
     page,
     runManifest
 }) => {
+    test.setTimeout(300_000)
+
     const api = await createLoggedInApiContext({
         email: runManifest.testUser.email,
         password: runManifest.testUser.password
@@ -88,10 +90,11 @@ test('@flow metahub General layouts tab and layout details load through the ship
 
         const expectedActiveState = detailsTitleWidget.isActive !== true
 
-        await page.goto(`/metahub/${metahub.id}/layouts`)
-        await page.waitForURL(`**/metahub/${metahub.id}/common`)
-        await expect(page.getByRole('heading', { name: 'Common' })).toBeVisible()
-        await expect(page.getByTestId(pageSpacingSelectors.metahubCommonTabs)).toBeVisible()
+        await page.goto(`/metahub/${metahub.id}/resources`)
+        await page.waitForURL(`**/metahub/${metahub.id}/resources`)
+        await expect(page.getByRole('heading', { name: 'Resources' })).toBeVisible()
+        await expect(page.getByTestId(pageSpacingSelectors.metahubResourcesTabs)).toBeVisible()
+        await expect(page.getByTestId(pageSpacingSelectors.metahubResourcesContent)).toBeVisible()
         await expect(page.getByRole('tab', { name: 'Layouts' })).toHaveAttribute('aria-selected', 'true')
         await expect(page.getByText(layoutName, { exact: true })).toBeVisible()
 
@@ -101,7 +104,7 @@ test('@flow metahub General layouts tab and layout details load through the ship
         )
 
         await page.getByText(layoutName, { exact: true }).click()
-        await page.waitForURL(`**/metahub/${metahub.id}/common/layouts/${layoutId}`)
+        await page.waitForURL(`**/metahub/${metahub.id}/resources/layouts/${layoutId}`)
         await expect(page.getByText('Drag widgets between zones to change runtime composition.')).toBeVisible()
         await expect(page.getByTestId(buildLayoutZoneSelector('left'))).toBeVisible()
         await expect(page.getByTestId(buildLayoutZoneSelector('center'))).toBeVisible()

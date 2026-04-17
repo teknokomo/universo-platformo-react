@@ -19,9 +19,9 @@ import { metahubsQueryKeys } from '../../shared'
 import * as layoutsApi from '../api'
 import type { CreateLayoutParams, UpdateLayoutParams, DeleteLayoutParams, CopyLayoutParams } from './mutationTypes'
 
-const resolveLayoutCatalogId = (catalogId?: string | null): string | null => {
-    if (typeof catalogId !== 'string') return null
-    const trimmed = catalogId.trim()
+const resolveLayoutLinkedCollectionId = (linkedCollectionId?: string | null): string | null => {
+    if (typeof linkedCollectionId !== 'string') return null
+    const trimmed = linkedCollectionId.trim()
     return trimmed.length > 0 ? trimmed : null
 }
 
@@ -37,12 +37,12 @@ export function useCreateLayout() {
             return response.data
         },
         onMutate: async ({ metahubId, data }) => {
-            const catalogId = resolveLayoutCatalogId(data.catalogId)
+            const linkedCollectionId = resolveLayoutLinkedCollectionId(data.linkedCollectionId)
             const optimisticId = generateOptimisticId()
             const lang = getCurrentLanguageKey()
             const displayName = getVLCString(data.name, lang) || data.templateKey
             const breadcrumbKey = ['breadcrumb', 'layout', metahubId, optimisticId, lang] as const
-            const queryKeyPrefix = metahubsQueryKeys.layouts(metahubId, catalogId)
+            const queryKeyPrefix = metahubsQueryKeys.layouts(metahubId, linkedCollectionId)
             const optimisticSortOrder = data.sortOrder ?? getNextOptimisticSortOrderFromQueries(queryClient, queryKeyPrefix)
 
             const context = await applyOptimisticCreate({
@@ -50,7 +50,7 @@ export function useCreateLayout() {
                 queryKeyPrefix,
                 optimisticEntity: {
                     id: optimisticId,
-                    catalogId,
+                    linkedCollectionId,
                     baseLayoutId: data.baseLayoutId ?? null,
                     templateKey: data.templateKey,
                     name: data.name,
@@ -81,11 +81,11 @@ export function useCreateLayout() {
             enqueueSnackbar(error.message || t('layouts.createError', 'Failed to create layout'), { variant: 'error' })
         },
         onSettled: (_data, _error, variables) => {
-            const catalogId = resolveLayoutCatalogId(variables.data.catalogId)
+            const linkedCollectionId = resolveLayoutLinkedCollectionId(variables.data.linkedCollectionId)
             safeInvalidateQueriesInactive(
                 queryClient,
                 ['layouts'],
-                metahubsQueryKeys.layouts(variables.metahubId, catalogId),
+                metahubsQueryKeys.layouts(variables.metahubId, linkedCollectionId),
                 metahubsQueryKeys.detail(variables.metahubId)
             )
         }
@@ -103,14 +103,14 @@ export function useUpdateLayout() {
             const response = await layoutsApi.updateLayout(metahubId, layoutId, data)
             return response.data
         },
-        onMutate: async ({ metahubId, layoutId, catalogId, data }) => {
+        onMutate: async ({ metahubId, layoutId, linkedCollectionId, data }) => {
             const lang = getCurrentLanguageKey()
             const displayName = data.name ? getVLCString(data.name, lang) : undefined
-            const normalizedCatalogId = resolveLayoutCatalogId(catalogId)
+            const normalizedLinkedCollectionId = resolveLayoutLinkedCollectionId(linkedCollectionId)
 
             return applyOptimisticUpdate({
                 queryClient,
-                queryKeyPrefix: metahubsQueryKeys.layouts(metahubId, normalizedCatalogId),
+                queryKeyPrefix: metahubsQueryKeys.layouts(metahubId, normalizedLinkedCollectionId),
                 entityId: layoutId,
                 updater: {
                     ...data,
@@ -124,7 +124,7 @@ export function useUpdateLayout() {
         onSuccess: (data, variables) => {
             confirmOptimisticUpdate(
                 queryClient,
-                metahubsQueryKeys.layouts(variables.metahubId, resolveLayoutCatalogId(variables.catalogId)),
+                metahubsQueryKeys.layouts(variables.metahubId, resolveLayoutLinkedCollectionId(variables.linkedCollectionId)),
                 variables.layoutId,
                 {
                     serverEntity: data ?? null
@@ -140,15 +140,15 @@ export function useUpdateLayout() {
             enqueueSnackbar(error.message || t('layouts.updateError', 'Failed to update layout'), { variant: 'error' })
         },
         onSettled: (_data, _error, variables) => {
-            const catalogId = resolveLayoutCatalogId(variables.catalogId)
+            const linkedCollectionId = resolveLayoutLinkedCollectionId(variables.linkedCollectionId)
             const queryKeysToInvalidate = [
-                metahubsQueryKeys.layouts(variables.metahubId, catalogId),
+                metahubsQueryKeys.layouts(variables.metahubId, linkedCollectionId),
                 metahubsQueryKeys.layoutDetail(variables.metahubId, variables.layoutId),
                 metahubsQueryKeys.detail(variables.metahubId),
                 ['breadcrumb', 'layout', variables.metahubId, variables.layoutId]
             ]
 
-            if (catalogId === null) {
+            if (linkedCollectionId === null) {
                 queryKeysToInvalidate.push(metahubsQueryKeys.layoutsRoot(variables.metahubId))
             }
 
@@ -167,10 +167,10 @@ export function useDeleteLayout() {
         mutationFn: async ({ metahubId, layoutId }: DeleteLayoutParams) => {
             await layoutsApi.deleteLayout(metahubId, layoutId)
         },
-        onMutate: async ({ metahubId, layoutId, catalogId }) => {
+        onMutate: async ({ metahubId, layoutId, linkedCollectionId }) => {
             return applyOptimisticDelete({
                 queryClient,
-                queryKeyPrefix: metahubsQueryKeys.layouts(metahubId, resolveLayoutCatalogId(catalogId)),
+                queryKeyPrefix: metahubsQueryKeys.layouts(metahubId, resolveLayoutLinkedCollectionId(linkedCollectionId)),
                 entityId: layoutId,
                 strategy: 'remove'
             })
@@ -183,11 +183,11 @@ export function useDeleteLayout() {
             enqueueSnackbar(error.message || t('layouts.deleteError', 'Failed to delete layout'), { variant: 'error' })
         },
         onSettled: (_data, _error, variables) => {
-            const catalogId = resolveLayoutCatalogId(variables.catalogId)
+            const linkedCollectionId = resolveLayoutLinkedCollectionId(variables.linkedCollectionId)
             safeInvalidateQueriesInactive(
                 queryClient,
                 ['layouts'],
-                metahubsQueryKeys.layouts(variables.metahubId, catalogId),
+                metahubsQueryKeys.layouts(variables.metahubId, linkedCollectionId),
                 metahubsQueryKeys.layoutDetail(variables.metahubId, variables.layoutId),
                 metahubsQueryKeys.detail(variables.metahubId)
             )
@@ -206,13 +206,13 @@ export function useCopyLayout() {
             const response = await layoutsApi.copyLayout(metahubId, layoutId, data)
             return response.data
         },
-        onMutate: async ({ metahubId, catalogId, data }) => {
-            const normalizedCatalogId = resolveLayoutCatalogId(catalogId)
+        onMutate: async ({ metahubId, linkedCollectionId, data }) => {
+            const normalizedLinkedCollectionId = resolveLayoutLinkedCollectionId(linkedCollectionId)
             const optimisticId = generateOptimisticId()
             const lang = getCurrentLanguageKey()
             const displayName = getVLCString(data.name, lang) || t('layouts.copyInProgress', 'Copying…')
             const breadcrumbKey = ['breadcrumb', 'layout', metahubId, optimisticId, lang] as const
-            const queryKeyPrefix = metahubsQueryKeys.layouts(metahubId, normalizedCatalogId)
+            const queryKeyPrefix = metahubsQueryKeys.layouts(metahubId, normalizedLinkedCollectionId)
             const optimisticSortOrder = getNextOptimisticSortOrderFromQueries(queryClient, queryKeyPrefix)
 
             const context = await applyOptimisticCreate({
@@ -220,7 +220,7 @@ export function useCopyLayout() {
                 queryKeyPrefix,
                 optimisticEntity: {
                     id: optimisticId,
-                    catalogId: normalizedCatalogId,
+                    linkedCollectionId: normalizedLinkedCollectionId,
                     baseLayoutId: null,
                     templateKey: 'dashboard',
                     name: data.name,
@@ -244,7 +244,7 @@ export function useCopyLayout() {
             if (context?.optimisticId && data?.id) {
                 confirmOptimisticCreate(
                     queryClient,
-                    metahubsQueryKeys.layouts(_variables.metahubId, resolveLayoutCatalogId(_variables.catalogId)),
+                    metahubsQueryKeys.layouts(_variables.metahubId, resolveLayoutLinkedCollectionId(_variables.linkedCollectionId)),
                     context.optimisticId,
                     data.id
                 )
@@ -265,11 +265,11 @@ export function useCopyLayout() {
             enqueueSnackbar(error.message || t('layouts.copyError', 'Failed to copy layout'), { variant: 'error' })
         },
         onSettled: async (_data, _error, variables) => {
-            const catalogId = resolveLayoutCatalogId(variables.catalogId)
+            const linkedCollectionId = resolveLayoutLinkedCollectionId(variables.linkedCollectionId)
             safeInvalidateQueriesInactive(
                 queryClient,
                 ['layouts'],
-                metahubsQueryKeys.layouts(variables.metahubId, catalogId),
+                metahubsQueryKeys.layouts(variables.metahubId, linkedCollectionId),
                 metahubsQueryKeys.detail(variables.metahubId)
             )
             console.info('[optimistic-copy:layouts] onSettled', {

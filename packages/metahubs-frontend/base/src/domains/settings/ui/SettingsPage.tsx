@@ -12,15 +12,10 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt'
 import SaveIcon from '@mui/icons-material/Save'
 import { useTranslation } from 'react-i18next'
 import { useSnackbar } from 'notistack'
+import { buildEntitySurfaceSettingKey, METAHUB_SETTINGS_TABS, type SettingsTab as MetahubSettingsTab } from '@universo/types'
 
 // project imports
-import {
-    TemplateMainCard as MainCard,
-    EmptyListState,
-    APIEmptySVG,
-    useDebouncedSearch,
-    useConfirm
-} from '@universo/template-mui'
+import { TemplateMainCard as MainCard, EmptyListState, APIEmptySVG, useDebouncedSearch, useConfirm } from '@universo/template-mui'
 import { ViewHeaderMUI as ViewHeader } from '@universo/template-mui'
 
 import { useSettings, useUpdateSettings, useResetSetting } from '../hooks/useSettings'
@@ -30,8 +25,8 @@ import CodenameStylePreview from './CodenameStylePreview'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const SETTING_TABS = ['general', 'common', 'hubs', 'catalogs', 'sets', 'enumerations'] as const
-type SettingTab = (typeof SETTING_TABS)[number]
+const SETTING_TABS = METAHUB_SETTINGS_TABS
+type SettingTab = MetahubSettingsTab
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -115,8 +110,8 @@ const SettingsPage = () => {
         const effectiveAlphabet = effectiveVal('general.codenameAlphabet', 'en-ru')
         const effectiveAllowMixed = effectiveVal('general.codenameAllowMixedAlphabets', false)
         const effectiveAutoReformat = effectiveVal('general.codenameAutoReformat', true)
-        const effectiveAllowAttributeDelete = effectiveVal('catalogs.allowAttributeDelete', true)
-        const effectiveAllowHubNesting = effectiveVal('hubs.allowNesting', true)
+        const effectiveAllowAttributeDelete = effectiveVal(buildEntitySurfaceSettingKey('linkedCollection', 'allowAttributeDelete'), true)
+        const effectiveAllowTreeEntityNesting = effectiveVal(buildEntitySurfaceSettingKey('treeEntity', 'allowNesting'), true)
         const hasHubNesting = data?.meta?.hasHubNesting === true
 
         let entries = tabRegistry
@@ -140,14 +135,18 @@ const SettingsPage = () => {
 
         // Show allowDeleteLastDisplayAttribute only when attribute deletion is enabled
         if (effectiveAllowAttributeDelete !== true) {
-            entries = entries.filter((entry) => entry.key !== 'catalogs.allowDeleteLastDisplayAttribute')
+            entries = entries.filter(
+                (entry) => entry.key !== buildEntitySurfaceSettingKey('linkedCollection', 'allowDeleteLastDisplayAttribute')
+            )
         }
 
         // Show one-shot reset nesting action while nesting is disabled OR any nesting still exists.
         const shouldShowResetNesting =
-            effectiveAllowHubNesting !== true || hasHubNesting || effectiveVal('hubs.resetNestingOnce', false) === true
+            effectiveAllowTreeEntityNesting !== true ||
+            hasHubNesting ||
+            effectiveVal(buildEntitySurfaceSettingKey('treeEntity', 'resetNestingOnce'), false) === true
         if (!shouldShowResetNesting) {
-            entries = entries.filter((entry) => entry.key !== 'hubs.resetNestingOnce')
+            entries = entries.filter((entry) => entry.key !== buildEntitySurfaceSettingKey('treeEntity', 'resetNestingOnce'))
         }
 
         if (!searchFilter) return entries

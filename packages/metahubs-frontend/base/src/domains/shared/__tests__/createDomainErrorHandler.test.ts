@@ -13,7 +13,7 @@ describe('createDomainErrorHandler', () => {
 
     it('calls matching error code handler and shows warning', () => {
         const handler = createDomainErrorHandler({
-            LIMIT_REACHED: (data, t) => t('attributes.limitReached', `Limit: ${data.limit}`)
+            LIMIT_REACHED: (data, t) => t('fieldDefinitions.limitReached', `Limit: ${data.limit}`)
         })
 
         const error = {

@@ -31,7 +31,7 @@ Eight functional blocks requested:
 |---------|-------|
 | `@universo/types` | New `MetahubCreateOptions` type |
 | `@universo/metahubs-backend` | POST /metahubs Zod schema, `createInitialBranch` pipeline, template split, seed entity filtering |
-| `@universo/metahubs-frontend` | MetahubActions.tsx (Options tab), MetahubList.tsx (pass createOptions), HubList/AttributeList/ConstantList/EnumerationValueList/PublicationVersionList (Settings tab as edit dialog), i18n EN+RU |
+| `@universo/metahubs-frontend` | MetahubActions.tsx (Options tab), MetahubList.tsx (pass createOptions), HubList/AttributeList/ConstantList/OptionValueList/PublicationVersionList (Settings tab as edit dialog), i18n EN+RU |
 | `@universo/template-mui` | AppNavbar.tsx, ViewHeader.tsx, SideMenuMobile.tsx, SideMenu.tsx, CardAlert.tsx, MainLayoutMUI.tsx |
 | `@universo/i18n` | Common logout keys |
 
@@ -60,7 +60,7 @@ Eight functional blocks requested:
 - `packages/metahubs-frontend/base/src/domains/catalogs/ui/CatalogActions.tsx` — reused edit logic
 - `packages/metahubs-frontend/base/src/domains/constants/ui/ConstantList.tsx` — set detail (NO tabs → add tabs) → Settings tab → edit dialog
 - `packages/metahubs-frontend/base/src/domains/sets/ui/SetActions.tsx` — reused edit logic
-- `packages/metahubs-frontend/base/src/domains/enumerations/ui/EnumerationValueList.tsx` — enumeration detail (NO tabs → add tabs) → Settings tab → edit dialog
+- `packages/metahubs-frontend/base/src/domains/enumerations/ui/OptionValueList.tsx` — enumeration detail (NO tabs → add tabs) → Settings tab → edit dialog
 - `packages/metahubs-frontend/base/src/domains/enumerations/ui/EnumerationActions.tsx` — reused edit logic
 - `packages/metahubs-frontend/base/src/domains/publications/ui/PublicationVersionList.tsx` — publication detail → Settings tab → edit dialog
 - `packages/metahubs-frontend/base/src/domains/publications/ui/PublicationActions.tsx` — reused edit logic
@@ -577,7 +577,7 @@ Eight functional blocks requested:
 | Hub | `HubList.tsx` (when `isHubScoped`) | Hubs / Catalogs / Sets / Enumerations | Add 5th "Settings" tab |
 | Catalog | `AttributeList.tsx` | Attributes / Elements | Add 3rd "Settings" tab |
 | Set | `ConstantList.tsx` | _(none)_ | **Create** `<Tabs>` with Constants / Settings |
-| Enumeration | `EnumerationValueList.tsx` | _(none)_ | **Create** `<Tabs>` with Values / Settings |
+| Enumeration | `OptionValueList.tsx` | _(none)_ | **Create** `<Tabs>` with Values / Settings |
 | Publication | `PublicationVersionList.tsx` | Versions / Applications | Add 3rd "Settings" tab |
 
 - [ ] **Step 4.1** — Add "Settings" tab + edit dialog overlay in `HubList.tsx`
@@ -601,7 +601,7 @@ Eight functional blocks requested:
   - Note: `createHubContext` already builds full ActionContext. We can reuse it.
 
   **Changes**:
-  1. Import `EntityFormDialog` (lazy), and `buildInitialValues`, `buildFormTabs`, `validateHubForm`, `canSaveHubForm`, `toPayload` from `./HubActions`.
+  1. Import `EntityFormDialog` (lazy), and `buildInitialValues`, `buildFormTabs`, `validateHubForm`, `canSaveHubForm`, `toPayload` from `./TreeActions`.
   2. Add state: `const [editDialogOpen, setEditDialogOpen] = useState(false)`
   3. The **parent hub entity** is available as `hubMap.get(hubId)` (the hub for the current route).
   4. Add 5th tab "Settings" to the `<Tabs>` component.
@@ -609,7 +609,7 @@ Eight functional blocks requested:
   6. Build the ActionContext using the same pattern as `createHubContext`:
 
   ```tsx
-  import { buildInitialValues, buildFormTabs, validateHubForm, canSaveHubForm, toPayload } from './HubActions'
+  import { buildInitialValues, buildFormTabs, validateHubForm, canSaveHubForm, toPayload } from './TreeActions'
 
   // Inside component:
   const [editDialogOpen, setEditDialogOpen] = useState(false)
@@ -866,9 +866,9 @@ Eight functional blocks requested:
 
   8. Render `<EntityFormDialog>` with `buildFormTabs(settingsDialogCtx, hubs, setId)` tabs.
 
-- [ ] **Step 4.4** — Add NEW tab structure + "Settings" tab + edit dialog overlay in `EnumerationValueList.tsx`
+- [ ] **Step 4.4** — Add NEW tab structure + "Settings" tab + edit dialog overlay in `OptionValueList.tsx`
 
-  **File**: `packages/metahubs-frontend/base/src/domains/enumerations/ui/EnumerationValueList.tsx`
+  **File**: `packages/metahubs-frontend/base/src/domains/enumerations/ui/OptionValueList.tsx`
 
   **This page currently has NO `<Tabs>` component.** Must add one from scratch.
 
@@ -884,7 +884,7 @@ Eight functional blocks requested:
 
   **Changes**:
   1. Import `Tabs`, `Tab`, `Box` from `@mui/material`.
-  2. Import `buildInitialValues`, `buildFormTabs`, `validateEnumerationForm`, `canSaveEnumerationForm`, `toPayload` from `./EnumerationActions`.
+  2. Import `buildInitialValues`, `buildFormTabs`, `validateEnumerationForm`, `canSaveEnumerationForm`, `toPayload` from `./OptionListActions`.
   3. Add parent enumeration detail query, hubs query, `preferredVlcLocale`, update mutation.
   4. Add state: `const [editDialogOpen, setEditDialogOpen] = useState(false)`.
   5. Construct ActionContext (same pattern as Step 4.3 but for enumerations).
@@ -1457,10 +1457,10 @@ This plan revision addresses all issues from QA reports #1, #2, and #3:
 | # | Issue | Fix Applied |
 |---|-------|-------------|
 | C1 | Phase 4 used navigation instead of dialog overlay | ✅ Phase 4 rewritten: Settings tab opens `EntityFormDialog` as overlay via React state |
-| C2 | Wrong target files for 3/5 entity detail pages | ✅ Corrected: AttributeList, ConstantList, EnumerationValueList (not CatalogList, SetList, EnumerationList) |
+| C2 | Wrong target files for 3/5 entity detail pages | ✅ Corrected: AttributeList, ConstantList, OptionValueList (not CatalogList, SetList, EnumerationList) |
 | H1 | ConfirmDialog API used incorrectly (spread props) | ✅ Fixed: `ConfirmDialog` rendered prop-less, `useConfirm()` via context only |
 | H2 | Entity names used "Главный" instead of "Основной" | ✅ Fixed: Gender-correct names per ТЗ ("Основной"/"Основное") |
-| H3 | Missing tab container for ConstantList/EnumerationValueList | ✅ Steps 4.3/4.4 explicitly create new `<Tabs>` from scratch |
+| H3 | Missing tab container for ConstantList/OptionValueList | ✅ Steps 4.3/4.4 explicitly create new `<Tabs>` from scratch |
 | H4 | Key Files section listed wrong files | ✅ Key Files section updated with correct files |
 | M1 | CollapsibleSearch underspecified | ✅ Step 5.2: detailed `CollapsibleMobileSearch` component with click-outside, autoFocus, absolute overlay |
 | M2 | Step 4.6 (SettingsPage ?tab=) unnecessary | ✅ Removed — Phase 4 no longer navigates to SettingsPage |

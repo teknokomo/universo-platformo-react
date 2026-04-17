@@ -2,21 +2,16 @@ import fs from 'fs'
 import path from 'path'
 import { test, expect } from '../../fixtures/test'
 import {
-    createMetahubEntityType,
     createLoggedInApiContext,
     createMetahub,
-    createMetahubAttribute,
+    createFieldDefinition,
     createLayout,
     createPublication,
     createPublicationLinkedApplication,
     createPublicationVersion,
     syncApplicationSchema,
     toggleLayoutZoneWidgetActive,
-    disposeApiContext,
-    getTemplate,
     getLayout,
-    getMetahubEntityType,
-    listTemplates,
     listLayouts,
     listLayoutZoneWidgets,
     sendWithCsrf,
@@ -36,7 +31,6 @@ import {
     SELF_HOSTED_APP_SHARED_ENTITIES,
     SELF_HOSTED_APP_SETTINGS_LAYOUT,
     SELF_HOSTED_APP_SETTINGS_BASELINE,
-    SELF_HOSTED_APP_V2_ENTITY_TYPES,
     assertSelfHostedAppEnvelopeContract,
     buildSelfHostedAppLiveMetahubCodename,
     buildSelfHostedAppLiveMetahubName,
@@ -45,16 +39,29 @@ import {
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 type SelfHostedAppSection = (typeof SELF_HOSTED_APP_SECTIONS)[number]
-type SelfHostedAppV2EntityType = (typeof SELF_HOSTED_APP_V2_ENTITY_TYPES)[number]
 
-const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+async function readResponseJsonSafe(response) {
+    const text = await response.text()
 
-const getResponseData = (payload: unknown): Record<string, unknown> => {
-    if (isRecord(payload?.data)) {
-        return payload.data
+    if (!text) {
+        return null
     }
 
-    return isRecord(payload) ? payload : {}
+    try {
+        return JSON.parse(text)
+    } catch {
+        return { raw: text }
+    }
+}
+
+async function expectApiMutationSuccess(response, label) {
+    const payload = await readResponseJsonSafe(response)
+
+    if (!response.ok) {
+        throw new Error(`${label} failed with ${response.status} ${response.statusText}: ${JSON.stringify(payload)}`)
+    }
+
+    return payload
 }
 
 async function waitForDefaultLayoutId(api: ApiContext, metahubId: string) {
@@ -127,11 +134,7 @@ async function applyEnhancedLayoutConfig(api: ApiContext, metahubId: string) {
     }
 
     for (const widget of menuWidgets.slice(1)) {
-        const removeResponse = await sendWithCsrf(
-            api,
-            'DELETE',
-            `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widget.id}`
-        )
+        const removeResponse = await sendWithCsrf(api, 'DELETE', `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widget.id}`)
         expect(removeResponse.status).toBe(204)
     }
 
@@ -149,7 +152,7 @@ async function applyEnhancedLayoutConfig(api: ApiContext, metahubId: string) {
 
 async function createSettingsCatalogLayoutOverride(api: ApiContext, metahubId: string, catalogId: string, baseLayoutId: string) {
     const created = await createLayout(api, metahubId, {
-        catalogId,
+        linkedCollectionId: catalogId,
         baseLayoutId,
         templateKey: 'dashboard',
         name: SELF_HOSTED_APP_SETTINGS_LAYOUT.name,
@@ -164,7 +167,7 @@ async function createSettingsCatalogLayoutOverride(api: ApiContext, metahubId: s
         isDefault: true
     })
 
-    expect(created?.catalogId ?? created?.data?.catalogId).toBe(catalogId)
+    expect(created?.linkedCollectionId ?? created?.data?.linkedCollectionId).toBe(catalogId)
     expect(created?.baseLayoutId ?? created?.data?.baseLayoutId).toBe(baseLayoutId)
 
     const settingsLayoutId = created?.id ?? created?.data?.id
@@ -206,84 +209,53 @@ async function apiGet(api: ApiContext, urlPath: string) {
     })
 }
 
-async function getPresetEntityType(api: ApiContext, expectedEntityType: SelfHostedAppV2EntityType) {
-    const templatesPayload = await listTemplates(api, {
-        definitionType: 'entity_type_preset'
-    })
-    const templateItems = Array.isArray(templatesPayload?.data) ? templatesPayload.data : []
-    const presetTemplate = templateItems.find((template) => template?.codename === expectedEntityType.templateCodename)
-
-    expect(presetTemplate?.id).toBeTruthy()
-
-    const templateDetail = await getTemplate(api, String(presetTemplate.id))
-    const manifest = isRecord(templateDetail?.activeVersionManifest) ? templateDetail.activeVersionManifest : null
-    const entityType = manifest && isRecord(manifest.entityType) ? manifest.entityType : null
-
-    expect(entityType?.kindKey).toBe(expectedEntityType.kindKey)
-
-    return entityType
-}
-
-async function seedLegacyCompatibleEntityType(
-    api: ApiContext,
-    metahubId: string,
-    expectedEntityType: SelfHostedAppV2EntityType
-) {
-    const entityType = await getPresetEntityType(api, expectedEntityType)
-    const createdPayload = await createMetahubEntityType(api, metahubId, {
-        kindKey: String(entityType?.kindKey ?? ''),
-        codename: entityType?.codename,
-        presentation: isRecord(entityType?.presentation) ? entityType.presentation : {},
-        components: isRecord(entityType?.components) ? entityType.components : {},
-        ui: isRecord(entityType?.ui) ? entityType.ui : {},
-        config: isRecord(entityType?.config) ? entityType.config : {},
-        published: true
-    })
-
-    const createdEntityType = getResponseData(createdPayload)
-    const createdEntityTypeId = typeof createdEntityType.id === 'string' ? createdEntityType.id : undefined
-
-    expect(createdEntityType.kindKey).toBe(expectedEntityType.kindKey)
-    expect(createdEntityTypeId).toBeTruthy()
-
-    const persistedEntityType = await getMetahubEntityType(api, metahubId, createdEntityTypeId)
-    expect(persistedEntityType?.kindKey).toBe(expectedEntityType.kindKey)
-    expect(persistedEntityType?.published).toBe(true)
-
-    return persistedEntityType
-}
-
 /* ────── Self-hosted fixture catalog definitions ────── */
 
-const getSectionCreatePath = (metahubId: string, section: SelfHostedAppSection): string => {
-    if (section.kind === 'hub') return `/api/v1/metahub/${metahubId}/hubs`
-    if (section.kind === 'set') return `/api/v1/metahub/${metahubId}/sets`
-    if (section.kind === 'enumeration') return `/api/v1/metahub/${metahubId}/enumerations`
-    return `/api/v1/metahub/${metahubId}/catalogs`
-}
-
 const buildSectionCreatePayload = (section: SelfHostedAppSection, hubId?: string) => {
-    const payload: Record<string, unknown> = {
+    const payload = {
         codename: buildVLC(section.name.en, section.name.ru),
         name: section.name,
         namePrimaryLocale: 'en',
         description: section.description,
-        descriptionPrimaryLocale: 'en'
+        descriptionPrimaryLocale: 'en',
+        config: undefined as Record<string, unknown> | undefined
     }
 
     if ((section.kind === 'set' || section.kind === 'enumeration') && hubId) {
-        payload.hubIds = [hubId]
-        payload.isSingleHub = true
+        payload.config = {
+            hubs: [hubId],
+            isSingleHub: true
+        }
     }
 
     return payload
 }
 
+async function createSelfHostedSection(api, metahubId, section, hubId) {
+    const payload = buildSectionCreatePayload(section, hubId)
+    const response = await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahubId}/entities/${section.kind}/instances`, payload)
+    const body = await expectApiMutationSuccess(response, `Creating ${section.kind} section ${section.codename}`)
+    return body?.data ?? body?.item ?? body
+}
+
+async function createEnumerationValue(api, metahubId, enumerationId, payload, label) {
+    const response = await sendWithCsrf(
+        api,
+        'POST',
+        `/api/v1/metahub/${metahubId}/entities/enumeration/instance/${enumerationId}/values`,
+        payload
+    )
+    return expectApiMutationSuccess(response, label)
+}
+
 async function seedSettingsBaseline(api: ApiContext, metahubId: string, catalogId: string) {
     for (const row of SELF_HOSTED_APP_SETTINGS_BASELINE) {
-        const response = await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahubId}/catalog/${catalogId}/elements`, {
-            data: row,
-        })
+        const response = await sendWithCsrf(
+            api,
+            'POST',
+            `/api/v1/metahub/${metahubId}/entities/catalog/instance/${catalogId}/records`,
+            { data: row }
+        )
         expect(response.ok).toBe(true)
     }
 }
@@ -305,11 +277,8 @@ async function seedSharedEntities(api: ApiContext, metahubId: string, sectionMap
     expect(typeof sharedSetContainerId).toBe('string')
     expect(typeof sharedEnumerationContainerId).toBe('string')
 
-    const sharedAttribute = await createMetahubAttribute(api, metahubId, sharedCatalogContainerId, {
-        codename: buildVLC(
-            SELF_HOSTED_APP_SHARED_ENTITIES.attribute.codename.en,
-            SELF_HOSTED_APP_SHARED_ENTITIES.attribute.codename.ru
-        ),
+    const sharedAttribute = await createFieldDefinition(api, metahubId, sharedCatalogContainerId, {
+        codename: buildVLC(SELF_HOSTED_APP_SHARED_ENTITIES.attribute.codename.en, SELF_HOSTED_APP_SHARED_ENTITIES.attribute.codename.ru),
         name: SELF_HOSTED_APP_SHARED_ENTITIES.attribute.name,
         namePrimaryLocale: 'en',
         dataType: 'STRING',
@@ -319,22 +288,24 @@ async function seedSharedEntities(api: ApiContext, metahubId: string, sectionMap
     const sharedAttributeId = sharedAttribute?.data?.id ?? sharedAttribute?.id
     expect(typeof sharedAttributeId).toBe('string')
 
-    const sharedConstantResponse = await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahubId}/set/${sharedSetContainerId}/constants`, {
-        codename: buildVLC(
-            SELF_HOSTED_APP_SHARED_ENTITIES.constant.codename.en,
-            SELF_HOSTED_APP_SHARED_ENTITIES.constant.codename.ru
-        ),
-        name: SELF_HOSTED_APP_SHARED_ENTITIES.constant.name,
-        namePrimaryLocale: 'en',
-        dataType: 'STRING',
-        value: 'shared-fixture-value'
-    })
-    expect(sharedConstantResponse.status).toBeLessThan(300)
-
-    const sharedValueResponse = await sendWithCsrf(
+    const sharedConstantResponse = await sendWithCsrf(
         api,
         'POST',
-        `/api/v1/metahub/${metahubId}/enumeration/${sharedEnumerationContainerId}/values`,
+        `/api/v1/metahub/${metahubId}/entities/set/instance/${sharedSetContainerId}/fixed-values`,
+        {
+            codename: buildVLC(SELF_HOSTED_APP_SHARED_ENTITIES.constant.codename.en, SELF_HOSTED_APP_SHARED_ENTITIES.constant.codename.ru),
+            name: SELF_HOSTED_APP_SHARED_ENTITIES.constant.name,
+            namePrimaryLocale: 'en',
+            dataType: 'STRING',
+            value: 'shared-fixture-value'
+        }
+    )
+    expect(sharedConstantResponse.status).toBeLessThan(300)
+
+    await createEnumerationValue(
+        api,
+        metahubId,
+        sharedEnumerationContainerId,
         {
             codename: buildVLC(
                 SELF_HOSTED_APP_SHARED_ENTITIES.enumerationValue.codename.en,
@@ -343,9 +314,9 @@ async function seedSharedEntities(api: ApiContext, metahubId: string, sectionMap
             name: SELF_HOSTED_APP_SHARED_ENTITIES.enumerationValue.name,
             namePrimaryLocale: 'en',
             isDefault: false
-        }
+        },
+        'Creating canonical shared enumeration value'
     )
-    expect(sharedValueResponse.status).toBeLessThan(300)
 
     const overrideResponse = await sendWithCsrf(api, 'PATCH', `/api/v1/metahub/${metahubId}/shared-entity-overrides`, {
         entityKind: 'attribute',
@@ -370,7 +341,7 @@ test.describe('Metahubs Self-Hosted App Export', () => {
         test.setTimeout(480_000)
         api = await createLoggedInApiContext({
             email: runManifest.testUser.email,
-            password: runManifest.testUser.password,
+            password: runManifest.testUser.password
         })
         fs.mkdirSync(FIXTURES_DIR, { recursive: true })
         fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true })
@@ -383,14 +354,14 @@ test.describe('Metahubs Self-Hosted App Export', () => {
             namePrimaryLocale: 'en',
             codename: metahubCodename,
             description: SELF_HOSTED_APP_CANONICAL_METAHUB.description,
-            descriptionPrimaryLocale: 'en',
+            descriptionPrimaryLocale: 'en'
         })
         const metahubId = metahubResp?.data?.id ?? metahubResp?.id
         expect(metahubId).toBeTruthy()
         await recordCreatedMetahub({
             id: metahubId,
             name: liveMetahubName.en,
-            codename: SELF_HOSTED_APP_CANONICAL_METAHUB.codename.en,
+            codename: SELF_HOSTED_APP_CANONICAL_METAHUB.codename.en
         })
 
         /* ── 2. Create the planned self-hosted sections ── */
@@ -399,16 +370,9 @@ test.describe('Metahubs Self-Hosted App Export', () => {
         let enumerationSectionId: string | undefined
 
         for (const sectionDef of SELF_HOSTED_APP_SECTIONS) {
-            const sectionResp = await sendWithCsrf(
-                api,
-                'POST',
-                getSectionCreatePath(metahubId, sectionDef),
-                buildSectionCreatePayload(sectionDef, hubSectionId)
-            )
-            expect(sectionResp.status).toBeLessThan(300)
-            const sectionBody = await sectionResp.json()
-            const sectionId = sectionBody?.data?.id ?? sectionBody?.id
-            expect(sectionId).toBeTruthy()
+            const sectionBody = await createSelfHostedSection(api, metahubId, sectionDef, hubSectionId)
+            const sectionId = sectionBody?.id ?? sectionBody?.data?.id ?? sectionBody?.item?.id
+            expect(sectionId, `Missing id for section ${sectionDef.codename}: ${JSON.stringify(sectionBody)}`).toBeTruthy()
             sectionMap[sectionDef.codename] = sectionId
 
             if (sectionDef.kind === 'hub') {
@@ -422,12 +386,12 @@ test.describe('Metahubs Self-Hosted App Export', () => {
             if (attrs.length > 0) {
                 const catalogId = sectionId
                 for (const attr of attrs) {
-                    await createMetahubAttribute(api, metahubId, catalogId, {
+                    await createFieldDefinition(api, metahubId, catalogId, {
                         codename: createLocalizedContent('en', attr.codename),
                         name: attr.name,
                         namePrimaryLocale: 'en',
                         dataType: attr.dataType,
-                        isRequired: attr.isRequired ?? false,
+                        isRequired: attr.isRequired ?? false
                     })
                 }
             }
@@ -438,24 +402,21 @@ test.describe('Metahubs Self-Hosted App Export', () => {
         }
 
         if (enumerationSectionId) {
-            const valueResp = await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahubId}/enumeration/${enumerationSectionId}/values`, {
-                codename: createLocalizedContent('en', 'active'),
-                name: { en: 'Active' },
-                namePrimaryLocale: 'en',
-                isDefault: true,
-            })
-            expect(valueResp.status).toBeLessThan(300)
+            await createEnumerationValue(
+                api,
+                metahubId,
+                enumerationSectionId,
+                {
+                    codename: createLocalizedContent('en', 'active'),
+                    name: { en: 'Active' },
+                    namePrimaryLocale: 'en',
+                    isDefault: true
+                },
+                'Creating canonical active enumeration value'
+            )
         }
 
         expect(Object.keys(sectionMap).length).toBe(SELF_HOSTED_APP_SECTIONS.length)
-
-        const seededEntityTypes: Array<Record<string, unknown> | null | undefined> = []
-        for (const expectedEntityType of SELF_HOSTED_APP_V2_ENTITY_TYPES) {
-            const persistedEntityType = await seedLegacyCompatibleEntityType(api, metahubId, expectedEntityType)
-            seededEntityTypes.push(persistedEntityType)
-            expect(persistedEntityType?.kindKey).toBe(expectedEntityType.kindKey)
-        }
-        expect(seededEntityTypes).toHaveLength(SELF_HOSTED_APP_V2_ENTITY_TYPES.length)
 
         await seedSharedEntities(api, metahubId, sectionMap)
 
@@ -468,12 +429,12 @@ test.describe('Metahubs Self-Hosted App Export', () => {
 
         /* ── 3. Screenshot: metahub catalogs in UI ── */
         try {
-            await page.goto(`/metahub/${metahubId}/catalogs`)
+            await page.goto(`/metahub/${metahubId}/entities/catalog/instances`)
             await page.waitForLoadState('networkidle', { timeout: 15_000 })
             await page.waitForTimeout(2000)
             await page.screenshot({
                 path: path.join(SCREENSHOTS_DIR, '01-metahub-overview.png'),
-                fullPage: true,
+                fullPage: true
             })
         } catch (e) {
             console.warn(`Screenshot 01 skipped: ${(e as Error).message}`)
@@ -482,7 +443,7 @@ test.describe('Metahubs Self-Hosted App Export', () => {
         /* ── 4. Create publication ── */
         const pubResp = await createPublication(api, metahubId, {
             name: SELF_HOSTED_APP_PUBLICATION.name,
-            namePrimaryLocale: 'en',
+            namePrimaryLocale: 'en'
         })
         const publicationId = pubResp?.data?.id ?? pubResp?.id
         expect(publicationId).toBeTruthy()
@@ -492,7 +453,7 @@ test.describe('Metahubs Self-Hosted App Export', () => {
         try {
             const appResp = await createPublicationLinkedApplication(api, metahubId, publicationId, {
                 name: SELF_HOSTED_APP_PUBLICATION.applicationName,
-                namePrimaryLocale: 'en',
+                namePrimaryLocale: 'en'
             })
             applicationId = appResp?.data?.id ?? appResp?.id
             if (applicationId) {
@@ -517,7 +478,7 @@ test.describe('Metahubs Self-Hosted App Export', () => {
             name: SELF_HOSTED_APP_PUBLICATION.versionName,
             namePrimaryLocale: 'en',
             description: SELF_HOSTED_APP_PUBLICATION.versionDescription,
-            descriptionPrimaryLocale: 'en',
+            descriptionPrimaryLocale: 'en'
         })
         const versionId = versionResp?.data?.id ?? versionResp?.id
         expect(versionId).toBeTruthy()
@@ -538,7 +499,7 @@ test.describe('Metahubs Self-Hosted App Export', () => {
             await page.waitForTimeout(2000)
             await page.screenshot({
                 path: path.join(SCREENSHOTS_DIR, '02-publication-list.png'),
-                fullPage: true,
+                fullPage: true
             })
         } catch (e) {
             console.warn(`Screenshot 02 skipped: ${(e as Error).message}`)
@@ -552,7 +513,7 @@ test.describe('Metahubs Self-Hosted App Export', () => {
                 await page.waitForTimeout(3000)
                 await page.screenshot({
                     path: path.join(SCREENSHOTS_DIR, '03-application-runtime.png'),
-                    fullPage: true,
+                    fullPage: true
                 })
             } catch (e) {
                 console.warn(`Screenshot 03 skipped: ${(e as Error).message}`)
@@ -562,12 +523,15 @@ test.describe('Metahubs Self-Hosted App Export', () => {
         /* ── 10. Export metahub snapshot via API ── */
         const exportResp = await apiGet(api, `/api/v1/metahub/${metahubId}/export`)
         expect(exportResp.ok).toBe(true)
-        const envelope = await exportResp.json() as Record<string, unknown>
+        const envelope = (await exportResp.json()) as Record<string, unknown>
         expect(envelope.kind).toBe('metahub_snapshot_bundle')
         expect(envelope.bundleVersion).toBe(1)
         expect(typeof envelope.snapshotHash).toBe('string')
         expect((envelope.snapshotHash as string).length).toBe(64)
         expect(envelope.snapshot).toBeTruthy()
+
+        const debugEnvelopePath = path.join(SCREENSHOTS_DIR, 'export-envelope.debug.json')
+        fs.writeFileSync(debugEnvelopePath, JSON.stringify(envelope, null, 2), 'utf8')
 
         validateSnapshotEnvelope(envelope)
         assertSelfHostedAppEnvelopeContract(envelope)
@@ -582,12 +546,12 @@ test.describe('Metahubs Self-Hosted App Export', () => {
 
         /* ── 12. Final screenshot: metahub catalogs page ── */
         try {
-            await page.goto(`/metahub/${metahubId}/catalogs`)
+            await page.goto(`/metahub/${metahubId}/entities/catalog/instances`)
             await page.waitForLoadState('networkidle', { timeout: 15_000 })
             await page.waitForTimeout(1500)
             await page.screenshot({
                 path: path.join(SCREENSHOTS_DIR, '04-catalogs-page.png'),
-                fullPage: true,
+                fullPage: true
             })
         } catch (e) {
             console.warn(`Screenshot 04 skipped: ${(e as Error).message}`)

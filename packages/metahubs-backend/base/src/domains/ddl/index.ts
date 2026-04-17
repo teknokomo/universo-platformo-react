@@ -72,8 +72,6 @@ export { SchemaMigratorClass as SchemaMigrator }
 export { MigrationManagerClass as MigrationManager }
 export { SchemaClonerClass as SchemaCloner }
 
-export { buildCatalogDefinitions } from './definitions/catalogs'
-
 // ═══════════════════════════════════════════════════════════════════════════
 // Pool-level DDL wrappers
 // ═══════════════════════════════════════════════════════════════════════════

@@ -5,7 +5,7 @@ import {
     analyzeApplicationMigrationRollback,
     createLoggedInApiContext,
     createMetahub,
-    createMetahubAttribute,
+    createFieldDefinition,
     createPublication,
     createPublicationLinkedApplication,
     createPublicationVersion,
@@ -13,7 +13,7 @@ import {
     getApplication,
     listApplicationMigrations,
     listConnectors,
-    listMetahubCatalogs,
+    listLinkedCollections,
     syncApplicationSchema,
     syncPublication,
     waitForPublicationReady
@@ -66,7 +66,7 @@ async function waitForCatalogId(api: Awaited<ReturnType<typeof createLoggedInApi
 
     await expect
         .poll(async () => {
-            payload = (await listMetahubCatalogs(api, metahubId, { limit: 100, offset: 0 })) as CatalogListResponse
+            payload = (await listLinkedCollections(api, metahubId, { limit: 100, offset: 0 })) as CatalogListResponse
             return typeof payload?.items?.[0]?.id === 'string'
         })
         .toBe(true)
@@ -210,7 +210,7 @@ test('@flow @combined application connector board exposes schema state and links
 
         const catalogId = await waitForCatalogId(api, metahub.id)
 
-        await createMetahubAttribute(api, metahub.id, catalogId, {
+        await createFieldDefinition(api, metahub.id, catalogId, {
             name: { en: firstAttributeName },
             namePrimaryLocale: 'en',
             codename: createLocalizedContent('en', firstAttributeCodename),
@@ -265,7 +265,7 @@ test('@flow @combined application connector board exposes schema state and links
         const connectorId = connector.id
         const connectorName = extractLocalizedText(connector.name)
 
-        await createMetahubAttribute(api, metahub.id, catalogId, {
+        await createFieldDefinition(api, metahub.id, catalogId, {
             name: { en: secondAttributeName },
             namePrimaryLocale: 'en',
             codename: createLocalizedContent('en', secondAttributeCodename),

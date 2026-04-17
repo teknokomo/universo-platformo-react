@@ -1,7 +1,7 @@
 import type { Knex } from 'knex'
 import type { SystemTableCapabilityOptions } from '@universo/migrations-core'
-import { AttributeDataType } from '@universo/types'
-import type { AttributeValidationRules } from '@universo/types'
+import { FieldDefinitionDataType } from '@universo/types'
+import type { FieldDefinitionValidationRules } from '@universo/types'
 import { buildFkConstraintName, resolveFieldColumnName, resolveEntityTableName } from './naming'
 import { uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from './locking'
 import { calculateSchemaDiff, ChangeType } from './diff'
@@ -9,7 +9,7 @@ import type { SchemaDiff, SchemaChange } from './diff'
 import type { EntityDefinition, FieldDefinition, MigrationResult, SchemaSnapshot } from './types'
 import { SchemaGenerator } from './SchemaGenerator'
 import { MigrationManager, generateMigrationName } from './MigrationManager'
-import { isEnumerationCompatibleKind, isSetCompatibleKind } from './legacyCompatibleKinds'
+import { isStandardEnumerationKind, isStandardSetKind } from './builtinEntityKinds'
 
 /**
  * Options for applying changes with migration recording
@@ -67,7 +67,7 @@ export class SchemaMigrator {
             return field.physicalDataType.trim()
         }
 
-        return SchemaGenerator.mapDataType(field.dataType, field.validationRules as Partial<AttributeValidationRules> | undefined)
+        return SchemaGenerator.mapDataType(field.dataType, field.validationRules as Partial<FieldDefinitionValidationRules> | undefined)
     }
 
     public async applyAdditiveChanges(schemaName: string, diff: SchemaDiff, entities: EntityDefinition[]): Promise<MigrationResult> {
@@ -279,7 +279,7 @@ export class SchemaMigrator {
                         return
                     }
                     // BOOLEAN columns default to false to prevent NULL → indeterminate checkbox state
-                    if (field.dataType === AttributeDataType.BOOLEAN) {
+                    if (field.dataType === FieldDefinitionDataType.BOOLEAN) {
                         col.defaultTo(false)
                     }
                 })
@@ -306,8 +306,8 @@ export class SchemaMigrator {
                     // Type change - get field to access validationRules for type config
                     const field = change.fieldId && change.entityId ? this.findField(entities, change.entityId, change.fieldId) : null
                     const newType = SchemaGenerator.mapDataType(
-                        change.newValue as AttributeDataType,
-                        field?.validationRules as Partial<AttributeValidationRules> | undefined
+                        change.newValue as FieldDefinitionDataType,
+                        field?.validationRules as Partial<FieldDefinitionValidationRules> | undefined
                     )
                     await trx.raw(`ALTER TABLE ??.?? ALTER COLUMN ?? TYPE ${newType} USING ??::${newType}`, [
                         schemaName,
@@ -329,10 +329,10 @@ export class SchemaMigrator {
                 const onDelete = change.onDeleteAction ?? 'SET NULL'
 
                 let targetTableName: string
-                if (isEnumerationCompatibleKind(targetEntityKind)) {
+                if (isStandardEnumerationKind(targetEntityKind)) {
                     await this.generator.ensureSystemTables(schemaName, trx, options?.systemTableCapabilities)
                     targetTableName = '_app_values'
-                } else if (isSetCompatibleKind(targetEntityKind)) {
+                } else if (isStandardSetKind(targetEntityKind)) {
                     // Set references are mapped to constant IDs in data rows and are resolved via ui_config metadata.
                     // They are intentionally stored without physical FK constraints.
                     return
@@ -410,7 +410,7 @@ export class SchemaMigrator {
                         col.defaultTo(trx.raw(field.defaultSqlExpression))
                         return
                     }
-                    if (field.dataType === AttributeDataType.BOOLEAN) {
+                    if (field.dataType === FieldDefinitionDataType.BOOLEAN) {
                         col.defaultTo(false)
                     }
                 })
@@ -430,8 +430,8 @@ export class SchemaMigrator {
                 const entity = entities.find((item) => item.id === change.entityId)
                 const field = entity?.fields.find((f) => f.id === change.fieldId) ?? null
                 const newType = SchemaGenerator.mapDataType(
-                    change.newValue as AttributeDataType,
-                    field?.validationRules as Partial<AttributeValidationRules> | undefined
+                    change.newValue as FieldDefinitionDataType,
+                    field?.validationRules as Partial<FieldDefinitionValidationRules> | undefined
                 )
                 await trx.raw(`ALTER TABLE ??.?? ALTER COLUMN ?? TYPE ${newType} USING ??::${newType}`, [
                     schemaName,

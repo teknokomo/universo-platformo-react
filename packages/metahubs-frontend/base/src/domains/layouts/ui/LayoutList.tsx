@@ -51,9 +51,10 @@ import {
 } from '@universo/template-mui'
 import { ConfirmDeleteDialog, EntityFormDialog } from '@universo/template-mui/components/dialogs'
 
-import { STORAGE_KEYS } from '../../../constants/storage'
+import { STORAGE_KEYS } from '../../../view-preferences/storage'
 import { useViewPreference } from '../../../hooks/useViewPreference'
 import { ensureLocalizedContent, extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
+import { buildLinkedCollectionAuthoringPath } from '../../shared/entityMetadataRoutePaths'
 import { metahubsQueryKeys } from '../../shared'
 import { useMetahubDetails } from '../../metahubs/hooks'
 import * as layoutsApi from '../api'
@@ -97,7 +98,7 @@ type LayoutMenuState = {
 
 type LayoutListProps = {
     metahubId?: string
-    catalogId?: string | null
+    linkedCollectionId?: string | null
     detailBasePath?: string
     title?: string | null
     emptyTitle?: string
@@ -110,9 +111,9 @@ type LayoutListContentProps = LayoutListProps & {
     renderPageShell?: boolean
 }
 
-const normalizeCatalogId = (catalogId?: string | null): string | null => {
-    if (typeof catalogId !== 'string') return null
-    const trimmed = catalogId.trim()
+const normalizeLinkedCollectionId = (linkedCollectionId?: string | null): string | null => {
+    if (typeof linkedCollectionId !== 'string') return null
+    const trimmed = linkedCollectionId.trim()
     return trimmed.length > 0 ? trimmed : null
 }
 
@@ -171,7 +172,7 @@ const hasHttpResponseStatus = (error: unknown): boolean => {
 
 export const LayoutListContent = ({
     metahubId: metahubIdProp,
-    catalogId: catalogIdProp,
+    linkedCollectionId: catalogIdProp,
     detailBasePath: detailBasePathProp,
     title,
     emptyTitle,
@@ -181,21 +182,36 @@ export const LayoutListContent = ({
     renderPageShell = false
 }: LayoutListContentProps = {}) => {
     const navigate = useNavigate()
-    const { metahubId: routeMetahubId, catalogId: routeCatalogId } = useParams<{ metahubId: string; catalogId?: string }>()
+    const {
+        metahubId: routeMetahubId,
+        linkedCollectionId: routeLinkedCollectionId,
+        kindKey: routeKindKey,
+        treeEntityId: routeTreeEntityId
+    } = useParams<{ metahubId: string; linkedCollectionId?: string; kindKey?: string; treeEntityId?: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
 
     const metahubId = metahubIdProp ?? routeMetahubId
-    const catalogId = normalizeCatalogId(catalogIdProp ?? routeCatalogId)
+    const linkedCollectionId = normalizeLinkedCollectionId(catalogIdProp ?? routeLinkedCollectionId)
     const metahubDetailsQuery = useMetahubDetails(metahubId ?? '', { enabled: Boolean(metahubId) })
     const cachedMetahub = metahubId ? queryClient.getQueryData<Metahub>(metahubsQueryKeys.detail(metahubId)) : undefined
     const canManageLayouts = (metahubDetailsQuery.data?.permissions ?? cachedMetahub?.permissions)?.manageMetahub === true
-    const useCompactEmbeddedHeader = compactHeader ?? (embedded && Boolean(catalogId))
+    const useCompactEmbeddedHeader = compactHeader ?? (embedded && Boolean(linkedCollectionId))
     const detailBasePath =
         detailBasePathProp ??
-        (metahubId ? (catalogId ? `/metahub/${metahubId}/catalog/${catalogId}/layout` : `/metahub/${metahubId}/layouts`) : '')
+        (metahubId
+            ? linkedCollectionId
+                ? buildLinkedCollectionAuthoringPath({
+                      metahubId,
+                      linkedCollectionId,
+                      treeEntityId: routeTreeEntityId ?? null,
+                      kindKey: routeKindKey ?? null,
+                      tab: 'fieldDefinitions'
+                  }).replace(/\/field-definitions$/, '/layout')
+                : `/metahub/${metahubId}/layouts`
+            : '')
 
     const [view, setView] = useViewPreference(STORAGE_KEYS.LAYOUT_DISPLAY_STYLE)
 
@@ -212,9 +228,9 @@ export const LayoutListContent = ({
     const copyLayoutMutation = useCopyLayout()
 
     const paginationResult = usePaginated<MetahubLayout, 'name' | 'created' | 'updated'>({
-        queryKeyFn: metahubId ? (params) => metahubsQueryKeys.layoutsList(metahubId, { ...params, catalogId }) : () => ['empty'],
+        queryKeyFn: metahubId ? (params) => metahubsQueryKeys.layoutsList(metahubId, { ...params, linkedCollectionId }) : () => ['empty'],
         queryFn: metahubId
-            ? (params) => layoutsApi.listLayouts(metahubId, { ...params, catalogId })
+            ? (params) => layoutsApi.listLayouts(metahubId, { ...params, linkedCollectionId })
             : async () => ({ items: [], pagination: { limit: 20, offset: 0, count: 0, total: 0, hasMore: false } }),
         initialLimit: 20,
         sortBy: 'updated',
@@ -236,13 +252,13 @@ export const LayoutListContent = ({
             if (!metahubId) return
             revealPendingEntityFeedback({
                 queryClient,
-                queryKeyPrefix: metahubsQueryKeys.layouts(metahubId, catalogId),
+                queryKeyPrefix: metahubsQueryKeys.layouts(metahubId, linkedCollectionId),
                 entityId: layoutId,
                 extraQueryKeys: [metahubsQueryKeys.layoutDetail(metahubId, layoutId)]
             })
             enqueueSnackbar(pendingInteractionMessage, { variant: 'info' })
         },
-        [catalogId, enqueueSnackbar, metahubId, pendingInteractionMessage, queryClient]
+        [linkedCollectionId, enqueueSnackbar, metahubId, pendingInteractionMessage, queryClient]
     )
 
     const activeCount = useMemo(() => layouts.filter((l) => l.isActive).length, [layouts])
@@ -420,7 +436,7 @@ export const LayoutListContent = ({
         setDialogError(null)
         const payload: MetahubCreateLayoutPayload = {
             ...toPayload(values),
-            ...(catalogId ? { catalogId } : {})
+            ...(linkedCollectionId ? { linkedCollectionId } : {})
         }
         createLayoutMutation.mutate({ metahubId, data: payload })
         close('create')
@@ -441,7 +457,7 @@ export const LayoutListContent = ({
             {
                 metahubId,
                 layoutId: currentLayout.id,
-                catalogId: currentLayout.catalogId ?? catalogId,
+                linkedCollectionId: currentLayout.linkedCollectionId ?? linkedCollectionId,
                 data: payload
             },
             {
@@ -462,7 +478,7 @@ export const LayoutListContent = ({
             copyLayoutMutation.mutate({
                 metahubId,
                 layoutId: dialogs.copy.item.id,
-                catalogId: dialogs.copy.item.catalogId ?? catalogId,
+                linkedCollectionId: dialogs.copy.item.linkedCollectionId ?? linkedCollectionId,
                 data: payload
             })
             close('copy')
@@ -478,7 +494,7 @@ export const LayoutListContent = ({
             updateLayoutMutation.mutate({
                 metahubId,
                 layoutId: layout.id,
-                catalogId: layout.catalogId ?? catalogId,
+                linkedCollectionId: layout.linkedCollectionId ?? linkedCollectionId,
                 data: { isDefault: true, expectedVersion: layout.version }
             })
         } catch (e: unknown) {
@@ -492,7 +508,7 @@ export const LayoutListContent = ({
             updateLayoutMutation.mutate({
                 metahubId,
                 layoutId: layout.id,
-                catalogId: layout.catalogId ?? catalogId,
+                linkedCollectionId: layout.linkedCollectionId ?? linkedCollectionId,
                 data: { isActive: !layout.isActive, expectedVersion: layout.version }
             })
         } catch (e: unknown) {
@@ -511,7 +527,7 @@ export const LayoutListContent = ({
             deleteLayoutMutation.mutate({
                 metahubId,
                 layoutId: dialogs.delete.item.id,
-                catalogId: dialogs.delete.item.catalogId ?? catalogId
+                linkedCollectionId: dialogs.delete.item.linkedCollectionId ?? linkedCollectionId
             })
             close('delete')
         } catch (e: unknown) {

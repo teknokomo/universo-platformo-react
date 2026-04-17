@@ -124,7 +124,7 @@ const listQuerySchema = z.object({
     offset: z.coerce.number().int().min(0).optional(),
     sortBy: z.enum(['name', 'created', 'updated']).optional(),
     sortOrder: z.enum(['asc', 'desc']).optional(),
-    catalogId: z.string().uuid().optional(),
+    linkedCollectionId: z.string().uuid().optional(),
     search: z.string().optional()
 })
 
@@ -246,7 +246,7 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
             const layoutsQt = qSchemaTable(schemaName, '_mhb_layouts')
             const widgetsQt = qSchemaTable(schemaName, '_mhb_widgets')
             const overridesQt = qSchemaTable(schemaName, '_mhb_catalog_widget_overrides')
-            const isCatalogLayout = typeof sourceLayout.catalogId === 'string' && typeof sourceLayout.baseLayoutId === 'string'
+            const isCatalogLayout = typeof sourceLayout.linkedCollectionId === 'string' && typeof sourceLayout.baseLayoutId === 'string'
 
             const created = await exec.transaction(async (trx: SqlQueryable) => {
                 const now = new Date()
@@ -276,7 +276,7 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
             $15, $14, $14
         ) RETURNING *`,
                     [
-                        isCatalogLayout ? sourceLayout.catalogId : null,
+                        isCatalogLayout ? sourceLayout.linkedCollectionId : null,
                         isCatalogLayout ? sourceLayout.baseLayoutId : null,
                         sourceLayout.templateKey ?? 'dashboard',
                         JSON.stringify(nameVlc),
@@ -462,7 +462,7 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
 
             return res.status(201).json({
                 id: created.id,
-                catalogId: created.catalog_id ?? null,
+                linkedCollectionId: created.catalog_id ?? null,
                 baseLayoutId: created.base_layout_id ?? null,
                 templateKey: created.template_key ?? 'dashboard',
                 name: created.name ?? {},

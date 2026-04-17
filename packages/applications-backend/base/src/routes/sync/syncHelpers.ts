@@ -13,9 +13,9 @@ import { assertCanonicalIdentifier, assertCanonicalSchemaName, quoteIdentifier }
 import type { EntityDefinition, SchemaSnapshot } from '@universo/schema-ddl'
 import {
     ApplicationSchemaStatus,
-    AttributeDataType,
+    FieldDefinitionDataType,
     type ApplicationLifecycleContract,
-    type AttributeValidationRules,
+    type FieldDefinitionValidationRules,
     type VersionedLocalizedContent
 } from '@universo/types'
 import {
@@ -24,10 +24,8 @@ import {
     normalizeDashboardLayoutConfig,
     resolveApplicationLifecycleContractFromConfig,
     resolvePlatformSystemFieldsContractFromConfig,
-    validateNumberOrThrow,
-    type DbExecutor
+    validateNumberOrThrow
 } from '@universo/utils'
-import { extractInstalledReleaseVersion } from '../../services/applicationReleaseBundle'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
 import { withWorkspaceContract } from '../../services/applicationWorkspaces'
 import type { ApplicationSyncQueryBuilder } from '../../ddl'
@@ -41,8 +39,7 @@ import {
     type SnapshotCatalogLayoutWidgetOverrideRow,
     type SnapshotLayoutRow,
     type SnapshotWidgetRow,
-    type EntityField,
-    type SnapshotElementRow,
+    type EntityField
 } from './syncTypes'
 
 const buildDashboardWidgetVisibilityConfig = (items: Array<{ widgetKey: string; zone: string }>): Record<string, boolean> => {
@@ -119,7 +116,6 @@ export const resolveEntityLifecycleContract = (entity: EntityDefinition): Applic
     return resolveApplicationLifecycleContractFromConfig(entity.config)
 }
 
-
 export const toWorkspaceAwareSnapshot = (schemaSnapshot: unknown, workspacesEnabled: boolean): Record<string, unknown> | null =>
     withWorkspaceContract(schemaSnapshot as Record<string, unknown> | null | undefined, workspacesEnabled)
 
@@ -134,11 +130,11 @@ export const toWorkspaceAwareSchemaSnapshot = (
 
 // --- Field helpers ---
 
-export function isVLCField(field: { dataType: AttributeDataType; validationRules?: Record<string, unknown> }): boolean {
-    if (field.dataType !== AttributeDataType.STRING) {
+export function isVLCField(field: { dataType: FieldDefinitionDataType; validationRules?: Record<string, unknown> }): boolean {
+    if (field.dataType !== FieldDefinitionDataType.STRING) {
         return false
     }
-    const rules = field.validationRules as Partial<AttributeValidationRules> | undefined
+    const rules = field.validationRules as Partial<FieldDefinitionValidationRules> | undefined
     return rules?.versioned === true || rules?.localized === true
 }
 
@@ -165,8 +161,8 @@ export function normalizeSnapshotCodenameValue(value: unknown, context: string):
         typeof value === 'string'
             ? createCodenameVLC('en', value)
             : isRecord(value)
-              ? (value as unknown as VersionedLocalizedContent<string>)
-              : null
+            ? (value as unknown as VersionedLocalizedContent<string>)
+            : null
     if (!codename) {
         throw new Error(`[SchemaSync] Invalid ${context} codename in snapshot`)
     }
@@ -283,12 +279,12 @@ export function normalizeRuntimeSnapshotValue(value: unknown, field: EntityDefin
         return null
     }
 
-    if (field.dataType === AttributeDataType.NUMBER && typeof value === 'string') {
+    if (field.dataType === FieldDefinitionDataType.NUMBER && typeof value === 'string') {
         const parsed = Number(value)
         return Number.isFinite(parsed) ? parsed : value
     }
 
-    if (field.dataType === AttributeDataType.DATE && value instanceof Date) {
+    if (field.dataType === FieldDefinitionDataType.DATE && value instanceof Date) {
         return value.toISOString()
     }
 
@@ -399,7 +395,10 @@ const normalizeSnapshotLayoutEntries = (snapshot: PublishedApplicationSnapshot):
 
             return {
                 id: String(normalizedLayout.id ?? ''),
-                catalogId: typeof normalizedLayout.catalogId === 'string' && normalizedLayout.catalogId.length > 0 ? normalizedLayout.catalogId : null,
+                linkedCollectionId:
+                    typeof normalizedLayout.linkedCollectionId === 'string' && normalizedLayout.linkedCollectionId.length > 0
+                        ? normalizedLayout.linkedCollectionId
+                        : null,
                 templateKey:
                     typeof normalizedLayout.templateKey === 'string' && normalizedLayout.templateKey.length > 0
                         ? normalizedLayout.templateKey
@@ -417,7 +416,7 @@ const normalizeSnapshotLayoutEntries = (snapshot: PublishedApplicationSnapshot):
     const desiredDefaultLayoutId = typeof snapshot.defaultLayoutId === 'string' ? snapshot.defaultLayoutId : null
     if (desiredDefaultLayoutId) {
         for (const row of rows) {
-            if (row.catalogId === null) {
+            if (row.linkedCollectionId === null) {
                 row.isDefault = row.id === desiredDefaultLayoutId
             }
         }
@@ -430,7 +429,7 @@ const ensureScopedDefaultLayouts = (rows: PersistedAppLayout[]): PersistedAppLay
     const rowsByScope = new Map<string, PersistedAppLayout[]>()
 
     for (const row of rows) {
-        const scopeKey = row.catalogId ?? '__global__'
+        const scopeKey = row.linkedCollectionId ?? '__global__'
         const bucket = rowsByScope.get(scopeKey) ?? []
         bucket.push(row)
         rowsByScope.set(scopeKey, bucket)
@@ -444,8 +443,8 @@ const ensureScopedDefaultLayouts = (rows: PersistedAppLayout[]): PersistedAppLay
     }
 
     return rows.sort((a, b) => {
-        if ((a.catalogId ?? '') !== (b.catalogId ?? '')) {
-            return (a.catalogId ?? '').localeCompare(b.catalogId ?? '')
+        if ((a.linkedCollectionId ?? '') !== (b.linkedCollectionId ?? '')) {
+            return (a.linkedCollectionId ?? '').localeCompare(b.linkedCollectionId ?? '')
         }
         if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
         return a.id.localeCompare(b.id)
@@ -472,7 +471,8 @@ const normalizeSnapshotCatalogLayouts = (snapshot: PublishedApplicationSnapshot)
         .map((layout) => (layout ?? {}) as SnapshotCatalogLayoutRow)
         .map((layout) => ({
             id: String(layout.id ?? ''),
-            catalogId: typeof layout.catalogId === 'string' && layout.catalogId.length > 0 ? layout.catalogId : null,
+            linkedCollectionId:
+                typeof layout.linkedCollectionId === 'string' && layout.linkedCollectionId.length > 0 ? layout.linkedCollectionId : null,
             baseLayoutId: typeof layout.baseLayoutId === 'string' && layout.baseLayoutId.length > 0 ? layout.baseLayoutId : '',
             templateKey: typeof layout.templateKey === 'string' && layout.templateKey.length > 0 ? layout.templateKey : 'dashboard',
             name: isRecord(layout.name) ? layout.name : {},
@@ -482,17 +482,16 @@ const normalizeSnapshotCatalogLayouts = (snapshot: PublishedApplicationSnapshot)
             isDefault: Boolean(layout.isDefault),
             sortOrder: typeof layout.sortOrder === 'number' ? layout.sortOrder : 0
         }))
-        .filter((layout) => layout.id.length > 0 && layout.catalogId && layout.baseLayoutId.length > 0) as NormalizedCatalogLayout[]
+        .filter(
+            (layout) => layout.id.length > 0 && layout.linkedCollectionId && layout.baseLayoutId.length > 0
+        ) as NormalizedCatalogLayout[]
 }
 
-const normalizeSnapshotCatalogLayoutWidgetOverrides = (
-    snapshot: PublishedApplicationSnapshot
-): NormalizedCatalogWidgetOverride[] => {
+const normalizeSnapshotCatalogLayoutWidgetOverrides = (snapshot: PublishedApplicationSnapshot): NormalizedCatalogWidgetOverride[] => {
     return (Array.isArray(snapshot.catalogLayoutWidgetOverrides) ? snapshot.catalogLayoutWidgetOverrides : [])
         .map((row) => (row ?? {}) as SnapshotCatalogLayoutWidgetOverrideRow)
         .map((row) => ({
-            catalogLayoutId:
-                typeof row.catalogLayoutId === 'string' && row.catalogLayoutId.length > 0 ? row.catalogLayoutId : '',
+            catalogLayoutId: typeof row.catalogLayoutId === 'string' && row.catalogLayoutId.length > 0 ? row.catalogLayoutId : '',
             baseWidgetId: typeof row.baseWidgetId === 'string' && row.baseWidgetId.length > 0 ? row.baseWidgetId : '',
             zone: typeof row.zone === 'string' && row.zone.length > 0 ? row.zone : null,
             sortOrder: typeof row.sortOrder === 'number' ? row.sortOrder : null,
@@ -503,7 +502,9 @@ const normalizeSnapshotCatalogLayoutWidgetOverrides = (
         .filter((row) => row.catalogLayoutId.length > 0 && row.baseWidgetId.length > 0)
 }
 
-const materializeSnapshotLayoutsAndWidgets = (snapshot: PublishedApplicationSnapshot): {
+const materializeSnapshotLayoutsAndWidgets = (
+    snapshot: PublishedApplicationSnapshot
+): {
     layouts: PersistedAppLayout[]
     widgets: PersistedAppLayoutZoneWidget[]
 } => {
@@ -546,7 +547,7 @@ const materializeSnapshotLayoutsAndWidgets = (snapshot: PublishedApplicationSnap
 
     for (const catalogLayout of catalogLayouts) {
         const baseLayout = baseLayoutMap.get(catalogLayout.baseLayoutId)
-        if (!baseLayout || !catalogLayout.catalogId) {
+        if (!baseLayout || !catalogLayout.linkedCollectionId) {
             continue
         }
 
@@ -577,7 +578,7 @@ const materializeSnapshotLayoutsAndWidgets = (snapshot: PublishedApplicationSnap
 
         materializedLayouts.push({
             id: catalogLayout.id,
-            catalogId: catalogLayout.catalogId,
+            linkedCollectionId: catalogLayout.linkedCollectionId,
             templateKey: catalogLayout.templateKey || baseLayout.templateKey,
             name: Object.keys(catalogLayout.name).length > 0 ? catalogLayout.name : baseLayout.name,
             description: catalogLayout.description ?? baseLayout.description,
@@ -663,7 +664,7 @@ export function resolveSetReferenceId(
 export function normalizeChildFieldValue(
     value: unknown,
     field: {
-        dataType: AttributeDataType
+        dataType: FieldDefinitionDataType
         validationRules?: Record<string, unknown>
         targetEntityKind?: string | null
         targetConstantId?: string | null
@@ -675,8 +676,8 @@ export function normalizeChildFieldValue(
 ): unknown {
     if (value === null || value === undefined) return null
     if (isVLCField(field)) return prepareJsonbValue(value)
-    if (field.dataType === AttributeDataType.JSON) return prepareJsonbValue(value)
-    if (field.dataType === AttributeDataType.NUMBER) {
+    if (field.dataType === FieldDefinitionDataType.JSON) return prepareJsonbValue(value)
+    if (field.dataType === FieldDefinitionDataType.NUMBER) {
         return validateNumericValue({
             value,
             field: { codename, validationRules: field.validationRules },
@@ -684,7 +685,7 @@ export function normalizeChildFieldValue(
             elementId
         })
     }
-    if (field.dataType === AttributeDataType.REF) {
+    if (field.dataType === FieldDefinitionDataType.REF) {
         if (field.targetEntityKind === 'set') {
             return resolveSetReferenceId(value, field)
         }
@@ -706,7 +707,7 @@ export function resolveCatalogSeedingOrder(entities: EntityDefinition[]): string
 
     for (const entity of catalogs) {
         for (const field of entity.fields ?? []) {
-            if (field.dataType !== AttributeDataType.REF) continue
+            if (field.dataType !== FieldDefinitionDataType.REF) continue
             if (field.targetEntityKind !== 'catalog') continue
             const targetId = field.targetEntityId
             if (typeof targetId !== 'string' || targetId.length === 0 || targetId === entity.id) continue
@@ -788,7 +789,7 @@ export function validateNumericValue(options: {
         return value as unknown as number
     }
 
-    const rules = field.validationRules as Partial<AttributeValidationRules> | undefined
+    const rules = field.validationRules as Partial<FieldDefinitionValidationRules> | undefined
 
     try {
         return validateNumberOrThrow(
@@ -825,7 +826,9 @@ export function resolveFieldDefaultEnumValueId(field: EntityDefinition['fields']
 export function resolveElementPreviewLabel(entity: EntityDefinition, data: Record<string, unknown>): string | null {
     const fields = entity.fields ?? []
     const displayField =
-        fields.find((field) => field.isDisplayAttribute) ?? fields.find((field) => field.dataType === AttributeDataType.STRING) ?? fields[0]
+        fields.find((field) => field.isDisplayAttribute) ??
+        fields.find((field) => field.dataType === FieldDefinitionDataType.STRING) ??
+        fields[0]
 
     if (!displayField) return null
     const rawValue = data[displayField.codename]
@@ -867,6 +870,8 @@ export function resolveSetConstantPreviewValue(field: EntityField, fallbackRefId
 }
 
 export function buildMergedDashboardLayoutConfig(snapshot: PublishedApplicationSnapshot): Record<string, unknown> {
-    return normalizeDashboardLayoutConfig(snapshot.layoutConfig as Record<string, unknown> | undefined) as unknown as Record<string, unknown>
+    return normalizeDashboardLayoutConfig(snapshot.layoutConfig as Record<string, unknown> | undefined) as unknown as Record<
+        string,
+        unknown
+    >
 }
-

@@ -239,7 +239,7 @@ export interface ApplicationRuntimeColumn {
     childColumns?: ApplicationRuntimeColumn[]
 }
 
-export interface ApplicationRuntimeCatalog {
+export interface ApplicationRuntimeLinkedCollection {
     id: string
     codename: string
     tableName: string
@@ -254,8 +254,8 @@ export interface ApplicationRuntimeMenuItem {
     icon?: string | null
     href?: string | null
     sectionId?: string | null
-    catalogId?: string | null
-    hubId?: string | null
+    linkedCollectionId?: string | null
+    treeEntityId?: string | null
     sortOrder?: number
     isActive?: boolean
 }
@@ -270,12 +270,12 @@ export interface ApplicationRuntimeMenu {
 }
 
 export interface ApplicationRuntimeResponse {
-    section?: ApplicationRuntimeCatalog
-    sections?: ApplicationRuntimeCatalog[]
+    section?: ApplicationRuntimeLinkedCollection
+    sections?: ApplicationRuntimeLinkedCollection[]
     activeSectionId?: string
-    catalog: ApplicationRuntimeCatalog
-    catalogs?: ApplicationRuntimeCatalog[]
-    activeCatalogId?: string
+    linkedCollection: ApplicationRuntimeLinkedCollection
+    linkedCollections?: ApplicationRuntimeLinkedCollection[]
+    activeLinkedCollectionId?: string
     columns: ApplicationRuntimeColumn[]
     rows: Array<Record<string, unknown> & { id: string }>
     pagination: {

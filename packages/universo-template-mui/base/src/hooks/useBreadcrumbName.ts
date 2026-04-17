@@ -216,20 +216,20 @@ export const useApplicationName = createEntityNameHook({
 })
 
 /**
- * Hook to fetch Hub name for breadcrumb display.
- * Requires both metahubId and hubId since Hub API is nested under Metahub.
+ * Hook to fetch TreeEntity name for breadcrumb display.
+ * Requires both metahubId and treeEntityId since TreeEntity API is nested under Metahub.
  */
-export function useHubName(metahubId: string | null, hubId: string | null): string | null {
+export function useTreeEntityName(metahubId: string | null, treeEntityId: string | null): string | null {
     const { client, loading: authLoading } = useAuth()
     const language = getCurrentLanguageKey()
     const query = useQuery({
-        queryKey: ['breadcrumb', 'hub', metahubId, hubId, language],
+        queryKey: ['breadcrumb', 'hub', metahubId, treeEntityId, language],
         queryFn: async () => {
-            if (!metahubId || !hubId) return null
-            const entity = await loadBreadcrumbEntity(client, `/metahub/${metahubId}/hub/${hubId}`)
+            if (!metahubId || !treeEntityId) return null
+            const entity = await loadBreadcrumbEntity(client, `/metahub/${metahubId}/entities/hub/instance/${treeEntityId}`)
             return resolveEntityDisplayName(entity)
         },
-        enabled: Boolean(metahubId && hubId) && !authLoading,
+        enabled: Boolean(metahubId && treeEntityId) && !authLoading,
         staleTime: 5 * 60 * 1000,
         retry: shouldRetryBreadcrumbQuery,
         retryOnMount: true,
@@ -241,20 +241,23 @@ export function useHubName(metahubId: string | null, hubId: string | null): stri
 }
 
 /**
- * Hook to fetch Catalog name for breadcrumb display.
- * Requires metahubId, hubId, and catalogId since Catalog API is nested under Hub.
+ * Hook to fetch LinkedCollection name for breadcrumb display.
+ * Requires metahubId, treeEntityId, and linkedCollectionId since LinkedCollection API is nested under TreeEntity.
  */
-export function useCatalogName(metahubId: string | null, hubId: string | null, catalogId: string | null): string | null {
+export function useLinkedCollectionName(metahubId: string | null, treeEntityId: string | null, linkedCollectionId: string | null): string | null {
     const { client, loading: authLoading } = useAuth()
     const language = getCurrentLanguageKey()
     const query = useQuery({
-        queryKey: ['breadcrumb', 'catalog', metahubId, hubId, catalogId, language],
+        queryKey: ['breadcrumb', 'catalog', metahubId, treeEntityId, linkedCollectionId, language],
         queryFn: async () => {
-            if (!metahubId || !hubId || !catalogId) return null
-            const entity = await loadBreadcrumbEntity(client, `/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}`)
+            if (!metahubId || !treeEntityId || !linkedCollectionId) return null
+            const entity = await loadBreadcrumbEntity(
+                client,
+                `/metahub/${metahubId}/entities/catalog/instance/${treeEntityId}/catalog/${linkedCollectionId}`
+            )
             return resolveEntityDisplayName(entity)
         },
-        enabled: Boolean(metahubId && hubId && catalogId) && !authLoading,
+        enabled: Boolean(metahubId && treeEntityId && linkedCollectionId) && !authLoading,
         staleTime: 5 * 60 * 1000,
         retry: shouldRetryBreadcrumbQuery,
         retryOnMount: true,
@@ -266,20 +269,20 @@ export function useCatalogName(metahubId: string | null, hubId: string | null, c
 }
 
 /**
- * Hook to fetch Catalog name for breadcrumb display in catalog-centric navigation.
+ * Hook to fetch LinkedCollection name for breadcrumb display in catalog-centric navigation.
  * Uses the standalone catalog endpoint (without hub context).
  */
-export function useCatalogNameStandalone(metahubId: string | null, catalogId: string | null): string | null {
+export function useLinkedCollectionNameStandalone(metahubId: string | null, linkedCollectionId: string | null): string | null {
     const { client, loading: authLoading } = useAuth()
     const language = getCurrentLanguageKey()
     const query = useQuery({
-        queryKey: ['breadcrumb', 'catalog-standalone', metahubId, catalogId, language],
+        queryKey: ['breadcrumb', 'catalog-standalone', metahubId, linkedCollectionId, language],
         queryFn: async () => {
-            if (!metahubId || !catalogId) return null
-            const entity = await loadBreadcrumbEntity(client, `/metahub/${metahubId}/catalog/${catalogId}`)
+            if (!metahubId || !linkedCollectionId) return null
+            const entity = await loadBreadcrumbEntity(client, `/metahub/${metahubId}/entities/catalog/instance/${linkedCollectionId}`)
             return resolveEntityDisplayName(entity)
         },
-        enabled: Boolean(metahubId && catalogId) && !authLoading,
+        enabled: Boolean(metahubId && linkedCollectionId) && !authLoading,
         staleTime: 5 * 60 * 1000,
         retry: shouldRetryBreadcrumbQuery,
         retryOnMount: true,
@@ -291,20 +294,20 @@ export function useCatalogNameStandalone(metahubId: string | null, catalogId: st
 }
 
 /**
- * Hook to fetch Set name for breadcrumb display in set-centric navigation.
+ * Hook to fetch ValueGroup name for breadcrumb display in set-centric navigation.
  * Uses the standalone set endpoint (without hub context).
  */
-export function useSetNameStandalone(metahubId: string | null, setId: string | null): string | null {
+export function useValueGroupNameStandalone(metahubId: string | null, valueGroupId: string | null): string | null {
     const { client, loading: authLoading } = useAuth()
     const language = getCurrentLanguageKey()
     const query = useQuery({
-        queryKey: ['breadcrumb', 'set-standalone', metahubId, setId, language],
+        queryKey: ['breadcrumb', 'set-standalone', metahubId, valueGroupId, language],
         queryFn: async () => {
-            if (!metahubId || !setId) return null
-            const entity = await loadBreadcrumbEntity(client, `/metahub/${metahubId}/set/${setId}`)
+            if (!metahubId || !valueGroupId) return null
+            const entity = await loadBreadcrumbEntity(client, `/metahub/${metahubId}/entities/set/instance/${valueGroupId}`)
             return resolveEntityDisplayName(entity)
         },
-        enabled: Boolean(metahubId && setId) && !authLoading,
+        enabled: Boolean(metahubId && valueGroupId) && !authLoading,
         staleTime: 5 * 60 * 1000,
         retry: shouldRetryBreadcrumbQuery,
         retryOnMount: true,
@@ -317,52 +320,19 @@ export function useSetNameStandalone(metahubId: string | null, setId: string | n
 
 /**
  * Hook to fetch Enumeration name for breadcrumb display.
- * Requires metahubId and enumerationId since Enumeration API is nested under Metahub.
+ * Requires metahubId and optionListId since Enumeration API is nested under Metahub.
  */
-export function useEnumerationName(metahubId: string | null, enumerationId: string | null): string | null {
+export function useOptionListName(metahubId: string | null, optionListId: string | null): string | null {
     const { client, loading: authLoading } = useAuth()
     const language = getCurrentLanguageKey()
     const query = useQuery({
-        queryKey: ['breadcrumb', 'enumeration', metahubId, enumerationId, language],
+        queryKey: ['breadcrumb', 'enumeration', metahubId, optionListId, language],
         queryFn: async () => {
-            if (!metahubId || !enumerationId) return null
-            const entity = await loadBreadcrumbEntity(client, `/metahub/${metahubId}/enumeration/${enumerationId}`)
+            if (!metahubId || !optionListId) return null
+            const entity = await loadBreadcrumbEntity(client, `/metahub/${metahubId}/entities/enumeration/instance/${optionListId}`)
             return resolveEntityDisplayName(entity)
         },
-        enabled: Boolean(metahubId && enumerationId) && !authLoading,
-        staleTime: 5 * 60 * 1000,
-        retry: shouldRetryBreadcrumbQuery,
-        retryOnMount: true,
-        refetchOnMount: 'always',
-        refetchOnWindowFocus: false
-    })
-
-    return query.isLoading ? null : query.data ?? null
-}
-
-/**
- * Hook to fetch Attribute name for breadcrumb display.
- * Requires metahubId, hubId, catalogId, and attributeId since Attribute API is deeply nested under Catalog.
- */
-export function useAttributeName(
-    metahubId: string | null,
-    hubId: string | null,
-    catalogId: string | null,
-    attributeId: string | null
-): string | null {
-    const { client, loading: authLoading } = useAuth()
-    const language = getCurrentLanguageKey()
-    const query = useQuery({
-        queryKey: ['breadcrumb', 'attribute', metahubId, hubId, catalogId, attributeId, language],
-        queryFn: async () => {
-            if (!metahubId || !hubId || !catalogId || !attributeId) return null
-            const entity = await loadBreadcrumbEntity(
-                client,
-                `/metahub/${metahubId}/hub/${hubId}/catalog/${catalogId}/attribute/${attributeId}`
-            )
-            return resolveEntityDisplayName(entity)
-        },
-        enabled: Boolean(metahubId && hubId && catalogId && attributeId) && !authLoading,
+        enabled: Boolean(metahubId && optionListId) && !authLoading,
         staleTime: 5 * 60 * 1000,
         retry: shouldRetryBreadcrumbQuery,
         retryOnMount: true,
@@ -482,20 +452,14 @@ export const truncateApplicationName = createTruncateFunction(30)
 /** Truncate publication name with ellipsis (default: 30 chars) */
 export const truncatePublicationName = truncateApplicationName
 
-/** Truncate hub name with ellipsis (default: 30 chars) */
-export const truncateHubName = createTruncateFunction(30)
+/** Truncate linked-collection name with ellipsis (default: 30 chars) */
+export const truncateLinkedCollectionName = createTruncateFunction(30)
 
-/** Truncate catalog name with ellipsis (default: 30 chars) */
-export const truncateCatalogName = createTruncateFunction(30)
+/** Truncate value-group name with ellipsis (default: 30 chars) */
+export const truncateValueGroupName = createTruncateFunction(30)
 
-/** Truncate set name with ellipsis (default: 30 chars) */
-export const truncateSetName = createTruncateFunction(30)
-
-/** Truncate enumeration name with ellipsis (default: 30 chars) */
-export const truncateEnumerationName = createTruncateFunction(30)
-
-/** Truncate attribute name with ellipsis (default: 30 chars) */
-export const truncateAttributeName = createTruncateFunction(30)
+/** Truncate option-list name with ellipsis (default: 30 chars) */
+export const truncateOptionListName = createTruncateFunction(30)
 
 /** Truncate connector name with ellipsis (default: 30 chars) */
 export const truncateConnectorName = createTruncateFunction(30)

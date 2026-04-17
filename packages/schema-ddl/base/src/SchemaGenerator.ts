@@ -1,13 +1,13 @@
 import type { Knex } from 'knex'
 import type { SystemTableCapabilityOptions } from '@universo/migrations-core'
 import {
-    AttributeDataType,
+    FieldDefinitionDataType,
     getPhysicalDataType,
     formatPhysicalType,
     type ApplicationLifecycleContract,
     type VersionedLocalizedContent
 } from '@universo/types'
-import type { AttributeValidationRules } from '@universo/types'
+import type { FieldDefinitionValidationRules } from '@universo/types'
 import { resolveApplicationLifecycleContractFromConfig, resolvePlatformSystemFieldsContractFromConfig } from '@universo/utils'
 import { buildSetLocalStatementTimeoutSql } from '@universo/utils/database'
 import { buildSchemaSnapshot } from './snapshot'
@@ -16,7 +16,7 @@ import { generateMigrationName } from './MigrationManager'
 import type { MigrationManager } from './MigrationManager'
 import type { EntityDefinition, FieldDefinition, SchemaGenerationResult, SchemaSnapshot } from './types'
 import type { SchemaDiff } from './diff'
-import { isEnumerationCompatibleKind, isNonPhysicalLegacyCompatibleEntity, isSetCompatibleKind } from './legacyCompatibleKinds'
+import { isStandardEnumerationKind, isStandardSetKind, isNonPhysicalStandardEntity } from './builtinEntityKinds'
 
 const DEFAULT_DDL_STATEMENT_TIMEOUT_MS = 120_000
 const ENTITY_KIND_DB_LENGTH = 64
@@ -119,8 +119,8 @@ export class SchemaGenerator {
      * @param config - Type-specific configuration from validationRules
      * @returns PostgreSQL type string
      */
-    public static mapDataType(dataType: AttributeDataType, config?: Partial<AttributeValidationRules>): string {
-        if (dataType === AttributeDataType.TABLE) {
+    public static mapDataType(dataType: FieldDefinitionDataType, config?: Partial<FieldDefinitionValidationRules>): string {
+        if (dataType === FieldDefinitionDataType.TABLE) {
             throw new Error('TABLE is a virtual type with no physical column. Use createTabularTable() instead.')
         }
         const info = getPhysicalDataType(dataType, config)
@@ -132,7 +132,7 @@ export class SchemaGenerator {
             return field.physicalDataType.trim()
         }
 
-        return SchemaGenerator.mapDataType(field.dataType, field.validationRules as Partial<AttributeValidationRules> | undefined)
+        return SchemaGenerator.mapDataType(field.dataType, field.validationRules as Partial<FieldDefinitionValidationRules> | undefined)
     }
 
     private static applyFieldColumn(table: Knex.CreateTableBuilder, knex: Knex | Knex.Transaction, field: FieldDefinition): void {
@@ -151,7 +151,7 @@ export class SchemaGenerator {
             return
         }
 
-        if (!field.isRequired && field.dataType === AttributeDataType.BOOLEAN) {
+        if (!field.isRequired && field.dataType === FieldDefinitionDataType.BOOLEAN) {
             column.defaultTo(false)
         }
     }
@@ -287,14 +287,14 @@ export class SchemaGenerator {
                 await this.createSchema(schemaName, trx)
 
                 for (const entity of entities) {
-                    if (isNonPhysicalLegacyCompatibleEntity(entity)) {
+                    if (isNonPhysicalStandardEntity(entity)) {
                         continue
                     }
                     await this.createEntityTable(schemaName, entity, trx)
                     result.tablesCreated.push(entity.codename)
 
                     // Create tabular tables for TABLE attributes
-                    const tableFields = entity.fields.filter((f) => f.dataType === AttributeDataType.TABLE && !f.parentAttributeId)
+                    const tableFields = entity.fields.filter((f) => f.dataType === FieldDefinitionDataType.TABLE && !f.parentAttributeId)
                     for (const tableField of tableFields) {
                         const childFields = entity.fields.filter((f) => f.parentAttributeId === tableField.id)
                         const parentTableName = resolveEntityTableName(entity)
@@ -308,18 +308,18 @@ export class SchemaGenerator {
 
                 for (const entity of entities) {
                     const rootRefFields = entity.fields.filter(
-                        (field) => field.dataType === AttributeDataType.REF && field.targetEntityId && !field.parentAttributeId
+                        (field) => field.dataType === FieldDefinitionDataType.REF && field.targetEntityId && !field.parentAttributeId
                     )
                     for (const field of rootRefFields) {
                         await this.addForeignKey(schemaName, entity, field, entities, trx)
                     }
 
                     const childRefFields = entity.fields.filter(
-                        (field) => field.dataType === AttributeDataType.REF && field.targetEntityId && Boolean(field.parentAttributeId)
+                        (field) => field.dataType === FieldDefinitionDataType.REF && field.targetEntityId && Boolean(field.parentAttributeId)
                     )
                     for (const childRefField of childRefFields) {
                         const tableParentField = entity.fields.find(
-                            (field) => field.id === childRefField.parentAttributeId && field.dataType === AttributeDataType.TABLE
+                            (field) => field.id === childRefField.parentAttributeId && field.dataType === FieldDefinitionDataType.TABLE
                         )
                         if (!tableParentField) {
                             console.warn(
@@ -392,7 +392,7 @@ export class SchemaGenerator {
     }
 
     public async createEntityTable(schemaName: string, entity: EntityDefinition, trx?: Knex.Transaction): Promise<void> {
-        if (isNonPhysicalLegacyCompatibleEntity(entity)) {
+        if (isNonPhysicalStandardEntity(entity)) {
             console.log(`[SchemaGenerator] Skipping physical table for ${entity.kind} entity: ${entity.codename}`)
             return
         }
@@ -409,7 +409,7 @@ export class SchemaGenerator {
             // User-defined fields (skip TABLE and child fields)
             for (const field of entity.fields) {
                 // TABLE fields create separate child tables, not columns
-                if (field.dataType === AttributeDataType.TABLE) continue
+                if (field.dataType === FieldDefinitionDataType.TABLE) continue
                 // Child fields belong to tabular tables, not the parent entity table
                 if (field.parentAttributeId) continue
 
@@ -558,7 +558,7 @@ export class SchemaGenerator {
         const constraintName = buildFkConstraintName(sourceTableName, columnName)
         const knex = trx ?? this.knex
 
-        if (isEnumerationCompatibleKind(field.targetEntityKind)) {
+        if (isStandardEnumerationKind(field.targetEntityKind)) {
             await this.ensureSystemTables(schemaName, trx)
             console.log(`[SchemaGenerator] Adding FK: ${sourceTableName}.${columnName} -> _app_values.id`)
             await knex.raw(
@@ -574,7 +574,7 @@ export class SchemaGenerator {
             return
         }
 
-        if (isSetCompatibleKind(field.targetEntityKind)) {
+        if (isStandardSetKind(field.targetEntityKind)) {
             console.log(
                 `[SchemaGenerator] Skipping FK for set constant reference: ${sourceTableName}.${columnName} (set refs store constant IDs)`
             )
@@ -1227,12 +1227,12 @@ export class SchemaGenerator {
                 // For TABLE fields, column_name stores the tabular table name
                 // For child fields, column_name is the physical column in the tabular table
                 const columnName =
-                    field.dataType === AttributeDataType.TABLE && !field.parentAttributeId
+                    field.dataType === FieldDefinitionDataType.TABLE && !field.parentAttributeId
                         ? generateChildTableName(field.id)
                         : resolveFieldColumnName(field)
                 const baseUiConfig = ((field.uiConfig as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>
                 const setTargetConstantId =
-                    isSetCompatibleKind(field.targetEntityKind) && typeof field.targetConstantId === 'string' ? field.targetConstantId : null
+                    isStandardSetKind(field.targetEntityKind) && typeof field.targetConstantId === 'string' ? field.targetConstantId : null
                 const normalizedUiConfig = setTargetConstantId
                     ? {
                           ...baseUiConfig,

@@ -1,8 +1,8 @@
 import { basicTemplate } from '../../domains/templates/data/basic.template'
-import { catalogV2EntityPreset } from '../../domains/templates/data/catalog-v2.entity-preset'
-import { enumerationV2EntityPreset } from '../../domains/templates/data/enumeration-v2.entity-preset'
-import { hubV2EntityPreset } from '../../domains/templates/data/hub-v2.entity-preset'
-import { setV2EntityPreset } from '../../domains/templates/data/set-v2.entity-preset'
+import { catalogEntityPreset } from '../../domains/templates/data/linked-collection.entity-preset'
+import { enumerationEntityPreset } from '../../domains/templates/data/option-list.entity-preset'
+import { hubEntityPreset } from '../../domains/templates/data/tree-entity.entity-preset'
+import { setEntityPreset } from '../../domains/templates/data/value-group.entity-preset'
 import { validateEntityTypePresetManifest, validateTemplateManifest } from '../../domains/templates/services/TemplateManifestValidator'
 
 const cloneTemplate = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
@@ -13,19 +13,19 @@ describe('TemplateManifestValidator', () => {
     })
 
     it('accepts the built-in catalog entity preset', () => {
-        expect(() => validateEntityTypePresetManifest(cloneTemplate(catalogV2EntityPreset))).not.toThrow()
+        expect(() => validateEntityTypePresetManifest(cloneTemplate(catalogEntityPreset))).not.toThrow()
     })
 
     it('accepts the built-in hub, set, and enumeration entity presets', () => {
-        expect(() => validateEntityTypePresetManifest(cloneTemplate(hubV2EntityPreset))).not.toThrow()
-        expect(() => validateEntityTypePresetManifest(cloneTemplate(setV2EntityPreset))).not.toThrow()
-        expect(() => validateEntityTypePresetManifest(cloneTemplate(enumerationV2EntityPreset))).not.toThrow()
+        expect(() => validateEntityTypePresetManifest(cloneTemplate(hubEntityPreset))).not.toThrow()
+        expect(() => validateEntityTypePresetManifest(cloneTemplate(setEntityPreset))).not.toThrow()
+        expect(() => validateEntityTypePresetManifest(cloneTemplate(enumerationEntityPreset))).not.toThrow()
     })
 
-    it('keeps the V2 preset automation uplift enabled for hub, set, and enumeration entity presets', () => {
-        const hubManifest = cloneTemplate(hubV2EntityPreset)
-        const setManifest = cloneTemplate(setV2EntityPreset)
-        const enumerationManifest = cloneTemplate(enumerationV2EntityPreset)
+    it('keeps the standard preset automation uplift enabled for hub, set, and enumeration entity presets', () => {
+        const hubManifest = cloneTemplate(hubEntityPreset)
+        const setManifest = cloneTemplate(setEntityPreset)
+        const enumerationManifest = cloneTemplate(enumerationEntityPreset)
 
         expect(hubManifest.entityType.components.scripting).toEqual({ enabled: true })
         expect(hubManifest.entityType.components.actions).toEqual({ enabled: true })
@@ -87,7 +87,7 @@ describe('TemplateManifestValidator', () => {
     })
 
     it('rejects entity presets with invalid component dependency combinations', () => {
-        const manifest = cloneTemplate(catalogV2EntityPreset)
+        const manifest = cloneTemplate(catalogEntityPreset)
         manifest.entityType.components.events = { enabled: true }
         manifest.entityType.components.actions = false
 

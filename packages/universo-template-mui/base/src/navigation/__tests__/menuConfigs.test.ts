@@ -29,7 +29,14 @@ describe('menuConfigs', () => {
         const menuItems = getMetahubMenuItems('mhb-1', {
             canManageMetahub: true,
             canManageMembers: true,
-            publishedEntityTypes: [
+            menuEntityTypes: [
+                {
+                    kindKey: 'catalog',
+                    title: 'Catalogs',
+                    iconName: 'IconDatabase',
+                    sidebarSection: 'objects',
+                    sidebarOrder: 20
+                },
                 {
                     kindKey: 'custom-order',
                     title: 'Custom Order',
@@ -50,11 +57,11 @@ describe('menuConfigs', () => {
             ])
         )
 
-        const enumerationsIndex = menuItems.findIndex((item) => item.id === 'metahub-enumerations')
+        const catalogsIndex = menuItems.findIndex((item) => item.id === 'metahub-entity-catalog')
         const customIndex = menuItems.findIndex((item) => item.id === 'metahub-entity-custom-order')
         const publicationsIndex = menuItems.findIndex((item) => item.id === 'metahub-publications')
 
-        expect(customIndex).toBeGreaterThan(enumerationsIndex)
+        expect(customIndex).toBeGreaterThan(catalogsIndex)
         expect(customIndex).toBeLessThan(publicationsIndex)
     })
 
@@ -62,7 +69,7 @@ describe('menuConfigs', () => {
         const menuItems = getMetahubMenuItems('mhb-1', {
             canManageMetahub: true,
             canManageMembers: true,
-            publishedEntityTypes: [
+            menuEntityTypes: [
                 {
                     kindKey: 'custom-zeta',
                     title: 'Zeta',
@@ -98,7 +105,14 @@ describe('menuConfigs', () => {
         const menuItems = getMetahubMenuItems('mhb-1', {
             canManageMetahub: false,
             canManageMembers: false,
-            publishedEntityTypes: [
+            menuEntityTypes: [
+                {
+                    kindKey: 'catalog',
+                    title: 'Catalogs',
+                    iconName: 'IconDatabase',
+                    sidebarSection: 'objects',
+                    sidebarOrder: 20
+                },
                 {
                     kindKey: 'custom-order',
                     title: 'Custom Order',
@@ -112,7 +126,8 @@ describe('menuConfigs', () => {
         expect(menuItems.find((item) => item.id === 'metahub-branches')).toBeUndefined()
         expect(menuItems.find((item) => item.id === 'metahub-common')).toBeUndefined()
         expect(menuItems.find((item) => item.id === 'metahub-entities')).toBeUndefined()
-        expect(menuItems.find((item) => item.id === 'metahub-entity-custom-order')).toBeUndefined()
+        expect(menuItems.find((item) => item.id === 'metahub-entity-catalog')).toBeDefined()
+        expect(menuItems.find((item) => item.id === 'metahub-entity-custom-order')).toBeDefined()
         expect(menuItems.find((item) => item.id === 'metahub-publications')).toBeUndefined()
         expect(menuItems.find((item) => item.id === 'metahub-access')).toBeUndefined()
         expect(menuItems.some((item, index) => item.type === 'divider' && index > 0 && menuItems[index - 1]?.type === 'divider')).toBe(

@@ -83,14 +83,14 @@ export const applicationsQueryKeys = {
 
     runtimeTable: (
         applicationId: string,
-        params?: { limit?: number; offset?: number; locale?: string; catalogId?: string; sectionId?: string }
+        params?: { limit?: number; offset?: number; locale?: string; linkedCollectionId?: string; sectionId?: string }
     ) => {
-        const resolvedSectionId = params?.sectionId ?? params?.catalogId
+        const resolvedSectionId = params?.sectionId ?? params?.linkedCollectionId
         const normalized = {
             limit: params?.limit ?? 50,
             offset: params?.offset ?? 0,
             locale: params?.locale ?? 'en',
-            catalogId: resolvedSectionId ?? 'default'
+            linkedCollectionId: resolvedSectionId ?? 'default'
         }
         return [...applicationsQueryKeys.detail(applicationId), 'runtime', normalized] as const
     },

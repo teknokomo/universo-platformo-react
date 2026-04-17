@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
-import { isManagedDynamicSchemaName, quoteIdentifier } from '@universo/migrations-core'
+import { isManagedDynamicSchemaName as isDynamicSchemaName, quoteIdentifier } from '@universo/migrations-core'
 import { localizedContent, OptimisticLockError, buildSnapshotEnvelope, getCodenamePrimary, validateSnapshotEnvelope } from '@universo/utils'
 import { applyRlsContext } from '@universo/auth-backend'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
@@ -39,18 +39,18 @@ import { TARGET_APP_STRUCTURE_VERSION } from '../../applications/constants'
 import { persistApplicationSchemaSyncState } from '../../applications/services/ApplicationSchemaStateStore'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
-import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
-import { MetahubElementsService } from '../../metahubs/services/MetahubElementsService'
-import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
-import { MetahubEnumerationValuesService } from '../../metahubs/services/MetahubEnumerationValuesService'
-import { MetahubConstantsService } from '../../metahubs/services/MetahubConstantsService'
+import { MetahubFieldDefinitionsService } from '../../metahubs/services/MetahubFieldDefinitionsService'
+import { MetahubRecordsService } from '../../metahubs/services/MetahubRecordsService'
+import { MetahubTreeEntitiesService } from '../../metahubs/services/MetahubTreeEntitiesService'
+import { MetahubOptionValuesService } from '../../metahubs/services/MetahubOptionValuesService'
+import { MetahubFixedValuesService } from '../../metahubs/services/MetahubFixedValuesService'
 import { MetahubScriptsService } from '../../scripts/services/MetahubScriptsService'
 import { EntityTypeService } from '../../entities/services/EntityTypeService'
 import { ActionService } from '../../entities/services/ActionService'
 import { EventBindingService } from '../../entities/services/EventBindingService'
 import { SharedContainerService } from '../../shared/services/SharedContainerService'
 import { SharedEntityOverridesService } from '../../shared/services/SharedEntityOverridesService'
-import { enrichDefinitionsWithSetConstants } from '../../shared/setConstantRefs'
+import { enrichDefinitionsWithValueGroupFixedValues } from '../../shared/valueGroupFixedValueRefs'
 import { attachLayoutsToSnapshot } from '../../shared/snapshotLayouts'
 import { createLogger } from '../../../utils/logger'
 
@@ -114,8 +114,8 @@ const createRlsAwareTransactionExecutor = async (trx: Parameters<typeof createKn
     return executor
 }
 
-const assertManagedApplicationSchemaName = (schemaName: string): void => {
-    if (!schemaName.startsWith('app_') || !isManagedDynamicSchemaName(schemaName)) {
+const assertApplicationSchemaName = (schemaName: string): void => {
+    if (!schemaName.startsWith('app_') || !isDynamicSchemaName(schemaName)) {
         throw new MetahubValidationError(`Invalid application schema name: ${schemaName}`)
     }
 }
@@ -124,7 +124,7 @@ const markCreatedApplicationDeleted = async (
     executor: SqlQueryable,
     input: { applicationId: string; schemaName: string; userId?: string }
 ): Promise<void> => {
-    assertManagedApplicationSchemaName(input.schemaName)
+    assertApplicationSchemaName(input.schemaName)
     await executor.query(`DROP SCHEMA IF EXISTS ${quoteIdentifier(input.schemaName)} CASCADE`)
 
     await executor.query(
@@ -430,21 +430,21 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         const exec = getRequestDbExecutor(req, getDbExecutor())
         const schemaService = new MetahubSchemaService(exec)
         const objectsService = new MetahubObjectsService(exec, schemaService)
-        const attributesService = new MetahubAttributesService(exec, schemaService)
-        const elementsService = new MetahubElementsService(exec, schemaService, objectsService, attributesService)
+        const fieldDefinitionsService = new MetahubFieldDefinitionsService(exec, schemaService)
+        const recordsService = new MetahubRecordsService(exec, schemaService, objectsService, fieldDefinitionsService)
 
-        return { exec, schemaService, objectsService, attributesService, elementsService }
+        return { exec, schemaService, objectsService, fieldDefinitionsService, recordsService }
     }
 
     const createSnapshotSerializer = (params: {
         exec: DbExecutor
         schemaService: MetahubSchemaService
         objectsService: MetahubObjectsService
-        attributesService: MetahubAttributesService
-        elementsService?: MetahubElementsService
-        hubsService?: MetahubHubsService
-        enumerationValuesService?: MetahubEnumerationValuesService
-        constantsService?: MetahubConstantsService
+        fieldDefinitionsService: MetahubFieldDefinitionsService
+        recordsService?: MetahubRecordsService
+        treeEntitiesService?: MetahubTreeEntitiesService
+        optionValuesService?: MetahubOptionValuesService
+        fixedValuesService?: MetahubFixedValuesService
         scriptsService?: MetahubScriptsService
     }) => {
         const sharedContainerService = new SharedContainerService(params.exec, params.schemaService)
@@ -455,11 +455,11 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
 
         return new SnapshotSerializer(
             params.objectsService,
-            params.attributesService,
-            params.elementsService,
-            params.hubsService,
-            params.enumerationValuesService,
-            params.constantsService,
+            params.fieldDefinitionsService,
+            params.recordsService,
+            params.treeEntitiesService,
+            params.optionValuesService,
+            params.fixedValuesService,
             params.scriptsService,
             sharedContainerService,
             sharedEntityOverridesService,
@@ -472,7 +472,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
     const buildRuntimeCatalogDefs = (serializer: SnapshotSerializer, snapshot: MetahubSnapshot) => {
         const runtimeSnapshot = SnapshotSerializer.materializeSharedEntitiesForRuntime(snapshot)
         const rawCatalogDefs = serializer.deserializeSnapshot(runtimeSnapshot)
-        const catalogDefs = enrichDefinitionsWithSetConstants(rawCatalogDefs, runtimeSnapshot)
+        const catalogDefs = enrichDefinitionsWithValueGroupFixedValues(rawCatalogDefs, runtimeSnapshot)
 
         return { runtimeSnapshot, catalogDefs }
     }
@@ -669,21 +669,21 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
 
         const schemaService = new MetahubSchemaService(exec, effectiveBranchId)
         const objectsService = new MetahubObjectsService(exec, schemaService)
-        const attributesService = new MetahubAttributesService(exec, schemaService)
-        const elementsService = new MetahubElementsService(exec, schemaService, objectsService, attributesService)
-        const hubsService = new MetahubHubsService(exec, schemaService)
-        const enumerationValuesService = new MetahubEnumerationValuesService(exec, schemaService)
-        const constantsService = new MetahubConstantsService(exec, schemaService)
+        const fieldDefinitionsService = new MetahubFieldDefinitionsService(exec, schemaService)
+        const recordsService = new MetahubRecordsService(exec, schemaService, objectsService, fieldDefinitionsService)
+        const treeEntitiesService = new MetahubTreeEntitiesService(exec, schemaService)
+        const optionValuesService = new MetahubOptionValuesService(exec, schemaService)
+        const fixedValuesService = new MetahubFixedValuesService(exec, schemaService)
         const scriptsService = new MetahubScriptsService(exec, schemaService)
         const serializer = createSnapshotSerializer({
             exec,
             schemaService,
             objectsService,
-            attributesService,
-            elementsService,
-            hubsService,
-            enumerationValuesService,
-            constantsService,
+            fieldDefinitionsService,
+            recordsService,
+            treeEntitiesService,
+            optionValuesService,
+            fixedValuesService,
             scriptsService
         })
         const templateVersionLabel = await resolveTemplateVersionLabel(exec, metahub.templateVersionId)
@@ -1206,12 +1206,12 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
                 const snapshotData = activeVersion.snapshotJson as unknown as MetahubSnapshot
                 const schemaService = new MetahubSchemaService(exec, branchId)
                 const objectsService = new MetahubObjectsService(exec, schemaService)
-                const attributesService = new MetahubAttributesService(exec, schemaService)
+                const fieldDefinitionsService = new MetahubFieldDefinitionsService(exec, schemaService)
                 const snapshotSerializer = createSnapshotSerializer({
                     exec,
                     schemaService,
                     objectsService,
-                    attributesService
+                    fieldDefinitionsService
                 })
                 const { runtimeSnapshot, catalogDefs } = buildRuntimeCatalogDefs(snapshotSerializer, snapshotData)
 
@@ -1309,7 +1309,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         const { metahubId, publicationId } = req.params
         const userId = await ensureMetahubRouteAccess(req, res, metahubId)
         if (!userId) return
-        const { exec, schemaService, objectsService, attributesService } = services(req)
+        const { exec, schemaService, objectsService, fieldDefinitionsService } = services(req)
 
         const metahub = await findMetahubById(exec, metahubId)
         if (!metahub) {
@@ -1342,7 +1342,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             return res.status(400).json({ error: 'Invalid publication snapshot' })
         }
 
-        const serializer = createSnapshotSerializer({ exec, schemaService, objectsService, attributesService })
+        const serializer = createSnapshotSerializer({ exec, schemaService, objectsService, fieldDefinitionsService })
         const { catalogDefs } = buildRuntimeCatalogDefs(serializer, snapshot)
 
         const oldSnapshot = publication.schemaSnapshot as SchemaSnapshot | null
@@ -1369,7 +1369,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         const { metahubId, publicationId } = req.params
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'manageMetahub')
         if (!userId) return
-        const { exec, schemaService, objectsService, attributesService } = services(req)
+        const { exec, schemaService, objectsService, fieldDefinitionsService } = services(req)
 
         const parsed = syncSchema.safeParse(req.body)
         if (!parsed.success) {
@@ -1409,7 +1409,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             return res.status(400).json({ error: 'Invalid publication snapshot' })
         }
 
-        const serializer = createSnapshotSerializer({ exec, schemaService, objectsService, attributesService })
+        const serializer = createSnapshotSerializer({ exec, schemaService, objectsService, fieldDefinitionsService })
         const { catalogDefs } = buildRuntimeCatalogDefs(serializer, snapshot)
 
         const { generator, migrator, migrationManager } = getDDLServices()
@@ -1581,21 +1581,21 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
 
         const schemaService = new MetahubSchemaService(exec, effectiveBranchId)
         const objectsService = new MetahubObjectsService(exec, schemaService)
-        const attributesService = new MetahubAttributesService(exec, schemaService)
-        const elementsService = new MetahubElementsService(exec, schemaService, objectsService, attributesService)
-        const hubsService = new MetahubHubsService(exec, schemaService)
-        const enumerationValuesService = new MetahubEnumerationValuesService(exec, schemaService)
-        const constantsService = new MetahubConstantsService(exec, schemaService)
+        const fieldDefinitionsService = new MetahubFieldDefinitionsService(exec, schemaService)
+        const recordsService = new MetahubRecordsService(exec, schemaService, objectsService, fieldDefinitionsService)
+        const treeEntitiesService = new MetahubTreeEntitiesService(exec, schemaService)
+        const optionValuesService = new MetahubOptionValuesService(exec, schemaService)
+        const fixedValuesService = new MetahubFixedValuesService(exec, schemaService)
         const scriptsService = new MetahubScriptsService(exec, schemaService)
         const serializer = createSnapshotSerializer({
             exec,
             schemaService,
             objectsService,
-            attributesService,
-            elementsService,
-            hubsService,
-            enumerationValuesService,
-            constantsService,
+            fieldDefinitionsService,
+            recordsService,
+            treeEntitiesService,
+            optionValuesService,
+            fixedValuesService,
             scriptsService
         })
         const templateVersionLabel = await resolveTemplateVersionLabel(exec, metahub.templateVersionId)

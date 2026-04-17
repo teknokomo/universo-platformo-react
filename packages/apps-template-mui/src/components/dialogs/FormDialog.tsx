@@ -39,7 +39,7 @@ export type FieldType = 'STRING' | 'NUMBER' | 'BOOLEAN' | 'DATE' | 'REF' | 'JSON
 
 /**
  * Validation rules for form fields.
- * Matches AttributeValidationRules from @universo/types.
+ * Matches FieldDefinitionValidationRules from @universo/types.
  */
 export interface FieldValidationRules extends Record<string, unknown> {
     // STRING settings
@@ -143,7 +143,7 @@ export interface FormDialogProps {
     /** Application UUID — required for TABLE inline editing in EDIT mode. */
     applicationId?: string
     /** Catalog UUID — required for TABLE inline editing in EDIT mode. */
-    catalogId?: string
+    linkedCollectionId?: string
     /** Row being edited (null = create mode) — used for TABLE rendering. */
     editRowId?: string | null
     renderField?: (params: {
@@ -245,7 +245,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     renderField: renderFieldOverride,
     apiBaseUrl,
     applicationId,
-    catalogId,
+    linkedCollectionId,
     editRowId
 }) => {
     const [formData, setFormData] = useState<Record<string, unknown>>({})
@@ -1166,13 +1166,13 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                 const tableMissing = checkMissing(rowCount)
 
                 // EDIT mode: inline editor with deferred persistence (commit on form Save)
-                if (editRowId && apiBaseUrl && applicationId && catalogId) {
+                if (editRowId && apiBaseUrl && applicationId && linkedCollectionId) {
                     return (
                         <Box>
                             <RuntimeInlineTabularEditor
                                 apiBaseUrl={apiBaseUrl}
                                 applicationId={applicationId}
-                                catalogId={catalogId}
+                                linkedCollectionId={linkedCollectionId}
                                 parentRecordId={editRowId}
                                 attributeId={field.attributeId ?? field.id}
                                 childFields={childFieldDefs}

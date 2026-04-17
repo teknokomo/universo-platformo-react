@@ -5,9 +5,8 @@
  * to control UI state of copy/delete buttons across entity types.
  */
 
+import { buildEntitySurfaceSettingKey, resolveEntitySurfaceKey, type EntitySettingsScope } from '@universo/types'
 import { useSettings } from './useSettings'
-
-type EntityType = 'hubs' | 'catalogs' | 'sets' | 'enumerations'
 
 interface EntityPermissions {
     /** Whether copying is allowed for this entity type */
@@ -16,7 +15,9 @@ interface EntityPermissions {
     allowDelete: boolean
     /** Whether attaching previously created entities from hub-scoped lists is allowed */
     allowAttachExistingEntities: boolean
-    /** Whether nested hubs are allowed (hub parent-child relations) */
+    /** Whether nested treeEntities are allowed (tree entity parent-child relations) */
+    allowTreeEntityNesting: boolean
+    /** Backward-compatible alias for tree nesting checks */
     allowHubNesting: boolean
     /** Whether settings data is still loading */
     isLoading: boolean
@@ -29,19 +30,38 @@ interface EntityPermissions {
  * Returns a fail-closed result while settings are loading or absent so action
  * menus never expose copy/delete affordances before the effective policy is known.
  *
- * @param entityType - The entity type to check ('hubs' | 'catalogs' | 'sets' | 'enumerations')
+ * @param entityType - Builtin kind or neutral entity surface alias for the settings scope
  */
-export const useEntityPermissions = (entityType: EntityType): EntityPermissions => {
+export const useEntityPermissions = (entityType: EntitySettingsScope): EntityPermissions => {
     const { data, isLoading } = useSettings()
 
     if (!data) {
-        return { allowCopy: false, allowDelete: false, allowAttachExistingEntities: false, allowHubNesting: false, isLoading }
+        return {
+            allowCopy: false,
+            allowDelete: false,
+            allowAttachExistingEntities: false,
+            allowTreeEntityNesting: false,
+            allowHubNesting: false,
+            isLoading
+        }
     }
 
-    const copyKey = `${entityType}.allowCopy`
-    const deleteKey = `${entityType}.allowDelete`
-    const attachExistingKey = 'hubs.allowAttachExistingEntities'
-    const allowNestingKey = 'hubs.allowNesting'
+    const resolvedSurface = resolveEntitySurfaceKey(entityType)
+    if (!resolvedSurface) {
+        return {
+            allowCopy: false,
+            allowDelete: false,
+            allowAttachExistingEntities: false,
+            allowTreeEntityNesting: false,
+            allowHubNesting: false,
+            isLoading
+        }
+    }
+
+    const copyKey = buildEntitySurfaceSettingKey(resolvedSurface, 'allowCopy')
+    const deleteKey = buildEntitySurfaceSettingKey(resolvedSurface, 'allowDelete')
+    const attachExistingKey = buildEntitySurfaceSettingKey('treeEntity', 'allowAttachExistingEntities')
+    const allowNestingKey = buildEntitySurfaceSettingKey('treeEntity', 'allowNesting')
 
     const copySetting = data.settings.find((s) => s.key === copyKey)
     const deleteSetting = data.settings.find((s) => s.key === deleteKey)
@@ -54,11 +74,14 @@ export const useEntityPermissions = (entityType: EntityType): EntityPermissions 
     const attachValue = attachSetting?.value as Record<string, unknown> | undefined
     const allowNestingValue = allowNestingSetting?.value as Record<string, unknown> | undefined
 
+    const allowTreeEntityNesting = allowNestingValue?._value !== false
+
     return {
         allowCopy: copyValue?._value !== false,
         allowDelete: deleteValue?._value !== false,
         allowAttachExistingEntities: attachValue?._value !== false,
-        allowHubNesting: allowNestingValue?._value !== false,
+        allowTreeEntityNesting,
+        allowHubNesting: allowTreeEntityNesting,
         isLoading
     }
 }

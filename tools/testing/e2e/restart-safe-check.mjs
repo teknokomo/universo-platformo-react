@@ -43,7 +43,7 @@ async function waitForServerReady(timeoutMs) {
             return
         }
 
-        await sleep(1_000)
+        await sleep(env.serverPollIntervalMs)
     }
 
     throw new Error(`Restart-safe check: server did not become ready at ${pingUrl} within ${timeoutMs}ms`)
@@ -57,7 +57,7 @@ async function waitForServerStopped(timeoutMs) {
             return
         }
 
-        await sleep(250)
+        await sleep(Math.min(env.serverPollIntervalMs, 250))
     }
 
     throw new Error(`Restart-safe check: server at ${pingUrl} did not stop within ${timeoutMs}ms`)
@@ -84,7 +84,7 @@ async function startServer() {
         })
     })
 
-    await Promise.race([waitForServerReady(180_000), earlyExit])
+    await Promise.race([waitForServerReady(env.serverReadyTimeoutMs), earlyExit])
     return serverProcess
 }
 
@@ -107,7 +107,7 @@ async function stopServer(serverProcess) {
 
     await exitPromise
     clearTimeout(forcedKillTimer)
-    await waitForServerStopped(15_000)
+    await waitForServerStopped(env.serverStopTimeoutMs)
 }
 
 async function main() {

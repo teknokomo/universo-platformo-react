@@ -147,8 +147,7 @@ export interface MetahubBoardSummary {
     metahubId: string
     activeBranchId: string | null
     branchesCount: number
-    hubsCount: number
-    catalogsCount: number
+    entityCounts: Record<string, number>
     membersCount: number
     publicationsCount: number
     publicationVersionsCount: number

@@ -412,7 +412,7 @@ Reasoning: this order avoids a transient state where runtime routes still expect
 
 Reuse rules for this phase:
 
-- reuse the existing MUI Tabs pattern already used in `AttributeList`, `ElementList`, `ConstantList`, and `EnumerationValueList` instead of inventing a new tab shell abstraction for one feature.
+- reuse the existing MUI Tabs pattern already used in `AttributeList`, `ElementList`, `ConstantList`, and `OptionValueList` instead of inventing a new tab shell abstraction for one feature.
 - reuse the existing `FlowListTable`/`BaseEntityMenu`/edit-dialog composition unless implementation proves that a system-row list truly needs a new primitive.
 - reuse the existing `metahubsQueryKeys` + `invalidate*Queries` pattern for new list/detail invalidation paths instead of creating an unrelated cache-management style.
 - keep the Settings behavior aligned with the existing edit-dialog pattern already used by neighboring metahub screens.

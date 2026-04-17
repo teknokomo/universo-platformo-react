@@ -219,9 +219,12 @@ describe('LayoutList copy flow entry', () => {
 
         render(
             <QueryClientProvider client={queryClient}>
-                <MemoryRouter initialEntries={['/metahub/metahub-1/catalog/catalog-1/layout']}>
+                <MemoryRouter initialEntries={['/metahub/metahub-1/entities/catalog/instance/catalog-1/layout']}>
                     <Routes>
-                        <Route path='/metahub/:metahubId/catalog/:catalogId/layout' element={<LayoutList embedded />} />
+                        <Route
+                            path='/metahub/:metahubId/entities/:kindKey/instance/:linkedCollectionId/layout'
+                            element={<LayoutList embedded />}
+                        />
                     </Routes>
                 </MemoryRouter>
             </QueryClientProvider>
@@ -254,9 +257,9 @@ describe('LayoutList copy flow entry', () => {
 
         render(
             <QueryClientProvider client={queryClient}>
-                <MemoryRouter initialEntries={['/metahub/metahub-1/common']}>
+                <MemoryRouter initialEntries={['/metahub/metahub-1/resources']}>
                     <Routes>
-                        <Route path='/metahub/:metahubId/common' element={<LayoutList embedded />} />
+                        <Route path='/metahub/:metahubId/resources' element={<LayoutList embedded />} />
                     </Routes>
                 </MemoryRouter>
             </QueryClientProvider>
@@ -386,9 +389,9 @@ describe('LayoutList copy flow entry', () => {
 
         render(
             <QueryClientProvider client={queryClient}>
-                <MemoryRouter initialEntries={['/metahub/metahub-1/catalog/catalog-1/layout']}>
+                <MemoryRouter initialEntries={['/metahub/metahub-1/entities/catalog/instance/catalog-1/layout']}>
                     <Routes>
-                        <Route path='/metahub/:metahubId/catalog/:catalogId/layout' element={<LayoutList />} />
+                        <Route path='/metahub/:metahubId/entities/:kindKey/instance/:linkedCollectionId/layout' element={<LayoutList />} />
                     </Routes>
                 </MemoryRouter>
             </QueryClientProvider>
@@ -407,7 +410,7 @@ describe('LayoutList copy flow entry', () => {
         expect(payload).toMatchObject({
             metahubId: 'metahub-1',
             data: {
-                catalogId: 'catalog-1'
+                linkedCollectionId: 'catalog-1'
             }
         })
         expect(payload.data.config).toBeUndefined()
@@ -445,7 +448,7 @@ describe('LayoutList copy flow entry', () => {
         expect(payload).toMatchObject({
             metahubId: 'metahub-1'
         })
-        expect(payload.data.catalogId).toBeUndefined()
+        expect(payload.data.linkedCollectionId).toBeUndefined()
         expect(payload.data.config).toBeUndefined()
     })
 })

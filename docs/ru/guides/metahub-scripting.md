@@ -13,8 +13,8 @@ description: Подробное v1-руководство по созданию,
 
 - добавлять серверную логику, которая реагирует на runtime-события;
 - отдавать клиентский код для widget и интерактивного UI;
-- разделять переиспользуемые helper-ы раздела Common через модули `general/library` и импорты `@shared/<codename>`;
-- прикреплять настраиваемую логику к Common, уровню metahub и entity-level поверхностям проектирования.
+- разделять переиспользуемые helper-ы рабочего пространства ресурсов через модули `general/library` и импорты `@shared/<codename>`;
+- прикреплять настраиваемую логику к рабочему пространству ресурсов, уровню metahub и entity-level поверхностям проектирования.
 
 ## Поддерживаемый контракт
 
@@ -22,15 +22,15 @@ description: Подробное v1-руководство по созданию,
 | --- | --- |
 | Source kind | В интерфейсе включено только встроенное редактирование `embedded`. |
 | SDK compatibility | Поддерживается только `sdkApiVersion = 1.0.0`. |
-| Imports | `@universo/extension-sdk` разрешён всегда; consumer scripts также могут импортировать Common libraries через `@shared/<codename>`. |
+| Imports | `@universo/extension-sdk` разрешён всегда; consumer scripts также могут импортировать библиотеки рабочего пространства ресурсов через `@shared/<codename>`. |
 | Roles | `module`, `lifecycle`, `widget` и `library`. |
-| Attachment scopes | `general` в Common только для `library`, плюс metahub, hub, catalog, set, enumeration и attribute для исполняемых consumer-ов. |
+| Attachment scopes | `general` в рабочем пространстве ресурсов только для `library`, плюс metahub, hub, catalog, set, enumeration и attribute для исполняемых consumer-ов. |
 | Client runtime | Browser Worker runtime с fail-closed fallback, если Worker недоступен или выполнение вышло за лимит времени. |
 | Server runtime | Выполнение в пуле `isolated-vm` на стороне applications backend. |
 
 ## Порядок создания
 
-1. Откройте вкладку Scripts в Common для shared libraries или у metahub / конкретной attached entity для consumer-ов.
+1. Откройте вкладку Scripts в рабочем пространстве ресурсов для shared libraries или у metahub / конкретной attached entity для consumer-ов.
 2. Создайте новый script и выберите module role до редактирования кода.
 3. Оставьте source kind как Embedded и объявляйте только те capability, которые реально нужны script-у.
 4. Экспортируйте класс, который наследует `ExtensionScript`.
@@ -46,12 +46,12 @@ description: Подробное v1-руководство по созданию,
 | `widget` | Интерактивные виджеты, например виджет квиза. | Черновики widget по умолчанию получают client RPC capability, необходимый runtime bridge. |
 | `module` | Общие модули бизнес-логики. | Используйте для runtime-хелперов, не связанных с widget. |
 | `lifecycle` | Серверные хуки, реагирующие на события. | Lifecycle-handlers никогда не вызываются через публичный runtime RPC. |
-| `library` | Общие helper-ы раздела Common. | Libraries работают только на импорт, должны оставаться чистыми и не могут объявлять decorators или runtime ctx access. |
+| `library` | Общие helper-ы рабочего пространства ресурсов. | Libraries работают только на импорт, должны оставаться чистыми и не могут объявлять decorators или runtime ctx access. |
 
 ## Shared Library Contract
 
-- Скрипты library создаются только из Common -> Scripts со scope привязки `general`.
-- `general` и `library` неразделимы: Common отклоняет любую другую роль для `general`, а новый authoring `library` отклоняется вне Common/general.
+- Скрипты library создаются только из вкладки «Scripts» в рабочем пространстве ресурсов со scope привязки `general`.
+- `general` и `library` неразделимы: Resources отклоняет любую другую роль для `general`, а новый authoring `library` отклоняется вне рабочей области Resources.
 - Libraries компилируются для dependency resolution и validation до сборки consumer scripts.
 - Consumer scripts импортируют их через `@shared/<codename>` и сохраняют обычные scope-specific правила привязки.
 - Libraries не раскрываются как прямые runtime entrypoints, RPC targets или lifecycle-handlers.

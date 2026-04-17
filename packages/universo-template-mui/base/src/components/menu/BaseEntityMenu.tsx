@@ -79,6 +79,8 @@ export interface ActionContext<TEntity = any, TData = any> {
         }) => Promise<boolean>
         refreshList?: () => Promise<void>
         openDeleteDialog?: (entity: TEntity) => void
+        openEditDialog?: (entity: TEntity) => void | Promise<void>
+        openCopyDialog?: (entity: TEntity) => void | Promise<void>
         closeSnackbar?: (key: any) => void
         openWindow?: (url: string) => void
     }

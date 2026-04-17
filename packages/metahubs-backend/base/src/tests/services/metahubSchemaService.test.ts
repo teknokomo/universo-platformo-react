@@ -287,10 +287,12 @@ describe('MetahubSchemaService create options', () => {
             seed: {}
         } as any
         const createOptions = {
-            createHub: false,
-            createCatalog: true,
-            createSet: false,
-            createEnumeration: true
+            presetToggles: {
+                hub: false,
+                catalog: true,
+                set: false,
+                enumeration: true
+            }
         }
 
         jest.spyOn(service as any, 'inspectSchemaState').mockResolvedValue({
@@ -307,42 +309,30 @@ describe('MetahubSchemaService create options', () => {
         expect(initSystemTablesSpy).toHaveBeenCalledWith('mhb_test_schema', manifest, createOptions)
     })
 
-    it('filters template seed entities, elements, and enum values by create options', () => {
-        const seed = {
-            entities: [
-                { kind: 'hub', codename: 'hub_root' },
-                { kind: 'catalog', codename: 'catalog_products' },
-                { kind: 'set', codename: 'set_tags' },
-                { kind: 'enumeration', codename: 'enum_status' }
-            ],
-            elements: {
-                catalog_products: [{ codename: 'product-1' }],
-                set_tags: [{ codename: 'tag-1' }],
-                enum_status: [{ codename: 'status-1' }]
+    it('builds effective preset toggles from template defaults, persisted values, and explicit overrides', () => {
+        const toggles = (MetahubSchemaService as any).buildEffectivePresetToggles(
+            {
+                presets: [
+                    { presetCodename: 'hub', includedByDefault: true },
+                    { presetCodename: 'catalog', includedByDefault: false },
+                    { presetCodename: 'set', includedByDefault: true }
+                ]
             },
-            enumerationValues: {
-                enum_status: [{ codename: 'draft' }],
-                set_tags: [{ codename: 'should-be-removed' }]
+            {
+                presetToggles: {
+                    hub: false,
+                    catalog: true
+                }
+            },
+            {
+                set: false
             }
-        } as any
+        )
 
-        const filtered = (MetahubSchemaService as any).filterSeedByCreateOptions(seed, {
-            createHub: false,
-            createCatalog: true,
-            createSet: false,
-            createEnumeration: true
-        })
-
-        expect(filtered.entities).toEqual([
-            { kind: 'catalog', codename: 'catalog_products' },
-            { kind: 'enumeration', codename: 'enum_status' }
-        ])
-        expect(filtered.elements).toEqual({
-            catalog_products: [{ codename: 'product-1' }],
-            enum_status: [{ codename: 'status-1' }]
-        })
-        expect(filtered.enumerationValues).toEqual({
-            enum_status: [{ codename: 'draft' }]
+        expect(toggles).toEqual({
+            hub: false,
+            catalog: true,
+            set: false
         })
     })
 

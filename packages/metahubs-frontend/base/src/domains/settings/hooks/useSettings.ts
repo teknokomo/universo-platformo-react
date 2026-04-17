@@ -7,7 +7,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 import { settingsApi } from '../api/settingsApi'
-import { metahubsQueryKeys, invalidateSettingsQueries, invalidateHubsQueries } from '../../shared/queryKeys'
+import { metahubsQueryKeys, invalidateSettingsQueries, invalidateTreeEntitiesQueries } from '../../shared/queryKeys'
 
 /**
  * Fetch all settings for the current metahub (merged with defaults).
@@ -41,9 +41,9 @@ export const useUpdateSettings = () => {
             // Then invalidate to ensure full consistency on next access
             invalidateSettingsQueries.all(queryClient, metahubId!)
             // Settings may trigger mass hub updates (e.g. reset nesting one-shot action).
-            invalidateHubsQueries.all(queryClient, metahubId!)
+            invalidateTreeEntitiesQueries.all(queryClient, metahubId!)
             // Drop hub caches to avoid showing stale parent-child relations while refetch is in flight.
-            queryClient.removeQueries({ queryKey: metahubsQueryKeys.hubs(metahubId!) })
+            queryClient.removeQueries({ queryKey: metahubsQueryKeys.treeEntities(metahubId!) })
             queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(metahubId!) })
         }
     })
@@ -74,9 +74,9 @@ export const useResetSetting = () => {
                 }
             )
             invalidateSettingsQueries.all(queryClient, metahubId!)
-            if (key.startsWith('hubs.')) {
-                invalidateHubsQueries.all(queryClient, metahubId!)
-                queryClient.removeQueries({ queryKey: metahubsQueryKeys.hubs(metahubId!) })
+            if (key.startsWith('entity.hub.')) {
+                invalidateTreeEntitiesQueries.all(queryClient, metahubId!)
+                queryClient.removeQueries({ queryKey: metahubsQueryKeys.treeEntities(metahubId!) })
                 queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.detail(metahubId!) })
             }
         }

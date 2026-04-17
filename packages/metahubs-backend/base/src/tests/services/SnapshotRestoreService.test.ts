@@ -1,14 +1,14 @@
-const mockReadPlatformSystemAttributesPolicy = jest.fn(async () => ({
+const mockReadPlatformSystemFieldDefinitionsPolicy = jest.fn(async () => ({
     publishEnabled: true,
     archiveEnabled: true,
     deleteEnabled: true
 }))
-const mockEnsureCatalogSystemAttributesSeed = jest.fn(async () => undefined)
+const mockEnsureCatalogSystemFieldDefinitionsSeed = jest.fn(async () => undefined)
 
-jest.mock('../../domains/templates/services/systemAttributeSeed', () => ({
+jest.mock('../../domains/templates/services/systemFieldDefinitionSeed', () => ({
     __esModule: true,
-    readPlatformSystemAttributesPolicyWithKnex: mockReadPlatformSystemAttributesPolicy,
-    ensureCatalogSystemAttributesSeed: mockEnsureCatalogSystemAttributesSeed
+    readPlatformSystemFieldDefinitionsPolicyWithKnex: mockReadPlatformSystemFieldDefinitionsPolicy,
+    ensureCatalogSystemFieldDefinitionsSeed: mockEnsureCatalogSystemFieldDefinitionsSeed
 }))
 
 const mockResolveWidgetTableName = jest.fn(async () => '_mhb_widgets')
@@ -100,8 +100,8 @@ describe('SnapshotRestoreService', () => {
                     ]
                 }
             },
-            constants: {},
-            enumerationValues: {},
+            fixedValues: {},
+            optionValues: {},
             elements: {},
             systemFields: {},
             ...overrides
@@ -123,7 +123,7 @@ describe('SnapshotRestoreService', () => {
             codename: expect.objectContaining({ _schema: '1' }),
             data_type: 'STRING'
         })
-        expect(mockEnsureCatalogSystemAttributesSeed).toHaveBeenCalled()
+        expect(mockEnsureCatalogSystemFieldDefinitionsSeed).toHaveBeenCalled()
     })
 
     it('restores a legacy snapshot that omits v3 entity metadata sections', async () => {
@@ -230,7 +230,7 @@ describe('SnapshotRestoreService', () => {
                     fields: []
                 }
             },
-            constants: {
+            fixedValues: {
                 'old-set-id': [
                     {
                         id: 'old-const-id',
@@ -446,10 +446,10 @@ describe('SnapshotRestoreService', () => {
                     presentation: { name: { en: 'Customer Registry' }, description: {} },
                     components: {
                         dataSchema: { enabled: true },
-                        predefinedElements: false,
-                        hubAssignment: false,
-                        enumerationValues: false,
-                        constants: false,
+                        records: false,
+                        treeAssignment: false,
+                        optionValues: false,
+                        fixedValues: false,
                         hierarchy: false,
                         nestedCollections: false,
                         relations: false,
@@ -467,7 +467,6 @@ describe('SnapshotRestoreService', () => {
                         nameKey: 'metahubs:entities.customerRegistry'
                     },
                     config: { publishedSection: true },
-                    isBuiltin: false,
                     published: true
                 }
             },
@@ -508,7 +507,6 @@ describe('SnapshotRestoreService', () => {
         expect(insertedRows['_mhb_entity_type_definitions']).toHaveLength(1)
         expect(insertedRows['_mhb_entity_type_definitions']![0]).toMatchObject({
             kind_key: 'customer_registry',
-            is_builtin: false,
             _mhb_published: true
         })
 
@@ -568,7 +566,7 @@ describe('SnapshotRestoreService', () => {
             catalogLayouts: [
                 {
                     id: 'old-catalog-layout-id',
-                    catalogId: 'old-catalog-id',
+                    linkedCollectionId: 'old-catalog-id',
                     baseLayoutId: 'old-global-layout-id',
                     templateKey: 'dashboard',
                     name: { en: 'Catalog override' },
@@ -663,7 +661,7 @@ describe('SnapshotRestoreService', () => {
 
     it('skips entities with missing entityIdMap (with warning)', async () => {
         const snapshot = makeMinimalSnapshot({
-            constants: {
+            fixedValues: {
                 'non-existent-entity-id': [
                     {
                         id: 'const-1',
@@ -719,7 +717,7 @@ describe('SnapshotRestoreService', () => {
                     hubs: []
                 }
             },
-            sharedAttributes: [
+            sharedFieldDefinitions: [
                 {
                     id: 'old-shared-attribute-id',
                     codename: 'shared_title',
@@ -732,7 +730,7 @@ describe('SnapshotRestoreService', () => {
                     sortOrder: 0
                 }
             ],
-            sharedConstants: [
+            sharedFixedValues: [
                 {
                     id: 'old-shared-constant-id',
                     objectId: 'old-shared-set-container-id',
@@ -745,7 +743,7 @@ describe('SnapshotRestoreService', () => {
                     sortOrder: 0
                 }
             ],
-            sharedEnumerationValues: [
+            sharedOptionValues: [
                 {
                     id: 'old-shared-value-id',
                     objectId: 'old-shared-enum-container-id',
@@ -843,8 +841,8 @@ describe('SnapshotRestoreService', () => {
     it('handles empty snapshot gracefully', async () => {
         const snapshot = makeMinimalSnapshot({
             entities: {},
-            constants: {},
-            enumerationValues: {},
+            fixedValues: {},
+            optionValues: {},
             elements: {}
         })
 

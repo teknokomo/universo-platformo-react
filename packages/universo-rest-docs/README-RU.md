@@ -25,7 +25,7 @@
 - onboarding
 - admin global users, instances, roles, locales, and settings
 - applications, connectors, and runtime sync
-- public metahub, metahubs, branches, publications, migrations, hubs, catalogs, sets, enumerations, attributes, constants, elements, layouts, settings, and templates
+- public metahub, metahubs, branches, publications, migrations, entity types, entities, entity actions, event bindings, field definitions, fixed values, records, layouts, scripts, shared entity overrides, settings, and templates
 
 Пакет намеренно в первую очередь документирует текущий inventory путей и методов.
 Payload schemas пока остаются generic, если только позднее они не будут стабилизированы и вынесены в явные contract-level schemas.
@@ -34,6 +34,7 @@ Payload schemas пока остаются generic, если только поз�
 
 ```bash
 pnpm --filter @universo/rest-docs generate:openapi
+pnpm --filter @universo/rest-docs verify:route-sources
 pnpm --filter @universo/rest-docs validate
 pnpm --filter @universo/rest-docs build
 pnpm --filter @universo/rest-docs start
@@ -41,8 +42,9 @@ pnpm --filter @universo/rest-docs lint
 ```
 
 - `generate:openapi` пересобирает `src/openapi/index.yml` из живых route files.
-- `validate` заново генерирует и проверяет OpenAPI source через Redocly.
-- `build` пересобирает source, компилирует TypeScript и бандлит runtime YAML.
+- `verify:route-sources` падает, если список route sources для metahubs расходится с живым mounted router contract.
+- `validate` сначала проверяет route source list, затем заново генерирует и проверяет OpenAPI source через Redocly.
+- `build` сначала проверяет route source list, затем пересобирает source, компилирует TypeScript и бандлит runtime YAML.
 - `start` отдаёт Swagger UI из `dist/openapi-bundled.yml`.
 
 ## Running The Docs Server

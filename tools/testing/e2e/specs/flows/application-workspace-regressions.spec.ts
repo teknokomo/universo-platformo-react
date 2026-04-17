@@ -9,7 +9,7 @@ import {
     createApplication,
     createLoggedInApiContext,
     createMetahub,
-    createMetahubAttribute,
+    createFieldDefinition,
     createPublication,
     createPublicationLinkedApplication,
     createPublicationVersion,
@@ -17,7 +17,7 @@ import {
     getApplicationRuntime,
     getAssignableRoles,
     listApplicationMembers,
-    listMetahubCatalogs,
+    listLinkedCollections,
     syncApplicationSchema,
     syncPublication,
     waitForPublicationReady
@@ -85,7 +85,7 @@ async function waitForCatalogId(api: Awaited<ReturnType<typeof createLoggedInApi
 
     await expect
         .poll(async () => {
-            const payload = await listMetahubCatalogs(api, metahubId, { limit: 100, offset: 0 })
+            const payload = await listLinkedCollections(api, metahubId, { limit: 100, offset: 0 })
             catalogId = payload.items?.[0]?.id
             return typeof catalogId === 'string'
         })
@@ -208,7 +208,7 @@ test('@flow application settings show an info state before schema creation and w
 
         const catalogId = await waitForCatalogId(ownerApi, metahub.id)
 
-        const attribute = await createMetahubAttribute(ownerApi, metahub.id, catalogId, {
+        const attribute = await createFieldDefinition(ownerApi, metahub.id, catalogId, {
             name: { en: 'Title' },
             namePrimaryLocale: 'en',
             codename: createLocalizedContent('en', 'title'),
@@ -375,7 +375,7 @@ test('@flow application without workspaces shares runtime rows between members',
         })
 
         const catalogId = await waitForCatalogId(ownerApi, metahub.id)
-        const attribute = await createMetahubAttribute(ownerApi, metahub.id, catalogId, {
+        const attribute = await createFieldDefinition(ownerApi, metahub.id, catalogId, {
             name: { en: 'Title' },
             namePrimaryLocale: 'en',
             codename: createLocalizedContent('en', 'title'),

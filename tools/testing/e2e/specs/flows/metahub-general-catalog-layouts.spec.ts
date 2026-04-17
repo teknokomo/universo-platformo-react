@@ -12,8 +12,8 @@ import {
     createLayout,
     createLoggedInApiContext,
     createMetahub,
-    createMetahubAttribute,
-    createMetahubCatalog,
+    createFieldDefinition,
+    createLinkedCollection,
     createPublication,
     createPublicationLinkedApplication,
     createPublicationVersion,
@@ -237,13 +237,13 @@ test('@flow @combined metahub General and catalog-specific layouts drive runtime
             }
         })
 
-        const fallbackCatalog = await createMetahubCatalog(api, metahub.id, {
+        const fallbackCatalog = await createLinkedCollection(api, metahub.id, {
             name: { en: fallbackCatalogName },
             namePrimaryLocale: 'en',
             codename: createLocalizedContent('en', fallbackCatalogCodename)
         })
 
-        const customCatalog = await createMetahubCatalog(api, metahub.id, {
+        const customCatalog = await createLinkedCollection(api, metahub.id, {
             name: { en: customCatalogName },
             namePrimaryLocale: 'en',
             codename: createLocalizedContent('en', customCatalogCodename)
@@ -254,7 +254,7 @@ test('@flow @combined metahub General and catalog-specific layouts drive runtime
         }
 
         for (const catalogId of [fallbackCatalog.id, customCatalog.id]) {
-            const attribute = await createMetahubAttribute(api, metahub.id, catalogId, {
+            const attribute = await createFieldDefinition(api, metahub.id, catalogId, {
                 name: { en: attributeLabel },
                 namePrimaryLocale: 'en',
                 codename: createLocalizedContent('en', attributeCodename),

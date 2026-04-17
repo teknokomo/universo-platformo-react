@@ -228,7 +228,7 @@ export default function QuizWidgetEditorDialog({
                         <FormHelperText>
                             {t(
                                 'layouts.quizEditor.attachmentKindHelp',
-                                'Catalog-scoped scripts resolve against the current catalog at runtime, while metahub scripts stay global.'
+                                'LinkedCollectionEntity-scoped scripts resolve against the current catalog at runtime, while metahub scripts stay global.'
                             )}
                         </FormHelperText>
                     </FormControl>

@@ -143,10 +143,10 @@ export function createSettingsController(createHandler: ReturnType<typeof create
             await settingsService.bulkUpsert(metahubId, parsed.data.settings, userId)
 
             const requestedResetNesting =
-                parsed.data.settings.find((entry) => entry.key === 'hubs.resetNestingOnce')?.value?._value === true
+                parsed.data.settings.find((entry) => entry.key === 'entity.hub.resetNestingOnce')?.value?._value === true
             if (requestedResetNesting) {
                 await settingsService.clearHubNesting(metahubId, userId)
-                await settingsService.resetToDefault(metahubId, 'hubs.resetNestingOnce', userId)
+                await settingsService.resetToDefault(metahubId, 'entity.hub.resetNestingOnce', userId)
             }
 
             const dbRows = await settingsService.findAll(metahubId, userId)

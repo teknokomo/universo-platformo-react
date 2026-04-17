@@ -18,14 +18,14 @@ interface MetahubsBundle {
     branches?: Record<string, unknown>
     entities?: Record<string, unknown>
     documents?: Record<string, unknown>
-    hubs?: Record<string, unknown>
-    catalogs?: Record<string, unknown>
-    sets?: Record<string, unknown>
-    constants?: Record<string, unknown>
-    enumerations?: Record<string, unknown>
-    enumerationValues?: Record<string, unknown>
-    attributes?: Record<string, unknown>
-    elements?: Record<string, unknown>
+    treeEntities?: Record<string, unknown>
+    linkedCollections?: Record<string, unknown>
+    valueGroups?: Record<string, unknown>
+    fixedValues?: Record<string, unknown>
+    optionLists?: Record<string, unknown>
+    optionValues?: Record<string, unknown>
+    fieldDefinitions?: Record<string, unknown>
+    records?: Record<string, unknown>
     publications?: Record<string, unknown>
     migrations?: Record<string, unknown>
     settings?: Record<string, unknown>
@@ -61,14 +61,14 @@ const consolidateMetahubsNamespace = (bundle: MetahubsBundle) => {
         members: bundle?.members ?? {},
         entities: bundle?.entities ?? {},
         documents: bundle?.documents ?? {},
-        hubs: bundle?.hubs ?? {},
-        catalogs: bundle?.catalogs ?? {},
-        sets: bundle?.sets ?? {},
-        constants: bundle?.constants ?? {},
-        enumerations: bundle?.enumerations ?? {},
-        enumerationValues: bundle?.enumerationValues ?? {},
-        attributes: bundle?.attributes ?? {},
-        elements: bundle?.elements ?? {},
+        treeEntities: bundle?.treeEntities ?? {},
+        linkedCollections: bundle?.linkedCollections ?? {},
+        valueGroups: bundle?.valueGroups ?? {},
+        fixedValues: bundle?.fixedValues ?? {},
+        optionLists: bundle?.optionLists ?? {},
+        optionValues: bundle?.optionValues ?? {},
+        fieldDefinitions: bundle?.fieldDefinitions ?? {},
+        records: bundle?.records ?? {},
         publications: bundle?.publications ?? {},
         migrations: bundle?.migrations ?? {},
         settings: bundle?.settings ?? {},
@@ -100,12 +100,12 @@ interface MetahubsTranslation {
     branches?: Record<string, unknown>
     entities?: Record<string, unknown>
     documents?: Record<string, unknown>
-    hubs?: Record<string, unknown>
-    catalogs?: Record<string, unknown>
-    sets?: Record<string, unknown>
-    constants?: Record<string, unknown>
-    enumerations?: Record<string, unknown>
-    enumerationValues?: Record<string, unknown>
+    treeEntities?: Record<string, unknown>
+    linkedCollections?: Record<string, unknown>
+    valueGroups?: Record<string, unknown>
+    fixedValues?: Record<string, unknown>
+    optionLists?: Record<string, unknown>
+    optionValues?: Record<string, unknown>
     publications?: Record<string, unknown>
     migrations?: Record<string, unknown>
     settings?: Record<string, unknown>

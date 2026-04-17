@@ -10,24 +10,21 @@ import { useTranslation } from 'react-i18next'
 import i18n from '@universo/i18n'
 import { useLocation, NavLink } from 'react-router-dom'
 import { useAuth } from '@universo/auth-frontend'
-import { getLegacyCompatibleObjectKind, getLegacyCompatibleObjectKindForKindKey, type LegacyCompatibleObjectKind } from '@universo/types'
+import { isBuiltinEntityKind, type BuiltinEntityKind } from '@universo/types'
 import { getVLCString } from '@universo/utils'
 import { useHasGlobalAccess } from '@universo/store'
 import {
     truncateMetahubName,
     truncateApplicationName,
     useMetahubPublicationName,
-    useHubName,
-    truncateHubName,
-    useCatalogName,
-    useCatalogNameStandalone,
-    useSetNameStandalone,
-    truncateCatalogName,
-    truncateSetName,
-    useEnumerationName,
-    truncateEnumerationName,
-    useAttributeName,
-    truncateAttributeName,
+    useTreeEntityName,
+    useLinkedCollectionName,
+    useLinkedCollectionNameStandalone,
+    useValueGroupNameStandalone,
+    truncateLinkedCollectionName,
+    truncateValueGroupName,
+    useOptionListName,
+    truncateOptionListName,
     truncatePublicationName,
     useConnectorName,
     truncateConnectorName,
@@ -61,7 +58,6 @@ type ApplicationShellDetail = Record<string, unknown> & {
 
 type BreadcrumbEntityTypeRecord = Record<string, unknown> & {
     kindKey?: string | null
-    source?: string | null
     codename?: unknown
     config?: unknown
     presentation?: { name?: unknown } | null
@@ -77,7 +73,7 @@ type BreadcrumbEntityDetail = Record<string, unknown> & {
     codename?: unknown
 }
 
-const LEGACY_COMPATIBLE_ENTITY_LABEL_KEYS: Record<Exclude<LegacyCompatibleObjectKind, 'document'>, string> = {
+const LEGACY_COMPATIBLE_ENTITY_LABEL_KEYS: Record<BuiltinEntityKind, string> = {
     catalog: 'catalogs',
     hub: 'hubs',
     set: 'sets',
@@ -87,44 +83,49 @@ const LEGACY_COMPATIBLE_ENTITY_LABEL_KEYS: Record<Exclude<LegacyCompatibleObject
 const truncateEntityBreadcrumbLabel = (value: string): string => (value.length > 36 ? `${value.slice(0, 33)}...` : value)
 
 const buildEntityInstancesPath = (metahubId: string, kindSegment: string): string => `/metahub/${metahubId}/entities/${kindSegment}/instances`
+const ENTITY_METADATA_TAB_SEGMENTS: Record<'attributes' | 'system' | 'elements', string> = {
+    attributes: 'field-definitions',
+    system: 'system',
+    elements: 'records'
+}
 
 const buildEntityInstanceDefaultPath = (
     metahubId: string,
     kindSegment: string,
     entityId: string,
-    legacyCompatibleKind: LegacyCompatibleObjectKind | null
+    legacyCompatibleKind: BuiltinEntityKind | null
 ): string => {
     if (legacyCompatibleKind === 'hub') {
         return `/metahub/${metahubId}/entities/${kindSegment}/instance/${entityId}/hubs`
     }
 
     if (legacyCompatibleKind === 'set') {
-        return `/metahub/${metahubId}/entities/${kindSegment}/instance/${entityId}/constants`
+        return `/metahub/${metahubId}/entities/${kindSegment}/instance/${entityId}/fixed-values`
     }
 
     if (legacyCompatibleKind === 'enumeration') {
         return `/metahub/${metahubId}/entities/${kindSegment}/instance/${entityId}/values`
     }
 
-    return `/metahub/${metahubId}/entities/${kindSegment}/instance/${entityId}/attributes`
+    return `/metahub/${metahubId}/entities/${kindSegment}/instance/${entityId}/field-definitions`
 }
 
-const buildEntityHubScopePath = (metahubId: string, kindSegment: string, hubId: string, tab: 'hubs' | 'catalogs' | 'sets' | 'enumerations') =>
-    `/metahub/${metahubId}/entities/${kindSegment}/instance/${hubId}/${tab}`
+const buildEntityTreeEntityScopePath = (metahubId: string, kindSegment: string, treeEntityId: string, tab: 'hubs' | 'catalogs' | 'sets' | 'enumerations') =>
+    `/metahub/${metahubId}/entities/${kindSegment}/instance/${treeEntityId}/${tab}`
 
-const buildEntityHubCatalogPath = (
+const buildEntityTreeEntityLinkedCollectionPath = (
     metahubId: string,
     kindSegment: string,
-    hubId: string,
-    catalogId: string,
+    treeEntityId: string,
+    linkedCollectionId: string,
     tab: 'attributes' | 'system' | 'elements'
-) => `/metahub/${metahubId}/entities/${kindSegment}/instance/${hubId}/catalog/${catalogId}/${tab}`
+) => `/metahub/${metahubId}/entities/${kindSegment}/instance/${treeEntityId}/catalog/${linkedCollectionId}/${ENTITY_METADATA_TAB_SEGMENTS[tab]}`
 
-const buildEntityHubSetPath = (metahubId: string, kindSegment: string, hubId: string, setId: string) =>
-    `/metahub/${metahubId}/entities/${kindSegment}/instance/${hubId}/set/${setId}/constants`
+const buildEntityTreeEntityValueGroupPath = (metahubId: string, kindSegment: string, treeEntityId: string, valueGroupId: string) =>
+    `/metahub/${metahubId}/entities/${kindSegment}/instance/${treeEntityId}/set/${valueGroupId}/fixed-values`
 
-const buildEntityHubEnumerationPath = (metahubId: string, kindSegment: string, hubId: string, enumerationId: string) =>
-    `/metahub/${metahubId}/entities/${kindSegment}/instance/${hubId}/enumeration/${enumerationId}/values`
+const buildEntityTreeEntityOptionListPath = (metahubId: string, kindSegment: string, treeEntityId: string, optionListId: string) =>
+    `/metahub/${metahubId}/entities/${kindSegment}/instance/${treeEntityId}/enumeration/${optionListId}/values`
 
 export default function NavbarBreadcrumbs() {
     const { t } = useTranslation('menu', { i18n })
@@ -151,22 +152,17 @@ export default function NavbarBreadcrumbs() {
     const metahubName = metahubDetailQuery.data ?? null
 
     // Extract layoutId from URL for dynamic name loading (under metahub context)
-    // Patterns: /metahub/:metahubId/layouts/:layoutId, /metahub/:metahubId/common/layouts/:layoutId,
-    // /metahub/:metahubId/catalog/:catalogId/layout/:layoutId
-    const layoutDetailMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/(?:common\/layouts|general\/layouts|layouts)\/([^/]+)/)
-    const catalogLayoutDetailMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/catalog\/([^/]+)\/layout\/([^/]+)/)
+    // Patterns: /metahub/:metahubId/resources/layouts/:layoutId,
+    // /metahub/:metahubId/entities/:kindKey/instance/:entityId/layout/:layoutId
+    const layoutDetailMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/resources\/layouts\/([^/]+)/)
     const entityLayoutDetailMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/entities\/[^/]+\/instance\/[^/]+\/layout\/([^/]+)/)
     const layoutParentMetahubId = layoutDetailMatch
         ? layoutDetailMatch[1]
-        : catalogLayoutDetailMatch
-        ? catalogLayoutDetailMatch[1]
         : entityLayoutDetailMatch
         ? entityLayoutDetailMatch[1]
         : null
     const layoutId = layoutDetailMatch
         ? layoutDetailMatch[2]
-        : catalogLayoutDetailMatch
-        ? catalogLayoutDetailMatch[3]
         : entityLayoutDetailMatch
         ? entityLayoutDetailMatch[2]
         : null
@@ -178,9 +174,9 @@ export default function NavbarBreadcrumbs() {
     const entityRouteKindKey = entityRouteKindSegment ? decodeURIComponent(entityRouteKindSegment) : null
     const entityRouteDetailMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/entities\/[^/]+\/instance\/([^/]+)(?:\/|$)/)
     const entityRouteEntityId = entityRouteDetailMatch ? entityRouteDetailMatch[2] : null
-    const entityRouteHubCatalogMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/entities\/[^/]+\/instance\/([^/]+)\/catalog\/([^/]+)(?:\/|$)/)
-    const entityRouteHubSetMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/entities\/[^/]+\/instance\/([^/]+)\/set\/([^/]+)(?:\/|$)/)
-    const entityRouteHubEnumerationMatch = location.pathname.match(
+    const entityRouteTreeEntityLinkedCollectionMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/entities\/[^/]+\/instance\/([^/]+)\/catalog\/([^/]+)(?:\/|$)/)
+    const entityRouteTreeEntityValueGroupMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/entities\/[^/]+\/instance\/([^/]+)\/set\/([^/]+)(?:\/|$)/)
+    const entityRouteTreeEntityOptionListMatch = location.pathname.match(
         /^\/metahubs?\/([^/]+)\/entities\/[^/]+\/instance\/([^/]+)\/enumeration\/([^/]+)(?:\/|$)/
     )
     const entityTypeRouteQuery = useQuery<BreadcrumbEntityTypesResponse>({
@@ -191,7 +187,6 @@ export default function NavbarBreadcrumbs() {
         queryFn: async () => {
             const response = await client.get<BreadcrumbEntityTypesResponse>(`/metahub/${entityRouteMetahubId}/entity-types`, {
                 params: {
-                    includeBuiltins: true,
                     limit: 1000,
                     offset: 0,
                     search: entityRouteKindKey
@@ -207,48 +202,47 @@ export default function NavbarBreadcrumbs() {
         refetchOnWindowFocus: false
     })
     const matchedEntityType = (entityTypeRouteQuery.data?.items ?? []).find((item) => item.kindKey === entityRouteKindKey) ?? null
-    const entityRouteLegacyCompatibleKind = matchedEntityType
-        ? getLegacyCompatibleObjectKind(matchedEntityType.config) ?? getLegacyCompatibleObjectKindForKindKey(entityRouteKindKey)
-        : getLegacyCompatibleObjectKindForKindKey(entityRouteKindKey)
-    const entityRouteCatalogName = useCatalogNameStandalone(
+    const resolvedEntityRouteKind = matchedEntityType?.kindKey ?? entityRouteKindKey ?? ''
+    const entityRouteLegacyCompatibleKind = isBuiltinEntityKind(resolvedEntityRouteKind) ? resolvedEntityRouteKind : null
+    const entityRouteLinkedCollectionName = useLinkedCollectionNameStandalone(
         entityRouteMetahubId,
         entityRouteLegacyCompatibleKind === 'catalog' ? entityRouteEntityId : null
     )
-    const entityRouteHubName = useHubName(
+    const entityRouteTreeEntityName = useTreeEntityName(
         entityRouteMetahubId,
         entityRouteLegacyCompatibleKind === 'hub'
             ? entityRouteEntityId
-            : entityRouteHubCatalogMatch
-            ? entityRouteHubCatalogMatch[2]
-            : entityRouteHubSetMatch
-            ? entityRouteHubSetMatch[2]
-            : entityRouteHubEnumerationMatch
-            ? entityRouteHubEnumerationMatch[2]
+            : entityRouteTreeEntityLinkedCollectionMatch
+            ? entityRouteTreeEntityLinkedCollectionMatch[2]
+            : entityRouteTreeEntityValueGroupMatch
+            ? entityRouteTreeEntityValueGroupMatch[2]
+            : entityRouteTreeEntityOptionListMatch
+            ? entityRouteTreeEntityOptionListMatch[2]
             : null
     )
-    const entityRouteHubCatalogName = useCatalogName(
+    const entityRouteTreeEntityLinkedCollectionName = useLinkedCollectionName(
         entityRouteMetahubId,
-        entityRouteHubCatalogMatch ? entityRouteHubCatalogMatch[2] : null,
-        entityRouteHubCatalogMatch ? entityRouteHubCatalogMatch[3] : null
+        entityRouteTreeEntityLinkedCollectionMatch ? entityRouteTreeEntityLinkedCollectionMatch[2] : null,
+        entityRouteTreeEntityLinkedCollectionMatch ? entityRouteTreeEntityLinkedCollectionMatch[3] : null
     )
-    const entityRouteSetName = useSetNameStandalone(
+    const entityRouteValueGroupName = useValueGroupNameStandalone(
         entityRouteMetahubId,
         entityRouteLegacyCompatibleKind === 'set'
             ? entityRouteEntityId
-            : entityRouteHubSetMatch
-            ? entityRouteHubSetMatch[3]
+            : entityRouteTreeEntityValueGroupMatch
+            ? entityRouteTreeEntityValueGroupMatch[3]
             : null
     )
-    const entityRouteEnumerationName = useEnumerationName(
+    const entityRouteOptionListName = useOptionListName(
         entityRouteMetahubId,
         entityRouteLegacyCompatibleKind === 'enumeration'
             ? entityRouteEntityId
-            : entityRouteHubEnumerationMatch
-            ? entityRouteHubEnumerationMatch[3]
+            : entityRouteTreeEntityOptionListMatch
+            ? entityRouteTreeEntityOptionListMatch[3]
             : null
     )
     const entityTypeBreadcrumbLabel = (() => {
-        if (entityRouteLegacyCompatibleKind && entityRouteLegacyCompatibleKind !== 'document') {
+        if (entityRouteLegacyCompatibleKind) {
             return t(LEGACY_COMPATIBLE_ENTITY_LABEL_KEYS[entityRouteLegacyCompatibleKind])
         }
 
@@ -258,7 +252,9 @@ export default function NavbarBreadcrumbs() {
 
         const uiNameKey = typeof matchedEntityType.ui?.nameKey === 'string' ? matchedEntityType.ui.nameKey.trim() : ''
         const translatedUiLabel =
-            matchedEntityType.source === 'builtin' && uiNameKey.length > 0 ? t(uiNameKey, { defaultValue: uiNameKey }) : uiNameKey
+            uiNameKey.length > 0 && isBuiltinEntityKind(matchedEntityType.kindKey ?? entityRouteKindKey ?? '')
+                ? t(uiNameKey, { defaultValue: uiNameKey })
+                : uiNameKey
         const resolvedLabel =
             extractLocalizedString(matchedEntityType.presentation?.name) ||
             (translatedUiLabel && translatedUiLabel.trim().length > 0 ? translatedUiLabel.trim() : null) ||
@@ -287,13 +283,13 @@ export default function NavbarBreadcrumbs() {
     const entityInstanceBreadcrumbLabel = (() => {
         const resolvedLabel =
             (entityRouteLegacyCompatibleKind === 'catalog'
-                ? entityRouteCatalogName
+                ? entityRouteLinkedCollectionName
                 : entityRouteLegacyCompatibleKind === 'hub'
-                ? entityRouteHubName
+                ? entityRouteTreeEntityName
                 : entityRouteLegacyCompatibleKind === 'set'
-                ? entityRouteSetName
+                ? entityRouteValueGroupName
                 : entityRouteLegacyCompatibleKind === 'enumeration'
-                ? entityRouteEnumerationName
+                ? entityRouteOptionListName
                 : null) ||
             extractLocalizedString(entityRouteDetailQuery.data?.name) ||
             extractLocalizedString(entityRouteDetailQuery.data?.codename)
@@ -358,58 +354,6 @@ export default function NavbarBreadcrumbs() {
     const metahubPublicationId = metahubPublicationIdMatch ? metahubPublicationIdMatch[2] : null
     const metahubPublicationName = useMetahubPublicationName(metahubPublicationParentId, metahubPublicationId)
 
-    // Extract hubId from URL for dynamic name loading (under metahub context)
-    // Pattern: /metahub/:metahubId/hub/:hubId/...
-    const hubIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/hub\/([^/]+)/)
-    const hubParentMetahubId = hubIdMatch ? hubIdMatch[1] : null
-    const hubId = hubIdMatch ? hubIdMatch[2] : null
-    const hubName = useHubName(hubParentMetahubId, hubId)
-
-    // Extract catalogId from URL for dynamic name loading (under hub context)
-    // Pattern: /metahub/:metahubId/hub/:hubId/catalog/:catalogId/...
-    const catalogIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/hub\/([^/]+)\/catalogs?\/([^/]+)/)
-    const catalogParentMetahubId = catalogIdMatch ? catalogIdMatch[1] : null
-    const catalogParentHubId = catalogIdMatch ? catalogIdMatch[2] : null
-    const catalogId = catalogIdMatch ? catalogIdMatch[3] : null
-    const catalogName = useCatalogName(catalogParentMetahubId, catalogParentHubId, catalogId)
-
-    // Extract catalogId from URL for catalog-centric navigation (without hub context)
-    // Pattern: /metahub/:metahubId/catalog/:catalogId/...
-    const standaloneCatalogIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/catalogs?\/([^/]+)/)
-    const standaloneCatalogMetahubId = standaloneCatalogIdMatch ? standaloneCatalogIdMatch[1] : null
-    const standaloneCatalogId = standaloneCatalogIdMatch ? standaloneCatalogIdMatch[2] : null
-    const standaloneCatalogName = useCatalogNameStandalone(standaloneCatalogMetahubId, standaloneCatalogId)
-
-    // Extract setId from global and hub-scoped metahub routes
-    const standaloneSetIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/set\/([^/]+)/)
-    const hubSetIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/hub\/([^/]+)\/set\/([^/]+)/)
-    const setParentMetahubId = standaloneSetIdMatch ? standaloneSetIdMatch[1] : hubSetIdMatch ? hubSetIdMatch[1] : null
-    const setId = standaloneSetIdMatch ? standaloneSetIdMatch[2] : hubSetIdMatch ? hubSetIdMatch[3] : null
-    const setName = useSetNameStandalone(setParentMetahubId, setId)
-
-    // Extract enumerationId from global and hub-scoped metahub routes
-    const standaloneEnumerationIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/enumeration\/([^/]+)/)
-    const hubEnumerationIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/hub\/([^/]+)\/enumeration\/([^/]+)/)
-    const enumerationParentMetahubId = standaloneEnumerationIdMatch
-        ? standaloneEnumerationIdMatch[1]
-        : hubEnumerationIdMatch
-        ? hubEnumerationIdMatch[1]
-        : null
-    const enumerationId = standaloneEnumerationIdMatch
-        ? standaloneEnumerationIdMatch[2]
-        : hubEnumerationIdMatch
-        ? hubEnumerationIdMatch[3]
-        : null
-    const enumerationName = useEnumerationName(enumerationParentMetahubId, enumerationId)
-
-    // Extract attributeId from URL for dynamic name loading (under catalog context)
-    const attributeIdMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/hub\/([^/]+)\/catalogs\/([^/]+)\/attributes\/([^/]+)/)
-    const attrParentMetahubId = attributeIdMatch ? attributeIdMatch[1] : null
-    const attrParentHubId = attributeIdMatch ? attributeIdMatch[2] : null
-    const attrParentCatalogId = attributeIdMatch ? attributeIdMatch[3] : null
-    const attributeId = attributeIdMatch ? attributeIdMatch[4] : null
-    const attributeName = useAttributeName(attrParentMetahubId, attrParentHubId, attrParentCatalogId, attributeId)
-
     // Extract instanceId and roleId from admin routes for dynamic name loading
     const instanceIdMatch = location.pathname.match(/^\/admin\/instance\/([^/]+)/)
     const instanceId = instanceIdMatch ? instanceIdMatch[1] : null
@@ -454,82 +398,11 @@ export default function NavbarBreadcrumbs() {
                     to: `/metahub/${segments[1]}`
                 })
 
-                // Sub-pages: hubs, catalogs, access, members
+                // Sub-pages: tree-entities, linked-collections, access, members
                 if (segments[2] === 'access') {
                     items.push({ label: t('access'), to: location.pathname })
                 } else if (segments[2] === 'members') {
                     items.push({ label: t('access'), to: location.pathname })
-                } else if (segments[2] === 'catalogs') {
-                    items.push({ label: t('catalogs'), to: `/metahub/${segments[1]}/catalogs` })
-
-                    if (segments[3]) {
-                        items.push({
-                            label: standaloneCatalogName ? truncateCatalogName(standaloneCatalogName) : '...',
-                            to: `/metahub/${segments[1]}/catalog/${segments[3]}/attributes`
-                        })
-
-                        if (segments[4] === 'attributes') {
-                            items.push({ label: t('attributes'), to: location.pathname })
-                        } else if (segments[4] === 'elements') {
-                            items.push({ label: t('elements'), to: location.pathname })
-                        }
-                    }
-                } else if (segments[2] === 'catalog') {
-                    items.push({ label: t('catalogs'), to: `/metahub/${segments[1]}/catalogs` })
-
-                    if (segments[3]) {
-                        items.push({
-                            label: standaloneCatalogName ? truncateCatalogName(standaloneCatalogName) : '...',
-                            to: `/metahub/${segments[1]}/catalog/${segments[3]}/attributes`
-                        })
-
-                        if (segments[4] === 'attributes') {
-                            items.push({ label: t('attributes'), to: location.pathname })
-                        } else if (segments[4] === 'elements') {
-                            items.push({ label: t('elements'), to: location.pathname })
-                        } else if (segments[4] === 'layout' && segments[5]) {
-                            items.push({
-                                label: layoutName ? truncateLayoutName(layoutName) : '...',
-                                to: location.pathname
-                            })
-                        }
-                    }
-                } else if (segments[2] === 'sets') {
-                    items.push({ label: t('sets'), to: `/metahub/${segments[1]}/sets` })
-                } else if (segments[2] === 'set') {
-                    items.push({ label: t('sets'), to: `/metahub/${segments[1]}/sets` })
-
-                    if (segments[3]) {
-                        items.push({
-                            label: setName ? truncateSetName(setName) : '...',
-                            to: `/metahub/${segments[1]}/set/${segments[3]}/constants`
-                        })
-                    }
-
-                    if (segments[4] === 'constants' && segments[3]) {
-                        items.push({
-                            label: t('constants'),
-                            to: `/metahub/${segments[1]}/set/${segments[3]}/constants`
-                        })
-                    }
-                } else if (segments[2] === 'enumerations') {
-                    items.push({ label: t('enumerations'), to: `/metahub/${segments[1]}/enumerations` })
-                } else if (segments[2] === 'enumeration') {
-                    items.push({ label: t('enumerations'), to: `/metahub/${segments[1]}/enumerations` })
-                    if (segments[3]) {
-                        items.push({
-                            label: enumerationName ? truncateEnumerationName(enumerationName) : '...',
-                            to: `/metahub/${segments[1]}/enumeration/${segments[3]}/values`
-                        })
-                    }
-                    if (segments[4] === 'values' && segments[3]) {
-                        items.push({
-                            label: t('values'),
-                            to: `/metahub/${segments[1]}/enumeration/${segments[3]}/values`
-                        })
-                    }
-                } else if (segments[2] === 'hubs') {
-                    items.push({ label: t('hubs'), to: `/metahub/${segments[1]}/hubs` })
                 } else if (segments[2] === 'entities') {
                     items.push({ label: t('entities'), to: `/metahub/${segments[1]}/entities` })
 
@@ -556,16 +429,16 @@ export default function NavbarBreadcrumbs() {
                                 if (segments[6] === 'hubs' || segments[6] === 'catalogs' || segments[6] === 'sets' || segments[6] === 'enumerations') {
                                     items.push({
                                         label: t(segments[6]),
-                                        to: buildEntityHubScopePath(segments[1], segments[3], segments[5], segments[6])
+                                        to: buildEntityTreeEntityScopePath(segments[1], segments[3], segments[5], segments[6])
                                     })
                                 } else if (segments[6] === 'catalog' && segments[7]) {
                                     items.push({
                                         label: t('catalogs'),
-                                        to: buildEntityHubScopePath(segments[1], segments[3], segments[5], 'catalogs')
+                                        to: buildEntityTreeEntityScopePath(segments[1], segments[3], segments[5], 'catalogs')
                                     })
                                     items.push({
-                                        label: entityRouteHubCatalogName ? truncateCatalogName(entityRouteHubCatalogName) : '...',
-                                        to: buildEntityHubCatalogPath(segments[1], segments[3], segments[5], segments[7], 'attributes')
+                                        label: entityRouteTreeEntityLinkedCollectionName ? truncateLinkedCollectionName(entityRouteTreeEntityLinkedCollectionName) : '...',
+                                        to: buildEntityTreeEntityLinkedCollectionPath(segments[1], segments[3], segments[5], segments[7], 'attributes')
                                     })
 
                                     if (segments[8] === 'attributes') {
@@ -581,39 +454,39 @@ export default function NavbarBreadcrumbs() {
                                 } else if (segments[6] === 'set' && segments[7]) {
                                     items.push({
                                         label: t('sets'),
-                                        to: buildEntityHubScopePath(segments[1], segments[3], segments[5], 'sets')
+                                        to: buildEntityTreeEntityScopePath(segments[1], segments[3], segments[5], 'sets')
                                     })
                                     items.push({
-                                        label: entityRouteSetName ? truncateSetName(entityRouteSetName) : '...',
-                                        to: buildEntityHubSetPath(segments[1], segments[3], segments[5], segments[7])
+                                        label: entityRouteValueGroupName ? truncateValueGroupName(entityRouteValueGroupName) : '...',
+                                        to: buildEntityTreeEntityValueGroupPath(segments[1], segments[3], segments[5], segments[7])
                                     })
 
-                                    if (segments[8] === 'constants') {
+                                    if (segments[8] === 'fixed-values') {
                                         items.push({
-                                            label: t('constants'),
-                                            to: buildEntityHubSetPath(segments[1], segments[3], segments[5], segments[7])
+                                            label: t('fixedValues'),
+                                            to: buildEntityTreeEntityValueGroupPath(segments[1], segments[3], segments[5], segments[7])
                                         })
                                     }
                                 } else if (segments[6] === 'enumeration' && segments[7]) {
                                     items.push({
                                         label: t('enumerations'),
-                                        to: buildEntityHubScopePath(segments[1], segments[3], segments[5], 'enumerations')
+                                        to: buildEntityTreeEntityScopePath(segments[1], segments[3], segments[5], 'enumerations')
                                     })
                                     items.push({
-                                        label: entityRouteEnumerationName ? truncateEnumerationName(entityRouteEnumerationName) : '...',
-                                        to: buildEntityHubEnumerationPath(segments[1], segments[3], segments[5], segments[7])
+                                        label: entityRouteOptionListName ? truncateOptionListName(entityRouteOptionListName) : '...',
+                                        to: buildEntityTreeEntityOptionListPath(segments[1], segments[3], segments[5], segments[7])
                                     })
 
                                     if (segments[8] === 'values') {
                                         items.push({
                                             label: t('values'),
-                                            to: buildEntityHubEnumerationPath(segments[1], segments[3], segments[5], segments[7])
+                                            to: buildEntityTreeEntityOptionListPath(segments[1], segments[3], segments[5], segments[7])
                                         })
                                     }
                                 }
                             } else if (entityRouteLegacyCompatibleKind === 'set') {
-                                if (segments[6] === 'constants') {
-                                    items.push({ label: t('constants'), to: defaultEntityInstancePath })
+                                if (segments[6] === 'fixed-values') {
+                                    items.push({ label: t('fixedValues'), to: defaultEntityInstancePath })
                                 }
                             } else if (entityRouteLegacyCompatibleKind === 'enumeration') {
                                 if (segments[6] === 'values') {
@@ -640,22 +513,15 @@ export default function NavbarBreadcrumbs() {
                     items.push({ label: t('branches'), to: `/metahub/${segments[1]}/branches` })
                 } else if (segments[2] === 'settings') {
                     items.push({ label: t('settings'), to: `/metahub/${segments[1]}/settings` })
-                } else if (segments[2] === 'common' || segments[2] === 'general') {
-                    items.push({ label: t('commonSection'), to: `/metahub/${segments[1]}/common` })
+                } else if (segments[2] === 'resources') {
+                    items.push({ label: t('commonSection'), to: `/metahub/${segments[1]}/resources` })
 
                     if (segments[3] === 'layouts') {
-                        items.push({ label: t('layouts'), to: `/metahub/${segments[1]}/common` })
+                        items.push({ label: t('layouts'), to: `/metahub/${segments[1]}/resources` })
 
                         if (segments[4]) {
                             items.push({ label: layoutName ? truncateLayoutName(layoutName) : '...', to: location.pathname })
                         }
-                    }
-                } else if (segments[2] === 'layouts') {
-                    items.push({ label: t('commonSection'), to: `/metahub/${segments[1]}/common` })
-                    items.push({ label: t('layouts'), to: `/metahub/${segments[1]}/common` })
-
-                    if (segments[3]) {
-                        items.push({ label: layoutName ? truncateLayoutName(layoutName) : '...', to: location.pathname })
                     }
                 } else if (segments[2] === 'publications') {
                     items.push({ label: t('publications'), to: `/metahub/${segments[1]}/publications` })
@@ -681,137 +547,6 @@ export default function NavbarBreadcrumbs() {
                             label: t('applications'),
                             to: `/metahub/${segments[1]}/publication/${segments[3]}/applications`
                         })
-                    }
-                } else if (segments[2] === 'hub') {
-                    items.push({ label: t('hubs'), to: `/metahub/${segments[1]}/hubs` })
-
-                    if (segments[3]) {
-                        const hubLabel = hubName ? truncateHubName(hubName) : '...'
-
-                        if (segments[4] === 'catalogs') {
-                            items.push({
-                                label: hubLabel,
-                                to: `/metahub/${segments[1]}/hub/${segments[3]}/hubs`
-                            })
-
-                            items.push({ label: t('catalogs'), to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs` })
-
-                            if (segments[5]) {
-                                items.push({
-                                    label: catalogName ? truncateCatalogName(catalogName) : '...',
-                                    to: `/metahub/${segments[1]}/hub/${segments[3]}/catalog/${segments[5]}/attributes`
-                                })
-
-                                if (segments[6] === 'attributes') {
-                                    items.push({ label: t('attributes'), to: location.pathname })
-
-                                    if (segments[7]) {
-                                        items.push({
-                                            label: attributeName ? truncateAttributeName(attributeName) : '...',
-                                            to: location.pathname
-                                        })
-                                    }
-                                } else if (segments[6] === 'elements') {
-                                    items.push({ label: t('elements'), to: location.pathname })
-                                }
-                            }
-                        } else if (segments[4] === 'enumerations') {
-                            items.push({
-                                label: hubLabel,
-                                to: `/metahub/${segments[1]}/hub/${segments[3]}/hubs`
-                            })
-                            items.push({ label: t('enumerations'), to: `/metahub/${segments[1]}/hub/${segments[3]}/enumerations` })
-                        } else if (segments[4] === 'sets') {
-                            items.push({
-                                label: hubLabel,
-                                to: `/metahub/${segments[1]}/hub/${segments[3]}/hubs`
-                            })
-                            items.push({ label: t('sets'), to: `/metahub/${segments[1]}/hub/${segments[3]}/sets` })
-                        } else if (segments[4] === 'hubs') {
-                            items.push({
-                                label: hubLabel,
-                                to: `/metahub/${segments[1]}/hub/${segments[3]}/hubs`
-                            })
-                            items.push({ label: t('hubs'), to: `/metahub/${segments[1]}/hub/${segments[3]}/hubs` })
-                        } else if (segments[4] === 'set') {
-                            items.push({
-                                label: hubLabel,
-                                to: `/metahub/${segments[1]}/hub/${segments[3]}/hubs`
-                            })
-                            items.push({ label: t('sets'), to: `/metahub/${segments[1]}/hub/${segments[3]}/sets` })
-
-                            if (segments[5]) {
-                                items.push({
-                                    label: setName ? truncateSetName(setName) : '...',
-                                    to: `/metahub/${segments[1]}/hub/${segments[3]}/set/${segments[5]}/constants`
-                                })
-                            }
-
-                            if (segments[6] === 'constants' && segments[5]) {
-                                items.push({
-                                    label: t('constants'),
-                                    to: `/metahub/${segments[1]}/hub/${segments[3]}/set/${segments[5]}/constants`
-                                })
-                            }
-                        } else if (segments[4] === 'enumeration') {
-                            items.push({
-                                label: hubLabel,
-                                to: `/metahub/${segments[1]}/hub/${segments[3]}/hubs`
-                            })
-                            items.push({ label: t('enumerations'), to: `/metahub/${segments[1]}/hub/${segments[3]}/enumerations` })
-
-                            if (segments[5]) {
-                                items.push({
-                                    label: enumerationName ? truncateEnumerationName(enumerationName) : '...',
-                                    to: `/metahub/${segments[1]}/hub/${segments[3]}/enumeration/${segments[5]}/values`
-                                })
-                            }
-
-                            if (segments[6] === 'values' && segments[5]) {
-                                items.push({
-                                    label: t('values'),
-                                    to: `/metahub/${segments[1]}/hub/${segments[3]}/enumeration/${segments[5]}/values`
-                                })
-                            }
-                        } else if (segments[4] === 'catalog') {
-                            items.push({
-                                label: hubLabel,
-                                to: `/metahub/${segments[1]}/hub/${segments[3]}/hubs`
-                            })
-
-                            items.push({ label: t('catalogs'), to: `/metahub/${segments[1]}/hub/${segments[3]}/catalogs` })
-
-                            if (segments[5]) {
-                                items.push({
-                                    label: catalogName ? truncateCatalogName(catalogName) : '...',
-                                    to: `/metahub/${segments[1]}/hub/${segments[3]}/catalog/${segments[5]}/attributes`
-                                })
-
-                                if (segments[6] === 'attributes') {
-                                    items.push({ label: t('attributes'), to: location.pathname })
-
-                                    if (segments[7]) {
-                                        items.push({
-                                            label: attributeName ? truncateAttributeName(attributeName) : '...',
-                                            to: location.pathname
-                                        })
-                                    }
-                                } else if (segments[6] === 'elements') {
-                                    items.push({ label: t('elements'), to: location.pathname })
-                                }
-                            }
-                        } else {
-                            items.push({
-                                label: hubLabel,
-                                to: `/metahub/${segments[1]}/hub/${segments[3]}/hubs`
-                            })
-
-                            if (segments[4] === 'attributes') {
-                                items.push({ label: t('attributes'), to: location.pathname })
-                            } else if (segments[4] === 'elements') {
-                                items.push({ label: t('elements'), to: location.pathname })
-                            }
-                        }
                     }
                 } else if (segments[2] === 'migrations') {
                     items.push({ label: t('migrations'), to: `/metahub/${segments[1]}/migrations` })

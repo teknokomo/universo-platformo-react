@@ -151,3 +151,76 @@ test('@flow metahub settings expose and persist common dialog preferences', asyn
         await disposeApiContext(api)
     }
 })
+
+test('@flow metahub settings persist entity-scoped controls across managed metadata tabs', async ({ page, runManifest }) => {
+    const api = await createLoggedInApiContext({
+        email: runManifest.testUser.email,
+        password: runManifest.testUser.password
+    })
+
+    const metahubName = `E2E ${runManifest.runId} entity settings metahub`
+    const metahubCodename = `${runManifest.runId}-entity-settings-metahub`
+
+    try {
+        const metahub = await createMetahub(api, {
+            name: { en: metahubName },
+            namePrimaryLocale: 'en',
+            codename: createLocalizedContent('en', metahubCodename)
+        })
+
+        if (!metahub?.id) {
+            throw new Error('Metahub creation did not return an id for entity settings coverage')
+        }
+
+        await recordCreatedMetahub({
+            id: metahub.id,
+            name: metahubName,
+            codename: metahubCodename
+        })
+
+        await page.goto(`/metahub/${metahub.id}/settings`)
+        await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+
+        await page.getByRole('tab', { name: 'Tree entities' }).click()
+        await expect(page.getByRole('heading', { name: 'Allow TreeEntity Nesting' })).toBeVisible()
+        await page.getByRole('switch').nth(2).click()
+
+        await page.getByRole('tab', { name: 'Linked collections' }).click()
+        await expect(page.getByRole('heading', { name: 'Allow Attribute Delete' })).toBeVisible()
+        await page.getByRole('switch').nth(3).click()
+
+        await page.getByRole('tab', { name: 'Value groups' }).click()
+        await expect(page.getByRole('heading', { name: 'Allow Constant Delete' })).toBeVisible()
+        await page.getByRole('switch').nth(3).click()
+
+        await page.getByRole('tab', { name: 'Option lists' }).click()
+        await expect(page.getByRole('heading', { name: 'Allow Delete' })).toBeVisible()
+        await page.getByRole('switch').nth(1).click()
+
+        const saveButton = page.getByRole('button', { name: 'Save' })
+        await expect(saveButton).toBeVisible()
+        await expect(saveButton).toBeEnabled()
+
+        const saveRequest = waitForSettledMutationResponse(
+            page,
+            (response) => response.request().method() === 'PUT' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/settings`),
+            { label: 'Saving entity-scoped metahub settings' }
+        )
+
+        await saveButton.click()
+
+        const saveResponse = await saveRequest
+        expect(saveResponse.ok()).toBe(true)
+        await expect(saveButton).toHaveCount(0)
+
+        const settingsResponse = await listMetahubSettings(api, metahub.id)
+        const settingsMap = new Map((settingsResponse?.settings ?? []).map((setting: { key?: string }) => [setting.key, setting]))
+
+        expect(extractWrappedValue(settingsMap.get('entity.hub.allowNesting'))).toBe(false)
+        expect(extractWrappedValue(settingsMap.get('entity.catalog.allowAttributeDelete'))).toBe(false)
+        expect(extractWrappedValue(settingsMap.get('entity.set.allowConstantDelete'))).toBe(false)
+        expect(extractWrappedValue(settingsMap.get('entity.enumeration.allowDelete'))).toBe(false)
+    } finally {
+        await disposeApiContext(api)
+    }
+})

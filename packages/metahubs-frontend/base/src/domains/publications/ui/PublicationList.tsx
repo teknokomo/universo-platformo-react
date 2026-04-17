@@ -50,7 +50,7 @@ import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-
 import { useCreatePublication, useDeletePublication, useSyncPublication, useUpdatePublication } from '../hooks/mutations'
 import { usePublicationListData } from '../hooks/usePublicationListData'
 import { useViewPreference } from '../../../hooks/useViewPreference'
-import { STORAGE_KEYS } from '../../../constants/storage'
+import { STORAGE_KEYS } from '../../../view-preferences/storage'
 import { metahubsQueryKeys, invalidatePublicationsQueries } from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { getVLCString, type PublicationDisplay } from '../../../types'

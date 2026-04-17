@@ -29,11 +29,15 @@ import { CURRENT_STRUCTURE_VERSION, structureVersionToSemver } from '../../metah
 import { escapeLikeWildcards } from '../../../utils'
 import { OptimisticLockError } from '@universo/utils'
 import { EntityTypeService } from '../../entities/services/EntityTypeService'
-import { buildManagedDynamicSchemaName, isManagedDynamicSchemaName, quoteIdentifier } from '@universo/migrations-core'
+import {
+    buildManagedDynamicSchemaName as buildDynamicSchemaName,
+    isManagedDynamicSchemaName as isDynamicSchemaName,
+    quoteIdentifier
+} from '@universo/migrations-core'
 import { createLogger } from '../../../utils/logger'
 import { getCodenamePayloadText, resolveCodenamePayload } from '../../shared/codenamePayload'
 import { MetahubDomainError, MetahubNotFoundError, MetahubConflictError, MetahubValidationError } from '../../shared/domainErrors'
-import { resolveLegacyCompatibleKindsInSchema, type ManagedLegacyCompatibleKind } from '../../shared/legacyCompatibility'
+import { resolveEntityMetadataKindsInSchema } from '../../shared/entityMetadataKinds'
 const log = createLogger('MetahubBranchesService')
 
 export interface BranchListOptions {
@@ -58,7 +62,9 @@ export interface BlockingBranchUser {
     role: string
 }
 
-type BranchCopyCompatibilityErrorCode = 'BRANCH_COPY_ENUM_REFERENCES' | 'BRANCH_COPY_DANGLING_REFERENCES'
+type BranchCopyCompatibilityErrorCode = 'BRANCH_COPY_OPTION_LIST_REFERENCES' | 'BRANCH_COPY_DANGLING_ENTITY_REFERENCES'
+
+type BranchCopyEntityGroup = 'treeEntity' | 'linkedCollection' | 'valueGroup' | 'optionList'
 
 class BranchCopyCompatibilityError extends Error {
     constructor(public readonly code: BranchCopyCompatibilityErrorCode) {
@@ -68,11 +74,11 @@ class BranchCopyCompatibilityError extends Error {
 }
 
 type BranchSchemaCompatibilityContext = {
-    hubKinds: string[]
-    catalogKinds: string[]
-    setKinds: string[]
-    enumerationKinds: string[]
-    legacyKindByKind: Map<string, ManagedLegacyCompatibleKind>
+    treeEntityKinds: string[]
+    linkedCollectionKinds: string[]
+    valueGroupKinds: string[]
+    optionListKinds: string[]
+    entityGroupByKind: Map<string, BranchCopyEntityGroup>
 }
 
 const normalizeSql = (value: string): string => value.replace(/\s+/g, ' ').trim()
@@ -90,41 +96,38 @@ export class MetahubBranchesService {
     }
 
     private buildSchemaName(metahubId: string, branchNumber: number): string {
-        return buildManagedDynamicSchemaName({ prefix: 'mhb', ownerId: metahubId, branchNumber })
+        return buildDynamicSchemaName({ prefix: 'mhb', ownerId: metahubId, branchNumber })
     }
 
     private assertSafeSchemaName(schemaName: string): void {
-        if (!schemaName.startsWith('mhb_') || !isManagedDynamicSchemaName(schemaName)) {
+        if (!schemaName.startsWith('mhb_') || !isDynamicSchemaName(schemaName)) {
             throw new Error(`Invalid metahub schema name: ${schemaName}`)
         }
     }
 
-    private async loadSchemaCompatibilityContext(
-        exec: SqlQueryable,
-        schemaName: string
-    ): Promise<BranchSchemaCompatibilityContext> {
+    private async loadSchemaCompatibilityContext(exec: SqlQueryable, schemaName: string): Promise<BranchSchemaCompatibilityContext> {
         this.assertSafeSchemaName(schemaName)
 
         const entityTypeService = new EntityTypeService(this.exec, new MetahubSchemaService(this.exec))
-        const [hubKinds, catalogKinds, setKinds, enumerationKinds] = await Promise.all([
-            resolveLegacyCompatibleKindsInSchema(entityTypeService, schemaName, 'hub', exec),
-            resolveLegacyCompatibleKindsInSchema(entityTypeService, schemaName, 'catalog', exec),
-            resolveLegacyCompatibleKindsInSchema(entityTypeService, schemaName, 'set', exec),
-            resolveLegacyCompatibleKindsInSchema(entityTypeService, schemaName, 'enumeration', exec)
+        const [treeEntityKinds, linkedCollectionKinds, valueGroupKinds, optionListKinds] = await Promise.all([
+            resolveEntityMetadataKindsInSchema(entityTypeService, schemaName, 'hub', exec),
+            resolveEntityMetadataKindsInSchema(entityTypeService, schemaName, 'catalog', exec),
+            resolveEntityMetadataKindsInSchema(entityTypeService, schemaName, 'set', exec),
+            resolveEntityMetadataKindsInSchema(entityTypeService, schemaName, 'enumeration', exec)
         ])
 
-        const legacyKindByKind = new Map<string, ManagedLegacyCompatibleKind>()
-        for (const kind of hubKinds) legacyKindByKind.set(kind, 'hub')
-        for (const kind of catalogKinds) legacyKindByKind.set(kind, 'catalog')
-        for (const kind of setKinds) legacyKindByKind.set(kind, 'set')
-        for (const kind of enumerationKinds) legacyKindByKind.set(kind, 'enumeration')
+        const entityGroupByKind = new Map<string, BranchCopyEntityGroup>()
+        for (const kind of treeEntityKinds) entityGroupByKind.set(kind, 'treeEntity')
+        for (const kind of linkedCollectionKinds) entityGroupByKind.set(kind, 'linkedCollection')
+        for (const kind of valueGroupKinds) entityGroupByKind.set(kind, 'valueGroup')
+        for (const kind of optionListKinds) entityGroupByKind.set(kind, 'optionList')
 
         return {
-            hubKinds,
-            catalogKinds,
-            setKinds,
-            enumerationKinds,
-            legacyKindByKind
+            treeEntityKinds,
+            linkedCollectionKinds,
+            valueGroupKinds,
+            optionListKinds,
+            entityGroupByKind
         }
     }
 
@@ -135,16 +138,16 @@ export class MetahubBranchesService {
         compatibility: BranchSchemaCompatibilityContext
     ): Promise<void> {
         const keptKinds: string[] = []
-        if (options.copyCatalogs) keptKinds.push(...compatibility.catalogKinds)
-        if (options.copySets) keptKinds.push(...compatibility.setKinds)
-        if (options.copyHubs) keptKinds.push(...compatibility.hubKinds)
-        if (options.copyEnumerations) keptKinds.push(...compatibility.enumerationKinds)
+        if (options.copyLinkedCollections) keptKinds.push(...compatibility.linkedCollectionKinds)
+        if (options.copyValueGroups) keptKinds.push(...compatibility.valueGroupKinds)
+        if (options.copyTreeEntities) keptKinds.push(...compatibility.treeEntityKinds)
+        if (options.copyOptionLists) keptKinds.push(...compatibility.optionListKinds)
 
         const removedKinds: string[] = []
-        if (!options.copyCatalogs) removedKinds.push(...compatibility.catalogKinds)
-        if (!options.copySets) removedKinds.push(...compatibility.setKinds)
-        if (!options.copyHubs) removedKinds.push(...compatibility.hubKinds)
-        if (!options.copyEnumerations) removedKinds.push(...compatibility.enumerationKinds)
+        if (!options.copyLinkedCollections) removedKinds.push(...compatibility.linkedCollectionKinds)
+        if (!options.copyValueGroups) removedKinds.push(...compatibility.valueGroupKinds)
+        if (!options.copyTreeEntities) removedKinds.push(...compatibility.treeEntityKinds)
+        if (!options.copyOptionLists) removedKinds.push(...compatibility.optionListKinds)
 
         if (keptKinds.length === 0 || removedKinds.length === 0) return
 
@@ -179,18 +182,18 @@ export class MetahubBranchesService {
             [keptKinds, removedKinds]
         )
 
-        const incompatibleLegacyKinds = new Set(
+        const incompatibleEntityGroups = new Set(
             rows
-                .map((row) => (typeof row.target_kind === 'string' ? compatibility.legacyKindByKind.get(row.target_kind) : null))
-                .filter((kind): kind is ManagedLegacyCompatibleKind => kind !== undefined && kind !== null)
+                .map((row) => (typeof row.target_kind === 'string' ? compatibility.entityGroupByKind.get(row.target_kind) : null))
+                .filter((kind): kind is BranchCopyEntityGroup => kind !== undefined && kind !== null)
         )
-        if (incompatibleLegacyKinds.size === 0) return
+        if (incompatibleEntityGroups.size === 0) return
 
-        if (incompatibleLegacyKinds.has('enumeration')) {
-            throw new BranchCopyCompatibilityError('BRANCH_COPY_ENUM_REFERENCES')
+        if (incompatibleEntityGroups.has('optionList')) {
+            throw new BranchCopyCompatibilityError('BRANCH_COPY_OPTION_LIST_REFERENCES')
         }
 
-        throw new BranchCopyCompatibilityError('BRANCH_COPY_DANGLING_REFERENCES')
+        throw new BranchCopyCompatibilityError('BRANCH_COPY_DANGLING_ENTITY_REFERENCES')
     }
 
     private async sanitizeHubReferencesInObjectConfigs(
@@ -199,12 +202,12 @@ export class MetahubBranchesService {
         options: BranchCopyOptions,
         compatibility: BranchSchemaCompatibilityContext
     ): Promise<void> {
-        if (options.copyHubs) return
+        if (options.copyTreeEntities) return
 
         const kindsWithHubConfig: string[] = []
-        if (options.copyCatalogs) kindsWithHubConfig.push(...compatibility.catalogKinds)
-        if (options.copySets) kindsWithHubConfig.push(...compatibility.setKinds)
-        if (options.copyEnumerations) kindsWithHubConfig.push(...compatibility.enumerationKinds)
+        if (options.copyLinkedCollections) kindsWithHubConfig.push(...compatibility.linkedCollectionKinds)
+        if (options.copyValueGroups) kindsWithHubConfig.push(...compatibility.valueGroupKinds)
+        if (options.copyOptionLists) kindsWithHubConfig.push(...compatibility.optionListKinds)
         if (kindsWithHubConfig.length === 0) return
 
         await exec.query(
@@ -235,20 +238,20 @@ export class MetahubBranchesService {
         await exec.query(
             `
             UPDATE ${schemaIdent}._mhb_objects AS child
-            SET config = jsonb_set(COALESCE(child.config, '{}'::jsonb), '{parentHubId}', 'null'::jsonb, true)
+            SET config = jsonb_set(COALESCE(child.config, '{}'::jsonb), '{parentTreeEntityId}', 'null'::jsonb, true)
             WHERE child.kind = ANY($1::text[])
               AND COALESCE(child._upl_deleted, false) = false
               AND COALESCE(child._mhb_deleted, false) = false
-              AND COALESCE(child.config->>'parentHubId', '') <> ''
+              AND COALESCE(child.config->>'parentTreeEntityId', '') <> ''
               AND (
-                  child.config->>'parentHubId' = child.id
+                  child.config->>'parentTreeEntityId' = child.id
                   OR NOT EXISTS (
                       SELECT 1
                       FROM ${schemaIdent}._mhb_objects AS parent
                       WHERE parent.kind = ANY($1::text[])
                         AND COALESCE(parent._upl_deleted, false) = false
                         AND COALESCE(parent._mhb_deleted, false) = false
-                        AND parent.id = child.config->>'parentHubId'
+                        AND parent.id = child.config->>'parentTreeEntityId'
                   )
               )
         `,
@@ -272,17 +275,17 @@ export class MetahubBranchesService {
         await this.sanitizeHubReferencesInObjectConfigs(exec, schemaIdent, options, compatibility)
 
         const kindsToDelete: string[] = []
-        if (!options.copyHubs) kindsToDelete.push(...compatibility.hubKinds)
-        if (!options.copyCatalogs) kindsToDelete.push(...compatibility.catalogKinds)
-        if (!options.copySets) kindsToDelete.push(...compatibility.setKinds)
-        if (!options.copyEnumerations) kindsToDelete.push(...compatibility.enumerationKinds)
+        if (!options.copyTreeEntities) kindsToDelete.push(...compatibility.treeEntityKinds)
+        if (!options.copyLinkedCollections) kindsToDelete.push(...compatibility.linkedCollectionKinds)
+        if (!options.copyValueGroups) kindsToDelete.push(...compatibility.valueGroupKinds)
+        if (!options.copyOptionLists) kindsToDelete.push(...compatibility.optionListKinds)
 
         if (kindsToDelete.length > 0) {
             await exec.query(`DELETE FROM ${schemaIdent}._mhb_objects WHERE kind = ANY($1::text[])`, [kindsToDelete])
         }
 
         // Ensure hubs never keep dangling/self parent links after prune.
-        await this.sanitizeHubParentReferences(exec, schemaIdent, compatibility.hubKinds)
+        await this.sanitizeHubParentReferences(exec, schemaIdent, compatibility.treeEntityKinds)
     }
 
     private async cleanupSchemaWithDiagnostics(schemaName: string, context: string): Promise<string | null> {

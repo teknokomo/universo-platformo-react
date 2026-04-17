@@ -1,5 +1,12 @@
 # Current Research
 
+## 2026-04-13: Standard-kind contract cleanup and validation sync
+
+- Research outcome implemented: the remaining legacy-removal drift was a shared contract problem, not a single-controller bug. The stale assumptions lived in `@universo/types`, dynamic menu/breadcrumb consumers, self-hosted fixture generation, and the touched runtime/browser proofs that still expected builtin/source or `custom.*-v2` behavior.
+- Implemented fix set: standard metadata kinds now stay direct (`catalog`, `hub`, `set`, `enumeration`) across the shared type surface, shell navigation resolves labels from unified entity metadata, self-hosted generator/export/import coverage asserts the direct kind contract, and the committed fixture aligns with the entity-owned route/API surface.
+- Validation sync: the focused schema-ddl, metahubs-backend, applications-backend, template-mui, and touched Playwright slices were aligned during the implementation wave, and the canonical root `pnpm build` was rerun green while updating the compressed memory-bank files.
+- No open research thread remains for this standard-kind cleanup seam.
+
 ## 2026-04-12: Metahub QA gap closure
 
 ## 2026-04-12: PR #763 review comment QA triage

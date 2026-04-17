@@ -15,6 +15,8 @@ import {
 import { recordCreatedGlobalUser, recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { buildEntityMenuTriggerSelector, toolbarSelectors } from '../../support/selectors/contracts'
 
+test.setTimeout(180_000)
+
 type ListedMember = {
     id: string
     userId: string

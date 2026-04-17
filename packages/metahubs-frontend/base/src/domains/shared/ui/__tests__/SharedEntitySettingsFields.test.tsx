@@ -70,8 +70,8 @@ describe('SharedEntitySettingsFields', () => {
         i18nState.language = 'en'
         useQueryMock.mockReturnValue({
             data: [
-                { id: 'catalog-1', label: 'Catalog One', secondaryLabel: 'catalog_one' },
-                { id: 'catalog-2', label: 'Catalog Two', secondaryLabel: 'catalog_two' }
+                { id: 'catalog-1', label: 'LinkedCollectionEntity One', secondaryLabel: 'catalog_one' },
+                { id: 'catalog-2', label: 'LinkedCollectionEntity Two', secondaryLabel: 'catalog_two' }
             ],
             isLoading: false,
             error: null
@@ -170,7 +170,7 @@ describe('SharedEntitySettingsFields', () => {
             />
         )
 
-        expect(screen.getByText('Catalog Two')).toBeInTheDocument()
+        expect(screen.getByText('LinkedCollectionEntity Two')).toBeInTheDocument()
 
         await user.click(screen.getByTestId('entity-selection-add-button'))
         await user.click(screen.getByTestId('entity-selection-option-catalog-1'))
@@ -223,7 +223,7 @@ describe('SharedEntitySettingsFields', () => {
                     _schema: '1',
                     _primary: 'en',
                     locales: {
-                        en: { content: 'Catalog One' }
+                        en: { content: 'LinkedCollectionEntity One' }
                     }
                 },
                 {
@@ -236,7 +236,7 @@ describe('SharedEntitySettingsFields', () => {
                 'en',
                 'catalog-1'
             )
-        ).toBe('Catalog One')
+        ).toBe('LinkedCollectionEntity One')
 
         expect(
             resolveSharedTargetSecondaryLabel(

@@ -4,17 +4,15 @@ import { test, expect } from '../../fixtures/test'
 import {
     createLoggedInApiContext,
     createMetahub,
-    createMetahubAttribute,
     disposeApiContext,
     getLayout,
     listLayoutZoneWidgets,
     listLayouts,
-    listMetahubCatalogs,
     sendWithCsrf
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { repoRoot } from '../../support/env/load-e2e-env.mjs'
-import { createLocalizedContent, validateSnapshotEnvelope } from '@universo/utils'
+import { validateSnapshotEnvelope } from '@universo/utils'
 import {
     QUIZ_CANONICAL_METAHUB,
     QUIZ_CENTERED_LAYOUT_CONFIG,
@@ -43,24 +41,6 @@ async function apiGet(api: ApiContext, urlPath: string) {
             ...(cookieHeader ? { Cookie: cookieHeader } : {})
         }
     })
-}
-
-async function waitForCatalogId(api: ApiContext, metahubId: string) {
-    let catalogId: string | undefined
-
-    await expect
-        .poll(async () => {
-            const response = await listMetahubCatalogs(api, metahubId, { limit: 100, offset: 0 })
-            catalogId = response?.items?.[0]?.id
-            return typeof catalogId === 'string'
-        })
-        .toBe(true)
-
-    if (!catalogId) {
-        throw new Error(`No catalog was returned for metahub ${metahubId}`)
-    }
-
-    return catalogId
 }
 
 async function waitForLayoutId(api: ApiContext, metahubId: string) {
@@ -156,16 +136,7 @@ test.describe('Metahubs Quiz App Export', () => {
             codename: QUIZ_CANONICAL_METAHUB.codename.en
         })
 
-        const catalogId = await waitForCatalogId(api, metahub.id)
         const layoutId = await waitForLayoutId(api, metahub.id)
-
-        await createMetahubAttribute(api, metahub.id, catalogId, {
-            name: { en: 'Title' },
-            namePrimaryLocale: 'en',
-            codename: createLocalizedContent('en', 'title'),
-            dataType: 'STRING',
-            isRequired: false
-        })
 
         await applyCenteredQuizLayout(api, metahub.id, layoutId)
 

@@ -50,9 +50,9 @@ describe('MetahubObjectsService mutation fail-closed behavior', () => {
                 {
                     components: {
                         dataSchema: { enabled: true },
-                        predefinedElements: false,
-                        hubAssignment: false,
-                        enumerationValues: false,
+                        records: false,
+                        treeAssignment: false,
+                        optionValues: false,
                         constants: false,
                         hierarchy: false,
                         nestedCollections: false,
@@ -173,7 +173,7 @@ describe('MetahubObjectsService mutation fail-closed behavior', () => {
         await expect(service.permanentDelete('metahub-1', 'missing-object', 'user-1')).rejects.toThrow(MetahubNotFoundError)
     })
 
-    it('omits undefined presentation and config fields when updating a catalog', async () => {
+    it('omits undefined presentation and config fields when updating a generic object row', async () => {
         const localizedName = {
             _schema: 'v1',
             _primary: 'en',
@@ -206,9 +206,10 @@ describe('MetahubObjectsService mutation fail-closed behavior', () => {
 
         mockQuery.mockResolvedValueOnce([{ id: 'catalog-1' }])
 
-        await service.updateCatalog(
+        await service.updateObject(
             'metahub-1',
             'catalog-1',
+            'catalog',
             {
                 name: localizedName,
                 config: {

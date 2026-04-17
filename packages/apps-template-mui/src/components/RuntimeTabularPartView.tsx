@@ -18,7 +18,7 @@ export interface RuntimeTabularPartViewProps {
     /** Application UUID. */
     applicationId: string
     /** Catalog UUID that owns the parent record. */
-    catalogId: string
+    linkedCollectionId: string
     /** Parent record UUID. */
     parentRecordId: string
     /** TABLE attribute UUID. */
@@ -46,7 +46,7 @@ export interface RuntimeTabularPartViewProps {
 export function RuntimeTabularPartView({
     apiBaseUrl,
     applicationId,
-    catalogId,
+    linkedCollectionId,
     parentRecordId,
     attributeId,
     childFields,
@@ -66,12 +66,12 @@ export function RuntimeTabularPartView({
             createTabularPartAdapter({
                 apiBaseUrl,
                 applicationId,
-                catalogId,
+                linkedCollectionId,
                 parentRecordId,
                 attributeId,
                 childFields: stableChildFields
             }),
-        [apiBaseUrl, applicationId, catalogId, parentRecordId, attributeId, stableChildFields]
+        [apiBaseUrl, applicationId, linkedCollectionId, parentRecordId, attributeId, stableChildFields]
     )
 
     const state = useCrudDashboard({

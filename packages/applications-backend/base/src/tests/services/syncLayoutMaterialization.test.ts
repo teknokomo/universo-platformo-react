@@ -39,7 +39,7 @@ describe('sync layout materialization helpers', () => {
             catalogLayouts: [
                 {
                     id: 'catalog-layout-1',
-                    catalogId: 'catalog-1',
+                    linkedCollectionId: 'catalog-1',
                     baseLayoutId: 'global-layout-1',
                     templateKey: 'dashboard',
                     name: { en: 'Catalog override' },
@@ -71,13 +71,13 @@ describe('sync layout materialization helpers', () => {
             expect.arrayContaining([
                 expect.objectContaining({
                     id: 'global-layout-1',
-                    catalogId: null,
+                    linkedCollectionId: null,
                     isDefault: true,
                     config: expect.objectContaining({ showHeader: true, showSideMenu: true })
                 }),
                 expect.objectContaining({
                     id: 'catalog-layout-1',
-                    catalogId: 'catalog-1',
+                    linkedCollectionId: 'catalog-1',
                     isDefault: true,
                     config: expect.objectContaining({
                         showHeader: false,
@@ -96,9 +96,7 @@ describe('sync layout materialization helpers', () => {
             sortOrder: 2,
             config: { showTitle: true }
         })
-        expect(inheritedCatalogWidget?.id).toMatch(
-            /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
-        )
+        expect(inheritedCatalogWidget?.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
         expect(inheritedCatalogWidget?.id).not.toBe('global-widget-1')
 
         expect(widgets).toEqual(
@@ -142,7 +140,7 @@ describe('sync layout materialization helpers', () => {
             catalogLayouts: [
                 {
                     id: 'catalog-layout-1',
-                    catalogId: 'catalog-1',
+                    linkedCollectionId: 'catalog-1',
                     baseLayoutId: 'global-layout-1',
                     templateKey: 'dashboard',
                     name: { en: 'Catalog override' },

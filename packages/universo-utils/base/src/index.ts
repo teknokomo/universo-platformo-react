@@ -137,8 +137,8 @@ export {
     getCatalogSystemFieldDefinitions,
     getCatalogSystemFieldDefinition,
     getCatalogSystemFieldSeedInputs,
-    buildCatalogSystemAttributeSeedRecord,
-    getCatalogSystemAttributeSeedRecords,
+    buildCatalogSystemFieldDefinitionSeedRecord,
+    getCatalogSystemFieldDefinitionSeedRecords,
     getReservedCatalogSystemFieldCodenames,
     getDefaultCatalogSystemFieldStates,
     validateCatalogSystemFieldToggleSet,
@@ -152,8 +152,8 @@ export {
     type UplSoftDeleteOptions,
     type MhbSoftDeleteOptions,
     type CatalogSystemFieldToggleValidationResult,
-    type CatalogSystemAttributeSeedInput,
-    type CatalogSystemAttributeSeedRecord,
+    type CatalogSystemFieldDefinitionSeedInput,
+    type CatalogSystemFieldDefinitionSeedRecord,
     type PlatformSystemFieldFamilyContract,
     type PlatformSystemFieldsContract,
     getUplDeleteConditions,
@@ -178,25 +178,25 @@ export { generateUuidV7, isValidUuid } from './uuid'
 // Number validation utilities for precision/scale constraints
 export {
     normalizeApplicationCopyOptions,
-    normalizeAttributeCopyOptions,
+    normalizeFieldDefinitionCopyOptions,
     normalizeBranchCopyOptions,
-    normalizeElementCopyOptions,
-    normalizeHubCopyOptions,
-    normalizeCatalogCopyOptions,
-    normalizeSetCopyOptions,
-    normalizeEnumerationCopyOptions,
+    normalizeRecordCopyOptions,
+    normalizeTreeEntityCopyOptions,
+    normalizeLinkedCollectionCopyOptions,
+    normalizeValueGroupCopyOptions,
+    normalizeOptionListCopyOptions,
     normalizeLayoutCopyOptions,
-    normalizeConstantCopyOptions
+    normalizeFixedValueCopyOptions
 } from './validation/copyOptions'
 
 export {
-    extractCatalogLayoutBehaviorConfig,
-    normalizeCatalogRuntimeViewConfig,
-    resolveCatalogLayoutBehaviorConfig,
-    sanitizeCatalogRuntimeViewConfig,
-    setCatalogLayoutBehaviorConfig,
-    resolveCatalogRuntimeDashboardLayoutConfig
-} from './validation/catalogRuntimeConfig'
+    extractLinkedCollectionLayoutBehaviorConfig,
+    normalizeLinkedCollectionRuntimeViewConfig,
+    resolveLinkedCollectionLayoutBehaviorConfig,
+    sanitizeLinkedCollectionRuntimeViewConfig,
+    setLinkedCollectionLayoutBehaviorConfig,
+    resolveLinkedCollectionRuntimeDashboardLayoutConfig
+} from './validation/linkedCollectionRuntimeConfig'
 export { normalizeDashboardLayoutConfig } from './validation/dashboardLayout'
 
 export {

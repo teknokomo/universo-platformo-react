@@ -58,7 +58,7 @@ function createAppData(): AppDataResponse {
             tableName: 'products',
             name: 'Products'
         },
-        catalog: {
+        linkedCollection: {
             id: 'catalog-1',
             codename: 'products',
             tableName: 'products',
@@ -72,7 +72,7 @@ function createAppData(): AppDataResponse {
                 name: 'Products'
             }
         ],
-        catalogs: [
+        linkedCollections: [
             {
                 id: 'catalog-1',
                 codename: 'products',
@@ -81,7 +81,7 @@ function createAppData(): AppDataResponse {
             }
         ],
         activeSectionId: 'catalog-1',
-        activeCatalogId: 'catalog-1',
+        activeLinkedCollectionId: 'catalog-1',
         columns: [
             {
                 id: 'col-1',
@@ -169,7 +169,7 @@ describe('useCrudDashboard optimistic mutations', () => {
                                 id: 'item-1',
                                 kind: 'catalog',
                                 title: 'Products',
-                                catalogId: 'catalog-1',
+                                linkedCollectionId: 'catalog-1',
                                 sectionId: 'catalog-1',
                                 isActive: true
                             }
@@ -189,12 +189,12 @@ describe('useCrudDashboard optimistic mutations', () => {
         expect(getState().dashboardMenuItems[0]).toMatchObject({
             kind: 'section',
             sectionId: 'catalog-1',
-            catalogId: 'catalog-1',
+            linkedCollectionId: 'catalog-1',
             selected: true
         })
         expect(getState().menuSlot).toMatchObject({
             activeSectionId: 'catalog-1',
-            activeCatalogId: 'catalog-1'
+            activeLinkedCollectionId: 'catalog-1'
         })
     })
 
@@ -206,7 +206,7 @@ describe('useCrudDashboard optimistic mutations', () => {
         const { getState } = renderCrudDashboard(adapter)
 
         await waitFor(() => {
-            expect(getState().selectedCatalogId).toBe('catalog-1')
+            expect(getState().selectedLinkedCollectionId).toBe('catalog-1')
         })
 
         await act(async () => {
@@ -369,7 +369,7 @@ describe('useCrudDashboard optimistic mutations', () => {
         const { getState } = renderCrudDashboard(adapter)
 
         await waitFor(() => {
-            expect(getState().selectedCatalogId).toBe('catalog-1')
+            expect(getState().selectedLinkedCollectionId).toBe('catalog-1')
         })
 
         await act(async () => {

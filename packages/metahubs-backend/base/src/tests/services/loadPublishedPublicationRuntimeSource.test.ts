@@ -6,7 +6,7 @@ const mockMaterializeSharedEntitiesForRuntime = jest.fn()
 const mockEnrichDefinitionsWithSetConstants = jest.fn()
 const mockSchemaServiceCtor = jest.fn()
 const mockObjectsServiceCtor = jest.fn()
-const mockAttributesServiceCtor = jest.fn()
+const mockFieldDefinitionsServiceCtor = jest.fn()
 
 jest.mock('../../persistence', () => ({
     findPublicationById: (...args: unknown[]) => mockFindPublicationById(...args),
@@ -27,15 +27,15 @@ jest.mock('../../domains/metahubs/services/MetahubObjectsService', () => ({
     })
 }))
 
-jest.mock('../../domains/metahubs/services/MetahubAttributesService', () => ({
-    MetahubAttributesService: jest.fn().mockImplementation((...args: unknown[]) => {
-        mockAttributesServiceCtor(...args)
+jest.mock('../../domains/metahubs/services/MetahubFieldDefinitionsService', () => ({
+    MetahubFieldDefinitionsService: jest.fn().mockImplementation((...args: unknown[]) => {
+        mockFieldDefinitionsServiceCtor(...args)
         return {}
     })
 }))
 
-jest.mock('../../domains/shared/setConstantRefs', () => ({
-    enrichDefinitionsWithSetConstants: (...args: unknown[]) => mockEnrichDefinitionsWithSetConstants(...args)
+jest.mock('../../domains/shared/valueGroupFixedValueRefs', () => ({
+    enrichDefinitionsWithValueGroupFixedValues: (...args: unknown[]) => mockEnrichDefinitionsWithSetConstants(...args)
 }))
 
 jest.mock('../../domains/publications/services/SnapshotSerializer', () => {
@@ -107,22 +107,22 @@ describe('loadPublishedPublicationRuntimeSource', () => {
                     kind: 'catalog'
                 }
             },
-            sharedAttributes: [
+            sharedFieldDefinitions: [
                 {
                     id: 'shared-attribute-1',
-                    catalogId: 'catalog-1'
+                    linkedCollectionId: 'catalog-1'
                 }
             ],
-            sharedConstants: [
+            sharedFixedValues: [
                 {
                     id: 'shared-constant-1',
-                    setId: 'set-1'
+                    valueGroupId: 'set-1'
                 }
             ],
-            sharedEnumerationValues: [
+            sharedOptionValues: [
                 {
                     id: 'shared-value-1',
-                    enumerationId: 'enumeration-1'
+                    optionListId: 'enumeration-1'
                 }
             ],
             sharedEntityOverrides: [
@@ -144,8 +144,8 @@ describe('loadPublishedPublicationRuntimeSource', () => {
                 }
             }
         }
-        const rawDefinitions = [{ catalogId: 'catalog-1', fields: [{ id: 'shared-attribute-1' }] }]
-        const enrichedDefinitions = [{ catalogId: 'catalog-1', constantsResolved: true }]
+        const rawDefinitions = [{ linkedCollectionId: 'catalog-1', fields: [{ id: 'shared-attribute-1' }] }]
+        const enrichedDefinitions = [{ linkedCollectionId: 'catalog-1', constantsResolved: true }]
 
         mockFindPublicationById.mockResolvedValue({
             id: 'publication-1',
@@ -164,7 +164,7 @@ describe('loadPublishedPublicationRuntimeSource', () => {
 
         expect(mockSchemaServiceCtor).toHaveBeenCalledWith(executor)
         expect(mockObjectsServiceCtor).toHaveBeenCalledWith(executor, expect.any(Object))
-        expect(mockAttributesServiceCtor).toHaveBeenCalledWith(executor, expect.any(Object))
+        expect(mockFieldDefinitionsServiceCtor).toHaveBeenCalledWith(executor, expect.any(Object))
         expect(mockMaterializeSharedEntitiesForRuntime).toHaveBeenCalledWith(publicationSnapshot)
         expect(mockDeserializeSnapshot).toHaveBeenCalledWith(runtimeSnapshot)
         expect(mockEnrichDefinitionsWithSetConstants).toHaveBeenCalledWith(rawDefinitions, runtimeSnapshot)
@@ -188,7 +188,7 @@ describe('loadPublishedPublicationRuntimeSource', () => {
                     kind: 'catalog'
                 }
             },
-            sharedAttributes: [{ id: 'shared-attribute-1', catalogId: 'catalog-1' }]
+            sharedFieldDefinitions: [{ id: 'shared-attribute-1', linkedCollectionId: 'catalog-1' }]
         }
         const runtimeSnapshot = {
             ...publicationSnapshot,

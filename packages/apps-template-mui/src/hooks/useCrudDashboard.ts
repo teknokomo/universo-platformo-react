@@ -182,7 +182,7 @@ function mapMenuItems(
         if (!item.isActive) return []
 
         if (item.kind === 'catalog' || item.kind === 'section') {
-            const targetSectionId = item.sectionId ?? item.catalogId ?? null
+            const targetSectionId = item.sectionId ?? item.linkedCollectionId ?? null
             return [
                 {
                     id: item.id,
@@ -190,7 +190,7 @@ function mapMenuItems(
                     icon: item.icon ?? null,
                     kind: targetSectionId ? ('section' as const) : ('catalog' as const),
                     sectionId: targetSectionId,
-                    catalogId: item.catalogId ?? targetSectionId,
+                    linkedCollectionId: item.linkedCollectionId ?? targetSectionId,
                     href: null,
                     selected: targetSectionId != null && targetSectionId === activeSectionId
                 }
@@ -205,8 +205,8 @@ function mapMenuItems(
                     icon: item.icon ?? null,
                     kind: 'hub' as const,
                     sectionId: null,
-                    catalogId: null,
-                    hubId: item.hubId ?? null,
+                    linkedCollectionId: null,
+                    treeEntityId: item.treeEntityId ?? null,
                     href: null,
                     selected: false
                 }
@@ -220,7 +220,7 @@ function mapMenuItems(
                 icon: item.icon ?? null,
                 kind: 'section' as const,
                 sectionId: section.id,
-                catalogId: section.id,
+                linkedCollectionId: section.id,
                 href: null,
                 selected: section.id === activeSectionId
             }))
@@ -233,7 +233,7 @@ function mapMenuItems(
                 icon: item.icon ?? null,
                 kind: 'link' as const,
                 sectionId: null,
-                catalogId: null,
+                linkedCollectionId: null,
                 href: item.href ?? null,
                 selected: false
             }
@@ -294,9 +294,9 @@ export interface CrudDashboardState {
     activeSectionId: string | undefined
     selectedSectionId: string | undefined
     onSelectSection: (sectionId: string) => void
-    activeCatalogId: string | undefined
-    selectedCatalogId: string | undefined
-    onSelectCatalog: (catalogId: string) => void
+    activeLinkedCollectionId: string | undefined
+    selectedLinkedCollectionId: string | undefined
+    onSelectLinkedCollection: (linkedCollectionId: string) => void
 
     // Menus
     activeMenu: AppDataResponse['menus'][number] | null
@@ -367,7 +367,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         page: 0,
         pageSize: defaultPageSize
     })
-    const [selectedCatalogId, setSelectedCatalogId] = useState<string | undefined>(undefined)
+    const [selectedLinkedCollectionId, setSelectedLinkedCollectionId] = useState<string | undefined>(undefined)
 
     // ----- CRUD dialog state -----
     const [formOpen, setFormOpen] = useState(false)
@@ -397,8 +397,8 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         defaultValue: 'This item is still being created. Please wait a moment and try again.'
     })
     const listKey = useMemo(
-        () => [...queryKeyPrefix, 'list', selectedCatalogId, { limit, offset, locale }] as const,
-        [queryKeyPrefix, selectedCatalogId, limit, offset, locale]
+        () => [...queryKeyPrefix, 'list', selectedLinkedCollectionId, { limit, offset, locale }] as const,
+        [queryKeyPrefix, selectedLinkedCollectionId, limit, offset, locale]
     )
     const sourceRowId = copyRowId ?? editRowId
     const rowKey = useMemo(() => [...queryKeyPrefix, 'row', sourceRowId] as const, [queryKeyPrefix, sourceRowId])
@@ -411,8 +411,8 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                 limit,
                 offset,
                 locale,
-                catalogId: selectedCatalogId,
-                sectionId: selectedCatalogId
+                linkedCollectionId: selectedLinkedCollectionId,
+                sectionId: selectedLinkedCollectionId
             }),
         enabled: Boolean(adapter),
         staleTime,
@@ -459,10 +459,11 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         },
         [enqueueSnackbar, pendingInteractionMessage, queryClient, queryKeyPrefix]
     )
-    const backendActiveSectionId = appData?.activeSectionId ?? appData?.section?.id ?? appData?.activeCatalogId ?? appData?.catalog.id
-    const backendActiveCatalogId = appData?.activeCatalogId ?? appData?.catalog.id ?? backendActiveSectionId
-    const activeSectionId = selectedCatalogId ?? backendActiveSectionId
-    const activeCatalogId = selectedCatalogId ?? backendActiveCatalogId
+    const backendActiveSectionId =
+        appData?.activeSectionId ?? appData?.section?.id ?? appData?.activeLinkedCollectionId ?? appData?.linkedCollection.id
+    const backendActiveLinkedCollectionId = appData?.activeLinkedCollectionId ?? appData?.linkedCollection.id ?? backendActiveSectionId
+    const activeSectionId = selectedLinkedCollectionId ?? backendActiveSectionId
+    const activeLinkedCollectionId = selectedLinkedCollectionId ?? backendActiveLinkedCollectionId
     const tableColumnRefs = useMemo(
         () =>
             (appData?.columns ?? [])
@@ -479,10 +480,10 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                 ...queryKeyPrefix,
                 'copy-table-data',
                 sourceRowId,
-                selectedCatalogId,
+                selectedLinkedCollectionId,
                 tableColumnRefs.map((column) => column.fieldId).join(',')
             ] as const,
-        [queryKeyPrefix, sourceRowId, selectedCatalogId, tableColumnRefs]
+        [queryKeyPrefix, sourceRowId, selectedLinkedCollectionId, tableColumnRefs]
     )
 
     // Schema fingerprint (M4)
@@ -501,22 +502,24 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         const menu = appData.menus.find((item) => item.id === appData.activeMenuId) ?? appData.menus[0]
         const firstSectionItem = menu?.items?.find(
             (item) =>
-                item.isActive !== false && (item.kind === 'catalog' || item.kind === 'section') && Boolean(item.sectionId ?? item.catalogId)
+                item.isActive !== false &&
+                (item.kind === 'catalog' || item.kind === 'section') &&
+                Boolean(item.sectionId ?? item.linkedCollectionId)
         )
-        return firstSectionItem?.sectionId ?? firstSectionItem?.catalogId ?? undefined
+        return firstSectionItem?.sectionId ?? firstSectionItem?.linkedCollectionId ?? undefined
     }, [appData])
 
     // Initialize section from the menu (fallback: backend active section)
     useEffect(() => {
-        if (!appData || selectedCatalogId) return
+        if (!appData || selectedLinkedCollectionId) return
         const initialSectionId = initialMenuSectionId ?? backendActiveSectionId
-        if (initialSectionId) setSelectedCatalogId(initialSectionId)
-    }, [appData, selectedCatalogId, initialMenuSectionId, backendActiveSectionId])
+        if (initialSectionId) setSelectedLinkedCollectionId(initialSectionId)
+    }, [appData, selectedLinkedCollectionId, initialMenuSectionId, backendActiveSectionId])
 
     // ----- Row query (for edit) -----
     const rowQuery = useQuery({
         queryKey: rowKey,
-        queryFn: () => adapter!.fetchRow(sourceRowId!, selectedCatalogId ?? activeSectionId),
+        queryFn: () => adapter!.fetchRow(sourceRowId!, selectedLinkedCollectionId ?? activeSectionId),
         enabled: Boolean(adapter && sourceRowId),
         staleTime: 0,
         gcTime: 0
@@ -535,8 +538,8 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                     const rows = await fetchTabularRows({
                         parentRowId: sourceRowId,
                         attributeId: column.attributeId,
-                        catalogId: selectedCatalogId ?? activeCatalogId,
-                        sectionId: selectedCatalogId ?? activeSectionId
+                        linkedCollectionId: selectedLinkedCollectionId ?? activeLinkedCollectionId,
+                        sectionId: selectedLinkedCollectionId ?? activeSectionId
                     })
                     return [column.fieldId, rows] as const
                 })
@@ -554,7 +557,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         mutationKey: [...queryKeyPrefix, 'create'],
         mutationFn: (data: Record<string, unknown>) => {
             if (!adapter) throw new Error('Adapter is not available')
-            return adapter.createRow(data, selectedCatalogId)
+            return adapter.createRow(data, selectedLinkedCollectionId)
         },
         onMutate: async (data) => {
             const optimisticId = generateOptimisticId()
@@ -589,7 +592,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         mutationKey: [...queryKeyPrefix, 'update'],
         mutationFn: (params: { rowId: string; data: Record<string, unknown> }) => {
             if (!adapter) throw new Error('Adapter is not available')
-            return adapter.updateRow(params.rowId, params.data, selectedCatalogId)
+            return adapter.updateRow(params.rowId, params.data, selectedLinkedCollectionId)
         },
         onMutate: async ({ rowId, data }) => {
             const rowDetailKey = [...queryKeyPrefix, 'row', rowId]
@@ -629,7 +632,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         mutationKey: [...queryKeyPrefix, 'delete'],
         mutationFn: (rowId: string) => {
             if (!adapter) throw new Error('Adapter is not available')
-            return adapter.deleteRow(rowId, selectedCatalogId)
+            return adapter.deleteRow(rowId, selectedLinkedCollectionId)
         },
         onMutate: async (rowId) => {
             return applyOptimisticDelete({
@@ -658,8 +661,8 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             }
 
             await adapter.reorderRows({
-                catalogId: selectedCatalogId ?? activeCatalogId,
-                sectionId: selectedCatalogId ?? activeSectionId,
+                linkedCollectionId: selectedLinkedCollectionId ?? activeLinkedCollectionId,
+                sectionId: selectedLinkedCollectionId ?? activeSectionId,
                 orderedRowIds
             })
         },
@@ -903,15 +906,15 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     }, [])
 
     // ----- Section select handler -----
-    const onSelectCatalog = useCallback(
-        (catalogId: string) => {
-            if (!catalogId || catalogId === activeCatalogId) return
+    const onSelectLinkedCollection = useCallback(
+        (linkedCollectionId: string) => {
+            if (!linkedCollectionId || linkedCollectionId === activeLinkedCollectionId) return
             setPaginationModel((prev) => ({ ...prev, page: 0 }))
-            setSelectedCatalogId(catalogId)
+            setSelectedLinkedCollectionId(linkedCollectionId)
         },
-        [activeCatalogId]
+        [activeLinkedCollectionId]
     )
-    const onSelectSection = onSelectCatalog
+    const onSelectSection = onSelectLinkedCollection
 
     // ----- Derived: columns, fieldConfigs, rows -----
     const columns = useMemo(
@@ -940,13 +943,13 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
     const dashboardMenuItems = useMemo<DashboardMenuItem[]>(() => {
         if (!activeMenu) return []
-        return mapMenuItems(activeMenu.items, appData?.sections ?? appData?.catalogs ?? [], activeSectionId)
-    }, [activeMenu, appData?.catalogs, appData?.sections, activeSectionId])
+        return mapMenuItems(activeMenu.items, appData?.sections ?? appData?.linkedCollections ?? [], activeSectionId)
+    }, [activeMenu, appData?.linkedCollections, appData?.sections, activeSectionId])
 
     // Build menus map keyed by widgetId
     const menusMap = useMemo<{ [widgetId: string]: DashboardMenuSlot }>(() => {
         if (!appData?.menus?.length) return {}
-        const sections = appData.sections ?? appData.catalogs ?? []
+        const sections = appData.sections ?? appData.linkedCollections ?? []
         const map: { [widgetId: string]: DashboardMenuSlot } = {}
 
         for (const menu of appData.menus) {
@@ -957,12 +960,12 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                 items: mapMenuItems(menu.items, sections, activeSectionId),
                 activeSectionId: activeSectionId ?? null,
                 onSelectSection,
-                activeCatalogId: activeCatalogId ?? null,
-                onSelectCatalog
+                activeLinkedCollectionId: activeLinkedCollectionId ?? null,
+                onSelectLinkedCollection
             }
         }
         return map
-    }, [appData, activeCatalogId, activeSectionId, onSelectCatalog, onSelectSection])
+    }, [appData, activeLinkedCollectionId, activeSectionId, onSelectLinkedCollection, onSelectSection])
 
     // Menu slot for simple (non-widget) usage
     const menuSlot = useMemo<DashboardMenuSlot | undefined>(() => {
@@ -973,10 +976,10 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             items: dashboardMenuItems,
             activeSectionId: activeSectionId ?? null,
             onSelectSection,
-            activeCatalogId: activeCatalogId ?? null,
-            onSelectCatalog
+            activeLinkedCollectionId: activeLinkedCollectionId ?? null,
+            onSelectLinkedCollection
         }
-    }, [dashboardMenuItems, activeMenu, activeCatalogId, activeSectionId, onSelectCatalog, onSelectSection])
+    }, [dashboardMenuItems, activeMenu, activeLinkedCollectionId, activeSectionId, onSelectLinkedCollection, onSelectSection])
 
     // Form initial data
     const formInitialData = useMemo(() => {
@@ -1027,13 +1030,13 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
         // Section aliases
         activeSectionId,
-        selectedSectionId: selectedCatalogId,
+        selectedSectionId: selectedLinkedCollectionId,
         onSelectSection,
 
         // Catalog compatibility
-        activeCatalogId,
-        selectedCatalogId,
-        onSelectCatalog,
+        activeLinkedCollectionId,
+        selectedLinkedCollectionId,
+        onSelectLinkedCollection,
 
         // Menus
         activeMenu,

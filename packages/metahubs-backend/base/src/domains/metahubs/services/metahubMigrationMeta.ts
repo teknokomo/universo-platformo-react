@@ -41,11 +41,12 @@ export const systemStructureSnapshotSchema = z.object({
 })
 
 const migrationCountsSchema = z.object({
+    entityTypesSynced: z.number().int().nonnegative().optional().default(0),
     layoutsAdded: z.number().int().nonnegative(),
     zoneWidgetsAdded: z.number().int().nonnegative(),
     settingsAdded: z.number().int().nonnegative(),
     entitiesAdded: z.number().int().nonnegative(),
-    constantsAdded: z.number().int().nonnegative().optional().default(0),
+    fixedValuesAdded: z.number().int().nonnegative().optional().default(0),
     attributesAdded: z.number().int().nonnegative(),
     enumValuesAdded: z.number().int().nonnegative().optional().default(0),
     elementsAdded: z.number().int().nonnegative()

@@ -11,11 +11,11 @@ import { buildDashboardLayoutConfig } from '../../shared'
 import { toJsonbValue } from '../../shared/jsonb'
 import { codenamePrimaryTextSql, ensureCodenameValue } from '../../shared/codename'
 import { resolveWidgetTableName } from './widgetTableResolver'
-import { ensureCatalogSystemAttributesSeed, readPlatformSystemAttributesPolicyWithKnex } from './systemAttributeSeed'
+import { ensureCatalogSystemFieldDefinitionsSeed, readPlatformSystemFieldDefinitionsPolicyWithKnex } from './systemFieldDefinitionSeed'
 import { buildTemplateSeedEntityCodenameValue, resolveTemplateSeedCodenameConfig } from './TemplateSeedExecutor'
 
 const buildEntityMapKey = (kind: string, codename: string): string => `${kind}:${codename}`
-const buildConstantMapKey = (setCodename: string, constantCodename: string): string => `${setCodename}:${constantCodename}`
+const buildFixedValueMapKey = (setCodename: string, fixedValueCodename: string): string => `${setCodename}:${fixedValueCodename}`
 
 const resolveEntityIdByCodename = (entityIdMap: Map<string, string>, codename: string, preferredKind?: string): string | null => {
     if (preferredKind) {
@@ -46,7 +46,7 @@ export interface SeedMigrationResult {
     zoneWidgetsAdded: number
     settingsAdded: number
     entitiesAdded: number
-    constantsAdded: number
+    fixedValuesAdded: number
     attributesAdded: number
     enumValuesAdded: number
     elementsAdded: number
@@ -81,7 +81,7 @@ export class TemplateSeedMigrator {
             zoneWidgetsAdded: 0,
             settingsAdded: 0,
             entitiesAdded: 0,
-            constantsAdded: 0,
+            fixedValuesAdded: 0,
             attributesAdded: 0,
             enumValuesAdded: 0,
             elementsAdded: 0,
@@ -109,14 +109,8 @@ export class TemplateSeedMigrator {
             if (newSeed.entities?.length) {
                 const entityIdMap = await this.migrateEntities(trx, newSeed.entities, codenameConfig, result, dryRun)
 
-                if (newSeed.enumerationValues) {
-                    result.enumValuesAdded = await this.migrateEnumerationValues(
-                        trx,
-                        newSeed.enumerationValues,
-                        entityIdMap,
-                        result,
-                        dryRun
-                    )
+                if (newSeed.optionValues) {
+                    result.enumValuesAdded = await this.migrateEnumerationValues(trx, newSeed.optionValues, entityIdMap, result, dryRun)
                 }
 
                 // 4. Migrate elements (requires entity ID map)
@@ -403,9 +397,9 @@ export class TemplateSeedMigrator {
     ): Promise<Map<string, string>> {
         const entityIdMap = new Map<string, string>()
         const now = new Date()
-        const platformSystemAttributesPolicy =
+        const platformSystemFieldDefinitionsPolicy =
             !dryRun && entities.some((entity) => entity.kind === 'catalog')
-                ? await readPlatformSystemAttributesPolicyWithKnex(trx)
+                ? await readPlatformSystemFieldDefinitionsPolicyWithKnex(trx)
                 : undefined
 
         // ── Pass 1: Insert/resolve all entities, build complete codename→id map ──
@@ -421,8 +415,8 @@ export class TemplateSeedMigrator {
             if (existing) {
                 entityIdMap.set(buildEntityMapKey(entity.kind, entity.codename), existing.id)
                 if (!dryRun && entity.kind === 'catalog') {
-                    await ensureCatalogSystemAttributesSeed(trx, this.schemaName, existing.id, null, {
-                        policy: platformSystemAttributesPolicy
+                    await ensureCatalogSystemFieldDefinitionsSeed(trx, this.schemaName, existing.id, null, {
+                        policy: platformSystemFieldDefinitionsPolicy
                     })
                 }
                 result.skipped.push(`entity:${entity.codename} (already exists)`)
@@ -458,8 +452,8 @@ export class TemplateSeedMigrator {
                 entityIdMap.set(buildEntityMapKey(entity.kind, entity.codename), inserted.id)
 
                 if (entity.kind === 'catalog') {
-                    const systemResult = await ensureCatalogSystemAttributesSeed(trx, this.schemaName, inserted.id, null, {
-                        policy: platformSystemAttributesPolicy
+                    const systemResult = await ensureCatalogSystemFieldDefinitionsSeed(trx, this.schemaName, inserted.id, null, {
+                        policy: platformSystemFieldDefinitionsPolicy
                     })
                     result.attributesAdded += systemResult.inserted
                 }
@@ -467,24 +461,24 @@ export class TemplateSeedMigrator {
             result.entitiesAdded++
         }
 
-        const constantIdMap = new Map<string, string>()
+        const fixedValueIdMap = new Map<string, string>()
 
         // ── Pass 2: Insert/resolve constants for sets ──
         for (const entity of entities) {
-            if (entity.kind !== 'set' || !entity.constants?.length) continue
+            if (entity.kind !== 'set' || !entity.fixedValues?.length) continue
 
-            const setId = entityIdMap.get(buildEntityMapKey(entity.kind, entity.codename))
-            if (!setId) continue
+            const valueGroupId = entityIdMap.get(buildEntityMapKey(entity.kind, entity.codename))
+            if (!valueGroupId) continue
 
-            for (let constantIndex = 0; constantIndex < entity.constants.length; constantIndex++) {
-                const constant = entity.constants[constantIndex]
+            for (let fixedValueIndex = 0; fixedValueIndex < entity.fixedValues.length; fixedValueIndex++) {
+                const fixedValue = entity.fixedValues[fixedValueIndex]
 
-                if (dryRun && setId.startsWith('dry-run:')) {
-                    constantIdMap.set(
-                        buildConstantMapKey(entity.codename, constant.codename),
-                        `dry-run:constant:${entity.codename}:${constant.codename}`
+                if (dryRun && valueGroupId.startsWith('dry-run:')) {
+                    fixedValueIdMap.set(
+                        buildFixedValueMapKey(entity.codename, fixedValue.codename),
+                        `dry-run:constant:${entity.codename}:${fixedValue.codename}`
                     )
-                    result.constantsAdded++
+                    result.fixedValuesAdded++
                     continue
                 }
 
@@ -492,41 +486,41 @@ export class TemplateSeedMigrator {
                     .withSchema(this.schemaName)
                     .from('_mhb_constants')
                     .where({
-                        object_id: setId,
+                        object_id: valueGroupId,
                         _upl_deleted: false,
                         _mhb_deleted: false
                     })
-                    .whereRaw(`${codenamePrimaryTextSql('codename')} = ?`, [constant.codename])
+                    .whereRaw(`${codenamePrimaryTextSql('codename')} = ?`, [fixedValue.codename])
                     .first()
 
                 if (existing) {
-                    constantIdMap.set(buildConstantMapKey(entity.codename, constant.codename), existing.id)
-                    result.skipped.push(`constant:${entity.codename}.${constant.codename} (already exists)`)
+                    fixedValueIdMap.set(buildFixedValueMapKey(entity.codename, fixedValue.codename), existing.id)
+                    result.skipped.push(`constant:${entity.codename}.${fixedValue.codename} (already exists)`)
                     continue
                 }
 
                 if (dryRun) {
-                    constantIdMap.set(
-                        buildConstantMapKey(entity.codename, constant.codename),
-                        `dry-run:constant:${entity.codename}:${constant.codename}`
+                    fixedValueIdMap.set(
+                        buildFixedValueMapKey(entity.codename, fixedValue.codename),
+                        `dry-run:constant:${entity.codename}:${fixedValue.codename}`
                     )
                 } else {
                     const [inserted] = await trx
                         .withSchema(this.schemaName)
                         .into('_mhb_constants')
                         .insert({
-                            object_id: setId,
-                            codename: ensureCodenameValue(constant.codename),
-                            data_type: constant.dataType,
+                            object_id: valueGroupId,
+                            codename: ensureCodenameValue(fixedValue.codename),
+                            data_type: fixedValue.dataType,
                             presentation: {
                                 codename: null,
-                                name: constant.name,
-                                description: constant.description ?? null
+                                name: fixedValue.name,
+                                description: fixedValue.description ?? null
                             },
-                            validation_rules: constant.validationRules ?? {},
-                            ui_config: constant.uiConfig ?? {},
-                            value_json: toJsonbValue(constant.value),
-                            sort_order: constant.sortOrder ?? constantIndex + 1,
+                            validation_rules: fixedValue.validationRules ?? {},
+                            ui_config: fixedValue.uiConfig ?? {},
+                            value_json: toJsonbValue(fixedValue.value),
+                            sort_order: fixedValue.sortOrder ?? fixedValueIndex + 1,
                             _upl_created_at: now,
                             _upl_created_by: null,
                             _upl_updated_at: now,
@@ -541,20 +535,20 @@ export class TemplateSeedMigrator {
                         })
                         .returning('id')
 
-                    constantIdMap.set(buildConstantMapKey(entity.codename, constant.codename), inserted.id)
+                    fixedValueIdMap.set(buildFixedValueMapKey(entity.codename, fixedValue.codename), inserted.id)
                 }
 
-                result.constantsAdded++
+                result.fixedValuesAdded++
             }
         }
 
-        const resolveTargetConstantId = (
+        const resolveTargetFixedValueId = (
             targetEntityKind: string | null | undefined,
             targetEntityCodename: string | undefined,
             targetConstantCodename: string | undefined
         ): string | null => {
             if (targetEntityKind !== 'set' || !targetEntityCodename || !targetConstantCodename) return null
-            return constantIdMap.get(buildConstantMapKey(targetEntityCodename, targetConstantCodename)) ?? null
+            return fixedValueIdMap.get(buildFixedValueMapKey(targetEntityCodename, targetConstantCodename)) ?? null
         }
 
         // ── Pass 3: Insert attributes using the complete entity+constants maps ──
@@ -616,7 +610,7 @@ export class TemplateSeedMigrator {
                                     ? resolveEntityIdByCodename(entityIdMap, attr.targetEntityCodename, attr.targetEntityKind)
                                     : null,
                                 target_object_kind: attr.targetEntityKind ?? null,
-                                target_constant_id: resolveTargetConstantId(
+                                target_constant_id: resolveTargetFixedValueId(
                                     attr.targetEntityKind,
                                     attr.targetEntityCodename,
                                     attr.targetConstantCodename
@@ -686,7 +680,7 @@ export class TemplateSeedMigrator {
                                               )
                                             : null,
                                     target_object_kind: (child.targetEntityKind as string | null | undefined) ?? null,
-                                    target_constant_id: resolveTargetConstantId(
+                                    target_constant_id: resolveTargetFixedValueId(
                                         (child.targetEntityKind as string | null | undefined) ?? null,
                                         (child.targetEntityCodename as string | undefined) ?? undefined,
                                         (child.targetConstantCodename as string | undefined) ?? undefined
@@ -734,7 +728,7 @@ export class TemplateSeedMigrator {
         for (const [enumerationCodename, values] of Object.entries(valuesByEnumeration)) {
             const objectId = resolveEntityIdByCodename(entityIdMap, enumerationCodename, 'enumeration')
             if (!objectId) {
-                result.skipped.push(`enumerationValues:${enumerationCodename} (entity not found or ambiguous)`)
+                result.skipped.push(`optionValues:${enumerationCodename} (entity not found or ambiguous)`)
                 continue
             }
 

@@ -1,5 +1,5 @@
 import {
-    AttributeDataType,
+    FieldDefinitionDataType,
     type ApplicationLifecycleContract,
     type ApplicationLifecycleContractInput,
     type CatalogSystemFieldDefinition,
@@ -20,10 +20,10 @@ export interface CatalogSystemFieldToggleValidationResult {
     errors: string[]
 }
 
-export interface CatalogSystemAttributeSeedInput {
+export interface CatalogSystemFieldDefinitionSeedInput {
     key: CatalogSystemFieldKey
     columnName: string
-    dataType: AttributeDataType
+    dataType: FieldDefinitionDataType
     physicalType: 'boolean' | 'timestamptz' | 'uuid'
     name: VersionedLocalizedContent<string>
     description: VersionedLocalizedContent<string>
@@ -31,10 +31,10 @@ export interface CatalogSystemAttributeSeedInput {
     sortOrder: number
 }
 
-export interface CatalogSystemAttributeSeedRecord {
+export interface CatalogSystemFieldDefinitionSeedRecord {
     key: CatalogSystemFieldKey
     codename: string
-    dataType: AttributeDataType
+    dataType: FieldDefinitionDataType
     presentation: {
         name: VersionedLocalizedContent<string>
         description: VersionedLocalizedContent<string>
@@ -63,7 +63,7 @@ const SYSTEM_FIELD_REGISTRY: readonly CatalogSystemFieldSeedDefinition[] = [
         layer: 'app',
         family: 'published',
         valueType: 'boolean',
-        attributeDataType: AttributeDataType.BOOLEAN,
+        fieldDefinitionDataType: FieldDefinitionDataType.BOOLEAN,
         physicalType: 'boolean',
         sortOrder: 10,
         defaultEnabled: true,
@@ -77,7 +77,7 @@ const SYSTEM_FIELD_REGISTRY: readonly CatalogSystemFieldSeedDefinition[] = [
         layer: 'app',
         family: 'published',
         valueType: 'timestamp',
-        attributeDataType: AttributeDataType.DATE,
+        fieldDefinitionDataType: FieldDefinitionDataType.DATE,
         physicalType: 'timestamptz',
         sortOrder: 20,
         defaultEnabled: true,
@@ -92,7 +92,7 @@ const SYSTEM_FIELD_REGISTRY: readonly CatalogSystemFieldSeedDefinition[] = [
         layer: 'app',
         family: 'published',
         valueType: 'uuid',
-        attributeDataType: AttributeDataType.STRING,
+        fieldDefinitionDataType: FieldDefinitionDataType.STRING,
         physicalType: 'uuid',
         sortOrder: 30,
         defaultEnabled: true,
@@ -110,7 +110,7 @@ const SYSTEM_FIELD_REGISTRY: readonly CatalogSystemFieldSeedDefinition[] = [
         layer: 'app',
         family: 'archived',
         valueType: 'boolean',
-        attributeDataType: AttributeDataType.BOOLEAN,
+        fieldDefinitionDataType: FieldDefinitionDataType.BOOLEAN,
         physicalType: 'boolean',
         sortOrder: 40,
         defaultEnabled: true,
@@ -124,7 +124,7 @@ const SYSTEM_FIELD_REGISTRY: readonly CatalogSystemFieldSeedDefinition[] = [
         layer: 'app',
         family: 'archived',
         valueType: 'timestamp',
-        attributeDataType: AttributeDataType.DATE,
+        fieldDefinitionDataType: FieldDefinitionDataType.DATE,
         physicalType: 'timestamptz',
         sortOrder: 50,
         defaultEnabled: true,
@@ -139,7 +139,7 @@ const SYSTEM_FIELD_REGISTRY: readonly CatalogSystemFieldSeedDefinition[] = [
         layer: 'app',
         family: 'archived',
         valueType: 'uuid',
-        attributeDataType: AttributeDataType.STRING,
+        fieldDefinitionDataType: FieldDefinitionDataType.STRING,
         physicalType: 'uuid',
         sortOrder: 60,
         defaultEnabled: true,
@@ -157,7 +157,7 @@ const SYSTEM_FIELD_REGISTRY: readonly CatalogSystemFieldSeedDefinition[] = [
         layer: 'app',
         family: 'deleted',
         valueType: 'boolean',
-        attributeDataType: AttributeDataType.BOOLEAN,
+        fieldDefinitionDataType: FieldDefinitionDataType.BOOLEAN,
         physicalType: 'boolean',
         sortOrder: 70,
         defaultEnabled: true,
@@ -171,7 +171,7 @@ const SYSTEM_FIELD_REGISTRY: readonly CatalogSystemFieldSeedDefinition[] = [
         layer: 'app',
         family: 'deleted',
         valueType: 'timestamp',
-        attributeDataType: AttributeDataType.DATE,
+        fieldDefinitionDataType: FieldDefinitionDataType.DATE,
         physicalType: 'timestamptz',
         sortOrder: 80,
         defaultEnabled: true,
@@ -186,7 +186,7 @@ const SYSTEM_FIELD_REGISTRY: readonly CatalogSystemFieldSeedDefinition[] = [
         layer: 'app',
         family: 'deleted',
         valueType: 'uuid',
-        attributeDataType: AttributeDataType.STRING,
+        fieldDefinitionDataType: FieldDefinitionDataType.STRING,
         physicalType: 'uuid',
         sortOrder: 90,
         defaultEnabled: true,
@@ -204,7 +204,7 @@ const SYSTEM_FIELD_REGISTRY: readonly CatalogSystemFieldSeedDefinition[] = [
         layer: 'upl',
         family: 'archived',
         valueType: 'boolean',
-        attributeDataType: AttributeDataType.BOOLEAN,
+        fieldDefinitionDataType: FieldDefinitionDataType.BOOLEAN,
         physicalType: 'boolean',
         sortOrder: 100,
         defaultEnabled: true,
@@ -218,7 +218,7 @@ const SYSTEM_FIELD_REGISTRY: readonly CatalogSystemFieldSeedDefinition[] = [
         layer: 'upl',
         family: 'archived',
         valueType: 'timestamp',
-        attributeDataType: AttributeDataType.DATE,
+        fieldDefinitionDataType: FieldDefinitionDataType.DATE,
         physicalType: 'timestamptz',
         sortOrder: 110,
         defaultEnabled: true,
@@ -236,7 +236,7 @@ const SYSTEM_FIELD_REGISTRY: readonly CatalogSystemFieldSeedDefinition[] = [
         layer: 'upl',
         family: 'archived',
         valueType: 'uuid',
-        attributeDataType: AttributeDataType.STRING,
+        fieldDefinitionDataType: FieldDefinitionDataType.STRING,
         physicalType: 'uuid',
         sortOrder: 120,
         defaultEnabled: true,
@@ -254,7 +254,7 @@ const SYSTEM_FIELD_REGISTRY: readonly CatalogSystemFieldSeedDefinition[] = [
         layer: 'upl',
         family: 'deleted',
         valueType: 'boolean',
-        attributeDataType: AttributeDataType.BOOLEAN,
+        fieldDefinitionDataType: FieldDefinitionDataType.BOOLEAN,
         physicalType: 'boolean',
         sortOrder: 130,
         defaultEnabled: true,
@@ -268,7 +268,7 @@ const SYSTEM_FIELD_REGISTRY: readonly CatalogSystemFieldSeedDefinition[] = [
         layer: 'upl',
         family: 'deleted',
         valueType: 'timestamp',
-        attributeDataType: AttributeDataType.DATE,
+        fieldDefinitionDataType: FieldDefinitionDataType.DATE,
         physicalType: 'timestamptz',
         sortOrder: 140,
         defaultEnabled: true,
@@ -286,7 +286,7 @@ const SYSTEM_FIELD_REGISTRY: readonly CatalogSystemFieldSeedDefinition[] = [
         layer: 'upl',
         family: 'deleted',
         valueType: 'uuid',
-        attributeDataType: AttributeDataType.STRING,
+        fieldDefinitionDataType: FieldDefinitionDataType.STRING,
         physicalType: 'uuid',
         sortOrder: 150,
         defaultEnabled: true,
@@ -330,12 +330,12 @@ export const getCatalogSystemFieldDefinition = (key: CatalogSystemFieldKey): Cat
     return { ...plainDefinition }
 }
 
-export const getCatalogSystemFieldSeedInputs = (states?: CatalogSystemFieldState[] | null): CatalogSystemAttributeSeedInput[] => {
+export const getCatalogSystemFieldSeedInputs = (states?: CatalogSystemFieldState[] | null): CatalogSystemFieldDefinitionSeedInput[] => {
     const normalizedStates = normalizeStatesMap(states)
     return SYSTEM_FIELD_REGISTRY.map((definition) => ({
         key: definition.key,
         columnName: definition.columnName,
-        dataType: definition.attributeDataType,
+        dataType: definition.fieldDefinitionDataType,
         physicalType: definition.physicalType,
         name: definition.name,
         description: definition.description,
@@ -344,7 +344,9 @@ export const getCatalogSystemFieldSeedInputs = (states?: CatalogSystemFieldState
     }))
 }
 
-export const buildCatalogSystemAttributeSeedRecord = (definition: CatalogSystemAttributeSeedInput): CatalogSystemAttributeSeedRecord => ({
+export const buildCatalogSystemFieldDefinitionSeedRecord = (
+    definition: CatalogSystemFieldDefinitionSeedInput
+): CatalogSystemFieldDefinitionSeedRecord => ({
     key: definition.key,
     codename: definition.columnName,
     dataType: definition.dataType,
@@ -358,8 +360,9 @@ export const buildCatalogSystemAttributeSeedRecord = (definition: CatalogSystemA
     isSystemEnabled: definition.enabled
 })
 
-export const getCatalogSystemAttributeSeedRecords = (states?: CatalogSystemFieldState[] | null): CatalogSystemAttributeSeedRecord[] =>
-    getCatalogSystemFieldSeedInputs(states).map(buildCatalogSystemAttributeSeedRecord)
+export const getCatalogSystemFieldDefinitionSeedRecords = (
+    states?: CatalogSystemFieldState[] | null
+): CatalogSystemFieldDefinitionSeedRecord[] => getCatalogSystemFieldSeedInputs(states).map(buildCatalogSystemFieldDefinitionSeedRecord)
 
 export const getReservedCatalogSystemFieldCodenames = (): string[] => SYSTEM_FIELD_REGISTRY.map((definition) => definition.columnName)
 

@@ -275,7 +275,7 @@ describe('Applications Routes', () => {
     describe('GET /applications/:applicationId/runtime', () => {
         it('allows joined members to load runtime data', async () => {
             const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334470'
-            const runtimeCatalogId = '018f8a78-7b8f-7c1d-a111-222233334471'
+            const runtimeLinkedCollectionId = '018f8a78-7b8f-7c1d-a111-222233334471'
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
 
             applicationRepo.findOne.mockResolvedValue({
@@ -293,7 +293,7 @@ describe('Applications Routes', () => {
                 if (sql.includes('FROM "app_runtime_test"._app_objects')) {
                     return [
                         {
-                            id: runtimeCatalogId,
+                            id: runtimeLinkedCollectionId,
                             codename: 'orders',
                             table_name: 'orders',
                             presentation: null,
@@ -326,30 +326,26 @@ describe('Applications Routes', () => {
             const response = await request(app).get(`/applications/${runtimeApplicationId}/runtime`).expect(200)
 
             expect(response.body.section).toMatchObject({
-                id: runtimeCatalogId,
-                codename: 'orders'
-            })
-            expect(response.body.catalog).toMatchObject({
-                id: runtimeCatalogId,
+                id: runtimeLinkedCollectionId,
                 codename: 'orders'
             })
             expect(response.body.sections).toEqual(
                 expect.arrayContaining([
                     expect.objectContaining({
-                        id: runtimeCatalogId,
+                        id: runtimeLinkedCollectionId,
                         codename: 'orders'
                     })
                 ])
             )
-            expect(response.body.activeSectionId).toBe(runtimeCatalogId)
+            expect(response.body.activeSectionId).toBe(runtimeLinkedCollectionId)
         })
     })
 
     describe('GET /applications/:applicationId/runtime/scripts', () => {
         it('filters runtime scripts by attachment and strips bundle bodies from the list surface', async () => {
             const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334479'
-            const runtimeCatalogId = '018f8a78-7b8f-7c1d-a111-22223333447a'
-            const otherCatalogId = '018f8a78-7b8f-7c1d-a111-22223333447b'
+            const runtimeLinkedCollectionId = '018f8a78-7b8f-7c1d-a111-22223333447a'
+            const otherLinkedCollectionId = '018f8a78-7b8f-7c1d-a111-22223333447b'
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
 
             applicationRepo.findOne.mockResolvedValue({
@@ -383,7 +379,7 @@ describe('Applications Routes', () => {
                                 }
                             },
                             attached_to_kind: 'catalog',
-                            attached_to_id: runtimeCatalogId,
+                            attached_to_id: runtimeLinkedCollectionId,
                             module_role: 'widget',
                             source_kind: 'embedded',
                             sdk_api_version: '1.0.0',
@@ -439,7 +435,7 @@ describe('Applications Routes', () => {
                                 }
                             },
                             attached_to_kind: 'catalog',
-                            attached_to_id: runtimeCatalogId,
+                            attached_to_id: runtimeLinkedCollectionId,
                             module_role: 'widget',
                             source_kind: 'embedded',
                             sdk_api_version: '1.0.0',
@@ -467,7 +463,7 @@ describe('Applications Routes', () => {
                                 }
                             },
                             attached_to_kind: 'catalog',
-                            attached_to_id: otherCatalogId,
+                            attached_to_id: otherLinkedCollectionId,
                             module_role: 'widget',
                             source_kind: 'embedded',
                             sdk_api_version: '1.0.0',
@@ -508,7 +504,7 @@ describe('Applications Routes', () => {
                                 }
                             },
                             attached_to_kind: 'catalog',
-                            attached_to_id: runtimeCatalogId,
+                            attached_to_id: runtimeLinkedCollectionId,
                             module_role: 'module',
                             source_kind: 'embedded',
                             sdk_api_version: '1.0.0',
@@ -538,7 +534,7 @@ describe('Applications Routes', () => {
             const app = buildApp(dataSource)
             const response = await request(app)
                 .get(`/applications/${runtimeApplicationId}/runtime/scripts`)
-                .query({ attachedToKind: 'catalog', attachedToId: runtimeCatalogId })
+                .query({ attachedToKind: 'catalog', attachedToId: runtimeLinkedCollectionId })
                 .expect(200)
 
             expect(response.body.items).toEqual([
@@ -546,7 +542,7 @@ describe('Applications Routes', () => {
                     id: 'script-1',
                     codename: 'quiz-widget',
                     attachedToKind: 'catalog',
-                    attachedToId: runtimeCatalogId,
+                    attachedToId: runtimeLinkedCollectionId,
                     clientBundle: null,
                     serverBundle: null
                 })
@@ -701,7 +697,7 @@ describe('Applications Routes', () => {
 
         it('rejects real runtime RPC calls when the script does not declare rpc.client', async () => {
             const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334483'
-            const runtimeCatalogId = '018f8a78-7b8f-7c1d-a111-222233334483'
+            const runtimeLinkedCollectionId = '018f8a78-7b8f-7c1d-a111-222233334483'
             const dataSource = buildRuntimeScriptsRouteDataSource(runtimeApplicationId, {
                 id: 'script-server-only',
                 codename: 'server-only-widget',
@@ -712,7 +708,7 @@ describe('Applications Routes', () => {
                     }
                 },
                 attached_to_kind: 'catalog',
-                attached_to_id: runtimeCatalogId,
+                attached_to_id: runtimeLinkedCollectionId,
                 module_role: 'module',
                 source_kind: 'embedded',
                 sdk_api_version: '1.0.0',
@@ -744,7 +740,7 @@ describe('Applications Routes', () => {
 
         it('rejects lifecycle handlers on the public runtime RPC route', async () => {
             const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334484'
-            const runtimeCatalogId = '018f8a78-7b8f-7c1d-a111-222233334484'
+            const runtimeLinkedCollectionId = '018f8a78-7b8f-7c1d-a111-222233334484'
             const dataSource = buildRuntimeScriptsRouteDataSource(runtimeApplicationId, {
                 id: 'script-lifecycle',
                 codename: 'catalog-lifecycle',
@@ -755,7 +751,7 @@ describe('Applications Routes', () => {
                     }
                 },
                 attached_to_kind: 'catalog',
-                attached_to_id: runtimeCatalogId,
+                attached_to_id: runtimeLinkedCollectionId,
                 module_role: 'lifecycle',
                 source_kind: 'embedded',
                 sdk_api_version: '1.0.0',
@@ -1867,7 +1863,7 @@ describe('Applications Routes', () => {
     })
 
     describe('Public membership and settings endpoints', () => {
-        const limitsCatalogId = '018f8a78-7b8f-7c1d-a111-222233334499'
+        const limitsLinkedCollectionId = '018f8a78-7b8f-7c1d-a111-222233334499'
 
         it('joins a public application inside one transaction', async () => {
             const { dataSource, applicationUserRepo } = buildDataSource()
@@ -2025,7 +2021,7 @@ describe('Applications Routes', () => {
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
                 if (sql.includes(`FROM "${limitsSchemaName}"._app_objects`)) {
-                    return [{ id: limitsCatalogId }]
+                    return [{ id: limitsLinkedCollectionId }]
                 }
 
                 if (sql.includes(`UPDATE "${limitsSchemaName}"."_app_limits"`)) {
@@ -2033,7 +2029,7 @@ describe('Applications Routes', () => {
                 }
 
                 if (sql.includes(`LEFT JOIN "${limitsSchemaName}"."_app_limits"`)) {
-                    return [{ objectId: limitsCatalogId, maxRows: null }]
+                    return [{ objectId: limitsLinkedCollectionId, maxRows: null }]
                 }
 
                 return []
@@ -2044,12 +2040,12 @@ describe('Applications Routes', () => {
             const response = await request(app)
                 .put('/applications/application-1/settings/limits')
                 .send({
-                    limits: [{ objectId: limitsCatalogId, maxRows: null }]
+                    limits: [{ objectId: limitsLinkedCollectionId, maxRows: null }]
                 })
                 .expect(200)
 
             expect(response.body).toEqual({
-                items: [{ objectId: limitsCatalogId, maxRows: null }]
+                items: [{ objectId: limitsLinkedCollectionId, maxRows: null }]
             })
             expect(dataSource.transaction).toHaveBeenCalledTimes(1)
         })
@@ -2092,8 +2088,8 @@ describe('Applications Routes', () => {
                 .put('/applications/application-1/settings/limits')
                 .send({
                     limits: [
-                        { objectId: limitsCatalogId, maxRows: 5 },
-                        { objectId: limitsCatalogId, maxRows: 10 }
+                        { objectId: limitsLinkedCollectionId, maxRows: 5 },
+                        { objectId: limitsLinkedCollectionId, maxRows: 10 }
                     ]
                 })
                 .expect(400)
@@ -2118,7 +2114,7 @@ describe('Applications Routes', () => {
 
     describe('Runtime enumeration validation', () => {
         const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334444'
-        const runtimeCatalogId = '018f8a78-7b8f-7c1d-a111-222233334445'
+        const runtimeLinkedCollectionId = '018f8a78-7b8f-7c1d-a111-222233334445'
 
         it('rejects create when enum REF field in label mode is explicitly provided by user', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
@@ -2134,7 +2130,7 @@ describe('Applications Routes', () => {
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
                 if (sql.includes('FROM "app_runtime_test"._app_objects')) {
-                    return [{ id: runtimeCatalogId, codename: 'orders', table_name: 'orders' }]
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders' }]
                 }
                 if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
                     return [
@@ -2158,7 +2154,7 @@ describe('Applications Routes', () => {
             const response = await request(app)
                 .post(`/applications/${runtimeApplicationId}/runtime/rows`)
                 .send({
-                    catalogId: runtimeCatalogId,
+                    linkedCollectionId: runtimeLinkedCollectionId,
                     data: {
                         status_ref: '018f8a78-7b8f-7c1d-a111-222233334444'
                     }
@@ -2182,7 +2178,7 @@ describe('Applications Routes', () => {
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
                 if (sql.includes('FROM "app_runtime_test"._app_objects')) {
-                    return [{ id: runtimeCatalogId, codename: 'orders', table_name: 'orders' }]
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders' }]
                 }
                 if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
                     return [
@@ -2209,7 +2205,7 @@ describe('Applications Routes', () => {
             const response = await request(app)
                 .patch(`/applications/${runtimeApplicationId}/runtime/018f8a78-7b8f-7c1d-a111-222233334444`)
                 .send({
-                    catalogId: runtimeCatalogId,
+                    linkedCollectionId: runtimeLinkedCollectionId,
                     field: 'status_ref',
                     value: '018f8a78-7b8f-7c1d-a111-222233334444'
                 })
@@ -2234,7 +2230,7 @@ describe('Applications Routes', () => {
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
                 if (sql.includes('FROM "app_runtime_test"._app_objects')) {
-                    return [{ id: runtimeCatalogId, codename: 'orders', table_name: 'orders' }]
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders' }]
                 }
                 if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
                     return [
@@ -2264,7 +2260,7 @@ describe('Applications Routes', () => {
             const response = await request(app)
                 .post(`/applications/${runtimeApplicationId}/runtime/rows`)
                 .send({
-                    catalogId: runtimeCatalogId,
+                    linkedCollectionId: runtimeLinkedCollectionId,
                     data: {}
                 })
                 .expect(201)
@@ -2281,7 +2277,7 @@ describe('Applications Routes', () => {
 
     describe('Runtime lifecycle delete contract', () => {
         const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334450'
-        const runtimeCatalogId = '018f8a78-7b8f-7c1d-a111-222233334451'
+        const runtimeLinkedCollectionId = '018f8a78-7b8f-7c1d-a111-222233334451'
         const runtimeRowId = '018f8a78-7b8f-7c1d-a111-222233334452'
 
         it('rejects runtime delete when role permissions do not allow deleting content', async () => {
@@ -2301,7 +2297,7 @@ describe('Applications Routes', () => {
             const app = buildApp(dataSource)
             const response = await request(app)
                 .delete(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}`)
-                .query({ catalogId: runtimeCatalogId })
+                .query({ linkedCollectionId: runtimeLinkedCollectionId })
                 .expect(403)
 
             expect(response.body).toEqual({ error: 'Insufficient permissions for this action' })
@@ -2324,7 +2320,7 @@ describe('Applications Routes', () => {
                 if (sql.includes('FROM "app_runtime_test"._app_objects')) {
                     return [
                         {
-                            id: runtimeCatalogId,
+                            id: runtimeLinkedCollectionId,
                             codename: 'orders',
                             table_name: 'orders',
                             config: {
@@ -2352,7 +2348,7 @@ describe('Applications Routes', () => {
             const app = buildApp(dataSource)
             const response = await request(app)
                 .delete(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}`)
-                .query({ catalogId: runtimeCatalogId })
+                .query({ linkedCollectionId: runtimeLinkedCollectionId })
                 .expect(200)
 
             expect(response.body).toEqual({ status: 'deleted' })
@@ -2390,7 +2386,7 @@ describe('Applications Routes', () => {
                 if (sql.includes('FROM "app_runtime_test"._app_objects')) {
                     return [
                         {
-                            id: runtimeCatalogId,
+                            id: runtimeLinkedCollectionId,
                             codename: 'orders',
                             table_name: 'orders',
                             config: {
@@ -2418,7 +2414,7 @@ describe('Applications Routes', () => {
             const app = buildApp(dataSource)
             await request(app)
                 .delete(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}`)
-                .query({ catalogId: runtimeCatalogId })
+                .query({ linkedCollectionId: runtimeLinkedCollectionId })
                 .expect(200)
 
             const updateCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
@@ -2446,7 +2442,7 @@ describe('Applications Routes', () => {
                 if (sql.includes('FROM "app_runtime_test"._app_objects')) {
                     return [
                         {
-                            id: runtimeCatalogId,
+                            id: runtimeLinkedCollectionId,
                             codename: 'orders',
                             table_name: 'orders',
                             config: {
@@ -2482,7 +2478,7 @@ describe('Applications Routes', () => {
             const app = buildApp(dataSource)
             await request(app)
                 .delete(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}`)
-                .query({ catalogId: runtimeCatalogId })
+                .query({ linkedCollectionId: runtimeLinkedCollectionId })
                 .expect(200)
 
             const updateCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
@@ -2498,7 +2494,7 @@ describe('Applications Routes', () => {
 
     describe('Runtime parent-row permission contract', () => {
         const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334470'
-        const runtimeCatalogId = '018f8a78-7b8f-7c1d-a111-222233334471'
+        const runtimeLinkedCollectionId = '018f8a78-7b8f-7c1d-a111-222233334471'
         const runtimeRowId = '018f8a78-7b8f-7c1d-a111-222233334472'
         const copiedRowId = '018f8a78-7b8f-7c1d-a111-222233334473'
         const reorderedRowIdA = '018f8a78-7b8f-7c1d-a111-222233334474'
@@ -2526,7 +2522,7 @@ describe('Applications Routes', () => {
                 const response = await request(app)
                     .patch(`/applications/${runtimeApplicationId}/runtime/${runtimeRowId}`)
                     .send({
-                        catalogId: runtimeCatalogId,
+                        linkedCollectionId: runtimeLinkedCollectionId,
                         field: 'title',
                         value: 'Updated title'
                     })
@@ -2554,7 +2550,7 @@ describe('Applications Routes', () => {
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
                 if (sql.includes('FROM "app_runtime_test"._app_objects')) {
-                    return [{ id: runtimeCatalogId, codename: 'orders', table_name: 'orders', config: null }]
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
                     return []
@@ -2569,7 +2565,7 @@ describe('Applications Routes', () => {
             const response = await request(app)
                 .post(`/applications/${runtimeApplicationId}/runtime/rows`)
                 .send({
-                    catalogId: runtimeCatalogId,
+                    linkedCollectionId: runtimeLinkedCollectionId,
                     data: {}
                 })
                 .expect(201)
@@ -2592,7 +2588,7 @@ describe('Applications Routes', () => {
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
                 if (sql.includes('FROM "app_runtime_test"._app_objects')) {
-                    return [{ id: runtimeCatalogId, codename: 'orders', table_name: 'orders', config: null }]
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
                     return []
@@ -2612,7 +2608,7 @@ describe('Applications Routes', () => {
             const app = buildApp(dataSource)
             const response = await request(app)
                 .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/copy`)
-                .send({ catalogId: runtimeCatalogId })
+                .send({ linkedCollectionId: runtimeLinkedCollectionId })
                 .expect(201)
 
             expect(response.body).toEqual({
@@ -2641,7 +2637,7 @@ describe('Applications Routes', () => {
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
                 if (sql.includes('FROM "app_runtime_test"._app_objects')) {
-                    return [{ id: runtimeCatalogId, codename: 'orders', table_name: 'orders', config: null }]
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
                 if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
                     return []
@@ -2664,7 +2660,7 @@ describe('Applications Routes', () => {
             const app = buildApp(dataSource)
             const response = await request(app)
                 .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/copy`)
-                .send({ catalogId: runtimeCatalogId })
+                .send({ linkedCollectionId: runtimeLinkedCollectionId })
                 .expect(201)
 
             expect(response.body).toEqual({
@@ -2719,7 +2715,7 @@ describe('Applications Routes', () => {
                 if (sql.includes('FROM "app_runtime_test"._app_objects')) {
                     return [
                         {
-                            id: runtimeCatalogId,
+                            id: runtimeLinkedCollectionId,
                             codename: 'orders',
                             table_name: 'orders'
                         }
@@ -2767,7 +2763,7 @@ describe('Applications Routes', () => {
             const response = await request(app)
                 .post(`/applications/${runtimeApplicationId}/runtime/rows/reorder`)
                 .send({
-                    catalogId: runtimeCatalogId,
+                    linkedCollectionId: runtimeLinkedCollectionId,
                     orderedRowIds: [reorderedRowIdA, reorderedRowIdB]
                 })
                 .expect(200)
@@ -2778,7 +2774,7 @@ describe('Applications Routes', () => {
 
     describe('Runtime tabular copy permission contract', () => {
         const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334560'
-        const runtimeCatalogId = '018f8a78-7b8f-7c1d-a111-222233334561'
+        const runtimeLinkedCollectionId = '018f8a78-7b8f-7c1d-a111-222233334561'
         const runtimeRecordId = '018f8a78-7b8f-7c1d-a111-222233334562'
         const runtimeChildRowId = '018f8a78-7b8f-7c1d-a111-222233334564'
 
@@ -2799,7 +2795,7 @@ describe('Applications Routes', () => {
             const app = buildApp(dataSource)
             const response = await request(app)
                 .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/not-a-uuid/${runtimeChildRowId}/copy`)
-                .query({ catalogId: runtimeCatalogId })
+                .query({ linkedCollectionId: runtimeLinkedCollectionId })
                 .expect(400)
 
             expect(response.body).toEqual({ error: 'Invalid catalog or attribute ID format' })

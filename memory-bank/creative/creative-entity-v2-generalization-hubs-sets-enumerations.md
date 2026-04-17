@@ -672,7 +672,7 @@ export const enumerationV2EntityPreset: EntityTypePresetManifest = {
 | Feature | Where handled | V2 approach |
 |---|---|---|
 | Hub hierarchy (parent-child) | `hubsController.ts` + `HubList` tree view | Delegated to legacy `HubList` via `legacyObjectKind='hub'` |
-| Enumeration values | `enumerationsRoutes.ts` + `EnumerationValueList` | Delegated to legacy `EnumerationList` via `legacyObjectKind='enumeration'` |
+| Enumeration values | `enumerationsRoutes.ts` + `OptionValueList` | Delegated to legacy `EnumerationList` via `legacyObjectKind='enumeration'` |
 | Set constants | `constantsRoutes.ts` + `ConstantList` | Delegated to legacy `SetList` via `legacyObjectKind='set'` |
 | Hub widget binding | `MenuWidgetEditorDialog` queries hubs | Phase 1: only built-in hub kind; Phase 2: query by `legacyObjectKind='hub'` |
 

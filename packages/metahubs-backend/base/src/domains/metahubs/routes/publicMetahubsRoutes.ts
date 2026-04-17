@@ -11,7 +11,7 @@ import { createPublicMetahubsController } from '../controllers/publicMetahubsCon
  * Only metahubs with isPublic=true are accessible.
  * All operations are read-only.
  *
- * Hierarchy: Metahub → Hub → Catalog → Attributes/Elements
+ * Hierarchy: Metahub → Tree Entity → Linked Collection → Field Definitions/Records
  */
 export function createPublicMetahubsRoutes(getDbExecutor: () => DbExecutor, readLimiter: RateLimitRequestHandler): Router {
     const router = Router({ mergeParams: true })
@@ -24,13 +24,29 @@ export function createPublicMetahubsRoutes(getDbExecutor: () => DbExecutor, read
         }
 
     router.get('/:slug', readLimiter, asyncHandler(ctrl.getBySlug))
-    router.get('/:slug/hubs', readLimiter, asyncHandler(ctrl.listHubs))
-    router.get('/:slug/hub/:hubCodename', readLimiter, asyncHandler(ctrl.getHub))
-    router.get('/:slug/hub/:hubCodename/catalogs', readLimiter, asyncHandler(ctrl.listCatalogs))
-    router.get('/:slug/hub/:hubCodename/catalog/:catalogCodename', readLimiter, asyncHandler(ctrl.getCatalog))
-    router.get('/:slug/hub/:hubCodename/catalog/:catalogCodename/attributes', readLimiter, asyncHandler(ctrl.listAttributes))
-    router.get('/:slug/hub/:hubCodename/catalog/:catalogCodename/elements', readLimiter, asyncHandler(ctrl.listElements))
-    router.get('/:slug/hub/:hubCodename/catalog/:catalogCodename/element/:elementId', readLimiter, asyncHandler(ctrl.getElement))
+    router.get('/:slug/tree-entities', readLimiter, asyncHandler(ctrl.listTreeEntities))
+    router.get('/:slug/tree-entity/:treeEntityCodename', readLimiter, asyncHandler(ctrl.getTreeEntity))
+    router.get('/:slug/tree-entity/:treeEntityCodename/linked-collections', readLimiter, asyncHandler(ctrl.listLinkedCollections))
+    router.get(
+        '/:slug/tree-entity/:treeEntityCodename/linked-collection/:linkedCollectionCodename',
+        readLimiter,
+        asyncHandler(ctrl.getLinkedCollection)
+    )
+    router.get(
+        '/:slug/tree-entity/:treeEntityCodename/linked-collection/:linkedCollectionCodename/field-definitions',
+        readLimiter,
+        asyncHandler(ctrl.listFieldDefinitions)
+    )
+    router.get(
+        '/:slug/tree-entity/:treeEntityCodename/linked-collection/:linkedCollectionCodename/records',
+        readLimiter,
+        asyncHandler(ctrl.listRecords)
+    )
+    router.get(
+        '/:slug/tree-entity/:treeEntityCodename/linked-collection/:linkedCollectionCodename/record/:recordId',
+        readLimiter,
+        asyncHandler(ctrl.getRecord)
+    )
 
     return router
 }

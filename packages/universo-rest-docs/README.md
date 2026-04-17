@@ -25,7 +25,7 @@ The generated specification is organized around the route groups that currently 
 - onboarding
 - admin global users, instances, roles, locales, and settings
 - applications, connectors, and runtime sync
-- public metahub, metahubs, branches, publications, migrations, hubs, catalogs, sets, enumerations, attributes, constants, elements, layouts, settings, and templates
+- public metahub, metahubs, branches, publications, migrations, entity types, entities, entity actions, event bindings, field definitions, fixed values, records, layouts, scripts, shared entity overrides, settings, and templates
 
 The package intentionally documents the current route inventory first.
 Payload schemas remain generic unless they are stabilized and promoted into explicit contract-level schemas later.
@@ -34,6 +34,7 @@ Payload schemas remain generic unless they are stabilized and promoted into expl
 
 ```bash
 pnpm --filter @universo/rest-docs generate:openapi
+pnpm --filter @universo/rest-docs verify:route-sources
 pnpm --filter @universo/rest-docs validate
 pnpm --filter @universo/rest-docs build
 pnpm --filter @universo/rest-docs start
@@ -41,8 +42,9 @@ pnpm --filter @universo/rest-docs lint
 ```
 
 - `generate:openapi` rebuilds `src/openapi/index.yml` from the live route files.
-- `validate` regenerates and lints the OpenAPI source with Redocly.
-- `build` regenerates the source, compiles TypeScript, and bundles the runtime YAML.
+- `verify:route-sources` fails if the generated metahubs route source list drifts from the live mounted router contract.
+- `validate` verifies the route source list, regenerates, and then lints the OpenAPI source with Redocly.
+- `build` verifies the route source list, regenerates the source, compiles TypeScript, and bundles the runtime YAML.
 - `start` serves Swagger UI from `dist/openapi-bundled.yml`.
 
 ## Running The Docs Server

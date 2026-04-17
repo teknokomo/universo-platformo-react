@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-    extractCatalogLayoutBehaviorConfig,
-    resolveCatalogLayoutBehaviorConfig,
-    resolveCatalogRuntimeDashboardLayoutConfig,
-    sanitizeCatalogRuntimeViewConfig,
-    setCatalogLayoutBehaviorConfig
+    extractLinkedCollectionLayoutBehaviorConfig,
+    resolveLinkedCollectionLayoutBehaviorConfig,
+    resolveLinkedCollectionRuntimeDashboardLayoutConfig,
+    sanitizeLinkedCollectionRuntimeViewConfig,
+    setLinkedCollectionLayoutBehaviorConfig
 } from '../catalogRuntimeConfig'
 
 describe('resolveCatalogRuntimeDashboardLayoutConfig', () => {
     it('preserves layout defaults when catalog runtime config omits overrides', () => {
-        const resolved = resolveCatalogRuntimeDashboardLayoutConfig({
+        const resolved = resolveLinkedCollectionRuntimeDashboardLayoutConfig({
             layoutConfig: {
                 showViewToggle: false,
                 defaultViewMode: 'table',
@@ -30,8 +30,8 @@ describe('resolveCatalogRuntimeDashboardLayoutConfig', () => {
     })
 
     it('applies explicit catalog overrides without clobbering omitted fields', () => {
-        const resolved = resolveCatalogRuntimeDashboardLayoutConfig({
-            layoutConfig: setCatalogLayoutBehaviorConfig(
+        const resolved = resolveLinkedCollectionRuntimeDashboardLayoutConfig({
+            layoutConfig: setLinkedCollectionLayoutBehaviorConfig(
                 {
                     showViewToggle: false,
                     defaultViewMode: 'table',
@@ -58,8 +58,8 @@ describe('resolveCatalogRuntimeDashboardLayoutConfig', () => {
     })
 
     it('ignores layout-like catalog fields until local layout overrides are enabled', () => {
-        const resolved = resolveCatalogRuntimeDashboardLayoutConfig({
-            layoutConfig: setCatalogLayoutBehaviorConfig(
+        const resolved = resolveLinkedCollectionRuntimeDashboardLayoutConfig({
+            layoutConfig: setLinkedCollectionLayoutBehaviorConfig(
                 {
                     showViewToggle: true,
                     defaultViewMode: 'card',
@@ -88,8 +88,8 @@ describe('resolveCatalogRuntimeDashboardLayoutConfig', () => {
     })
 
     it('applies behavior config stored inside layout config', () => {
-        const resolved = resolveCatalogRuntimeDashboardLayoutConfig({
-            layoutConfig: setCatalogLayoutBehaviorConfig(
+        const resolved = resolveLinkedCollectionRuntimeDashboardLayoutConfig({
+            layoutConfig: setLinkedCollectionLayoutBehaviorConfig(
                 {
                     showDetailsTable: true,
                     showViewToggle: false
@@ -113,7 +113,7 @@ describe('resolveCatalogRuntimeDashboardLayoutConfig', () => {
 describe('sanitizeCatalogRuntimeViewConfig', () => {
     it('keeps sparse runtime config for new catalogs without local layout overrides', () => {
         expect(
-            sanitizeCatalogRuntimeViewConfig({
+            sanitizeLinkedCollectionRuntimeViewConfig({
                 showCreateButton: true,
                 showViewToggle: false,
                 defaultViewMode: 'table'
@@ -123,7 +123,7 @@ describe('sanitizeCatalogRuntimeViewConfig', () => {
 
     it('preserves legacy layout overrides as explicit overrides during migration', () => {
         expect(
-            sanitizeCatalogRuntimeViewConfig({
+            sanitizeLinkedCollectionRuntimeViewConfig({
                 showViewToggle: false,
                 defaultViewMode: 'card'
             })
@@ -138,7 +138,7 @@ describe('sanitizeCatalogRuntimeViewConfig', () => {
 describe('catalog layout behavior helpers', () => {
     it('uses defaults when layout behavior is absent', () => {
         expect(
-            resolveCatalogLayoutBehaviorConfig({
+            resolveLinkedCollectionLayoutBehaviorConfig({
                 layoutConfig: {}
             })
         ).toMatchObject({
@@ -148,13 +148,13 @@ describe('catalog layout behavior helpers', () => {
     })
 
     it('stores and extracts sparse behavior config inside layout config', () => {
-        const layoutConfig = setCatalogLayoutBehaviorConfig(
+        const layoutConfig = setLinkedCollectionLayoutBehaviorConfig(
             { showHeader: false },
             { showCreateButton: false, createSurface: 'page' }
         )
 
         expect(layoutConfig).toMatchObject({ showHeader: false })
-        expect(extractCatalogLayoutBehaviorConfig(layoutConfig)).toEqual({
+        expect(extractLinkedCollectionLayoutBehaviorConfig(layoutConfig)).toEqual({
             showCreateButton: false,
             createSurface: 'page'
         })

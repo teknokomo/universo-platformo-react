@@ -31,7 +31,7 @@ import { DndContext, DragEndEvent, PointerSensor, useDroppable, useSensor, useSe
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type {
-    CatalogRuntimeViewConfig,
+    LinkedCollectionRuntimeViewConfig,
     DashboardLayoutZone,
     DashboardLayoutWidgetKey,
     MenuWidgetConfig,
@@ -40,7 +40,11 @@ import type {
 } from '@universo/types'
 import { DASHBOARD_LAYOUT_ZONES } from '@universo/types'
 import { TemplateMainCard as MainCard, ViewHeaderMUI as ViewHeader, notifyError } from '@universo/template-mui'
-import { extractCatalogLayoutBehaviorConfig, normalizeCatalogRuntimeViewConfig, setCatalogLayoutBehaviorConfig } from '@universo/utils'
+import {
+    extractLinkedCollectionLayoutBehaviorConfig,
+    normalizeLinkedCollectionRuntimeViewConfig,
+    setLinkedCollectionLayoutBehaviorConfig
+} from '@universo/utils'
 
 import { metahubsQueryKeys, invalidateLayoutsQueries } from '../../shared'
 import { useMetahubDetails } from '../../metahubs/hooks'
@@ -116,7 +120,7 @@ function SortableWidgetChip({
     toggleActiveTooltip?: string
     inheritedLabel?: string
 }) {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    const { fieldDefinitions, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id,
         disabled: !draggable
     })
@@ -148,7 +152,7 @@ function SortableWidgetChip({
                 data-testid={`layout-widget-drag-${id}`}
                 disabled={!draggable}
                 sx={{ cursor: draggable ? 'grab' : 'default' }}
-                {...attributes}
+                {...fieldDefinitions}
                 {...listeners}
             >
                 <DragIndicatorRoundedIcon fontSize='small' />
@@ -283,11 +287,11 @@ export default function LayoutDetails() {
     const layout = layoutQuery.data as MetahubLayout | undefined
     const zoneWidgets = zoneWidgetsQuery.data ?? EMPTY_ZONE_WIDGETS
     const widgetCatalog = widgetCatalogQuery.data ?? EMPTY_WIDGET_CATALOG
-    const isGlobalLayout = layout?.catalogId == null
+    const isGlobalLayout = layout?.linkedCollectionId == null
     const uiLocale = normalizeLocale(i18n.language)
     const layoutName = layout ? getVLCString(layout.name, uiLocale) || getVLCString(layout.name, 'en') || layout.templateKey : ''
     const catalogBehaviorConfig = useMemo(
-        () => normalizeCatalogRuntimeViewConfig(extractCatalogLayoutBehaviorConfig(layout?.config)),
+        () => normalizeLinkedCollectionRuntimeViewConfig(extractLinkedCollectionLayoutBehaviorConfig(layout?.config)),
         [layout?.config]
     )
     const [reorderPersistenceFieldDraft, setReorderPersistenceFieldDraft] = useState('')
@@ -368,7 +372,7 @@ export default function LayoutDetails() {
 
     const persistAndRefresh = async () => {
         if (!metahubId || !layoutId) return
-        if (layout?.catalogId == null) {
+        if (layout?.linkedCollectionId == null) {
             await invalidateLayoutsQueries.all(queryClient, metahubId)
             return
         }
@@ -407,13 +411,13 @@ export default function LayoutDetails() {
         async (nextConfig: Record<string, unknown>) => {
             if (!metahubId || !layoutId) return
             await layoutsApi.updateLayout(metahubId, layoutId, { config: nextConfig })
-            if (layout?.catalogId == null) {
+            if (layout?.linkedCollectionId == null) {
                 await invalidateLayoutsQueries.all(queryClient, metahubId)
                 return
             }
             await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.layoutDetail(metahubId, layoutId) })
         },
-        [layout?.catalogId, layoutId, metahubId, queryClient]
+        [layout?.linkedCollectionId, layoutId, metahubId, queryClient]
     )
 
     const handleViewSettingChange = useCallback(
@@ -432,12 +436,12 @@ export default function LayoutDetails() {
     )
 
     const handleCatalogBehaviorChange = useCallback(
-        async (patch: Partial<CatalogRuntimeViewConfig>) => {
+        async (patch: Partial<LinkedCollectionRuntimeViewConfig>) => {
             if (!layout || !canManageLayouts) return
             setViewSettingsSaving(true)
             try {
-                const currentBehaviorConfig = extractCatalogLayoutBehaviorConfig(layout.config) ?? {}
-                await persistLayoutConfig(setCatalogLayoutBehaviorConfig(layout.config, { ...currentBehaviorConfig, ...patch }))
+                const currentBehaviorConfig = extractLinkedCollectionLayoutBehaviorConfig(layout.config) ?? {}
+                await persistLayoutConfig(setLinkedCollectionLayoutBehaviorConfig(layout.config, { ...currentBehaviorConfig, ...patch }))
             } catch (e: unknown) {
                 notifyError(t, enqueueSnackbar, e)
             } finally {
@@ -606,13 +610,7 @@ export default function LayoutDetails() {
     const hasError = layoutQuery.error || zoneWidgetsQuery.error || widgetCatalogQuery.error
 
     return (
-        <MainCard
-            content={false}
-            sx={{ maxWidth: '100%', width: '100%', p: 0, gap: 0 }}
-            disableHeader
-            border={false}
-            shadow={false}
-        >
+        <MainCard content={false} sx={{ maxWidth: '100%', width: '100%', p: 0, gap: 0 }} disableHeader border={false} shadow={false}>
             <Stack spacing={2} sx={{ width: '100%' }}>
                 <ViewHeader
                     title={layoutName || t('layouts.details.title', 'Layout')}
@@ -631,19 +629,19 @@ export default function LayoutDetails() {
                         <Stack spacing={2}>
                             <Paper variant='outlined' sx={{ p: 2 }}>
                                 <Typography variant='subtitle1' sx={{ mb: 1.5 }}>
-                                    {layout?.catalogId
-                                        ? t('layouts.details.catalogBehaviorTitleCatalog', 'Catalog runtime behavior')
+                                    {layout?.linkedCollectionId
+                                        ? t('layouts.details.catalogBehaviorTitleCatalog', 'LinkedCollectionEntity runtime behavior')
                                         : t('layouts.details.catalogBehaviorTitleGlobal', 'Default catalog runtime behavior')}
                                 </Typography>
                                 <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
-                                    {layout?.catalogId
+                                    {layout?.linkedCollectionId
                                         ? t(
                                               'layouts.details.catalogBehaviorDescriptionCatalog',
                                               'This catalog layout overrides the create/search behavior inherited from its global base layout.'
                                           )
                                         : t(
                                               'layouts.details.catalogBehaviorDescriptionGlobal',
-                                              'These settings define the default create/search behavior for catalogs that use this global layout until a catalog-specific layout overrides it.'
+                                              'These settings define the default create/search behavior for linkedCollections that use this global layout until a catalog-specific layout overrides it.'
                                           )}
                                 </Typography>
                                 <Stack spacing={1.5}>
@@ -655,72 +653,72 @@ export default function LayoutDetails() {
                                                 onChange={(_, checked) => void handleCatalogBehaviorChange({ showCreateButton: checked })}
                                             />
                                         }
-                                        label={t('catalogs.runtime.showCreateButton', 'Show create button')}
+                                        label={t('linkedCollections.runtime.showCreateButton', 'Show create button')}
                                     />
                                     <FormControl size='small' sx={{ minWidth: 220 }}>
-                                        <InputLabel>{t('catalogs.runtime.searchMode', 'Search mode')}</InputLabel>
+                                        <InputLabel>{t('linkedCollections.runtime.searchMode', 'Search mode')}</InputLabel>
                                         <Select
                                             value={catalogBehaviorConfig.searchMode}
-                                            label={t('catalogs.runtime.searchMode', 'Search mode')}
+                                            label={t('linkedCollections.runtime.searchMode', 'Search mode')}
                                             disabled={viewSettingsSaving || !canManageLayouts}
                                             onChange={(event) =>
                                                 void handleCatalogBehaviorChange({
-                                                    searchMode: event.target.value as CatalogRuntimeViewConfig['searchMode']
+                                                    searchMode: event.target.value as LinkedCollectionRuntimeViewConfig['searchMode']
                                                 })
                                             }
                                         >
                                             <MenuItem value='page-local'>
-                                                {t('catalogs.runtime.searchModePageLocal', 'Page-local')}
+                                                {t('linkedCollections.runtime.searchModePageLocal', 'Page-local')}
                                             </MenuItem>
-                                            <MenuItem value='server'>{t('catalogs.runtime.searchModeServer', 'Server')}</MenuItem>
+                                            <MenuItem value='server'>{t('linkedCollections.runtime.searchModeServer', 'Server')}</MenuItem>
                                         </Select>
                                     </FormControl>
                                     <FormControl size='small' sx={{ minWidth: 220 }}>
-                                        <InputLabel>{t('catalogs.runtime.createSurface', 'Create form type')}</InputLabel>
+                                        <InputLabel>{t('linkedCollections.runtime.createSurface', 'Create form type')}</InputLabel>
                                         <Select
                                             value={catalogBehaviorConfig.createSurface}
-                                            label={t('catalogs.runtime.createSurface', 'Create form type')}
+                                            label={t('linkedCollections.runtime.createSurface', 'Create form type')}
                                             disabled={viewSettingsSaving || !canManageLayouts}
                                             onChange={(event) =>
                                                 void handleCatalogBehaviorChange({
-                                                    createSurface: event.target.value as CatalogRuntimeViewConfig['createSurface']
+                                                    createSurface: event.target.value as LinkedCollectionRuntimeViewConfig['createSurface']
                                                 })
                                             }
                                         >
-                                            <MenuItem value='dialog'>{t('catalogs.runtime.surfaceDialog', 'Dialog')}</MenuItem>
-                                            <MenuItem value='page'>{t('catalogs.runtime.surfacePage', 'Page')}</MenuItem>
+                                            <MenuItem value='dialog'>{t('linkedCollections.runtime.surfaceDialog', 'Dialog')}</MenuItem>
+                                            <MenuItem value='page'>{t('linkedCollections.runtime.surfacePage', 'Page')}</MenuItem>
                                         </Select>
                                     </FormControl>
                                     <FormControl size='small' sx={{ minWidth: 220 }}>
-                                        <InputLabel>{t('catalogs.runtime.editSurface', 'Edit form type')}</InputLabel>
+                                        <InputLabel>{t('linkedCollections.runtime.editSurface', 'Edit form type')}</InputLabel>
                                         <Select
                                             value={catalogBehaviorConfig.editSurface}
-                                            label={t('catalogs.runtime.editSurface', 'Edit form type')}
+                                            label={t('linkedCollections.runtime.editSurface', 'Edit form type')}
                                             disabled={viewSettingsSaving || !canManageLayouts}
                                             onChange={(event) =>
                                                 void handleCatalogBehaviorChange({
-                                                    editSurface: event.target.value as CatalogRuntimeViewConfig['editSurface']
+                                                    editSurface: event.target.value as LinkedCollectionRuntimeViewConfig['editSurface']
                                                 })
                                             }
                                         >
-                                            <MenuItem value='dialog'>{t('catalogs.runtime.surfaceDialog', 'Dialog')}</MenuItem>
-                                            <MenuItem value='page'>{t('catalogs.runtime.surfacePage', 'Page')}</MenuItem>
+                                            <MenuItem value='dialog'>{t('linkedCollections.runtime.surfaceDialog', 'Dialog')}</MenuItem>
+                                            <MenuItem value='page'>{t('linkedCollections.runtime.surfacePage', 'Page')}</MenuItem>
                                         </Select>
                                     </FormControl>
                                     <FormControl size='small' sx={{ minWidth: 220 }}>
-                                        <InputLabel>{t('catalogs.runtime.copySurface', 'Copy form type')}</InputLabel>
+                                        <InputLabel>{t('linkedCollections.runtime.copySurface', 'Copy form type')}</InputLabel>
                                         <Select
                                             value={catalogBehaviorConfig.copySurface}
-                                            label={t('catalogs.runtime.copySurface', 'Copy form type')}
+                                            label={t('linkedCollections.runtime.copySurface', 'Copy form type')}
                                             disabled={viewSettingsSaving || !canManageLayouts}
                                             onChange={(event) =>
                                                 void handleCatalogBehaviorChange({
-                                                    copySurface: event.target.value as CatalogRuntimeViewConfig['copySurface']
+                                                    copySurface: event.target.value as LinkedCollectionRuntimeViewConfig['copySurface']
                                                 })
                                             }
                                         >
-                                            <MenuItem value='dialog'>{t('catalogs.runtime.surfaceDialog', 'Dialog')}</MenuItem>
-                                            <MenuItem value='page'>{t('catalogs.runtime.surfacePage', 'Page')}</MenuItem>
+                                            <MenuItem value='dialog'>{t('linkedCollections.runtime.surfaceDialog', 'Dialog')}</MenuItem>
+                                            <MenuItem value='page'>{t('linkedCollections.runtime.surfacePage', 'Page')}</MenuItem>
                                         </Select>
                                     </FormControl>
                                     <FormControlLabel
@@ -735,15 +733,15 @@ export default function LayoutDetails() {
                                                 }
                                             />
                                         }
-                                        label={t('catalogs.runtime.enableRowReordering', 'Enable row reordering')}
+                                        label={t('linkedCollections.runtime.enableRowReordering', 'Enable row reordering')}
                                     />
                                     <TextField
                                         size='small'
-                                        label={t('catalogs.runtime.reorderPersistenceField', 'Reorder persistence field')}
+                                        label={t('linkedCollections.runtime.reorderPersistenceField', 'Reorder persistence field')}
                                         value={reorderPersistenceFieldDraft}
                                         disabled={viewSettingsSaving || !canManageLayouts || !catalogBehaviorConfig.enableRowReordering}
                                         helperText={t(
-                                            'catalogs.runtime.reorderPersistenceFieldHelper',
+                                            'linkedCollections.runtime.reorderPersistenceFieldHelper',
                                             'Enter the numeric field codename or column key that stores the persisted row order, for example sort_order.'
                                         )}
                                         onChange={(event) => setReorderPersistenceFieldDraft(event.target.value)}

@@ -5,13 +5,9 @@ import { createRateLimiters } from '@universo/utils/rate-limiting'
 import { createLogger } from '../utils/logger'
 import { createMetahubsRoutes } from './metahubs/routes/metahubsRoutes'
 import { createBranchesRoutes } from './branches/routes/branchesRoutes'
-import { createHubsRoutes } from './hubs/routes/hubsRoutes'
-import { createCatalogsRoutes } from './catalogs/routes/catalogsRoutes'
-import { createEnumerationsRoutes } from './enumerations/routes/enumerationsRoutes'
-import { createAttributesRoutes } from './attributes/routes/attributesRoutes'
-import { createElementsRoutes } from './elements/routes/elementsRoutes'
-import { createSetsRoutes } from './sets/routes/setsRoutes'
-import { createConstantsRoutes } from './constants/routes/constantsRoutes'
+import { createEntityFieldDefinitionRoutes } from './entities/metadata/fieldDefinition/routes'
+import { createEntityRecordRoutes } from './entities/metadata/record/routes'
+import { createEntityFixedValueRoutes } from './entities/metadata/fixedValue/routes'
 import { createLayoutsRoutes } from './layouts/routes/layoutsRoutes'
 import { createScriptsRoutes } from './scripts/routes/scriptsRoutes'
 import { createTemplatesRoutes } from './templates/routes/templatesRoutes'
@@ -84,14 +80,10 @@ export function createMetahubsServiceRoutes(ensureAuth: RequestHandler, getDbExe
     // Application migrations - runtime schema migration history and rollback
     router.use('/', createApplicationMigrationsRoutes(ensureAuth, getDbExecutor, read, write))
 
-    // New metadata-driven routes
-    router.use('/', createHubsRoutes(ensureAuth, getDbExecutor, read, write))
-    router.use('/', createCatalogsRoutes(ensureAuth, getDbExecutor, read, write))
-    router.use('/', createSetsRoutes(ensureAuth, getDbExecutor, read, write))
-    router.use('/', createEnumerationsRoutes(ensureAuth, getDbExecutor, read, write))
-    router.use('/', createAttributesRoutes(ensureAuth, getDbExecutor, read, write))
-    router.use('/', createConstantsRoutes(ensureAuth, getDbExecutor, read, write))
-    router.use('/', createElementsRoutes(ensureAuth, getDbExecutor, read, write))
+    // Entity-owned metadata routes
+    router.use('/', createEntityFieldDefinitionRoutes(ensureAuth, getDbExecutor, read, write))
+    router.use('/', createEntityFixedValueRoutes(ensureAuth, getDbExecutor, read, write))
+    router.use('/', createEntityRecordRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createLayoutsRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createScriptsRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createSharedEntityOverridesRoutes(ensureAuth, getDbExecutor, read, write))
@@ -161,13 +153,9 @@ export function createPublicMetahubsServiceRoutes(getDbExecutor: () => DbExecuto
 
 export { createMetahubsRoutes } from './metahubs/routes/metahubsRoutes'
 export { createBranchesRoutes } from './branches/routes/branchesRoutes'
-export { createHubsRoutes } from './hubs/routes/hubsRoutes'
-export { createCatalogsRoutes } from './catalogs/routes/catalogsRoutes'
-export { createSetsRoutes } from './sets/routes/setsRoutes'
-export { createEnumerationsRoutes } from './enumerations/routes/enumerationsRoutes'
-export { createAttributesRoutes } from './attributes/routes/attributesRoutes'
-export { createConstantsRoutes } from './constants/routes/constantsRoutes'
-export { createElementsRoutes } from './elements/routes/elementsRoutes'
+export { createEntityFieldDefinitionRoutes } from './entities/metadata/fieldDefinition/routes'
+export { createEntityFixedValueRoutes } from './entities/metadata/fixedValue/routes'
+export { createEntityRecordRoutes } from './entities/metadata/record/routes'
 export { createLayoutsRoutes } from './layouts/routes/layoutsRoutes'
 export { createScriptsRoutes } from './scripts/routes/scriptsRoutes'
 export { createSharedEntityOverridesRoutes } from './shared/routes/sharedEntityOverridesRoutes'

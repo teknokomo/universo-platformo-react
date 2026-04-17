@@ -73,7 +73,7 @@ describe('Settings Routes', () => {
 
     it('runs one-shot hub nesting reset when resetNestingOnce=true and allowNesting=false', async () => {
         mockSettingsService.findByKey.mockImplementation(async (_metahubId: string, key: string) => {
-            if (key === 'hubs.allowNesting') return { key, value: { _value: false } }
+            if (key === 'entity.hub.allowNesting') return { key, value: { _value: false } }
             return null
         })
 
@@ -82,20 +82,20 @@ describe('Settings Routes', () => {
             .put('/metahub/metahub-1/settings')
             .send({
                 settings: [
-                    { key: 'hubs.allowNesting', value: { _value: false } },
-                    { key: 'hubs.resetNestingOnce', value: { _value: true } }
+                    { key: 'entity.hub.allowNesting', value: { _value: false } },
+                    { key: 'entity.hub.resetNestingOnce', value: { _value: true } }
                 ]
             })
             .expect(200)
 
         expect(mockSettingsService.bulkUpsert).toHaveBeenCalledTimes(1)
         expect(mockSettingsService.clearHubNesting).toHaveBeenCalledWith('metahub-1', 'test-user-id')
-        expect(mockSettingsService.resetToDefault).toHaveBeenCalledWith('metahub-1', 'hubs.resetNestingOnce', 'test-user-id')
+        expect(mockSettingsService.resetToDefault).toHaveBeenCalledWith('metahub-1', 'entity.hub.resetNestingOnce', 'test-user-id')
     })
 
     it('runs one-shot hub nesting reset when allowNesting=true', async () => {
         mockSettingsService.findByKey.mockImplementation(async (_metahubId: string, key: string) => {
-            if (key === 'hubs.allowNesting') return { key, value: { _value: true } }
+            if (key === 'entity.hub.allowNesting') return { key, value: { _value: true } }
             return null
         })
 
@@ -104,14 +104,14 @@ describe('Settings Routes', () => {
             .put('/metahub/metahub-1/settings')
             .send({
                 settings: [
-                    { key: 'hubs.allowNesting', value: { _value: true } },
-                    { key: 'hubs.resetNestingOnce', value: { _value: true } }
+                    { key: 'entity.hub.allowNesting', value: { _value: true } },
+                    { key: 'entity.hub.resetNestingOnce', value: { _value: true } }
                 ]
             })
             .expect(200)
 
         expect(mockSettingsService.bulkUpsert).toHaveBeenCalledTimes(1)
         expect(mockSettingsService.clearHubNesting).toHaveBeenCalledWith('metahub-1', 'test-user-id')
-        expect(mockSettingsService.resetToDefault).toHaveBeenCalledWith('metahub-1', 'hubs.resetNestingOnce', 'test-user-id')
+        expect(mockSettingsService.resetToDefault).toHaveBeenCalledWith('metahub-1', 'entity.hub.resetNestingOnce', 'test-user-id')
     })
 })

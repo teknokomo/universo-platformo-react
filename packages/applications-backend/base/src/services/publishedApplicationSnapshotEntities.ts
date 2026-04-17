@@ -1,14 +1,10 @@
 import { createHash } from 'crypto'
 import type { EntityDefinition, FieldDefinition } from '@universo/schema-ddl'
 import { getCodenamePrimary } from '@universo/utils'
-import { AttributeDataType, getLegacyCompatibleObjectKindForKindKey, type CatalogSystemFieldsSnapshot } from '@universo/types'
-import type {
-    PublishedApplicationSnapshot,
-    SnapshotCodenameValue,
-    SnapshotFieldDefinition
-} from './applicationSyncContracts'
+import { FieldDefinitionDataType, type CatalogSystemFieldsSnapshot } from '@universo/types'
+import type { PublishedApplicationSnapshot, SnapshotCodenameValue, SnapshotFieldDefinition } from './applicationSyncContracts'
 
-type SnapshotConstantRecord = {
+type SnapshotFixedValueRecord = {
     id: string
     codename?: SnapshotCodenameValue | null
     dataType?: string | null
@@ -16,7 +12,7 @@ type SnapshotConstantRecord = {
     value?: unknown
 }
 
-type SetConstantRefPayload = {
+type SetFixedValueRefPayload = {
     id: string
     codename: string | null
     dataType: string | null
@@ -26,14 +22,16 @@ type SetConstantRefPayload = {
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
 
-const isSetCompatibleKind = (kind: unknown): boolean => kind === 'set' || getLegacyCompatibleObjectKindForKindKey(kind) === 'set'
+const isSetStandardKind = (kind: unknown): boolean => kind === 'set'
 
 const buildDeterministicScopedUuid = (seed: string): string => {
     const hex = createHash('sha256').update(seed).digest('hex').slice(0, 32).split('')
     hex[12] = '5'
     hex[16] = ((parseInt(hex[16] ?? '0', 16) & 0x3) | 0x8).toString(16)
 
-    return `${hex.slice(0, 8).join('')}-${hex.slice(8, 12).join('')}-${hex.slice(12, 16).join('')}-${hex.slice(16, 20).join('')}-${hex.slice(20, 32).join('')}`
+    return `${hex.slice(0, 8).join('')}-${hex.slice(8, 12).join('')}-${hex.slice(12, 16).join('')}-${hex.slice(16, 20).join('')}-${hex
+        .slice(20, 32)
+        .join('')}`
 }
 
 const resolveSnapshotCodenameText = (value: SnapshotCodenameValue | null | undefined): string | null => {
@@ -52,71 +50,71 @@ const resolveSnapshotSystemFields = (snapshot: PublishedApplicationSnapshot): Re
 const buildSetConstantLookups = (
     snapshot: PublishedApplicationSnapshot
 ): {
-    bySetId: Map<string, Map<string, SnapshotConstantRecord>>
-    byConstantId: Map<string, SnapshotConstantRecord>
+    byValueGroupId: Map<string, Map<string, SnapshotFixedValueRecord>>
+    byFixedValueId: Map<string, SnapshotFixedValueRecord>
 } => {
-    const bySetId = new Map<string, Map<string, SnapshotConstantRecord>>()
-    const byConstantId = new Map<string, SnapshotConstantRecord>()
-    const constants = snapshot.constants
+    const byValueGroupId = new Map<string, Map<string, SnapshotFixedValueRecord>>()
+    const byFixedValueId = new Map<string, SnapshotFixedValueRecord>()
+    const constants = snapshot.fixedValues
 
     if (!constants || typeof constants !== 'object') {
-        return { bySetId, byConstantId }
+        return { byValueGroupId, byFixedValueId }
     }
 
-    for (const [setId, setConstants] of Object.entries(constants)) {
+    for (const [valueGroupId, setConstants] of Object.entries(constants)) {
         if (!Array.isArray(setConstants)) {
             continue
         }
 
-        const setLookup = new Map<string, SnapshotConstantRecord>()
-        for (const constant of setConstants) {
-            if (!isRecord(constant)) {
+        const setLookup = new Map<string, SnapshotFixedValueRecord>()
+        for (const fixedValue of setConstants) {
+            if (!isRecord(fixedValue)) {
                 continue
             }
 
-            const id = typeof constant.id === 'string' && constant.id.length > 0 ? constant.id : null
+            const id = typeof fixedValue.id === 'string' && fixedValue.id.length > 0 ? fixedValue.id : null
             if (!id) {
                 continue
             }
 
-            const normalizedConstant: SnapshotConstantRecord = {
+            const normalizedFixedValue: SnapshotFixedValueRecord = {
                 id,
                 codename:
-                    typeof constant.codename === 'string' || isRecord(constant.codename)
-                        ? (constant.codename as SnapshotCodenameValue)
+                    typeof fixedValue.codename === 'string' || isRecord(fixedValue.codename)
+                        ? (fixedValue.codename as SnapshotCodenameValue)
                         : null,
-                dataType: typeof constant.dataType === 'string' ? constant.dataType : null,
-                presentation: isRecord(constant.presentation) ? constant.presentation : null,
-                value: Object.prototype.hasOwnProperty.call(constant, 'value') ? constant.value : null
+                dataType: typeof fixedValue.dataType === 'string' ? fixedValue.dataType : null,
+                presentation: isRecord(fixedValue.presentation) ? fixedValue.presentation : null,
+                value: Object.prototype.hasOwnProperty.call(fixedValue, 'value') ? fixedValue.value : null
             }
 
-            setLookup.set(id, normalizedConstant)
-            byConstantId.set(id, normalizedConstant)
+            setLookup.set(id, normalizedFixedValue)
+            byFixedValueId.set(id, normalizedFixedValue)
         }
 
         if (setLookup.size > 0) {
-            bySetId.set(setId, setLookup)
+            byValueGroupId.set(valueGroupId, setLookup)
         }
     }
 
-    return { bySetId, byConstantId }
+    return { byValueGroupId, byFixedValueId }
 }
 
-const toSetConstantRefPayload = (
+const toSetFixedValueRefPayload = (
     targetConstantId: string,
-    constant: SnapshotConstantRecord | null
-): SetConstantRefPayload | { id: string } => {
-    if (!constant) {
+    fixedValueRecord: SnapshotFixedValueRecord | null
+): SetFixedValueRefPayload | { id: string } => {
+    if (!fixedValueRecord) {
         return { id: targetConstantId }
     }
 
-    const presentationName = isRecord(constant.presentation) ? constant.presentation.name : null
+    const presentationName = isRecord(fixedValueRecord.presentation) ? fixedValueRecord.presentation.name : null
 
     return {
-        id: constant.id,
-        codename: resolveSnapshotCodenameText(constant.codename),
-        dataType: typeof constant.dataType === 'string' ? constant.dataType : null,
-        value: Object.prototype.hasOwnProperty.call(constant, 'value') ? constant.value : null,
+        id: fixedValueRecord.id,
+        codename: resolveSnapshotCodenameText(fixedValueRecord.codename),
+        dataType: typeof fixedValueRecord.dataType === 'string' ? fixedValueRecord.dataType : null,
+        value: Object.prototype.hasOwnProperty.call(fixedValueRecord, 'value') ? fixedValueRecord.value : null,
         name: presentationName ?? null
     }
 }
@@ -196,8 +194,8 @@ const rewriteDuplicatedFieldIdsForEntity = (
         ...(typeof field.parentAttributeId === 'string'
             ? { parentAttributeId: remappedIds.get(field.parentAttributeId) ?? field.parentAttributeId }
             : field.parentAttributeId === null
-              ? { parentAttributeId: null }
-              : {}),
+            ? { parentAttributeId: null }
+            : {}),
         ...(Array.isArray(field.childFields) && field.childFields.length > 0
             ? { childFields: field.childFields.map((child) => rewriteField(child)) }
             : {})
@@ -209,8 +207,8 @@ const rewriteDuplicatedFieldIdsForEntity = (
 const enrichFieldWithSetConstantRef = (
     field: FieldDefinition,
     lookups: {
-        bySetId: Map<string, Map<string, SnapshotConstantRecord>>
-        byConstantId: Map<string, SnapshotConstantRecord>
+        byValueGroupId: Map<string, Map<string, SnapshotFixedValueRecord>>
+        byFixedValueId: Map<string, SnapshotFixedValueRecord>
     }
 ): FieldDefinition => {
     const nextField: FieldDefinition = {
@@ -219,8 +217,8 @@ const enrichFieldWithSetConstantRef = (
     }
 
     if (
-        nextField.dataType !== AttributeDataType.REF ||
-        !isSetCompatibleKind(nextField.targetEntityKind) ||
+        nextField.dataType !== FieldDefinitionDataType.REF ||
+        !isSetStandardKind(nextField.targetEntityKind) ||
         typeof nextField.targetConstantId !== 'string' ||
         nextField.targetConstantId.length === 0
     ) {
@@ -229,15 +227,15 @@ const enrichFieldWithSetConstantRef = (
 
     const fromSetLookup =
         typeof nextField.targetEntityId === 'string' && nextField.targetEntityId.length > 0
-            ? lookups.bySetId.get(nextField.targetEntityId)?.get(nextField.targetConstantId)
+            ? lookups.byValueGroupId.get(nextField.targetEntityId)?.get(nextField.targetConstantId)
             : undefined
-    const constant = fromSetLookup ?? lookups.byConstantId.get(nextField.targetConstantId) ?? null
+    const fixedValue = fromSetLookup ?? lookups.byFixedValueId.get(nextField.targetConstantId) ?? null
     const baseUiConfig = isRecord(nextField.uiConfig) ? nextField.uiConfig : {}
 
     nextField.uiConfig = {
         ...baseUiConfig,
         targetConstantId: nextField.targetConstantId,
-        setConstantRef: toSetConstantRefPayload(nextField.targetConstantId, constant)
+        setConstantRef: toSetFixedValueRefPayload(nextField.targetConstantId, fixedValue)
     }
 
     return nextField
@@ -246,8 +244,8 @@ const enrichFieldWithSetConstantRef = (
 const normalizeExecutableEntityFields = (
     fields: SnapshotFieldDefinition[],
     lookups: {
-        bySetId: Map<string, Map<string, SnapshotConstantRecord>>
-        byConstantId: Map<string, SnapshotConstantRecord>
+        byValueGroupId: Map<string, Map<string, SnapshotFixedValueRecord>>
+        byFixedValueId: Map<string, SnapshotFixedValueRecord>
     }
 ): FieldDefinition[] => {
     const fieldOrder: string[] = []
@@ -304,7 +302,7 @@ const assertExecutableEntityContract = (entity: EntityDefinition): void => {
     }
 
     for (const field of fields) {
-        if (field.dataType !== AttributeDataType.TABLE || field.parentAttributeId) {
+        if (field.dataType !== FieldDefinitionDataType.TABLE || field.parentAttributeId) {
             continue
         }
 
@@ -328,19 +326,15 @@ export const resolveExecutablePayloadEntities = (snapshot: PublishedApplicationS
     return Object.values(snapshot.entities ?? {})
         .map((entity) => {
             const entityConfig = isRecord(entity.config) ? entity.config : {}
-            const normalizedSnapshotFields = rewriteDuplicatedFieldIdsForEntity(
-                entity.id,
-                entity.fields ?? [],
-                duplicatedFieldIds
-            )
+            const normalizedSnapshotFields = rewriteDuplicatedFieldIdsForEntity(entity.id, entity.fields ?? [], duplicatedFieldIds)
             const normalizedEntity: EntityDefinition = {
                 ...entity,
                 codename: resolveSnapshotCodenameText(entity.codename) ?? '',
                 ...(typeof entity.tableName === 'string' && entity.tableName.trim().length > 0
                     ? { physicalTableName: entity.tableName }
                     : typeof entity.physicalTableName === 'string' && entity.physicalTableName.trim().length > 0
-                      ? { physicalTableName: entity.physicalTableName }
-                      : {}),
+                    ? { physicalTableName: entity.physicalTableName }
+                    : {}),
                 config: {
                     ...entityConfig,
                     ...(snapshotSystemFields?.[entity.id] ? { systemFields: snapshotSystemFields[entity.id] } : {})

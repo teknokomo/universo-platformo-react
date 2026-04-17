@@ -136,9 +136,10 @@ vi.mock('@universo/template-mui/components/dialogs', () => ({
             sourceBranchId: 'source-branch-1',
             fullCopy: false,
             copyLayouts: true,
-            copyHubs: true,
-            copyCatalogs: false,
-            copyEnumerations: true
+            copyTreeEntities: true,
+            copyLinkedCollections: false,
+            copyValueGroups: true,
+            copyOptionLists: true
         }
         const tabDefs = tabs({
             values,
@@ -192,9 +193,10 @@ describe('BranchList create flow copy options', () => {
                         sourceBranchId: 'source-branch-1',
                         fullCopy: false,
                         copyLayouts: true,
-                        copyHubs: true,
-                        copyCatalogs: false,
-                        copyEnumerations: true
+                        copyTreeEntities: true,
+                        copyLinkedCollections: false,
+                        copyValueGroups: true,
+                        copyOptionLists: true
                     })
                 })
             )

@@ -75,13 +75,13 @@ describe('LayoutDetails inherited widget contract', () => {
         getLayout.mockResolvedValue({
             data: {
                 id: 'layout-1',
-                catalogId: 'catalog-1',
+                linkedCollectionId: 'catalog-1',
                 templateKey: 'dashboard',
                 name: {
                     _schema: 'v1',
                     _primary: 'en',
                     locales: {
-                        en: { content: 'Catalog layout' }
+                        en: { content: 'LinkedCollectionEntity layout' }
                     }
                 },
                 description: null,
@@ -152,9 +152,12 @@ describe('LayoutDetails inherited widget contract', () => {
 
         render(
             <QueryClientProvider client={queryClient}>
-                <MemoryRouter initialEntries={['/metahub/metahub-1/catalog/catalog-1/layout/layout-1']}>
+                <MemoryRouter initialEntries={['/metahub/metahub-1/entities/catalog/instance/catalog-1/layout/layout-1']}>
                     <Routes>
-                        <Route path='/metahub/:metahubId/catalog/:catalogId/layout/:layoutId' element={<LayoutDetails />} />
+                        <Route
+                            path='/metahub/:metahubId/entities/:kindKey/instance/:linkedCollectionId/layout/:layoutId'
+                            element={<LayoutDetails />}
+                        />
                     </Routes>
                 </MemoryRouter>
             </QueryClientProvider>
@@ -194,9 +197,12 @@ describe('LayoutDetails inherited widget contract', () => {
 
         render(
             <QueryClientProvider client={queryClient}>
-                <MemoryRouter initialEntries={['/metahub/metahub-1/catalog/catalog-1/layout/layout-1']}>
+                <MemoryRouter initialEntries={['/metahub/metahub-1/entities/catalog/instance/catalog-1/layout/layout-1']}>
                     <Routes>
-                        <Route path='/metahub/:metahubId/catalog/:catalogId/layout/:layoutId' element={<LayoutDetails />} />
+                        <Route
+                            path='/metahub/:metahubId/entities/:kindKey/instance/:linkedCollectionId/layout/:layoutId'
+                            element={<LayoutDetails />}
+                        />
                     </Routes>
                 </MemoryRouter>
             </QueryClientProvider>

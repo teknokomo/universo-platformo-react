@@ -4,13 +4,7 @@
 
 import { z } from 'zod'
 import type { EntityDefinition, SchemaSnapshot, SchemaDiff } from '@universo/schema-ddl'
-import {
-    AttributeDataType,
-    dashboardLayoutConfigSchema,
-    defaultDashboardLayoutConfig,
-    type ApplicationLifecycleContract,
-    type VersionedLocalizedContent
-} from '@universo/types'
+import { FieldDefinitionDataType, type VersionedLocalizedContent } from '@universo/types'
 import type { ApplicationRecord, ApplicationCopySourceRecord } from '../../persistence/applicationsStore'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
 import type {
@@ -50,7 +44,6 @@ export interface ApplicationSchemaSyncSource {
     publicationId: string | null
     publicationVersionId: string | null
 }
-
 
 // --- Zod schemas ---
 
@@ -201,7 +194,7 @@ export type SnapshotEnumerationValue = {
 
 export type SnapshotLayoutRow = {
     id?: unknown
-    catalogId?: unknown
+    linkedCollectionId?: unknown
     templateKey?: unknown
     name?: unknown
     description?: unknown
@@ -212,7 +205,7 @@ export type SnapshotLayoutRow = {
 }
 
 export type SnapshotCatalogLayoutRow = SnapshotLayoutRow & {
-    catalogId?: unknown
+    linkedCollectionId?: unknown
     baseLayoutId?: unknown
 }
 
@@ -238,13 +231,13 @@ export type SnapshotWidgetRow = {
 }
 
 export const ENUMERATION_KIND = 'enumeration'
-export const REF_DATA_TYPE = AttributeDataType.REF
+export const REF_DATA_TYPE = FieldDefinitionDataType.REF
 
 // --- Layout persistence types ---
 
 export type PersistedAppLayout = {
     id: string
-    catalogId: string | null
+    linkedCollectionId: string | null
     templateKey: string
     name: Record<string, unknown>
     description: Record<string, unknown> | null
@@ -299,8 +292,8 @@ export type DiffTableDetails = {
     codename: string
     tableName: string | null
     fields: DiffTableFieldDetails[]
-    predefinedElementsCount: number
-    predefinedElementsPreview: Array<{
+    recordsCount: number
+    recordsPreview: Array<{
         id: string
         data: Record<string, unknown>
         sortOrder: number
@@ -334,4 +327,3 @@ export const EMPTY_VLC: VersionedLocalizedContent<string> = {
 }
 
 export const RUNTIME_ENTITY_KINDS = new Set<EntityDefinition['kind']>(['hub', 'catalog', 'set', 'enumeration', 'relation', 'settings'])
-

@@ -33,7 +33,7 @@ export const DEFAULT_DASHBOARD_ZONE_WIDGETS: DefaultZoneWidget[] = [
             },
             autoShowAllCatalogs: true,
             bindToHub: false,
-            boundHubId: null,
+            boundTreeEntityId: null,
             items: []
         }
     },

@@ -222,8 +222,8 @@ test('@flow metahub codename settings switch child entity forms between versione
             }
         ])
 
-        await page.goto(`/metahub/${metahub.id}/hubs`)
-        await expect(page.getByRole('heading', { name: 'Hubs' })).toBeVisible()
+        await page.goto(`/metahub/${metahub.id}/entities/hub/instances`)
+        await expect(page.getByRole('heading', { name: 'Tree entities instances' })).toBeVisible()
 
         const versionedDialog = await openCreateDialog(page)
         const versionedCodenameField = versionedDialog.getByTestId('codename-field')
@@ -241,7 +241,7 @@ test('@flow metahub codename settings switch child entity forms between versione
             }
         ])
 
-        await page.goto(`/metahub/${metahub.id}/hubs`)
+        await page.goto(`/metahub/${metahub.id}/entities/hub/instances`)
         const localizedDialog = await openCreateDialog(page)
         const localizedCodenameField = localizedDialog.getByTestId('codename-field')
 

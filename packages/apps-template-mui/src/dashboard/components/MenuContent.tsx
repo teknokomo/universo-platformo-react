@@ -73,7 +73,7 @@ export default function MenuContent({ menu }: MenuContentProps) {
                                     return
                                 }
 
-                                const targetSectionId = item.sectionId ?? item.catalogId
+                                const targetSectionId = item.sectionId ?? item.linkedCollectionId
                                 if (!targetSectionId) {
                                     return
                                 }
@@ -83,8 +83,8 @@ export default function MenuContent({ menu }: MenuContentProps) {
                                     return
                                 }
 
-                                if (menu?.onSelectCatalog) {
-                                    menu.onSelectCatalog(targetSectionId)
+                                if (menu?.onSelectLinkedCollection) {
+                                    menu.onSelectLinkedCollection(targetSectionId)
                                 }
                             }}
                         >

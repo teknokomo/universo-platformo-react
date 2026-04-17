@@ -31,24 +31,24 @@ export {
 } from './codename'
 export {
     normalizeApplicationCopyOptions,
-    normalizeAttributeCopyOptions,
+    normalizeFieldDefinitionCopyOptions,
     normalizeBranchCopyOptions,
-    normalizeElementCopyOptions,
-    normalizeHubCopyOptions,
-    normalizeCatalogCopyOptions,
-    normalizeSetCopyOptions,
-    normalizeEnumerationCopyOptions,
+    normalizeRecordCopyOptions,
+    normalizeTreeEntityCopyOptions,
+    normalizeLinkedCollectionCopyOptions,
+    normalizeValueGroupCopyOptions,
+    normalizeOptionListCopyOptions,
     normalizeLayoutCopyOptions,
-    normalizeConstantCopyOptions
+    normalizeFixedValueCopyOptions
 } from './copyOptions'
 export {
-    extractCatalogLayoutBehaviorConfig,
-    normalizeCatalogRuntimeViewConfig,
-    resolveCatalogLayoutBehaviorConfig,
-    sanitizeCatalogRuntimeViewConfig,
-    setCatalogLayoutBehaviorConfig,
-    resolveCatalogRuntimeDashboardLayoutConfig
-} from './catalogRuntimeConfig'
+    extractLinkedCollectionLayoutBehaviorConfig,
+    normalizeLinkedCollectionRuntimeViewConfig,
+    resolveLinkedCollectionLayoutBehaviorConfig,
+    sanitizeLinkedCollectionRuntimeViewConfig,
+    setLinkedCollectionLayoutBehaviorConfig,
+    resolveLinkedCollectionRuntimeDashboardLayoutConfig
+} from './linkedCollectionRuntimeConfig'
 export { normalizeDashboardLayoutConfig } from './dashboardLayout'
 export {
     validateNumber,

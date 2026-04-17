@@ -7,7 +7,7 @@ import { incrementVersion } from '../../../utils/optimisticLock'
 import { getSettingDefinition } from '@universo/types'
 import type { MetahubSettingRow } from '@universo/types'
 import { validateSettingValue } from '../../shared/validateSettingValue'
-import { resolveLegacyCompatibleKindsInSchema } from '../../shared/legacyCompatibility'
+import { resolveEntityMetadataKindsInSchema } from '../../shared/entityMetadataKinds'
 import { MetahubValidationError } from '../../shared/domainErrors'
 
 const TABLE = '_mhb_settings'
@@ -21,7 +21,7 @@ export class MetahubSettingsService {
 
     private async getCompatibleHubKinds(schemaName: string): Promise<string[]> {
         const entityTypeService = new EntityTypeService(this.exec, this.schemaService)
-        return resolveLegacyCompatibleKindsInSchema(entityTypeService, schemaName, 'hub')
+        return resolveEntityMetadataKindsInSchema(entityTypeService, schemaName, 'hub')
     }
 
     /**
@@ -195,7 +195,7 @@ export class MetahubSettingsService {
     }
 
     /**
-     * Clears all parent-child hub nesting links by setting `config.parentHubId = null`
+     * Clears all parent-child hub nesting links by setting `config.parentTreeEntityId = null`
      * for every non-deleted hub object in `_mhb_objects`.
      */
     async clearHubNesting(metahubId: string, userId?: string): Promise<number> {
@@ -204,14 +204,14 @@ export class MetahubSettingsService {
         const compatibleHubKinds = await this.getCompatibleHubKinds(schemaName)
         const rows = await this.exec.query<{ id: string }>(
             `UPDATE ${qt}
-             SET config = jsonb_set(COALESCE(config, '{}'::jsonb), '{parentHubId}', 'null'::jsonb, true),
+             SET config = jsonb_set(COALESCE(config, '{}'::jsonb), '{parentTreeEntityId}', 'null'::jsonb, true),
                  _upl_updated_at = $1,
                  _upl_updated_by = $2,
                  _upl_version = _upl_version + 1
              WHERE kind = ANY($3::text[])
                AND _upl_deleted = false
                AND _mhb_deleted = false
-               AND COALESCE(config->>'parentHubId', '') <> ''
+               AND COALESCE(config->>'parentTreeEntityId', '') <> ''
              RETURNING id`,
             [new Date(), userId ?? null, compatibleHubKinds]
         )
@@ -219,7 +219,7 @@ export class MetahubSettingsService {
     }
 
     /**
-     * Returns true when at least one active hub has a non-null parentHubId.
+     * Returns true when at least one active hub has a non-null parentTreeEntityId.
      */
     async hasHubNesting(metahubId: string, userId?: string): Promise<boolean> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
@@ -230,8 +230,7 @@ export class MetahubSettingsService {
              WHERE kind = ANY($1::text[])
                AND _upl_deleted = false
                AND _mhb_deleted = false
-               AND COALESCE(config->>'parentHubId', '') <> ''`
-            ,
+               AND COALESCE(config->>'parentTreeEntityId', '') <> ''`,
             [compatibleHubKinds]
         )
         const total = Number(rows[0]?.total ?? 0)

@@ -336,7 +336,8 @@ export class ActionService {
                           entityId: actionId,
                           entityType: 'action',
                           expectedVersion: input.expectedVersion,
-                          updateData
+                          updateData,
+                          wrapInTransaction: false
                       })
                     : await incrementVersion(tx, schemaName, TABLE, actionId, updateData)
 

@@ -91,9 +91,10 @@ const ApplicationRuntime = () => {
         cellRenderers
     })
 
-    const activeRuntimeSection = state.appData?.section ?? state.appData?.catalog
+    const activeRuntimeSection = state.appData?.section ?? state.appData?.linkedCollection
     const activeRuntimeConfig = activeRuntimeSection?.runtimeConfig
-    const currentSectionId = state.selectedSectionId ?? state.activeSectionId ?? state.selectedCatalogId ?? state.activeCatalogId
+    const currentSectionId =
+        state.selectedSectionId ?? state.activeSectionId ?? state.selectedLinkedCollectionId ?? state.activeLinkedCollectionId
     const showCreateButton = activeRuntimeConfig?.showCreateButton !== false
     const resolveFormSurface = useCallback(
         (mode: 'create' | 'edit' | 'copy') => {
@@ -342,7 +343,7 @@ const ApplicationRuntime = () => {
                     locale={i18n.language}
                     apiBaseUrl='/api/v1'
                     applicationId={applicationId}
-                    catalogId={currentSectionId}
+                    linkedCollectionId={currentSectionId}
                     surface='page'
                     renderDelete={false}
                     labels={{
@@ -376,8 +377,8 @@ const ApplicationRuntime = () => {
             applicationId,
             sectionId: currentSectionId ?? null,
             sectionCodename: activeRuntimeSection?.codename ?? null,
-            catalogId: currentSectionId ?? null,
-            catalogCodename: activeRuntimeSection?.codename ?? null,
+            linkedCollectionId: currentSectionId ?? null,
+            linkedCollectionCodename: activeRuntimeSection?.codename ?? null,
             apiBaseUrl: '/api/v1',
             banner: workspaceLimitBanner,
             content: pageSurfaceContent,
@@ -452,7 +453,7 @@ const ApplicationRuntime = () => {
                 locale={i18n.language}
                 apiBaseUrl='/api/v1'
                 applicationId={applicationId}
-                catalogId={currentSectionId}
+                linkedCollectionId={currentSectionId}
                 surface={activeFormSurface}
                 renderForm={activeFormSurface !== 'page'}
                 labels={{

@@ -20,11 +20,15 @@ import { useMetahubDetails } from '../hooks/useMetahubDetails'
 import { toMetahubDisplay } from '../../../types'
 import { getMetahubBoardSummary } from '../api/metahubs'
 
+const getEntityCount = (entityCounts: Record<string, number> | undefined, kind: string): number => {
+    return typeof entityCounts?.[kind] === 'number' ? entityCounts[kind] : 0
+}
+
 /**
  * Metahub Board Page
  *
  * Displays analytics dashboard for a metahub with:
- * - Real-time statistics (hubs, catalogs, members)
+ * - Real-time statistics (treeEntities, linkedCollections, members)
  * - Documentation resources
  *
  * Layout:
@@ -101,16 +105,16 @@ const MetahubBoard = () => {
     // Success state with dashboard
     // Demo trend data for SparkLineChart (30 data points)
     // TODO: Replace with real historical data when analytics service is ready
-    const hubsCount = boardSummary?.hubsCount ?? 0
-    const catalogsCount = boardSummary?.catalogsCount ?? 0
+    const treeEntitiesCount = getEntityCount(boardSummary?.entityCounts, 'hub')
+    const linkedCollectionsCount = getEntityCount(boardSummary?.entityCounts, 'catalog')
     const membersCount = boardSummary?.membersCount ?? 0
     const branchesCount = boardSummary?.branchesCount ?? 0
     const applicationsCount = boardSummary?.applicationsCount ?? 0
     const publicationsCount = boardSummary?.publicationsCount ?? 0
     const versionsCount = boardSummary?.publicationVersionsCount ?? 0
 
-    const hubsData = buildRealisticTrendData(hubsCount)
-    const catalogsData = buildRealisticTrendData(catalogsCount)
+    const treeEntitiesData = buildRealisticTrendData(treeEntitiesCount)
+    const linkedCollectionsData = buildRealisticTrendData(linkedCollectionsCount)
     const membersData = buildRealisticTrendData(membersCount)
     const branchesData = buildRealisticTrendData(branchesCount)
     const applicationsData = buildRealisticTrendData(applicationsCount)
@@ -182,22 +186,22 @@ const MetahubBoard = () => {
                     {/* Second row: Hubs */}
                     <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard
-                            title={t('board.stats.hubs.title')}
-                            value={hubsCount}
-                            interval={t('board.stats.hubs.interval')}
-                            data={hubsData}
-                            dataTestId='metahub-board-stat-card-hubs'
+                            title={t('board.stats.treeEntities.title')}
+                            value={treeEntitiesCount}
+                            interval={t('board.stats.treeEntities.interval')}
+                            data={treeEntitiesData}
+                            dataTestId='metahub-board-stat-card-treeEntities'
                         />
                     </Grid>
 
                     {/* Second row: Catalogs */}
                     <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard
-                            title={t('board.stats.catalogs.title')}
-                            value={catalogsCount}
-                            interval={t('board.stats.catalogs.interval')}
-                            data={catalogsData}
-                            dataTestId='metahub-board-stat-card-catalogs'
+                            title={t('board.stats.linkedCollections.title')}
+                            value={linkedCollectionsCount}
+                            interval={t('board.stats.linkedCollections.interval')}
+                            data={linkedCollectionsData}
+                            dataTestId='metahub-board-stat-card-linkedCollections'
                         />
                     </Grid>
 

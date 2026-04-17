@@ -1,5 +1,5 @@
 import { createSystemAppManifestPresentation, type SystemAppDefinition } from '@universo/migrations-core'
-import { AttributeDataType } from '@universo/types'
+import { FieldDefinitionDataType } from '@universo/types'
 import {
     applyStartSchemaPoliciesMigrationDefinition,
     finalizeStartSchemaSupportMigrationDefinition,
@@ -12,7 +12,7 @@ const createCatalogFields = (maxNameLength: number, maxDescLength: number) => [
     {
         codename: 'codename',
         physicalColumnName: 'codename',
-        dataType: AttributeDataType.STRING,
+        dataType: FieldDefinitionDataType.STRING,
         physicalDataType: 'VARCHAR(50)',
         isRequired: true,
         presentation: p('Codename', 'Stable internal identifier'),
@@ -21,7 +21,7 @@ const createCatalogFields = (maxNameLength: number, maxDescLength: number) => [
     {
         codename: 'name',
         physicalColumnName: 'name',
-        dataType: AttributeDataType.JSON,
+        dataType: FieldDefinitionDataType.JSON,
         defaultSqlExpression: `'{}'::jsonb`,
         isDisplayAttribute: true,
         presentation: p('Name', 'Localized display name'),
@@ -30,7 +30,7 @@ const createCatalogFields = (maxNameLength: number, maxDescLength: number) => [
     {
         codename: 'description',
         physicalColumnName: 'description',
-        dataType: AttributeDataType.JSON,
+        dataType: FieldDefinitionDataType.JSON,
         defaultSqlExpression: `'{}'::jsonb`,
         presentation: p('Description', 'Localized description text'),
         validationRules: { maxLength: maxDescLength }
@@ -38,7 +38,7 @@ const createCatalogFields = (maxNameLength: number, maxDescLength: number) => [
     {
         codename: 'sort_order',
         physicalColumnName: 'sort_order',
-        dataType: AttributeDataType.NUMBER,
+        dataType: FieldDefinitionDataType.NUMBER,
         physicalDataType: 'INTEGER',
         defaultSqlExpression: '0',
         isRequired: true
@@ -46,7 +46,7 @@ const createCatalogFields = (maxNameLength: number, maxDescLength: number) => [
     {
         codename: 'is_active',
         physicalColumnName: 'is_active',
-        dataType: AttributeDataType.BOOLEAN,
+        dataType: FieldDefinitionDataType.BOOLEAN,
         defaultSqlExpression: 'true',
         isRequired: true
     }
@@ -83,7 +83,7 @@ const startBusinessTables = [
             {
                 codename: 'user_id',
                 physicalColumnName: 'user_id',
-                dataType: AttributeDataType.REF,
+                dataType: FieldDefinitionDataType.REF,
                 physicalDataType: 'UUID',
                 isRequired: true,
                 presentation: p('User', 'Authenticated user who made the selection')
@@ -91,7 +91,7 @@ const startBusinessTables = [
             {
                 codename: 'catalog_kind',
                 physicalColumnName: 'catalog_kind',
-                dataType: AttributeDataType.STRING,
+                dataType: FieldDefinitionDataType.STRING,
                 physicalDataType: 'VARCHAR(20)',
                 isRequired: true,
                 presentation: p('Catalog Kind', 'Type of catalog: goals, topics, or features')
@@ -99,7 +99,7 @@ const startBusinessTables = [
             {
                 codename: 'item_id',
                 physicalColumnName: 'item_id',
-                dataType: AttributeDataType.REF,
+                dataType: FieldDefinitionDataType.REF,
                 physicalDataType: 'UUID',
                 isRequired: true,
                 presentation: p('Item', 'Reference to the selected catalog item')

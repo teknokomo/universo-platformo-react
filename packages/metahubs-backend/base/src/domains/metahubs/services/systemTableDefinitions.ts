@@ -105,7 +105,7 @@ export const MHB_SYSTEM_FIELDS: SystemColumnDef[] = [
 
 const mhbObjects: SystemTableDef = {
     name: '_mhb_objects',
-    description: 'Unified registry for all object types (Catalogs, Enumerations, Hubs, Documents)',
+    description: 'Unified registry for metahub entity instances and metadata-owned objects',
     columns: [
         { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
         { name: 'kind', type: 'string', nullable: false, index: true },
@@ -187,7 +187,7 @@ const mhbAttributes: SystemTableDef = {
 
 const mhbConstants: SystemTableDef = {
     name: '_mhb_constants',
-    description: 'Constant definitions for objects with kind=set',
+    description: 'Fixed value definitions for objects with kind=set',
     columns: [
         { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
         { name: 'object_id', type: 'uuid', nullable: false },
@@ -228,7 +228,7 @@ const mhbAttributesV2: SystemTableDef = {
 
 const mhbEnumerationValues: SystemTableDef = {
     name: '_mhb_values',
-    description: 'Enumeration values for objects with kind=enumeration',
+    description: 'Option values for objects with kind=enumeration',
     columns: [
         { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
         { name: 'object_id', type: 'uuid', nullable: false },
@@ -502,7 +502,7 @@ const mhbScripts: SystemTableDef = {
 
 const mhbEntityTypeDefinitions: SystemTableDef = {
     name: '_mhb_entity_type_definitions',
-    description: 'Custom entity-type blueprints stored per metahub branch',
+    description: 'Entity-type blueprints stored per metahub branch',
     columns: [
         { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
         { name: 'kind_key', type: 'string', length: 64, nullable: false },
@@ -510,13 +510,18 @@ const mhbEntityTypeDefinitions: SystemTableDef = {
         { name: 'presentation', type: 'jsonb', nullable: false, defaultTo: '{}' },
         { name: 'components', type: 'jsonb', nullable: false },
         { name: 'ui_config', type: 'jsonb', nullable: false, defaultTo: '{}' },
-        { name: 'config', type: 'jsonb', nullable: false, defaultTo: '{}' },
-        { name: 'is_builtin', type: 'boolean', nullable: false, defaultTo: false }
+        { name: 'config', type: 'jsonb', nullable: false, defaultTo: '{}' }
     ],
     indexes: [
         {
             name: 'idx_mhb_entity_type_definitions_kind_key_active',
             columns: ['kind_key'],
+            unique: true,
+            where: '_upl_deleted = false AND _mhb_deleted = false'
+        },
+        {
+            name: 'idx_mhb_entity_type_definitions_codename_active',
+            columns: [`LOWER(${codenamePrimaryTextSql('codename')})`],
             unique: true,
             where: '_upl_deleted = false AND _mhb_deleted = false'
         }

@@ -339,7 +339,7 @@ describe('optimisticCrud integration', () => {
     describe('RowsListCache compatibility (runtime CRUD)', () => {
         it('applyOptimisticCreate inserts into rows-based caches', async () => {
             // Simulate a cache that has rows but not items
-            const rowsKey = ['runtime', 'list', { catalogId: 'cat1' }]
+            const rowsKey = ['runtime', 'list', { linkedCollectionId: 'cat1' }]
             queryClient.setQueryData(rowsKey, {
                 rows: [{ id: 'r1', title: 'Row 1' }],
                 pagination: { total: 1 }

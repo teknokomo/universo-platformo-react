@@ -1,36 +1,36 @@
 ---
-description: Справочная страница о разделе Common и его отдельных вкладках в authoring метахаба.
+description: Справочная страница о рабочем пространстве ресурсов и его переиспользуемых вкладках в authoring метахаба.
 ---
 
-# Раздел Common
+# Рабочее пространство ресурсов
 
-Раздел Common является metahub-уровнем authoring для ресурсов, которые должны переиспользоваться сразу в нескольких target objects.
-Он отделён от CRUD отдельных target objects, потому что владеет общим design-time контрактом до того, как publication развернёт его в runtime state.
+Рабочее пространство ресурсов является metahub-уровнем authoring для assets, которые должны переиспользоваться сразу в нескольких target objects.
+Она отделена от CRUD отдельных target objects, потому что владеет общим design-time контрактом до того, как publication развернёт его в runtime state.
 
 ## Вкладки
 
-- Layouts: global layouts и catalog-specific layout overlays.
-- Attributes: общие атрибуты catalog, наследуемые catalog objects.
-- Constants: общие константы set, наследуемые наборами.
-- Values: общие значения enumeration, наследуемые объектами перечислений.
-- Scripts: Common/general library scripts, импортируемые через `@shared/<codename>`.
+- Layouts: shared layouts и entity-specific layout overrides.
+- Общие определения полей: общие пулы field definitions для совместимых entity types.
+- Общие фиксированные значения: общие пулы fixed values для совместимых entity types.
+- Общие значения опций: общие пулы option values для совместимых entity types.
+- Общие скрипты: resources-scoped library scripts, импортируемые через `@shared/<codename>`.
 
 ## Правила работы
 
-- Открывайте Common, когда ресурс должен сначала стать общим, а затем изменяться только sparse-override-ами по target.
-- Открывайте target catalog, set или enumeration, когда нужно проверить итоговый merged inherited result.
+- Открывайте рабочее пространство ресурсов, когда asset должен сначала стать общим, а затем изменяться только sparse-override-ами по target.
+- Открывайте target entity, когда нужно проверить итоговый merged inherited result.
 - Держите per-target exclusions и active-state изменения sparse, а не клонируйте shared rows.
-- Публикуйте и синхронизируйте linked application, чтобы проверить runtime materialization ресурса из Common.
+- Публикуйте и синхронизируйте linked application, чтобы проверить runtime materialization общего asset.
 
 ## Результат в runtime
 
-Shared rows остаются обычными design-time rows внутри своих виртуальных Common pools, но publication materializes их в обычные runtime metadata связанного application.
+Shared rows остаются обычными design-time rows внутри своих reusable resource pools, но publication materializes их в обычные runtime metadata связанного application.
 Это сохраняет reusable authoring и одновременно удерживает runtime tables плоскими и предсказуемыми.
 
 ## Что читать дальше
 
-- [Shared Attributes](shared-attributes.md)
-- [Shared Constants](shared-constants.md)
-- [Shared Values](shared-values.md)
-- [Shared Scripts](shared-scripts.md)
+- [Общие определения полей](shared-field-definitions.md)
+- [Общие фиксированные значения](shared-fixed-values.md)
+- [Общие значения опций](shared-option-values.md)
+- [Общие скрипты](shared-scripts.md)
 - [Метахабы](../metahubs.md)

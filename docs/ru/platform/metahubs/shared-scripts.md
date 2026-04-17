@@ -1,15 +1,15 @@
 ---
-description: Справочная страница о Common shared library scripts и их fail-closed правилах поставки.
+description: Справочная страница об общих library scripts из рабочего пространства ресурсов и их fail-closed правилах поставки.
 ---
 
-# Shared Scripts
+# Общие скрипты
 
-Shared scripts — это Common/general library modules, которые публикуют reusable helper-ы для других metahub scripts.
+Shared scripts — это library modules из рабочей области Resources, которые публикуют reusable helper-ы для других metahub scripts.
 Они являются import-only design assets и не раскрываются как прямые runtime entrypoints.
 
 ## Правила authoring
 
-- Создавайте shared scripts только из Common -> Scripts.
+- Создавайте общие скрипты только из вкладки «Scripts» в рабочем пространстве ресурсов.
 - Всегда связывайте `attachedToKind=general` с `moduleRole=library`.
 - Держите library code чистым, а исполняемое поведение выносите в consumer scripts.
 - Импортируйте shared helper-ы из consumer-ов через `@shared/<codename>`.

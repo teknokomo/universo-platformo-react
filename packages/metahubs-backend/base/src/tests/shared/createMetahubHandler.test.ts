@@ -155,8 +155,8 @@ describe('createMetahubHandler', () => {
 
     it('supports custom metahubIdParam', async () => {
         const handler = jest.fn()
-        const wrapped = createMetahubHandler(handler, { metahubIdParam: 'hubId' })
-        const req = { params: { hubId: 'custom-hub' }, user: { id: 'user-1' } } as unknown as Request
+        const wrapped = createMetahubHandler(handler, { metahubIdParam: 'treeEntityId' })
+        const req = { params: { treeEntityId: 'custom-hub' }, user: { id: 'user-1' } } as unknown as Request
         const jsonFn = jest.fn()
         const res = { status: jest.fn().mockReturnValue({ json: jsonFn }), json: jsonFn } as unknown as Response
 

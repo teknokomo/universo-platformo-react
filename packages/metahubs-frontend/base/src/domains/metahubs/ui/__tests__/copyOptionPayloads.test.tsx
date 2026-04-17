@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { VersionedLocalizedContent } from '@universo/types'
+import { createLocalizedContent } from '@universo/utils'
 
 vi.mock('@universo/template-mui', () => ({
     createEntityActions: vi.fn((config: unknown) => config),
@@ -9,11 +10,9 @@ vi.mock('@universo/template-mui', () => ({
     notifyError: vi.fn()
 }))
 
-const makeVlc = (content: string): VersionedLocalizedContent<string> => ({
-    _schema: 'v1',
-    _primary: 'en',
-    locales: { en: { content } }
-})
+const makeVlc = (content: string): VersionedLocalizedContent<string> => createLocalizedContent('en', content)
+
+const asCopyDescriptors = (value: unknown): readonly CopyDescriptor[] => value as unknown as readonly CopyDescriptor[]
 
 const baseHelpers = () => ({
     refreshList: vi.fn().mockResolvedValue(undefined),
@@ -50,8 +49,8 @@ describe('Entity copy option payloads', () => {
     })
 
     it('normalizes hub copy options before sending payload', async () => {
-        const mod = await import('../../../hubs/ui/HubActions')
-        const copy = (mod.default as CopyDescriptor[]).find((descriptor) => descriptor.id === 'copy')
+        const mod = await import('../../../entities/presets/ui/TreeEntityActions')
+        const copy = asCopyDescriptors(mod.default).find((descriptor) => descriptor.id === 'copy')
         expect(copy).toBeTruthy()
 
         const copyEntity = vi.fn().mockReturnValue(new Promise(() => {}))
@@ -76,8 +75,8 @@ describe('Entity copy option payloads', () => {
             'hub-1',
             expect.objectContaining({
                 copyAllRelations: false,
-                copyCatalogRelations: false,
-                copyEnumerationRelations: false
+                copyLinkedCollectionRelations: false,
+                copyOptionListRelations: false
             })
         )
         await expectImmediateSettlement(result)
@@ -85,8 +84,8 @@ describe('Entity copy option payloads', () => {
     })
 
     it('normalizes catalog copy options before sending payload', async () => {
-        const mod = await import('../../../catalogs/ui/CatalogActions')
-        const copy = (mod.default as CopyDescriptor[]).find((descriptor) => descriptor.id === 'copy')
+        const mod = await import('../../../entities/presets/ui/LinkedCollectionActions')
+        const copy = asCopyDescriptors(mod.default).find((descriptor) => descriptor.id === 'copy')
         expect(copy).toBeTruthy()
 
         const copyEntity = vi.fn().mockReturnValue(new Promise(() => {}))
@@ -104,15 +103,15 @@ describe('Entity copy option payloads', () => {
             nameVlc: makeVlc('Products (copy)'),
             descriptionVlc: null,
             codename: makeVlc('products-copy'),
-            copyAttributes: false,
-            copyElements: true
+            copyFieldDefinitions: false,
+            copyRecords: true
         })
 
         expect(copyEntity).toHaveBeenCalledWith(
             'catalog-1',
             expect.objectContaining({
-                copyAttributes: false,
-                copyElements: false
+                copyFieldDefinitions: false,
+                copyRecords: false
             })
         )
         await expectImmediateSettlement(result)
@@ -120,8 +119,8 @@ describe('Entity copy option payloads', () => {
     })
 
     it('applies default enumeration copy options when not provided', async () => {
-        const mod = await import('../../../enumerations/ui/EnumerationActions')
-        const copy = (mod.default as CopyDescriptor[]).find((descriptor) => descriptor.id === 'copy')
+        const mod = await import('../../../entities/presets/ui/OptionListActions')
+        const copy = asCopyDescriptors(mod.default).find((descriptor) => descriptor.id === 'copy')
         expect(copy).toBeTruthy()
 
         const copyEntity = vi.fn().mockReturnValue(new Promise(() => {}))
@@ -144,7 +143,7 @@ describe('Entity copy option payloads', () => {
         expect(copyEntity).toHaveBeenCalledWith(
             'enum-1',
             expect.objectContaining({
-                copyValues: true
+                copyOptionValues: true
             })
         )
         await expectImmediateSettlement(result)
@@ -153,7 +152,7 @@ describe('Entity copy option payloads', () => {
 
     it('returns immediately from publication edit save while update mutation is still pending', async () => {
         const mod = await import('../../../publications/ui/PublicationActions')
-        const edit = (mod.default as CopyDescriptor[]).find((descriptor) => descriptor.id === 'edit')
+        const edit = asCopyDescriptors(mod.default).find((descriptor) => descriptor.id === 'edit')
         expect(edit).toBeTruthy()
 
         const updateEntity = vi.fn().mockReturnValue(new Promise(() => {}))
@@ -184,7 +183,7 @@ describe('Entity copy option payloads', () => {
 
     it('returns immediately from metahub edit save while update mutation is still pending', async () => {
         const mod = await import('../MetahubActions')
-        const edit = (mod.default as CopyDescriptor[]).find((descriptor) => descriptor.id === 'edit')
+        const edit = asCopyDescriptors(mod.default).find((descriptor) => descriptor.id === 'edit')
         expect(edit).toBeTruthy()
 
         const updateEntity = vi.fn().mockReturnValue(new Promise(() => {}))
@@ -221,7 +220,7 @@ describe('Entity copy option payloads', () => {
 
     it('returns immediately from metahub copy save while copy mutation is still pending', async () => {
         const mod = await import('../MetahubActions')
-        const copy = (mod.default as CopyDescriptor[]).find((descriptor) => descriptor.id === 'copy')
+        const copy = asCopyDescriptors(mod.default).find((descriptor) => descriptor.id === 'copy')
         expect(copy).toBeTruthy()
 
         const copyEntity = vi.fn().mockReturnValue(new Promise(() => {}))

@@ -10,28 +10,28 @@ Custom entity types let a metahub define new authoring and runtime sections on t
 
 - Use a custom entity type when the object is metahub-specific and should not become a new fixed platform module.
 - Use a reusable preset when the shape should stay consistent across metahubs.
-- Keep built-in Catalogs, Sets, and Enumerations for the legacy surfaces that are still authoritative during coexistence.
+- Use the direct standard presets for Linked Collections, Tree Entities, Value Groups, and Option Lists instead of legacy V2 aliases.
 
 ## Typical Flow
 
 1. Open the Entities workspace below Common.
-2. Start from a preset such as Hubs V2, Catalogs V2, Sets V2, Enumerations V2, or from an empty type.
+2. Start from a preset such as Hubs, Catalogs, Sets, Enumerations, or from an empty type.
 3. Fill the kind key, codename, name, and tab configuration.
 4. Enable only the components that match the intended behavior.
 5. Save the type, open its instances page, and create the first instance before opening automation tabs.
 6. Use the edit dialog to configure Scripts, then Actions, then Events for the saved instance.
 7. Mark the type as published only when it should become a runtime section.
 
-## Legacy-Compatible V2 Presets
+## Standard Presets
 
-- Hubs V2 reuses the delegated HubList surface, nested entity-route ownership, and save-first automation tabs.
-- Catalogs V2 reuses CatalogList and remains the runtime-visible control case after publication sync.
-- Sets V2 reuses SetList and keeps constants authoring plus automation on the shared legacy routes.
-- Enumerations V2 reuses EnumerationList and keeps values authoring plus action/event automation on the shared legacy routes.
+- Tree Entities reuse the delegated tree-entity surface, nested entity-route ownership, and save-first automation tabs.
+- Linked Collections reuse the linked-collection authoring surface and remain the runtime-visible control case after publication sync.
+- Value Groups keep fixed-value authoring plus automation on the shared entity-owned routes.
+- Option Lists keep option-value authoring plus action/event automation on the shared entity-owned routes.
 
 ## Current Component Set
 
-- Data schema, predefined elements, hub assignment, constants, and enumeration values cover the current metadata surface.
+- Data schema, records, tree assignment, fixed values, and option values cover the current metadata surface.
 - Actions and event bindings add object-owned automation hooks.
 - Layout, scripting, runtime behavior, and physical table settings extend publication and runtime behavior.
 - Component dependencies are validated in the builder, so unsupported combinations should stay disabled.
@@ -48,17 +48,17 @@ Custom entity types let a metahub define new authoring and runtime sections on t
 ## Guardrails
 
 - Prefer presets for parity-heavy flows instead of rebuilding the same manifest by hand.
-- Automation authoring on generic custom entity routes follows the manageMetahub contract; legacy-compatible presets reuse the matching legacy list/detail surface instead of mounting a second generic CRUD shell.
+- Automation authoring on generic custom entity routes follows the manageMetahub contract; standard metadata presets reuse the matching list/detail surface instead of mounting a second generic CRUD shell.
 - Publishing affects the dynamic menu and runtime only after publication sync or application sync.
-- Catalog-compatible presets can appear as runtime sections after publication sync, while hub-compatible, set-compatible, and enumeration-compatible presets stay filtered out of runtime section navigation.
-- Legacy `/hubs`, `/sets`, and `/enumerations` routes keep showing compatible custom rows during coexistence, while each V2 entity route stays filtered to its own custom kind.
-- Generic instance routes are for custom kinds; built-in kinds still stay on their legacy routes.
+- Standard metadata presets stay on direct kind keys and publish through the entity-owned route tree.
+- Runtime sections materialize from published entity metadata and the current runtime adapters after publication sync.
+- Generic instance routes now own every entity kind, while the standard metadata presets still render through their dedicated authoring surfaces inside the shared entity-owned route tree.
 - Advanced visual composition remains out of scope for the current parity wave.
 
 ## Visual References
 
 ![Create Entity Type dialog](../.gitbook/assets/entities/metahub-entities-create-dialog.png)
-![Catalog-compatible general panel](../.gitbook/assets/entities/catalog-compatible-edit-general-panel.png)
+The current browser proof and generated screenshots use the shared entity workspace and the create dialog shown above.
 
 ## Related References
 
@@ -69,5 +69,5 @@ Custom entity types let a metahub define new authoring and runtime sections on t
 
 - Confirm the type saves with the expected component manifest.
 - Confirm the custom instances page opens from the dynamic menu.
-- Confirm publication sync materializes catalog-compatible sections in runtime and keeps hub/set/enumeration-compatible sections out of runtime navigation.
+- Confirm publication sync materializes the expected runtime sections from the published entity metadata.
 - Confirm focused tests or browser flows cover the shipped path before wider rollout.

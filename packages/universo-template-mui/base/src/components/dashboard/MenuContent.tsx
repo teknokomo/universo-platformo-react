@@ -10,6 +10,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth, type AuthClient } from '@universo/auth-frontend'
 import i18n from '@universo/i18n'
+import { isBuiltinEntityKind, type MetahubMenuEntityType } from '@universo/types'
 import { getVLCString } from '@universo/utils'
 import { useHasGlobalAccess } from '@universo/store'
 import { resolveShellAccess } from '../../navigation/roleAccess'
@@ -38,7 +39,6 @@ type MetahubShellDetail = Record<string, unknown> & {
 
 type MenuEntityTypeSummary = {
     kindKey: string
-    source: 'builtin' | 'custom'
     published?: boolean
     codename?: unknown
     presentation?: {
@@ -54,6 +54,22 @@ type MenuEntityTypeSummary = {
 
 type MenuEntityTypesResponse = {
     items?: MenuEntityTypeSummary[]
+}
+
+const resolveEntityTypeMenuTitle = (
+    item: MenuEntityTypeSummary,
+    t: (key: string, options?: Record<string, unknown>) => string
+): string => {
+    const uiNameKey = item.ui?.nameKey?.trim() || ''
+    const translatedUiName =
+        uiNameKey.length > 0 && isBuiltinEntityKind(item.kindKey) ? t(uiNameKey, { defaultValue: uiNameKey }).trim() : uiNameKey
+
+    return (
+        resolveLocalizedText(item.presentation?.name) ||
+        (translatedUiName.length > 0 ? translatedUiName : null) ||
+        resolveLocalizedText(item.codename) ||
+        item.kindKey
+    )
 }
 
 const resolveLocalizedText = (value: unknown): string | null => {
@@ -100,24 +116,24 @@ export default function MenuContent() {
 
     const metahubEntityTypesQuery = useQuery<MenuEntityTypesResponse>({
         queryKey: metahubId
-            ? ['metahubs', 'detail', metahubId, 'entityTypes', 'publishedMenu']
-            : ['metahubs', 'detail', 'missing-id', 'entityTypes', 'publishedMenu'],
-        queryFn: () => loadMenuResource(client, `/metahub/${metahubId}/entity-types?includeBuiltins=false&limit=1000&offset=0`),
-        enabled: Boolean(metahubId) && !authLoading && canManageMetahub,
+            ? ['metahubs', 'detail', metahubId, 'entityTypes', 'menu']
+            : ['metahubs', 'detail', 'missing-id', 'entityTypes', 'menu'],
+        queryFn: () => loadMenuResource(client, `/metahub/${metahubId}/entity-types?limit=1000&offset=0`),
+        enabled: Boolean(metahubId) && !authLoading,
         staleTime: 5 * 60 * 1000,
         retry: 1,
         refetchOnMount: false,
         refetchOnWindowFocus: false
     })
 
-    const publishedEntityTypes = (metahubEntityTypesQuery.data?.items ?? [])
-        .filter((item) => item.source === 'custom' && item.published === true)
+    const menuEntityTypes: MetahubMenuEntityType[] = (metahubEntityTypesQuery.data?.items ?? [])
+        .filter((item) => item.published === true)
         .map((item) => ({
             kindKey: item.kindKey,
-            title: resolveLocalizedText(item.presentation?.name) || item.ui?.nameKey?.trim() || resolveLocalizedText(item.codename) || item.kindKey,
-            iconName: item.ui?.iconName ?? null,
+            title: resolveEntityTypeMenuTitle(item, t),
+            iconName: item.ui?.iconName ?? 'IconBox',
             sidebarSection: item.ui?.sidebarSection ?? 'objects',
-            sidebarOrder: typeof item.ui?.sidebarOrder === 'number' ? item.ui.sidebarOrder : null
+            sidebarOrder: typeof item.ui?.sidebarOrder === 'number' ? item.ui.sidebarOrder : undefined
         }))
 
     // Check if we're in an application admin context (/a/:id/admin...)
@@ -151,7 +167,7 @@ export default function MenuContent() {
         ? getMetahubMenuItems(metahubId, {
               canManageMetahub,
               canManageMembers,
-              publishedEntityTypes
+              menuEntityTypes
           })
         : instanceId
         ? getInstanceMenuItems(instanceId)

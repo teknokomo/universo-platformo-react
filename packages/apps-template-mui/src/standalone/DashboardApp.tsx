@@ -28,16 +28,16 @@ export default function DashboardApp(props: DashboardAppProps) {
 
     const state = useCrudDashboard({ adapter, locale: props.locale })
 
-    const detailsTitle = state.appData?.catalog.name ?? 'Details'
-    const showCreateButton = state.appData?.catalog.runtimeConfig?.showCreateButton !== false
-    const activeCatalogRuntimeConfig = state.appData?.catalog.runtimeConfig
+    const detailsTitle = state.appData?.linkedCollection.name ?? 'Details'
+    const showCreateButton = state.appData?.linkedCollection.runtimeConfig?.showCreateButton !== false
+    const activeLinkedCollectionRuntimeConfig = state.appData?.linkedCollection.runtimeConfig
     const activeFormSurface = !state.formOpen
         ? 'dialog'
         : state.copyRowId
-        ? activeCatalogRuntimeConfig?.copySurface ?? 'dialog'
+        ? activeLinkedCollectionRuntimeConfig?.copySurface ?? 'dialog'
         : state.editRowId
-        ? activeCatalogRuntimeConfig?.editSurface ?? 'dialog'
-        : activeCatalogRuntimeConfig?.createSurface ?? 'dialog'
+        ? activeLinkedCollectionRuntimeConfig?.editSurface ?? 'dialog'
+        : activeLinkedCollectionRuntimeConfig?.createSurface ?? 'dialog'
 
     const createActions = useMemo(
         () =>
@@ -61,7 +61,7 @@ export default function DashboardApp(props: DashboardAppProps) {
             pageSizeOptions: state.pageSizeOptions,
             localeText: state.localeText,
             actions: createActions,
-            searchMode: state.appData?.catalog.runtimeConfig?.searchMode ?? 'page-local',
+            searchMode: state.appData?.linkedCollection.runtimeConfig?.searchMode ?? 'page-local',
             rowReorder: state.canPersistRowReorder
                 ? {
                       onReorder: state.handlePersistRowReorder,
@@ -71,7 +71,7 @@ export default function DashboardApp(props: DashboardAppProps) {
         }),
         [
             detailsTitle,
-            state.appData?.catalog.runtimeConfig?.searchMode,
+            state.appData?.linkedCollection.runtimeConfig?.searchMode,
             state.canPersistRowReorder,
             state.rows,
             state.columns,
@@ -104,7 +104,7 @@ export default function DashboardApp(props: DashboardAppProps) {
                 locale={props.locale}
                 apiBaseUrl={props.apiBaseUrl}
                 applicationId={props.applicationId}
-                catalogId={state.selectedCatalogId ?? state.activeCatalogId}
+                linkedCollectionId={state.selectedLinkedCollectionId ?? state.activeLinkedCollectionId}
                 surface={activeFormSurface}
                 labels={{
                     editTitle: t('app.editRow', 'Edit element'),

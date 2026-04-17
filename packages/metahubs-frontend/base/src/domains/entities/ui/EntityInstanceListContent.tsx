@@ -1,0 +1,1566 @@
+import { useCallback, useMemo, useState } from 'react'
+import { Alert, Box, Checkbox, Chip, FormControlLabel, IconButton, Skeleton, Stack, Switch, Tooltip, Typography } from '@mui/material'
+import AddRoundedIcon from '@mui/icons-material/AddRounded'
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
+import DeleteForeverRoundedIcon from '@mui/icons-material/DeleteForeverRounded'
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
+import EditRoundedIcon from '@mui/icons-material/EditRounded'
+import RestoreRoundedIcon from '@mui/icons-material/RestoreRounded'
+import { useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import { useParams } from 'react-router-dom'
+import { useCommonTranslations } from '@universo/i18n'
+import type { EntitySelectionLabels } from '@universo/template-mui'
+import {
+    APIEmptySVG,
+    EmptyListState,
+    FlowListTable,
+    ItemCard,
+    PaginationControls,
+    SkeletonGrid,
+    TemplateMainCard as MainCard,
+    ToolbarControls,
+    ViewHeaderMUI as ViewHeader,
+    gridSpacing,
+    useDebouncedSearch,
+    useListDialogs,
+    usePaginated
+} from '@universo/template-mui'
+import { ConfirmDeleteDialog, ConflictResolutionDialog, EntityFormDialog, type TabConfig } from '@universo/template-mui/components/dialogs'
+import { isEnabledComponentConfig, type VersionedLocalizedContent } from '@universo/types'
+import { extractConflictInfo, isOptimisticLockConflict, type ConflictInfo } from '@universo/utils'
+
+import { ExistingCodenamesProvider, ContainerSelectionPanel } from '../../../components'
+import { STORAGE_KEYS } from '../../../view-preferences/storage'
+import { useViewPreference } from '../../../hooks/useViewPreference'
+import { getVLCString, type Metahub } from '../../../types'
+import { ensureLocalizedContent, extractLocalizedInput, getLocalizedContentText, hasPrimaryContent } from '../../../utils/localizedInput'
+import { isValidCodenameForStyle, normalizeCodenameForStyle } from '../../../utils/codename'
+import { FieldDefinitionListContent } from '../metadata/fieldDefinition/ui/FieldDefinitionList'
+import { useTreeEntities } from '../../entities/presets/hooks/useTreeEntities'
+import LayoutList from '../../layouts/ui/LayoutList'
+import { useMetahubDetails } from '../../metahubs/hooks'
+import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
+import { useEntityPermissions } from '../../settings/hooks/useEntityPermissions'
+import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
+import { invalidateEntitiesQueries, metahubsQueryKeys } from '../../shared'
+import GeneralTabFields from '../../shared/ui/GeneralTabFields'
+import { createScriptsTab } from '../../scripts/ui/EntityScriptsTab'
+import { createEntityActionsTab, createEntityEventsTab } from './EntityAutomationTab'
+import { LinkedCollectionDeleteDialog } from '../../../components'
+import type { MetahubEntityInstance, UpdateEntityInstancePayload } from '../api'
+import * as entitiesApi from '../api'
+import {
+    useCopyEntityInstance,
+    useCreateEntityInstance,
+    useDeleteEntityInstance,
+    useEntityInstanceQuery,
+    useEntityInstancesQuery,
+    useEntityTypesQuery,
+    usePermanentDeleteEntityInstance,
+    useRestoreEntityInstance,
+    useUpdateEntityInstance
+} from '../hooks'
+import type { EntityInstanceDisplayRow, EntityInstanceFormValues, UiTranslate } from './entityInstanceListHelpers'
+import {
+    DIALOG_SAVE_CANCEL,
+    buildCopyInitialValues,
+    buildEntityInstanceLayoutBasePath,
+    buildInitialFormValues,
+    buildInstanceDisplayRow,
+    buildLinkedCollectionDeleteDialogEntity,
+    decodeKindKey,
+    getEntityConfig,
+    getLinkedCollectionCopyOptions,
+    isRecord,
+    resolveEntityMetadataKind,
+    resolveEntityTypeName,
+    toStrictLocalizedRecord
+} from './entityInstanceListHelpers'
+
+const LinkedCollectionCopyOptionsTab = ({
+    values,
+    setValue,
+    isLoading,
+    t
+}: {
+    values: EntityInstanceFormValues
+    setValue: (name: string, value: unknown) => void
+    isLoading: boolean
+    t: (key: string, options?: Record<string, unknown> | string) => string
+}) => {
+    const options = getLinkedCollectionCopyOptions(values)
+
+    return (
+        <Stack spacing={1}>
+            <FormControlLabel
+                control={
+                    <Checkbox
+                        checked={options.copyFieldDefinitions}
+                        onChange={(event) => {
+                            setValue('copyFieldDefinitions', event.target.checked)
+                            if (!event.target.checked) {
+                                setValue('copyRecords', false)
+                            }
+                        }}
+                        disabled={isLoading}
+                    />
+                }
+                label={t('entities.copy.options.copyFieldDefinitions', 'Copy field definitions')}
+            />
+            <FormControlLabel
+                control={
+                    <Checkbox
+                        checked={options.copyRecords}
+                        onChange={(event) => setValue('copyRecords', event.target.checked)}
+                        disabled={isLoading || !options.copyFieldDefinitions}
+                    />
+                }
+                label={t('entities.copy.options.copyRecords', 'Copy records')}
+            />
+        </Stack>
+    )
+}
+
+const EntityInstanceListContent = () => {
+    const { metahubId, kindKey: routeKindKey } = useParams<{ metahubId: string; kindKey: string }>()
+    const resolvedKindKey = useMemo(() => decodeKindKey(routeKindKey), [routeKindKey])
+    const preferredVlcLocale = useMetahubPrimaryLocale()
+    const codenameConfig = useCodenameConfig()
+    const { t } = useTranslation(['metahubs', 'common', 'flowList'])
+    const { t: tc } = useCommonTranslations()
+    const translate = useCallback<UiTranslate>(
+        (key, options) => {
+            if (typeof options === 'string') {
+                return t(key, { defaultValue: options })
+            }
+
+            return t(key, options)
+        },
+        [t]
+    )
+    const queryClient = useQueryClient()
+    const metahubDetailsQuery = useMetahubDetails(metahubId ?? '', { enabled: Boolean(metahubId) })
+    const cachedMetahub = metahubId ? queryClient.getQueryData<Metahub>(metahubsQueryKeys.detail(metahubId)) : undefined
+    const resolvedPermissions = metahubDetailsQuery.data?.permissions ?? cachedMetahub?.permissions
+    const { allowCopy: allowLinkedCollectionCopy, allowDelete: allowLinkedCollectionDelete } = useEntityPermissions('linkedCollection')
+
+    const [showDeleted, setShowDeleted] = useState(false)
+    const [storedView, setStoredView] = useViewPreference(STORAGE_KEYS.ENTITY_INSTANCE_DISPLAY_STYLE, 'list')
+    const view = (storedView === 'table' ? 'list' : storedView) as 'card' | 'list'
+    const treeEntities = useTreeEntities(metahubId)
+
+    const { dialogs, openCreate, openCopy, openDelete, openEdit, close } = useListDialogs<MetahubEntityInstance>()
+    const [permanentDeleteTarget, setPermanentDeleteTarget] = useState<MetahubEntityInstance | null>(null)
+    const [blockingDeleteTarget, setBlockingDeleteTarget] = useState<MetahubEntityInstance | null>(null)
+    const [conflictState, setConflictState] = useState<{
+        open: boolean
+        conflict: ConflictInfo | null
+        entity: MetahubEntityInstance | null
+        patch: UpdateEntityInstancePayload | null
+    }>({ open: false, conflict: null, entity: null, patch: null })
+
+    const entityTypesQuery = useEntityTypesQuery(metahubId, {
+        limit: 1000,
+        offset: 0,
+        sortBy: 'codename',
+        sortOrder: 'asc'
+    })
+
+    const entityType = useMemo(
+        () => (entityTypesQuery.data?.items ?? []).find((item) => item.kindKey === resolvedKindKey) ?? null,
+        [entityTypesQuery.data?.items, resolvedKindKey]
+    )
+
+    const resolvedEntityTypeName = useMemo(
+        () => resolveEntityTypeName(entityType, preferredVlcLocale, translate, resolvedKindKey),
+        [entityType, preferredVlcLocale, resolvedKindKey, translate]
+    )
+    const entityMetadataKind = useMemo(() => resolveEntityMetadataKind(entityType, resolvedKindKey), [entityType, resolvedKindKey])
+    const isEntityMetadataSurface = entityMetadataKind !== null
+    const usesLinkedCollectionAuthoring = entityMetadataKind === 'catalog'
+    const canEditLinkedCollectionInstances = resolvedPermissions?.editContent === true
+    const canDeleteLinkedCollectionInstances = resolvedPermissions?.deleteContent === true
+    const canManageEntityInstances = usesLinkedCollectionAuthoring
+        ? canEditLinkedCollectionInstances
+        : resolvedPermissions?.manageMetahub === true
+    const canCreateEntityInstances = canManageEntityInstances
+    const canEditEntityInstances = canManageEntityInstances
+    const canCopyEntityInstances = usesLinkedCollectionAuthoring
+        ? canEditLinkedCollectionInstances && allowLinkedCollectionCopy
+        : canManageEntityInstances
+    const canDeleteEntityInstances = usesLinkedCollectionAuthoring
+        ? canDeleteLinkedCollectionInstances && allowLinkedCollectionDelete
+        : canManageEntityInstances
+    const canRestoreEntityInstances = usesLinkedCollectionAuthoring ? canEditLinkedCollectionInstances : canManageEntityInstances
+    const showManageEntityInstancesNotice = Boolean(resolvedPermissions) && !canCreateEntityInstances
+
+    const requestedTabs = useMemo(() => new Set(entityType?.ui.tabs ?? []), [entityType?.ui.tabs])
+    const showHubsTab = Boolean(
+        entityType && isEnabledComponentConfig(entityType.components.treeAssignment) && requestedTabs.has('treeEntities')
+    )
+    const showAttributesTab = Boolean(entityType && isEnabledComponentConfig(entityType.components.dataSchema))
+    const showLayoutTab = Boolean(entityType && isEnabledComponentConfig(entityType.components.layoutConfig) && requestedTabs.has('layout'))
+    const showScriptsTab = Boolean(entityType && isEnabledComponentConfig(entityType.components.scripting) && requestedTabs.has('scripts'))
+    const showActionsTab = Boolean(entityType && isEnabledComponentConfig(entityType.components.actions))
+    const showEventsTab = Boolean(entityType && isEnabledComponentConfig(entityType.components.events))
+
+    const paginationResult = usePaginated<MetahubEntityInstance, 'updated' | 'sortOrder'>({
+        queryKeyFn: (params) =>
+            metahubId && resolvedKindKey
+                ? metahubsQueryKeys.entitiesList(metahubId, {
+                      ...params,
+                      kind: resolvedKindKey,
+                      locale: preferredVlcLocale,
+                      includeDeleted: showDeleted
+                  })
+                : ['metahubs', 'entities', 'empty', resolvedKindKey, showDeleted],
+        queryFn: (params) =>
+            entitiesApi.listEntityInstances(metahubId!, {
+                ...params,
+                kind: resolvedKindKey,
+                locale: preferredVlcLocale,
+                includeDeleted: showDeleted
+            }),
+        initialLimit: 20,
+        sortBy: 'updated',
+        sortOrder: 'desc',
+        enabled: Boolean(metahubId && resolvedKindKey && entityType && !isEntityMetadataSurface),
+        keepPreviousDataOnQueryKeyChange: false
+    })
+
+    const { searchValue, handleSearchChange } = useDebouncedSearch({
+        onSearchChange: paginationResult.actions.setSearch,
+        delay: 0
+    })
+
+    const existingCodenameQuery = useEntityInstancesQuery(
+        metahubId,
+        isEntityMetadataSurface
+            ? undefined
+            : {
+                  kind: resolvedKindKey,
+                  locale: preferredVlcLocale,
+                  includeDeleted: true,
+                  limit: 1000,
+                  offset: 0,
+                  sortBy: 'updated',
+                  sortOrder: 'desc'
+              }
+    )
+
+    const editEntityDetailQuery = useEntityInstanceQuery(metahubId, dialogs.edit.open ? dialogs.edit.item?.id : undefined)
+    const copyEntityDetailQuery = useEntityInstanceQuery(metahubId, dialogs.copy.open ? dialogs.copy.item?.id : undefined)
+
+    const createEntityMutation = useCreateEntityInstance()
+    const updateEntityMutation = useUpdateEntityInstance()
+    const copyEntityMutation = useCopyEntityInstance()
+    const deleteEntityMutation = useDeleteEntityInstance()
+    const restoreEntityMutation = useRestoreEntityInstance()
+    const permanentDeleteEntityMutation = usePermanentDeleteEntityInstance()
+
+    const hubNameById = useMemo(
+        () =>
+            new Map(
+                treeEntities.map((hub) => [
+                    hub.id,
+                    getLocalizedContentText(
+                        hub.name,
+                        preferredVlcLocale,
+                        getVLCString(hub.name, 'en') || getLocalizedContentText(hub.codename, preferredVlcLocale, hub.id)
+                    )
+                ])
+            ),
+        [treeEntities, preferredVlcLocale]
+    )
+
+    const instanceById = useMemo(
+        () => new Map(paginationResult.data.map((entity) => [entity.id, entity] as const)),
+        [paginationResult.data]
+    )
+
+    const instanceRows = useMemo(
+        () => paginationResult.data.map((entity) => buildInstanceDisplayRow(entity, preferredVlcLocale, translate)),
+        [paginationResult.data, preferredVlcLocale, translate]
+    )
+
+    const codenameEntities = useMemo(() => {
+        if (isEntityMetadataSurface) {
+            return []
+        }
+
+        return (existingCodenameQuery.data?.items ?? paginationResult.data).filter((entity) => entity.kind === resolvedKindKey)
+    }, [existingCodenameQuery.data?.items, isEntityMetadataSurface, paginationResult.data, resolvedKindKey])
+
+    const editDialogEntity = editEntityDetailQuery.data ?? dialogs.edit.item
+    const copyDialogEntity = copyEntityDetailQuery.data ?? dialogs.copy.item
+
+    const createInitialValues = useMemo(() => buildInitialFormValues(preferredVlcLocale, null), [preferredVlcLocale])
+    const editInitialValues = useMemo(
+        () => buildInitialFormValues(preferredVlcLocale, editDialogEntity),
+        [editDialogEntity, preferredVlcLocale]
+    )
+    const copyInitialValues = useMemo(
+        () => buildCopyInitialValues(preferredVlcLocale, copyDialogEntity, usesLinkedCollectionAuthoring),
+        [copyDialogEntity, usesLinkedCollectionAuthoring, preferredVlcLocale]
+    )
+    const blockingDeleteCatalog = useMemo(
+        () =>
+            blockingDeleteTarget && metahubId
+                ? buildLinkedCollectionDeleteDialogEntity({
+                      entity: blockingDeleteTarget,
+                      metahubId,
+                      uiLocale: preferredVlcLocale,
+                      treeEntities
+                  })
+                : null,
+        [blockingDeleteTarget, treeEntities, metahubId, preferredVlcLocale]
+    )
+
+    const containerSelectionLabels = useMemo<Partial<EntitySelectionLabels>>(
+        () => ({
+            title: t('entities.instances.tabs.containers', 'Containers'),
+            addButton: t('entities.instances.containers.addButton', 'Add'),
+            dialogTitle: t('entities.instances.containers.dialogTitle', 'Select containers'),
+            emptyMessage: t('entities.instances.containers.empty', 'No containers selected'),
+            requiredWarningMessage: t('entities.instances.validation.containerRequired', 'At least one container is required'),
+            noAvailableMessage: t('entities.instances.containers.noAvailable', 'No containers available'),
+            confirmButton: t('common:actions.add', 'Add'),
+            removeTitle: t('common:actions.remove', 'Remove'),
+            requiredLabel: t('entities.instances.containers.requiredLabel', 'Container required'),
+            requiredEnabledHelp: t(
+                'entities.instances.containers.requiredEnabledHelp',
+                'The entity must be linked to at least one container'
+            ),
+            requiredDisabledHelp: t('entities.instances.containers.requiredDisabledHelp', 'The entity can exist without linked containers'),
+            singleLabel: t('entities.instances.containers.singleLabel', 'Single container only'),
+            singleEnabledHelp: t('entities.instances.containers.singleEnabledHelp', 'The entity can only be linked to one container'),
+            singleDisabledHelp: t('entities.instances.containers.singleDisabledHelp', 'The entity can be linked to multiple containers'),
+            singleWarning: t(
+                'entities.instances.validation.singleContainerInvalid',
+                'Single-container entities cannot be linked to multiple containers'
+            )
+        }),
+        [t]
+    )
+
+    const validateEntityForm = useCallback(
+        (values: EntityInstanceFormValues) => {
+            const errors: Record<string, string> = {}
+            const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
+            const codenameValue = (values.codename as VersionedLocalizedContent<string> | null | undefined) ?? null
+            const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? preferredVlcLocale
+            const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
+            const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
+
+            if (!hasPrimaryContent(nameVlc)) {
+                errors.nameVlc = tc('crud.nameRequired', 'Name is required')
+            }
+
+            if (!normalizedCodename) {
+                errors.codename = t('entities.validation.codenameRequired', 'Codename is required')
+            } else if (
+                !isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)
+            ) {
+                errors.codename = t('entities.validation.codenameInvalid', 'Codename contains invalid characters')
+            }
+
+            if (showHubsTab) {
+                const treeEntityIds = Array.isArray(values.treeEntityIds)
+                    ? values.treeEntityIds.filter((value): value is string => typeof value === 'string')
+                    : []
+                const isRequiredHub = Boolean(values.isRequiredHub)
+                const isSingleHub = Boolean(values.isSingleHub)
+
+                if (isRequiredHub && treeEntityIds.length === 0) {
+                    errors.treeEntityIds = t('entities.instances.validation.containerRequired', 'At least one container is required')
+                } else if (isSingleHub && treeEntityIds.length > 1) {
+                    errors.treeEntityIds = t(
+                        'entities.instances.validation.singleContainerInvalid',
+                        'Single-container entities cannot be linked to multiple containers'
+                    )
+                }
+            }
+
+            return Object.keys(errors).length > 0 ? errors : null
+        },
+        [codenameConfig.allowMixed, codenameConfig.alphabet, codenameConfig.style, preferredVlcLocale, showHubsTab, t, tc]
+    )
+
+    const canSaveEntityForm = useCallback(
+        (values: EntityInstanceFormValues) => {
+            const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
+            const codenameValue = (values.codename as VersionedLocalizedContent<string> | null | undefined) ?? null
+            const codenamePrimaryLocale = codenameValue?._primary ?? nameVlc?._primary ?? preferredVlcLocale
+            const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
+            const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
+            const treeEntityIds = Array.isArray(values.treeEntityIds)
+                ? values.treeEntityIds.filter((value): value is string => typeof value === 'string')
+                : []
+            const isRequiredHub = Boolean(values.isRequiredHub)
+            const isSingleHub = Boolean(values.isSingleHub)
+            const hubsValid = !showHubsTab || ((!isRequiredHub || treeEntityIds.length > 0) && (!isSingleHub || treeEntityIds.length <= 1))
+
+            return (
+                !values._hasCodenameDuplicate &&
+                hubsValid &&
+                hasPrimaryContent(nameVlc) &&
+                Boolean(normalizedCodename) &&
+                isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)
+            )
+        },
+        [codenameConfig.allowMixed, codenameConfig.alphabet, codenameConfig.style, preferredVlcLocale, showHubsTab]
+    )
+
+    const buildConfigPayload = useCallback(
+        ({
+            values,
+            baseConfig,
+            preserveBaseConfig
+        }: {
+            values: EntityInstanceFormValues
+            baseConfig?: Record<string, unknown> | null
+            preserveBaseConfig: boolean
+        }) => {
+            const nextConfig = isRecord(baseConfig) ? { ...baseConfig } : {}
+            const hasBaseConfig = Object.keys(nextConfig).length > 0
+
+            if (showHubsTab) {
+                const treeEntityIds = Array.isArray(values.treeEntityIds)
+                    ? values.treeEntityIds.filter((value): value is string => typeof value === 'string')
+                    : []
+                nextConfig.treeEntities = treeEntityIds
+                nextConfig.isSingleHub = Boolean(values.isSingleHub)
+                nextConfig.isRequiredHub = Boolean(values.isRequiredHub)
+            }
+
+            if (Object.keys(nextConfig).length === 0) {
+                return preserveBaseConfig && hasBaseConfig ? nextConfig : undefined
+            }
+
+            return nextConfig
+        },
+        [showHubsTab]
+    )
+
+    const buildEntityPayload = useCallback(
+        ({
+            values,
+            baseConfig,
+            preserveBaseConfig
+        }: {
+            values: EntityInstanceFormValues
+            baseConfig?: Record<string, unknown> | null
+            preserveBaseConfig: boolean
+        }) => {
+            const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
+            const descriptionVlc = (values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
+            const codenameValue = (values.codename as VersionedLocalizedContent<string> | null | undefined) ?? null
+            const { input: name, primaryLocale: namePrimaryLocale } = extractLocalizedInput(nameVlc)
+            const { input: description, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
+            const codenamePrimaryLocale = codenameValue?._primary ?? namePrimaryLocale ?? preferredVlcLocale
+            const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
+            const normalizedCodename = normalizeCodenameForStyle(rawCodename, codenameConfig.style, codenameConfig.alphabet)
+            const normalizedName = toStrictLocalizedRecord(name)
+            const normalizedDescription = toStrictLocalizedRecord(description)
+
+            return {
+                codename: ensureLocalizedContent(codenameValue, codenamePrimaryLocale, normalizedCodename),
+                name: normalizedName,
+                namePrimaryLocale: namePrimaryLocale ?? preferredVlcLocale,
+                description: normalizedDescription,
+                descriptionPrimaryLocale: normalizedDescription
+                    ? descriptionPrimaryLocale ?? namePrimaryLocale ?? preferredVlcLocale
+                    : undefined,
+                config: buildConfigPayload({ values, baseConfig, preserveBaseConfig })
+            }
+        },
+        [buildConfigPayload, codenameConfig.alphabet, codenameConfig.style, preferredVlcLocale]
+    )
+
+    const handleCreateEntity = useCallback(
+        async (values: EntityInstanceFormValues) => {
+            if (!metahubId || !resolvedKindKey || !canCreateEntityInstances) return
+
+            await createEntityMutation.mutateAsync({
+                metahubId,
+                data: {
+                    kind: resolvedKindKey,
+                    ...buildEntityPayload({ values, preserveBaseConfig: false })
+                }
+            })
+        },
+        [buildEntityPayload, canCreateEntityInstances, createEntityMutation, metahubId, resolvedKindKey]
+    )
+
+    const handleUpdateEntity = useCallback(
+        async (values: EntityInstanceFormValues) => {
+            if (!metahubId || !editDialogEntity || !canEditEntityInstances) return
+
+            const patch: UpdateEntityInstancePayload = {
+                ...buildEntityPayload({
+                    values,
+                    baseConfig: getEntityConfig(editDialogEntity),
+                    preserveBaseConfig: false
+                }),
+                expectedVersion: editDialogEntity.version
+            }
+
+            try {
+                await updateEntityMutation.mutateAsync({
+                    metahubId,
+                    entityId: editDialogEntity.id,
+                    data: patch
+                })
+            } catch (error) {
+                if (isOptimisticLockConflict(error)) {
+                    setConflictState({
+                        open: true,
+                        conflict: extractConflictInfo(error),
+                        entity: editDialogEntity,
+                        patch
+                    })
+                    throw DIALOG_SAVE_CANCEL
+                }
+
+                throw error
+            }
+        },
+        [buildEntityPayload, canEditEntityInstances, editDialogEntity, metahubId, updateEntityMutation]
+    )
+
+    const handleCopyEntity = useCallback(
+        async (values: EntityInstanceFormValues) => {
+            if (!metahubId || !copyDialogEntity || !canCopyEntityInstances) return
+
+            await copyEntityMutation.mutateAsync({
+                metahubId,
+                entityId: copyDialogEntity.id,
+                kind: resolvedKindKey,
+                data: {
+                    ...buildEntityPayload({
+                        values,
+                        baseConfig: getEntityConfig(copyDialogEntity),
+                        preserveBaseConfig: true
+                    }),
+                    ...(usesLinkedCollectionAuthoring ? getLinkedCollectionCopyOptions(values) : {})
+                }
+            })
+        },
+        [
+            buildEntityPayload,
+            canCopyEntityInstances,
+            copyDialogEntity,
+            copyEntityMutation,
+            usesLinkedCollectionAuthoring,
+            metahubId,
+            resolvedKindKey
+        ]
+    )
+
+    const handleDeleteEntity = useCallback(async () => {
+        if (!metahubId || !dialogs.delete.item || !canDeleteEntityInstances) return
+
+        await deleteEntityMutation.mutateAsync({
+            metahubId,
+            entityId: dialogs.delete.item.id,
+            kind: resolvedKindKey
+        })
+        close('delete')
+    }, [canDeleteEntityInstances, close, deleteEntityMutation, dialogs.delete.item, metahubId, resolvedKindKey])
+
+    const handleRestoreEntity = useCallback(
+        async (entity: MetahubEntityInstance) => {
+            if (!metahubId || !canRestoreEntityInstances) return
+
+            await restoreEntityMutation.mutateAsync({
+                metahubId,
+                entityId: entity.id,
+                kind: resolvedKindKey
+            })
+        },
+        [canRestoreEntityInstances, metahubId, resolvedKindKey, restoreEntityMutation]
+    )
+
+    const handlePermanentDeleteEntity = useCallback(async () => {
+        if (!metahubId || !permanentDeleteTarget || !canDeleteEntityInstances) return
+
+        await permanentDeleteEntityMutation.mutateAsync({
+            metahubId,
+            entityId: permanentDeleteTarget.id,
+            kind: resolvedKindKey
+        })
+        setPermanentDeleteTarget(null)
+    }, [canDeleteEntityInstances, metahubId, permanentDeleteEntityMutation, permanentDeleteTarget, resolvedKindKey])
+
+    const handleCloseConflict = useCallback(() => {
+        setConflictState({ open: false, conflict: null, entity: null, patch: null })
+    }, [])
+
+    const handleReloadAfterConflict = useCallback(() => {
+        if (metahubId && resolvedKindKey) {
+            invalidateEntitiesQueries.all(queryClient, metahubId, resolvedKindKey)
+        }
+        handleCloseConflict()
+    }, [handleCloseConflict, metahubId, queryClient, resolvedKindKey])
+
+    const handleOverwriteConflict = useCallback(async () => {
+        if (!metahubId || !conflictState.entity || !conflictState.patch || !canEditEntityInstances) return
+
+        const { expectedVersion: _ignoredVersion, ...patchWithoutVersion } = conflictState.patch
+        await updateEntityMutation.mutateAsync({
+            metahubId,
+            entityId: conflictState.entity.id,
+            data: patchWithoutVersion
+        })
+
+        handleCloseConflict()
+        close('edit')
+    }, [canEditEntityInstances, close, conflictState.entity, conflictState.patch, handleCloseConflict, metahubId, updateEntityMutation])
+
+    const handleOpenCreate = useCallback(() => {
+        if (!canCreateEntityInstances) return
+        openCreate()
+    }, [canCreateEntityInstances, openCreate])
+
+    const handleOpenEdit = useCallback(
+        (entity: MetahubEntityInstance) => {
+            if (!canEditEntityInstances) return
+            openEdit(entity)
+        },
+        [canEditEntityInstances, openEdit]
+    )
+
+    const handleOpenCopy = useCallback(
+        (entity: MetahubEntityInstance) => {
+            if (!canCopyEntityInstances) return
+            openCopy(entity)
+        },
+        [canCopyEntityInstances, openCopy]
+    )
+
+    const handleOpenDelete = useCallback(
+        (entity: MetahubEntityInstance) => {
+            if (!canDeleteEntityInstances) return
+
+            if (usesLinkedCollectionAuthoring) {
+                setBlockingDeleteTarget(entity)
+                return
+            }
+
+            openDelete(entity)
+        },
+        [canDeleteEntityInstances, usesLinkedCollectionAuthoring, openDelete]
+    )
+
+    const handleSelectPermanentDeleteTarget = useCallback(
+        (entity: MetahubEntityInstance) => {
+            if (!canDeleteEntityInstances) return
+            setPermanentDeleteTarget(entity)
+        },
+        [canDeleteEntityInstances]
+    )
+
+    const resolveDisplayEntity = useCallback(
+        (row: Pick<EntityInstanceDisplayRow, 'id' | 'raw'>): MetahubEntityInstance | null => instanceById.get(row.id) ?? row.raw ?? null,
+        [instanceById]
+    )
+
+    const handleOpenEditRow = useCallback(
+        (row: Pick<EntityInstanceDisplayRow, 'id' | 'raw'>) => {
+            const entity = resolveDisplayEntity(row)
+            if (!entity) return
+            handleOpenEdit(entity)
+        },
+        [handleOpenEdit, resolveDisplayEntity]
+    )
+
+    const handleOpenCopyRow = useCallback(
+        (row: Pick<EntityInstanceDisplayRow, 'id' | 'raw'>) => {
+            const entity = resolveDisplayEntity(row)
+            if (!entity) return
+            handleOpenCopy(entity)
+        },
+        [handleOpenCopy, resolveDisplayEntity]
+    )
+
+    const handleOpenDeleteRow = useCallback(
+        (row: Pick<EntityInstanceDisplayRow, 'id' | 'raw'>) => {
+            const entity = resolveDisplayEntity(row)
+            if (!entity) return
+            handleOpenDelete(entity)
+        },
+        [handleOpenDelete, resolveDisplayEntity]
+    )
+
+    const handleRestoreEntityRow = useCallback(
+        (row: Pick<EntityInstanceDisplayRow, 'id' | 'raw'>) => {
+            const entity = resolveDisplayEntity(row)
+            if (!entity) return
+            void handleRestoreEntity(entity)
+        },
+        [handleRestoreEntity, resolveDisplayEntity]
+    )
+
+    const handleSelectPermanentDeleteTargetRow = useCallback(
+        (row: Pick<EntityInstanceDisplayRow, 'id' | 'raw'>) => {
+            const entity = resolveDisplayEntity(row)
+            if (!entity) return
+            handleSelectPermanentDeleteTarget(entity)
+        },
+        [handleSelectPermanentDeleteTarget, resolveDisplayEntity]
+    )
+
+    const buildFormTabs = useCallback(
+        (
+            {
+                values,
+                setValue,
+                isLoading,
+                errors
+            }: {
+                values: EntityInstanceFormValues
+                setValue: (name: string, value: unknown) => void
+                isLoading: boolean
+                errors: Record<string, string>
+            },
+            options: { mode: 'create' | 'edit' | 'copy'; entityId?: string | null }
+        ): TabConfig[] => {
+            const tabs: TabConfig[] = [
+                {
+                    id: 'general',
+                    label: t('entities.tabs.general', 'General'),
+                    content: (
+                        <GeneralTabFields
+                            values={values}
+                            setValue={setValue}
+                            isLoading={isLoading}
+                            errors={errors}
+                            uiLocale={preferredVlcLocale}
+                            nameLabel={tc('fields.name', 'Name')}
+                            descriptionLabel={tc('fields.description', 'Description')}
+                            codenameLabel={tc('fields.codename', 'Codename')}
+                            codenameHelper={
+                                usesLinkedCollectionAuthoring
+                                    ? t(
+                                          'linkedCollections.codenameHelper',
+                                          'Unique identifier for URLs (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.'
+                                      )
+                                    : t(
+                                          'entities.instances.fields.codenameHelper',
+                                          'Stable codename used by generic entity instances and references'
+                                      )
+                            }
+                            editingEntityId={options.mode === 'edit' ? options.entityId ?? null : null}
+                        />
+                    )
+                }
+            ]
+
+            if (showHubsTab) {
+                const treeEntityIds = Array.isArray(values.treeEntityIds)
+                    ? values.treeEntityIds.filter((value): value is string => typeof value === 'string')
+                    : []
+
+                tabs.push({
+                    id: 'treeEntities',
+                    label: t('entities.instances.tabs.containers', 'Containers'),
+                    content: (
+                        <ContainerSelectionPanel
+                            availableContainers={treeEntities}
+                            selectedContainerIds={treeEntityIds}
+                            onSelectionChange={(nextTreeEntityIds) => setValue('treeEntityIds', nextTreeEntityIds)}
+                            isContainerRequired={Boolean(values.isRequiredHub)}
+                            onRequiredContainerChange={(nextValue) => setValue('isRequiredHub', nextValue)}
+                            isSingleContainer={Boolean(values.isSingleHub)}
+                            onSingleContainerChange={(nextValue) => setValue('isSingleHub', nextValue)}
+                            disabled={isLoading}
+                            error={errors.treeEntityIds}
+                            uiLocale={preferredVlcLocale}
+                            labelsOverride={containerSelectionLabels}
+                        />
+                    )
+                })
+            }
+
+            if (options.mode === 'edit' && options.entityId && showAttributesTab) {
+                tabs.push({
+                    id: 'fieldDefinitions',
+                    label: t('entities.instances.tabs.fieldDefinitions', 'Attributes'),
+                    content: (
+                        <FieldDefinitionListContent
+                            metahubId={metahubId}
+                            linkedCollectionId={options.entityId}
+                            title={null}
+                            emptyTitle={t('entities.instances.fieldDefinitions.emptyTitle', 'No fieldDefinitions')}
+                            emptyDescription={t(
+                                'entities.instances.fieldDefinitions.emptyDescription',
+                                'Create the first attribute to define the schema for this custom entity kind.'
+                            )}
+                            renderPageShell={false}
+                            showCatalogTabs={false}
+                            showSettingsTab={false}
+                            allowSystemTab={false}
+                        />
+                    )
+                })
+            }
+
+            if (options.mode === 'edit' && options.entityId && showLayoutTab && metahubId) {
+                tabs.push({
+                    id: 'layout',
+                    label: t('linkedCollections.tabs.layout', 'Layouts'),
+                    content: (
+                        <LayoutList
+                            metahubId={metahubId}
+                            linkedCollectionId={options.entityId}
+                            detailBasePath={buildEntityInstanceLayoutBasePath(metahubId, resolvedKindKey, options.entityId)}
+                            title={null}
+                            emptyTitle={
+                                usesLinkedCollectionAuthoring
+                                    ? t('linkedCollections.layoutTab.emptyTitle', 'No catalog layouts')
+                                    : t('entities.instances.layouts.emptyTitle', 'No layouts')
+                            }
+                            emptyDescription={
+                                usesLinkedCollectionAuthoring
+                                    ? t(
+                                          'linkedCollections.layoutTab.emptyDescription',
+                                          'This catalog currently uses the active global layout. Create the first catalog layout to override widgets and catalog runtime behavior.'
+                                      )
+                                    : t(
+                                          'entities.instances.layouts.emptyDescription',
+                                          'Create the first layout to override the default runtime arrangement for this custom entity kind.'
+                                      )
+                            }
+                            embedded
+                        />
+                    )
+                })
+            }
+
+            if (options.mode === 'edit' && options.entityId && showScriptsTab && metahubId) {
+                tabs.push(
+                    createScriptsTab({
+                        t: translate,
+                        metahubId,
+                        attachedToKind: usesLinkedCollectionAuthoring ? 'catalog' : resolvedKindKey,
+                        attachedToId: options.entityId
+                    })
+                )
+            }
+
+            if (options.mode === 'edit' && options.entityId && showActionsTab) {
+                tabs.push(
+                    createEntityActionsTab({
+                        t: translate,
+                        metahubId,
+                        entityId: options.entityId,
+                        attachedToKind: usesLinkedCollectionAuthoring ? 'catalog' : resolvedKindKey
+                    })
+                )
+            }
+
+            if (options.mode === 'edit' && options.entityId && showEventsTab) {
+                tabs.push(
+                    createEntityEventsTab({
+                        t: translate,
+                        metahubId,
+                        entityId: options.entityId,
+                        attachedToKind: usesLinkedCollectionAuthoring ? 'catalog' : resolvedKindKey
+                    })
+                )
+            }
+
+            if (options.mode === 'copy' && usesLinkedCollectionAuthoring) {
+                tabs.push({
+                    id: 'options',
+                    label: t('linkedCollections.tabs.options', 'Options'),
+                    content: <LinkedCollectionCopyOptionsTab values={values} setValue={setValue} isLoading={isLoading} t={translate} />
+                })
+            }
+
+            return tabs
+        },
+        [
+            containerSelectionLabels,
+            treeEntities,
+            usesLinkedCollectionAuthoring,
+            metahubId,
+            preferredVlcLocale,
+            resolvedKindKey,
+            showAttributesTab,
+            showActionsTab,
+            showEventsTab,
+            showHubsTab,
+            showLayoutTab,
+            showScriptsTab,
+            t,
+            translate,
+            tc
+        ]
+    )
+
+    const renderHubSummary = useCallback(
+        (row: EntityInstanceDisplayRow) => {
+            if (row.treeEntityIds.length === 0) {
+                return (
+                    <Typography variant='body2' color='text.secondary'>
+                        -
+                    </Typography>
+                )
+            }
+
+            return (
+                <Stack direction='row' spacing={0.5} useFlexGap flexWrap='wrap'>
+                    {row.treeEntityIds.slice(0, 2).map((treeEntityId) => (
+                        <Chip key={treeEntityId} size='small' variant='outlined' label={hubNameById.get(treeEntityId) ?? treeEntityId} />
+                    ))}
+                    {row.treeEntityIds.length > 2 ? (
+                        <Chip size='small' variant='outlined' label={`+${row.treeEntityIds.length - 2}`} />
+                    ) : null}
+                </Stack>
+            )
+        },
+        [hubNameById]
+    )
+
+    const columns = useMemo(() => {
+        const baseColumns = [
+            {
+                id: 'sortOrder',
+                label: t('entities.instances.columns.sortOrder', '#'),
+                width: '8%',
+                sortable: true,
+                sortAccessor: (row: EntityInstanceDisplayRow) => row.sortOrder ?? 0,
+                render: (row: EntityInstanceDisplayRow) => (
+                    <Typography variant='body2' sx={{ fontWeight: 600 }}>
+                        {typeof row.sortOrder === 'number' ? row.sortOrder : '-'}
+                    </Typography>
+                )
+            },
+            {
+                id: 'name',
+                label: tc('table.name', 'Name'),
+                width: '24%',
+                sortable: true,
+                sortAccessor: (row: EntityInstanceDisplayRow) => row.name.toLowerCase(),
+                render: (row: EntityInstanceDisplayRow) => (
+                    <Typography variant='body2' sx={{ fontWeight: 500 }}>
+                        {row.name}
+                    </Typography>
+                )
+            },
+            {
+                id: 'codename',
+                label: tc('fields.codename', 'Codename'),
+                width: '20%',
+                sortable: true,
+                sortAccessor: (row: EntityInstanceDisplayRow) => row.codename.toLowerCase(),
+                render: (row: EntityInstanceDisplayRow) => (
+                    <Typography variant='body2' sx={{ fontFamily: 'monospace' }}>
+                        {row.codename || '-'}
+                    </Typography>
+                )
+            },
+            {
+                id: 'treeEntities',
+                label: t('entities.instances.columns.containers', 'Containers'),
+                width: '24%',
+                sortable: true,
+                sortAccessor: (row: EntityInstanceDisplayRow) => row.treeEntityIds.length,
+                render: (row: EntityInstanceDisplayRow) => renderHubSummary(row)
+            },
+            {
+                id: 'updatedAt',
+                label: t('entities.columns.updatedAt', 'Updated'),
+                width: showDeleted ? '14%' : '24%',
+                sortable: true,
+                sortAccessor: (row: EntityInstanceDisplayRow) => row.updatedAt ?? '',
+                render: (row: EntityInstanceDisplayRow) => (
+                    <Typography variant='body2'>{row.updatedAt ? new Date(row.updatedAt).toLocaleDateString() : '-'}</Typography>
+                )
+            }
+        ]
+
+        if (!showDeleted) {
+            return baseColumns
+        }
+
+        return [
+            ...baseColumns,
+            {
+                id: 'status',
+                label: t('entities.instances.columns.status', 'Status'),
+                width: '10%',
+                sortable: true,
+                sortAccessor: (row: EntityInstanceDisplayRow) => (row.isDeleted ? 1 : 0),
+                render: (row: EntityInstanceDisplayRow) =>
+                    row.isDeleted ? <Chip size='small' color='warning' label={t('entities.instances.badges.deleted', 'Deleted')} /> : null
+            }
+        ]
+    }, [renderHubSummary, showDeleted, t, tc])
+
+    const renderRowActions = useCallback(
+        (row: EntityInstanceDisplayRow) => {
+            const canShowRestore = row.isDeleted && canRestoreEntityInstances
+            const canShowPermanentDelete = row.isDeleted && canDeleteEntityInstances
+            const canShowCopy = !row.isDeleted && canCopyEntityInstances
+            const canShowEdit = !row.isDeleted && canEditEntityInstances
+            const canShowDelete = !row.isDeleted && canDeleteEntityInstances
+
+            if (!canShowRestore && !canShowPermanentDelete && !canShowCopy && !canShowEdit && !canShowDelete) {
+                return null
+            }
+
+            return (
+                <Stack direction='row' spacing={0.5} onClick={(event) => event.stopPropagation()}>
+                    {row.isDeleted ? (
+                        <>
+                            {canShowRestore ? (
+                                <Tooltip title={t('common:actions.restore', 'Restore')}>
+                                    <IconButton
+                                        size='small'
+                                        color='primary'
+                                        aria-label={t('common:actions.restore', 'Restore')}
+                                        onClick={() => handleRestoreEntityRow(row)}
+                                        disabled={restoreEntityMutation.isPending}
+                                    >
+                                        <RestoreRoundedIcon fontSize='small' />
+                                    </IconButton>
+                                </Tooltip>
+                            ) : null}
+                            {canShowPermanentDelete ? (
+                                <Tooltip title={t('common:actions.deletePermanently', 'Delete permanently')}>
+                                    <IconButton
+                                        size='small'
+                                        color='error'
+                                        aria-label={t('common:actions.deletePermanently', 'Delete permanently')}
+                                        onClick={() => handleSelectPermanentDeleteTargetRow(row)}
+                                        disabled={permanentDeleteEntityMutation.isPending}
+                                    >
+                                        <DeleteForeverRoundedIcon fontSize='small' />
+                                    </IconButton>
+                                </Tooltip>
+                            ) : null}
+                        </>
+                    ) : (
+                        <>
+                            {canShowCopy ? (
+                                <Tooltip title={tc('actions.copy', 'Copy')}>
+                                    <IconButton size='small' aria-label={tc('actions.copy', 'Copy')} onClick={() => handleOpenCopyRow(row)}>
+                                        <ContentCopyRoundedIcon fontSize='small' />
+                                    </IconButton>
+                                </Tooltip>
+                            ) : null}
+                            {canShowEdit ? (
+                                <Tooltip title={tc('actions.edit', 'Edit')}>
+                                    <IconButton size='small' aria-label={tc('actions.edit', 'Edit')} onClick={() => handleOpenEditRow(row)}>
+                                        <EditRoundedIcon fontSize='small' />
+                                    </IconButton>
+                                </Tooltip>
+                            ) : null}
+                            {canShowDelete ? (
+                                <Tooltip title={tc('actions.delete', 'Delete')}>
+                                    <IconButton
+                                        size='small'
+                                        color='error'
+                                        aria-label={tc('actions.delete', 'Delete')}
+                                        onClick={() => handleOpenDeleteRow(row)}
+                                    >
+                                        <DeleteOutlineRoundedIcon fontSize='small' />
+                                    </IconButton>
+                                </Tooltip>
+                            ) : null}
+                        </>
+                    )}
+                </Stack>
+            )
+        },
+        [
+            canCopyEntityInstances,
+            canDeleteEntityInstances,
+            canEditEntityInstances,
+            canRestoreEntityInstances,
+            handleOpenCopyRow,
+            handleOpenDeleteRow,
+            handleOpenEditRow,
+            handleRestoreEntityRow,
+            handleSelectPermanentDeleteTargetRow,
+            permanentDeleteEntityMutation.isPending,
+            restoreEntityMutation.isPending,
+            t,
+            tc
+        ]
+    )
+
+    const renderCardAction = useCallback(
+        (row: EntityInstanceDisplayRow) => {
+            const canShowRestore = row.isDeleted && canRestoreEntityInstances
+            const canShowPermanentDelete = row.isDeleted && canDeleteEntityInstances
+            const canShowCopy = !row.isDeleted && canCopyEntityInstances
+            const canShowEdit = !row.isDeleted && canEditEntityInstances
+            const canShowDelete = !row.isDeleted && canDeleteEntityInstances
+
+            if (!canShowRestore && !canShowPermanentDelete && !canShowCopy && !canShowEdit && !canShowDelete) {
+                return null
+            }
+
+            return (
+                <Stack direction='row' spacing={0.5} onClick={(event) => event.stopPropagation()}>
+                    {row.isDeleted ? (
+                        <>
+                            {canShowRestore ? (
+                                <Tooltip title={t('common:actions.restore', 'Restore')}>
+                                    <IconButton
+                                        size='small'
+                                        color='primary'
+                                        aria-label={t('common:actions.restore', 'Restore')}
+                                        onClick={() => handleRestoreEntityRow(row)}
+                                        disabled={restoreEntityMutation.isPending}
+                                    >
+                                        <RestoreRoundedIcon fontSize='small' />
+                                    </IconButton>
+                                </Tooltip>
+                            ) : null}
+                            {canShowPermanentDelete ? (
+                                <Tooltip title={t('common:actions.deletePermanently', 'Delete permanently')}>
+                                    <IconButton
+                                        size='small'
+                                        color='error'
+                                        aria-label={t('common:actions.deletePermanently', 'Delete permanently')}
+                                        onClick={() => handleSelectPermanentDeleteTargetRow(row)}
+                                        disabled={permanentDeleteEntityMutation.isPending}
+                                    >
+                                        <DeleteForeverRoundedIcon fontSize='small' />
+                                    </IconButton>
+                                </Tooltip>
+                            ) : null}
+                        </>
+                    ) : (
+                        <>
+                            {canShowCopy ? (
+                                <Tooltip title={tc('actions.copy', 'Copy')}>
+                                    <IconButton size='small' aria-label={tc('actions.copy', 'Copy')} onClick={() => handleOpenCopyRow(row)}>
+                                        <ContentCopyRoundedIcon fontSize='small' />
+                                    </IconButton>
+                                </Tooltip>
+                            ) : null}
+                            {canShowEdit ? (
+                                <Tooltip title={tc('actions.edit', 'Edit')}>
+                                    <IconButton size='small' aria-label={tc('actions.edit', 'Edit')} onClick={() => handleOpenEditRow(row)}>
+                                        <EditRoundedIcon fontSize='small' />
+                                    </IconButton>
+                                </Tooltip>
+                            ) : null}
+                            {canShowDelete ? (
+                                <Tooltip title={tc('actions.delete', 'Delete')}>
+                                    <IconButton
+                                        size='small'
+                                        color='error'
+                                        aria-label={tc('actions.delete', 'Delete')}
+                                        onClick={() => handleOpenDeleteRow(row)}
+                                    >
+                                        <DeleteOutlineRoundedIcon fontSize='small' />
+                                    </IconButton>
+                                </Tooltip>
+                            ) : null}
+                        </>
+                    )}
+                </Stack>
+            )
+        },
+        [
+            canCopyEntityInstances,
+            canDeleteEntityInstances,
+            canEditEntityInstances,
+            canRestoreEntityInstances,
+            handleOpenCopyRow,
+            handleOpenDeleteRow,
+            handleOpenEditRow,
+            handleRestoreEntityRow,
+            handleSelectPermanentDeleteTargetRow,
+            permanentDeleteEntityMutation.isPending,
+            restoreEntityMutation.isPending,
+            t,
+            tc
+        ]
+    )
+
+    const entityTypeLoadError = useMemo(() => {
+        if (!entityTypesQuery.error) return null
+        return entityTypesQuery.error instanceof Error && entityTypesQuery.error.message
+            ? entityTypesQuery.error.message
+            : t('entities.instances.typeLoadError', 'Failed to load the custom entity type definition')
+    }, [entityTypesQuery.error, t])
+
+    const instancesLoadError = useMemo(() => {
+        if (!paginationResult.error) return null
+        return paginationResult.error.message || t('entities.instances.loadError', 'Failed to load entity instances')
+    }, [paginationResult.error, t])
+
+    const isMissingEntityType = Boolean(!entityTypesQuery.isLoading && !entityType && resolvedKindKey)
+
+    return (
+        <ExistingCodenamesProvider entities={codenameEntities}>
+            <MainCard
+                sx={{ maxWidth: '100%', width: '100%' }}
+                contentSX={{ px: 0, py: 0 }}
+                disableContentPadding
+                disableHeader
+                border={false}
+                shadow={false}
+            >
+                <Stack flexDirection='column' sx={{ gap: 1 }}>
+                    <ViewHeader
+                        title={t('entities.instances.title', {
+                            name: resolvedEntityTypeName,
+                            defaultValue: '{{name}} instances'
+                        })}
+                        description={t('entities.instances.description', {
+                            name: resolvedEntityTypeName,
+                            kindKey: resolvedKindKey,
+                            defaultValue: usesLinkedCollectionAuthoring
+                                ? 'Manage {{name}} through the shared catalog authoring surface on the unified entity-owned route for kind {{kindKey}}.'
+                                : 'Manage {{name}} instances on the unified entity-owned route for kind {{kindKey}}.'
+                        })}
+                        search
+                        searchValue={searchValue}
+                        onSearchChange={handleSearchChange}
+                        searchPlaceholder={t('entities.instances.searchPlaceholder', 'Search entity instances...')}
+                    >
+                        <ToolbarControls
+                            viewToggleEnabled
+                            viewMode={view}
+                            onViewModeChange={(nextView) => setStoredView(nextView)}
+                            cardViewTitle={tc('cardView')}
+                            listViewTitle={tc('listView')}
+                            primaryAction={
+                                canManageEntityInstances
+                                    ? {
+                                          label: usesLinkedCollectionAuthoring
+                                              ? t('linkedCollections.create', 'Create LinkedCollectionEntity')
+                                              : t('entities.instances.actions.create', 'Create entity'),
+                                          onClick: handleOpenCreate,
+                                          startIcon: <AddRoundedIcon />,
+                                          disabled: !entityType
+                                      }
+                                    : undefined
+                            }
+                        >
+                            <FormControlLabel
+                                control={
+                                    <Switch size='small' checked={showDeleted} onChange={(event) => setShowDeleted(event.target.checked)} />
+                                }
+                                label={t('entities.instances.filters.showDeleted', 'Show deleted')}
+                                sx={{ mx: 0.5 }}
+                            />
+                        </ToolbarControls>
+                    </ViewHeader>
+
+                    <Alert severity='info'>
+                        {usesLinkedCollectionAuthoring
+                            ? t(
+                                  'entities.instances.linkedCollectionBanner',
+                                  'This page reuses the shared linked-collection authoring contract on the unified entity-owned route, including linked-collection copy options, layouts, and scripts.'
+                              )
+                            : t('entities.instances.banner', {
+                                  name: resolvedEntityTypeName,
+                                  defaultValue:
+                                      'This page authors design-time instances for the selected entity kind on the unified entity-owned route surface.'
+                              })}
+                    </Alert>
+
+                    {showManageEntityInstancesNotice ? (
+                        <Alert severity='info'>
+                            {t(
+                                'entities.instances.noManagePermission',
+                                'You do not have permission to manage entity instances for this metahub.'
+                            )}
+                        </Alert>
+                    ) : null}
+
+                    {entityTypeLoadError ? <Alert severity='error'>{entityTypeLoadError}</Alert> : null}
+                    {instancesLoadError ? <Alert severity='error'>{instancesLoadError}</Alert> : null}
+
+                    {entityTypesQuery.isLoading && !entityType ? (
+                        view === 'card' ? (
+                            <SkeletonGrid insetMode='content' />
+                        ) : (
+                            <Skeleton variant='rectangular' height={120} />
+                        )
+                    ) : isMissingEntityType ? (
+                        <EmptyListState
+                            image={APIEmptySVG}
+                            imageAlt='Missing entity type'
+                            title={t('entities.instances.customOnly', 'Custom entity type not found')}
+                            description={t(
+                                'entities.instances.customOnlyDescription',
+                                'Generic entity instance authoring is available only for custom entity kinds that still exist in the current metahub.'
+                            )}
+                        />
+                    ) : instanceRows.length === 0 ? (
+                        <EmptyListState
+                            image={APIEmptySVG}
+                            imageAlt='No entity instances'
+                            title={
+                                searchValue
+                                    ? t('entities.instances.noSearchResults', 'No entity instances found')
+                                    : t('entities.instances.empty', 'No entity instances yet')
+                            }
+                            description={
+                                searchValue
+                                    ? t(
+                                          'entities.instances.noSearchResultsDescription',
+                                          'Try a different search query or clear the filter.'
+                                      )
+                                    : t(
+                                          'entities.instances.emptyDescription',
+                                          'Create the first instance to start authoring this custom entity kind.'
+                                      )
+                            }
+                        />
+                    ) : view === 'card' ? (
+                        <Box
+                            sx={{
+                                display: 'grid',
+                                gap: gridSpacing,
+                                gridTemplateColumns: {
+                                    xs: '1fr',
+                                    sm: 'repeat(auto-fill, minmax(240px, 1fr))',
+                                    lg: 'repeat(auto-fill, minmax(280px, 1fr))'
+                                }
+                            }}
+                        >
+                            {instanceRows.map((row) => (
+                                <ItemCard
+                                    key={row.id}
+                                    data={{ name: row.name, description: row.description }}
+                                    onClick={!row.isDeleted && canEditEntityInstances ? () => handleOpenEditRow(row) : undefined}
+                                    headerAction={renderCardAction(row)}
+                                    footerStartContent={
+                                        <Stack direction='row' spacing={0.5} useFlexGap flexWrap='wrap'>
+                                            <Chip size='small' variant='outlined' label={row.codename || row.id} />
+                                            {row.isDeleted ? (
+                                                <Chip
+                                                    size='small'
+                                                    color='warning'
+                                                    label={t('entities.instances.badges.deleted', 'Deleted')}
+                                                />
+                                            ) : null}
+                                        </Stack>
+                                    }
+                                    footerEndContent={
+                                        <Typography variant='caption' color='text.secondary'>
+                                            {row.updatedAt ? new Date(row.updatedAt).toLocaleDateString() : '-'}
+                                        </Typography>
+                                    }
+                                />
+                            ))}
+                        </Box>
+                    ) : (
+                        <Box>
+                            <FlowListTable<EntityInstanceDisplayRow>
+                                data={instanceRows}
+                                isLoading={paginationResult.isLoading}
+                                customColumns={columns}
+                                i18nNamespace='flowList'
+                                renderActions={renderRowActions}
+                                initialOrder='desc'
+                                initialOrderBy='updatedAt'
+                                getRowSx={(row) => (row.isDeleted ? { backgroundColor: (theme) => theme.palette.action.hover } : undefined)}
+                            />
+                        </Box>
+                    )}
+
+                    {instanceRows.length > 0 ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', px: { xs: 0, md: 1 } }}>
+                            <PaginationControls
+                                pagination={paginationResult.pagination}
+                                actions={paginationResult.actions}
+                                isLoading={paginationResult.isLoading}
+                                rowsPerPageOptions={[10, 20, 50, 100]}
+                                namespace='common'
+                            />
+                        </Box>
+                    ) : null}
+                </Stack>
+
+                <EntityFormDialog
+                    open={dialogs.create.open && canCreateEntityInstances}
+                    mode='create'
+                    title={
+                        usesLinkedCollectionAuthoring
+                            ? t('linkedCollections.createDialog.title', 'Create LinkedCollectionEntity')
+                            : t('entities.instances.createDialog.title', 'Create Entity')
+                    }
+                    nameLabel={tc('fields.name', 'Name')}
+                    descriptionLabel={tc('fields.description', 'Description')}
+                    saveButtonText={usesLinkedCollectionAuthoring ? t('common:actions.create', 'Create') : tc('actions.create', 'Create')}
+                    savingButtonText={
+                        usesLinkedCollectionAuthoring ? t('common:actions.creating', 'Creating...') : tc('actions.creating', 'Creating...')
+                    }
+                    cancelButtonText={tc('actions.cancel', 'Cancel')}
+                    onClose={() => close('create')}
+                    onSave={handleCreateEntity}
+                    hideDefaultFields
+                    initialExtraValues={createInitialValues}
+                    tabs={(helpers) => buildFormTabs(helpers, { mode: 'create' })}
+                    validate={validateEntityForm}
+                    canSave={canSaveEntityForm}
+                    loading={createEntityMutation.isPending}
+                />
+
+                <EntityFormDialog
+                    open={dialogs.edit.open && canEditEntityInstances}
+                    mode='edit'
+                    title={
+                        usesLinkedCollectionAuthoring
+                            ? t('linkedCollections.editDialog.title', 'Edit LinkedCollectionEntity')
+                            : t('entities.instances.editDialog.title', 'Edit Entity')
+                    }
+                    nameLabel={tc('fields.name', 'Name')}
+                    descriptionLabel={tc('fields.description', 'Description')}
+                    saveButtonText={tc('actions.save', 'Save')}
+                    savingButtonText={tc('actions.saving', 'Saving...')}
+                    cancelButtonText={tc('actions.cancel', 'Cancel')}
+                    onClose={() => close('edit')}
+                    onSave={handleUpdateEntity}
+                    hideDefaultFields
+                    initialExtraValues={editInitialValues}
+                    tabs={(helpers) => buildFormTabs(helpers, { mode: 'edit', entityId: dialogs.edit.item?.id ?? null })}
+                    validate={validateEntityForm}
+                    canSave={canSaveEntityForm}
+                    loading={updateEntityMutation.isPending || editEntityDetailQuery.isLoading}
+                />
+
+                <EntityFormDialog
+                    open={dialogs.copy.open && canCopyEntityInstances}
+                    mode='copy'
+                    title={
+                        usesLinkedCollectionAuthoring
+                            ? t('linkedCollections.copyTitle', 'Copying LinkedCollectionEntity')
+                            : t('entities.instances.copyDialog.title', 'Copy Entity')
+                    }
+                    nameLabel={tc('fields.name', 'Name')}
+                    descriptionLabel={tc('fields.description', 'Description')}
+                    saveButtonText={usesLinkedCollectionAuthoring ? t('linkedCollections.copy.action', 'Copy') : tc('actions.copy', 'Copy')}
+                    savingButtonText={
+                        usesLinkedCollectionAuthoring
+                            ? t('linkedCollections.copy.actionLoading', 'Copying...')
+                            : t('entities.instances.copyDialog.copying', 'Copying...')
+                    }
+                    cancelButtonText={tc('actions.cancel', 'Cancel')}
+                    onClose={() => close('copy')}
+                    onSave={handleCopyEntity}
+                    hideDefaultFields
+                    initialExtraValues={copyInitialValues}
+                    tabs={(helpers) => buildFormTabs(helpers, { mode: 'copy' })}
+                    validate={validateEntityForm}
+                    canSave={canSaveEntityForm}
+                    loading={copyEntityMutation.isPending || copyEntityDetailQuery.isLoading}
+                />
+
+                <ConfirmDeleteDialog
+                    open={dialogs.delete.open && !usesLinkedCollectionAuthoring && canDeleteEntityInstances}
+                    title={
+                        usesLinkedCollectionAuthoring
+                            ? t('linkedCollections.deleteDialog.title', 'Delete LinkedCollectionEntity')
+                            : t('entities.instances.deleteDialog.title', 'Delete Entity')
+                    }
+                    description={
+                        usesLinkedCollectionAuthoring
+                            ? t('entities.instances.linkedCollectionDeleteDialog.description', {
+                                  name: dialogs.delete.item
+                                      ? buildInstanceDisplayRow(dialogs.delete.item, preferredVlcLocale, translate).name
+                                      : resolvedEntityTypeName,
+                                  defaultValue:
+                                      'Delete linked collection "{{name}}"? You can restore it later while deleted items are visible.'
+                              })
+                            : t('entities.instances.deleteDialog.description', {
+                                  name: dialogs.delete.item
+                                      ? buildInstanceDisplayRow(dialogs.delete.item, preferredVlcLocale, translate).name
+                                      : resolvedEntityTypeName,
+                                  defaultValue: 'Delete entity "{{name}}"? You can restore it later while deleted items are visible.'
+                              })
+                    }
+                    confirmButtonText={tc('actions.delete', 'Delete')}
+                    deletingButtonText={tc('actions.deleting', 'Deleting...')}
+                    cancelButtonText={tc('actions.cancel', 'Cancel')}
+                    onCancel={() => close('delete')}
+                    onConfirm={handleDeleteEntity}
+                    loading={deleteEntityMutation.isPending}
+                />
+
+                <LinkedCollectionDeleteDialog
+                    open={Boolean(blockingDeleteTarget) && canDeleteEntityInstances && usesLinkedCollectionAuthoring}
+                    catalog={blockingDeleteCatalog}
+                    metahubId={metahubId ?? ''}
+                    onClose={() => setBlockingDeleteTarget(null)}
+                    onConfirm={() => {
+                        if (!metahubId || !blockingDeleteTarget) return
+
+                        deleteEntityMutation.mutate(
+                            {
+                                metahubId,
+                                entityId: blockingDeleteTarget.id,
+                                kind: resolvedKindKey
+                            },
+                            {
+                                onSuccess: () => {
+                                    setBlockingDeleteTarget(null)
+                                }
+                            }
+                        )
+                    }}
+                    isDeleting={deleteEntityMutation.isPending}
+                    uiLocale={preferredVlcLocale}
+                />
+
+                <ConfirmDeleteDialog
+                    open={Boolean(permanentDeleteTarget) && canDeleteEntityInstances}
+                    title={
+                        usesLinkedCollectionAuthoring
+                            ? t('entities.instances.linkedCollectionDeletePermanentDialog.title', 'Delete Linked Collection Permanently')
+                            : t('entities.instances.deletePermanentDialog.title', 'Delete Entity Permanently')
+                    }
+                    description={
+                        usesLinkedCollectionAuthoring
+                            ? t('entities.instances.linkedCollectionDeletePermanentDialog.description', {
+                                  name: permanentDeleteTarget
+                                      ? buildInstanceDisplayRow(permanentDeleteTarget, preferredVlcLocale, translate).name
+                                      : '',
+                                  defaultValue: 'Permanently delete linked collection "{{name}}"? This action cannot be undone.'
+                              })
+                            : t('entities.instances.deletePermanentDialog.description', {
+                                  name: permanentDeleteTarget
+                                      ? buildInstanceDisplayRow(permanentDeleteTarget, preferredVlcLocale, translate).name
+                                      : '',
+                                  defaultValue: 'Permanently delete entity "{{name}}"? This action cannot be undone.'
+                              })
+                    }
+                    confirmButtonText={t('common:actions.deletePermanently', 'Delete permanently')}
+                    deletingButtonText={
+                        usesLinkedCollectionAuthoring
+                            ? t('entities.instances.linkedCollectionDeletePermanentDialog.deleting', 'Deleting permanently...')
+                            : t('entities.instances.deletePermanentDialog.deleting', 'Deleting permanently...')
+                    }
+                    cancelButtonText={tc('actions.cancel', 'Cancel')}
+                    onCancel={() => setPermanentDeleteTarget(null)}
+                    onConfirm={handlePermanentDeleteEntity}
+                    loading={permanentDeleteEntityMutation.isPending}
+                />
+
+                <ConflictResolutionDialog
+                    open={conflictState.open && canEditEntityInstances}
+                    conflict={conflictState.conflict}
+                    onCancel={handleCloseConflict}
+                    onReload={handleReloadAfterConflict}
+                    onOverwrite={handleOverwriteConflict}
+                    isLoading={updateEntityMutation.isPending}
+                />
+            </MainCard>
+        </ExistingCodenamesProvider>
+    )
+}
+
+export default EntityInstanceListContent

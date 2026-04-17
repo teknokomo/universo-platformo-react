@@ -25,7 +25,7 @@ function makeMinimalSnapshot(): MetahubSnapshotTransportEnvelope['snapshot'] {
             }
         },
         elements: {},
-        enumerationValues: {},
+        optionValues: {},
         constants: {},
         systemFields: {},
         layouts: [],
@@ -231,8 +231,9 @@ describe('validateSnapshotEnvelope', () => {
             }
         })
 
-        ;(((envelope.snapshot as Record<string, unknown>).scripts as Array<Record<string, unknown>>)[0] as Record<string, unknown>).checksum =
-            'checksum-2'
+        ;(
+            ((envelope.snapshot as Record<string, unknown>).scripts as Array<Record<string, unknown>>)[0] as Record<string, unknown>
+        ).checksum = 'checksum-2'
 
         expect(() => validateSnapshotEnvelope(envelope)).toThrow('hash mismatch')
     })
@@ -248,8 +249,12 @@ describe('validateSnapshotEnvelope', () => {
             }
         })
 
-        ;(((envelope.snapshot as Record<string, unknown>).catalogLayoutWidgetOverrides as Array<Record<string, unknown>>)[0] as Record<string, unknown>).zone =
-            'footer'
+        ;(
+            ((envelope.snapshot as Record<string, unknown>).catalogLayoutWidgetOverrides as Array<Record<string, unknown>>)[0] as Record<
+                string,
+                unknown
+            >
+        ).zone = 'footer'
 
         expect(() => validateSnapshotEnvelope(envelope)).toThrow('hash mismatch')
     })

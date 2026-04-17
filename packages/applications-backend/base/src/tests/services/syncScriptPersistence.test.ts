@@ -1,4 +1,3 @@
-import type { ApplicationScriptDefinition } from '@universo/types'
 import type { PublishedApplicationSnapshot, SnapshotScriptDefinition } from '../../services/applicationSyncContracts'
 
 const createCodenameVlc = (primary: string, secondary?: string) => ({
@@ -118,7 +117,7 @@ const createSnapshot = (scripts: SnapshotScriptDefinition[]): PublishedApplicati
 const createLegacySnapshotWithoutScripts = (): PublishedApplicationSnapshot =>
     ({
         entities: {}
-    }) as PublishedApplicationSnapshot
+    } as PublishedApplicationSnapshot)
 
 const createMockSyncKnex = ({
     rows = [],
@@ -270,8 +269,7 @@ describe('syncScriptPersistence', () => {
                     codename: 'removed-widget'
                 })
             ],
-            indexDef:
-                'CREATE UNIQUE INDEX idx_app_scripts_codename_active ON _app_scripts (attached_to_kind, module_role, codename)'
+            indexDef: 'CREATE UNIQUE INDEX idx_app_scripts_codename_active ON _app_scripts (attached_to_kind, module_role, codename)'
         })
 
         await persistPublishedScripts({

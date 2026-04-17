@@ -59,55 +59,55 @@ const mocks = vi.hoisted(() => ({
     enqueueSnackbar: vi.fn(),
     t: (key: string, fallback?: string) => fallback ?? key,
     nextId: 1,
-    attributesApi: {
-        reorderAttribute: vi.fn(),
-        reorderAttributeDirect: vi.fn()
+    fieldDefinitionsApi: {
+        reorderFieldDefinition: vi.fn(),
+        reorderFieldDefinitionDirect: vi.fn()
     },
     hubsApi: {
-        createHub: vi.fn(),
-        updateHub: vi.fn(),
-        deleteHub: vi.fn(),
-        copyHub: vi.fn(),
-        reorderHub: vi.fn()
+        createTreeEntity: vi.fn(),
+        updateTreeEntity: vi.fn(),
+        deleteTreeEntity: vi.fn(),
+        copyTreeEntity: vi.fn(),
+        reorderTreeEntity: vi.fn()
     },
     catalogsApi: {
-        createCatalogAtMetahub: vi.fn(),
-        updateCatalogAtMetahub: vi.fn(),
-        deleteCatalogDirect: vi.fn(),
-        copyCatalog: vi.fn(),
-        createCatalog: vi.fn(),
-        updateCatalog: vi.fn(),
-        deleteCatalog: vi.fn(),
-        reorderCatalog: vi.fn()
+        createLinkedCollectionAtMetahub: vi.fn(),
+        updateLinkedCollectionAtMetahub: vi.fn(),
+        deleteLinkedCollectionDirect: vi.fn(),
+        copyLinkedCollection: vi.fn(),
+        createLinkedCollection: vi.fn(),
+        updateLinkedCollection: vi.fn(),
+        deleteLinkedCollection: vi.fn(),
+        reorderLinkedCollection: vi.fn()
     },
-    constantsApi: {
-        reorderConstant: vi.fn(),
-        reorderConstantDirect: vi.fn()
+    fixedValuesApi: {
+        reorderFixedValue: vi.fn(),
+        reorderFixedValueDirect: vi.fn()
     },
     setsApi: {
-        createSetAtMetahub: vi.fn(),
-        updateSetAtMetahub: vi.fn(),
-        deleteSetDirect: vi.fn(),
-        copySet: vi.fn(),
-        createSet: vi.fn(),
-        updateSet: vi.fn(),
-        deleteSet: vi.fn(),
-        reorderSet: vi.fn()
+        createValueGroupAtMetahub: vi.fn(),
+        updateValueGroupAtMetahub: vi.fn(),
+        deleteValueGroupDirect: vi.fn(),
+        copyValueGroup: vi.fn(),
+        createValueGroup: vi.fn(),
+        updateValueGroup: vi.fn(),
+        deleteValueGroup: vi.fn(),
+        reorderValueGroup: vi.fn()
     },
     enumerationsApi: {
-        createEnumerationAtMetahub: vi.fn(),
-        updateEnumerationAtMetahub: vi.fn(),
-        deleteEnumerationDirect: vi.fn(),
-        copyEnumeration: vi.fn(),
-        createEnumeration: vi.fn(),
-        updateEnumeration: vi.fn(),
-        deleteEnumeration: vi.fn(),
-        reorderEnumeration: vi.fn(),
-        createEnumerationValue: vi.fn(),
-        updateEnumerationValue: vi.fn(),
-        deleteEnumerationValue: vi.fn(),
-        copyEnumerationValue: vi.fn(),
-        reorderEnumerationValue: vi.fn()
+        createOptionListAtMetahub: vi.fn(),
+        updateOptionListAtMetahub: vi.fn(),
+        deleteOptionListDirect: vi.fn(),
+        copyOptionList: vi.fn(),
+        createOptionList: vi.fn(),
+        updateOptionList: vi.fn(),
+        deleteOptionList: vi.fn(),
+        reorderOptionList: vi.fn(),
+        createOptionValue: vi.fn(),
+        updateOptionValue: vi.fn(),
+        deleteOptionValue: vi.fn(),
+        copyOptionValue: vi.fn(),
+        reorderOptionValue: vi.fn()
     },
     layoutsApi: {
         createLayout: vi.fn(),
@@ -325,41 +325,41 @@ vi.mock('@universo/template-mui', () => ({
     })
 }))
 
-vi.mock('../../attributes/api', () => mocks.attributesApi)
-vi.mock('../../hubs/api', () => mocks.hubsApi)
-vi.mock('../../catalogs/api', () => mocks.catalogsApi)
-vi.mock('../../constants/api', () => mocks.constantsApi)
-vi.mock('../../sets/api', () => mocks.setsApi)
-vi.mock('../../enumerations/api', () => mocks.enumerationsApi)
+vi.mock('../../entities/metadata/fieldDefinition/api', () => mocks.fieldDefinitionsApi)
+vi.mock('../../entities/presets/api/trees', () => mocks.hubsApi)
+vi.mock('../../entities/presets/api/linkedCollections', () => mocks.catalogsApi)
+vi.mock('../../entities/metadata/fixedValue/api', () => mocks.fixedValuesApi)
+vi.mock('../../entities/presets/api/valueGroups', () => mocks.setsApi)
+vi.mock('../../entities/presets/api/optionLists', () => mocks.enumerationsApi)
 vi.mock('../../layouts/api', () => mocks.layoutsApi)
 vi.mock('../../publications/api', () => mocks.publicationsApi)
 
-import * as attributeHooks from '../../attributes/hooks/mutations'
-import * as hubHooks from '../../hubs/hooks/mutations'
-import * as catalogHooks from '../../catalogs/hooks/mutations'
-import * as setHooks from '../../sets/hooks/mutations'
-import * as constantHooks from '../../constants/hooks/mutations'
-import * as enumerationHooks from '../../enumerations/hooks/mutations'
+import * as attributeHooks from '../../entities/metadata/fieldDefinition/hooks/mutations'
+import * as hubHooks from '../../entities/presets/hooks/treeEntityMutations'
+import * as catalogHooks from '../../entities/presets/hooks/linkedCollectionMutations'
+import * as setHooks from '../../entities/presets/hooks/valueGroupMutations'
+import * as constantHooks from '../../entities/metadata/fixedValue/hooks/mutations'
+import * as enumerationHooks from '../../entities/presets/hooks/optionListMutations'
 import * as layoutHooks from '../../layouts/hooks/mutations'
 import * as publicationHooks from '../../publications/hooks/mutations'
 import { metahubsQueryKeys } from '../queryKeys'
 
-type ReorderAttributeParams = Parameters<ReturnType<typeof attributeHooks.useReorderAttribute>['mutate']>[0]
-type CreateHubParams = Parameters<ReturnType<typeof hubHooks.useCreateHub>['mutate']>[0]
-type UpdateHubParams = Parameters<ReturnType<typeof hubHooks.useUpdateHub>['mutate']>[0]
-type CopyHubParams = Parameters<ReturnType<typeof hubHooks.useCopyHub>['mutate']>[0]
-type CopyCatalogParams = Parameters<ReturnType<typeof catalogHooks.useCopyCatalog>['mutate']>[0]
-type CreateSetParams = Parameters<ReturnType<typeof setHooks.useCreateSetAtMetahub>['mutate']>[0]
-type UpdateSetParams = Parameters<ReturnType<typeof setHooks.useUpdateSetAtMetahub>['mutate']>[0]
-type CopySetParams = Parameters<ReturnType<typeof setHooks.useCopySet>['mutate']>[0]
-type ReorderConstantParams = Parameters<ReturnType<typeof constantHooks.useReorderConstant>['mutate']>[0]
-type CreateEnumerationParams = Parameters<ReturnType<typeof enumerationHooks.useCreateEnumerationAtMetahub>['mutate']>[0]
-type UpdateEnumerationParams = Parameters<ReturnType<typeof enumerationHooks.useUpdateEnumerationAtMetahub>['mutate']>[0]
-type CopyEnumerationParams = Parameters<ReturnType<typeof enumerationHooks.useCopyEnumeration>['mutate']>[0]
-type CreateEnumerationValueParams = Parameters<ReturnType<typeof enumerationHooks.useCreateEnumerationValue>['mutate']>[0]
-type UpdateEnumerationValueParams = Parameters<ReturnType<typeof enumerationHooks.useUpdateEnumerationValue>['mutate']>[0]
-type CopyEnumerationValueParams = Parameters<ReturnType<typeof enumerationHooks.useCopyEnumerationValue>['mutate']>[0]
-type ReorderEnumerationValueParams = Parameters<ReturnType<typeof enumerationHooks.useReorderEnumerationValue>['mutate']>[0]
+type ReorderAttributeParams = Parameters<ReturnType<typeof attributeHooks.useReorderFieldDefinition>['mutate']>[0]
+type CreateTreeEntityParams = Parameters<ReturnType<typeof hubHooks.useCreateTreeEntity>['mutate']>[0]
+type UpdateTreeEntityParams = Parameters<ReturnType<typeof hubHooks.useUpdateTreeEntity>['mutate']>[0]
+type CopyTreeEntityParams = Parameters<ReturnType<typeof hubHooks.useCopyTreeEntity>['mutate']>[0]
+type CopyLinkedCollectionParams = Parameters<ReturnType<typeof catalogHooks.useCopyLinkedCollection>['mutate']>[0]
+type CreateValueGroupParams = Parameters<ReturnType<typeof setHooks.useCreateValueGroupAtMetahub>['mutate']>[0]
+type UpdateValueGroupParams = Parameters<ReturnType<typeof setHooks.useUpdateValueGroupAtMetahub>['mutate']>[0]
+type CopyValueGroupParams = Parameters<ReturnType<typeof setHooks.useCopyValueGroup>['mutate']>[0]
+type ReorderConstantParams = Parameters<ReturnType<typeof constantHooks.useReorderFixedValue>['mutate']>[0]
+type CreateOptionListParams = Parameters<ReturnType<typeof enumerationHooks.useCreateOptionListAtMetahub>['mutate']>[0]
+type UpdateOptionListParams = Parameters<ReturnType<typeof enumerationHooks.useUpdateOptionListAtMetahub>['mutate']>[0]
+type CopyOptionListParams = Parameters<ReturnType<typeof enumerationHooks.useCopyOptionList>['mutate']>[0]
+type CreateOptionValueParams = Parameters<ReturnType<typeof enumerationHooks.useCreateOptionValue>['mutate']>[0]
+type UpdateOptionValueParams = Parameters<ReturnType<typeof enumerationHooks.useUpdateOptionValue>['mutate']>[0]
+type CopyOptionValueParams = Parameters<ReturnType<typeof enumerationHooks.useCopyOptionValue>['mutate']>[0]
+type ReorderOptionValueParams = Parameters<ReturnType<typeof enumerationHooks.useReorderOptionValue>['mutate']>[0]
 type CreateLayoutParams = Parameters<ReturnType<typeof layoutHooks.useCreateLayout>['mutate']>[0]
 type UpdateLayoutParams = Parameters<ReturnType<typeof layoutHooks.useUpdateLayout>['mutate']>[0]
 type CopyLayoutParams = Parameters<ReturnType<typeof layoutHooks.useCopyLayout>['mutate']>[0]
@@ -372,51 +372,51 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         mocks.nextId = 1
     })
 
-    it('applies optimistic create, update, delete, and copy state for hubs', async () => {
+    it('applies optimistic create, update, delete, and copy state for treeEntities', async () => {
         const metahubId = 'metahub-1'
-        const listKey = metahubsQueryKeys.hubsList(metahubId)
-        const detailKey = metahubsQueryKeys.hubDetail(metahubId, 'hub-1')
+        const listKey = metahubsQueryKeys.treeEntitiesList(metahubId)
+        const detailKey = metahubsQueryKeys.treeEntityDetail(metahubId, 'hub-1')
         const breadcrumbKey = ['breadcrumb', 'hub', metahubId, 'hub-1', 'en'] as const
 
-        const createHubRequest = createPromiseController<{ data: { id: string } }>()
+        const createTreeEntityRequest = createPromiseController<{ data: { id: string } }>()
         const updateHubRequest = createPromiseController<{ data: { id: string } }>()
         const deleteHubRequest = createPromiseController<void>()
         const copyHubRequest = createPromiseController<{ data: { id: string } }>()
 
-        mocks.hubsApi.createHub.mockReturnValue(createHubRequest.promise)
-        mocks.hubsApi.updateHub.mockReturnValue(updateHubRequest.promise)
-        mocks.hubsApi.deleteHub.mockReturnValue(deleteHubRequest.promise)
-        mocks.hubsApi.copyHub.mockReturnValue(copyHubRequest.promise)
+        mocks.hubsApi.createTreeEntity.mockReturnValue(createTreeEntityRequest.promise)
+        mocks.hubsApi.updateTreeEntity.mockReturnValue(updateHubRequest.promise)
+        mocks.hubsApi.deleteTreeEntity.mockReturnValue(deleteHubRequest.promise)
+        mocks.hubsApi.copyTreeEntity.mockReturnValue(copyHubRequest.promise)
 
         const queryClient = createTestQueryClient()
         queryClient.setQueryData(listKey, {
-            items: [{ id: 'hub-1', codename: 'hub-1', name: { en: 'Hub 1' }, catalogsCount: 1 }],
+            items: [{ id: 'hub-1', codename: 'hub-1', name: { en: 'TreeEntity 1' }, linkedCollectionsCount: 1 }],
             pagination: { total: 1 }
         })
         queryClient.setQueryData(detailKey, {
             id: 'hub-1',
             codename: 'hub-1',
-            name: { en: 'Hub 1' },
-            catalogsCount: 1
+            name: { en: 'TreeEntity 1' },
+            linkedCollectionsCount: 1
         })
 
-        let createHub: ReturnType<typeof hubHooks.useCreateHub> | undefined
-        let updateHub: ReturnType<typeof hubHooks.useUpdateHub> | undefined
-        let deleteHub: ReturnType<typeof hubHooks.useDeleteHub> | undefined
-        let copyHub: ReturnType<typeof hubHooks.useCopyHub> | undefined
+        let createTreeEntity: ReturnType<typeof hubHooks.useCreateTreeEntity> | undefined
+        let updateTreeEntity: ReturnType<typeof hubHooks.useUpdateTreeEntity> | undefined
+        let deleteTreeEntity: ReturnType<typeof hubHooks.useDeleteTreeEntity> | undefined
+        let copyTreeEntity: ReturnType<typeof hubHooks.useCopyTreeEntity> | undefined
 
         function Probe() {
-            createHub = hubHooks.useCreateHub()
-            updateHub = hubHooks.useUpdateHub()
-            deleteHub = hubHooks.useDeleteHub()
-            copyHub = hubHooks.useCopyHub()
+            createTreeEntity = hubHooks.useCreateTreeEntity()
+            updateTreeEntity = hubHooks.useUpdateTreeEntity()
+            deleteTreeEntity = hubHooks.useDeleteTreeEntity()
+            copyTreeEntity = hubHooks.useCopyTreeEntity()
             return null
         }
 
         render(createElement(QueryClientProvider, { client: queryClient }, createElement(Probe)))
 
         act(() => {
-            createHub!.mutate({ metahubId, data: { codename: 'hub-2', name: { en: 'Hub 2' } } } as CreateHubParams)
+            createTreeEntity!.mutate({ metahubId, data: { codename: 'hub-2', name: { en: 'TreeEntity 2' } } } as CreateTreeEntityParams)
         })
 
         await waitFor(() => {
@@ -424,17 +424,21 @@ describe('remaining metahubs optimistic mutation hooks', () => {
             const optimisticHub = data?.items.at(0)
             expect(optimisticHub?.codename).toBe('hub-2')
             expect(optimisticHub?.__pendingAction).toBe('create')
-            expect(queryClient.getQueryData(['breadcrumb', 'hub', metahubId, 'optimistic-1', 'en'])).toBe('Hub 2')
+            expect(queryClient.getQueryData(['breadcrumb', 'hub', metahubId, 'optimistic-1', 'en'])).toBe('TreeEntity 2')
         })
 
-        createHubRequest.resolve({ data: { id: 'hub-2' } })
+        createTreeEntityRequest.resolve({ data: { id: 'hub-2' } })
 
         await waitFor(() => {
-            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Hub created', { variant: 'success' })
+            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('TreeEntity created', { variant: 'success' })
         })
 
         act(() => {
-            updateHub!.mutate({ metahubId, hubId: 'hub-1', data: { name: { en: 'Hub 1 updated' } } } as UpdateHubParams)
+            updateTreeEntity!.mutate({
+                metahubId,
+                treeEntityId: 'hub-1',
+                data: { name: { en: 'TreeEntity 1 updated' } }
+            } as UpdateTreeEntityParams)
         })
 
         await waitFor(() => {
@@ -442,21 +446,21 @@ describe('remaining metahubs optimistic mutation hooks', () => {
             const updatedHub = data?.items.find((item) => item.id === 'hub-1')
             const detail = queryClient.getQueryData<Record<string, unknown>>(detailKey)
 
-            expect(updatedHub?.name).toEqual({ en: 'Hub 1 updated' })
+            expect(updatedHub?.name).toEqual({ en: 'TreeEntity 1 updated' })
             expect(updatedHub?.__pendingAction).toBe('update')
-            expect(detail?.name).toEqual({ en: 'Hub 1 updated' })
+            expect(detail?.name).toEqual({ en: 'TreeEntity 1 updated' })
             expect(detail?.__pendingAction).toBe('update')
-            expect(queryClient.getQueryData(breadcrumbKey)).toBe('Hub 1 updated')
+            expect(queryClient.getQueryData(breadcrumbKey)).toBe('TreeEntity 1 updated')
         })
 
         updateHubRequest.resolve({ data: { id: 'hub-1' } })
 
         await waitFor(() => {
-            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Hub updated', { variant: 'success' })
+            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('TreeEntity updated', { variant: 'success' })
         })
 
         act(() => {
-            deleteHub!.mutate({ metahubId, hubId: 'hub-1' })
+            deleteTreeEntity!.mutate({ metahubId, treeEntityId: 'hub-1' })
         })
 
         await waitFor(() => {
@@ -468,11 +472,11 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         deleteHubRequest.resolve()
 
         await waitFor(() => {
-            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Hub deleted', { variant: 'success' })
+            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('TreeEntity deleted', { variant: 'success' })
         })
 
         act(() => {
-            copyHub!.mutate({ metahubId, hubId: 'hub-1', data: { codename: 'hub-copy' } } as CopyHubParams)
+            copyTreeEntity!.mutate({ metahubId, treeEntityId: 'hub-1', data: { codename: 'hub-copy' } } as CopyTreeEntityParams)
         })
 
         await waitFor(() => {
@@ -485,26 +489,26 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         copyHubRequest.resolve({ data: { id: 'hub-copy' } })
 
         await waitFor(() => {
-            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Hub copied', { variant: 'success' })
+            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('TreeEntity copied', { variant: 'success' })
         })
     })
 
     it('rolls back failed hub create and removes optimistic breadcrumb', async () => {
         const metahubId = 'metahub-rollback'
-        const listKey = metahubsQueryKeys.hubsList(metahubId)
+        const listKey = metahubsQueryKeys.treeEntitiesList(metahubId)
 
-        mocks.hubsApi.createHub.mockRejectedValue(new Error('hub create failed'))
+        mocks.hubsApi.createTreeEntity.mockRejectedValue(new Error('hub create failed'))
 
         const queryClient = createTestQueryClient()
         queryClient.setQueryData(listKey, {
-            items: [{ id: 'hub-1', codename: 'hub-1', name: { en: 'Hub 1' } }],
+            items: [{ id: 'hub-1', codename: 'hub-1', name: { en: 'TreeEntity 1' } }],
             pagination: { total: 1 }
         })
 
-        let createHub: ReturnType<typeof hubHooks.useCreateHub> | undefined
+        let createTreeEntity: ReturnType<typeof hubHooks.useCreateTreeEntity> | undefined
 
         function Probe() {
-            createHub = hubHooks.useCreateHub()
+            createTreeEntity = hubHooks.useCreateTreeEntity()
             return null
         }
 
@@ -512,7 +516,10 @@ describe('remaining metahubs optimistic mutation hooks', () => {
 
         await act(async () => {
             await expect(
-                createHub!.mutateAsync({ metahubId, data: { codename: 'hub-2', name: { en: 'Hub 2' } } } as CreateHubParams)
+                createTreeEntity!.mutateAsync({
+                    metahubId,
+                    data: { codename: 'hub-2', name: { en: 'TreeEntity 2' } }
+                } as CreateTreeEntityParams)
             ).rejects.toThrow('hub create failed')
         })
 
@@ -523,47 +530,50 @@ describe('remaining metahubs optimistic mutation hooks', () => {
     })
 
     it('applies optimistic state for set mutations at metahub scope', async () => {
-        const metahubId = 'metahub-sets'
-        const listKey = metahubsQueryKeys.allSetsList(metahubId)
-        const hubListKey = metahubsQueryKeys.setsList(metahubId, 'hub-1')
+        const metahubId = 'metahub-valueGroups'
+        const listKey = metahubsQueryKeys.allValueGroupsList(metahubId)
+        const hubListKey = metahubsQueryKeys.valueGroupsList(metahubId, 'hub-1')
 
-        const createSetRequest = createPromiseController<{ data: { id: string } }>()
+        const createValueGroupRequest = createPromiseController<{ data: { id: string } }>()
         const updateSetRequest = createPromiseController<{ data: { id: string } }>()
         const deleteSetRequest = createPromiseController<void>()
-        const copySetRequest = createPromiseController<{ data: { id: string; hubs: Array<{ id: string }> } }>()
+        const copySetRequest = createPromiseController<{ data: { id: string; treeEntities: Array<{ id: string }> } }>()
 
-        mocks.setsApi.createSetAtMetahub.mockReturnValue(createSetRequest.promise)
-        mocks.setsApi.updateSetAtMetahub.mockReturnValue(updateSetRequest.promise)
-        mocks.setsApi.deleteSetDirect.mockReturnValue(deleteSetRequest.promise)
-        mocks.setsApi.copySet.mockReturnValue(copySetRequest.promise)
+        mocks.setsApi.createValueGroupAtMetahub.mockReturnValue(createValueGroupRequest.promise)
+        mocks.setsApi.updateValueGroupAtMetahub.mockReturnValue(updateSetRequest.promise)
+        mocks.setsApi.deleteValueGroupDirect.mockReturnValue(deleteSetRequest.promise)
+        mocks.setsApi.copyValueGroup.mockReturnValue(copySetRequest.promise)
 
         const queryClient = createTestQueryClient()
         queryClient.setQueryData(listKey, {
-            items: [{ id: 'set-1', codename: 'set-1', name: { en: 'Set 1' }, constantsCount: 1, hubs: [{ id: 'hub-1' }] }],
+            items: [{ id: 'set-1', codename: 'set-1', name: { en: 'Set 1' }, fixedValuesCount: 1, treeEntities: [{ id: 'hub-1' }] }],
             pagination: { total: 1 }
         })
         queryClient.setQueryData(hubListKey, {
-            items: [{ id: 'set-1', codename: 'set-1', name: { en: 'Set 1' }, constantsCount: 1, hubs: [{ id: 'hub-1' }] }],
+            items: [{ id: 'set-1', codename: 'set-1', name: { en: 'Set 1' }, fixedValuesCount: 1, treeEntities: [{ id: 'hub-1' }] }],
             pagination: { total: 1 }
         })
 
-        let createSet: ReturnType<typeof setHooks.useCreateSetAtMetahub> | undefined
-        let updateSet: ReturnType<typeof setHooks.useUpdateSetAtMetahub> | undefined
-        let deleteSet: ReturnType<typeof setHooks.useDeleteSet> | undefined
-        let copySet: ReturnType<typeof setHooks.useCopySet> | undefined
+        let createValueGroup: ReturnType<typeof setHooks.useCreateValueGroupAtMetahub> | undefined
+        let updateValueGroup: ReturnType<typeof setHooks.useUpdateValueGroupAtMetahub> | undefined
+        let deleteValueGroup: ReturnType<typeof setHooks.useDeleteValueGroup> | undefined
+        let copyValueGroup: ReturnType<typeof setHooks.useCopyValueGroup> | undefined
 
         function Probe() {
-            createSet = setHooks.useCreateSetAtMetahub()
-            updateSet = setHooks.useUpdateSetAtMetahub()
-            deleteSet = setHooks.useDeleteSet()
-            copySet = setHooks.useCopySet()
+            createValueGroup = setHooks.useCreateValueGroupAtMetahub()
+            updateValueGroup = setHooks.useUpdateValueGroupAtMetahub()
+            deleteValueGroup = setHooks.useDeleteValueGroup()
+            copyValueGroup = setHooks.useCopyValueGroup()
             return null
         }
 
         render(createElement(QueryClientProvider, { client: queryClient }, createElement(Probe)))
 
         act(() => {
-            createSet!.mutate({ metahubId, data: { codename: 'set-2', name: { en: 'Set 2' }, hubIds: ['hub-1'] } } as CreateSetParams)
+            createValueGroup!.mutate({
+                metahubId,
+                data: { codename: 'set-2', name: { en: 'Set 2' }, treeEntityIds: ['hub-1'] }
+            } as CreateValueGroupParams)
         })
 
         await waitFor(() => {
@@ -571,10 +581,14 @@ describe('remaining metahubs optimistic mutation hooks', () => {
             expect(data?.items.at(0)?.__pendingAction).toBe('create')
         })
 
-        createSetRequest.resolve({ data: { id: 'set-2' } })
+        createValueGroupRequest.resolve({ data: { id: 'set-2' } })
 
         act(() => {
-            updateSet!.mutate({ metahubId, setId: 'set-1', data: { name: { en: 'Set 1 updated' } } } as UpdateSetParams)
+            updateValueGroup!.mutate({
+                metahubId,
+                valueGroupId: 'set-1',
+                data: { name: { en: 'Set 1 updated' } }
+            } as UpdateValueGroupParams)
         })
 
         await waitFor(() => {
@@ -585,7 +599,7 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         updateSetRequest.resolve({ data: { id: 'set-1' } })
 
         act(() => {
-            deleteSet!.mutate({ metahubId, setId: 'set-1' })
+            deleteValueGroup!.mutate({ metahubId, valueGroupId: 'set-1' })
         })
 
         await waitFor(() => {
@@ -596,7 +610,7 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         deleteSetRequest.resolve()
 
         act(() => {
-            copySet!.mutate({ metahubId, setId: 'set-1', data: { name: { en: 'Set 1 copy' } } } as CopySetParams)
+            copyValueGroup!.mutate({ metahubId, valueGroupId: 'set-1', data: { name: { en: 'Set 1 copy' } } } as CopyValueGroupParams)
         })
 
         await waitFor(() => {
@@ -609,7 +623,7 @@ describe('remaining metahubs optimistic mutation hooks', () => {
             expect(copiedSetInHub?.__pendingAction).toBe('copy')
         })
 
-        copySetRequest.resolve({ data: { id: 'set-copy', hubs: [{ id: 'hub-1' }] } })
+        copySetRequest.resolve({ data: { id: 'set-copy', treeEntities: [{ id: 'hub-1' }] } })
 
         await waitFor(() => {
             expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Set copied', { variant: 'success' })
@@ -618,40 +632,40 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         })
     })
 
-    it('isolates optimistic set create state to the requested custom kind scope', async () => {
-        const metahubId = 'metahub-sets-kind'
-        const kindKey = 'custom.set-v2'
-        const scopedListKey = metahubsQueryKeys.allSetsList(metahubId, { kindKey })
-        const unscopedListKey = metahubsQueryKeys.allSetsList(metahubId)
+    it('isolates optimistic set create state to the requested standard kind scope', async () => {
+        const metahubId = 'metahub-valueGroups-kind'
+        const kindKey = 'set'
+        const scopedListKey = metahubsQueryKeys.allValueGroupsList(metahubId, { limit: 100, offset: 0, sortOrder: 'asc', kindKey })
+        const unscopedListKey = metahubsQueryKeys.allValueGroupsList(metahubId)
 
-        const createSetRequest = createPromiseController<{ data: { id: string } }>()
-        mocks.setsApi.createSetAtMetahub.mockReturnValue(createSetRequest.promise)
+        const createValueGroupRequest = createPromiseController<{ data: { id: string } }>()
+        mocks.setsApi.createValueGroupAtMetahub.mockReturnValue(createValueGroupRequest.promise)
 
         const queryClient = createTestQueryClient()
         queryClient.setQueryData(scopedListKey, {
-            items: [{ id: 'set-custom-1', codename: 'set-custom-1', name: { en: 'Scoped Set 1' }, constantsCount: 1 }],
+            items: [{ id: 'set-custom-1', codename: 'set-custom-1', name: { en: 'Scoped Set 1' }, fixedValuesCount: 1 }],
             pagination: { total: 1 }
         })
         queryClient.setQueryData(unscopedListKey, {
-            items: [{ id: 'set-legacy-1', codename: 'set-legacy-1', name: { en: 'Legacy Set 1' }, constantsCount: 1 }],
+            items: [{ id: 'set-legacy-1', codename: 'set-legacy-1', name: { en: 'Legacy Set 1' }, fixedValuesCount: 1 }],
             pagination: { total: 1 }
         })
 
-        let createSet: ReturnType<typeof setHooks.useCreateSetAtMetahub> | undefined
+        let createValueGroup: ReturnType<typeof setHooks.useCreateValueGroupAtMetahub> | undefined
 
         function Probe() {
-            createSet = setHooks.useCreateSetAtMetahub()
+            createValueGroup = setHooks.useCreateValueGroupAtMetahub()
             return null
         }
 
         render(createElement(QueryClientProvider, { client: queryClient }, createElement(Probe)))
 
         act(() => {
-            createSet!.mutate({
+            createValueGroup!.mutate({
                 metahubId,
                 kindKey,
                 data: { codename: 'set-custom-2', name: { en: 'Scoped Set 2' } }
-            } as CreateSetParams)
+            } as CreateValueGroupParams)
         })
 
         await waitFor(() => {
@@ -663,42 +677,46 @@ describe('remaining metahubs optimistic mutation hooks', () => {
             expect(unscopedData?.items.at(0)?.id).toBe('set-legacy-1')
         })
 
-        createSetRequest.resolve({ data: { id: 'set-custom-2' } })
+        createValueGroupRequest.resolve({ data: { id: 'set-custom-2' } })
 
         await waitFor(() => {
             expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Set created', { variant: 'success' })
         })
     })
 
-    it('applies optimistic copy state for catalogs in both metahub and hub scopes', async () => {
-        const metahubId = 'metahub-catalogs'
-        const listKey = metahubsQueryKeys.allCatalogsList(metahubId)
-        const hubListKey = metahubsQueryKeys.catalogsList(metahubId, 'hub-1')
-        const copyCatalogRequest = createPromiseController<{ data: { id: string; hubs: Array<{ id: string }> } }>()
+    it('applies optimistic copy state for linkedCollections in both metahub and hub scopes', async () => {
+        const metahubId = 'metahub-linkedCollections'
+        const listKey = metahubsQueryKeys.allLinkedCollectionsList(metahubId)
+        const hubListKey = metahubsQueryKeys.linkedCollectionsList(metahubId, 'hub-1')
+        const copyCatalogRequest = createPromiseController<{ data: { id: string; treeEntities: Array<{ id: string }> } }>()
 
-        mocks.catalogsApi.copyCatalog.mockReturnValue(copyCatalogRequest.promise)
+        mocks.catalogsApi.copyLinkedCollection.mockReturnValue(copyCatalogRequest.promise)
 
         const queryClient = createTestQueryClient()
         queryClient.setQueryData(listKey, {
-            items: [{ id: 'catalog-1', codename: 'catalog-1', name: { en: 'Catalog 1' }, hubs: [{ id: 'hub-1' }] }],
+            items: [{ id: 'catalog-1', codename: 'catalog-1', name: { en: 'LinkedCollectionEntity 1' }, treeEntities: [{ id: 'hub-1' }] }],
             pagination: { total: 1 }
         })
         queryClient.setQueryData(hubListKey, {
-            items: [{ id: 'catalog-1', codename: 'catalog-1', name: { en: 'Catalog 1' }, hubs: [{ id: 'hub-1' }] }],
+            items: [{ id: 'catalog-1', codename: 'catalog-1', name: { en: 'LinkedCollectionEntity 1' }, treeEntities: [{ id: 'hub-1' }] }],
             pagination: { total: 1 }
         })
 
-        let copyCatalog: ReturnType<typeof catalogHooks.useCopyCatalog> | undefined
+        let copyLinkedCollection: ReturnType<typeof catalogHooks.useCopyLinkedCollection> | undefined
 
         function Probe() {
-            copyCatalog = catalogHooks.useCopyCatalog()
+            copyLinkedCollection = catalogHooks.useCopyLinkedCollection()
             return null
         }
 
         render(createElement(QueryClientProvider, { client: queryClient }, createElement(Probe)))
 
         act(() => {
-            copyCatalog!.mutate({ metahubId, catalogId: 'catalog-1', data: { name: { en: 'Catalog 1 copy' } } } as CopyCatalogParams)
+            copyLinkedCollection!.mutate({
+                metahubId,
+                linkedCollectionId: 'catalog-1',
+                data: { name: { en: 'LinkedCollectionEntity 1 copy' } }
+            } as CopyLinkedCollectionParams)
         })
 
         await waitFor(() => {
@@ -712,10 +730,10 @@ describe('remaining metahubs optimistic mutation hooks', () => {
             expect(copiedCatalogInHub?.codename).toBe('')
         })
 
-        copyCatalogRequest.resolve({ data: { id: 'catalog-copy', hubs: [{ id: 'hub-1' }] } })
+        copyCatalogRequest.resolve({ data: { id: 'catalog-copy', treeEntities: [{ id: 'hub-1' }] } })
 
         await waitFor(() => {
-            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Catalog copied', { variant: 'success' })
+            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('LinkedCollectionEntity copied', { variant: 'success' })
             const hubData = queryClient.getQueryData<{ items: Array<Record<string, unknown>> }>(hubListKey)
             expect(hubData?.items.at(0)?.id).toBe('catalog-copy')
         })
@@ -723,49 +741,49 @@ describe('remaining metahubs optimistic mutation hooks', () => {
 
     it('applies optimistic state for enumeration mutations at metahub scope', async () => {
         const metahubId = 'metahub-enums'
-        const listKey = metahubsQueryKeys.allEnumerationsList(metahubId)
-        const hubListKey = metahubsQueryKeys.enumerationsList(metahubId, 'hub-1')
+        const listKey = metahubsQueryKeys.allOptionListsList(metahubId)
+        const hubListKey = metahubsQueryKeys.optionListsList(metahubId, 'hub-1')
 
-        const createEnumerationRequest = createPromiseController<{ data: { id: string } }>()
+        const createOptionListRequest = createPromiseController<{ data: { id: string } }>()
         const updateEnumerationRequest = createPromiseController<{ data: { id: string } }>()
         const deleteEnumerationRequest = createPromiseController<void>()
-        const copyEnumerationRequest = createPromiseController<{ data: { id: string; hubs: Array<{ id: string }> } }>()
+        const copyEnumerationRequest = createPromiseController<{ data: { id: string; treeEntities: Array<{ id: string }> } }>()
 
-        mocks.enumerationsApi.createEnumerationAtMetahub.mockReturnValue(createEnumerationRequest.promise)
-        mocks.enumerationsApi.updateEnumerationAtMetahub.mockReturnValue(updateEnumerationRequest.promise)
-        mocks.enumerationsApi.deleteEnumerationDirect.mockReturnValue(deleteEnumerationRequest.promise)
-        mocks.enumerationsApi.copyEnumeration.mockReturnValue(copyEnumerationRequest.promise)
+        mocks.enumerationsApi.createOptionListAtMetahub.mockReturnValue(createOptionListRequest.promise)
+        mocks.enumerationsApi.updateOptionListAtMetahub.mockReturnValue(updateEnumerationRequest.promise)
+        mocks.enumerationsApi.deleteOptionListDirect.mockReturnValue(deleteEnumerationRequest.promise)
+        mocks.enumerationsApi.copyOptionList.mockReturnValue(copyEnumerationRequest.promise)
 
         const queryClient = createTestQueryClient()
         queryClient.setQueryData(listKey, {
-            items: [{ id: 'enum-1', codename: 'enum-1', name: { en: 'Enum 1' }, valuesCount: 2, hubs: [{ id: 'hub-1' }] }],
+            items: [{ id: 'enum-1', codename: 'enum-1', name: { en: 'Enum 1' }, optionValuesCount: 2, treeEntities: [{ id: 'hub-1' }] }],
             pagination: { total: 1 }
         })
         queryClient.setQueryData(hubListKey, {
-            items: [{ id: 'enum-1', codename: 'enum-1', name: { en: 'Enum 1' }, valuesCount: 2, hubs: [{ id: 'hub-1' }] }],
+            items: [{ id: 'enum-1', codename: 'enum-1', name: { en: 'Enum 1' }, optionValuesCount: 2, treeEntities: [{ id: 'hub-1' }] }],
             pagination: { total: 1 }
         })
 
-        let createEnumeration: ReturnType<typeof enumerationHooks.useCreateEnumerationAtMetahub> | undefined
-        let updateEnumeration: ReturnType<typeof enumerationHooks.useUpdateEnumerationAtMetahub> | undefined
-        let deleteEnumeration: ReturnType<typeof enumerationHooks.useDeleteEnumeration> | undefined
-        let copyEnumeration: ReturnType<typeof enumerationHooks.useCopyEnumeration> | undefined
+        let createOptionList: ReturnType<typeof enumerationHooks.useCreateOptionListAtMetahub> | undefined
+        let updateOptionList: ReturnType<typeof enumerationHooks.useUpdateOptionListAtMetahub> | undefined
+        let deleteOptionList: ReturnType<typeof enumerationHooks.useDeleteOptionList> | undefined
+        let copyOptionList: ReturnType<typeof enumerationHooks.useCopyOptionList> | undefined
 
         function Probe() {
-            createEnumeration = enumerationHooks.useCreateEnumerationAtMetahub()
-            updateEnumeration = enumerationHooks.useUpdateEnumerationAtMetahub()
-            deleteEnumeration = enumerationHooks.useDeleteEnumeration()
-            copyEnumeration = enumerationHooks.useCopyEnumeration()
+            createOptionList = enumerationHooks.useCreateOptionListAtMetahub()
+            updateOptionList = enumerationHooks.useUpdateOptionListAtMetahub()
+            deleteOptionList = enumerationHooks.useDeleteOptionList()
+            copyOptionList = enumerationHooks.useCopyOptionList()
             return null
         }
 
         render(createElement(QueryClientProvider, { client: queryClient }, createElement(Probe)))
 
         act(() => {
-            createEnumeration!.mutate({
+            createOptionList!.mutate({
                 metahubId,
-                data: { codename: 'enum-2', name: { en: 'Enum 2' }, hubIds: ['hub-1'] }
-            } as CreateEnumerationParams)
+                data: { codename: 'enum-2', name: { en: 'Enum 2' }, treeEntityIds: ['hub-1'] }
+            } as CreateOptionListParams)
         })
 
         await waitFor(() => {
@@ -773,14 +791,14 @@ describe('remaining metahubs optimistic mutation hooks', () => {
             expect(data?.items.at(0)?.__pendingAction).toBe('create')
         })
 
-        createEnumerationRequest.resolve({ data: { id: 'enum-2' } })
+        createOptionListRequest.resolve({ data: { id: 'enum-2' } })
 
         act(() => {
-            updateEnumeration!.mutate({
+            updateOptionList!.mutate({
                 metahubId,
-                enumerationId: 'enum-1',
+                optionListId: 'enum-1',
                 data: { name: { en: 'Enum 1 updated' } }
-            } as UpdateEnumerationParams)
+            } as UpdateOptionListParams)
         })
 
         await waitFor(() => {
@@ -791,7 +809,7 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         updateEnumerationRequest.resolve({ data: { id: 'enum-1' } })
 
         act(() => {
-            deleteEnumeration!.mutate({ metahubId, enumerationId: 'enum-1' })
+            deleteOptionList!.mutate({ metahubId, optionListId: 'enum-1' })
         })
 
         await waitFor(() => {
@@ -802,11 +820,11 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         deleteEnumerationRequest.resolve()
 
         act(() => {
-            copyEnumeration!.mutate({
+            copyOptionList!.mutate({
                 metahubId,
-                enumerationId: 'enum-1',
+                optionListId: 'enum-1',
                 data: { name: { en: 'Enum 1 copy' } }
-            } as CopyEnumerationParams)
+            } as CopyOptionListParams)
         })
 
         await waitFor(() => {
@@ -820,49 +838,49 @@ describe('remaining metahubs optimistic mutation hooks', () => {
             expect(copiedEnumerationInHub?.codename).toBe('')
         })
 
-        copyEnumerationRequest.resolve({ data: { id: 'enum-copy', hubs: [{ id: 'hub-1' }] } })
+        copyEnumerationRequest.resolve({ data: { id: 'enum-copy', treeEntities: [{ id: 'hub-1' }] } })
 
         await waitFor(() => {
-            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Enumeration copied', { variant: 'success' })
+            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('OptionListEntity copied', { variant: 'success' })
             const hubData = queryClient.getQueryData<{ items: Array<Record<string, unknown>> }>(hubListKey)
             expect(hubData?.items.at(0)?.id).toBe('enum-copy')
         })
     })
 
-    it('isolates optimistic enumeration create state to the requested custom kind scope', async () => {
+    it('isolates optimistic enumeration create state to the requested standard kind scope', async () => {
         const metahubId = 'metahub-enums-kind'
-        const kindKey = 'custom.enumeration-v2'
-        const scopedListKey = metahubsQueryKeys.allEnumerationsList(metahubId, { kindKey })
-        const unscopedListKey = metahubsQueryKeys.allEnumerationsList(metahubId)
+        const kindKey = 'enumeration'
+        const scopedListKey = metahubsQueryKeys.allOptionListsList(metahubId, { limit: 100, offset: 0, sortOrder: 'asc', kindKey })
+        const unscopedListKey = metahubsQueryKeys.allOptionListsList(metahubId)
 
-        const createEnumerationRequest = createPromiseController<{ data: { id: string } }>()
-        mocks.enumerationsApi.createEnumerationAtMetahub.mockReturnValue(createEnumerationRequest.promise)
+        const createOptionListRequest = createPromiseController<{ data: { id: string } }>()
+        mocks.enumerationsApi.createOptionListAtMetahub.mockReturnValue(createOptionListRequest.promise)
 
         const queryClient = createTestQueryClient()
         queryClient.setQueryData(scopedListKey, {
-            items: [{ id: 'enum-custom-1', codename: 'enum-custom-1', name: { en: 'Scoped Enum 1' }, valuesCount: 1 }],
+            items: [{ id: 'enum-custom-1', codename: 'enum-custom-1', name: { en: 'Scoped Enum 1' }, optionValuesCount: 1 }],
             pagination: { total: 1 }
         })
         queryClient.setQueryData(unscopedListKey, {
-            items: [{ id: 'enum-legacy-1', codename: 'enum-legacy-1', name: { en: 'Legacy Enum 1' }, valuesCount: 1 }],
+            items: [{ id: 'enum-legacy-1', codename: 'enum-legacy-1', name: { en: 'Legacy Enum 1' }, optionValuesCount: 1 }],
             pagination: { total: 1 }
         })
 
-        let createEnumeration: ReturnType<typeof enumerationHooks.useCreateEnumerationAtMetahub> | undefined
+        let createOptionList: ReturnType<typeof enumerationHooks.useCreateOptionListAtMetahub> | undefined
 
         function Probe() {
-            createEnumeration = enumerationHooks.useCreateEnumerationAtMetahub()
+            createOptionList = enumerationHooks.useCreateOptionListAtMetahub()
             return null
         }
 
         render(createElement(QueryClientProvider, { client: queryClient }, createElement(Probe)))
 
         act(() => {
-            createEnumeration!.mutate({
+            createOptionList!.mutate({
                 metahubId,
                 kindKey,
                 data: { codename: 'enum-custom-2', name: { en: 'Scoped Enum 2' } }
-            } as CreateEnumerationParams)
+            } as CreateOptionListParams)
         })
 
         await waitFor(() => {
@@ -874,34 +892,34 @@ describe('remaining metahubs optimistic mutation hooks', () => {
             expect(unscopedData?.items.at(0)?.id).toBe('enum-legacy-1')
         })
 
-        createEnumerationRequest.resolve({ data: { id: 'enum-custom-2' } })
+        createOptionListRequest.resolve({ data: { id: 'enum-custom-2' } })
 
         await waitFor(() => {
-            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Enumeration created', { variant: 'success' })
+            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('OptionListEntity created', { variant: 'success' })
         })
     })
 
     it('applies optimistic state for enumeration value mutations', async () => {
         const metahubId = 'metahub-enum-values'
-        const enumerationId = 'enum-1'
-        const listKey = metahubsQueryKeys.enumerationValuesList(metahubId, enumerationId)
+        const optionListId = 'enum-1'
+        const listKey = metahubsQueryKeys.optionValuesList(metahubId, optionListId)
 
         const createValueRequest = createPromiseController<{ data: { id: string } }>()
         const updateValueRequest = createPromiseController<{ data: { id: string } }>()
         const deleteValueRequest = createPromiseController<void>()
         const copyValueRequest = createPromiseController<{ data: { id: string } }>()
 
-        mocks.enumerationsApi.createEnumerationValue.mockReturnValue(createValueRequest.promise)
-        mocks.enumerationsApi.updateEnumerationValue.mockReturnValue(updateValueRequest.promise)
-        mocks.enumerationsApi.deleteEnumerationValue.mockReturnValue(deleteValueRequest.promise)
-        mocks.enumerationsApi.copyEnumerationValue.mockReturnValue(copyValueRequest.promise)
+        mocks.enumerationsApi.createOptionValue.mockReturnValue(createValueRequest.promise)
+        mocks.enumerationsApi.updateOptionValue.mockReturnValue(updateValueRequest.promise)
+        mocks.enumerationsApi.deleteOptionValue.mockReturnValue(deleteValueRequest.promise)
+        mocks.enumerationsApi.copyOptionValue.mockReturnValue(copyValueRequest.promise)
 
         const queryClient = createTestQueryClient()
         queryClient.setQueryData(listKey, {
             items: [
                 {
                     id: 'value-1',
-                    objectId: enumerationId,
+                    objectId: optionListId,
                     codename: 'value-1',
                     name: { en: 'Value 1' },
                     description: { en: 'Original' },
@@ -913,16 +931,16 @@ describe('remaining metahubs optimistic mutation hooks', () => {
             pagination: { total: 1 }
         })
 
-        let createValue: ReturnType<typeof enumerationHooks.useCreateEnumerationValue> | undefined
-        let updateValue: ReturnType<typeof enumerationHooks.useUpdateEnumerationValue> | undefined
-        let deleteValue: ReturnType<typeof enumerationHooks.useDeleteEnumerationValue> | undefined
-        let copyValue: ReturnType<typeof enumerationHooks.useCopyEnumerationValue> | undefined
+        let createValue: ReturnType<typeof enumerationHooks.useCreateOptionValue> | undefined
+        let updateValue: ReturnType<typeof enumerationHooks.useUpdateOptionValue> | undefined
+        let deleteValue: ReturnType<typeof enumerationHooks.useDeleteOptionValue> | undefined
+        let copyValue: ReturnType<typeof enumerationHooks.useCopyOptionValue> | undefined
 
         function Probe() {
-            createValue = enumerationHooks.useCreateEnumerationValue()
-            updateValue = enumerationHooks.useUpdateEnumerationValue()
-            deleteValue = enumerationHooks.useDeleteEnumerationValue()
-            copyValue = enumerationHooks.useCopyEnumerationValue()
+            createValue = enumerationHooks.useCreateOptionValue()
+            updateValue = enumerationHooks.useUpdateOptionValue()
+            deleteValue = enumerationHooks.useDeleteOptionValue()
+            copyValue = enumerationHooks.useCopyOptionValue()
             return null
         }
 
@@ -931,14 +949,14 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         act(() => {
             createValue!.mutate({
                 metahubId,
-                enumerationId,
+                optionListId,
                 data: {
                     codename: 'value-2',
                     name: { en: 'Value 2' },
                     description: { en: 'Created' },
                     isDefault: false
                 }
-            } as CreateEnumerationValueParams)
+            } as CreateOptionValueParams)
         })
 
         await waitFor(() => {
@@ -951,16 +969,16 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         createValueRequest.resolve({ data: { id: 'value-2' } })
 
         await waitFor(() => {
-            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Enumeration value created', { variant: 'success' })
+            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('OptionListEntity value created', { variant: 'success' })
         })
 
         act(() => {
             updateValue!.mutate({
                 metahubId,
-                enumerationId,
+                optionListId,
                 valueId: 'value-1',
                 data: { name: { en: 'Value 1 updated' }, isDefault: true }
-            } as UpdateEnumerationValueParams)
+            } as UpdateOptionValueParams)
         })
 
         await waitFor(() => {
@@ -974,7 +992,7 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         updateValueRequest.resolve({ data: { id: 'value-1' } })
 
         act(() => {
-            deleteValue!.mutate({ metahubId, enumerationId, valueId: 'value-1' })
+            deleteValue!.mutate({ metahubId, optionListId, valueId: 'value-1' })
         })
 
         await waitFor(() => {
@@ -987,10 +1005,10 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         act(() => {
             copyValue!.mutate({
                 metahubId,
-                enumerationId,
+                optionListId,
                 valueId: 'value-2',
                 data: { name: { en: 'Value 2 copy' }, codename: 'value-2-copy', isDefault: false }
-            } as CopyEnumerationValueParams)
+            } as CopyOptionValueParams)
         })
 
         await waitFor(() => {
@@ -1004,18 +1022,23 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         copyValueRequest.resolve({ data: { id: 'value-2-copy' } })
 
         await waitFor(() => {
-            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Enumeration value copied', { variant: 'success' })
+            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('OptionListEntity value copied', { variant: 'success' })
         })
     })
 
-    it('keeps locked shared constants fixed while optimistically reordering merged local rows', async () => {
-        const metahubId = 'metahub-constants'
-        const hubId = 'hub-1'
-        const setId = 'set-1'
-        const listKey = metahubsQueryKeys.constantsList(metahubId, hubId, setId, { includeShared: true })
+    it('keeps locked shared fixedValues fixed while optimistically reordering merged local rows', async () => {
+        const metahubId = 'metahub-fixedValues'
+        const treeEntityId = 'hub-1'
+        const valueGroupId = 'set-1'
+        const listKey = metahubsQueryKeys.fixedValuesList(metahubId, treeEntityId, valueGroupId, {
+            limit: 100,
+            offset: 0,
+            sortOrder: 'asc',
+            includeShared: true
+        })
         const reorderRequest = createPromiseController<{ data: { id: string } }>()
 
-        mocks.constantsApi.reorderConstant.mockReturnValue(reorderRequest.promise)
+        mocks.fixedValuesApi.reorderFixedValue.mockReturnValue(reorderRequest.promise)
 
         const queryClient = createTestQueryClient()
         queryClient.setQueryData(listKey, {
@@ -1033,10 +1056,10 @@ describe('remaining metahubs optimistic mutation hooks', () => {
             pagination: { total: 3 }
         })
 
-        let reorderConstant: ReturnType<typeof constantHooks.useReorderConstant> | undefined
+        let reorderConstant: ReturnType<typeof constantHooks.useReorderFixedValue> | undefined
 
         function Probe() {
-            reorderConstant = constantHooks.useReorderConstant()
+            reorderConstant = constantHooks.useReorderFixedValue()
             return null
         }
 
@@ -1045,9 +1068,9 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         act(() => {
             reorderConstant!.mutate({
                 metahubId,
-                hubId,
-                setId,
-                constantId: 'constant-local-2',
+                treeEntityId,
+                valueGroupId,
+                fixedValueId: 'constant-local-2',
                 newSortOrder: 2,
                 mergedOrderIds: ['constant-local-2', 'constant-local-1']
             } as ReorderConstantParams)
@@ -1061,14 +1084,19 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         reorderRequest.resolve({ data: { id: 'constant-local-2' } })
     })
 
-    it('keeps locked shared attributes fixed while optimistically reordering merged local rows', async () => {
-        const metahubId = 'metahub-attributes'
-        const hubId = 'hub-1'
-        const catalogId = 'catalog-1'
-        const listKey = metahubsQueryKeys.attributesList(metahubId, hubId, catalogId, { includeShared: true })
+    it('keeps locked shared fieldDefinitions fixed while optimistically reordering merged local rows', async () => {
+        const metahubId = 'metahub-fieldDefinitions'
+        const treeEntityId = 'hub-1'
+        const linkedCollectionId = 'catalog-1'
+        const listKey = metahubsQueryKeys.fieldDefinitionsList(metahubId, treeEntityId, linkedCollectionId, {
+            limit: 100,
+            offset: 0,
+            sortOrder: 'asc',
+            includeShared: true
+        })
         const reorderRequest = createPromiseController<{ data: { id: string } }>()
 
-        mocks.attributesApi.reorderAttribute.mockReturnValue(reorderRequest.promise)
+        mocks.fieldDefinitionsApi.reorderFieldDefinition.mockReturnValue(reorderRequest.promise)
 
         const queryClient = createTestQueryClient()
         queryClient.setQueryData(listKey, {
@@ -1086,10 +1114,10 @@ describe('remaining metahubs optimistic mutation hooks', () => {
             pagination: { total: 3 }
         })
 
-        let reorderAttribute: ReturnType<typeof attributeHooks.useReorderAttribute> | undefined
+        let reorderAttribute: ReturnType<typeof attributeHooks.useReorderFieldDefinition> | undefined
 
         function Probe() {
-            reorderAttribute = attributeHooks.useReorderAttribute()
+            reorderAttribute = attributeHooks.useReorderFieldDefinition()
             return null
         }
 
@@ -1098,9 +1126,9 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         act(() => {
             reorderAttribute!.mutate({
                 metahubId,
-                hubId,
-                catalogId,
-                attributeId: 'attribute-local-2',
+                treeEntityId,
+                linkedCollectionId,
+                fieldDefinitionId: 'attribute-local-2',
                 newSortOrder: 2,
                 mergedOrderIds: ['attribute-local-2', 'attribute-local-1']
             } as ReorderAttributeParams)
@@ -1116,11 +1144,11 @@ describe('remaining metahubs optimistic mutation hooks', () => {
 
     it('keeps locked shared enumeration values fixed while optimistically reordering merged local rows', async () => {
         const metahubId = 'metahub-enum-values-reorder'
-        const enumerationId = 'enum-merged'
-        const listKey = metahubsQueryKeys.enumerationValuesList(metahubId, enumerationId, { includeShared: true })
+        const optionListId = 'enum-merged'
+        const listKey = metahubsQueryKeys.optionValuesList(metahubId, optionListId, { includeShared: true })
         const reorderRequest = createPromiseController<{ data: { id: string } }>()
 
-        mocks.enumerationsApi.reorderEnumerationValue.mockReturnValue(reorderRequest.promise)
+        mocks.enumerationsApi.reorderOptionValue.mockReturnValue(reorderRequest.promise)
 
         const queryClient = createTestQueryClient()
         queryClient.setQueryData(listKey, {
@@ -1138,10 +1166,10 @@ describe('remaining metahubs optimistic mutation hooks', () => {
             pagination: { total: 3 }
         })
 
-        let reorderValue: ReturnType<typeof enumerationHooks.useReorderEnumerationValue> | undefined
+        let reorderValue: ReturnType<typeof enumerationHooks.useReorderOptionValue> | undefined
 
         function Probe() {
-            reorderValue = enumerationHooks.useReorderEnumerationValue()
+            reorderValue = enumerationHooks.useReorderOptionValue()
             return null
         }
 
@@ -1150,11 +1178,11 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         act(() => {
             reorderValue!.mutate({
                 metahubId,
-                enumerationId,
+                optionListId,
                 valueId: 'value-local-2',
                 newSortOrder: 2,
                 mergedOrderIds: ['value-local-2', 'value-local-1']
-            } as ReorderEnumerationValueParams)
+            } as ReorderOptionValueParams)
         })
 
         await waitFor(() => {

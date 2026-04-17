@@ -73,9 +73,9 @@ t(`migrations.blockers.${blocker.code}`, {
 Пять детальных представлений сущностей теперь включают вкладку «Настройки», которая открывает диалог редактирования (та же форма, что и действие «три точки → Редактировать»). Вкладка использует `EntityFormDialog` с экспортированными функциями-билдерами из соответствующего файла `*Actions.tsx`:
 
 - **HubList.tsx** — Настройки хаба через `HubActions` (buildInitialValues, buildFormTabs, validateHubForm, canSaveHubForm, toPayload)
-- **AttributeList.tsx** — Настройки каталога через `CatalogActions` (контекст родительского каталога)
-- **ConstantList.tsx** — Настройки набора через `SetActions` (контекст родительского набора)
-- **EnumerationValueList.tsx** — Настройки перечисления через `EnumerationActions` (контекст родительского перечисления)
+- **FieldDefinitionList.tsx** — Настройки каталога через `CatalogActions` (контекст родительского каталога)
+- **FixedValueList.tsx** — Настройки набора через `SetActions` (контекст родительского набора)
+- **SelectableOptionList.tsx** — Настройки перечисления через `EnumerationActions` (контекст родительского перечисления)
 - **PublicationVersionList.tsx** — Настройки публикации через `PublicationActions` (использует сигнатуру `buildFormTabs(ctx, metahubId)`)
 
 ## Вкладка опций создания

@@ -1,4 +1,4 @@
-import type { AttributeDataType, EntityKind, MetaEntityDefinition, MetaFieldDefinition, MetaPresentation } from '@universo/types'
+import type { FieldDefinitionDataType, EntityKind, MetaEntityDefinition, MetaFieldDefinition, MetaPresentation } from '@universo/types'
 
 export type RuntimeEntityKind = EntityKind | 'enumeration' | 'relation' | 'settings'
 
@@ -21,7 +21,7 @@ export interface EntityDefinition extends Omit<MetaEntityDefinition, 'kind' | 'f
 export interface SchemaFieldSnapshot {
     codename: string
     columnName: string
-    dataType: AttributeDataType
+    dataType: FieldDefinitionDataType
     isRequired: boolean
     /** Whether this attribute is used to display the element when referenced */
     isDisplayAttribute?: boolean
@@ -61,7 +61,7 @@ export interface SysAttributeRecord {
     objectId: string
     codename: string
     columnName: string
-    dataType: AttributeDataType
+    dataType: FieldDefinitionDataType
     isRequired: boolean
     targetObjectId?: string | null
     presentation: MetaPresentation

@@ -14,11 +14,14 @@ vi.mock('../domains/publications/ui/PublicationList', () => ({ default: () => nu
 vi.mock('../domains/branches/ui/BranchList', () => ({ default: () => null }))
 vi.mock('../domains/entities/ui/EntitiesWorkspace', () => ({ default: () => null }))
 vi.mock('../domains/entities/ui/EntityInstanceList', () => ({ default: () => null }))
-vi.mock('../domains/hubs/ui/HubList', () => ({ default: () => null }))
-vi.mock('../domains/catalogs/ui/CatalogList', () => ({ default: () => null }))
-vi.mock('../domains/attributes/ui/AttributeList', () => ({ default: () => null }))
-vi.mock('../domains/elements/ui/ElementList', () => ({ default: () => null }))
-vi.mock('../domains/general/ui/GeneralPage', () => ({ default: () => null }))
+vi.mock('../domains/entities/ui/BuiltinEntityCollectionPage', () => ({
+    BuiltinEntityCollectionPage: () => null,
+    StandardEntityChildCollectionPage: () => null
+}))
+vi.mock('../domains/entities/metadata/fieldDefinition/ui/FieldDefinitionList', () => ({ default: () => null }))
+vi.mock('../domains/entities/metadata/record/ui/RecordList', () => ({ default: () => null }))
+vi.mock('../domains/entities/metadata/fixedValue/ui/FixedValueList', () => ({ default: () => null }))
+vi.mock('../domains/entities/shared/ui/SharedResourcesPage', () => ({ default: () => null }))
 vi.mock('../domains/layouts/ui/LayoutList', () => ({ default: () => null }))
 vi.mock('../domains/layouts/ui/LayoutDetails', () => ({ default: () => null }))
 
@@ -40,11 +43,11 @@ describe('metahubs-frontend entry exports', () => {
         expect(entry.BranchList).toBeTruthy()
         expect(entry.EntitiesWorkspace).toBeTruthy()
         expect(entry.EntityInstanceList).toBeTruthy()
-        expect(entry.HubList).toBeTruthy()
-        expect(entry.CatalogList).toBeTruthy()
-        expect(entry.AttributeList).toBeTruthy()
-        expect(entry.ElementList).toBeTruthy()
-        expect(entry.MetahubCommon).toBeTruthy()
+        expect(entry.BuiltinEntityCollectionPage).toBeTruthy()
+        expect(entry.StandardEntityChildCollectionPage).toBeTruthy()
+        expect(entry.FieldDefinitionList).toBeTruthy()
+        expect(entry.RecordList).toBeTruthy()
+        expect(entry.MetahubResources).toBeTruthy()
         expect(entry.MetahubLayouts).toBeTruthy()
         expect(entry.MetahubLayoutDetails).toBeTruthy()
         expect(entry.metahubsDashboard).toBeTruthy()
@@ -75,23 +78,22 @@ describe('metahubs-frontend entry exports', () => {
         expect(typeof ru).toBe('object')
         expect(typeof fallback).toBe('object')
 
-        expect((en as any).general.title).toBe('Common')
-        expect((en as any).catalogs.tabs.layout).toBe('Layouts')
-        expect((en as any).catalogs.runtime.showSearch).toBe('Search/filter bar')
-        expect((en as any).catalogs.runtime.createSurface).toBe('Create form type')
-        expect((en as any).catalogs.runtime.surfacePage).toBe('Page')
+        expect((en as any).general.title).toBe('Resources')
+        expect((en as any).linkedCollections.tabs.layout).toBe('Layouts')
+        expect((en as any).linkedCollections.runtime.showSearch).toBe('Search/filter bar')
+        expect((en as any).linkedCollections.runtime.createSurface).toBe('Create form type')
+        expect((en as any).linkedCollections.runtime.surfacePage).toBe('Page')
         expect((en as any).entities.title).toBe('Entities')
-        expect((en as any).sets.tabs).toEqual({
+        expect((en as any).valueGroups.tabs).toEqual({
             general: 'General',
-            hubs: 'Hubs',
             options: 'Options'
         })
-        expect((en as any).sets.runtime).toBeUndefined()
+        expect((en as any).valueGroups.runtime).toBeUndefined()
 
-        expect((ru as any).general.title).toBe('Общие')
-        expect((ru as any).catalogs.tabs.layout).toBe('Макеты')
-        expect((ru as any).catalogs.runtime.showSearch).toBe('Строка поиска/фильтрации')
-        expect((ru as any).catalogs.runtime.createSurface).toBe('Тип окна создания')
+        expect((ru as any).general.title).toBe('Ресурсы')
+        expect((ru as any).linkedCollections.tabs.layout).toBe('Макеты')
+        expect((ru as any).linkedCollections.runtime.showSearch).toBe('Строка поиска/фильтрации')
+        expect((ru as any).linkedCollections.runtime.createSurface).toBe('Тип окна создания')
         expect((ru as any).entities.title).toBe('Сущности')
     })
 })

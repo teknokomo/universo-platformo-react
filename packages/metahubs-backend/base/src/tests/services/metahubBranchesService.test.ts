@@ -5,7 +5,7 @@ const mockDropSchema = jest.fn(async () => undefined)
 const mockSetUserBranchCache = jest.fn()
 const mockClearUserBranchCache = jest.fn()
 const mockEntityTypeService = {
-    listCustomTypesInSchema: jest.fn()
+    listEditableTypesInSchema: jest.fn()
 }
 const MockMetahubSchemaService = jest.fn().mockImplementation(() => ({
     initializeSchema: (...args: unknown[]) => mockInitializeSchema(...args)
@@ -137,7 +137,7 @@ describe('MetahubBranchesService', () => {
         mockDropSchema.mockResolvedValue(undefined)
         mockSetUserBranchCache.mockReset()
         mockClearUserBranchCache.mockReset()
-        mockEntityTypeService.listCustomTypesInSchema.mockResolvedValue([])
+        mockEntityTypeService.listEditableTypesInSchema.mockResolvedValue([])
     })
 
     it('createInitialBranch drops schema when initialization fails before branch save', async () => {
@@ -258,7 +258,7 @@ describe('MetahubBranchesService', () => {
         expect(mockReleaseAdvisoryLock).toHaveBeenCalled()
     })
 
-    it('throws BRANCH_COPY_DANGLING_REFERENCES when partial copy removes referenced object groups', async () => {
+    it('throws BRANCH_COPY_DANGLING_ENTITY_REFERENCES when partial copy removes referenced entity groups', async () => {
         const metahubId = TEST_METAHUB_ID
 
         mockFindMetahubForUpdate.mockResolvedValue({
@@ -293,13 +293,13 @@ describe('MetahubBranchesService', () => {
                 name: createLocalizedName('Dev Partial'),
                 copyOptions: {
                     fullCopy: false,
-                    copyHubs: true,
-                    copyCatalogs: false,
-                    copyEnumerations: true,
+                    copyTreeEntities: true,
+                    copyLinkedCollections: false,
+                    copyOptionLists: true,
                     copyLayouts: true
                 }
             })
-        ).rejects.toThrow('BRANCH_COPY_DANGLING_REFERENCES')
+        ).rejects.toThrow('BRANCH_COPY_DANGLING_ENTITY_REFERENCES')
 
         expect(mockDropSchema).toHaveBeenCalledWith(TEST_METAHUB_BRANCH_SCHEMA_2)
         expect(mockReleaseAdvisoryLock).toHaveBeenCalled()
@@ -345,9 +345,9 @@ describe('MetahubBranchesService', () => {
                 name: createLocalizedName('Dev Partial'),
                 copyOptions: {
                     fullCopy: false,
-                    copyHubs: true,
-                    copyCatalogs: false,
-                    copyEnumerations: true,
+                    copyTreeEntities: true,
+                    copyLinkedCollections: false,
+                    copyOptionLists: true,
                     copyLayouts: true
                 }
             })
@@ -399,9 +399,9 @@ describe('MetahubBranchesService', () => {
             name: createLocalizedName('Dev Partial Hubs'),
             copyOptions: {
                 fullCopy: false,
-                copyHubs: false,
-                copyCatalogs: true,
-                copyEnumerations: false,
+                copyTreeEntities: false,
+                copyLinkedCollections: true,
+                copyOptionLists: false,
                 copyLayouts: true
             }
         })
@@ -414,19 +414,19 @@ describe('MetahubBranchesService', () => {
             [['hub', 'enumeration']]
         )
         expect(queryMock).toHaveBeenCalledWith(
-            expect.stringContaining("SET config = jsonb_set(COALESCE(child.config, '{}'::jsonb), '{parentHubId}'"),
+            expect.stringContaining("SET config = jsonb_set(COALESCE(child.config, '{}'::jsonb), '{parentTreeEntityId}'"),
             [['hub']]
         )
     })
 
-    it('uses legacy-compatible custom kind groups throughout partial copy compatibility and prune steps', async () => {
+    it('uses direct standard kind groups throughout partial copy compatibility and prune steps', async () => {
         const metahubId = TEST_METAHUB_ID
 
-        mockEntityTypeService.listCustomTypesInSchema.mockResolvedValue([
-            { kindKey: 'custom.hub-v2-compatible', config: { compatibility: { legacyObjectKind: 'hub' } } },
-            { kindKey: 'custom.catalog-v2-compatible', config: { compatibility: { legacyObjectKind: 'catalog' } } },
-            { kindKey: 'custom.set-v2-compatible', config: { compatibility: { legacyObjectKind: 'set' } } },
-            { kindKey: 'custom.enumeration-v2-compatible', config: { compatibility: { legacyObjectKind: 'enumeration' } } }
+        mockEntityTypeService.listEditableTypesInSchema.mockResolvedValue([
+            { kindKey: 'custom.workspace-hub', config: { compatibility: { legacyObjectKind: 'hub' } } },
+            { kindKey: 'custom.product-registry', config: { compatibility: { legacyObjectKind: 'catalog' } } },
+            { kindKey: 'custom.value-group', config: { compatibility: { legacyObjectKind: 'set' } } },
+            { kindKey: 'custom.option-list', config: { compatibility: { legacyObjectKind: 'enumeration' } } }
         ])
 
         mockFindMetahubForUpdate.mockResolvedValue({
@@ -469,10 +469,10 @@ describe('MetahubBranchesService', () => {
             name: createLocalizedName('Dev Partial Compatible'),
             copyOptions: {
                 fullCopy: false,
-                copyHubs: false,
-                copyCatalogs: true,
-                copySets: true,
-                copyEnumerations: false,
+                copyTreeEntities: false,
+                copyLinkedCollections: true,
+                copyValueGroups: true,
+                copyOptionLists: false,
                 copyLayouts: true
             }
         })
@@ -480,20 +480,20 @@ describe('MetahubBranchesService', () => {
         expect(queryMock).toHaveBeenCalledWith(
             expect.stringContaining('SELECT DISTINCT COALESCE(target.kind, attr.target_object_kind)::text AS target_kind'),
             [
-                ['catalog', 'custom.catalog-v2-compatible', 'set', 'custom.set-v2-compatible'],
-                ['hub', 'custom.hub-v2-compatible', 'enumeration', 'custom.enumeration-v2-compatible']
+                ['catalog', 'set'],
+                ['hub', 'enumeration']
             ]
         )
         expect(queryMock).toHaveBeenCalledWith(expect.stringContaining(`UPDATE "${TEST_METAHUB_BRANCH_SCHEMA_2}"._mhb_objects`), [
-            ['catalog', 'custom.catalog-v2-compatible', 'set', 'custom.set-v2-compatible']
+            ['catalog', 'set']
         ])
         expect(queryMock).toHaveBeenCalledWith(
             expect.stringContaining(`DELETE FROM "${TEST_METAHUB_BRANCH_SCHEMA_2}"._mhb_objects WHERE kind = ANY($1::text[])`),
-            [['hub', 'custom.hub-v2-compatible', 'enumeration', 'custom.enumeration-v2-compatible']]
+            [['hub', 'enumeration']]
         )
         expect(queryMock).toHaveBeenCalledWith(
-            expect.stringContaining("SET config = jsonb_set(COALESCE(child.config, '{}'::jsonb), '{parentHubId}'"),
-            [['hub', 'custom.hub-v2-compatible']]
+            expect.stringContaining("SET config = jsonb_set(COALESCE(child.config, '{}'::jsonb), '{parentTreeEntityId}'"),
+            [['hub']]
         )
     })
 

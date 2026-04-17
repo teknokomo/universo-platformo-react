@@ -5,21 +5,21 @@ description: Справочник REST API для design-time metahub scripts и
 # API скриптов
 
 Scripts API охватывает routes design-time authoring в metahub и routes доставки runtime в application.
-Он удерживает Common libraries, consumer scripts, client bundles и server calls в рамках одного fail-closed контракта.
+Он удерживает библиотеки рабочего пространства ресурсов, consumer scripts, client bundles и server calls в рамках одного fail-closed контракта.
 
 ## Endpoint-ы design-time metahub
 
 - `GET /metahub/{metahubId}/scripts` перечисляет design-time scripts для одного scope привязки.
 - `POST /metahub/{metahubId}/scripts` создаёт design-time script.
 - `GET /metahub/{metahubId}/script/{scriptId}`, `PATCH /metahub/{metahubId}/script/{scriptId}` и `DELETE /metahub/{metahubId}/script/{scriptId}` читают, обновляют или удаляют один script.
-- Authoring в Common должно всегда сочетать `attachedToKind=general` с `moduleRole=library`.
+- Authoring в рабочем пространстве ресурсов должно всегда сочетать `attachedToKind=general` с `moduleRole=library`.
 
 ## Endpoint-ы runtime application
 
 - `GET /applications/{applicationId}/runtime/scripts` перечисляет metadata опубликованных runtime scripts без inline bundles.
 - `GET /applications/{applicationId}/runtime/scripts/{scriptId}/client` возвращает cacheable client JavaScript bundle.
 - `POST /applications/{applicationId}/runtime/scripts/{scriptId}/call` выполняет только разрешённые non-lifecycle server methods.
-- Runtime routes раскрывают consumer scripts, а не прямые строки Common library.
+- Runtime routes раскрывают consumer scripts, а не прямые строки library из рабочего пространства ресурсов.
 
 ## Примечания fail-closed
 

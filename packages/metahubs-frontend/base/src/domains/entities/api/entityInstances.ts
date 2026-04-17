@@ -40,8 +40,8 @@ export interface UpdateEntityInstancePayload extends Omit<Partial<EntityInstance
 }
 
 export interface CopyEntityInstancePayload extends Omit<Partial<EntityInstancePayload>, 'kind'> {
-    copyAttributes?: boolean
-    copyElements?: boolean
+    copyFieldDefinitions?: boolean
+    copyRecords?: boolean
 }
 
 type BackendPaginatedResponse<T> = {

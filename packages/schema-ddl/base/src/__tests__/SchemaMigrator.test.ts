@@ -1,4 +1,4 @@
-import { AttributeDataType } from '@universo/types'
+import { FieldDefinitionDataType } from '@universo/types'
 import { SchemaMigrator } from '../SchemaMigrator'
 import { ChangeType } from '../diff'
 import type { SchemaChange } from '../diff'
@@ -20,7 +20,7 @@ describe('SchemaMigrator', () => {
         mockReleaseAdvisoryLock.mockResolvedValue(undefined)
     })
 
-    it('routes REF->legacy-compatible custom enumeration foreign keys to _app_values', async () => {
+    it('routes REF->enumeration foreign keys to _app_values', async () => {
         const trx = {
             raw: jest.fn().mockResolvedValue(undefined)
         } as unknown as import('knex').Knex.Transaction
@@ -34,10 +34,10 @@ describe('SchemaMigrator', () => {
         const field: FieldDefinition = {
             id: 'field-ref-0000-0000-0000-000000000001',
             codename: 'status',
-            dataType: AttributeDataType.REF,
+            dataType: FieldDefinitionDataType.REF,
             isRequired: false,
             targetEntityId: 'enum-0000-0000-0000-000000000001',
-            targetEntityKind: 'custom.enumeration-v2' as import('../types').RuntimeEntityKind
+            targetEntityKind: 'enumeration' as import('../types').RuntimeEntityKind
         }
         const entities: EntityDefinition[] = [
             {
@@ -88,7 +88,7 @@ describe('SchemaMigrator', () => {
         )
     })
 
-    it('skips physical FK creation for REF->legacy-compatible custom set fields', async () => {
+    it('skips physical FK creation for REF->set fields', async () => {
         const trx = {
             raw: jest.fn().mockResolvedValue(undefined)
         } as unknown as import('knex').Knex.Transaction
@@ -102,10 +102,10 @@ describe('SchemaMigrator', () => {
         const field: FieldDefinition = {
             id: 'field-ref-0000-0000-0000-000000000002',
             codename: 'version',
-            dataType: AttributeDataType.REF,
+            dataType: FieldDefinitionDataType.REF,
             isRequired: false,
             targetEntityId: 'set-0000-0000-0000-000000000001',
-            targetEntityKind: 'custom.set-v2' as import('../types').RuntimeEntityKind
+            targetEntityKind: 'set' as import('../types').RuntimeEntityKind
         }
         const entities: EntityDefinition[] = [
             {
@@ -248,7 +248,7 @@ describe('SchemaMigrator', () => {
         const field: FieldDefinition = {
             id: 'field-string-0000-0000-0000-000000000010',
             codename: 'timezone',
-            dataType: AttributeDataType.STRING,
+            dataType: FieldDefinitionDataType.STRING,
             isRequired: false,
             physicalColumnName: 'profile_timezone',
             physicalDataType: 'citext',

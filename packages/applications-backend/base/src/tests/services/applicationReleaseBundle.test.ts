@@ -382,11 +382,11 @@ describe('applicationReleaseBundle', () => {
                         }
                     ],
                     elements: [],
-                    enumerationValues: [],
+                    optionValues: [],
                     constants: [],
-                    sharedAttributes: [],
-                    sharedConstants: [],
-                    sharedEnumerationValues: [],
+                    sharedFieldDefinitions: [],
+                    sharedFixedValues: [],
+                    sharedOptionValues: [],
                     sharedEntityOverrides: [],
                     systemFields: [],
                     scripts: [],
@@ -486,11 +486,11 @@ describe('applicationReleaseBundle', () => {
                 snapshotFormatVersion: 1 as const
             },
             entities: {
-                'catalog-v2': {
-                    id: 'catalog-v2',
-                    codename: createCodenameVlc('products_v2', 'продукты_v2'),
-                    kind: 'custom.catalog-v2',
-                    tableName: 'cat_products_v2',
+                'catalog-compatible': {
+                    id: 'catalog-compatible',
+                    codename: createCodenameVlc('products_legacy', 'продукты_legacy'),
+                    kind: 'custom.product-registry',
+                    tableName: 'cat_products_legacy',
                     presentation: { name: {} },
                     config: {
                         compatibility: { legacyObjectKind: 'catalog' },
@@ -498,11 +498,11 @@ describe('applicationReleaseBundle', () => {
                     },
                     fields: []
                 },
-                'set-v2': {
-                    id: 'set-v2',
-                    codename: createCodenameVlc('tags_v2', 'теги_v2'),
-                    kind: 'custom.set-v2',
-                    tableName: 'set_tags_v2',
+                'value-group-compatible': {
+                    id: 'value-group-compatible',
+                    codename: createCodenameVlc('tags_legacy', 'теги_legacy'),
+                    kind: 'custom.value-group',
+                    tableName: 'set_tags_legacy',
                     presentation: { name: {} },
                     config: {
                         compatibility: { legacyObjectKind: 'set', scope: 'workspace' },
@@ -524,27 +524,27 @@ describe('applicationReleaseBundle', () => {
             snapshotHash: calculateCanonicalApplicationReleaseSnapshotHash(compatibilitySnapshot, 'publication')
         })
 
-        const bootstrapCatalogEntity = bundle.bootstrap.payload.entities.find((entity) => entity.id === 'catalog-v2')
-        const bootstrapSetEntity = bundle.bootstrap.payload.entities.find((entity) => entity.id === 'set-v2')
+        const bootstrapCatalogEntity = bundle.bootstrap.payload.entities.find((entity) => entity.id === 'catalog-compatible')
+        const bootstrapSetEntity = bundle.bootstrap.payload.entities.find((entity) => entity.id === 'value-group-compatible')
 
         expect(bootstrapCatalogEntity).toMatchObject({
-            physicalTableName: 'cat_products_v2',
+            physicalTableName: 'cat_products_legacy',
             config: {
                 compatibility: { legacyObjectKind: 'catalog' },
                 viewMode: 'grid'
             }
         })
         expect(bootstrapSetEntity).toMatchObject({
-            physicalTableName: 'set_tags_v2',
+            physicalTableName: 'set_tags_legacy',
             config: {
                 compatibility: { legacyObjectKind: 'set', scope: 'workspace' },
                 displayMode: 'chips'
             }
         })
-        expect(bundle.bootstrap.payload.schemaSnapshot.entities['catalog-v2']?.tableName).toBe('cat_products_v2')
-        expect(bundle.bootstrap.payload.schemaSnapshot.entities['set-v2']?.tableName).toBe('set_tags_v2')
-        expect(bundle.incrementalMigration.payload.schemaSnapshot.entities['catalog-v2']?.tableName).toBe('cat_products_v2')
-        expect(bundle.incrementalMigration.payload.schemaSnapshot.entities['set-v2']?.tableName).toBe('set_tags_v2')
+        expect(bundle.bootstrap.payload.schemaSnapshot.entities['catalog-compatible']?.tableName).toBe('cat_products_legacy')
+        expect(bundle.bootstrap.payload.schemaSnapshot.entities['value-group-compatible']?.tableName).toBe('set_tags_legacy')
+        expect(bundle.incrementalMigration.payload.schemaSnapshot.entities['catalog-compatible']?.tableName).toBe('cat_products_legacy')
+        expect(bundle.incrementalMigration.payload.schemaSnapshot.entities['value-group-compatible']?.tableName).toBe('set_tags_legacy')
     })
 
     it('scopes repeated publication field ids per entity inside executable payloads', () => {
@@ -600,9 +600,7 @@ describe('applicationReleaseBundle', () => {
 
         const bootstrapEntities = bundle.bootstrap.payload.entities
         const bootstrapFieldIds = bootstrapEntities.flatMap((entity) => entity.fields.map((field) => field.id))
-        const incrementalFieldIds = bundle.incrementalMigration.payload.entities.flatMap((entity) =>
-            entity.fields.map((field) => field.id)
-        )
+        const incrementalFieldIds = bundle.incrementalMigration.payload.entities.flatMap((entity) => entity.fields.map((field) => field.id))
 
         expect(new Set(bootstrapFieldIds).size).toBe(bootstrapFieldIds.length)
         expect(new Set(incrementalFieldIds).size).toBe(incrementalFieldIds.length)
@@ -650,7 +648,7 @@ describe('applicationReleaseBundle', () => {
                                 dataType: 'REF',
                                 isRequired: false,
                                 targetEntityId: 'enum-a',
-                                targetEntityKind: 'custom.enumeration-v2',
+                                targetEntityKind: 'enumeration',
                                 presentation: { name: {} },
                                 validationRules: {},
                                 uiConfig: {},
@@ -662,7 +660,7 @@ describe('applicationReleaseBundle', () => {
                                 dataType: 'REF',
                                 isRequired: false,
                                 targetEntityId: 'enum-b',
-                                targetEntityKind: 'custom.enumeration-v2',
+                                targetEntityKind: 'enumeration',
                                 presentation: { name: {} },
                                 validationRules: {},
                                 uiConfig: {},
@@ -673,7 +671,7 @@ describe('applicationReleaseBundle', () => {
                     'enum-a': {
                         id: 'enum-a',
                         codename: createCodenameVlc('EnumA', 'ПеречислениеА'),
-                        kind: 'custom.enumeration-v2',
+                        kind: 'enumeration',
                         presentation: { name: {} },
                         config: { compatibility: { legacyObjectKind: 'enumeration' } },
                         fields: []
@@ -681,13 +679,13 @@ describe('applicationReleaseBundle', () => {
                     'enum-b': {
                         id: 'enum-b',
                         codename: createCodenameVlc('EnumB', 'ПеречислениеБ'),
-                        kind: 'custom.enumeration-v2',
+                        kind: 'enumeration',
                         presentation: { name: {} },
                         config: { compatibility: { legacyObjectKind: 'enumeration' } },
                         fields: []
                     }
                 },
-                enumerationValues: {
+                optionValues: {
                     'enum-a': [
                         {
                             id: duplicateValueId,
@@ -727,8 +725,8 @@ describe('applicationReleaseBundle', () => {
             throw new Error('Expected normalized sync context to be available')
         }
 
-        const enumAId = syncContext.snapshot.enumerationValues?.['enum-a']?.[0]?.id
-        const enumBId = syncContext.snapshot.enumerationValues?.['enum-b']?.[0]?.id
+        const enumAId = syncContext.snapshot.optionValues?.['enum-a']?.[0]?.id
+        const enumBId = syncContext.snapshot.optionValues?.['enum-b']?.[0]?.id
         const elementData = syncContext.snapshot.elements?.['catalog-main']?.[0] as { data?: Record<string, unknown> } | undefined
 
         expect(enumAId).toBeDefined()
@@ -745,7 +743,7 @@ describe('applicationReleaseBundle', () => {
         const tableFieldId = '019d1104-1add-7a40-974a-bd58f6f5e6b2'
         const childFieldId = '019d1105-0d7b-73ea-ab5c-8c513518e0c3'
         const setFieldId = '019d10e2-8c41-7725-813e-598731237ab2'
-        const setId = '019d0d8e-ddb0-7c8f-93f4-11048896d993'
+        const valueGroupId = '019d0d8e-ddb0-7c8f-93f4-11048896d993'
         const constantId = '019d10d1-79ec-78bf-a0d9-1768ee647b33'
 
         const complexSnapshot = {
@@ -793,8 +791,8 @@ describe('applicationReleaseBundle', () => {
                             dataType: 'REF',
                             isRequired: false,
                             isDisplayAttribute: false,
-                            targetEntityId: setId,
-                            targetEntityKind: 'custom.set-v2',
+                            targetEntityId: valueGroupId,
+                            targetEntityKind: 'set',
                             targetConstantId: constantId,
                             presentation: { name: {} },
                             validationRules: {},
@@ -805,10 +803,10 @@ describe('applicationReleaseBundle', () => {
                 }
             },
             constants: {
-                [setId]: [
+                [valueGroupId]: [
                     {
                         id: constantId,
-                        objectId: setId,
+                        objectId: valueGroupId,
                         codename: createCodenameVlc('MottoConstant', 'КонстантаДевиз'),
                         dataType: 'STRING',
                         presentation: {

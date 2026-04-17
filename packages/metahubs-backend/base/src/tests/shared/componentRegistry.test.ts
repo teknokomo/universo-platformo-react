@@ -10,9 +10,9 @@ describe('componentRegistry', () => {
     it('collects only enabled components from a manifest', () => {
         const enabled = getEnabledComponents({
             dataSchema: { enabled: true },
-            predefinedElements: { enabled: true },
-            hubAssignment: false,
-            enumerationValues: false,
+            records: { enabled: true },
+            treeAssignment: false,
+            optionValues: false,
             constants: false,
             hierarchy: false,
             nestedCollections: false,
@@ -25,6 +25,6 @@ describe('componentRegistry', () => {
             physicalTable: false
         })
 
-        expect(enabled).toEqual(['dataSchema', 'predefinedElements', 'actions'])
+        expect(enabled).toEqual(['dataSchema', 'records', 'actions'])
     })
 })

@@ -10,11 +10,11 @@ describe('metahubs i18n consolidation', () => {
         expect(translations.shared?.list?.badge).toBe('Общая')
     })
 
-    it('keeps top-level documents translations inside the consolidated metahubs namespace', () => {
+    it('keeps fieldDefinitions translations inside the consolidated metahubs namespace', () => {
         const translations = getMetahubsTranslations('ru') as {
-            documents?: { title?: string }
+            fieldDefinitions?: { title?: string }
         }
 
-        expect(translations.documents?.title).toBe('Документы')
+        expect(translations.fieldDefinitions?.title).toBe('Определения полей')
     })
 })

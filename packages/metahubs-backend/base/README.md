@@ -4,7 +4,7 @@ Backend package for metahub design-time resources, publication metadata, templat
 
 ## Overview
 
-This package owns the design-time side of the platform: metahubs, branches, hubs, catalogs, sets, enumerations, attributes, constants, elements, layouts, settings, templates, publications, and migration-control routes.
+This package owns the design-time side of the platform: metahubs, branches, direct-standard metadata kinds through entity-owned routes, field definitions, fixed values, records, layouts, settings, templates, publications, and migration-control routes.
 It combines SQL-first domain services with isolated DDL boundaries, template seeding, publication export flows, and metahub-specific runtime schema coordination.
 
 ## Architecture
@@ -15,12 +15,12 @@ It combines SQL-first domain services with isolated DDL boundaries, template see
 - Publication-driven application sync is composed through package boundaries instead of duplicating runtime ownership here.
 - Service-level mutations fail closed and use `RETURNING` when row confirmation matters.
 
-## Legacy-Compatible Entity V2 Contract
+## Direct Standard Kind Contract
 
-- `config.compatibility.legacyObjectKind` is the source of truth for catalog, hub, set, and enumeration compatibility.
-- Custom V2 rows keep their custom `kindKey` in `_mhb_objects.kind`; controllers widen legacy kind sets through compatibility helpers instead of rewriting stored kinds.
-- Hubs, catalogs, sets, and enumerations controllers accept `kindKey`-aware compatibility filters so the legacy route family can serve both built-in and compatible custom rows.
-- Publication, runtime, and schema seams classify V2 kinds through compatibility metadata so only catalog-compatible sections materialize in runtime navigation.
+- Standard metadata entity types use direct kind keys: `catalog`, `hub`, `set`, and `enumeration`.
+- Platform-provided standard metadata requests enter through the entity-owned top-level routes and reuse entity-owned child controllers under `domains/entities/**`.
+- Template presets and default instances stay on direct standard kind keys instead of `custom.*-v2` aliases.
+- Publication, runtime, and schema seams classify standard metadata from stored entity definitions instead of V2-specific compatibility aliases.
 
 ## Main Responsibilities
 
@@ -28,7 +28,7 @@ It combines SQL-first domain services with isolated DDL boundaries, template see
 - Keep design-time script source and bundle surfaces behind `manageMetahub` permission instead of broad member-level reads.
 - Expose public read-only routes for published metahub data.
 - Initialize rate limiters and assemble the full metahubs router tree.
-- Seed built-in templates through the unified platform migration flow.
+- Seed platform templates through the unified platform migration flow.
 - Provide metahub migration history, dry-run, apply, rollback, and publication-linked sync seams.
 - Keep DDL orchestration behind dedicated package-local boundaries.
 
@@ -50,7 +50,7 @@ It combines SQL-first domain services with isolated DDL boundaries, template see
 
 ## Router Composition
 
-- `createMetahubsServiceRoutes()` mounts metahubs, branches, hubs, catalogs, sets, enumerations, attributes, constants, elements, layouts, settings, publications, and migration endpoints.
+- `createMetahubsServiceRoutes()` mounts metahubs, branches, publications, migrations, entity types, entity instances, entity-owned metadata routes for field definitions, fixed values, and records, plus actions, event bindings, layouts, scripts, shared entity overrides, settings, and templates.
 - `createPublicMetahubsServiceRoutes()` exposes public published-metahub reads without authentication.
 - Package services and persistence helpers stay reusable outside the top-level router composition.
 - Tests prove service-level contracts directly where route tests use mocks.
@@ -73,7 +73,7 @@ Factory-generated handler that wraps every metahub-scoped controller action:
 
 ```ts
 const handle = createMetahubHandler(getDbExecutor)
-router.get('/:metahubId/hubs', handle(hubsController.list, { permission: 'viewer' }))
+router.post('/metahub/:metahubId/entities', handle(entityInstancesController.create, { permission: 'editor' }))
 ```
 
 ### Domain Error Hierarchy

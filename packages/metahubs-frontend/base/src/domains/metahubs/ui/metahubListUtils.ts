@@ -7,10 +7,8 @@ export type MetahubFormValues = {
     codename?: import('@universo/types').VersionedLocalizedContent<string> | null
     codenameTouched?: boolean
     storageMode?: 'main_db' | 'external_db'
-    createHub?: boolean
-    createCatalog?: boolean
-    createSet?: boolean
-    createEnumeration?: boolean
+    templateId?: string
+    presetToggles?: Record<string, boolean>
 }
 
 export type GenericFormValues = Record<string, unknown>

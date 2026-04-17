@@ -62,7 +62,7 @@ function buildBasicMinimalSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                 },
                 autoShowAllCatalogs: true,
                 bindToHub: false,
-                boundHubId: null,
+                boundTreeEntityId: null,
                 items: []
             })
         },
@@ -92,6 +92,12 @@ export const basicTemplate: MetahubTemplateManifest = {
         tags: ['starter', 'minimal'],
         icon: 'Dashboard'
     },
+    presets: [
+        { presetCodename: 'hub', includedByDefault: true },
+        { presetCodename: 'catalog', includedByDefault: true },
+        { presetCodename: 'set', includedByDefault: true },
+        { presetCodename: 'enumeration', includedByDefault: true }
+    ],
     seed: {
         layouts: [
             {
@@ -116,38 +122,9 @@ export const basicTemplate: MetahubTemplateManifest = {
             { key: 'general.codenameAutoConvertMixedAlphabets', value: { _value: true } },
             { key: 'general.codenameAutoReformat', value: { _value: true } },
             { key: 'general.codenameRequireReformat', value: { _value: true } },
-            { key: 'catalogs.allowAttributeCopy', value: { _value: true } },
-            { key: 'catalogs.allowAttributeDelete', value: { _value: true } },
-            { key: 'catalogs.allowDeleteLastDisplayAttribute', value: { _value: true } }
-        ],
-        entities: [
-            {
-                codename: 'MainHub',
-                kind: 'hub',
-                name: vlc('Main', 'Основной'),
-                description: vlc('Main hub for organizing metahub content', 'Основной хаб для организации контента метахаба')
-            },
-            {
-                codename: 'MainCatalog',
-                kind: 'catalog',
-                name: vlc('Main', 'Основной'),
-                description: vlc('Main catalog for storing records', 'Основной каталог для хранения записей')
-            },
-            {
-                codename: 'MainSet',
-                kind: 'set',
-                name: vlc('Main', 'Основной'),
-                description: vlc(
-                    'Main set for storing constants and typed values',
-                    'Основной набор для хранения констант и типизированных значений'
-                )
-            },
-            {
-                codename: 'MainEnumeration',
-                kind: 'enumeration',
-                name: vlc('Main', 'Основное'),
-                description: vlc('Main enumeration for fixed values', 'Основное перечисление для фиксированных значений')
-            }
+            { key: 'entity.catalog.allowAttributeCopy', value: { _value: true } },
+            { key: 'entity.catalog.allowAttributeDelete', value: { _value: true } },
+            { key: 'entity.catalog.allowDeleteLastDisplayAttribute', value: { _value: true } }
         ]
     }
 }

@@ -22,7 +22,7 @@
     "jsx": "react-jsx",
     "allowJs": false,
     "baseUrl": "./src",
-    "ignoreDeprecations": "5.0",
+    "ignoreDeprecations": "6.0",
     "moduleResolution": "bundler",
     "noResolve": false,
     "types": [
@@ -37,8 +37,6 @@
   "exclude": [
     "node_modules",
     "dist",
-    "**/*.test.ts",
-    "**/*.test.tsx",
     "../../../packages/universo-core-frontend/base/**/*"
   ]
 }

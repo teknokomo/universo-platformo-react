@@ -1,4 +1,4 @@
-import { AttributeDataType } from '@universo/types'
+import { FieldDefinitionDataType } from '@universo/types'
 import {
     assertCanonicalPlatformScopeKey,
     assertCanonicalSchemaName,
@@ -426,7 +426,7 @@ const validateBusinessTables = (
                     })
                 }
 
-                if (field.dataType !== AttributeDataType.REF) {
+                if (field.dataType !== FieldDefinitionDataType.REF) {
                     issues.push({
                         level: 'error',
                         definitionKey,

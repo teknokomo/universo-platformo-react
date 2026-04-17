@@ -1,11 +1,11 @@
 import { SnapshotSerializer } from '../../domains/publications/services/SnapshotSerializer'
 
-const createCustomTypeComponents = () => ({
+const createEntityTypeComponents = () => ({
     dataSchema: { enabled: true },
-    predefinedElements: { enabled: true },
-    hubAssignment: false,
-    enumerationValues: false,
-    constants: false,
+    records: { enabled: true },
+    treeAssignment: false,
+    optionValues: false,
+    fixedValues: false,
     hierarchy: false,
     nestedCollections: false,
     relations: false,
@@ -44,7 +44,7 @@ describe('SnapshotSerializer system field propagation', () => {
                 return []
             })
         }
-        const attributesService = {
+        const fieldDefinitionsService = {
             findAllFlatForSnapshot: jest.fn(async () => [
                 {
                     id: 'field-1',
@@ -91,7 +91,38 @@ describe('SnapshotSerializer system field propagation', () => {
             }))
         }
 
-        const serializer = new SnapshotSerializer(objectsService as never, attributesService as never)
+        const entityTypeService = {
+            listTypes: jest.fn(async () => [
+                {
+                    id: 'type-catalog',
+                    kindKey: 'catalog',
+                    codename: createCodenameVlc('catalog'),
+                    presentation: { name: { en: 'Catalogs' }, description: {} },
+                    components: createEntityTypeComponents(),
+                    ui: {
+                        iconName: 'IconDatabase',
+                        tabs: ['general'],
+                        sidebarSection: 'objects',
+                        nameKey: 'metahubs:linkedCollections.title'
+                    },
+                    config: {},
+                    published: true
+                }
+            ])
+        }
+
+        const serializer = new SnapshotSerializer(
+            objectsService as never,
+            fieldDefinitionsService as never,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            entityTypeService as never
+        )
         const snapshot = await serializer.serializeMetahub('metahub-1')
         const runtimeEntities = serializer.deserializeSnapshot(snapshot)
 
@@ -115,7 +146,7 @@ describe('SnapshotSerializer system field propagation', () => {
         const objectsService = {
             findAllByKind: jest.fn(async () => [])
         }
-        const attributesService = {
+        const fieldDefinitionsService = {
             findAllFlatForSnapshot: jest.fn(async (_metahubId: string, objectId: string) => {
                 if (objectId === 'shared-catalog-pool-id') {
                     return [
@@ -143,7 +174,7 @@ describe('SnapshotSerializer system field propagation', () => {
             }),
             getCatalogSystemFieldsSnapshot: jest.fn(async () => ({ fields: [], lifecycleContract: null }))
         }
-        const constantsService = {
+        const fixedValuesService = {
             findAll: jest.fn(async (_metahubId: string, objectId: string) => {
                 if (objectId === 'shared-set-pool-id') {
                     return [
@@ -163,7 +194,7 @@ describe('SnapshotSerializer system field propagation', () => {
                 return []
             })
         }
-        const enumerationValuesService = {
+        const optionValuesService = {
             findAll: jest.fn(async (_metahubId: string, objectId: string) => {
                 if (objectId === 'shared-enum-pool-id') {
                     return [
@@ -225,11 +256,11 @@ describe('SnapshotSerializer system field propagation', () => {
 
         const serializer = new SnapshotSerializer(
             objectsService as never,
-            attributesService as never,
+            fieldDefinitionsService as never,
             undefined,
             undefined,
-            enumerationValuesService as never,
-            constantsService as never,
+            optionValuesService as never,
+            fixedValuesService as never,
             undefined,
             sharedContainerService as never,
             sharedEntityOverridesService as never
@@ -238,9 +269,9 @@ describe('SnapshotSerializer system field propagation', () => {
         const exportedSnapshot = await serializer.serializeMetahub('metahub-1')
 
         expect(exportedSnapshot.versionEnvelope.snapshotFormatVersion).toBe(3)
-        expect(exportedSnapshot.sharedAttributes).toHaveLength(1)
-        expect(exportedSnapshot.sharedConstants).toHaveLength(1)
-        expect(exportedSnapshot.sharedEnumerationValues).toHaveLength(1)
+        expect(exportedSnapshot.sharedFieldDefinitions).toHaveLength(1)
+        expect(exportedSnapshot.sharedFixedValues).toHaveLength(1)
+        expect(exportedSnapshot.sharedOptionValues).toHaveLength(1)
         expect(exportedSnapshot.sharedEntityOverrides).toHaveLength(3)
 
         const runtimeSnapshot = SnapshotSerializer.materializeSharedEntitiesForRuntime({
@@ -248,10 +279,10 @@ describe('SnapshotSerializer system field propagation', () => {
             entities: {
                 'catalog-1': {
                     id: 'catalog-1',
-                    kind: 'custom.catalog-v2',
+                    kind: 'catalog',
                     codename: createCodenameVlc('products'),
                     presentation: { name: { en: 'Products' }, description: {} },
-                    config: { compatibility: { legacyObjectKind: 'catalog' } },
+                    config: {},
                     fields: [
                         {
                             id: 'local-field-1',
@@ -269,24 +300,24 @@ describe('SnapshotSerializer system field propagation', () => {
                 },
                 'set-1': {
                     id: 'set-1',
-                    kind: 'custom.set-v2',
+                    kind: 'set',
                     codename: createCodenameVlc('sizes'),
                     presentation: { name: { en: 'Sizes' }, description: {} },
-                    config: { compatibility: { legacyObjectKind: 'set' } },
+                    config: {},
                     fields: [],
                     hubs: []
                 },
                 'enum-1': {
                     id: 'enum-1',
-                    kind: 'custom.enumeration-v2',
+                    kind: 'enumeration',
                     codename: createCodenameVlc('statuses'),
                     presentation: { name: { en: 'Statuses' }, description: {} },
-                    config: { compatibility: { legacyObjectKind: 'enumeration' } },
+                    config: {},
                     fields: [],
                     hubs: []
                 }
             },
-            constants: {
+            fixedValues: {
                 'set-1': [
                     {
                         id: 'local-constant-1',
@@ -301,7 +332,7 @@ describe('SnapshotSerializer system field propagation', () => {
                     }
                 ]
             },
-            enumerationValues: {
+            optionValues: {
                 'enum-1': [
                     {
                         id: 'local-value-1',
@@ -316,24 +347,27 @@ describe('SnapshotSerializer system field propagation', () => {
         })
 
         expect(runtimeSnapshot.entities['catalog-1'].fields.map((field) => field.id)).toEqual(['shared-field-1', 'local-field-1'])
-        expect(runtimeSnapshot.constants?.['set-1']?.map((constant) => constant.id)).toEqual(['shared-constant-1', 'local-constant-1'])
-        expect(runtimeSnapshot.enumerationValues?.['enum-1']?.map((value) => value.id)).toEqual(['local-value-1'])
+        expect(runtimeSnapshot.fixedValues?.['set-1']?.map((fixedValue) => fixedValue.id)).toEqual([
+            'shared-constant-1',
+            'local-constant-1'
+        ])
+        expect(runtimeSnapshot.optionValues?.['enum-1']?.map((value) => value.id)).toEqual(['local-value-1'])
     })
 
-    it('serializes legacy-compatible custom hubs through the hub stream without rewriting kind', async () => {
+    it('serializes the direct standard hub through the hub stream without generic object fallback', async () => {
         const objectsService = {
             findAllByKind: jest.fn(async () => [])
         }
-        const attributesService = {
+        const fieldDefinitionsService = {
             findAllFlatForSnapshot: jest.fn(async () => []),
             getCatalogSystemFieldsSnapshot: jest.fn(async () => null)
         }
-        const hubsService = {
+        const treeEntitiesService = {
             findAll: jest.fn(async () => ({
                 items: [
                     {
                         id: 'hub-1',
-                        kind: 'custom.hub-v2',
+                        kind: 'hub',
                         codename: createCodenameVlc('workspace_hub'),
                         name: { en: 'Workspace Hub' },
                         description: {},
@@ -345,16 +379,15 @@ describe('SnapshotSerializer system field propagation', () => {
             }))
         }
         const entityTypeService = {
-            listCustomTypes: jest.fn(async () => [
+            listTypes: jest.fn(async () => [
                 {
-                    id: 'type-hub-v2',
-                    kindKey: 'custom.hub-v2',
-                    codename: createCodenameVlc('hub_v2'),
-                    presentation: { name: { en: 'Hub V2' }, description: {} },
-                    components: createCustomTypeComponents(),
+                    id: 'type-hub',
+                    kindKey: 'hub',
+                    codename: createCodenameVlc('hub'),
+                    presentation: { name: { en: 'Hub' }, description: {} },
+                    components: createEntityTypeComponents(),
                     ui: {},
-                    config: { compatibility: { legacyObjectKind: 'hub', widgetBindingMode: 'legacy' }, hierarchyMode: 'tree' },
-                    isBuiltin: false,
+                    config: { hierarchyMode: 'tree' },
                     published: true
                 }
             ])
@@ -362,9 +395,9 @@ describe('SnapshotSerializer system field propagation', () => {
 
         const serializer = new SnapshotSerializer(
             objectsService as never,
-            attributesService as never,
+            fieldDefinitionsService as never,
             undefined,
-            hubsService as never,
+            treeEntitiesService as never,
             undefined,
             undefined,
             undefined,
@@ -375,20 +408,16 @@ describe('SnapshotSerializer system field propagation', () => {
 
         const snapshot = await serializer.serializeMetahub('metahub-1')
 
-        expect(objectsService.findAllByKind).not.toHaveBeenCalledWith('metahub-1', 'custom.hub-v2')
+        expect(objectsService.findAllByKind).not.toHaveBeenCalledWith('metahub-1', 'hub')
         expect(snapshot.entities['hub-1']).toEqual(
             expect.objectContaining({
                 id: 'hub-1',
-                kind: 'custom.hub-v2',
+                kind: 'hub',
                 codename: createCodenameVlc('workspace_hub'),
                 config: expect.objectContaining({
                     sortOrder: 0,
-                    parentHubId: null,
-                    hierarchyMode: 'tree',
-                    compatibility: {
-                        legacyObjectKind: 'hub',
-                        widgetBindingMode: 'legacy'
-                    }
+                    parentTreeEntityId: null,
+                    hierarchyMode: 'tree'
                 })
             })
         )
@@ -397,11 +426,11 @@ describe('SnapshotSerializer system field propagation', () => {
     it('preserves definition-level compatibility metadata for legacy-compatible custom objects in the generic entity stream', async () => {
         const objectsService = {
             findAllByKind: jest.fn(async (_metahubId: string, kind: string) => {
-                if (kind === 'custom.set-v2') {
+                if (kind === 'custom.value-group') {
                     return [
                         {
                             id: 'set-1',
-                            kind: 'custom.set-v2',
+                            kind: 'custom.value-group',
                             codename: createCodenameVlc('sizes'),
                             table_name: 'set_sizes',
                             presentation: { name: { en: 'Sizes' }, description: {} },
@@ -416,23 +445,23 @@ describe('SnapshotSerializer system field propagation', () => {
                 return []
             })
         }
-        const attributesService = {
+        const fieldDefinitionsService = {
             findAllFlatForSnapshot: jest.fn(async () => []),
             getCatalogSystemFieldsSnapshot: jest.fn(async () => null)
         }
         const entityTypeService = {
-            listCustomTypes: jest.fn(async () => [
+            listTypes: jest.fn(async () => [
                 {
-                    id: 'type-set-v2',
-                    kindKey: 'custom.set-v2',
-                    codename: createCodenameVlc('set_v2'),
-                    presentation: { name: { en: 'Set V2' }, description: {} },
+                    id: 'type-value-group',
+                    kindKey: 'custom.value-group',
+                    codename: createCodenameVlc('value_group'),
+                    presentation: { name: { en: 'Value Group' }, description: {} },
                     components: {
                         dataSchema: false,
-                        predefinedElements: false,
-                        hubAssignment: false,
-                        enumerationValues: false,
-                        constants: { enabled: true },
+                        records: false,
+                        treeAssignment: false,
+                        optionValues: false,
+                        fixedValues: { enabled: true },
                         hierarchy: false,
                         nestedCollections: false,
                         relations: false,
@@ -447,13 +476,12 @@ describe('SnapshotSerializer system field propagation', () => {
                         iconName: 'IconFileText',
                         tabs: ['general'],
                         sidebarSection: 'objects',
-                        nameKey: 'Sets V2'
+                        nameKey: 'Value Groups'
                     },
                     config: {
                         compatibility: { legacyObjectKind: 'set', lifecycleMode: 'legacy' },
                         classification: 'design-time'
                     },
-                    isBuiltin: false,
                     published: true
                 }
             ])
@@ -461,7 +489,7 @@ describe('SnapshotSerializer system field propagation', () => {
 
         const serializer = new SnapshotSerializer(
             objectsService as never,
-            attributesService as never,
+            fieldDefinitionsService as never,
             undefined,
             undefined,
             undefined,
@@ -477,7 +505,7 @@ describe('SnapshotSerializer system field propagation', () => {
         expect(snapshot.entities['set-1']).toEqual(
             expect.objectContaining({
                 id: 'set-1',
-                kind: 'custom.set-v2',
+                kind: 'custom.value-group',
                 config: {
                     classification: 'design-time',
                     displayMode: 'chips',
@@ -510,7 +538,7 @@ describe('SnapshotSerializer system field propagation', () => {
                 return []
             })
         }
-        const attributesService = {
+        const fieldDefinitionsService = {
             findAllFlatForSnapshot: jest.fn(async () => [
                 {
                     id: 'custom-field-1',
@@ -530,10 +558,10 @@ describe('SnapshotSerializer system field propagation', () => {
                     system: { isSystem: false }
                 }
             ]),
-            listObjectSystemAttributes: jest.fn(async () => []),
+            listObjectSystemFieldDefinitions: jest.fn(async () => []),
             getObjectSystemFieldsSnapshot: jest.fn(async () => ({ fields: [], lifecycleContract: null }))
         }
-        const elementsService = {
+        const recordsService = {
             findAllByObjectIds: jest.fn(async () => [
                 {
                     id: 'element-1',
@@ -544,12 +572,11 @@ describe('SnapshotSerializer system field propagation', () => {
             ])
         }
         const entityTypeService = {
-            listCustomTypes: jest.fn(async () => [
+            listTypes: jest.fn(async () => [
                 {
                     id: 'type-1',
                     kindKey: 'customer_registry',
-                    isBuiltin: false,
-                    components: createCustomTypeComponents(),
+                    components: createEntityTypeComponents(),
                     ui: {
                         iconName: 'IconUsers',
                         tabs: ['general'],
@@ -591,8 +618,8 @@ describe('SnapshotSerializer system field propagation', () => {
 
         const serializer = new SnapshotSerializer(
             objectsService as never,
-            attributesService as never,
-            elementsService as never,
+            fieldDefinitionsService as never,
+            recordsService as never,
             undefined,
             undefined,
             undefined,

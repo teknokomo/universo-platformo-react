@@ -43,7 +43,7 @@ export const hasPrimaryContent = (value?: VersionedLocalizedContent<string> | nu
 }
 
 export const ensureLocalizedContent = (
-    value: VersionedLocalizedContent<string> | string | null | undefined,
+    value: VersionedLocalizedContent<string> | Record<string, unknown> | string | null | undefined,
     fallbackLocale: string,
     fallbackText: string
 ): VersionedLocalizedContent<string> => {

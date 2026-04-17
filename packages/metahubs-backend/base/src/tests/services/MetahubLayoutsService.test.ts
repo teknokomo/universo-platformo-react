@@ -1,6 +1,80 @@
 import { LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY, MetahubLayoutsService } from '../../domains/layouts/services/MetahubLayoutsService'
 
 describe('MetahubLayoutsService', () => {
+    it('reuses the active transaction runner for optimistic-lock layout updates', async () => {
+        const tx = {
+            query: jest.fn(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('SELECT * FROM') && sql.includes('_mhb_layouts') && sql.includes('FOR UPDATE')) {
+                    return [
+                        {
+                            id: 'layout-1',
+                            catalog_id: null,
+                            template_key: 'dashboard',
+                            name: { en: 'Current layout' },
+                            description: null,
+                            config: {},
+                            sort_order: 1,
+                            is_active: true,
+                            is_default: false,
+                            _upl_version: 3,
+                            _upl_created_at: '2026-04-04T00:00:00.000Z',
+                            _upl_updated_at: '2026-04-04T00:00:00.000Z'
+                        }
+                    ]
+                }
+
+                if (sql.includes('UPDATE') && sql.includes('_mhb_layouts') && sql.includes('RETURNING *')) {
+                    return [
+                        {
+                            id: 'layout-1',
+                            catalog_id: null,
+                            template_key: 'dashboard',
+                            name: { en: 'Updated layout' },
+                            description: null,
+                            config: {},
+                            sort_order: 1,
+                            is_active: true,
+                            is_default: false,
+                            _upl_version: 4,
+                            _upl_created_at: '2026-04-04T00:00:00.000Z',
+                            _upl_updated_at: '2026-04-04T01:00:00.000Z'
+                        }
+                    ]
+                }
+
+                throw new Error(`Unexpected SQL in updateLayout regression test: ${sql}`)
+            }),
+            transaction: jest.fn(async () => {
+                throw new Error('Nested transactions should not be opened from updateLayout optimistic locking')
+            }),
+            isReleased: () => false
+        }
+
+        const exec = {
+            query: jest.fn(),
+            transaction: jest.fn(async (callback: (trx: typeof tx) => Promise<unknown>) => callback(tx)),
+            isReleased: () => false
+        }
+        const schemaService = {
+            ensureSchema: jest.fn(async () => 'mhb_1234567890abcdef1234567890abcdef_b1')
+        } as unknown as ConstructorParameters<typeof MetahubLayoutsService>[1]
+        const service = new MetahubLayoutsService(exec as any, schemaService)
+
+        const result = await service.updateLayout(
+            'metahub-1',
+            'layout-1',
+            {
+                name: { en: 'Updated layout' },
+                expectedVersion: 3
+            },
+            'user-1'
+        )
+
+        expect(result.id).toBe('layout-1')
+        expect(tx.transaction).not.toHaveBeenCalled()
+        expect(exec.transaction).toHaveBeenCalledTimes(1)
+    })
+
     it('preserves authored runtime config keys when zone-widget sync rewrites layout widget flags', async () => {
         const layoutId = 'layout-1'
         const widgetId = 'widget-1'
@@ -185,7 +259,7 @@ describe('MetahubLayoutsService', () => {
 
     it('creates catalog layouts against the active global base layout without seeding default widgets', async () => {
         const layoutId = 'catalog-layout-1'
-        const catalogId = 'catalog-1'
+        const linkedCollectionId = 'catalog-1'
         const baseLayoutConfig = {
             showHeader: false,
             showFooter: true,
@@ -198,7 +272,7 @@ describe('MetahubLayoutsService', () => {
         }
         const createdRow = {
             id: layoutId,
-            catalog_id: catalogId,
+            catalog_id: linkedCollectionId,
             base_layout_id: 'global-layout-1',
             template_key: 'dashboard',
             name: {
@@ -228,8 +302,8 @@ describe('MetahubLayoutsService', () => {
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
             if (sql.includes('SELECT id FROM') && sql.includes("kind = 'catalog'") && sql.includes('_mhb_objects')) {
-                expect(params).toEqual([catalogId])
-                return [{ id: catalogId }]
+                expect(params).toEqual([linkedCollectionId])
+                return [{ id: linkedCollectionId }]
             }
 
             if (sql.includes('catalog_id IS NULL') && sql.includes('is_active = true') && sql.includes('_mhb_layouts')) {
@@ -244,7 +318,7 @@ describe('MetahubLayoutsService', () => {
             }
 
             if (sql.includes('INSERT INTO') && sql.includes('_mhb_layouts') && sql.includes('RETURNING *')) {
-                expect(params?.[0]).toBe(catalogId)
+                expect(params?.[0]).toBe(linkedCollectionId)
                 expect(params?.[1]).toBe('global-layout-1')
                 expect(JSON.parse(String(params?.[5] ?? '{}'))).toEqual({
                     showViewToggle: true,
@@ -280,7 +354,7 @@ describe('MetahubLayoutsService', () => {
         const created = await service.createLayout(
             'metahub-1',
             {
-                catalogId,
+                linkedCollectionId,
                 templateKey: 'dashboard',
                 name: {
                     _schema: '1',
@@ -298,7 +372,7 @@ describe('MetahubLayoutsService', () => {
             'user-1'
         )
 
-        expect(created.catalogId).toBe(catalogId)
+        expect(created.linkedCollectionId).toBe(linkedCollectionId)
         expect(created.baseLayoutId).toBe('global-layout-1')
         expect(created.config).toEqual({
             showViewToggle: true,
@@ -408,7 +482,7 @@ describe('MetahubLayoutsService', () => {
             'user-1'
         )
 
-        expect(created.catalogId).toBeNull()
+        expect(created.linkedCollectionId).toBeNull()
         expect(created.baseLayoutId).toBeNull()
         expect(created.config).toMatchObject({
             showSideMenu: false,
@@ -421,7 +495,7 @@ describe('MetahubLayoutsService', () => {
         expect(query.mock.calls.some(([sql]) => String(sql).includes('_mhb_widgets'))).toBe(false)
     })
 
-    it('rejects catalog layout creation when catalogId points to a non-catalog object', async () => {
+    it('rejects catalog layout creation when linkedCollectionId points to a non-catalog object', async () => {
         const query = jest.fn(async (sql: string) => {
             if (sql.includes('SELECT id FROM') && sql.includes("kind = 'catalog'") && sql.includes('_mhb_objects')) {
                 return []
@@ -446,7 +520,7 @@ describe('MetahubLayoutsService', () => {
             service.createLayout(
                 'metahub-1',
                 {
-                    catalogId: 'catalog-1',
+                    linkedCollectionId: 'catalog-1',
                     templateKey: 'dashboard',
                     name: {
                         _schema: '1',

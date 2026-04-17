@@ -10,15 +10,15 @@ import BranchListComponent from './domains/branches/ui/BranchList'
 import MetahubMigrationsComponent from './domains/migrations/ui/MetahubMigrations'
 import EntitiesWorkspaceComponent from './domains/entities/ui/EntitiesWorkspace'
 import EntityInstanceListComponent from './domains/entities/ui/EntityInstanceList'
-import HubListComponent from './domains/hubs/ui/HubList'
-import CatalogListComponent from './domains/catalogs/ui/CatalogList'
-import EnumerationListComponent from './domains/enumerations/ui/EnumerationList'
-import EnumerationValueListComponent from './domains/enumerations/ui/EnumerationValueList'
-import AttributeListComponent from './domains/attributes/ui/AttributeList'
-import ElementListComponent from './domains/elements/ui/ElementList'
-import SetListComponent from './domains/sets/ui/SetList'
-import ConstantListComponent from './domains/constants/ui/ConstantList'
-import GeneralPageComponent from './domains/general/ui/GeneralPage'
+import {
+    StandardEntityChildCollectionPage as StandardEntityChildCollectionPageComponent,
+    BuiltinEntityCollectionPage as BuiltinEntityCollectionPageComponent
+} from './domains/entities/ui/BuiltinEntityCollectionPage'
+import SelectableOptionListComponent from './domains/entities/metadata/optionValue/ui/SelectableOptionList'
+import FieldDefinitionListComponent from './domains/entities/metadata/fieldDefinition/ui/FieldDefinitionList'
+import RecordListComponent from './domains/entities/metadata/record/ui/RecordList'
+import FixedValueListComponent from './domains/entities/metadata/fixedValue/ui/FixedValueList'
+import SharedResourcesPageComponent from './domains/entities/shared/ui/SharedResourcesPage'
 import MetahubLayoutsComponent from './domains/layouts/ui/LayoutList'
 import MetahubLayoutDetailsComponent from './domains/layouts/ui/LayoutDetails'
 import SettingsPageComponent from './domains/settings/ui/SettingsPage'
@@ -40,17 +40,15 @@ export const MetahubMigrations = withMetahubDialogSettings(MetahubMigrationsComp
 export { default as MetahubMigrationGuard } from './domains/migrations/ui/MetahubMigrationGuard'
 export const EntitiesWorkspace = withMetahubDialogSettings(EntitiesWorkspaceComponent)
 export const EntityInstanceList = withMetahubDialogSettings(EntityInstanceListComponent)
+export const BuiltinEntityCollectionPage = withMetahubDialogSettings(BuiltinEntityCollectionPageComponent)
+export const StandardEntityChildCollectionPage = withMetahubDialogSettings(StandardEntityChildCollectionPageComponent)
 
-// New Hub/Catalog/Attribute/Element pages
-export const HubList = withMetahubDialogSettings(HubListComponent)
-export const CatalogList = withMetahubDialogSettings(CatalogListComponent)
-export const EnumerationList = withMetahubDialogSettings(EnumerationListComponent)
-export const EnumerationValueList = withMetahubDialogSettings(EnumerationValueListComponent)
-export const AttributeList = withMetahubDialogSettings(AttributeListComponent)
-export const ElementList = withMetahubDialogSettings(ElementListComponent)
-export const SetList = withMetahubDialogSettings(SetListComponent)
-export const ConstantList = withMetahubDialogSettings(ConstantListComponent)
-export const MetahubCommon = withMetahubDialogSettings(GeneralPageComponent)
+// Entity metadata pages
+export const SelectableOptionList = withMetahubDialogSettings(SelectableOptionListComponent)
+export const FieldDefinitionList = withMetahubDialogSettings(FieldDefinitionListComponent)
+export const RecordList = withMetahubDialogSettings(RecordListComponent)
+export const FixedValueList = withMetahubDialogSettings(FixedValueListComponent)
+export const MetahubResources = withMetahubDialogSettings(SharedResourcesPageComponent)
 export const MetahubLayouts = withMetahubDialogSettings(MetahubLayoutsComponent)
 export const MetahubLayoutDetails = withMetahubDialogSettings(MetahubLayoutDetailsComponent)
 
@@ -68,37 +66,37 @@ export type {
     MetahubBranch,
     MetahubBranchDisplay,
     BlockingBranchUser,
-    Hub,
-    HubDisplay,
-    HubRef,
-    Catalog,
-    CatalogDisplay,
-    MetahubSet,
-    MetahubSetDisplay,
-    Enumeration,
-    EnumerationDisplay,
-    EnumerationValue,
-    EnumerationValueDisplay,
-    Attribute,
-    AttributeDisplay,
-    AttributeDataType,
-    Constant,
-    ConstantDisplay,
-    ConstantDataType,
-    HubElement,
-    HubElementDisplay
+    TreeEntity,
+    TreeEntityDisplay,
+    TreeEntityRef,
+    LinkedCollectionEntity,
+    LinkedCollectionDisplay,
+    ValueGroupEntity,
+    ValueGroupDisplay,
+    OptionListEntity,
+    OptionListDisplay,
+    OptionValue,
+    OptionValueDisplay,
+    FieldDefinition,
+    FieldDefinitionDisplay,
+    FieldDefinitionDataType,
+    FixedValue,
+    FixedValueDisplay,
+    FixedValueDataType,
+    RecordItem,
+    RecordItemDisplay
 } from './types'
 
 // Types - Payloads
 export type {
     MetahubLocalizedPayload,
-    HubLocalizedPayload,
-    CatalogLocalizedPayload,
-    SetLocalizedPayload,
-    EnumerationLocalizedPayload,
-    EnumerationValueLocalizedPayload,
-    AttributeLocalizedPayload,
-    ConstantLocalizedPayload
+    TreeEntityLocalizedPayload,
+    LinkedCollectionLocalizedPayload,
+    ValueGroupLocalizedPayload,
+    OptionListLocalizedPayload,
+    OptionValueLocalizedPayload,
+    FieldDefinitionLocalizedPayload,
+    FixedValueLocalizedPayload
 } from './types'
 export type { BranchLocalizedPayload } from './types'
 
@@ -112,14 +110,14 @@ export type { VersatileLocalizedContent, SimpleLocalizedInput } from './types'
 export {
     toMetahubDisplay,
     toBranchDisplay,
-    toHubDisplay,
-    toCatalogDisplay,
-    toSetDisplay,
-    toEnumerationDisplay,
-    toEnumerationValueDisplay,
-    toAttributeDisplay,
-    toConstantDisplay,
-    toHubElementDisplay
+    toTreeEntityDisplay,
+    toLinkedCollectionDisplay,
+    toValueGroupDisplay,
+    toOptionListDisplay,
+    toOptionValueDisplay,
+    toFieldDefinitionDisplay,
+    toFixedValueDisplay,
+    toRecordItemDisplay
 } from './types'
 
 // VLC utilities

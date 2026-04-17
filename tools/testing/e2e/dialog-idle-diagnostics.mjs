@@ -64,7 +64,7 @@ async function waitForServerReady(timeoutMs) {
             return
         }
 
-        await sleep(1_000)
+        await sleep(env.serverPollIntervalMs)
     }
 
     throw new Error(`Dialog diagnostics: server did not become ready at ${pingUrl} within ${timeoutMs}ms`)
@@ -92,7 +92,7 @@ async function startOwnedServer() {
         })
     })
 
-    await Promise.race([waitForServerReady(180_000), earlyExit])
+    await Promise.race([waitForServerReady(env.serverReadyTimeoutMs), earlyExit])
     return serverProcess
 }
 

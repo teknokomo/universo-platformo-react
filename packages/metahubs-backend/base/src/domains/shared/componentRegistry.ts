@@ -17,31 +17,31 @@ export const COMPONENT_REGISTRY: Record<keyof ComponentManifest, BackendComponen
         requiresPhysicalTable: false,
         supportedKinds: null
     },
-    predefinedElements: {
-        key: 'predefinedElements',
+    records: {
+        key: 'records',
         tables: ['_mhb_elements'],
-        dependencies: [...COMPONENT_DEPENDENCIES.predefinedElements],
+        dependencies: [...COMPONENT_DEPENDENCIES.records],
         requiresPhysicalTable: false,
-        supportedKinds: ['catalog', 'document']
+        supportedKinds: ['catalog']
     },
-    hubAssignment: {
-        key: 'hubAssignment',
+    treeAssignment: {
+        key: 'treeAssignment',
         tables: [],
-        dependencies: [...COMPONENT_DEPENDENCIES.hubAssignment],
+        dependencies: [...COMPONENT_DEPENDENCIES.treeAssignment],
         requiresPhysicalTable: false,
         supportedKinds: null
     },
-    enumerationValues: {
-        key: 'enumerationValues',
+    optionValues: {
+        key: 'optionValues',
         tables: ['_mhb_values'],
-        dependencies: [...COMPONENT_DEPENDENCIES.enumerationValues],
+        dependencies: [...COMPONENT_DEPENDENCIES.optionValues],
         requiresPhysicalTable: false,
         supportedKinds: ['enumeration']
     },
-    constants: {
-        key: 'constants',
+    fixedValues: {
+        key: 'fixedValues',
         tables: ['_mhb_constants'],
-        dependencies: [...COMPONENT_DEPENDENCIES.constants],
+        dependencies: [...COMPONENT_DEPENDENCIES.fixedValues],
         requiresPhysicalTable: false,
         supportedKinds: ['set']
     },
@@ -99,7 +99,7 @@ export const COMPONENT_REGISTRY: Record<keyof ComponentManifest, BackendComponen
         tables: [],
         dependencies: [...COMPONENT_DEPENDENCIES.runtimeBehavior],
         requiresPhysicalTable: false,
-        supportedKinds: ['catalog', 'document']
+        supportedKinds: ['catalog']
     },
     physicalTable: {
         key: 'physicalTable',

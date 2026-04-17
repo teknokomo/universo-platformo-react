@@ -1,11 +1,11 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
 import type { DbExecutor } from '@universo/utils'
-import { getLegacyCompatibleObjectKind, getLegacyCompatibleObjectKindForKindKey } from '@universo/types'
+import { isBuiltinEntityKind } from '@universo/types'
 import {
-    normalizeCatalogRuntimeViewConfig,
-    resolveCatalogLayoutBehaviorConfig,
-    resolveCatalogRuntimeDashboardLayoutConfig,
+    normalizeLinkedCollectionRuntimeViewConfig,
+    resolveLinkedCollectionLayoutBehaviorConfig,
+    resolveLinkedCollectionRuntimeDashboardLayoutConfig,
     resolveApplicationLifecycleContractFromConfig
 } from '@universo/utils'
 import { generateChildTableName } from '@universo/schema-ddl'
@@ -56,78 +56,53 @@ const runtimeQuerySchema = z.object({
     limit: z.coerce.number().int().positive().max(10000).default(100),
     offset: z.coerce.number().int().min(0).default(0),
     locale: z.string().optional(),
-    catalogId: z.string().uuid().optional()
+    linkedCollectionId: z.string().uuid().optional()
 })
 
 const runtimeUpdateBodySchema = z.object({
     field: z.string().min(1),
     value: z.unknown(),
-    catalogId: z.string().uuid().optional(),
+    linkedCollectionId: z.string().uuid().optional(),
     expectedVersion: z.number().int().positive().optional()
 })
 
 const runtimeBulkUpdateBodySchema = z.object({
-    catalogId: z.string().uuid().optional(),
+    linkedCollectionId: z.string().uuid().optional(),
     data: z.record(z.unknown()),
     expectedVersion: z.number().int().positive().optional()
 })
 
 const runtimeCreateBodySchema = z.object({
-    catalogId: z.string().uuid().optional(),
+    linkedCollectionId: z.string().uuid().optional(),
     data: z.record(z.unknown())
 })
 
 const runtimeCopyBodySchema = z.object({
-    catalogId: z.string().uuid().optional(),
+    linkedCollectionId: z.string().uuid().optional(),
     copyChildTables: z.boolean().optional()
 })
 
 const runtimeReorderBodySchema = z.object({
-    catalogId: z.string().uuid().optional(),
+    linkedCollectionId: z.string().uuid().optional(),
     orderedRowIds: z.array(z.string().uuid()).min(1).max(1000)
 })
 
-const RUNTIME_LEGACY_COMPATIBLE_KIND_SQL = (kindColumn = 'kind', configColumn = 'config') =>
-    `COALESCE(
-      ${configColumn}->'compatibility'->>'legacyObjectKind',
-      ${configColumn}->>'legacyObjectKind',
-      CASE ${kindColumn}
-        WHEN 'custom.catalog-v2' THEN 'catalog'
-        WHEN 'custom.hub-v2' THEN 'hub'
-        WHEN 'custom.set-v2' THEN 'set'
-        WHEN 'custom.enumeration-v2' THEN 'enumeration'
-        ELSE ${kindColumn}
-      END,
-      ''
-    )`
+const RUNTIME_STANDARD_KIND_SQL = (kindColumn = 'kind') => `COALESCE(${kindColumn}, '')`
 
-const RUNTIME_SECTION_FILTER_SQL = `${RUNTIME_LEGACY_COMPATIBLE_KIND_SQL()} NOT IN ('hub', 'set', 'enumeration')`
+const RUNTIME_CATALOG_FILTER_SQL = `${RUNTIME_STANDARD_KIND_SQL()} NOT IN ('hub', 'set', 'enumeration')`
 
-const resolveRuntimeLegacyCompatibleKind = (kind: unknown, config?: unknown): 'catalog' | 'hub' | 'set' | 'enumeration' | null => {
-    if (kind === 'catalog' || kind === 'hub' || kind === 'set' || kind === 'enumeration') {
-        return kind
-    }
+const resolveRuntimeStandardKind = (kind: unknown): 'catalog' | 'hub' | 'set' | 'enumeration' | null =>
+    typeof kind === 'string' && isBuiltinEntityKind(kind) ? kind : null
 
-    const fromConfig = getLegacyCompatibleObjectKind(config)
-    if (fromConfig && fromConfig !== 'document') {
-        return fromConfig
-    }
+const isRuntimeCatalogTargetKind = (kind: unknown): kind is string =>
+    typeof kind === 'string' && !['hub', 'set', 'enumeration'].includes(resolveRuntimeStandardKind(kind) ?? '')
 
-    const fromKindKey = getLegacyCompatibleObjectKindForKindKey(kind)
-    return fromKindKey && fromKindKey !== 'document' ? fromKindKey : null
-}
+const isRuntimeEnumerationKind = (kind: unknown): kind is string =>
+    typeof kind === 'string' && resolveRuntimeStandardKind(kind) === 'enumeration'
 
-const isRuntimeSectionTargetKind = (kind: unknown, config?: unknown): kind is string =>
-    typeof kind === 'string' && !['hub', 'set', 'enumeration'].includes(resolveRuntimeLegacyCompatibleKind(kind, config) ?? '')
+const isRuntimeSetKind = (kind: unknown): kind is string => typeof kind === 'string' && resolveRuntimeStandardKind(kind) === 'set'
 
-const isRuntimeEnumerationTargetKind = (kind: unknown): kind is string =>
-    typeof kind === 'string' && resolveRuntimeLegacyCompatibleKind(kind) === 'enumeration'
-
-const isRuntimeSetTargetKind = (kind: unknown): kind is string =>
-    typeof kind === 'string' && resolveRuntimeLegacyCompatibleKind(kind) === 'set'
-
-const isRuntimeHubKind = (kind: unknown, config?: unknown): kind is string =>
-    typeof kind === 'string' && resolveRuntimeLegacyCompatibleKind(kind, config) === 'hub'
+const isRuntimeHubKind = (kind: unknown): kind is string => typeof kind === 'string' && resolveRuntimeStandardKind(kind) === 'hub'
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -136,12 +111,12 @@ const isRuntimeHubKind = (kind: unknown, config?: unknown): kind is string =>
 /**
  * Resolve a runtime row section and load its attributes from a runtime schema.
  */
-const resolveRuntimeCatalog = async (manager: DbExecutor, schemaIdent: string, requestedCatalogId?: string) => {
-    const catalogs = (await manager.query(
+const resolveRuntimeLinkedCollection = async (manager: DbExecutor, schemaIdent: string, requestedLinkedCollectionId?: string) => {
+    const linkedCollections = (await manager.query(
         `
       SELECT id, codename, table_name, config
       FROM ${schemaIdent}._app_objects
-      WHERE ${RUNTIME_SECTION_FILTER_SQL}
+    WHERE ${RUNTIME_CATALOG_FILTER_SQL}
         AND _upl_deleted = false
         AND _app_deleted = false
       ORDER BY ${runtimeCodenameTextSql('codename')} ASC, id ASC
@@ -153,17 +128,20 @@ const resolveRuntimeCatalog = async (manager: DbExecutor, schemaIdent: string, r
         config?: Record<string, unknown> | null
     }>
 
-    if (catalogs.length === 0) return { catalog: null, attrs: [], error: 'No catalogs available' } as const
+    if (linkedCollections.length === 0) return { linkedCollection: null, attrs: [], error: 'No linked collections available' } as const
 
-    const selectedCatalog = (requestedCatalogId ? catalogs.find((c) => c.id === requestedCatalogId) : undefined) ?? catalogs[0]
-    const catalog = selectedCatalog
+    const selectedLinkedCollection =
+        (requestedLinkedCollectionId ? linkedCollections.find((c) => c.id === requestedLinkedCollectionId) : undefined) ??
+        linkedCollections[0]
+    const linkedCollection = selectedLinkedCollection
         ? {
-              ...selectedCatalog,
-              lifecycleContract: resolveApplicationLifecycleContractFromConfig(selectedCatalog.config)
+              ...selectedLinkedCollection,
+              lifecycleContract: resolveApplicationLifecycleContractFromConfig(selectedLinkedCollection.config)
           }
         : null
-    if (!catalog) return { catalog: null, attrs: [], error: 'Catalog not found' } as const
-    if (!IDENTIFIER_REGEX.test(catalog.table_name)) return { catalog: null, attrs: [], error: 'Invalid table name' } as const
+    if (!linkedCollection) return { linkedCollection: null, attrs: [], error: 'Linked collection not found' } as const
+    if (!IDENTIFIER_REGEX.test(linkedCollection.table_name))
+        return { linkedCollection: null, attrs: [], error: 'Invalid table name' } as const
 
     const attrs = (await manager.query(
         `
@@ -175,7 +153,7 @@ const resolveRuntimeCatalog = async (manager: DbExecutor, schemaIdent: string, r
         AND _upl_deleted = false
         AND _app_deleted = false
     `,
-        [catalog.id]
+        [linkedCollection.id]
     )) as Array<{
         id: string
         codename: unknown
@@ -188,7 +166,7 @@ const resolveRuntimeCatalog = async (manager: DbExecutor, schemaIdent: string, r
         ui_config?: Record<string, unknown>
     }>
 
-    return { catalog, attrs, error: null } as const
+    return { linkedCollection, attrs, error: null } as const
 }
 
 const resolveRuntimeReorderField = (
@@ -235,8 +213,13 @@ const runtimeSystemTableExists = async (manager: DbExecutor, schemaName: string,
     return row?.exists === true
 }
 
-const loadRuntimeSelectedLayout = async (params: { manager: DbExecutor; schemaName: string; schemaIdent: string; catalogId: string }) => {
-    const { manager, schemaName, schemaIdent, catalogId } = params
+const loadRuntimeSelectedLayout = async (params: {
+    manager: DbExecutor
+    schemaName: string
+    schemaIdent: string
+    linkedCollectionId: string
+}) => {
+    const { manager, schemaName, schemaIdent, linkedCollectionId } = params
     const layoutsExist = await runtimeSystemTableExists(manager, schemaName, '_app_layouts')
     if (!layoutsExist) {
         return { layoutId: null, layoutConfig: {} as Record<string, unknown> }
@@ -257,7 +240,7 @@ const loadRuntimeSelectedLayout = async (params: { manager: DbExecutor; schemaNa
                _upl_created_at ASC
       LIMIT 1
     `,
-        [catalogId]
+        [linkedCollectionId]
     )) as Array<{ id: string; config: Record<string, unknown> | null }>
 
     return {
@@ -266,7 +249,11 @@ const loadRuntimeSelectedLayout = async (params: { manager: DbExecutor; schemaNa
     }
 }
 
-export const resolvePreferredCatalogIdFromGlobalMenu = async (params: { manager: DbExecutor; schemaName: string; schemaIdent: string }) => {
+export const resolvePreferredLinkedCollectionIdFromGlobalMenu = async (params: {
+    manager: DbExecutor
+    schemaName: string
+    schemaIdent: string
+}) => {
     const { manager, schemaName, schemaIdent } = params
 
     try {
@@ -328,26 +315,26 @@ export const resolvePreferredCatalogIdFromGlobalMenu = async (params: { manager:
             .map((row) => (row.config && typeof row.config === 'object' ? (row.config as Record<string, unknown>) : null))
             .find((cfg) => Boolean(cfg?.bindToHub) && typeof cfg?.boundHubId === 'string')
 
-        const boundHubId = typeof boundMenuConfig?.boundHubId === 'string' ? boundMenuConfig.boundHubId : null
-        if (!boundHubId) {
+        const boundTreeEntityId = typeof boundMenuConfig?.boundHubId === 'string' ? boundMenuConfig.boundHubId : null
+        if (!boundTreeEntityId) {
             return null
         }
 
-        const preferredCatalogRows = (await manager.query(
+        const preferredLinkedCollectionRows = (await manager.query(
             `
         SELECT id
         FROM ${schemaIdent}._app_objects
-        WHERE ${RUNTIME_SECTION_FILTER_SQL}
+        WHERE ${RUNTIME_CATALOG_FILTER_SQL}
           AND _upl_deleted = false
           AND _app_deleted = false
           AND config->'hubs' @> $1::jsonb
         ORDER BY COALESCE((config->>'sortOrder')::int, 0) ASC, codename ASC
         LIMIT 1
       `,
-            [JSON.stringify([boundHubId])]
+            [JSON.stringify([boundTreeEntityId])]
         )) as Array<{ id: string }>
 
-        return preferredCatalogRows[0]?.id ?? null
+        return preferredLinkedCollectionRows[0]?.id ?? null
     } catch (e) {
         // eslint-disable-next-line no-console
         console.warn('[ApplicationsRuntime] Failed to resolve preferred startup catalog from menu binding (ignored)', e)
@@ -355,22 +342,22 @@ export const resolvePreferredCatalogIdFromGlobalMenu = async (params: { manager:
     }
 }
 
-const resolveEffectiveCatalogRuntimeConfig = async (params: {
+const resolveEffectiveLinkedCollectionRuntimeConfig = async (params: {
     manager: DbExecutor
     schemaName: string
     schemaIdent: string
-    catalogId: string
+    linkedCollectionId: string
 }) => {
     const selectedLayout = await loadRuntimeSelectedLayout({
         manager: params.manager,
         schemaName: params.schemaName,
         schemaIdent: params.schemaIdent,
-        catalogId: params.catalogId
+        linkedCollectionId: params.linkedCollectionId
     })
 
     return {
         selectedLayout,
-        runtimeConfig: resolveCatalogLayoutBehaviorConfig({
+        runtimeConfig: resolveLinkedCollectionLayoutBehaviorConfig({
             layoutConfig: selectedLayout.layoutConfig
         })
     }
@@ -430,7 +417,7 @@ const dispatchRuntimeLifecycle = async (params: {
     manager: DbExecutor
     applicationId: string
     schemaName: string
-    catalog: { id: string; codename: unknown }
+    linkedCollection: { id: string; codename: unknown }
     currentWorkspaceId?: string | null
     currentUserId?: string | null
     permissions?: Record<RolePermission, boolean>
@@ -458,8 +445,8 @@ const dispatchRuntimeLifecycle = async (params: {
         applicationId: params.applicationId,
         schemaName: params.schemaName,
         attachmentKind: 'catalog',
-        attachmentId: params.catalog.id,
-        entityCodename: resolveRuntimeCodenameText(params.catalog.codename),
+        attachmentId: params.linkedCollection.id,
+        entityCodename: resolveRuntimeCodenameText(params.linkedCollection.codename),
         currentWorkspaceId: params.currentWorkspaceId ?? null,
         currentUserId: params.currentUserId ?? null,
         permissions: params.permissions ?? null,
@@ -499,7 +486,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
         const { limit, offset, locale } = parsedQuery.data
         const requestedLocale = normalizeLocale(locale)
-        const requestedCatalogId = parsedQuery.data.catalogId ?? null
+        const requestedLinkedCollectionId = parsedQuery.data.linkedCollectionId ?? null
         const runtimeContext = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
         if (!runtimeContext) return
 
@@ -507,22 +494,22 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         const manager = runtimeContext.manager
         const currentWorkspaceId = runtimeContext.currentWorkspaceId
 
-        const catalogs = await manager.query(
+        const linkedCollections = await manager.query(
             `
         SELECT id, codename, table_name, presentation, config
         FROM ${schemaIdent}._app_objects
-        WHERE ${RUNTIME_SECTION_FILTER_SQL}
+        WHERE ${RUNTIME_CATALOG_FILTER_SQL}
           AND _upl_deleted = false
           AND _app_deleted = false
         ORDER BY ${runtimeCodenameTextSql('codename')} ASC, id ASC
       `
         )
 
-        if (catalogs.length === 0) {
-            return res.status(404).json({ error: 'No catalogs available in application runtime schema' })
+        if (linkedCollections.length === 0) {
+            return res.status(404).json({ error: 'No linkedCollections available in application runtime schema' })
         }
 
-        const typedCatalogs = catalogs as Array<{
+        const typedCatalogs = linkedCollections as Array<{
             id: string
             codename: unknown
             table_name: string
@@ -535,26 +522,30 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             lifecycleContract: resolveApplicationLifecycleContractFromConfig(catalogRow.config)
         }))
 
-        const preferredCatalogIdFromMenu = requestedCatalogId
+        const preferredLinkedCollectionIdFromMenu = requestedLinkedCollectionId
             ? null
-            : await resolvePreferredCatalogIdFromGlobalMenu({
+            : await resolvePreferredLinkedCollectionIdFromGlobalMenu({
                   manager,
                   schemaName,
                   schemaIdent
               })
 
-        const activeCatalog =
-            (requestedCatalogId ? runtimeCatalogs.find((catalogRow) => catalogRow.id === requestedCatalogId) : undefined) ??
-            (preferredCatalogIdFromMenu ? runtimeCatalogs.find((catalogRow) => catalogRow.id === preferredCatalogIdFromMenu) : undefined) ??
+        const activeLinkedCollection =
+            (requestedLinkedCollectionId
+                ? runtimeCatalogs.find((catalogRow) => catalogRow.id === requestedLinkedCollectionId)
+                : undefined) ??
+            (preferredLinkedCollectionIdFromMenu
+                ? runtimeCatalogs.find((catalogRow) => catalogRow.id === preferredLinkedCollectionIdFromMenu)
+                : undefined) ??
             runtimeCatalogs[0]
-        if (!activeCatalog) {
+        if (!activeLinkedCollection) {
             return res.status(404).json({
                 error: 'Requested catalog not found in runtime schema',
-                details: { catalogId: requestedCatalogId }
+                details: { linkedCollectionId: requestedLinkedCollectionId }
             })
         }
 
-        if (!IDENTIFIER_REGEX.test(activeCatalog.table_name)) {
+        if (!IDENTIFIER_REGEX.test(activeLinkedCollection.table_name)) {
             return res.status(400).json({ error: 'Invalid runtime table name' })
         }
 
@@ -571,7 +562,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
           AND _app_deleted = false
         ORDER BY sort_order ASC, _upl_created_at ASC NULLS LAST, codename ASC
       `,
-            [activeCatalog.id]
+            [activeLinkedCollection.id]
         )) as Array<{
             id: string
             codename: string
@@ -625,18 +616,12 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             new Set([
                 ...safeAttributes
                     .filter(
-                        (attr) =>
-                            attr.data_type === 'REF' &&
-                            isRuntimeEnumerationTargetKind(attr.target_object_kind) &&
-                            attr.target_object_id
+                        (attr) => attr.data_type === 'REF' && isRuntimeEnumerationKind(attr.target_object_kind) && attr.target_object_id
                     )
                     .map((attr) => String(attr.target_object_id)),
                 ...allChildAttributes
                     .filter(
-                        (attr) =>
-                            attr.data_type === 'REF' &&
-                            isRuntimeEnumerationTargetKind(attr.target_object_kind) &&
-                            attr.target_object_id
+                        (attr) => attr.data_type === 'REF' && isRuntimeEnumerationKind(attr.target_object_kind) && attr.target_object_id
                     )
                     .map((attr) => String(attr.target_object_id))
             ])
@@ -689,12 +674,12 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             new Set([
                 ...safeAttributes
                     .filter(
-                        (attr) => attr.data_type === 'REF' && isRuntimeSectionTargetKind(attr.target_object_kind) && attr.target_object_id
+                        (attr) => attr.data_type === 'REF' && isRuntimeCatalogTargetKind(attr.target_object_kind) && attr.target_object_id
                     )
                     .map((attr) => String(attr.target_object_id)),
                 ...allChildAttributes
                     .filter(
-                        (attr) => attr.data_type === 'REF' && isRuntimeSectionTargetKind(attr.target_object_kind) && attr.target_object_id
+                        (attr) => attr.data_type === 'REF' && isRuntimeCatalogTargetKind(attr.target_object_kind) && attr.target_object_id
                     )
                     .map((attr) => String(attr.target_object_id))
             ])
@@ -707,7 +692,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
           SELECT id, codename, table_name, config
           FROM ${schemaIdent}._app_objects
           WHERE id = ANY($1::uuid[])
-            AND ${RUNTIME_SECTION_FILTER_SQL}
+            AND ${RUNTIME_CATALOG_FILTER_SQL}
             AND _upl_deleted = false
             AND _app_deleted = false
         `,
@@ -739,11 +724,11 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 sort_order?: number
             }>
 
-            const attrsByCatalogId = new Map<string, typeof targetCatalogAttrs>()
+            const attrsByLinkedCollectionId = new Map<string, typeof targetCatalogAttrs>()
             for (const row of targetCatalogAttrs) {
-                const list = attrsByCatalogId.get(row.object_id) ?? []
+                const list = attrsByLinkedCollectionId.get(row.object_id) ?? []
                 list.push(row)
-                attrsByCatalogId.set(row.object_id, list)
+                attrsByLinkedCollectionId.set(row.object_id, list)
             }
 
             for (const targetCatalog of targetCatalogs) {
@@ -758,7 +743,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     currentWorkspaceId
                 )
 
-                const targetAttrs = attrsByCatalogId.get(targetCatalog.id) ?? []
+                const targetAttrs = attrsByLinkedCollectionId.get(targetCatalog.id) ?? []
                 const preferredDisplayAttr =
                     targetAttrs.find((attr) => attr.is_display_attribute) ??
                     targetAttrs.find((attr) => attr.data_type === 'STRING') ??
@@ -801,10 +786,10 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             }
         }
 
-        const dataTableIdent = `${schemaIdent}.${quoteIdentifier(activeCatalog.table_name)}`
+        const dataTableIdent = `${schemaIdent}.${quoteIdentifier(activeLinkedCollection.table_name)}`
         const activeCatalogRowCondition = buildRuntimeActiveRowCondition(
-            activeCatalog.lifecycleContract,
-            activeCatalog.config,
+            activeLinkedCollection.lifecycleContract,
+            activeLinkedCollection.config,
             undefined,
             currentWorkspaceId
         )
@@ -825,15 +810,15 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             )
         }
 
-        const { selectedLayout, runtimeConfig: activeCatalogRuntimeConfig } = await resolveEffectiveCatalogRuntimeConfig({
+        const { selectedLayout, runtimeConfig: activeLinkedCollectionRuntimeConfig } = await resolveEffectiveLinkedCollectionRuntimeConfig({
             manager,
             schemaName,
             schemaIdent,
-            catalogId: activeCatalog.id
+            linkedCollectionId: activeLinkedCollection.id
         })
         const reorderFieldAttr = resolveRuntimeReorderField(
             safeAttributes,
-            activeCatalogRuntimeConfig.enableRowReordering ? activeCatalogRuntimeConfig.reorderPersistenceField : null
+            activeLinkedCollectionRuntimeConfig.enableRowReordering ? activeLinkedCollectionRuntimeConfig.reorderPersistenceField : null
         )
 
         const [{ total }] = (await manager.query(
@@ -856,7 +841,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         )) as Array<Record<string, unknown>>
 
         const canPersistRowReordering =
-            activeCatalogRuntimeConfig.enableRowReordering && Boolean(reorderFieldAttr) && offset === 0 && total <= limit
+            activeLinkedCollectionRuntimeConfig.enableRowReordering && Boolean(reorderFieldAttr) && offset === 0 && total <= limit
 
         const rows = rawRows.map((row) => {
             const mappedRow: Record<string, unknown> & { id: string } = {
@@ -879,11 +864,11 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         if (runtimeContext.workspacesEnabled && currentWorkspaceId) {
             const maxRows = await getCatalogWorkspaceLimit(manager, {
                 schemaName,
-                objectId: activeCatalog.id
+                objectId: activeLinkedCollection.id
             })
             const currentRows = await getCatalogWorkspaceUsage(manager, {
                 schemaName,
-                tableName: activeCatalog.table_name,
+                tableName: activeLinkedCollection.table_name,
                 workspaceId: currentWorkspaceId,
                 runtimeRowCondition: activeCatalogRowCondition
             })
@@ -935,17 +920,20 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             console.warn('[ApplicationsRuntime] Failed to load layout config (ignored)', e)
         }
 
-        layoutConfig = resolveCatalogRuntimeDashboardLayoutConfig({ layoutConfig })
+        layoutConfig = resolveLinkedCollectionRuntimeDashboardLayoutConfig({ layoutConfig })
         layoutConfig = {
             ...layoutConfig,
             enableRowReordering: canPersistRowReordering
         }
 
-        const catalogsForRuntime = runtimeCatalogs.map((catalogRow) => ({
+        const linkedCollectionsForRuntime = runtimeCatalogs.map((catalogRow) => ({
             id: catalogRow.id,
             codename: catalogRow.codename,
             tableName: catalogRow.table_name,
-            runtimeConfig: catalogRow.id === activeCatalog.id ? activeCatalogRuntimeConfig : normalizeCatalogRuntimeViewConfig(undefined),
+            runtimeConfig:
+                catalogRow.id === activeLinkedCollection.id
+                    ? activeLinkedCollectionRuntimeConfig
+                    : normalizeLinkedCollectionRuntimeViewConfig(undefined),
             name: resolvePresentationName(catalogRow.presentation, requestedLocale, resolveRuntimeCodenameText(catalogRow.codename))
         }))
 
@@ -1022,9 +1010,9 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             title: string
             icon: string | null
             href: string | null
-            catalogId: string | null
+            linkedCollectionId: string | null
             sectionId: string | null
-            hubId: string | null
+            treeEntityId: string | null
             sortOrder: number
             isActive: boolean
         }
@@ -1038,32 +1026,32 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             items: RuntimeMenuItem[]
         }
 
-        type RuntimeHubMeta = {
+        type RuntimeTreeEntityMeta = {
             id: string
             codename: unknown
             title: string
-            parentHubId: string | null
+            parentTreeEntityId: string | null
             sortOrder: number
         }
 
-        type RuntimeCatalogMeta = {
+        type RuntimeLinkedCollectionMeta = {
             id: string
             codename: unknown
             title: string
             sortOrder: number
-            hubIds: string[]
+            treeEntityIds: string[]
         }
 
-        let hubMetaById = new Map<string, RuntimeHubMeta>()
-        let childHubIdsByParent = new Map<string, string[]>()
-        let catalogsByHub = new Map<string, RuntimeCatalogMeta[]>()
+        let treeEntityMetaById = new Map<string, RuntimeTreeEntityMeta>()
+        let childTreeEntityIdsByParent = new Map<string, string[]>()
+        let linkedCollectionsByTreeEntity = new Map<string, RuntimeLinkedCollectionMeta[]>()
 
         try {
             const objectRows = (await manager.query(
                 `
           SELECT id, kind, codename, presentation, config
           FROM ${schemaIdent}._app_objects
-                    WHERE (${RUNTIME_LEGACY_COMPATIBLE_KIND_SQL('kind', 'config')} = 'hub' OR ${RUNTIME_SECTION_FILTER_SQL})
+                    WHERE (${RUNTIME_STANDARD_KIND_SQL('kind')} = 'hub' OR ${RUNTIME_CATALOG_FILTER_SQL})
             AND _upl_deleted = false
             AND _app_deleted = false
         `
@@ -1081,60 +1069,62 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 const sortOrder = typeof rawSortOrder === 'number' ? rawSortOrder : 0
                 const title = resolvePresentationName(row.presentation, requestedLocale, resolveRuntimeCodenameText(row.codename))
 
-                if (isRuntimeHubKind(row.kind, row.config)) {
-                    const parentHubId = typeof config.parentHubId === 'string' ? config.parentHubId : null
-                    hubMetaById.set(row.id, {
+                if (isRuntimeHubKind(row.kind)) {
+                    const parentTreeEntityId = typeof config.parentHubId === 'string' ? config.parentHubId : null
+                    treeEntityMetaById.set(row.id, {
                         id: row.id,
                         codename: row.codename,
                         title,
-                        parentHubId,
+                        parentTreeEntityId,
                         sortOrder
                     })
                     continue
                 }
 
-                const hubIds = Array.isArray(config.hubs) ? config.hubs.filter((value): value is string => typeof value === 'string') : []
-                const catalogMeta: RuntimeCatalogMeta = {
+                const treeEntityIds = Array.isArray(config.hubs)
+                    ? config.hubs.filter((value): value is string => typeof value === 'string')
+                    : []
+                const linkedCollectionMeta: RuntimeLinkedCollectionMeta = {
                     id: row.id,
                     codename: row.codename,
                     title,
                     sortOrder,
-                    hubIds
+                    treeEntityIds
                 }
-                for (const hubId of hubIds) {
-                    const list = catalogsByHub.get(hubId) ?? []
-                    list.push(catalogMeta)
-                    catalogsByHub.set(hubId, list)
+                for (const treeEntityId of treeEntityIds) {
+                    const list = linkedCollectionsByTreeEntity.get(treeEntityId) ?? []
+                    list.push(linkedCollectionMeta)
+                    linkedCollectionsByTreeEntity.set(treeEntityId, list)
                 }
             }
 
-            const hubSortComparator = (a: RuntimeHubMeta, b: RuntimeHubMeta) => {
+            const treeEntitySortComparator = (a: RuntimeTreeEntityMeta, b: RuntimeTreeEntityMeta) => {
                 if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
                 return resolveRuntimeCodenameText(a.codename).localeCompare(resolveRuntimeCodenameText(b.codename))
             }
-            const catalogSortComparator = (a: RuntimeCatalogMeta, b: RuntimeCatalogMeta) => {
+            const linkedCollectionSortComparator = (a: RuntimeLinkedCollectionMeta, b: RuntimeLinkedCollectionMeta) => {
                 if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
                 return resolveRuntimeCodenameText(a.codename).localeCompare(resolveRuntimeCodenameText(b.codename))
             }
 
-            const hubs = Array.from(hubMetaById.values()).sort(hubSortComparator)
-            childHubIdsByParent = new Map<string, string[]>()
-            for (const hub of hubs) {
-                if (!hub.parentHubId) continue
-                const childIds = childHubIdsByParent.get(hub.parentHubId) ?? []
-                childIds.push(hub.id)
-                childHubIdsByParent.set(hub.parentHubId, childIds)
+            const treeEntities = Array.from(treeEntityMetaById.values()).sort(treeEntitySortComparator)
+            childTreeEntityIdsByParent = new Map<string, string[]>()
+            for (const treeEntity of treeEntities) {
+                if (!treeEntity.parentTreeEntityId) continue
+                const childIds = childTreeEntityIdsByParent.get(treeEntity.parentTreeEntityId) ?? []
+                childIds.push(treeEntity.id)
+                childTreeEntityIdsByParent.set(treeEntity.parentTreeEntityId, childIds)
             }
 
-            for (const [hubId, hubCatalogs] of catalogsByHub.entries()) {
-                catalogsByHub.set(hubId, [...hubCatalogs].sort(catalogSortComparator))
+            for (const [treeEntityId, treeEntityLinkedCollections] of linkedCollectionsByTreeEntity.entries()) {
+                linkedCollectionsByTreeEntity.set(treeEntityId, [...treeEntityLinkedCollections].sort(linkedCollectionSortComparator))
             }
         } catch (e) {
             // eslint-disable-next-line no-console
             console.warn('[ApplicationsRuntime] Failed to build hub/catalog runtime map for menuWidget (ignored)', e)
-            hubMetaById = new Map()
-            childHubIdsByParent = new Map()
-            catalogsByHub = new Map()
+            treeEntityMetaById = new Map()
+            childTreeEntityIdsByParent = new Map()
+            linkedCollectionsByTreeEntity = new Map()
         }
 
         const normalizeMenuItem = (item: unknown): RuntimeMenuItem | null => {
@@ -1149,104 +1139,104 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 title: resolveLocalizedContent(typed.title, requestedLocale, kind),
                 icon: typeof typed.icon === 'string' ? typed.icon : null,
                 href: typeof typed.href === 'string' ? typed.href : null,
-                catalogId:
+                linkedCollectionId:
                     typeof typed.catalogId === 'string' ? typed.catalogId : typeof typed.sectionId === 'string' ? typed.sectionId : null,
                 sectionId:
                     typeof typed.sectionId === 'string' ? typed.sectionId : typeof typed.catalogId === 'string' ? typed.catalogId : null,
-                hubId: typeof typed.hubId === 'string' ? typed.hubId : null,
+                treeEntityId: typeof typed.hubId === 'string' ? typed.hubId : null,
                 sortOrder: typeof typed.sortOrder === 'number' ? typed.sortOrder : 0,
                 isActive: true
             }
         }
 
-        const buildHubMenuItems = (baseItem: RuntimeMenuItem): RuntimeMenuItem[] => {
-            if (!baseItem.hubId) return []
-            if (!hubMetaById.has(baseItem.hubId)) return []
+        const buildTreeEntityMenuItems = (baseItem: RuntimeMenuItem): RuntimeMenuItem[] => {
+            if (!baseItem.treeEntityId) return []
+            if (!treeEntityMetaById.has(baseItem.treeEntityId)) return []
 
             const items: RuntimeMenuItem[] = []
             const visited = new Set<string>()
-            const hubSortComparator = (aId: string, bId: string) => {
-                const a = hubMetaById.get(aId)
-                const b = hubMetaById.get(bId)
+            const treeEntitySortComparator = (aId: string, bId: string) => {
+                const a = treeEntityMetaById.get(aId)
+                const b = treeEntityMetaById.get(bId)
                 if (!a || !b) return aId.localeCompare(bId)
                 if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
                 return resolveRuntimeCodenameText(a.codename).localeCompare(resolveRuntimeCodenameText(b.codename))
             }
 
-            const walkHub = (hubId: string, depth: number) => {
-                if (visited.has(hubId)) return
-                visited.add(hubId)
+            const walkTreeEntity = (treeEntityId: string, depth: number) => {
+                if (visited.has(treeEntityId)) return
+                visited.add(treeEntityId)
 
-                const hubMeta = hubMetaById.get(hubId)
-                if (!hubMeta) return
+                const treeEntityMeta = treeEntityMetaById.get(treeEntityId)
+                if (!treeEntityMeta) return
                 const indent = depth > 0 ? `${'\u00A0\u00A0'.repeat(depth)}• ` : ''
 
                 items.push({
-                    id: `${baseItem.id}:hub:${hubMeta.id}`,
+                    id: `${baseItem.id}:hub:${treeEntityMeta.id}`,
                     kind: 'hub',
-                    title: `${indent}${hubMeta.title}`,
+                    title: `${indent}${treeEntityMeta.title}`,
                     icon: baseItem.icon,
                     href: null,
-                    catalogId: null,
+                    linkedCollectionId: null,
                     sectionId: null,
-                    hubId: hubMeta.id,
+                    treeEntityId: treeEntityMeta.id,
                     sortOrder: baseItem.sortOrder,
                     isActive: true
                 })
 
-                const hubCatalogs = catalogsByHub.get(hubMeta.id) ?? []
-                for (const catalog of hubCatalogs) {
+                const treeEntityLinkedCollections = linkedCollectionsByTreeEntity.get(treeEntityMeta.id) ?? []
+                for (const lc of treeEntityLinkedCollections) {
                     items.push({
-                        id: `${baseItem.id}:hub:${hubMeta.id}:catalog:${catalog.id}`,
+                        id: `${baseItem.id}:hub:${treeEntityMeta.id}:catalog:${lc.id}`,
                         kind: 'catalog',
-                        title: `${'\u00A0\u00A0'.repeat(depth + 1)}${catalog.title}`,
+                        title: `${'\u00A0\u00A0'.repeat(depth + 1)}${lc.title}`,
                         icon: baseItem.icon,
                         href: null,
-                        catalogId: catalog.id,
-                        sectionId: catalog.id,
-                        hubId: hubMeta.id,
+                        linkedCollectionId: lc.id,
+                        sectionId: lc.id,
+                        treeEntityId: treeEntityMeta.id,
                         sortOrder: baseItem.sortOrder,
                         isActive: true
                     })
                 }
 
-                const childIds = [...(childHubIdsByParent.get(hubMeta.id) ?? [])].sort(hubSortComparator)
+                const childIds = [...(childTreeEntityIdsByParent.get(treeEntityMeta.id) ?? [])].sort(treeEntitySortComparator)
                 for (const childId of childIds) {
-                    walkHub(childId, depth + 1)
+                    walkTreeEntity(childId, depth + 1)
                 }
             }
 
-            walkHub(baseItem.hubId, 0)
+            walkTreeEntity(baseItem.treeEntityId, 0)
             return items
         }
 
-        const buildBoundHubCatalogItems = (widgetId: string, boundHubId: string): RuntimeMenuItem[] => {
-            if (!hubMetaById.has(boundHubId)) return []
-            const directCatalogs = catalogsByHub.get(boundHubId) ?? []
-            return directCatalogs.map((catalog, index) => ({
-                id: `${widgetId}:bound-hub:${boundHubId}:catalog:${catalog.id}`,
+        const buildBoundTreeEntityLinkedCollectionItems = (widgetId: string, boundTreeEntityId: string): RuntimeMenuItem[] => {
+            if (!treeEntityMetaById.has(boundTreeEntityId)) return []
+            const directLinkedCollections = linkedCollectionsByTreeEntity.get(boundTreeEntityId) ?? []
+            return directLinkedCollections.map((lc, index) => ({
+                id: `${widgetId}:bound-hub:${boundTreeEntityId}:catalog:${lc.id}`,
                 kind: 'catalog',
-                title: catalog.title,
+                title: lc.title,
                 icon: 'database',
                 href: null,
-                catalogId: catalog.id,
-                sectionId: catalog.id,
-                hubId: boundHubId,
+                linkedCollectionId: lc.id,
+                sectionId: lc.id,
+                treeEntityId: boundTreeEntityId,
                 sortOrder: index + 1,
                 isActive: true
             }))
         }
 
-        const buildAllCatalogMenuItems = (widgetId: string): RuntimeMenuItem[] => {
-            return catalogsForRuntime.map((catalog, index) => ({
-                id: `${widgetId}:all-catalogs:${catalog.id}`,
+        const buildAllLinkedCollectionMenuItems = (widgetId: string): RuntimeMenuItem[] => {
+            return linkedCollectionsForRuntime.map((lc, index) => ({
+                id: `${widgetId}:all-catalogs:${lc.id}`,
                 kind: 'catalog',
-                title: catalog.name,
+                title: lc.name,
                 icon: 'database',
                 href: null,
-                catalogId: catalog.id,
-                sectionId: catalog.id,
-                hubId: null,
+                linkedCollectionId: lc.id,
+                sectionId: lc.id,
+                treeEntityId: null,
                 sortOrder: index + 1,
                 isActive: true
             }))
@@ -1259,15 +1249,15 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             for (const widget of zoneWidgets.left) {
                 if (widget.widgetKey !== 'menuWidget') continue
                 const cfg = widget.config as Record<string, unknown>
-                const bindToHub = Boolean(cfg.bindToHub)
-                const boundHubId = typeof cfg.boundHubId === 'string' ? cfg.boundHubId : null
-                const autoShowAllCatalogs = Boolean(cfg.autoShowAllCatalogs) && !bindToHub
+                const bindToTreeEntity = Boolean(cfg.bindToHub)
+                const boundTreeEntityId = typeof cfg.boundHubId === 'string' ? cfg.boundHubId : null
+                const autoShowAllCatalogs = Boolean(cfg.autoShowAllCatalogs) && !bindToTreeEntity
 
                 let resolvedItems: RuntimeMenuItem[] = []
-                if (bindToHub && boundHubId) {
-                    resolvedItems = buildBoundHubCatalogItems(widget.id, boundHubId)
+                if (bindToTreeEntity && boundTreeEntityId) {
+                    resolvedItems = buildBoundTreeEntityLinkedCollectionItems(widget.id, boundTreeEntityId)
                 } else if (autoShowAllCatalogs) {
-                    resolvedItems = buildAllCatalogMenuItems(widget.id)
+                    resolvedItems = buildAllLinkedCollectionMenuItems(widget.id)
                 } else {
                     const rawItems = Array.isArray(cfg.items) ? cfg.items : []
                     const normalizedItems = rawItems
@@ -1278,7 +1268,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
                     for (const item of normalizedItems) {
                         if (isRuntimeHubKind(item.kind)) {
-                            const expanded = buildHubMenuItems(item)
+                            const expanded = buildTreeEntityMenuItems(item)
                             if (expanded.length > 0) {
                                 resolvedItems.push(...expanded)
                             }
@@ -1322,13 +1312,13 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             childColumns?: RuntimeColumnDefinition[]
         }
 
-        const buildSetConstantOption = (setConstantConfig: SetConstantUiConfig | null): RuntimeRefOption[] | undefined => {
-            if (!setConstantConfig) return undefined
+        const buildSetConstantOption = (valueGroupFixedValueConfig: SetConstantUiConfig | null): RuntimeRefOption[] | undefined => {
+            if (!valueGroupFixedValueConfig) return undefined
             return [
                 {
-                    id: setConstantConfig.id,
-                    label: resolveSetConstantLabel(setConstantConfig, requestedLocale),
-                    codename: setConstantConfig.codename ?? 'setConstant',
+                    id: valueGroupFixedValueConfig.id,
+                    label: resolveSetConstantLabel(valueGroupFixedValueConfig, requestedLocale),
+                    codename: valueGroupFixedValueConfig.codename ?? 'valueGroupFixedValue',
                     isDefault: true,
                     sortOrder: 0
                 }
@@ -1344,17 +1334,17 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             if (
                 attribute.data_type !== 'REF' ||
                 typeof attribute.target_object_id !== 'string' ||
-                (!isRuntimeEnumerationTargetKind(targetObjectKind) &&
-                    !isRuntimeSetTargetKind(targetObjectKind) &&
-                    !isRuntimeSectionTargetKind(targetObjectKind))
+                (!isRuntimeEnumerationKind(targetObjectKind) &&
+                    !isRuntimeSetKind(targetObjectKind) &&
+                    !isRuntimeCatalogTargetKind(targetObjectKind))
             ) {
                 return undefined
             }
 
-            if (isRuntimeEnumerationTargetKind(targetObjectKind)) {
+            if (isRuntimeEnumerationKind(targetObjectKind)) {
                 return enumOptionsMap.get(attribute.target_object_id) ?? []
             }
-            if (isRuntimeSectionTargetKind(targetObjectKind)) {
+            if (isRuntimeCatalogTargetKind(targetObjectKind)) {
                 return catalogRefOptionsMap.get(attribute.target_object_id) ?? []
             }
             return setConstantOption ?? []
@@ -1364,15 +1354,15 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             attribute: (typeof safeAttributes)[number],
             includeChildColumns: boolean
         ): RuntimeColumnDefinition => {
-            const setConstantConfig =
-                attribute.data_type === 'REF' && isRuntimeSetTargetKind(attribute.target_object_kind)
+            const valueGroupFixedValueConfig =
+                attribute.data_type === 'REF' && isRuntimeSetKind(attribute.target_object_kind)
                     ? getSetConstantConfig(attribute.ui_config)
                     : null
-            const setConstantOption = buildSetConstantOption(setConstantConfig)
+            const setConstantOption = buildSetConstantOption(valueGroupFixedValueConfig)
             const refOptions = resolveRefOptions(attribute, setConstantOption)
             const enumOptions =
                 attribute.data_type === 'REF' &&
-                isRuntimeEnumerationTargetKind(attribute.target_object_kind) &&
+                isRuntimeEnumerationKind(attribute.target_object_kind) &&
                 attribute.target_object_id &&
                 enumOptionsMap.has(attribute.target_object_id)
                     ? enumOptionsMap.get(attribute.target_object_id)
@@ -1393,11 +1383,11 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 validationRules: attribute.validation_rules ?? {},
                 uiConfig: {
                     ...(attribute.ui_config ?? {}),
-                    ...(setConstantConfig?.dataType ? { setConstantDataType: setConstantConfig.dataType } : {})
+                    ...(valueGroupFixedValueConfig?.dataType ? { setConstantDataType: valueGroupFixedValueConfig.dataType } : {})
                 },
                 refTargetEntityId: attribute.target_object_id ?? null,
                 refTargetEntityKind: attribute.target_object_kind ?? null,
-                refTargetConstantId: setConstantConfig?.id ?? null,
+                refTargetConstantId: valueGroupFixedValueConfig?.id ?? null,
                 refOptions,
                 enumOptions,
                 ...(includeChildColumns && attribute.data_type === 'TABLE'
@@ -1411,25 +1401,29 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         }
 
         const activeSectionPayload = {
-            id: activeCatalog.id,
-            codename: activeCatalog.codename,
-            tableName: activeCatalog.table_name,
+            id: activeLinkedCollection.id,
+            codename: activeLinkedCollection.codename,
+            tableName: activeLinkedCollection.table_name,
             runtimeConfig: {
-                ...activeCatalogRuntimeConfig,
+                ...activeLinkedCollectionRuntimeConfig,
                 enableRowReordering: canPersistRowReordering
             },
-            name: resolvePresentationName(activeCatalog.presentation, requestedLocale, resolveRuntimeCodenameText(activeCatalog.codename))
+            name: resolvePresentationName(
+                activeLinkedCollection.presentation,
+                requestedLocale,
+                resolveRuntimeCodenameText(activeLinkedCollection.codename)
+            )
         }
 
         return res.json({
             section: activeSectionPayload,
-            sections: catalogsForRuntime,
-            activeSectionId: activeCatalog.id,
-            catalog: {
+            sections: linkedCollectionsForRuntime,
+            activeSectionId: activeLinkedCollection.id,
+            linkedCollection: {
                 ...activeSectionPayload
             },
-            catalogs: catalogsForRuntime,
-            activeCatalogId: activeCatalog.id,
+            linkedCollections: linkedCollectionsForRuntime,
+            activeLinkedCollectionId: activeLinkedCollection.id,
             columns: safeAttributes.map((attribute) => mapAttributeToColumnDefinition(attribute, true)),
             rows,
             pagination: {
@@ -1459,16 +1453,20 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             return res.status(400).json({ error: 'Invalid body', details: parsedBody.error.flatten() })
         }
 
-        const { field, value, catalogId: requestedCatalogId, expectedVersion } = parsedBody.data
+        const { field, value, linkedCollectionId: requestedLinkedCollectionId, expectedVersion } = parsedBody.data
         if (!IDENTIFIER_REGEX.test(field)) {
             return res.status(400).json({ error: 'Invalid field name' })
         }
 
-        const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(ctx.manager, ctx.schemaIdent, requestedCatalogId)
-        if (!catalog) return res.status(404).json({ error: catalogError })
+        const {
+            linkedCollection,
+            attrs,
+            error: linkedCollectionError
+        } = await resolveRuntimeLinkedCollection(ctx.manager, ctx.schemaIdent, requestedLinkedCollectionId)
+        if (!linkedCollection) return res.status(404).json({ error: linkedCollectionError })
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
-            catalog.lifecycleContract,
-            catalog.config,
+            linkedCollection.lifecycleContract,
+            linkedCollection.config,
             undefined,
             ctx.currentWorkspaceId
         )
@@ -1487,25 +1485,29 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             })
         }
 
-        if (attr.data_type === 'REF' && isRuntimeEnumerationTargetKind(attr.target_object_kind) && getEnumPresentationMode(attr.ui_config) === 'label') {
+        if (
+            attr.data_type === 'REF' &&
+            isRuntimeEnumerationKind(attr.target_object_kind) &&
+            getEnumPresentationMode(attr.ui_config) === 'label'
+        ) {
             return res.status(400).json({
                 error: `Field is read-only: ${attr.codename}`
             })
         }
 
-        const setConstantConfig =
-            attr.data_type === 'REF' && isRuntimeSetTargetKind(attr.target_object_kind) ? getSetConstantConfig(attr.ui_config) : null
+        const valueGroupFixedValueConfig =
+            attr.data_type === 'REF' && isRuntimeSetKind(attr.target_object_kind) ? getSetConstantConfig(attr.ui_config) : null
         let rawValue = value
-        if (setConstantConfig) {
+        if (valueGroupFixedValueConfig) {
             const providedRefId = resolveRefId(rawValue)
             if (!providedRefId) {
-                rawValue = setConstantConfig.id
-            } else if (providedRefId !== setConstantConfig.id) {
+                rawValue = valueGroupFixedValueConfig.id
+            } else if (providedRefId !== valueGroupFixedValueConfig.id) {
                 return res.status(400).json({
                     error: `Field is read-only: ${attr.codename}`
                 })
             } else {
-                rawValue = setConstantConfig.id
+                rawValue = valueGroupFixedValueConfig.id
             }
         }
 
@@ -1522,7 +1524,12 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             })
         }
 
-        if (attr.data_type === 'REF' && isRuntimeEnumerationTargetKind(attr.target_object_kind) && typeof attr.target_object_id === 'string' && coerced) {
+        if (
+            attr.data_type === 'REF' &&
+            isRuntimeEnumerationKind(attr.target_object_kind) &&
+            typeof attr.target_object_id === 'string' &&
+            coerced
+        ) {
             try {
                 await ensureEnumerationValueBelongsToTarget(ctx.manager, ctx.schemaIdent, String(coerced), attr.target_object_id)
             } catch (error) {
@@ -1530,7 +1537,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             }
         }
 
-        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(catalog.table_name)}`
+        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(linkedCollection.table_name)}`
         const versionCheckClause = expectedVersion !== undefined ? 'AND COALESCE(_upl_version, 1) = $4' : ''
 
         let afterUpdateLifecycleRequest: RuntimeLifecycleDispatchRequest | null = null
@@ -1549,7 +1556,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     manager: txManager,
                     applicationId,
                     schemaName: ctx.schemaName,
-                    catalog,
+                    linkedCollection,
                     currentWorkspaceId: ctx.currentWorkspaceId,
                     currentUserId: ctx.userId,
                     permissions: ctx.permissions,
@@ -1609,7 +1616,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 afterUpdateLifecycleRequest = {
                     applicationId,
                     schemaName: ctx.schemaName,
-                    catalog,
+                    linkedCollection,
                     currentWorkspaceId: ctx.currentWorkspaceId,
                     currentUserId: ctx.userId,
                     permissions: ctx.permissions,
@@ -1647,18 +1654,22 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             return res.status(400).json({ error: 'Invalid body', details: parsedBody.error.flatten() })
         }
 
-        const { catalogId: requestedCatalogId, data, expectedVersion } = parsedBody.data
+        const { linkedCollectionId: requestedLinkedCollectionId, data, expectedVersion } = parsedBody.data
 
-        const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(ctx.manager, ctx.schemaIdent, requestedCatalogId)
-        if (!catalog) return res.status(404).json({ error: catalogError })
+        const {
+            linkedCollection,
+            attrs,
+            error: linkedCollectionError
+        } = await resolveRuntimeLinkedCollection(ctx.manager, ctx.schemaIdent, requestedLinkedCollectionId)
+        if (!linkedCollection) return res.status(404).json({ error: linkedCollectionError })
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
-            catalog.lifecycleContract,
-            catalog.config,
+            linkedCollection.lifecycleContract,
+            linkedCollection.config,
             undefined,
             ctx.currentWorkspaceId
         )
-        const runtimeDeleteSetClause = isSoftDeleteLifecycle(catalog.lifecycleContract)
-            ? buildRuntimeSoftDeleteSetClause('$1', catalog.lifecycleContract, catalog.config)
+        const runtimeDeleteSetClause = isSoftDeleteLifecycle(linkedCollection.lifecycleContract)
+            ? buildRuntimeSoftDeleteSetClause('$1', linkedCollection.lifecycleContract, linkedCollection.config)
             : null
 
         const setClauses: string[] = []
@@ -1678,25 +1689,25 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
             if (
                 attr.data_type === 'REF' &&
-                isRuntimeEnumerationTargetKind(attr.target_object_kind) &&
+                isRuntimeEnumerationKind(attr.target_object_kind) &&
                 getEnumPresentationMode(attr.ui_config) === 'label'
             ) {
                 return res.status(400).json({
                     error: `Field is read-only: ${attrLabel}`
                 })
             }
-            const setConstantConfig =
-                attr.data_type === 'REF' && isRuntimeSetTargetKind(attr.target_object_kind) ? getSetConstantConfig(attr.ui_config) : null
-            if (setConstantConfig) {
+            const valueGroupFixedValueConfig =
+                attr.data_type === 'REF' && isRuntimeSetKind(attr.target_object_kind) ? getSetConstantConfig(attr.ui_config) : null
+            if (valueGroupFixedValueConfig) {
                 const providedRefId = resolveRefId(raw)
                 if (!providedRefId) {
-                    normalizedRaw = setConstantConfig.id
-                } else if (providedRefId !== setConstantConfig.id) {
+                    normalizedRaw = valueGroupFixedValueConfig.id
+                } else if (providedRefId !== valueGroupFixedValueConfig.id) {
                     return res.status(400).json({
                         error: `Field is read-only: ${attrLabel}`
                     })
                 } else {
-                    normalizedRaw = setConstantConfig.id
+                    normalizedRaw = valueGroupFixedValueConfig.id
                 }
             }
 
@@ -1710,7 +1721,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
                 if (
                     attr.data_type === 'REF' &&
-                    isRuntimeEnumerationTargetKind(attr.target_object_kind) &&
+                    isRuntimeEnumerationKind(attr.target_object_kind) &&
                     typeof attr.target_object_id === 'string' &&
                     coerced
                 ) {
@@ -1796,7 +1807,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     if (!IDENTIFIER_REGEX.test(cAttr.column_name)) continue
 
                     const childFieldPath = formatRuntimeFieldPath(tAttr.codename, cAttr.codename)
-                    const isEnumRef = cAttr.data_type === 'REF' && isRuntimeEnumerationTargetKind(cAttr.target_object_kind)
+                    const isEnumRef = cAttr.data_type === 'REF' && isRuntimeEnumerationKind(cAttr.target_object_kind)
                     const { hasUserValue: hasChildUserValue, value: childInputValue } = getRuntimeInputValue(
                         rowData,
                         cAttr.column_name,
@@ -1832,7 +1843,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     }
 
                     const childSetConstantConfig =
-                        cAttr.data_type === 'REF' && isRuntimeSetTargetKind(cAttr.target_object_kind)
+                        cAttr.data_type === 'REF' && isRuntimeSetKind(cAttr.target_object_kind)
                             ? getSetConstantConfig(cAttr.ui_config)
                             : null
                     if (childSetConstantConfig) {
@@ -1902,7 +1913,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         paramIndex++
         setClauses.push(`_upl_version = COALESCE(_upl_version, 1) + 1`)
 
-        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(catalog.table_name)}`
+        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(linkedCollection.table_name)}`
         values.push(rowId)
         const rowIdParamIndex = paramIndex
         let versionCheckClause = ''
@@ -2049,7 +2060,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     manager: txManager,
                     applicationId,
                     schemaName: ctx.schemaName,
-                    catalog,
+                    linkedCollection,
                     currentWorkspaceId: ctx.currentWorkspaceId,
                     currentUserId: ctx.userId,
                     permissions: ctx.permissions,
@@ -2067,7 +2078,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 afterUpdateLifecycleRequest = {
                     applicationId,
                     schemaName: ctx.schemaName,
-                    catalog,
+                    linkedCollection,
                     currentWorkspaceId: ctx.currentWorkspaceId,
                     currentUserId: ctx.userId,
                     permissions: ctx.permissions,
@@ -2104,17 +2115,21 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             return res.status(400).json({ error: 'Invalid body', details: parsedBody.error.flatten() })
         }
 
-        const { catalogId: requestedCatalogId, data } = parsedBody.data
+        const { linkedCollectionId: requestedLinkedCollectionId, data } = parsedBody.data
 
-        const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(ctx.manager, ctx.schemaIdent, requestedCatalogId)
-        if (!catalog) return res.status(404).json({ error: catalogError })
+        const {
+            linkedCollection,
+            attrs,
+            error: linkedCollectionError
+        } = await resolveRuntimeLinkedCollection(ctx.manager, ctx.schemaIdent, requestedLinkedCollectionId)
+        if (!linkedCollection) return res.status(404).json({ error: linkedCollectionError })
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
-            catalog.lifecycleContract,
-            catalog.config,
+            linkedCollection.lifecycleContract,
+            linkedCollection.config,
             undefined,
             ctx.currentWorkspaceId
         )
-        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(catalog.table_name)}`
+        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(linkedCollection.table_name)}`
         // Build column→value pairs from input data
         const columnValues: Array<{ column: string; value: unknown }> = []
         const safeAttrs = attrs.filter(
@@ -2126,7 +2141,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             const { hasUserValue, value: inputValue } = getRuntimeInputValue(data, attr.column_name, attr.codename)
             let raw = inputValue
 
-            const isEnumRef = attr.data_type === 'REF' && isRuntimeEnumerationTargetKind(attr.target_object_kind)
+            const isEnumRef = attr.data_type === 'REF' && isRuntimeEnumerationKind(attr.target_object_kind)
             const enumMode = getEnumPresentationMode(attr.ui_config)
 
             if (isEnumRef && enumMode === 'label' && hasUserValue) {
@@ -2151,18 +2166,18 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 }
             }
 
-            const setConstantConfig =
-                attr.data_type === 'REF' && isRuntimeSetTargetKind(attr.target_object_kind) ? getSetConstantConfig(attr.ui_config) : null
-            if (setConstantConfig) {
+            const valueGroupFixedValueConfig =
+                attr.data_type === 'REF' && isRuntimeSetKind(attr.target_object_kind) ? getSetConstantConfig(attr.ui_config) : null
+            if (valueGroupFixedValueConfig) {
                 const providedRefId = resolveRefId(raw)
                 if (!providedRefId) {
-                    raw = setConstantConfig.id
-                } else if (providedRefId !== setConstantConfig.id) {
+                    raw = valueGroupFixedValueConfig.id
+                } else if (providedRefId !== valueGroupFixedValueConfig.id) {
                     return res.status(400).json({
                         error: `Field is read-only: ${attrLabel}`
                     })
                 } else {
-                    raw = setConstantConfig.id
+                    raw = valueGroupFixedValueConfig.id
                 }
             }
 
@@ -2197,11 +2212,11 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             }
         }
 
-        const { runtimeConfig } = await resolveEffectiveCatalogRuntimeConfig({
+        const { runtimeConfig } = await resolveEffectiveLinkedCollectionRuntimeConfig({
             manager: ctx.manager,
             schemaName: ctx.schemaName,
             schemaIdent: ctx.schemaIdent,
-            catalogId: catalog.id
+            linkedCollectionId: linkedCollection.id
         })
         const reorderFieldAttr = resolveRuntimeReorderField(
             safeAttrs,
@@ -2313,7 +2328,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     for (const cAttr of childAttrsResult) {
                         if (!IDENTIFIER_REGEX.test(cAttr.column_name)) continue
                         const childFieldPath = formatRuntimeFieldPath(tAttr.codename, cAttr.codename)
-                        const isEnumRef = cAttr.data_type === 'REF' && isRuntimeEnumerationTargetKind(cAttr.target_object_kind)
+                        const isEnumRef = cAttr.data_type === 'REF' && isRuntimeEnumerationKind(cAttr.target_object_kind)
                         const { hasUserValue, value: childInputValue } = getRuntimeInputValue(rowData, cAttr.column_name, cAttr.codename)
                         let cRaw = childInputValue
 
@@ -2348,7 +2363,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                         }
 
                         const childSetConstantConfig =
-                            cAttr.data_type === 'REF' && isRuntimeSetTargetKind(cAttr.target_object_kind)
+                            cAttr.data_type === 'REF' && isRuntimeSetKind(cAttr.target_object_kind)
                                 ? getSetConstantConfig(cAttr.ui_config)
                                 : null
                         if (childSetConstantConfig) {
@@ -2408,8 +2423,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             if (ctx.workspacesEnabled && ctx.currentWorkspaceId) {
                 const limitState = await enforceCatalogWorkspaceLimit(mgr, {
                     schemaName: ctx.schemaName,
-                    objectId: catalog.id,
-                    tableName: catalog.table_name,
+                    objectId: linkedCollection.id,
+                    tableName: linkedCollection.table_name,
                     workspaceId: ctx.currentWorkspaceId,
                     runtimeRowCondition
                 })
@@ -2427,7 +2442,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 manager: mgr,
                 applicationId,
                 schemaName: ctx.schemaName,
-                catalog,
+                linkedCollection,
                 currentWorkspaceId: ctx.currentWorkspaceId,
                 currentUserId: ctx.userId,
                 permissions: ctx.permissions,
@@ -2491,7 +2506,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             afterCreateLifecycleRequest = {
                 applicationId,
                 schemaName: ctx.schemaName,
-                catalog,
+                linkedCollection,
                 currentWorkspaceId: ctx.currentWorkspaceId,
                 currentUserId: ctx.userId,
                 permissions: ctx.permissions,
@@ -2535,8 +2550,12 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         if (!ctx) return
         if (!ensureRuntimePermission(res, ctx, 'createContent')) return
 
-        const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(ctx.manager, ctx.schemaIdent, parsedBody.data.catalogId)
-        if (!catalog) return res.status(404).json({ error: catalogError })
+        const {
+            linkedCollection,
+            attrs,
+            error: linkedCollectionError
+        } = await resolveRuntimeLinkedCollection(ctx.manager, ctx.schemaIdent, parsedBody.data.linkedCollectionId)
+        if (!linkedCollection) return res.status(404).json({ error: linkedCollectionError })
 
         const safeAttrs = attrs.filter((a) => IDENTIFIER_REGEX.test(a.column_name))
         const nonTableAttrs = safeAttrs.filter((a) => a.data_type !== 'TABLE')
@@ -2548,23 +2567,23 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         })
         const copyChildTables = hasRequiredChildTables ? true : parsedBody.data.copyChildTables !== false
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
-            catalog.lifecycleContract,
-            catalog.config,
+            linkedCollection.lifecycleContract,
+            linkedCollection.config,
             undefined,
             ctx.currentWorkspaceId
         )
-        const { runtimeConfig } = await resolveEffectiveCatalogRuntimeConfig({
+        const { runtimeConfig } = await resolveEffectiveLinkedCollectionRuntimeConfig({
             manager: ctx.manager,
             schemaName: ctx.schemaName,
             schemaIdent: ctx.schemaIdent,
-            catalogId: catalog.id
+            linkedCollectionId: linkedCollection.id
         })
         const reorderFieldAttr = resolveRuntimeReorderField(
             nonTableAttrs,
             runtimeConfig.enableRowReordering ? runtimeConfig.reorderPersistenceField : null
         )
 
-        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(catalog.table_name)}`
+        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(linkedCollection.table_name)}`
         const sourceRows = (await ctx.manager.query(
             `
         SELECT *
@@ -2601,8 +2620,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             if (ctx.workspacesEnabled && ctx.currentWorkspaceId) {
                 const limitState = await enforceCatalogWorkspaceLimit(mgr, {
                     schemaName: ctx.schemaName,
-                    objectId: catalog.id,
-                    tableName: catalog.table_name,
+                    objectId: linkedCollection.id,
+                    tableName: linkedCollection.table_name,
                     workspaceId: ctx.currentWorkspaceId,
                     runtimeRowCondition
                 })
@@ -2620,7 +2639,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 manager: mgr,
                 applicationId,
                 schemaName: ctx.schemaName,
-                catalog,
+                linkedCollection,
                 currentWorkspaceId: ctx.currentWorkspaceId,
                 currentUserId: ctx.userId,
                 permissions: ctx.permissions,
@@ -2736,7 +2755,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             afterCopyLifecycleRequest = {
                 applicationId,
                 schemaName: ctx.schemaName,
-                catalog,
+                linkedCollection,
                 currentWorkspaceId: ctx.currentWorkspaceId,
                 currentUserId: ctx.userId,
                 permissions: ctx.permissions,
@@ -2774,24 +2793,28 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
     const getRow = async (req: Request, res: Response) => {
         const { applicationId, rowId } = req.params
         if (!UUID_REGEX.test(rowId)) return res.status(400).json({ error: 'Invalid row ID format' })
-        const catalogId = typeof req.query.catalogId === 'string' ? req.query.catalogId : undefined
-        if (catalogId && !UUID_REGEX.test(catalogId)) return res.status(400).json({ error: 'Invalid catalog ID format' })
+        const linkedCollectionId = typeof req.query.linkedCollectionId === 'string' ? req.query.linkedCollectionId : undefined
+        if (linkedCollectionId && !UUID_REGEX.test(linkedCollectionId)) return res.status(400).json({ error: 'Invalid catalog ID format' })
 
         const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
         if (!ctx) return
 
-        const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(ctx.manager, ctx.schemaIdent, catalogId)
-        if (!catalog) return res.status(404).json({ error: catalogError })
+        const {
+            linkedCollection,
+            attrs,
+            error: linkedCollectionError
+        } = await resolveRuntimeLinkedCollection(ctx.manager, ctx.schemaIdent, linkedCollectionId)
+        if (!linkedCollection) return res.status(404).json({ error: linkedCollectionError })
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
-            catalog.lifecycleContract,
-            catalog.config,
+            linkedCollection.lifecycleContract,
+            linkedCollection.config,
             undefined,
             ctx.currentWorkspaceId
         )
 
         const safeAttrs = attrs.filter((a) => IDENTIFIER_REGEX.test(a.column_name) && a.data_type !== 'TABLE')
         const selectColumns = ['id', ...safeAttrs.map((a) => quoteIdentifier(a.column_name))]
-        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(catalog.table_name)}`
+        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(linkedCollection.table_name)}`
 
         const rows = (await ctx.manager.query(
             `
@@ -2819,25 +2842,29 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
     const deleteRow = async (req: Request, res: Response) => {
         const { applicationId, rowId } = req.params
         if (!UUID_REGEX.test(rowId)) return res.status(400).json({ error: 'Invalid row ID format' })
-        const catalogId = typeof req.query.catalogId === 'string' ? req.query.catalogId : undefined
-        if (catalogId && !UUID_REGEX.test(catalogId)) return res.status(400).json({ error: 'Invalid catalog ID format' })
+        const linkedCollectionId = typeof req.query.linkedCollectionId === 'string' ? req.query.linkedCollectionId : undefined
+        if (linkedCollectionId && !UUID_REGEX.test(linkedCollectionId)) return res.status(400).json({ error: 'Invalid catalog ID format' })
 
         const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
         if (!ctx) return
         if (!ensureRuntimePermission(res, ctx, 'deleteContent')) return
 
-        const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(ctx.manager, ctx.schemaIdent, catalogId)
-        if (!catalog) return res.status(404).json({ error: catalogError })
+        const {
+            linkedCollection,
+            attrs,
+            error: linkedCollectionError
+        } = await resolveRuntimeLinkedCollection(ctx.manager, ctx.schemaIdent, linkedCollectionId)
+        if (!linkedCollection) return res.status(404).json({ error: linkedCollectionError })
 
-        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(catalog.table_name)}`
+        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(linkedCollection.table_name)}`
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
-            catalog.lifecycleContract,
-            catalog.config,
+            linkedCollection.lifecycleContract,
+            linkedCollection.config,
             undefined,
             ctx.currentWorkspaceId
         )
-        const runtimeDeleteSetClause = isSoftDeleteLifecycle(catalog.lifecycleContract)
-            ? buildRuntimeSoftDeleteSetClause('$1', catalog.lifecycleContract, catalog.config)
+        const runtimeDeleteSetClause = isSoftDeleteLifecycle(linkedCollection.lifecycleContract)
+            ? buildRuntimeSoftDeleteSetClause('$1', linkedCollection.lifecycleContract, linkedCollection.config)
             : null
 
         const tableAttrsForDelete = attrs.filter((a) => a.data_type === 'TABLE')
@@ -2861,7 +2888,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 manager: mgr,
                 applicationId,
                 schemaName: ctx.schemaName,
-                catalog,
+                linkedCollection,
                 currentWorkspaceId: ctx.currentWorkspaceId,
                 currentUserId: ctx.userId,
                 permissions: ctx.permissions,
@@ -2928,7 +2955,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             afterDeleteLifecycleRequest = {
                 applicationId,
                 schemaName: ctx.schemaName,
-                catalog,
+                linkedCollection,
                 currentWorkspaceId: ctx.currentWorkspaceId,
                 currentUserId: ctx.userId,
                 permissions: ctx.permissions,
@@ -2966,17 +2993,21 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         if (!ctx) return
         if (!ensureRuntimePermission(res, ctx, 'editContent')) return
 
-        const { orderedRowIds, catalogId: requestedCatalogId } = parsedBody.data
-        const { catalog, attrs, error: catalogError } = await resolveRuntimeCatalog(ctx.manager, ctx.schemaIdent, requestedCatalogId)
-        if (!catalog) {
-            return res.status(404).json({ error: catalogError })
+        const { orderedRowIds, linkedCollectionId: requestedLinkedCollectionId } = parsedBody.data
+        const {
+            linkedCollection,
+            attrs,
+            error: linkedCollectionError
+        } = await resolveRuntimeLinkedCollection(ctx.manager, ctx.schemaIdent, requestedLinkedCollectionId)
+        if (!linkedCollection) {
+            return res.status(404).json({ error: linkedCollectionError })
         }
 
-        const { runtimeConfig } = await resolveEffectiveCatalogRuntimeConfig({
+        const { runtimeConfig } = await resolveEffectiveLinkedCollectionRuntimeConfig({
             manager: ctx.manager,
             schemaName: ctx.schemaName,
             schemaIdent: ctx.schemaIdent,
-            catalogId: catalog.id
+            linkedCollectionId: linkedCollection.id
         })
         const reorderFieldAttr = resolveRuntimeReorderField(attrs, runtimeConfig.reorderPersistenceField)
 
@@ -2984,10 +3015,10 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             return res.status(409).json({ error: 'Persisted row reordering is not enabled for this catalog' })
         }
 
-        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(catalog.table_name)}`
+        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(linkedCollection.table_name)}`
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
-            catalog.lifecycleContract,
-            catalog.config,
+            linkedCollection.lifecycleContract,
+            linkedCollection.config,
             undefined,
             ctx.currentWorkspaceId
         )

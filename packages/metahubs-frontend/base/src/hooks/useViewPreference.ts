@@ -1,5 +1,7 @@
 import { useCallback, useState } from 'react'
 
+import { getLegacyStorageKeyAliases, getStorageKeyReadCandidates } from '../view-preferences/storage'
+
 /**
  * Supported view styles for list pages.
  *
@@ -35,9 +37,11 @@ export function useViewPreference(storageKey: string, defaultView: ViewStyle = D
     const [view, setViewState] = useState<ViewStyle>(() => {
         if (!isLocalStorageAvailable()) return defaultView
         try {
-            const stored = localStorage.getItem(storageKey)
-            if (stored && (stored === 'card' || stored === 'table' || stored === 'list')) {
-                return stored
+            for (const candidateKey of getStorageKeyReadCandidates(storageKey)) {
+                const stored = localStorage.getItem(candidateKey)
+                if (stored && (stored === 'card' || stored === 'table' || stored === 'list')) {
+                    return stored
+                }
             }
         } catch {
             // Ignore localStorage read errors
@@ -51,6 +55,9 @@ export function useViewPreference(storageKey: string, defaultView: ViewStyle = D
             if (isLocalStorageAvailable()) {
                 try {
                     localStorage.setItem(storageKey, nextView)
+                    for (const legacyKey of getLegacyStorageKeyAliases(storageKey)) {
+                        localStorage.removeItem(legacyKey)
+                    }
                 } catch {
                     // Ignore localStorage write errors (quota exceeded, etc.)
                 }

@@ -79,8 +79,7 @@ const RESTRICTED_WORKER_GLOBALS = [
 const bundleCache = new Map<string, Promise<ScriptConstructor>>()
 const WORKER_EXECUTION_TIMEOUT_MS = 15000
 
-const createRestrictedBundlePreludeSource = () =>
-    SHADOWED_CLIENT_RUNTIME_BINDINGS.map((name) => `const ${name} = undefined;`).join('\n')
+const createRestrictedBundlePreludeSource = () => SHADOWED_CLIENT_RUNTIME_BINDINGS.map((name) => `const ${name} = undefined;`).join('\n')
 
 const createRestrictedWorkerEnvironmentSource = () => `
 const RESTRICTED_WORKER_GLOBALS = ${JSON.stringify(RESTRICTED_WORKER_GLOBALS)};
@@ -145,7 +144,7 @@ const buildBundleModuleSource = (bundle) => [
     ${WORKER_BUNDLE_SILENT_CONSOLE_SOURCE},
     bundle,
     'const __resolvedScript = (module.exports && module.exports.default) || module.exports || (exports && exports.default) || exports;',
-    \"if (typeof __resolvedScript !== 'function') { throw new Error('Client script bundle did not export a constructable class') }\",
+    "if (typeof __resolvedScript !== 'function') { throw new Error('Client script bundle did not export a constructable class') }",
     'export default __resolvedScript;'
 ].join('\\n');
 
@@ -269,8 +268,7 @@ const buildBundleModuleSource = (bundle: string) =>
 const isBlobUrl = (value: string): boolean => value.startsWith('blob:')
 
 const getBuffer = (): { from(input: string, encoding?: string): { toString(encoding: string): string } } | null => {
-    const candidate = (globalThis as { Buffer?: { from(input: string, encoding?: string): { toString(encoding: string): string } } })
-        .Buffer
+    const candidate = (globalThis as { Buffer?: { from(input: string, encoding?: string): { toString(encoding: string): string } } }).Buffer
 
     return candidate && typeof candidate.from === 'function' ? candidate : null
 }
@@ -363,7 +361,7 @@ const hydrateContextValue = (value: unknown, hostFunctions: HostFunctionMap): un
         return async (...args: unknown[]) => {
             const target = hostFunctions.get(hostFunctionPath)
             if (!target) {
-                throw new Error(`Client script host bridge \"${hostFunctionPath}\" was not found`)
+                throw new Error(`Client script host bridge "${hostFunctionPath}" was not found`)
             }
 
             return await Promise.resolve(target(...args))
@@ -501,7 +499,7 @@ const executeClientScriptMethodInWorker = async (params: {
                         worker.postMessage({
                             type: 'invokeError',
                             requestId: data.requestId,
-                            error: serializeError(new Error(`Client script host bridge \"${data.path}\" was not found`))
+                            error: serializeError(new Error(`Client script host bridge "${data.path}" was not found`))
                         })
                         return
                     }

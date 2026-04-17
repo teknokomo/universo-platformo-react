@@ -1,5 +1,5 @@
 ---
-description: How catalog-specific layouts inherit from global layouts, store sparse visibility and placement overrides, and control catalog runtime behavior from the Common section.
+description: How catalog-specific layouts inherit from shared layouts, store sparse visibility and placement overrides, and control catalog runtime behavior from the Resources workspace.
 ---
 
 # Catalog Layouts
@@ -37,6 +37,6 @@ Inherited widgets keep their base config during materialization; overlay rows on
 
 ## Related Reading
 
-- [Common Section](general-section.md)
+- [Resources Workspace](general-section.md)
 - [Metahubs](../platform/metahubs.md)
 - [Applications](../platform/applications.md)

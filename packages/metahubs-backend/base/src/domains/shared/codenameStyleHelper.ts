@@ -128,7 +128,7 @@ export async function getAttributeCodenameScope(
     userId?: string
 ): Promise<'per-level' | 'global'> {
     try {
-        const row = await settingsService.findByKey(metahubId, 'catalogs.attributeCodenameScope', userId)
+        const row = await settingsService.findByKey(metahubId, 'entity.catalog.attributeCodenameScope', userId)
         const scope = row?.value?._value
         if (scope === 'per-level' || scope === 'global') return scope
     } catch {
@@ -138,16 +138,16 @@ export async function getAttributeCodenameScope(
 }
 
 /**
- * Read allowed attribute types setting.
+ * Read allowed field definition types setting.
  * Returns all types if not set.
  */
-export async function getAllowedAttributeTypes(
+export async function getAllowedFieldDefinitionTypes(
     settingsService: MetahubSettingsService,
     metahubId: string,
     userId?: string
 ): Promise<string[]> {
     try {
-        const row = await settingsService.findByKey(metahubId, 'catalogs.allowedAttributeTypes', userId)
+        const row = await settingsService.findByKey(metahubId, 'entity.catalog.allowedAttributeTypes', userId)
         const types = row?.value?._value
         if (Array.isArray(types) && types.length > 0) return types
     } catch {
@@ -157,12 +157,16 @@ export async function getAllowedAttributeTypes(
 }
 
 /**
- * Read allow-attribute-copy setting.
+ * Read allow-field-definition-copy setting.
  * Returns true if not set.
  */
-export async function getAllowAttributeCopy(settingsService: MetahubSettingsService, metahubId: string, userId?: string): Promise<boolean> {
+export async function getAllowFieldDefinitionCopy(
+    settingsService: MetahubSettingsService,
+    metahubId: string,
+    userId?: string
+): Promise<boolean> {
     try {
-        const row = await settingsService.findByKey(metahubId, 'catalogs.allowAttributeCopy', userId)
+        const row = await settingsService.findByKey(metahubId, 'entity.catalog.allowAttributeCopy', userId)
         const value = row?.value?._value
         return value !== false
     } catch {
@@ -171,16 +175,16 @@ export async function getAllowAttributeCopy(settingsService: MetahubSettingsServ
 }
 
 /**
- * Read allow-attribute-delete setting.
+ * Read allow-field-definition-delete setting.
  * Returns true if not set.
  */
-export async function getAllowAttributeDelete(
+export async function getAllowFieldDefinitionDelete(
     settingsService: MetahubSettingsService,
     metahubId: string,
     userId?: string
 ): Promise<boolean> {
     try {
-        const row = await settingsService.findByKey(metahubId, 'catalogs.allowAttributeDelete', userId)
+        const row = await settingsService.findByKey(metahubId, 'entity.catalog.allowAttributeDelete', userId)
         const value = row?.value?._value
         return value !== false
     } catch {
@@ -198,7 +202,7 @@ export async function getAllowDeleteLastDisplayAttribute(
     userId?: string
 ): Promise<boolean> {
     try {
-        const row = await settingsService.findByKey(metahubId, 'catalogs.allowDeleteLastDisplayAttribute', userId)
+        const row = await settingsService.findByKey(metahubId, 'entity.catalog.allowDeleteLastDisplayAttribute', userId)
         const value = row?.value?._value
         return value !== false
     } catch {
@@ -216,7 +220,7 @@ export async function getAllowAttributeMoveBetweenRootAndChildren(
     userId?: string
 ): Promise<boolean> {
     try {
-        const row = await settingsService.findByKey(metahubId, 'catalogs.allowAttributeMoveBetweenRootAndChildren', userId)
+        const row = await settingsService.findByKey(metahubId, 'entity.catalog.allowAttributeMoveBetweenRootAndChildren', userId)
         const value = row?.value?._value
         return value !== false
     } catch {
@@ -234,7 +238,7 @@ export async function getAllowAttributeMoveBetweenChildLists(
     userId?: string
 ): Promise<boolean> {
     try {
-        const row = await settingsService.findByKey(metahubId, 'catalogs.allowAttributeMoveBetweenChildLists', userId)
+        const row = await settingsService.findByKey(metahubId, 'entity.catalog.allowAttributeMoveBetweenChildLists', userId)
         const value = row?.value?._value
         return value !== false
     } catch {
@@ -252,7 +256,7 @@ export async function getConstantCodenameScope(
     userId?: string
 ): Promise<'global'> {
     try {
-        const row = await settingsService.findByKey(metahubId, 'sets.constantCodenameScope', userId)
+        const row = await settingsService.findByKey(metahubId, 'entity.set.constantCodenameScope', userId)
         const scope = row?.value?._value
         if (scope === 'global') return scope
     } catch {
@@ -265,13 +269,13 @@ export async function getConstantCodenameScope(
  * Read allowed constant types setting.
  * Returns basic scalar/date types if not set.
  */
-export async function getAllowedConstantTypes(
+export async function getAllowedFixedValueTypes(
     settingsService: MetahubSettingsService,
     metahubId: string,
     userId?: string
 ): Promise<string[]> {
     try {
-        const row = await settingsService.findByKey(metahubId, 'sets.allowedConstantTypes', userId)
+        const row = await settingsService.findByKey(metahubId, 'entity.set.allowedConstantTypes', userId)
         const types = row?.value?._value
         if (Array.isArray(types) && types.length > 0) return types
     } catch {
@@ -280,9 +284,13 @@ export async function getAllowedConstantTypes(
     return ['STRING', 'NUMBER', 'BOOLEAN', 'DATE']
 }
 
-export async function getAllowConstantCopy(settingsService: MetahubSettingsService, metahubId: string, userId?: string): Promise<boolean> {
+export async function getAllowFixedValueCopy(
+    settingsService: MetahubSettingsService,
+    metahubId: string,
+    userId?: string
+): Promise<boolean> {
     try {
-        const row = await settingsService.findByKey(metahubId, 'sets.allowConstantCopy', userId)
+        const row = await settingsService.findByKey(metahubId, 'entity.set.allowConstantCopy', userId)
         const value = row?.value?._value
         return value !== false
     } catch {
@@ -290,13 +298,13 @@ export async function getAllowConstantCopy(settingsService: MetahubSettingsServi
     }
 }
 
-export async function getAllowConstantDelete(
+export async function getAllowFixedValueDelete(
     settingsService: MetahubSettingsService,
     metahubId: string,
     userId?: string
 ): Promise<boolean> {
     try {
-        const row = await settingsService.findByKey(metahubId, 'sets.allowConstantDelete', userId)
+        const row = await settingsService.findByKey(metahubId, 'entity.set.allowConstantDelete', userId)
         const value = row?.value?._value
         return value !== false
     } catch {
@@ -384,28 +392,28 @@ export function extractAllowMixedAlphabets(settings: SettingsRow[]): boolean {
 
 /** Extract attribute codename scope from pre-loaded settings. */
 export function extractAttributeCodenameScope(settings: SettingsRow[]): 'per-level' | 'global' {
-    const scope = extractValue(settings, 'catalogs.attributeCodenameScope')
+    const scope = extractValue(settings, 'entity.catalog.attributeCodenameScope')
     if (scope === 'per-level' || scope === 'global') return scope
     return 'per-level'
 }
 
 /** Extract allowed attribute types from pre-loaded settings. */
 export function extractAllowedAttributeTypes(settings: SettingsRow[]): string[] {
-    const types = extractValue(settings, 'catalogs.allowedAttributeTypes')
+    const types = extractValue(settings, 'entity.catalog.allowedAttributeTypes')
     if (Array.isArray(types) && types.length > 0) return types
     return ['STRING', 'NUMBER', 'BOOLEAN', 'DATE', 'REF', 'JSON', 'TABLE']
 }
 
 /** Extract constant codename scope from pre-loaded settings. */
 export function extractConstantCodenameScope(settings: SettingsRow[]): 'global' {
-    const scope = extractValue(settings, 'sets.constantCodenameScope')
+    const scope = extractValue(settings, 'entity.set.constantCodenameScope')
     if (scope === 'global') return scope
     return 'global'
 }
 
 /** Extract allowed constant types from pre-loaded settings. */
 export function extractAllowedConstantTypes(settings: SettingsRow[]): string[] {
-    const types = extractValue(settings, 'sets.allowedConstantTypes')
+    const types = extractValue(settings, 'entity.set.allowedConstantTypes')
     if (Array.isArray(types) && types.length > 0) return types
     return ['STRING', 'NUMBER', 'BOOLEAN', 'DATE']
 }

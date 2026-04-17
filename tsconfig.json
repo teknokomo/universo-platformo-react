@@ -4,6 +4,7 @@
     "module": "commonjs",
     "lib": ["ES2020"],
     "baseUrl": "./",
+    "ignoreDeprecations": "5.0",
     "paths": {
       "@testing/backend/*": ["tools/testing/backend/*"],
       "@testing/frontend": ["tools/testing/frontend/index.ts"],

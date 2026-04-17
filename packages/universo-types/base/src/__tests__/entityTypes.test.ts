@@ -1,58 +1,24 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-    BUILTIN_ENTITY_TYPE_REGISTRY,
-    BUILTIN_ENTITY_TYPES,
     MetaEntityKind,
+    BuiltinEntityKinds,
     getEnabledComponentKeys,
-    getLegacyCompatibleObjectKindForKindKey,
-    isBuiltinKind,
+    isBuiltinEntityKind,
     validateComponentDependencies,
     type ComponentManifest,
     type MetahubSnapshotFormatVersion
 } from '../index'
 
 describe('entity type contracts', () => {
-    it('recognizes built-in entity kinds without changing the legacy constants', () => {
-        expect(isBuiltinKind(MetaEntityKind.CATALOG)).toBe(true)
-        expect(isBuiltinKind(MetaEntityKind.SET)).toBe(true)
-        expect(isBuiltinKind('custom_registry')).toBe(false)
-    })
-
-    it('reports missing component dependencies', () => {
-        const manifest: ComponentManifest = {
-            dataSchema: false,
-            predefinedElements: { enabled: true },
-            hubAssignment: false,
-            enumerationValues: false,
-            constants: false,
-            hierarchy: false,
-            nestedCollections: false,
-            relations: false,
-            actions: false,
-            events: false,
-            scripting: false,
-            layoutConfig: false,
-            runtimeBehavior: false,
-            physicalTable: false
-        }
-
-        expect(validateComponentDependencies(manifest)).toEqual(['Component "predefinedElements" requires "dataSchema" to be enabled'])
-    })
-
-    it('lists enabled components for a manifest', () => {
-        const catalogType = BUILTIN_ENTITY_TYPE_REGISTRY.get(MetaEntityKind.CATALOG)
-
-        expect(catalogType).toBeDefined()
-        expect(getEnabledComponentKeys(catalogType!.components)).toEqual(
-            expect.arrayContaining(['dataSchema', 'predefinedElements', 'hubAssignment', 'actions', 'events'])
-        )
-    })
-
-    it('keeps all built-in entity definitions dependency-valid', () => {
-        for (const definition of BUILTIN_ENTITY_TYPES) {
-            expect(validateComponentDependencies(definition.components)).toEqual([])
-        }
+    it('recognizes only the promoted entity metadata kinds', () => {
+        expect(isBuiltinEntityKind(MetaEntityKind.CATALOG)).toBe(true)
+        expect(isBuiltinEntityKind(MetaEntityKind.SET)).toBe(true)
+        expect(isBuiltinEntityKind(MetaEntityKind.ENUMERATION)).toBe(true)
+        expect(isBuiltinEntityKind(MetaEntityKind.HUB)).toBe(true)
+        expect(isBuiltinEntityKind('custom_registry')).toBe(false)
+        expect(Object.values(BuiltinEntityKinds)).toEqual(['catalog', 'set', 'enumeration', 'hub'])
+        expect(Object.values(BuiltinEntityKinds)).not.toContain('document')
     })
 
     it('widens metahub snapshot format version to v3', () => {
@@ -61,11 +27,25 @@ describe('entity type contracts', () => {
         expect(version).toBe(3)
     })
 
-    it('recognizes preset-derived legacy-compatible custom kind keys with suffixes', () => {
-        expect(getLegacyCompatibleObjectKindForKindKey('custom.hub-v2')).toBe('hub')
-        expect(getLegacyCompatibleObjectKindForKindKey('custom.hub-v2-demo')).toBe('hub')
-        expect(getLegacyCompatibleObjectKindForKindKey('custom.set-v2-demo')).toBe('set')
-        expect(getLegacyCompatibleObjectKindForKindKey('custom.enumeration-v2-demo')).toBe('enumeration')
-        expect(getLegacyCompatibleObjectKindForKindKey('custom.hub-v2demo')).toBeNull()
+    it('reports missing component dependencies and lists enabled manifest keys', () => {
+        const manifest: ComponentManifest = {
+            dataSchema: { enabled: true },
+            records: { enabled: true },
+            treeAssignment: false,
+            optionValues: false,
+            constants: false,
+            hierarchy: false,
+            nestedCollections: false,
+            relations: false,
+            actions: { enabled: true },
+            events: { enabled: true },
+            scripting: false,
+            layoutConfig: false,
+            runtimeBehavior: false,
+            physicalTable: false
+        }
+
+        expect(validateComponentDependencies(manifest)).toEqual([])
+        expect(getEnabledComponentKeys(manifest)).toEqual(expect.arrayContaining(['dataSchema', 'records', 'actions', 'events']))
     })
 })

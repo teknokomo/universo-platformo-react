@@ -5,13 +5,13 @@ import { waitForSettledMutationResponse } from '../../support/browser/network'
 import {
     createLoggedInApiContext,
     createMetahub,
-    createMetahubAttribute,
+    createFieldDefinition,
     createPublication,
     createPublicationLinkedApplication,
     createPublicationVersion,
     disposeApiContext,
     getApplicationRuntime,
-    listMetahubCatalogs,
+    listLinkedCollections,
     syncApplicationSchema,
     syncPublication,
     waitForPublicationReady
@@ -83,7 +83,7 @@ async function waitForCatalogId(api: Awaited<ReturnType<typeof createLoggedInApi
 
     await expect
         .poll(async () => {
-            payload = (await listMetahubCatalogs(api, metahubId, { limit: 100, offset: 0 })) as CatalogListResponse
+            payload = (await listLinkedCollections(api, metahubId, { limit: 100, offset: 0 })) as CatalogListResponse
             return typeof payload?.items?.[0]?.id === 'string'
         })
         .toBe(true)
@@ -201,7 +201,7 @@ test('@flow @combined application runtime rows support browser create, edit, cop
 
         const catalogId = await waitForCatalogId(api, metahub.id)
 
-        const attribute = await createMetahubAttribute(api, metahub.id, catalogId, {
+        const attribute = await createFieldDefinition(api, metahub.id, catalogId, {
             name: { en: attributeLabel },
             namePrimaryLocale: 'en',
             codename: createLocalizedContent('en', attributeCodename),

@@ -41,7 +41,7 @@ describe('copyDesignTimeObjectChildren', () => {
                 ])
                 .mockResolvedValueOnce([{ id: 'value-copy-1' }])
         }
-        const constantsService = {
+        const fixedValuesService = {
             findAll: jest.fn().mockResolvedValue([
                 {
                     codename: { _primary: 'en', locales: { en: { content: 'TaxRate' } } },
@@ -64,33 +64,33 @@ describe('copyDesignTimeObjectChildren', () => {
             tx: tx as any,
             userId: 'user-1',
             schemaName,
-            copyAttributes: true,
-            copyElements: true,
-            copyConstants: true,
-            copyEnumerationValues: true,
+            copyFieldDefinitions: true,
+            copyRecords: true,
+            copyFixedValues: true,
+            copyOptionValues: true,
             codenameStyle: 'pascal-case',
             codenameAlphabet: 'en-ru',
-            constantsService
+            fixedValuesService
         })
 
         expect(result).toEqual({
-            attributesCopied: 1,
-            elementsCopied: 1,
-            constantsCopied: 1,
-            valuesCopied: 1
+            fieldDefinitionsCopied: 1,
+            recordsCopied: 1,
+            fixedValuesCopied: 1,
+            optionValuesCopied: 1
         })
         expect(tx.query.mock.calls[1][1][9]).toBe('target-1')
-        expect(constantsService.ensureUniqueCodenameWithRetries).toHaveBeenCalledWith(
+        expect(fixedValuesService.ensureUniqueCodenameWithRetries).toHaveBeenCalledWith(
             expect.objectContaining({
-                setId: 'target-1',
+                valueGroupId: 'target-1',
                 desiredCodename: 'TaxRate',
                 codenameStyle: 'pascal-case'
             })
         )
-        expect(constantsService.create).toHaveBeenCalledWith(
+        expect(fixedValuesService.create).toHaveBeenCalledWith(
             'metahub-1',
             expect.objectContaining({
-                setId: 'target-1',
+                valueGroupId: 'target-1',
                 sortOrder: 1,
                 value: 20
             }),
@@ -106,7 +106,7 @@ describe('copyDesignTimeObjectChildren', () => {
                 { system_key: 'app.deleted_at', is_system_enabled: false }
             ])
         }
-        const ensureObjectSystemAttributes = jest.fn().mockResolvedValue([])
+        const ensureObjectSystemFieldDefinitions = jest.fn().mockResolvedValue([])
 
         const result = await copyDesignTimeObjectChildren({
             metahubId: 'metahub-1',
@@ -115,8 +115,8 @@ describe('copyDesignTimeObjectChildren', () => {
             tx: tx as any,
             userId: 'user-1',
             schemaName,
-            ensureObjectSystemAttributes,
-            platformSystemAttributesPolicy: {
+            ensureObjectSystemFieldDefinitions,
+            platformSystemFieldDefinitionsPolicy: {
                 allowConfiguration: false,
                 forceCreate: true,
                 ignoreMetahubSettings: true
@@ -124,12 +124,12 @@ describe('copyDesignTimeObjectChildren', () => {
         })
 
         expect(result).toEqual({
-            attributesCopied: 0,
-            elementsCopied: 0,
-            constantsCopied: 0,
-            valuesCopied: 0
+            fieldDefinitionsCopied: 0,
+            recordsCopied: 0,
+            fixedValuesCopied: 0,
+            optionValuesCopied: 0
         })
-        expect(ensureObjectSystemAttributes).toHaveBeenCalledWith('metahub-1', 'target-catalog', 'user-1', tx, {
+        expect(ensureObjectSystemFieldDefinitions).toHaveBeenCalledWith('metahub-1', 'target-catalog', 'user-1', tx, {
             states: [
                 { key: 'app.deleted', enabled: false },
                 { key: 'app.deleted_at', enabled: false }

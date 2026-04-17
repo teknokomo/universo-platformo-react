@@ -29,7 +29,7 @@ import { useTranslation } from 'react-i18next'
 import { useSnackbar } from 'notistack'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-    DEFAULT_PLATFORM_SYSTEM_ATTRIBUTES_POLICY,
+    DEFAULT_PLATFORM_SYSTEM_FIELD_DEFINITIONS_POLICY,
     PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS,
     type DialogCloseBehavior,
     type DialogSizePreset
@@ -50,9 +50,9 @@ interface MetahubDefaults {
     codenameAllowMixedAlphabets: boolean
     codenameAutoConvertMixedAlphabets: boolean
     codenameLocalizedEnabled: boolean
-    platformSystemAttributesConfigurable: boolean
-    platformSystemAttributesRequired: boolean
-    platformSystemAttributesIgnoreMetahubSettings: boolean
+    platformSystemFieldDefinitionsConfigurable: boolean
+    platformSystemFieldDefinitionsRequired: boolean
+    platformSystemFieldDefinitionsIgnoreMetahubSettings: boolean
 }
 
 const DEFAULT_METAHUB_SETTINGS: MetahubDefaults = {
@@ -61,9 +61,9 @@ const DEFAULT_METAHUB_SETTINGS: MetahubDefaults = {
     codenameAllowMixedAlphabets: false,
     codenameAutoConvertMixedAlphabets: true,
     codenameLocalizedEnabled: true,
-    platformSystemAttributesConfigurable: DEFAULT_PLATFORM_SYSTEM_ATTRIBUTES_POLICY.allowConfiguration,
-    platformSystemAttributesRequired: DEFAULT_PLATFORM_SYSTEM_ATTRIBUTES_POLICY.forceCreate,
-    platformSystemAttributesIgnoreMetahubSettings: DEFAULT_PLATFORM_SYSTEM_ATTRIBUTES_POLICY.ignoreMetahubSettings
+    platformSystemFieldDefinitionsConfigurable: DEFAULT_PLATFORM_SYSTEM_FIELD_DEFINITIONS_POLICY.allowConfiguration,
+    platformSystemFieldDefinitionsRequired: DEFAULT_PLATFORM_SYSTEM_FIELD_DEFINITIONS_POLICY.forceCreate,
+    platformSystemFieldDefinitionsIgnoreMetahubSettings: DEFAULT_PLATFORM_SYSTEM_FIELD_DEFINITIONS_POLICY.ignoreMetahubSettings
 }
 
 interface CodenamePreviewProps {
@@ -216,9 +216,9 @@ const AdminSettings = () => {
     const effectiveAllowMixed = getMetahubsEffective('codenameAllowMixedAlphabets')
     const effectiveAutoConvertMixed = getMetahubsEffective('codenameAutoConvertMixedAlphabets')
     const effectiveLocalizedEnabled = getMetahubsEffective('codenameLocalizedEnabled')
-    const effectivePlatformSystemAttributesConfigurable = getMetahubsEffective(PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.allowConfiguration)
-    const effectivePlatformSystemAttributesRequired = getMetahubsEffective(PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.forceCreate)
-    const effectivePlatformSystemAttributesIgnoreMetahubSettings = getMetahubsEffective(
+    const effectivePlatformSystemFieldDefinitionsConfigurable = getMetahubsEffective(PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.allowConfiguration)
+    const effectivePlatformSystemFieldDefinitionsRequired = getMetahubsEffective(PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.forceCreate)
+    const effectivePlatformSystemFieldDefinitionsIgnoreMetahubSettings = getMetahubsEffective(
         PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.ignoreMetahubSettings
     )
 
@@ -488,16 +488,16 @@ const AdminSettings = () => {
                                 <Box sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography variant='subtitle2'>
-                                            {t('settings.metahubs.platformSystemAttributesConfigurable')}
+                                            {t('settings.metahubs.platformSystemFieldDefinitionsConfigurable')}
                                         </Typography>
                                         <Typography variant='body2' color='text.secondary'>
-                                            {t('settings.metahubs.platformSystemAttributesConfigurableDescription')}
+                                            {t('settings.metahubs.platformSystemFieldDefinitionsConfigurableDescription')}
                                         </Typography>
                                     </Box>
                                     <FormControlLabel
                                         control={
                                             <Switch
-                                                checked={effectivePlatformSystemAttributesConfigurable}
+                                                checked={effectivePlatformSystemFieldDefinitionsConfigurable}
                                                 onChange={(event) =>
                                                     handleMetahubsChange(PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.allowConfiguration, event.target.checked)
                                                 }
@@ -510,16 +510,16 @@ const AdminSettings = () => {
                                 <Box sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography variant='subtitle2'>
-                                            {t('settings.metahubs.platformSystemAttributesRequired')}
+                                            {t('settings.metahubs.platformSystemFieldDefinitionsRequired')}
                                         </Typography>
                                         <Typography variant='body2' color='text.secondary'>
-                                            {t('settings.metahubs.platformSystemAttributesRequiredDescription')}
+                                            {t('settings.metahubs.platformSystemFieldDefinitionsRequiredDescription')}
                                         </Typography>
                                     </Box>
                                     <FormControlLabel
                                         control={
                                             <Switch
-                                                checked={effectivePlatformSystemAttributesRequired}
+                                                checked={effectivePlatformSystemFieldDefinitionsRequired}
                                                 onChange={(event) =>
                                                     handleMetahubsChange(PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.forceCreate, event.target.checked)
                                                 }
@@ -532,16 +532,16 @@ const AdminSettings = () => {
                                 <Box sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography variant='subtitle2'>
-                                            {t('settings.metahubs.platformSystemAttributesIgnoreMetahubSettings')}
+                                            {t('settings.metahubs.platformSystemFieldDefinitionsIgnoreMetahubSettings')}
                                         </Typography>
                                         <Typography variant='body2' color='text.secondary'>
-                                            {t('settings.metahubs.platformSystemAttributesIgnoreMetahubSettingsDescription')}
+                                            {t('settings.metahubs.platformSystemFieldDefinitionsIgnoreMetahubSettingsDescription')}
                                         </Typography>
                                     </Box>
                                     <FormControlLabel
                                         control={
                                             <Switch
-                                                checked={effectivePlatformSystemAttributesIgnoreMetahubSettings}
+                                                checked={effectivePlatformSystemFieldDefinitionsIgnoreMetahubSettings}
                                                 onChange={(event) =>
                                                     handleMetahubsChange(
                                                         PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.ignoreMetahubSettings,

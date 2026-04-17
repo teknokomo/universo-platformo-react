@@ -17,14 +17,14 @@ Shared behavior settings определяют, какие sparse per-target chan
 
 ## Правила хранения
 
-- Shared attributes и constants сохраняют `sharedBehavior` в `uiConfig.sharedBehavior`.
-- Shared enumeration values сохраняют `sharedBehavior` в `presentation.sharedBehavior`.
+- Общие определения полей и общие фиксированные значения сохраняют `sharedBehavior` в `uiConfig.sharedBehavior`.
+- Общие значения опций сохраняют `sharedBehavior` в `presentation.sharedBehavior`.
 - Target-specific state по-прежнему живёт в sparse override rows вместо копирования в базовую shared row.
 - Inherited widgets используют ту же behavior model через config базового widget и sparse catalog-widget overrides.
 
 ## Что читать дальше
 
-- [Exclusions](exclusions.md)
-- [Shared Attributes](shared-attributes.md)
-- [Shared Constants](shared-constants.md)
-- [Shared Values](shared-values.md)
+- [Исключения](exclusions.md)
+- [Общие определения полей](shared-field-definitions.md)
+- [Общие фиксированные значения](shared-fixed-values.md)
+- [Общие значения опций](shared-option-values.md)

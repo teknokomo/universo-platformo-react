@@ -4,10 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
 
 import TargetEntitySelector from '../TargetEntitySelector'
-import { listAllCatalogs } from '../../domains/catalogs/api'
-import { listAllEnumerations } from '../../domains/enumerations/api'
-import { listAllSets } from '../../domains/sets/api'
-import { listConstantsDirect } from '../../domains/constants/api'
+import { listFixedValuesDirect } from '../../domains/entities/metadata/fixedValue/api'
 import { listEntityInstances } from '../../domains/entities/api/entityInstances'
 import { listEntityTypes } from '../../domains/entities/api/entityTypes'
 
@@ -32,20 +29,8 @@ vi.mock('react-i18next', () => ({
     })
 }))
 
-vi.mock('../../domains/catalogs/api', () => ({
-    listAllCatalogs: vi.fn()
-}))
-
-vi.mock('../../domains/enumerations/api', () => ({
-    listAllEnumerations: vi.fn()
-}))
-
-vi.mock('../../domains/sets/api', () => ({
-    listAllSets: vi.fn()
-}))
-
-vi.mock('../../domains/constants/api', () => ({
-    listConstantsDirect: vi.fn()
+vi.mock('../../domains/entities/metadata/fixedValue/api', () => ({
+    listFixedValuesDirect: vi.fn()
 }))
 
 vi.mock('../../domains/entities/api/entityTypes', () => ({
@@ -84,19 +69,7 @@ describe('TargetEntitySelector', () => {
     beforeEach(() => {
         vi.clearAllMocks()
 
-        vi.mocked(listAllCatalogs).mockResolvedValue({
-            items: [],
-            pagination: { limit: 100, offset: 0, total: 0, count: 0, hasMore: false }
-        })
-        vi.mocked(listAllEnumerations).mockResolvedValue({
-            items: [],
-            pagination: { limit: 100, offset: 0, total: 0, count: 0, hasMore: false }
-        })
-        vi.mocked(listAllSets).mockResolvedValue({
-            items: [],
-            pagination: { limit: 100, offset: 0, total: 0, count: 0, hasMore: false }
-        })
-        vi.mocked(listConstantsDirect).mockResolvedValue({
+        vi.mocked(listFixedValuesDirect).mockResolvedValue({
             items: [],
             pagination: { limit: 100, offset: 0, total: 0, count: 0, hasMore: false }
         })
@@ -104,31 +77,23 @@ describe('TargetEntitySelector', () => {
             items: [
                 {
                     kindKey: 'catalog',
-                    isBuiltin: true,
                     components: { dataSchema: { enabled: true } },
-                    ui: { iconName: 'IconDatabase', tabs: [], sidebarSection: 'objects', nameKey: 'Catalog' },
-                    source: 'builtin'
+                    ui: { iconName: 'IconDatabase', tabs: [], sidebarSection: 'objects', nameKey: 'LinkedCollectionEntity' }
                 },
                 {
                     kindKey: 'enumeration',
-                    isBuiltin: true,
                     components: { dataSchema: false },
-                    ui: { iconName: 'IconFiles', tabs: [], sidebarSection: 'objects', nameKey: 'Enumeration' },
-                    source: 'builtin'
+                    ui: { iconName: 'IconFiles', tabs: [], sidebarSection: 'objects', nameKey: 'OptionListEntity' }
                 },
                 {
                     kindKey: 'set',
-                    isBuiltin: true,
                     components: { dataSchema: { enabled: true } },
-                    ui: { iconName: 'IconFileText', tabs: [], sidebarSection: 'objects', nameKey: 'Set' },
-                    source: 'builtin'
+                    ui: { iconName: 'IconFileText', tabs: [], sidebarSection: 'objects', nameKey: 'Set' }
                 },
                 {
-                    kindKey: 'document',
-                    isBuiltin: true,
+                    kindKey: 'custom.invoice',
                     components: { dataSchema: { enabled: true } },
-                    ui: { iconName: 'IconLayoutDashboard', tabs: [], sidebarSection: 'objects', nameKey: 'Document' },
-                    source: 'builtin'
+                    ui: { iconName: 'IconLayoutDashboard', tabs: [], sidebarSection: 'objects', nameKey: 'Invoices' }
                 }
             ],
             pagination: { limit: 100, offset: 0, total: 4, count: 4, hasMore: false }
@@ -139,30 +104,12 @@ describe('TargetEntitySelector', () => {
         })
     })
 
-    it('loads constants when REF target kind is set and target set is selected', async () => {
-        vi.mocked(listAllSets).mockResolvedValue({
-            items: [
-                {
-                    id: 'set-1',
-                    metahubId: 'metahub-1',
-                    codename: 'ProductsSet',
-                    name: createVlc('Products Set'),
-                    description: createVlc('Set description'),
-                    isSingleHub: false,
-                    isRequiredHub: false,
-                    sortOrder: 1,
-                    createdAt: '2026-03-05T00:00:00.000Z',
-                    updatedAt: '2026-03-05T00:00:00.000Z',
-                    hubs: []
-                }
-            ],
-            pagination: { limit: 100, offset: 0, total: 1, count: 1, hasMore: false }
-        })
-        vi.mocked(listConstantsDirect).mockResolvedValue({
+    it('loads fixedValues when REF target kind is set and target set is selected', async () => {
+        vi.mocked(listFixedValuesDirect).mockResolvedValue({
             items: [
                 {
                     id: 'constant-1',
-                    setId: 'set-1',
+                    valueGroupId: 'set-1',
                     codename: 'TaxRate',
                     name: createVlc('Tax Rate'),
                     dataType: 'NUMBER',
@@ -191,7 +138,7 @@ describe('TargetEntitySelector', () => {
         )
 
         await waitFor(() => {
-            expect(listConstantsDirect).toHaveBeenCalledWith('metahub-1', 'set-1', expect.objectContaining({ locale: 'ru', limit: 500 }))
+            expect(listFixedValuesDirect).toHaveBeenCalledWith('metahub-1', 'set-1', expect.objectContaining({ locale: 'ru', limit: 500 }))
         })
 
         expect(screen.getByLabelText('Target Constant')).toBeInTheDocument()
@@ -219,7 +166,10 @@ describe('TargetEntitySelector', () => {
         )
 
         await waitFor(() => {
-            expect(listEntityTypes).toHaveBeenCalledWith('metahub-1', expect.objectContaining({ includeBuiltins: true, limit: 500 }))
+            expect(listEntityTypes).toHaveBeenCalledWith(
+                'metahub-1',
+                expect.objectContaining({ limit: 500, offset: 0, sortBy: 'updated', sortOrder: 'desc' })
+            )
         })
 
         await user.click(screen.getByRole('combobox', { name: 'Target Entity Type' }))
@@ -234,10 +184,10 @@ describe('TargetEntitySelector', () => {
         vi.mocked(listEntityInstances).mockResolvedValueOnce({
             items: [
                 {
-                    id: 'document-1',
-                    kind: 'document',
-                    codename: createVlc('owner-document'),
-                    name: createVlc('Owner document')
+                    id: 'invoice-1',
+                    kind: 'custom.invoice',
+                    codename: createVlc('owner-invoice'),
+                    name: createVlc('Owner invoice')
                 }
             ],
             pagination: { limit: 100, offset: 0, total: 1, count: 1, hasMore: false }
@@ -248,8 +198,8 @@ describe('TargetEntitySelector', () => {
             <QueryClientProvider client={queryClient}>
                 <TargetEntitySelector
                     metahubId='metahub-1'
-                    targetEntityKind='document'
-                    targetEntityId='document-1'
+                    targetEntityKind='custom.invoice'
+                    targetEntityId='invoice-1'
                     onEntityKindChange={() => undefined}
                     onEntityIdChange={() => undefined}
                     onTargetConstantIdChange={() => undefined}
@@ -261,7 +211,7 @@ describe('TargetEntitySelector', () => {
         await waitFor(() => {
             expect(listEntityInstances).toHaveBeenCalledWith(
                 'metahub-1',
-                expect.objectContaining({ kind: 'document', locale: 'ru', limit: 500 })
+                expect.objectContaining({ kind: 'custom.invoice', locale: 'ru', limit: 500 })
             )
         })
 

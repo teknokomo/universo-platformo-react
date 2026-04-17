@@ -1,9 +1,9 @@
 export const ENTITY_COMPONENT_KEYS = [
     'dataSchema',
-    'predefinedElements',
-    'hubAssignment',
-    'enumerationValues',
-    'constants',
+    'records',
+    'treeAssignment',
+    'optionValues',
+    'fixedValues',
     'hierarchy',
     'nestedCollections',
     'relations',
@@ -25,11 +25,11 @@ export interface DataSchemaComponentConfig extends ComponentConfig {
     maxAttributes?: number | null
 }
 
-export interface PredefinedElementsComponentConfig extends ComponentConfig {
+export interface RecordsComponentConfig extends ComponentConfig {
     maxElements?: number | null
 }
 
-export interface HubAssignmentComponentConfig extends ComponentConfig {
+export interface TreeAssignmentComponentConfig extends ComponentConfig {
     isSingleHub?: boolean
     isRequiredHub?: boolean
 }
@@ -56,10 +56,10 @@ export interface PhysicalTableComponentConfig extends ComponentConfig {
 
 export interface ComponentManifest {
     dataSchema: DataSchemaComponentConfig | false
-    predefinedElements: PredefinedElementsComponentConfig | false
-    hubAssignment: HubAssignmentComponentConfig | false
-    enumerationValues: ComponentConfig | false
-    constants: ComponentConfig | false
+    records: RecordsComponentConfig | false
+    treeAssignment: TreeAssignmentComponentConfig | false
+    optionValues: ComponentConfig | false
+    fixedValues: ComponentConfig | false
     hierarchy: HierarchyComponentConfig | false
     nestedCollections: NestedCollectionsComponentConfig | false
     relations: RelationsComponentConfig | false
@@ -73,10 +73,10 @@ export interface ComponentManifest {
 
 export const COMPONENT_DEPENDENCIES: Record<EntityComponentKey, readonly EntityComponentKey[]> = {
     dataSchema: [],
-    predefinedElements: ['dataSchema'],
-    hubAssignment: [],
-    enumerationValues: [],
-    constants: [],
+    records: ['dataSchema'],
+    treeAssignment: [],
+    optionValues: [],
+    fixedValues: [],
     hierarchy: ['dataSchema'],
     nestedCollections: ['dataSchema'],
     relations: ['dataSchema'],

@@ -3,7 +3,7 @@ import {
     type SystemAppBusinessTableDefinition,
     type SystemAppDefinition
 } from '@universo/migrations-core'
-import { AttributeDataType } from '@universo/types'
+import { FieldDefinitionDataType } from '@universo/types'
 import {
     finalizeMetahubsSchemaSupportMigrationDefinition,
     prepareMetahubsSchemaSupportMigrationDefinition,
@@ -22,7 +22,7 @@ const metahubBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
             {
                 codename: 'name',
                 physicalColumnName: 'name',
-                dataType: AttributeDataType.JSON,
+                dataType: FieldDefinitionDataType.JSON,
                 defaultSqlExpression: `'{}'::jsonb`,
                 isRequired: true,
                 isDisplayAttribute: true,
@@ -31,27 +31,27 @@ const metahubBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
             {
                 codename: 'description',
                 physicalColumnName: 'description',
-                dataType: AttributeDataType.JSON,
+                dataType: FieldDefinitionDataType.JSON,
                 defaultSqlExpression: `'{}'::jsonb`
             },
             {
                 codename: 'codename',
                 physicalColumnName: 'codename',
-                dataType: AttributeDataType.JSON,
+                dataType: FieldDefinitionDataType.JSON,
                 isRequired: true
             },
-            { codename: 'slug', physicalColumnName: 'slug', dataType: AttributeDataType.STRING, physicalDataType: 'VARCHAR(100)' },
+            { codename: 'slug', physicalColumnName: 'slug', dataType: FieldDefinitionDataType.STRING, physicalDataType: 'VARCHAR(100)' },
             {
                 codename: 'default_branch_id',
                 physicalColumnName: 'default_branch_id',
-                dataType: AttributeDataType.REF,
+                dataType: FieldDefinitionDataType.REF,
                 targetTableCodename: 'metahub_branches',
                 presentation: p('Default Branch', 'Current default branch for the metahub')
             },
             {
                 codename: 'last_branch_number',
                 physicalColumnName: 'last_branch_number',
-                dataType: AttributeDataType.NUMBER,
+                dataType: FieldDefinitionDataType.NUMBER,
                 physicalDataType: 'INT',
                 defaultSqlExpression: '0',
                 isRequired: true
@@ -59,20 +59,20 @@ const metahubBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
             {
                 codename: 'is_public',
                 physicalColumnName: 'is_public',
-                dataType: AttributeDataType.BOOLEAN,
+                dataType: FieldDefinitionDataType.BOOLEAN,
                 defaultSqlExpression: 'false',
                 isRequired: true
             },
             {
                 codename: 'template_id',
                 physicalColumnName: 'template_id',
-                dataType: AttributeDataType.REF,
+                dataType: FieldDefinitionDataType.REF,
                 targetTableCodename: 'templates'
             },
             {
                 codename: 'template_version_id',
                 physicalColumnName: 'template_version_id',
-                dataType: AttributeDataType.REF,
+                dataType: FieldDefinitionDataType.REF,
                 targetTableCodename: 'template_versions'
             }
         ]
@@ -86,20 +86,20 @@ const metahubBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
             {
                 codename: 'metahub_id',
                 physicalColumnName: 'metahub_id',
-                dataType: AttributeDataType.REF,
+                dataType: FieldDefinitionDataType.REF,
                 isRequired: true,
                 targetTableCodename: 'metahubs'
             },
             {
                 codename: 'source_branch_id',
                 physicalColumnName: 'source_branch_id',
-                dataType: AttributeDataType.REF,
+                dataType: FieldDefinitionDataType.REF,
                 targetTableCodename: 'metahub_branches'
             },
             {
                 codename: 'name',
                 physicalColumnName: 'name',
-                dataType: AttributeDataType.JSON,
+                dataType: FieldDefinitionDataType.JSON,
                 defaultSqlExpression: `'{}'::jsonb`,
                 isRequired: true,
                 isDisplayAttribute: true,
@@ -108,33 +108,33 @@ const metahubBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
             {
                 codename: 'description',
                 physicalColumnName: 'description',
-                dataType: AttributeDataType.JSON,
+                dataType: FieldDefinitionDataType.JSON,
                 defaultSqlExpression: `'{}'::jsonb`
             },
             {
                 codename: 'codename',
                 physicalColumnName: 'codename',
-                dataType: AttributeDataType.JSON,
+                dataType: FieldDefinitionDataType.JSON,
                 isRequired: true
             },
             {
                 codename: 'branch_number',
                 physicalColumnName: 'branch_number',
-                dataType: AttributeDataType.NUMBER,
+                dataType: FieldDefinitionDataType.NUMBER,
                 physicalDataType: 'INT',
                 isRequired: true
             },
             {
                 codename: 'schema_name',
                 physicalColumnName: 'schema_name',
-                dataType: AttributeDataType.STRING,
+                dataType: FieldDefinitionDataType.STRING,
                 physicalDataType: 'VARCHAR(100)',
                 isRequired: true
             },
             {
                 codename: 'structure_version',
                 physicalColumnName: 'structure_version',
-                dataType: AttributeDataType.STRING,
+                dataType: FieldDefinitionDataType.STRING,
                 physicalDataType: 'VARCHAR(20)',
                 defaultSqlExpression: `'0.1.0'`,
                 isRequired: true
@@ -142,16 +142,16 @@ const metahubBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
             {
                 codename: 'last_template_version_id',
                 physicalColumnName: 'last_template_version_id',
-                dataType: AttributeDataType.REF,
+                dataType: FieldDefinitionDataType.REF,
                 targetTableCodename: 'template_versions'
             },
             {
                 codename: 'last_template_version_label',
                 physicalColumnName: 'last_template_version_label',
-                dataType: AttributeDataType.STRING,
+                dataType: FieldDefinitionDataType.STRING,
                 physicalDataType: 'VARCHAR(20)'
             },
-            { codename: 'last_template_synced_at', physicalColumnName: 'last_template_synced_at', dataType: AttributeDataType.DATE }
+            { codename: 'last_template_synced_at', physicalColumnName: 'last_template_synced_at', dataType: FieldDefinitionDataType.DATE }
         ]
     },
     {
@@ -163,26 +163,26 @@ const metahubBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
             {
                 codename: 'metahub_id',
                 physicalColumnName: 'metahub_id',
-                dataType: AttributeDataType.REF,
+                dataType: FieldDefinitionDataType.REF,
                 isRequired: true,
                 targetTableCodename: 'metahubs'
             },
-            { codename: 'user_id', physicalColumnName: 'user_id', dataType: AttributeDataType.REF, isRequired: true },
+            { codename: 'user_id', physicalColumnName: 'user_id', dataType: FieldDefinitionDataType.REF, isRequired: true },
             {
                 codename: 'active_branch_id',
                 physicalColumnName: 'active_branch_id',
-                dataType: AttributeDataType.REF,
+                dataType: FieldDefinitionDataType.REF,
                 targetTableCodename: 'metahub_branches'
             },
             {
                 codename: 'role',
                 physicalColumnName: 'role',
-                dataType: AttributeDataType.STRING,
+                dataType: FieldDefinitionDataType.STRING,
                 physicalDataType: 'VARCHAR(50)',
                 defaultSqlExpression: `'owner'`,
                 isRequired: true
             },
-            { codename: 'comment', physicalColumnName: 'comment', dataType: AttributeDataType.JSON }
+            { codename: 'comment', physicalColumnName: 'comment', dataType: FieldDefinitionDataType.JSON }
         ]
     },
     {
@@ -194,13 +194,13 @@ const metahubBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
             {
                 codename: 'codename',
                 physicalColumnName: 'codename',
-                dataType: AttributeDataType.JSON,
+                dataType: FieldDefinitionDataType.JSON,
                 isRequired: true
             },
             {
                 codename: 'name',
                 physicalColumnName: 'name',
-                dataType: AttributeDataType.JSON,
+                dataType: FieldDefinitionDataType.JSON,
                 defaultSqlExpression: `'{}'::jsonb`,
                 isRequired: true,
                 isDisplayAttribute: true
@@ -208,28 +208,28 @@ const metahubBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
             {
                 codename: 'description',
                 physicalColumnName: 'description',
-                dataType: AttributeDataType.JSON,
+                dataType: FieldDefinitionDataType.JSON,
                 defaultSqlExpression: `'{}'::jsonb`
             },
-            { codename: 'icon', physicalColumnName: 'icon', dataType: AttributeDataType.STRING, physicalDataType: 'VARCHAR(50)' },
+            { codename: 'icon', physicalColumnName: 'icon', dataType: FieldDefinitionDataType.STRING, physicalDataType: 'VARCHAR(50)' },
             {
                 codename: 'is_system',
                 physicalColumnName: 'is_system',
-                dataType: AttributeDataType.BOOLEAN,
+                dataType: FieldDefinitionDataType.BOOLEAN,
                 defaultSqlExpression: 'false',
                 isRequired: true
             },
             {
                 codename: 'is_active',
                 physicalColumnName: 'is_active',
-                dataType: AttributeDataType.BOOLEAN,
+                dataType: FieldDefinitionDataType.BOOLEAN,
                 defaultSqlExpression: 'true',
                 isRequired: true
             },
             {
                 codename: 'sort_order',
                 physicalColumnName: 'sort_order',
-                dataType: AttributeDataType.NUMBER,
+                dataType: FieldDefinitionDataType.NUMBER,
                 physicalDataType: 'INTEGER',
                 defaultSqlExpression: '0',
                 isRequired: true
@@ -237,13 +237,13 @@ const metahubBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
             {
                 codename: 'active_version_id',
                 physicalColumnName: 'active_version_id',
-                dataType: AttributeDataType.REF,
+                dataType: FieldDefinitionDataType.REF,
                 targetTableCodename: 'template_versions'
             },
             {
                 codename: 'definition_type',
                 physicalColumnName: 'definition_type',
-                dataType: AttributeDataType.STRING,
+                dataType: FieldDefinitionDataType.STRING,
                 physicalDataType: 'TEXT',
                 defaultSqlExpression: `'metahub_template'`,
                 isRequired: true
@@ -259,21 +259,21 @@ const metahubBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
             {
                 codename: 'template_id',
                 physicalColumnName: 'template_id',
-                dataType: AttributeDataType.REF,
+                dataType: FieldDefinitionDataType.REF,
                 isRequired: true,
                 targetTableCodename: 'templates'
             },
             {
                 codename: 'version_number',
                 physicalColumnName: 'version_number',
-                dataType: AttributeDataType.NUMBER,
+                dataType: FieldDefinitionDataType.NUMBER,
                 physicalDataType: 'INTEGER',
                 isRequired: true
             },
             {
                 codename: 'version_label',
                 physicalColumnName: 'version_label',
-                dataType: AttributeDataType.STRING,
+                dataType: FieldDefinitionDataType.STRING,
                 physicalDataType: 'VARCHAR(20)',
                 isRequired: true,
                 isDisplayAttribute: true
@@ -281,27 +281,27 @@ const metahubBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
             {
                 codename: 'min_structure_version',
                 physicalColumnName: 'min_structure_version',
-                dataType: AttributeDataType.STRING,
+                dataType: FieldDefinitionDataType.STRING,
                 physicalDataType: 'VARCHAR(20)',
                 defaultSqlExpression: `'0.1.0'`,
                 isRequired: true
             },
-            { codename: 'manifest_json', physicalColumnName: 'manifest_json', dataType: AttributeDataType.JSON, isRequired: true },
+            { codename: 'manifest_json', physicalColumnName: 'manifest_json', dataType: FieldDefinitionDataType.JSON, isRequired: true },
             {
                 codename: 'manifest_hash',
                 physicalColumnName: 'manifest_hash',
-                dataType: AttributeDataType.STRING,
+                dataType: FieldDefinitionDataType.STRING,
                 physicalDataType: 'VARCHAR(64)',
                 isRequired: true
             },
             {
                 codename: 'is_active',
                 physicalColumnName: 'is_active',
-                dataType: AttributeDataType.BOOLEAN,
+                dataType: FieldDefinitionDataType.BOOLEAN,
                 defaultSqlExpression: 'false',
                 isRequired: true
             },
-            { codename: 'changelog', physicalColumnName: 'changelog', dataType: AttributeDataType.JSON }
+            { codename: 'changelog', physicalColumnName: 'changelog', dataType: FieldDefinitionDataType.JSON }
         ]
     },
     {
@@ -313,14 +313,14 @@ const metahubBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
             {
                 codename: 'metahub_id',
                 physicalColumnName: 'metahub_id',
-                dataType: AttributeDataType.REF,
+                dataType: FieldDefinitionDataType.REF,
                 isRequired: true,
                 targetTableCodename: 'metahubs'
             },
             {
                 codename: 'name',
                 physicalColumnName: 'name',
-                dataType: AttributeDataType.JSON,
+                dataType: FieldDefinitionDataType.JSON,
                 defaultSqlExpression: `'{}'::jsonb`,
                 isRequired: true,
                 isDisplayAttribute: true,
@@ -329,13 +329,13 @@ const metahubBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
             {
                 codename: 'description',
                 physicalColumnName: 'description',
-                dataType: AttributeDataType.JSON,
+                dataType: FieldDefinitionDataType.JSON,
                 defaultSqlExpression: `'{}'::jsonb`
             },
             {
                 codename: 'access_mode',
                 physicalColumnName: 'access_mode',
-                dataType: AttributeDataType.STRING,
+                dataType: FieldDefinitionDataType.STRING,
                 physicalDataType: 'metahubs.publication_access_mode',
                 defaultSqlExpression: `'full'::metahubs.publication_access_mode`,
                 isRequired: true,
@@ -347,36 +347,36 @@ const metahubBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
             {
                 codename: 'access_config',
                 physicalColumnName: 'access_config',
-                dataType: AttributeDataType.JSON,
+                dataType: FieldDefinitionDataType.JSON,
                 defaultSqlExpression: `'{}'::jsonb`
             },
             {
                 codename: 'schema_name',
                 physicalColumnName: 'schema_name',
-                dataType: AttributeDataType.STRING,
+                dataType: FieldDefinitionDataType.STRING,
                 physicalDataType: 'VARCHAR(100)'
             },
             {
                 codename: 'schema_status',
                 physicalColumnName: 'schema_status',
-                dataType: AttributeDataType.STRING,
+                dataType: FieldDefinitionDataType.STRING,
                 physicalDataType: 'metahubs.publication_schema_status',
                 defaultSqlExpression: `'draft'::metahubs.publication_schema_status`
             },
-            { codename: 'schema_error', physicalColumnName: 'schema_error', dataType: AttributeDataType.STRING },
-            { codename: 'schema_synced_at', physicalColumnName: 'schema_synced_at', dataType: AttributeDataType.DATE },
-            { codename: 'schema_snapshot', physicalColumnName: 'schema_snapshot', dataType: AttributeDataType.JSON },
+            { codename: 'schema_error', physicalColumnName: 'schema_error', dataType: FieldDefinitionDataType.STRING },
+            { codename: 'schema_synced_at', physicalColumnName: 'schema_synced_at', dataType: FieldDefinitionDataType.DATE },
+            { codename: 'schema_snapshot', physicalColumnName: 'schema_snapshot', dataType: FieldDefinitionDataType.JSON },
             {
                 codename: 'auto_create_application',
                 physicalColumnName: 'auto_create_application',
-                dataType: AttributeDataType.BOOLEAN,
+                dataType: FieldDefinitionDataType.BOOLEAN,
                 defaultSqlExpression: 'false',
                 isRequired: true
             },
             {
                 codename: 'active_version_id',
                 physicalColumnName: 'active_version_id',
-                dataType: AttributeDataType.REF,
+                dataType: FieldDefinitionDataType.REF,
                 targetTableCodename: 'publication_versions'
             }
         ]
@@ -390,27 +390,27 @@ const metahubBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
             {
                 codename: 'publication_id',
                 physicalColumnName: 'publication_id',
-                dataType: AttributeDataType.REF,
+                dataType: FieldDefinitionDataType.REF,
                 isRequired: true,
                 targetTableCodename: 'publications'
             },
             {
                 codename: 'branch_id',
                 physicalColumnName: 'branch_id',
-                dataType: AttributeDataType.REF,
+                dataType: FieldDefinitionDataType.REF,
                 targetTableCodename: 'metahub_branches'
             },
             {
                 codename: 'version_number',
                 physicalColumnName: 'version_number',
-                dataType: AttributeDataType.NUMBER,
+                dataType: FieldDefinitionDataType.NUMBER,
                 physicalDataType: 'INTEGER',
                 isRequired: true
             },
             {
                 codename: 'name',
                 physicalColumnName: 'name',
-                dataType: AttributeDataType.JSON,
+                dataType: FieldDefinitionDataType.JSON,
                 defaultSqlExpression: `'{}'::jsonb`,
                 isRequired: true,
                 isDisplayAttribute: true
@@ -418,13 +418,13 @@ const metahubBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
             {
                 codename: 'description',
                 physicalColumnName: 'description',
-                dataType: AttributeDataType.JSON,
+                dataType: FieldDefinitionDataType.JSON,
                 defaultSqlExpression: `'{}'::jsonb`
             },
             {
                 codename: 'snapshot_json',
                 physicalColumnName: 'snapshot_json',
-                dataType: AttributeDataType.JSON,
+                dataType: FieldDefinitionDataType.JSON,
                 isRequired: true,
                 presentation: p('Snapshot JSON', 'Serialized publication snapshot payload'),
                 uiConfig: {
@@ -434,14 +434,14 @@ const metahubBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
             {
                 codename: 'snapshot_hash',
                 physicalColumnName: 'snapshot_hash',
-                dataType: AttributeDataType.STRING,
+                dataType: FieldDefinitionDataType.STRING,
                 physicalDataType: 'VARCHAR(64)',
                 isRequired: true
             },
             {
                 codename: 'is_active',
                 physicalColumnName: 'is_active',
-                dataType: AttributeDataType.BOOLEAN,
+                dataType: FieldDefinitionDataType.BOOLEAN,
                 defaultSqlExpression: 'false',
                 isRequired: true
             }

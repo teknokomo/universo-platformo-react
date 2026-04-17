@@ -30,14 +30,16 @@ const tagDescriptions = {
     Publications: 'Publication lifecycle, versions, and publication-application link endpoints.',
     'Metahub Migrations': 'Metahub migration status, planning, and apply endpoints.',
     'Application Migrations': 'Application migration history and controlled apply endpoints inside the metahub domain.',
-    Hubs: 'Nested metahub hub-management endpoints.',
-    Catalogs: 'Catalog CRUD, copy, trash, restore, and reference endpoints.',
-    Sets: 'Set CRUD, reorder, copy, restore, and blocking-reference endpoints.',
-    Enumerations: 'Enumeration and enumeration-value lifecycle endpoints.',
-    Attributes: 'Attribute CRUD, move, display, reorder, and child management endpoints.',
-    Constants: 'Constant CRUD, reorder, move, and copy endpoints.',
-    Elements: 'Element CRUD, reorder, move, and copy endpoints.',
+    'Entity Types': 'Entity-type definition CRUD endpoints for direct standard kinds and custom entity kinds.',
+    Entities: 'Canonical entity-owned instance routes for custom and standard metadata kinds, including managed child-resource tabs.',
+    'Entity Actions': 'Entity action definition and execution endpoints.',
+    'Event Bindings': 'Entity event-binding endpoints for design-time automation wiring.',
+    'Field Definitions': 'Field-definition CRUD, move, display, reorder, and child management endpoints.',
+    'Fixed Values': 'Fixed-value CRUD, reorder, move, and copy endpoints.',
+    Records: 'Record CRUD, reorder, move, and copy endpoints.',
     Layouts: 'Layout CRUD and zone-widget endpoints.',
+    Scripts: 'Metahub script CRUD and source-management endpoints.',
+    'Shared Entity Overrides': 'Metahub-level shared entity override endpoints.',
     Settings: 'Metahub settings and metahub setting-key endpoints.',
     Templates: 'Template catalog endpoints.'
 }
@@ -159,51 +161,63 @@ const routeSources = [
         security: bearerSecurity
     },
     {
-        file: 'packages/metahubs-backend/base/src/domains/hubs/routes/hubsRoutes.ts',
+        file: 'packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts',
         mountPrefix: '',
-        tag: 'Hubs',
+        tag: 'Entities',
         security: bearerSecurity
     },
     {
-        file: 'packages/metahubs-backend/base/src/domains/catalogs/routes/catalogsRoutes.ts',
+        file: 'packages/metahubs-backend/base/src/domains/entities/routes/entityTypesRoutes.ts',
         mountPrefix: '',
-        tag: 'Catalogs',
+        tag: 'Entity Types',
         security: bearerSecurity
     },
     {
-        file: 'packages/metahubs-backend/base/src/domains/sets/routes/setsRoutes.ts',
+        file: 'packages/metahubs-backend/base/src/domains/entities/routes/actionsRoutes.ts',
         mountPrefix: '',
-        tag: 'Sets',
+        tag: 'Entity Actions',
         security: bearerSecurity
     },
     {
-        file: 'packages/metahubs-backend/base/src/domains/enumerations/routes/enumerationsRoutes.ts',
+        file: 'packages/metahubs-backend/base/src/domains/entities/routes/eventBindingsRoutes.ts',
         mountPrefix: '',
-        tag: 'Enumerations',
+        tag: 'Event Bindings',
         security: bearerSecurity
     },
     {
-        file: 'packages/metahubs-backend/base/src/domains/attributes/routes/attributesRoutes.ts',
+        file: 'packages/metahubs-backend/base/src/domains/entities/metadata/fieldDefinition/routes.ts',
         mountPrefix: '',
-        tag: 'Attributes',
+        tag: 'Field Definitions',
         security: bearerSecurity
     },
     {
-        file: 'packages/metahubs-backend/base/src/domains/constants/routes/constantsRoutes.ts',
+        file: 'packages/metahubs-backend/base/src/domains/entities/metadata/fixedValue/routes.ts',
         mountPrefix: '',
-        tag: 'Constants',
+        tag: 'Fixed Values',
         security: bearerSecurity
     },
     {
-        file: 'packages/metahubs-backend/base/src/domains/elements/routes/elementsRoutes.ts',
+        file: 'packages/metahubs-backend/base/src/domains/entities/metadata/record/routes.ts',
         mountPrefix: '',
-        tag: 'Elements',
+        tag: 'Records',
         security: bearerSecurity
     },
     {
         file: 'packages/metahubs-backend/base/src/domains/layouts/routes/layoutsRoutes.ts',
         mountPrefix: '',
         tag: 'Layouts',
+        security: bearerSecurity
+    },
+    {
+        file: 'packages/metahubs-backend/base/src/domains/scripts/routes/scriptsRoutes.ts',
+        mountPrefix: '',
+        tag: 'Scripts',
+        security: bearerSecurity
+    },
+    {
+        file: 'packages/metahubs-backend/base/src/domains/shared/routes/sharedEntityOverridesRoutes.ts',
+        mountPrefix: '',
+        tag: 'Shared Entity Overrides',
         security: bearerSecurity
     },
     {
@@ -511,7 +525,21 @@ const buildSpec = () => {
     }
 }
 
-const spec = buildSpec()
-fs.mkdirSync(path.dirname(outputPath), { recursive: true })
-fs.writeFileSync(outputPath, YAML.stringify(spec), 'utf8')
-console.log(`[generate-openapi-source] Generated ${outputPath}`)
+const writeSpec = () => {
+    const spec = buildSpec()
+    fs.mkdirSync(path.dirname(outputPath), { recursive: true })
+    fs.writeFileSync(outputPath, YAML.stringify(spec), 'utf8')
+    console.log(`[generate-openapi-source] Generated ${outputPath}`)
+}
+
+module.exports = {
+    routeSources,
+    buildSpec,
+    writeSpec,
+    outputPath,
+    repoRoot
+}
+
+if (require.main === module) {
+    writeSpec()
+}

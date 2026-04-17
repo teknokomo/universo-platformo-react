@@ -4,7 +4,7 @@ import { applyBrowserPreferences } from '../../support/browser/preferences'
 import {
     createLoggedInApiContext,
     createMetahub,
-    createMetahubAttribute,
+    createFieldDefinition,
     createPublication,
     createPublicationLinkedApplication,
     createPublicationVersion,
@@ -12,7 +12,7 @@ import {
     getLayout,
     listLayoutZoneWidgets,
     listLayouts,
-    listMetahubCatalogs,
+    listLinkedCollections,
     sendWithCsrf,
     syncApplicationSchema,
     syncPublication,
@@ -697,7 +697,7 @@ async function waitForCatalogId(api: Awaited<ReturnType<typeof createLoggedInApi
 
     await expect
         .poll(async () => {
-            const response = await listMetahubCatalogs(api, metahubId, { limit: 100, offset: 0 })
+            const response = await listLinkedCollections(api, metahubId, { limit: 100, offset: 0 })
             catalogId = response?.items?.[0]?.id
             return typeof catalogId === 'string'
         })
@@ -744,7 +744,7 @@ test('@flow quiz widget scripts publish into runtime and execute through the rea
         const catalogId = await waitForCatalogId(api, metahub.id)
         const layoutId = await waitForLayoutId(api, metahub.id)
 
-        await createMetahubAttribute(api, metahub.id, catalogId, {
+        await createFieldDefinition(api, metahub.id, catalogId, {
             name: { en: 'Title' },
             namePrimaryLocale: 'en',
             codename: createLocalizedContent('en', 'title'),
