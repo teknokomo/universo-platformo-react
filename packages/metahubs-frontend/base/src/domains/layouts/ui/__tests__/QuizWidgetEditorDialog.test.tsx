@@ -161,7 +161,7 @@ describe('QuizWidgetEditorDialog', () => {
                         _schema: 'v1',
                         _primary: 'en',
                         locales: {
-                            en: { content: 'Catalog Quiz Widget' }
+                            en: { content: 'LinkedCollectionEntity Quiz Widget' }
                         }
                     }
                 },
@@ -184,6 +184,6 @@ describe('QuizWidgetEditorDialog', () => {
         })
 
         await user.click(screen.getAllByRole('combobox')[1])
-        expect(screen.getByRole('option', { name: 'Catalog Quiz Widget (catalog-quiz-widget)' })).toBeInTheDocument()
+        expect(screen.getByRole('option', { name: 'LinkedCollectionEntity Quiz Widget (catalog-quiz-widget)' })).toBeInTheDocument()
     })
 })

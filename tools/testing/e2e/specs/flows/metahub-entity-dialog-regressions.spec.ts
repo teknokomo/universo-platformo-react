@@ -5,14 +5,14 @@ import { waitForSettledMutationResponse } from '../../support/browser/network'
 import {
     createLoggedInApiContext,
     createMetahub,
-    createMetahubAttribute,
+    createFieldDefinition,
     disposeApiContext,
-    getCatalogAttribute,
-    getEnumerationValue,
-    getSetConstant,
-    listMetahubCatalogs,
-    listMetahubEnumerations,
-    listMetahubSets,
+    getFieldDefinition,
+    getOptionValue,
+    getFixedValue,
+    listLinkedCollections,
+    listOptionLists,
+    listValueGroups,
     updateMetahubSettings
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
@@ -65,6 +65,10 @@ async function parseJsonResponse<T>(response: Response, label: string): Promise<
     }
 
     return JSON.parse(bodyText) as T
+}
+
+function responsePathnameEquals(response: Response, pathname: string): boolean {
+    return new URL(response.url()).pathname === pathname
 }
 
 async function openEntityDialog(page: Page, dialogName: string): Promise<Locator> {
@@ -191,22 +195,22 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
             }
         ])
 
-        const setId = await waitForFirstEntityId(() => listMetahubSets(api, metahub.id, { limit: 100, offset: 0 }), 'set')
+        const setId = await waitForFirstEntityId(() => listValueGroups(api, metahub.id, { limit: 100, offset: 0 }), 'set')
         const enumerationId = await waitForFirstEntityId(
-            () => listMetahubEnumerations(api, metahub.id, { limit: 100, offset: 0 }),
+            () => listOptionLists(api, metahub.id, { limit: 100, offset: 0 }),
             'enumeration'
         )
-        const catalogId = await waitForFirstEntityId(() => listMetahubCatalogs(api, metahub.id, { limit: 100, offset: 0 }), 'catalog')
+        const catalogId = await waitForFirstEntityId(() => listLinkedCollections(api, metahub.id, { limit: 100, offset: 0 }), 'catalog')
 
-        await page.goto(`/metahub/${metahub.id}/sets`)
-        await expect(page.getByRole('heading', { name: 'Sets' })).toBeVisible()
+        await page.goto(`/metahub/${metahub.id}/entities/set/instances`)
+        await expect(page.getByRole('heading', { name: 'Value groups' })).toBeVisible()
         await page.getByTestId(buildEntityMenuTriggerSelector('set', setId)).click()
         await page.getByTestId(buildEntityMenuItemSelector('set', 'edit', setId)).click()
 
-        const editSetDialog = page.getByRole('dialog', { name: 'Edit Set' })
+        const editSetDialog = page.getByRole('dialog', { name: 'Edit Value Group' })
         await expect(editSetDialog).toBeVisible()
         await expect(editSetDialog.getByRole('tab', { name: 'General' })).toBeVisible()
-        await expect(editSetDialog.getByRole('tab', { name: 'Hubs' })).toBeVisible()
+        await expect(editSetDialog.getByRole('tab', { name: 'Tree entities' })).toBeVisible()
         await expect(editSetDialog.getByRole('tab', { name: 'Scripts' })).toBeVisible()
         await expect(editSetDialog.getByLabel('Name').first()).toBeVisible()
         await expect(editSetDialog.getByLabel('Description').first()).toBeVisible()
@@ -216,7 +220,7 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
 
         const initialDialogBox = await editSetDialog.boundingBox()
         if (!initialDialogBox) {
-            throw new Error('Edit Set dialog bounding box is unavailable')
+            throw new Error('Edit Value Group dialog bounding box is unavailable')
         }
 
         await page.mouse.click(12, 12)
@@ -235,7 +239,7 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
         await expect(editSetDialog.getByTestId('entity-scripts-layout')).toHaveAttribute('data-layout-mode', 'compact')
         await expect(editSetDialog.getByTestId('entity-scripts-list-toggle')).toBeVisible()
         await expect(editSetDialog.getByTestId('entity-scripts-editor-shell')).toBeVisible()
-        await expectNoHorizontalOverflow(editSetDialog, 'Edit Set dialog')
+        await expectNoHorizontalOverflow(editSetDialog, 'Edit Value Group dialog')
         await expectViewportWithoutHorizontalOverflow(page)
 
         await editSetDialog.getByRole('tab', { name: 'General' }).click()
@@ -245,25 +249,25 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
         await page.getByTestId(buildEntityMenuTriggerSelector('set', setId)).click()
         await page.getByTestId(buildEntityMenuItemSelector('set', 'copy', setId)).click()
 
-        const copySetDialog = page.getByRole('dialog', { name: 'Copying Set' })
+        const copySetDialog = page.getByRole('dialog', { name: 'Copying Value Group' })
         await expect(copySetDialog).toBeVisible()
         await expect(copySetDialog.getByRole('tab', { name: 'General' })).toBeVisible()
-        await expect(copySetDialog.getByRole('tab', { name: 'Hubs' })).toBeVisible()
+        await expect(copySetDialog.getByRole('tab', { name: 'Tree entities' })).toBeVisible()
         await expect(copySetDialog.getByLabel('Name').first()).toBeVisible()
         await expect(copySetDialog.getByLabel('Description').first()).toBeVisible()
         await expect(copySetDialog.getByLabel('Codename').first()).toBeVisible()
         await copySetDialog.getByTestId(entityDialogSelectors.cancelButton).click()
         await expect(copySetDialog).toHaveCount(0)
 
-        await page.goto(`/metahub/${metahub.id}/enumerations`)
-        await expect(page.getByRole('heading', { name: 'Enumerations' })).toBeVisible()
+        await page.goto(`/metahub/${metahub.id}/entities/enumeration/instances`)
+        await expect(page.getByRole('heading', { name: 'Option lists' })).toBeVisible()
         await page.getByTestId(buildEntityMenuTriggerSelector('enumeration', enumerationId)).click()
         await page.getByTestId(buildEntityMenuItemSelector('enumeration', 'edit', enumerationId)).click()
 
-        const editEnumerationDialog = page.getByRole('dialog', { name: 'Edit Enumeration' })
+        const editEnumerationDialog = page.getByRole('dialog', { name: 'Edit OptionListEntity' })
         await expect(editEnumerationDialog).toBeVisible()
         await expect(editEnumerationDialog.getByRole('tab', { name: 'General' })).toBeVisible()
-        await expect(editEnumerationDialog.getByRole('tab', { name: 'Hubs' })).toBeVisible()
+        await expect(editEnumerationDialog.getByRole('tab', { name: 'Tree entities' })).toBeVisible()
         await expect(editEnumerationDialog.getByLabel('Name').first()).toBeVisible()
         await expect(editEnumerationDialog.getByLabel('Description').first()).toBeVisible()
         await expect(editEnumerationDialog.getByLabel('Codename').first()).toBeVisible()
@@ -273,17 +277,17 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
         await page.getByTestId(buildEntityMenuTriggerSelector('enumeration', enumerationId)).click()
         await page.getByTestId(buildEntityMenuItemSelector('enumeration', 'copy', enumerationId)).click()
 
-        const copyEnumerationDialog = page.getByRole('dialog', { name: 'Copying Enumeration' })
+        const copyEnumerationDialog = page.getByRole('dialog', { name: 'Copying OptionListEntity' })
         await expect(copyEnumerationDialog).toBeVisible()
         await expect(copyEnumerationDialog.getByRole('tab', { name: 'General' })).toBeVisible()
-        await expect(copyEnumerationDialog.getByRole('tab', { name: 'Hubs' })).toBeVisible()
+        await expect(copyEnumerationDialog.getByRole('tab', { name: 'Tree entities' })).toBeVisible()
         await expect(copyEnumerationDialog.getByLabel('Name').first()).toBeVisible()
         await expect(copyEnumerationDialog.getByLabel('Description').first()).toBeVisible()
         await expect(copyEnumerationDialog.getByLabel('Codename').first()).toBeVisible()
         await copyEnumerationDialog.getByTestId(entityDialogSelectors.cancelButton).click()
         await expect(copyEnumerationDialog).toHaveCount(0)
 
-        await page.goto(`/metahub/${metahub.id}/set/${setId}/constants`)
+        await page.goto(`/metahub/${metahub.id}/entities/set/instance/${setId}/fixed-values`)
         await expect(page.getByRole('heading', { name: 'Constants' })).toBeVisible()
 
         const constantDialog = await openEntityDialog(page, 'Create Constant')
@@ -295,7 +299,9 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
         await constantDialog.getByRole('textbox', { name: 'Value' }).fill(initialConstantValue)
         const createConstantRequest = waitForSettledMutationResponse(
             page,
-            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/set/${setId}/constants`),
+            (response) =>
+                response.request().method() === 'POST' &&
+                responsePathnameEquals(response, `/api/v1/metahub/${metahub.id}/entities/set/instance/${setId}/fixed-values`),
             { label: 'Creating constant' }
         )
         await constantDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -305,7 +311,7 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
         }
 
         await waitForEntity(
-            () => getSetConstant(api, metahub.id, setId, createdConstant.id!),
+            () => getFixedValue(api, metahub.id, setId, createdConstant.id!),
             (constant) => typeof (constant as EntityRecord)?.id === 'string',
             'persisted constant after create'
         )
@@ -329,16 +335,16 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
             page,
             (response) =>
                 response.request().method() === 'PATCH' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/set/${setId}/constant/${createdConstant.id}`),
+                responsePathnameEquals(response, `/api/v1/metahub/${metahub.id}/entities/set/instance/${setId}/fixed-value/${createdConstant.id}`),
             { label: 'Updating constant' }
         )
         await editConstantDialog.getByTestId(entityDialogSelectors.submitButton).click()
         await parseJsonResponse<EntityRecord>(await updateConstantRequest, 'Updating constant')
 
-        const persistedConstant = await getSetConstant(api, metahub.id, setId, createdConstant.id)
+        const persistedConstant = await getFixedValue(api, metahub.id, setId, createdConstant.id)
         expect(String(persistedConstant.value ?? '')).toBe(updatedConstantValue)
 
-        await page.goto(`/metahub/${metahub.id}/enumeration/${enumerationId}/values`)
+        await page.goto(`/metahub/${metahub.id}/entities/enumeration/instance/${enumerationId}/values`)
         await expect(page.getByRole('heading', { name: 'Values' })).toBeVisible()
 
         const valueDialog = await openEntityDialog(page, 'Create value')
@@ -351,7 +357,7 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
             page,
             (response) =>
                 response.request().method() === 'POST' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/enumeration/${enumerationId}/values`),
+                responsePathnameEquals(response, `/api/v1/metahub/${metahub.id}/entities/enumeration/instance/${enumerationId}/values`),
             { label: 'Creating enumeration value' }
         )
         await valueDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -372,13 +378,13 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
             page,
             (response) =>
                 response.request().method() === 'PATCH' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/enumeration/${enumerationId}/value/${createdValue.id}`),
+                responsePathnameEquals(response, `/api/v1/metahub/${metahub.id}/entities/enumeration/instance/${enumerationId}/value/${createdValue.id}`),
             { label: 'Updating enumeration value' }
         )
         await editValueDialog.getByTestId(entityDialogSelectors.submitButton).click()
         await parseJsonResponse<EntityRecord>(await updateValueRequest, 'Updating enumeration value')
 
-        const persistedValue = await getEnumerationValue(api, metahub.id, enumerationId, createdValue.id)
+        const persistedValue = await getOptionValue(api, metahub.id, enumerationId, createdValue.id)
         expect(readPrimaryText(persistedValue.description)).toBe(`Updated value description ${runManifest.runId}`)
 
         await page.getByTestId(buildEntityMenuTriggerSelector('enumerationValue', createdValue.id)).click()
@@ -393,7 +399,10 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
             page,
             (response) =>
                 response.request().method() === 'POST' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/enumeration/${enumerationId}/value/${createdValue.id}/copy`),
+                responsePathnameEquals(
+                    response,
+                    `/api/v1/metahub/${metahub.id}/entities/enumeration/instance/${enumerationId}/value/${createdValue.id}/copy`
+                ),
             { label: 'Copying enumeration value' }
         )
         await copyValueDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -402,10 +411,10 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
             throw new Error('Enumeration value copy did not return an id')
         }
 
-        const persistedCopiedValue = await getEnumerationValue(api, metahub.id, enumerationId, copiedValue.id)
+        const persistedCopiedValue = await getOptionValue(api, metahub.id, enumerationId, copiedValue.id)
         expect(readPrimaryText(persistedCopiedValue.description)).toBe(`Copied value description ${runManifest.runId}`)
 
-        const attribute = await createMetahubAttribute(api, metahub.id, catalogId, {
+        const attribute = await createFieldDefinition(api, metahub.id, catalogId, {
             name: { en: `Attribute ${runManifest.runId}` },
             namePrimaryLocale: 'en',
             codename: createLocalizedContent('en', `${runManifest.runId}-attribute`),
@@ -417,8 +426,8 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
             throw new Error('Attribute creation did not return an id for copy regression coverage')
         }
 
-        await page.goto(`/metahub/${metahub.id}/catalog/${catalogId}/attributes`)
-        await expect(page.getByRole('heading', { name: 'Attributes' })).toBeVisible()
+        await page.goto(`/metahub/${metahub.id}/entities/catalog/instance/${catalogId}/field-definitions`)
+        await expect(page.getByRole('heading', { name: 'Field Definitions' })).toBeVisible()
         await page.getByTestId(buildEntityMenuTriggerSelector('attribute', attribute.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('attribute', 'copy', attribute.id)).click()
 
@@ -438,7 +447,7 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
             page,
             (response) =>
                 response.request().method() === 'POST' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/catalog/${catalogId}/attribute/${attribute.id}/copy`),
+                responsePathnameEquals(response, `/api/v1/metahub/${metahub.id}/entities/catalog/instance/${catalogId}/field-definition/${attribute.id}/copy`),
             { label: 'Copying attribute' }
         )
         await copyAttributeDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -447,9 +456,54 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
             throw new Error('Attribute copy did not return an id')
         }
 
-        const persistedCopiedAttribute = await getCatalogAttribute(api, metahub.id, catalogId, copiedAttribute.id)
+        const persistedCopiedAttribute = await getFieldDefinition(api, metahub.id, catalogId, copiedAttribute.id)
         const copiedAttributeCodename = readPrimaryText(persistedCopiedAttribute.codename) ?? ''
         expect(copiedAttributeCodename.toLowerCase()).toContain('copy')
+
+        await createFieldDefinition(api, metahub.id, catalogId, {
+            name: { en: `Set blocker ${runManifest.runId}` },
+            namePrimaryLocale: 'en',
+            codename: createLocalizedContent('en', `${runManifest.runId}-set-blocker`),
+            dataType: 'REF',
+            targetEntityId: setId,
+            targetEntityKind: 'set',
+            targetConstantId: createdConstant.id
+        })
+
+        await createFieldDefinition(api, metahub.id, catalogId, {
+            name: { en: `Enumeration blocker ${runManifest.runId}` },
+            namePrimaryLocale: 'en',
+            codename: createLocalizedContent('en', `${runManifest.runId}-enumeration-blocker`),
+            dataType: 'REF',
+            targetEntityId: enumerationId,
+            targetEntityKind: 'enumeration'
+        })
+
+        await page.goto(`/metahub/${metahub.id}/entities/set/instances`)
+        await expect(page.getByRole('heading', { name: 'Value groups' })).toBeVisible()
+        await page.getByTestId(buildEntityMenuTriggerSelector('set', setId)).click()
+        await page.getByTestId(buildEntityMenuItemSelector('set', 'delete', setId)).click()
+
+        const setDeleteDialog = page.getByRole('dialog', { name: 'Delete value group' })
+        await expect(setDeleteDialog).toBeVisible()
+        await expect(setDeleteDialog.getByText('Cannot delete value group. Remove these references from linked-collection field definitions first:')).toBeVisible()
+        await expect(setDeleteDialog.locator(`a[href*="/entities/catalog/instance/${catalogId}/field-definitions"]`).first()).toBeVisible()
+        await setDeleteDialog.locator(`a[href*="/entities/catalog/instance/${catalogId}/field-definitions"]`).first().click()
+        await expect(page).toHaveURL(new RegExp(`/metahub/${metahub.id}/entities/catalog/instance/${catalogId}/field-definitions$`))
+        await expect(page.getByRole('heading', { name: 'Field Definitions' })).toBeVisible()
+
+        await page.goto(`/metahub/${metahub.id}/entities/enumeration/instances`)
+        await expect(page.getByRole('heading', { name: 'Option lists' })).toBeVisible()
+        await page.getByTestId(buildEntityMenuTriggerSelector('enumeration', enumerationId)).click()
+        await page.getByTestId(buildEntityMenuItemSelector('enumeration', 'delete', enumerationId)).click()
+
+        const enumerationDeleteDialog = page.getByRole('dialog', { name: 'Delete option list' })
+        await expect(enumerationDeleteDialog).toBeVisible()
+        await expect(enumerationDeleteDialog.getByText('Cannot delete option list. Remove these references from field definitions first:')).toBeVisible()
+        await expect(enumerationDeleteDialog.locator(`a[href*="/entities/catalog/instance/${catalogId}/field-definitions"]`).first()).toBeVisible()
+        await enumerationDeleteDialog.locator(`a[href*="/entities/catalog/instance/${catalogId}/field-definitions"]`).first().click()
+        await expect(page).toHaveURL(new RegExp(`/metahub/${metahub.id}/entities/catalog/instance/${catalogId}/field-definitions$`))
+        await expect(page.getByRole('heading', { name: 'Field Definitions' })).toBeVisible()
     } finally {
         await disposeApiContext(api)
     }

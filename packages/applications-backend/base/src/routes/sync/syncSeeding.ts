@@ -6,7 +6,7 @@
  */
 
 import { resolveEntityTableName, generateColumnName, generateChildTableName, type EntityDefinition } from '@universo/schema-ddl'
-import { AttributeDataType } from '@universo/types'
+import { FieldDefinitionDataType } from '@universo/types'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
 import { type ApplicationSyncQueryBuilder, type ApplicationSyncTransaction, getApplicationSyncKnex } from '../../ddl'
 import {
@@ -68,20 +68,22 @@ export async function seedPredefinedElements(
             // Exclude TABLE-type fields (no physical column) and child fields (belong to tabular tables)
             const fieldByCodename = new Map<string, { columnName: string; field: EntityField }>(
                 entity.fields
-                    .filter((field: EntityField) => field.dataType !== AttributeDataType.TABLE && !field.parentAttributeId)
+                    .filter((field: EntityField) => field.dataType !== FieldDefinitionDataType.TABLE && !field.parentAttributeId)
                     .map((field: EntityField) => [field.codename, { columnName: generateColumnName(field.id), field }])
             )
             const dataColumns = Array.from(fieldByCodename.values()).map((v) => v.columnName)
             // Collect TABLE-type fields for child row seeding
             const tableFields = entity.fields.filter(
-                (field: EntityField) => field.dataType === AttributeDataType.TABLE && field.childFields && field.childFields.length > 0
+                (field: EntityField) =>
+                    field.dataType === FieldDefinitionDataType.TABLE && field.childFields && field.childFields.length > 0
             )
 
             const rows = elements.map((element: SnapshotElementRow) => {
                 const data = element.data ?? {}
                 const missingRequired = entity.fields
                     .filter(
-                        (field: EntityField) => field.isRequired && field.dataType !== AttributeDataType.TABLE && !field.parentAttributeId
+                        (field: EntityField) =>
+                            field.isRequired && field.dataType !== FieldDefinitionDataType.TABLE && !field.parentAttributeId
                     )
                     .filter((field: EntityField) => {
                         if (!Object.prototype.hasOwnProperty.call(data, field.codename)) return true
@@ -112,10 +114,10 @@ export async function seedPredefinedElements(
                         // VLC fields (versioned/localized STRING) are JSONB columns
                         if (isVLCField(field)) {
                             row[columnName] = prepareJsonbValue(rawValue)
-                        } else if (field.dataType === AttributeDataType.JSON) {
+                        } else if (field.dataType === FieldDefinitionDataType.JSON) {
                             // JSON type is also JSONB, prepare value
                             row[columnName] = prepareJsonbValue(rawValue)
-                        } else if (field.dataType === AttributeDataType.NUMBER) {
+                        } else if (field.dataType === FieldDefinitionDataType.NUMBER) {
                             // Validate and normalize NUMBER values - throws on invalid data
                             row[columnName] = validateNumericValue({
                                 value: rawValue,
@@ -123,7 +125,7 @@ export async function seedPredefinedElements(
                                 tableName,
                                 elementId: element.id
                             })
-                        } else if (field.dataType === AttributeDataType.REF) {
+                        } else if (field.dataType === FieldDefinitionDataType.REF) {
                             if (field.targetEntityKind === 'set') {
                                 row[columnName] = resolveSetReferenceId(rawValue, field)
                             } else {
@@ -297,8 +299,8 @@ export async function syncEnumerationValues(
         .map((entity) => entity.id)
     const validEnumerationObjectIds = new Set(enumerationObjectIds)
 
-    const enumerationValues = snapshot.enumerationValues ?? {}
-    const rows = Object.entries(enumerationValues).flatMap<EnumerationSyncRow>(([objectId, values]) => {
+    const optionValues = snapshot.optionValues ?? {}
+    const rows = Object.entries(optionValues).flatMap<EnumerationSyncRow>(([objectId, values]) => {
         if (!validEnumerationObjectIds.has(objectId)) return []
 
         const typedValues = Array.isArray(values) ? (values as SnapshotEnumerationValue[]) : []

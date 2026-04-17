@@ -71,7 +71,7 @@ describe('normalizePublicationSnapshotForHash', () => {
                     { id: 'element-1', data: { title: 'A' }, sortOrder: 1 }
                 ]
             },
-            enumerationValues: {
+            optionValues: {
                 'enum-1': [
                     { id: 'value-2', codename: createCodenameVlc('beta', 'бета'), sortOrder: 2, isDefault: false },
                     { id: 'value-1', codename: createCodenameVlc('alpha', 'альфа'), sortOrder: 1, isDefault: true }
@@ -220,8 +220,18 @@ describe('normalizePublicationSnapshotForHash', () => {
         })
 
         expect(normalized.entities).toEqual([
-            expect.objectContaining({ id: 'catalog-a', codename: createCodenameVlc('articles', 'статьи'), tableName: 'cat_articles', hubs: [] }),
-            expect.objectContaining({ id: 'catalog-b', codename: createCodenameVlc('products', 'товары'), tableName: 'cat_products', hubs: ['hub-1', 'hub-2'] })
+            expect.objectContaining({
+                id: 'catalog-a',
+                codename: createCodenameVlc('articles', 'статьи'),
+                tableName: 'cat_articles',
+                hubs: []
+            }),
+            expect.objectContaining({
+                id: 'catalog-b',
+                codename: createCodenameVlc('products', 'товары'),
+                tableName: 'cat_products',
+                hubs: ['hub-1', 'hub-2']
+            })
         ])
         const normalizedEntityFields = (
             normalized.entities as Array<{
@@ -251,7 +261,7 @@ describe('normalizePublicationSnapshotForHash', () => {
                 ]
             }
         ])
-        expect(normalized.enumerationValues).toEqual([
+        expect(normalized.optionValues).toEqual([
             {
                 objectId: 'enum-1',
                 values: [
@@ -260,7 +270,7 @@ describe('normalizePublicationSnapshotForHash', () => {
                 ]
             }
         ])
-        expect(normalized.constants).toEqual([
+        expect(normalized.fixedValues).toEqual([
             {
                 objectId: 'set-1',
                 constants: [

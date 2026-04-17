@@ -19,7 +19,6 @@ import {
 } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
-import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import ViewListRoundedIcon from '@mui/icons-material/ViewListRounded'
 import { useQueryClient } from '@tanstack/react-query'
@@ -30,6 +29,7 @@ import {
     COMPONENT_DEPENDENCIES,
     ENTITY_COMPONENT_KEYS,
     getEnabledComponentKeys,
+    isBuiltinEntityKind,
     isEnabledComponentConfig,
     validateComponentDependencies,
     type ComponentManifest,
@@ -58,7 +58,7 @@ import type { TabConfig } from '@universo/template-mui/components/dialogs'
 import { ConfirmDeleteDialog, ConflictResolutionDialog, EntityFormDialog } from '@universo/template-mui/components/dialogs'
 
 import { ExistingCodenamesProvider } from '../../../components'
-import { STORAGE_KEYS } from '../../../constants/storage'
+import { STORAGE_KEYS } from '../../../view-preferences/storage'
 import { useViewPreference } from '../../../hooks/useViewPreference'
 import { ensureLocalizedContent, extractLocalizedInput, getLocalizedContentText, hasPrimaryContent } from '../../../utils/localizedInput'
 import { getVLCString, type Metahub } from '../../../types'
@@ -75,11 +75,11 @@ import { EntityTypePresetSelector } from './EntityTypePresetSelector'
 type EntityTypeFormValues = Record<string, unknown>
 
 type EntitiesViewMode = 'card' | 'list'
-type SupportedEntityTab = 'general' | 'hubs' | 'layout' | 'scripts'
+type SupportedEntityTab = 'general' | 'treeEntities' | 'layout' | 'scripts'
 
 const STRUCTURED_ENTITY_TAB_LABELS: Record<SupportedEntityTab, string> = {
     general: 'General',
-    hubs: 'Hubs',
+    treeEntities: 'Hubs',
     layout: 'Layout',
     scripts: 'Scripts'
 }
@@ -92,7 +92,6 @@ type EntityTypeDisplayRow = {
     description: string
     kindKey: string
     codename: string
-    source: 'builtin' | 'custom'
     sidebarSection: 'objects' | 'admin'
     sidebarOrder: number | null
     iconName: string
@@ -107,8 +106,8 @@ type EntityTypeMenuContext = ActionContext<EntityTypeDisplayRow>
 
 const ENTITY_KIND_KEY_PATTERN = /^[a-z][a-z0-9._-]{0,63}$/
 const DIALOG_SAVE_CANCEL = { __dialogCancelled: true }
-const STRUCTURED_ENTITY_TABS: readonly SupportedEntityTab[] = ['general', 'hubs', 'layout', 'scripts']
-const OPTIONAL_ENTITY_TABS: readonly Exclude<SupportedEntityTab, 'general'>[] = ['hubs', 'layout', 'scripts']
+const STRUCTURED_ENTITY_TABS: readonly SupportedEntityTab[] = ['general', 'treeEntities', 'layout', 'scripts']
+const OPTIONAL_ENTITY_TABS: readonly Exclude<SupportedEntityTab, 'general'>[] = ['treeEntities', 'layout', 'scripts']
 const RELATION_TYPE_SEPARATOR_PATTERN = /[\n,]/
 const ENTITY_TYPE_MENU_KIND = 'entity-type'
 const COMPONENT_SECTION_SX = {
@@ -121,12 +120,14 @@ const COMPONENT_SECTION_SX = {
 const buildEntityInstancesPath = (metahubId: string, kindKey: string) =>
     `/metahub/${metahubId}/entities/${encodeURIComponent(kindKey)}/instances`
 
+const shouldTranslateEntityTypeUiText = (kindKey: string) => isBuiltinEntityKind(kindKey)
+
 const DEFAULT_COMPONENTS_TEMPLATE: ComponentManifest = {
     dataSchema: { enabled: true },
-    predefinedElements: false,
-    hubAssignment: false,
-    enumerationValues: false,
-    constants: false,
+    records: false,
+    treeAssignment: false,
+    optionValues: false,
+    fixedValues: false,
     hierarchy: false,
     nestedCollections: false,
     relations: false,
@@ -311,9 +312,9 @@ const getDefaultEnabledComponent = (key: keyof ComponentManifest) => {
     switch (key) {
         case 'dataSchema':
             return { enabled: true, maxAttributes: null }
-        case 'predefinedElements':
+        case 'records':
             return { enabled: true, maxElements: null }
-        case 'hubAssignment':
+        case 'treeAssignment':
             return { enabled: true, isSingleHub: false, isRequiredHub: false }
         case 'hierarchy':
             return { enabled: true, supportsFolders: true }
@@ -337,17 +338,17 @@ const normalizeComponentManifestForBuilder = (value: unknown): ComponentManifest
               maxAttributes: normalizeOptionalInteger((source.dataSchema as Record<string, unknown>).maxAttributes)
           }
         : false
-    const predefinedElements = isEnabledComponentConfig(source.predefinedElements as never)
+    const records = isEnabledComponentConfig(source.records as never)
         ? {
               enabled: true,
-              maxElements: normalizeOptionalInteger((source.predefinedElements as Record<string, unknown>).maxElements)
+              maxElements: normalizeOptionalInteger((source.records as Record<string, unknown>).maxElements)
           }
         : false
-    const hubAssignment = isEnabledComponentConfig(source.hubAssignment as never)
+    const treeAssignment = isEnabledComponentConfig(source.treeAssignment as never)
         ? {
               enabled: true,
-              isSingleHub: (source.hubAssignment as Record<string, unknown>).isSingleHub === true,
-              isRequiredHub: (source.hubAssignment as Record<string, unknown>).isRequiredHub === true
+              isSingleHub: (source.treeAssignment as Record<string, unknown>).isSingleHub === true,
+              isRequiredHub: (source.treeAssignment as Record<string, unknown>).isRequiredHub === true
           }
         : false
     const hierarchy = isEnabledComponentConfig(source.hierarchy as never)
@@ -377,10 +378,10 @@ const normalizeComponentManifestForBuilder = (value: unknown): ComponentManifest
 
     const manifest: ComponentManifest = {
         dataSchema,
-        predefinedElements,
-        hubAssignment,
-        enumerationValues: isEnabledComponentConfig(source.enumerationValues as never) ? { enabled: true } : false,
-        constants: isEnabledComponentConfig(source.constants as never) ? { enabled: true } : false,
+        records,
+        treeAssignment,
+        optionValues: isEnabledComponentConfig(source.optionValues as never) ? { enabled: true } : false,
+        fixedValues: isEnabledComponentConfig(source.fixedValues as never) ? { enabled: true } : false,
         hierarchy,
         nestedCollections,
         relations,
@@ -393,7 +394,7 @@ const normalizeComponentManifestForBuilder = (value: unknown): ComponentManifest
     }
 
     if (!isEnabledComponentConfig(manifest.dataSchema)) {
-        manifest.predefinedElements = false
+        manifest.records = false
         manifest.hierarchy = false
         manifest.nestedCollections = false
         manifest.relations = false
@@ -470,7 +471,7 @@ const resolveEntityTypeText = (
         return ''
     }
 
-    if (entityType.source === 'builtin') {
+    if (shouldTranslateEntityTypeUiText(entityType.kindKey)) {
         const translated = t(value, { defaultValue: '' }).trim()
         if (translated.length > 0) {
             return translated
@@ -524,12 +525,8 @@ const buildEntityTypeDisplayRow = (
     const fallbackName = resolveEntityTypeText(entityType, entityType.ui.nameKey, t) || codename || entityType.kindKey
     const fallbackDescription =
         resolveEntityTypeText(entityType, entityType.ui.descriptionKey, t) || codename || t('entities.noDescription', 'No description')
-    const name =
-        entityType.source === 'custom' ? resolveEntityTypePresentationText(entityType, 'name', uiLocale, fallbackName) : fallbackName
-    const description =
-        entityType.source === 'custom'
-            ? resolveEntityTypePresentationText(entityType, 'description', uiLocale, fallbackDescription)
-            : fallbackDescription
+    const name = resolveEntityTypePresentationText(entityType, 'name', uiLocale, fallbackName)
+    const description = resolveEntityTypePresentationText(entityType, 'description', uiLocale, fallbackDescription)
     const componentKeys = getEnabledComponentKeys(entityType.components)
 
     return {
@@ -538,7 +535,6 @@ const buildEntityTypeDisplayRow = (
         description,
         kindKey: entityType.kindKey,
         codename,
-        source: entityType.source,
         sidebarSection: entityType.ui.sidebarSection === 'admin' ? 'admin' : 'objects',
         sidebarOrder: typeof entityType.ui.sidebarOrder === 'number' ? entityType.ui.sidebarOrder : null,
         iconName: entityType.ui.iconName,
@@ -605,8 +601,11 @@ const buildInitialFormValues = (uiLocale: string, entityType?: MetahubEntityType
 const buildCopyInitialFormValues = (uiLocale: string, entityType: MetahubEntityType): EntityTypeFormValues => {
     const initialValues = buildInitialFormValues(uiLocale, entityType)
     const fallbackName =
-        getLocalizedContentText(initialValues.codename as VersionedLocalizedContent<string> | string | null | undefined, uiLocale, '').trim() ||
-        entityType.kindKey
+        getLocalizedContentText(
+            initialValues.codename as VersionedLocalizedContent<string> | string | null | undefined,
+            uiLocale,
+            ''
+        ).trim() || entityType.kindKey
 
     return {
         ...initialValues,
@@ -652,14 +651,6 @@ const EntitiesWorkspace = () => {
     }>({ open: false, conflict: null, entity: null, patch: null })
 
     const entityTypesQuery = useEntityTypesQuery(metahubId, {
-        includeBuiltins: true,
-        limit: 1000,
-        offset: 0,
-        sortBy: 'codename',
-        sortOrder: 'asc'
-    })
-    const customEntityTypesQuery = useEntityTypesQuery(metahubId, {
-        includeBuiltins: false,
         limit: 1000,
         offset: 0,
         sortBy: 'codename',
@@ -672,7 +663,6 @@ const EntitiesWorkspace = () => {
     const deleteEntityTypeMutation = useDeleteEntityType()
 
     const entityTypes = entityTypesQuery.data?.items ?? EMPTY_ENTITY_TYPES
-    const customEntityTypes = customEntityTypesQuery.data?.items ?? EMPTY_ENTITY_TYPES
     const entityTypeMap = useMemo(() => {
         const nextMap = new Map<string, MetahubEntityType>()
         for (const entityType of entityTypes) {
@@ -694,7 +684,6 @@ const EntitiesWorkspace = () => {
                 row.name.toLowerCase().includes(query) ||
                 row.kindKey.toLowerCase().includes(query) ||
                 row.codename.toLowerCase().includes(query) ||
-                row.source.toLowerCase().includes(query) ||
                 row.componentKeys.some((component) => component.toLowerCase().includes(query))
             )
         })
@@ -749,7 +738,7 @@ const EntitiesWorkspace = () => {
 
     const handleOpenEdit = useCallback(
         (entityType: MetahubEntityType) => {
-            if (!canManageEntityTypes || entityType.source !== 'custom' || !entityType.id) return
+            if (!canManageEntityTypes || !entityType.id) return
             setEditorState({ mode: 'edit', entity: entityType, open: true })
         },
         [canManageEntityTypes]
@@ -757,7 +746,7 @@ const EntitiesWorkspace = () => {
 
     const handleOpenCopy = useCallback(
         (entityType: MetahubEntityType) => {
-            if (!canManageEntityTypes || entityType.source !== 'custom' || !entityType.id) return
+            if (!canManageEntityTypes || !entityType.id) return
             setEditorState({ mode: 'copy', entity: entityType, open: true })
         },
         [canManageEntityTypes]
@@ -765,7 +754,7 @@ const EntitiesWorkspace = () => {
 
     const handleOpenInstances = useCallback(
         (entityType: MetahubEntityType) => {
-            if (!metahubId || !canManageEntityTypes || entityType.source !== 'custom') return
+            if (!metahubId || !canManageEntityTypes) return
             navigate(buildEntityInstancesPath(metahubId, entityType.kindKey))
         },
         [canManageEntityTypes, metahubId, navigate]
@@ -826,7 +815,7 @@ const EntitiesWorkspace = () => {
     const renderEntityTypeMenu = useCallback(
         (row: EntityTypeDisplayRow) => {
             const resolvedEntityType = resolveEntityTypeForAction(row)
-            if (!canManageEntityTypes || row.source !== 'custom' || !resolvedEntityType?.id) {
+            if (!canManageEntityTypes || !resolvedEntityType?.id) {
                 return null
             }
 
@@ -936,7 +925,7 @@ const EntitiesWorkspace = () => {
                     'Kind key must start with a letter and use only lowercase letters, digits, dots, underscores, or hyphens'
                 )
             } else {
-                const duplicate = customEntityTypes.find((entityType) => {
+                const duplicate = entityTypes.find((entityType) => {
                     if (entityType.kindKey !== kindKey) return false
                     if (editorState.mode === 'edit' && editorState.entity?.id && entityType.id === editorState.entity.id) {
                         return false
@@ -945,7 +934,7 @@ const EntitiesWorkspace = () => {
                 })
 
                 if (duplicate) {
-                    errors.kindKey = t('entities.validation.kindKeyDuplicate', 'Another custom entity type already uses this kind key')
+                    errors.kindKey = t('entities.validation.kindKeyDuplicate', 'Another entity type already uses this kind key')
                 }
             }
 
@@ -1000,7 +989,7 @@ const EntitiesWorkspace = () => {
             codenameConfig.allowMixed,
             codenameConfig.alphabet,
             codenameConfig.style,
-            customEntityTypes,
+            entityTypes,
             editorState.entity,
             editorState.mode,
             preferredVlcLocale,
@@ -1335,7 +1324,7 @@ const EntitiesWorkspace = () => {
                                         />
                                         {isEnabledComponentConfig(components.dataSchema) ? (
                                             <TextField
-                                                label={t('entities.components.maxAttributes', 'Maximum attributes')}
+                                                label={t('entities.components.maxAttributes', 'Maximum fieldDefinitions')}
                                                 type='number'
                                                 value={components.dataSchema.maxAttributes ?? ''}
                                                 onChange={(event) =>
@@ -1351,32 +1340,30 @@ const EntitiesWorkspace = () => {
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
                                         <Typography variant='subtitle2'>
-                                            {t('entities.components.predefinedElements', 'Predefined elements')}
+                                            {t('entities.components.records', 'Predefined records')}
                                         </Typography>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t(
-                                                'entities.components.predefinedElementsHelper',
-                                                'Reuses the existing predefined-element flows for catalog-compatible presets and other seeded entity types.'
+                                                'entities.components.recordsHelper',
+                                                'Reuses the existing predefined-element flows for linked-collection presets and other seeded entity types.'
                                             )}
                                         </Typography>
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
-                                                    checked={isEnabledComponentConfig(components.predefinedElements)}
-                                                    onChange={(event) => setComponentEnabled('predefinedElements', event.target.checked)}
+                                                    checked={isEnabledComponentConfig(components.records)}
+                                                    onChange={(event) => setComponentEnabled('records', event.target.checked)}
                                                     disabled={isLoading}
                                                 />
                                             }
-                                            label={t('entities.components.predefinedElements', 'Predefined elements')}
+                                            label={t('entities.components.records', 'Predefined records')}
                                         />
-                                        {isEnabledComponentConfig(components.predefinedElements) ? (
+                                        {isEnabledComponentConfig(components.records) ? (
                                             <TextField
-                                                label={t('entities.components.maxElements', 'Maximum predefined elements')}
+                                                label={t('entities.components.maxElements', 'Maximum predefined records')}
                                                 type='number'
-                                                value={components.predefinedElements.maxElements ?? ''}
-                                                onChange={(event) =>
-                                                    updateComponentConfig('predefinedElements', { maxElements: event.target.value })
-                                                }
+                                                value={components.records.maxElements ?? ''}
+                                                onChange={(event) => updateComponentConfig('records', { maxElements: event.target.value })}
                                                 disabled={isLoading}
                                                 inputProps={{ min: 1 }}
                                                 fullWidth
@@ -1387,32 +1374,32 @@ const EntitiesWorkspace = () => {
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
                                         <Typography variant='subtitle2'>
-                                            {t('entities.components.hubAssignment', 'Hub assignment')}
+                                            {t('entities.components.treeAssignment', 'TreeEntity assignment')}
                                         </Typography>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t(
-                                                'entities.components.hubAssignmentHelper',
+                                                'entities.components.treeAssignmentHelper',
                                                 'Allows the entity instances page to reuse the shared hub-assignment controls and Catalogs-style tabs.'
                                             )}
                                         </Typography>
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
-                                                    checked={isEnabledComponentConfig(components.hubAssignment)}
-                                                    onChange={(event) => setComponentEnabled('hubAssignment', event.target.checked)}
+                                                    checked={isEnabledComponentConfig(components.treeAssignment)}
+                                                    onChange={(event) => setComponentEnabled('treeAssignment', event.target.checked)}
                                                     disabled={isLoading}
                                                 />
                                             }
-                                            label={t('entities.components.hubAssignment', 'Hub assignment')}
+                                            label={t('entities.components.treeAssignment', 'TreeEntity assignment')}
                                         />
-                                        {isEnabledComponentConfig(components.hubAssignment) ? (
+                                        {isEnabledComponentConfig(components.treeAssignment) ? (
                                             <FormGroup>
                                                 <FormControlLabel
                                                     control={
                                                         <Checkbox
-                                                            checked={components.hubAssignment.isSingleHub === true}
+                                                            checked={components.treeAssignment.isSingleHub === true}
                                                             onChange={(event) =>
-                                                                updateComponentConfig('hubAssignment', {
+                                                                updateComponentConfig('treeAssignment', {
                                                                     isSingleHub: event.target.checked
                                                                 })
                                                             }
@@ -1424,9 +1411,9 @@ const EntitiesWorkspace = () => {
                                                 <FormControlLabel
                                                     control={
                                                         <Checkbox
-                                                            checked={components.hubAssignment.isRequiredHub === true}
+                                                            checked={components.treeAssignment.isRequiredHub === true}
                                                             onChange={(event) =>
-                                                                updateComponentConfig('hubAssignment', {
+                                                                updateComponentConfig('treeAssignment', {
                                                                     isRequiredHub: event.target.checked
                                                                 })
                                                             }
@@ -1516,7 +1503,7 @@ const EntitiesWorkspace = () => {
                                         <Typography variant='body2' color='text.secondary'>
                                             {t(
                                                 'entities.components.relationsHelper',
-                                                'Enables reference attributes and relation-aware runtime behaviors for the entity type.'
+                                                'Enables reference fieldDefinitions and relation-aware runtime behaviors for the entity type.'
                                             )}
                                         </Typography>
                                         <FormControlLabel
@@ -1561,44 +1548,44 @@ const EntitiesWorkspace = () => {
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
                                         <Typography variant='subtitle2'>
-                                            {t('entities.components.enumerationValues', 'Enumeration values')}
+                                            {t('entities.components.optionValues', 'OptionListEntity values')}
                                         </Typography>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t(
-                                                'entities.components.enumerationValuesHelper',
+                                                'entities.components.optionValuesHelper',
                                                 'Keeps the type compatible with enumeration-style value registries.'
                                             )}
                                         </Typography>
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
-                                                    checked={isEnabledComponentConfig(components.enumerationValues)}
-                                                    onChange={(event) => setComponentEnabled('enumerationValues', event.target.checked)}
+                                                    checked={isEnabledComponentConfig(components.optionValues)}
+                                                    onChange={(event) => setComponentEnabled('optionValues', event.target.checked)}
                                                     disabled={isLoading}
                                                 />
                                             }
-                                            label={t('entities.components.enumerationValues', 'Enumeration values')}
+                                            label={t('entities.components.optionValues', 'OptionListEntity values')}
                                         />
                                     </Stack>
                                 </Box>
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
-                                        <Typography variant='subtitle2'>{t('entities.components.constants', 'Constants')}</Typography>
+                                        <Typography variant='subtitle2'>{t('entities.components.fixedValues', 'Constants')}</Typography>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t(
-                                                'entities.components.constantsHelper',
+                                                'entities.components.fixedValuesHelper',
                                                 'Keeps the type compatible with set-style constant registries.'
                                             )}
                                         </Typography>
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
-                                                    checked={isEnabledComponentConfig(components.constants)}
-                                                    onChange={(event) => setComponentEnabled('constants', event.target.checked)}
+                                                    checked={isEnabledComponentConfig(components.fixedValues)}
+                                                    onChange={(event) => setComponentEnabled('fixedValues', event.target.checked)}
                                                     disabled={isLoading}
                                                 />
                                             }
-                                            label={t('entities.components.constants', 'Constants')}
+                                            label={t('entities.components.fixedValues', 'Constants')}
                                         />
                                     </Stack>
                                 </Box>
@@ -1673,7 +1660,7 @@ const EntitiesWorkspace = () => {
                                         <Typography variant='body2' color='text.secondary'>
                                             {t(
                                                 'entities.components.layoutConfigHelper',
-                                                'Enables Catalog-compatible layout configuration and the dedicated layout authoring tab.'
+                                                'Enables LinkedCollectionEntity-compatible layout configuration and the dedicated layout authoring tab.'
                                             )}
                                         </Typography>
                                         <FormControlLabel
@@ -1740,7 +1727,7 @@ const EntitiesWorkspace = () => {
                                                 disabled={isLoading}
                                                 helperText={t(
                                                     'entities.components.tablePrefixHelper',
-                                                    'Prefix used when the runtime DDL pipeline generates a managed table name.'
+                                                    'Prefix used when the runtime DDL pipeline generates a physical table name.'
                                                 )}
                                                 fullWidth
                                             />
@@ -1821,21 +1808,6 @@ const EntitiesWorkspace = () => {
                 )
             },
             {
-                id: 'source',
-                label: t('entities.columns.source', 'Source'),
-                width: '12%',
-                sortable: true,
-                sortAccessor: (row: EntityTypeDisplayRow) => row.source,
-                render: (row: EntityTypeDisplayRow) => (
-                    <Chip
-                        size='small'
-                        label={row.source === 'builtin' ? t('entities.badges.builtin', 'Built-in') : t('entities.badges.custom', 'Custom')}
-                        color={row.source === 'builtin' ? 'default' : 'primary'}
-                        variant={row.source === 'builtin' ? 'outlined' : 'filled'}
-                    />
-                )
-            },
-            {
                 id: 'sidebarSection',
                 label: t('entities.columns.sidebarSection', 'Section'),
                 width: '10%',
@@ -1863,19 +1835,14 @@ const EntitiesWorkspace = () => {
                 width: '10%',
                 sortable: true,
                 sortAccessor: (row: EntityTypeDisplayRow) => (row.published ? 'published' : 'hidden'),
-                render: (row: EntityTypeDisplayRow) =>
-                    row.source === 'custom' ? (
-                        <Chip
-                            size='small'
-                            color={row.published ? 'success' : 'default'}
-                            variant={row.published ? 'filled' : 'outlined'}
-                            label={row.published ? t('entities.badges.published', 'Published') : t('entities.badges.hidden', 'Hidden')}
-                        />
-                    ) : (
-                        <Typography variant='body2' color='text.secondary'>
-                            {t('entities.systemManaged', 'System managed')}
-                        </Typography>
-                    )
+                render: (row: EntityTypeDisplayRow) => (
+                    <Chip
+                        size='small'
+                        color={row.published ? 'success' : 'default'}
+                        variant={row.published ? 'filled' : 'outlined'}
+                        label={row.published ? t('entities.badges.published', 'Published') : t('entities.badges.hidden', 'Hidden')}
+                    />
+                )
             },
             {
                 id: 'components',
@@ -1901,9 +1868,7 @@ const EntitiesWorkspace = () => {
                 sortable: true,
                 sortAccessor: (row: EntityTypeDisplayRow) => row.updatedAt,
                 render: (row: EntityTypeDisplayRow) => (
-                    <Typography variant='body2'>
-                        {row.updatedAt ? new Date(row.updatedAt).toLocaleDateString() : t('entities.systemManaged', 'System managed')}
-                    </Typography>
+                    <Typography variant='body2'>{row.updatedAt ? new Date(row.updatedAt).toLocaleDateString() : '—'}</Typography>
                 )
             }
         ],
@@ -1929,7 +1894,7 @@ const EntitiesWorkspace = () => {
     }, [entityTypesQuery.error, t])
 
     return (
-        <ExistingCodenamesProvider entities={customEntityTypes}>
+        <ExistingCodenamesProvider entities={entityTypes}>
             <MainCard
                 sx={{ maxWidth: '100%', width: '100%' }}
                 contentSX={{ px: 0, py: 0 }}
@@ -1963,15 +1928,6 @@ const EntitiesWorkspace = () => {
                             }
                         />
                     </ViewHeader>
-
-                    <Box>
-                        <Alert severity='info'>
-                            {t(
-                                'entities.banner',
-                                'Built-in types remain read-only. Custom entity types created here are available through the generic entity APIs and are the first frontend authoring slice of the ECAE rollout.'
-                            )}
-                        </Alert>
-                    </Box>
 
                     {showManageEntityTypesNotice ? (
                         <Alert severity='info'>
@@ -2019,7 +1975,7 @@ const EntitiesWorkspace = () => {
                                     key={row.id}
                                     data={{ name: row.name, description: row.description }}
                                     onClick={
-                                        row.source === 'custom' && canManageEntityTypes
+                                        canManageEntityTypes
                                             ? () => {
                                                   const resolvedEntityType = resolveEntityTypeForAction(row)
                                                   if (!resolvedEntityType) return
@@ -2032,26 +1988,14 @@ const EntitiesWorkspace = () => {
                                         <Stack direction='row' spacing={0.5} useFlexGap flexWrap='wrap'>
                                             <Chip
                                                 size='small'
+                                                color={row.published ? 'success' : 'default'}
+                                                variant={row.published ? 'filled' : 'outlined'}
                                                 label={
-                                                    row.source === 'builtin'
-                                                        ? t('entities.badges.builtin', 'Built-in')
-                                                        : t('entities.badges.custom', 'Custom')
+                                                    row.published
+                                                        ? t('entities.badges.published', 'Published')
+                                                        : t('entities.badges.hidden', 'Hidden')
                                                 }
-                                                color={row.source === 'builtin' ? 'default' : 'primary'}
-                                                variant={row.source === 'builtin' ? 'outlined' : 'filled'}
                                             />
-                                            {row.source === 'custom' ? (
-                                                <Chip
-                                                    size='small'
-                                                    color={row.published ? 'success' : 'default'}
-                                                    variant={row.published ? 'filled' : 'outlined'}
-                                                    label={
-                                                        row.published
-                                                            ? t('entities.badges.published', 'Published')
-                                                            : t('entities.badges.hidden', 'Hidden')
-                                                    }
-                                                />
-                                            ) : null}
                                             <Chip size='small' variant='outlined' label={row.kindKey} />
                                         </Stack>
                                     }
@@ -2076,9 +2020,6 @@ const EntitiesWorkspace = () => {
                                 renderActions={renderRowActions}
                                 initialOrder='asc'
                                 initialOrderBy='name'
-                                getRowSx={(row) =>
-                                    row.source === 'builtin' ? { backgroundColor: (theme) => theme.palette.action.hover } : undefined
-                                }
                             />
                         </Box>
                     )}
@@ -2125,7 +2066,7 @@ const EntitiesWorkspace = () => {
                     open={Boolean(deleteTarget) && canManageEntityTypes}
                     title={t('entities.deleteDialog.title', 'Delete Entity Type')}
                     description={t('entities.deleteDialog.description', {
-                        defaultValue: 'Delete custom entity type "{{name}}"? Existing built-in types cannot be deleted.',
+                        defaultValue: 'Delete entity type "{{name}}"? Platform-provided standard types cannot be deleted here.',
                         name: deleteTarget ? buildEntityTypeDisplayRow(deleteTarget, preferredVlcLocale, t).name : ''
                     })}
                     confirmButtonText={tc('actions.delete', 'Delete')}

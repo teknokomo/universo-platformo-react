@@ -32,5 +32,5 @@ Authoring metahub использует разделённую модель: це
 ## Что читать дальше
 
 - [Метахабы](../platform/metahubs.md)
-- [Раздел Common](../platform/metahubs/common-section.md)
+- [Рабочая область Resources](../platform/metahubs/common-section.md)
 - [Shared Entity Overrides](../api-reference/shared-entity-overrides.md)

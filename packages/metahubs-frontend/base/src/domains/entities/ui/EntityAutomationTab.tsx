@@ -197,10 +197,7 @@ const EntityActionsTab = ({
 
     const actions = actionsQuery.data ?? []
     const scripts = scriptsQuery.data ?? []
-    const selectedAction = useMemo(
-        () => actions.find((action) => action.id === selectedActionId) ?? null,
-        [actions, selectedActionId]
-    )
+    const selectedAction = useMemo(() => actions.find((action) => action.id === selectedActionId) ?? null, [actions, selectedActionId])
     const scriptNameById = useMemo(() => new Map(scripts.map((script) => [script.id, buildScriptLabel(script)])), [scripts])
 
     useEffect(() => {
@@ -228,7 +225,10 @@ const EntityActionsTab = ({
                 presentation: nextDraft.name.trim().length > 0 ? { name: nextDraft.name.trim() } : {},
                 actionType: nextDraft.actionType,
                 scriptId: nextDraft.actionType === 'script' ? nextDraft.scriptId || null : null,
-                sortOrder: parseOptionalInteger(nextDraft.sortOrder, t('entities.instances.automation.actions.fields.sortOrder', 'Sort order')),
+                sortOrder: parseOptionalInteger(
+                    nextDraft.sortOrder,
+                    t('entities.instances.automation.actions.fields.sortOrder', 'Sort order')
+                ),
                 config: parseJsonRecord(nextDraft.configText, t('entities.instances.automation.actions.fields.config', 'Action config'))
             })
         }
@@ -245,7 +245,10 @@ const EntityActionsTab = ({
                 presentation: nextDraft.name.trim().length > 0 ? { name: nextDraft.name.trim() } : {},
                 actionType: nextDraft.actionType,
                 scriptId: nextDraft.actionType === 'script' ? nextDraft.scriptId || null : null,
-                sortOrder: parseOptionalInteger(nextDraft.sortOrder, t('entities.instances.automation.actions.fields.sortOrder', 'Sort order')),
+                sortOrder: parseOptionalInteger(
+                    nextDraft.sortOrder,
+                    t('entities.instances.automation.actions.fields.sortOrder', 'Sort order')
+                ),
                 config: parseJsonRecord(nextDraft.configText, t('entities.instances.automation.actions.fields.config', 'Action config')),
                 expectedVersion: nextDraft.version
             })
@@ -332,7 +335,11 @@ const EntityActionsTab = ({
     }
 
     if (!canLoad) {
-        return <Alert severity='info'>{t('entities.instances.automation.actions.saveFirst', 'Save this entity first to manage actions.')}</Alert>
+        return (
+            <Alert severity='info'>
+                {t('entities.instances.automation.actions.saveFirst', 'Save this entity first to manage actions.')}
+            </Alert>
+        )
     }
 
     return (
@@ -346,7 +353,10 @@ const EntityActionsTab = ({
 
             {actionsQuery.error ? (
                 <Alert severity='error'>
-                    {resolveErrorMessage(actionsQuery.error, t('entities.instances.automation.actions.loadError', 'Failed to load actions'))}
+                    {resolveErrorMessage(
+                        actionsQuery.error,
+                        t('entities.instances.automation.actions.loadError', 'Failed to load actions')
+                    )}
                 </Alert>
             ) : null}
 
@@ -362,15 +372,20 @@ const EntityActionsTab = ({
                 <Divider sx={{ mb: 1.5 }} />
                 <List dense disablePadding sx={{ maxHeight: 240, overflowY: 'auto' }}>
                     {actions.map((action) => (
-                        <ListItemButton key={action.id} selected={action.id === selectedActionId} onClick={() => setSelectedActionId(action.id)}>
+                        <ListItemButton
+                            key={action.id}
+                            selected={action.id === selectedActionId}
+                            onClick={() => setSelectedActionId(action.id)}
+                        >
                             <ListItemText
                                 primary={buildActionLabel(action)}
                                 secondary={
                                     action.actionType === 'script'
                                         ? `${t('entities.instances.automation.actions.type.script', 'Script')} · ${
-                                              scriptNameById.get(action.scriptId ?? '') ?? t('entities.instances.automation.actions.noScript', 'No script')
+                                              scriptNameById.get(action.scriptId ?? '') ??
+                                              t('entities.instances.automation.actions.noScript', 'No script')
                                           }`
-                                        : t('entities.instances.automation.actions.type.builtin', 'Builtin')
+                                        : t('entities.instances.automation.actions.type.builtin', 'Platform action')
                                 }
                             />
                         </ListItemButton>
@@ -437,7 +452,9 @@ const EntityActionsTab = ({
                                 disabled={isSaving}
                             >
                                 <MenuItem value='script'>{t('entities.instances.automation.actions.type.script', 'Script')}</MenuItem>
-                                <MenuItem value='builtin'>{t('entities.instances.automation.actions.type.builtin', 'Builtin')}</MenuItem>
+                                <MenuItem value='builtin'>
+                                    {t('entities.instances.automation.actions.type.builtin', 'Platform action')}
+                                </MenuItem>
                             </Select>
                         </FormControl>
 
@@ -474,7 +491,7 @@ const EntityActionsTab = ({
                         <Alert severity='warning'>
                             {t(
                                 'entities.instances.automation.actions.noScriptsAvailable',
-                                'No scripts are attached to this entity yet. Add one in the Scripts tab or switch this action to the built-in type.'
+                                'No scripts are attached to this entity yet. Add one in the Scripts tab or switch this action to a platform action.'
                             )}
                         </Alert>
                     ) : null}
@@ -698,7 +715,11 @@ const EntityEventBindingsTab = ({
     }
 
     if (!canLoad) {
-        return <Alert severity='info'>{t('entities.instances.automation.events.saveFirst', 'Save this entity first to manage event bindings.')}</Alert>
+        return (
+            <Alert severity='info'>
+                {t('entities.instances.automation.events.saveFirst', 'Save this entity first to manage event bindings.')}
+            </Alert>
+        )
     }
 
     return (
@@ -712,7 +733,10 @@ const EntityEventBindingsTab = ({
 
             {bindingsQuery.error ? (
                 <Alert severity='error'>
-                    {resolveErrorMessage(bindingsQuery.error, t('entities.instances.automation.events.loadError', 'Failed to load event bindings'))}
+                    {resolveErrorMessage(
+                        bindingsQuery.error,
+                        t('entities.instances.automation.events.loadError', 'Failed to load event bindings')
+                    )}
                 </Alert>
             ) : null}
 
@@ -728,13 +752,23 @@ const EntityEventBindingsTab = ({
                 <Divider sx={{ mb: 1.5 }} />
                 <List dense disablePadding sx={{ maxHeight: 240, overflowY: 'auto' }}>
                     {bindings.map((binding) => (
-                        <ListItemButton key={binding.id} selected={binding.id === selectedBindingId} onClick={() => setSelectedBindingId(binding.id)}>
+                        <ListItemButton
+                            key={binding.id}
+                            selected={binding.id === selectedBindingId}
+                            onClick={() => setSelectedBindingId(binding.id)}
+                        >
                             <ListItemText
                                 primary={`${binding.eventName} → ${actionLabelById.get(binding.actionId) ?? binding.actionId}`}
                                 secondary={
                                     binding.isActive
-                                        ? `${t('entities.instances.automation.events.active', 'Active')} · ${t('entities.instances.automation.events.priority', 'Priority')} ${binding.priority}`
-                                        : `${t('entities.instances.automation.events.inactive', 'Inactive')} · ${t('entities.instances.automation.events.priority', 'Priority')} ${binding.priority}`
+                                        ? `${t('entities.instances.automation.events.active', 'Active')} · ${t(
+                                              'entities.instances.automation.events.priority',
+                                              'Priority'
+                                          )} ${binding.priority}`
+                                        : `${t('entities.instances.automation.events.inactive', 'Inactive')} · ${t(
+                                              'entities.instances.automation.events.priority',
+                                              'Priority'
+                                          )} ${binding.priority}`
                                 }
                             />
                             {binding.isActive ? (
@@ -874,12 +908,7 @@ export const createEntityActionsTab = (params: {
     id: 'actions',
     label: params.t('entities.instances.tabs.actions', 'Actions'),
     content: (
-        <EntityActionsTab
-            t={params.t}
-            metahubId={params.metahubId}
-            entityId={params.entityId}
-            attachedToKind={params.attachedToKind}
-        />
+        <EntityActionsTab t={params.t} metahubId={params.metahubId} entityId={params.entityId} attachedToKind={params.attachedToKind} />
     )
 })
 

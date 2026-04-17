@@ -3,13 +3,9 @@ export { seedTemplates } from './domains/templates/services/TemplateSeeder'
 
 // Route exports
 export { createMetahubsRoutes } from './domains/metahubs/routes/metahubsRoutes'
-export { createHubsRoutes } from './domains/hubs/routes/hubsRoutes'
-export { createCatalogsRoutes } from './domains/catalogs/routes/catalogsRoutes'
-export { createSetsRoutes } from './domains/sets/routes/setsRoutes'
-export { createEnumerationsRoutes } from './domains/enumerations/routes/enumerationsRoutes'
-export { createAttributesRoutes } from './domains/attributes/routes/attributesRoutes'
-export { createConstantsRoutes } from './domains/constants/routes/constantsRoutes'
-export { createElementsRoutes } from './domains/elements/routes/elementsRoutes'
+export { createEntityFieldDefinitionRoutes } from './domains/entities/metadata/fieldDefinition/routes'
+export { createEntityFixedValueRoutes } from './domains/entities/metadata/fixedValue/routes'
+export { createEntityRecordRoutes } from './domains/entities/metadata/record/routes'
 export { createPublicMetahubsRoutes } from './domains/metahubs/routes/publicMetahubsRoutes'
 export { createMetahubMigrationsRoutes } from './domains/metahubs/routes/metahubMigrationsRoutes'
 export { createApplicationMigrationsRoutes } from './domains/applications/routes/applicationMigrationsRoutes'
@@ -39,8 +35,7 @@ export {
     calculateSchemaDiff,
     generateSchemaName,
     generateTableName,
-    generateColumnName,
-    buildCatalogDefinitions
+    generateColumnName
 } from './domains/ddl'
 export type {
     EntityDefinition,

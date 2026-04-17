@@ -51,7 +51,7 @@ description: Подробное v1-руководство по созданию,
 ## Shared Library Contract
 
 - Скрипты library создаются только из Common -> Scripts со scope привязки `general`.
-- `general` и `library` неразделимы: Common отклоняет любую другую роль для `general`, а новый authoring `library` отклоняется вне Common/general.
+- `general` и `library` неразделимы: Resources отклоняет любую другую роль для `general`, а новый authoring `library` отклоняется вне рабочей области Resources.
 - Libraries компилируются для dependency resolution и validation до сборки consumer scripts.
 - Consumer scripts импортируют их через `@shared/<codename>` и сохраняют обычные scope-specific правила привязки.
 - Libraries не раскрываются как прямые runtime entrypoints, RPC targets или lifecycle-handlers.

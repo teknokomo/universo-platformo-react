@@ -21,48 +21,52 @@ export function createRuntimeAdapter(applicationId: string): CrudDataAdapter {
     return {
         queryKeyPrefix: applicationsQueryKeys.runtimeAll(applicationId),
 
-        fetchList: ({ limit, offset, locale, catalogId, sectionId }) =>
+        fetchList: ({ limit, offset, locale, linkedCollectionId, sectionId }) =>
             getApplicationRuntime(applicationId, {
                 limit,
                 offset,
                 locale,
-                catalogId,
+                linkedCollectionId,
                 sectionId
             }) as Promise<AppDataResponse>,
 
-        fetchRow: (rowId, catalogId) => getApplicationRuntimeRow({ applicationId, rowId, catalogId, sectionId: catalogId }),
+        fetchRow: (rowId, linkedCollectionId) =>
+            getApplicationRuntimeRow({ applicationId, rowId, linkedCollectionId, sectionId: linkedCollectionId }),
 
-        fetchTabularRows: async ({ parentRowId, attributeId, catalogId, sectionId }) => {
-            const resolvedSectionId = sectionId ?? catalogId
+        fetchTabularRows: async ({ parentRowId, attributeId, linkedCollectionId, sectionId }) => {
+            const resolvedSectionId = sectionId ?? linkedCollectionId
             if (!resolvedSectionId) return []
             return listApplicationRuntimeTabularRows({
                 applicationId,
                 rowId: parentRowId,
                 attributeId,
-                catalogId: resolvedSectionId,
+                linkedCollectionId: resolvedSectionId,
                 sectionId: resolvedSectionId
             })
         },
 
-        createRow: (data, catalogId) => createApplicationRuntimeRow({ applicationId, data, catalogId, sectionId: catalogId }),
+        createRow: (data, linkedCollectionId) =>
+            createApplicationRuntimeRow({ applicationId, data, linkedCollectionId, sectionId: linkedCollectionId }),
 
-        updateRow: (rowId, data, catalogId) => updateApplicationRuntimeRow({ applicationId, rowId, data, catalogId, sectionId: catalogId }),
+        updateRow: (rowId, data, linkedCollectionId) =>
+            updateApplicationRuntimeRow({ applicationId, rowId, data, linkedCollectionId, sectionId: linkedCollectionId }),
 
-        deleteRow: (rowId, catalogId) => deleteApplicationRuntimeRow({ applicationId, rowId, catalogId, sectionId: catalogId }),
+        deleteRow: (rowId, linkedCollectionId) =>
+            deleteApplicationRuntimeRow({ applicationId, rowId, linkedCollectionId, sectionId: linkedCollectionId }),
 
         copyRow: (rowId, data) =>
             copyApplicationRuntimeRow({
                 applicationId,
                 rowId,
-                catalogId: data?.catalogId,
-                sectionId: data?.sectionId ?? data?.catalogId,
+                linkedCollectionId: data?.linkedCollectionId,
+                sectionId: data?.sectionId ?? data?.linkedCollectionId,
                 copyChildTables: data?.copyChildTables
             }),
 
-        reorderRows: ({ catalogId, sectionId, orderedRowIds }) =>
+        reorderRows: ({ linkedCollectionId, sectionId, orderedRowIds }) =>
             reorderApplicationRuntimeRows({
                 applicationId,
-                catalogId,
+                linkedCollectionId,
                 sectionId,
                 orderedRowIds
             })

@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { ReactNode } from 'react'
-import { extractCatalogLayoutBehaviorConfig } from '@universo/utils'
+import { extractLinkedCollectionLayoutBehaviorConfig } from '@universo/utils'
 
 const { getLayout, listLayoutZoneWidgets, getLayoutZoneWidgetsCatalog, updateLayout, toggleLayoutZoneWidgetActive } = vi.hoisted(() => ({
     getLayout: vi.fn(),
@@ -74,7 +74,7 @@ const seedGlobalLayoutResponse = () => {
     getLayout.mockResolvedValue({
         data: {
             id: 'layout-global',
-            catalogId: null,
+            linkedCollectionId: null,
             templateKey: 'dashboard',
             name: {
                 _schema: 'v1',
@@ -214,7 +214,7 @@ describe('LayoutDetails cache invalidation for global layouts', () => {
         const nextConfig = lastCall?.[2]?.config as Record<string, unknown>
 
         expect(nextConfig.enableRowReordering).toBeUndefined()
-        expect(extractCatalogLayoutBehaviorConfig(nextConfig)).toEqual(
+        expect(extractLinkedCollectionLayoutBehaviorConfig(nextConfig)).toEqual(
             expect.objectContaining({
                 enableRowReordering: true
             })

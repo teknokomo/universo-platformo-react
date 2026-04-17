@@ -20,6 +20,7 @@ import {
     SelectChangeEvent
 } from '@mui/material'
 import { useTranslation } from 'react-i18next'
+import { buildEntitySurfaceSettingKey } from '@universo/types'
 
 export interface SettingControlProps {
     /** Setting key (dot-notation, e.g. 'general.codenameStyle') */
@@ -69,7 +70,7 @@ const SettingControl = ({ settingKey, valueType, value, options, onChange, disab
         [valueType, onChange]
     )
 
-    const isCompactMultiselect = settingKey === 'catalogs.allowedAttributeTypes'
+    const isCompactMultiselect = settingKey === buildEntitySurfaceSettingKey('linkedCollection', 'allowedAttributeTypes')
 
     switch (valueType) {
         case 'boolean':
@@ -176,7 +177,7 @@ const SettingControl = ({ settingKey, valueType, value, options, onChange, disab
  * Map a setting key + option value to the corresponding i18n label key.
  * For example:
  *   'general.codenameStyle' + 'kebab-case' → 'settings.codenameStyles.kebab-case'
- *   'catalogs.attributeCodenameScope' + 'per-level' → 'settings.attributeCodenameScopes.per-level'
+ *   'entity.catalog.attributeCodenameScope' + 'per-level' → 'settings.attributeCodenameScopes.per-level'
  */
 function getOptionLabelKey(settingKey: string, option: string): string {
     if (settingKey === 'general.codenameStyle') {
@@ -185,17 +186,17 @@ function getOptionLabelKey(settingKey: string, option: string): string {
     if (settingKey === 'general.codenameAlphabet') {
         return `settings.codenameAlphabets.${option}`
     }
-    if (settingKey === 'catalogs.attributeCodenameScope') {
+    if (settingKey === buildEntitySurfaceSettingKey('linkedCollection', 'attributeCodenameScope')) {
         return `settings.attributeCodenameScopes.${option}`
     }
-    if (settingKey === 'catalogs.allowedAttributeTypes') {
-        return `attributes.dataTypeOptions.${option.toLowerCase()}`
+    if (settingKey === buildEntitySurfaceSettingKey('linkedCollection', 'allowedAttributeTypes')) {
+        return `fieldDefinitions.dataTypeOptions.${option.toLowerCase()}`
     }
-    if (settingKey === 'sets.constantCodenameScope') {
+    if (settingKey === buildEntitySurfaceSettingKey('valueGroup', 'constantCodenameScope')) {
         return `settings.attributeCodenameScopes.${option}`
     }
-    if (settingKey === 'sets.allowedConstantTypes') {
-        return `attributes.dataTypeOptions.${option.toLowerCase()}`
+    if (settingKey === buildEntitySurfaceSettingKey('valueGroup', 'allowedConstantTypes')) {
+        return `fieldDefinitions.dataTypeOptions.${option.toLowerCase()}`
     }
     if (settingKey === 'general.language') {
         return `settings.languages.${option}`

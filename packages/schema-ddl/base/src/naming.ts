@@ -1,8 +1,8 @@
 import {
     assertCanonicalIdentifier,
-    buildManagedDynamicSchemaName,
+    buildManagedDynamicSchemaName as buildDynamicSchemaName,
     isCanonicalSchemaName,
-    isManagedCustomSchemaName,
+    isManagedCustomSchemaName as isDynamicCustomSchemaName,
     quoteIdentifier
 } from '@universo/migrations-core'
 import type { RuntimeEntityKind } from './types'
@@ -19,10 +19,10 @@ const ENTITY_TABLE_PREFIX: Record<string, string> = {
 
 const SCHEMA_PREFIX = 'app'
 const FIELD_PREFIX = 'attr'
-const RESERVED_MANAGED_SCHEMA_PREFIX_PATTERN = /^(app|mhb)_/
+const RESERVED_DYNAMIC_SCHEMA_PREFIX_PATTERN = /^(app|mhb)_/
 
 export const generateSchemaName = (applicationId: string): string => {
-    return buildManagedDynamicSchemaName({ prefix: SCHEMA_PREFIX, ownerId: applicationId })
+    return buildDynamicSchemaName({ prefix: SCHEMA_PREFIX, ownerId: applicationId })
 }
 
 export const generateTableName = (entityId: string, kind: RuntimeEntityKind, prefixOverride?: string | null): string => {
@@ -60,7 +60,7 @@ export const resolveFieldColumnName = (field: { id: string; physicalColumnName?:
 }
 
 export const generateMetahubSchemaName = (metahubId: string): string => {
-    return buildManagedDynamicSchemaName({ prefix: 'mhb', ownerId: metahubId })
+    return buildDynamicSchemaName({ prefix: 'mhb', ownerId: metahubId })
 }
 
 export const isValidSchemaName = (schemaName: string): boolean => {
@@ -68,11 +68,11 @@ export const isValidSchemaName = (schemaName: string): boolean => {
         return true
     }
 
-    if (!isManagedCustomSchemaName(schemaName)) {
+    if (!isDynamicCustomSchemaName(schemaName)) {
         return false
     }
 
-    return !RESERVED_MANAGED_SCHEMA_PREFIX_PATTERN.test(schemaName)
+    return !RESERVED_DYNAMIC_SCHEMA_PREFIX_PATTERN.test(schemaName)
 }
 
 /**

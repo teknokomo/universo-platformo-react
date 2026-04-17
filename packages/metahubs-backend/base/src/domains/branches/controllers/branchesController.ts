@@ -6,7 +6,7 @@ import { database, localizedContent, validation } from '@universo/utils'
 import { applyRlsContext } from '@universo/auth-backend'
 import { normalizeCodenameForStyle, isValidCodenameForStyle } from '@universo/utils/validation/codename'
 import { MetahubBranchesService } from '../services/MetahubBranchesService'
-import type { BranchCopyOptions, VersionedLocalizedContent } from '@universo/types'
+import type { BranchCopyOptions, BranchCopyOptionsInput, VersionedLocalizedContent } from '@universo/types'
 import type { createMetahubHandlerFactory, MetahubHandlerContext } from '../../shared/createMetahubHandler'
 import { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
 import { getCodenameSettings, codenameErrorMessage } from '../../shared/codenameStyleHelper'
@@ -42,6 +42,10 @@ const createBranchSchema = z
         sourceBranchId: sourceBranchIdSchema,
         fullCopy: z.boolean().optional(),
         copyLayouts: z.boolean().optional(),
+        copyTreeEntities: z.boolean().optional(),
+        copyLinkedCollections: z.boolean().optional(),
+        copyValueGroups: z.boolean().optional(),
+        copyOptionLists: z.boolean().optional(),
         copyHubs: z.boolean().optional(),
         copyCatalogs: z.boolean().optional(),
         copySets: z.boolean().optional(),
@@ -49,7 +53,33 @@ const createBranchSchema = z
     })
     .strict()
     .superRefine((value, ctx) => {
-        const childFlags = [value.copyLayouts, value.copyHubs, value.copyCatalogs, value.copySets, value.copyEnumerations]
+        const aliasPairs = [
+            ['copyTreeEntities', 'copyHubs'],
+            ['copyLinkedCollections', 'copyCatalogs'],
+            ['copyValueGroups', 'copySets'],
+            ['copyOptionLists', 'copyEnumerations']
+        ] as const
+
+        for (const [canonicalKey, legacyKey] of aliasPairs) {
+            const canonicalValue = value[canonicalKey]
+            const legacyValue = value[legacyKey]
+
+            if (canonicalValue !== undefined && legacyValue !== undefined && canonicalValue !== legacyValue) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: [canonicalKey],
+                    message: `${canonicalKey} conflicts with legacy alias ${legacyKey}`
+                })
+            }
+        }
+
+        const childFlags = [
+            value.copyLayouts,
+            value.copyTreeEntities ?? value.copyHubs,
+            value.copyLinkedCollections ?? value.copyCatalogs,
+            value.copyValueGroups ?? value.copySets,
+            value.copyOptionLists ?? value.copyEnumerations
+        ]
         const hasExplicitChildDisabled = childFlags.some((flag) => flag === false)
 
         if (value.fullCopy === true && hasExplicitChildDisabled) {
@@ -76,12 +106,29 @@ const updateBranchSchema = z
 // Helpers
 // ---------------------------------------------------------------------------
 
-const getBranchCopyCompatibilityErrorCode = (error: unknown): 'BRANCH_COPY_ENUM_REFERENCES' | 'BRANCH_COPY_DANGLING_REFERENCES' | null => {
+const getNormalizedBranchCopyOptionsInput = (value: z.infer<typeof createBranchSchema>): BranchCopyOptionsInput => ({
+    fullCopy: value.fullCopy,
+    copyLayouts: value.copyLayouts,
+    copyTreeEntities: value.copyTreeEntities ?? value.copyHubs,
+    copyLinkedCollections: value.copyLinkedCollections ?? value.copyCatalogs,
+    copyValueGroups: value.copyValueGroups ?? value.copySets,
+    copyOptionLists: value.copyOptionLists ?? value.copyEnumerations
+})
+
+const getBranchCopyCompatibilityErrorCode = (
+    error: unknown
+): 'BRANCH_COPY_OPTION_LIST_REFERENCES' | 'BRANCH_COPY_DANGLING_ENTITY_REFERENCES' | null => {
     if (!error || typeof error !== 'object') return null
     const code = (error as { code?: unknown }).code ?? (error as { message?: unknown }).message
 
-    if (code === 'BRANCH_COPY_ENUM_REFERENCES' || code === 'BRANCH_COPY_DANGLING_REFERENCES') {
+    if (code === 'BRANCH_COPY_OPTION_LIST_REFERENCES' || code === 'BRANCH_COPY_DANGLING_ENTITY_REFERENCES') {
         return code
+    }
+    if (code === 'BRANCH_COPY_ENUM_REFERENCES') {
+        return 'BRANCH_COPY_OPTION_LIST_REFERENCES'
+    }
+    if (code === 'BRANCH_COPY_DANGLING_REFERENCES') {
+        return 'BRANCH_COPY_DANGLING_ENTITY_REFERENCES'
     }
 
     return null
@@ -267,14 +314,7 @@ export function createBranchesController(createHandler: ReturnType<typeof create
             }
 
             const { codename, name, description, namePrimaryLocale, descriptionPrimaryLocale, sourceBranchId } = parsed.data
-            const copyOptions: BranchCopyOptions = normalizeBranchCopyOptions({
-                fullCopy: parsed.data.fullCopy,
-                copyLayouts: parsed.data.copyLayouts,
-                copyHubs: parsed.data.copyHubs,
-                copyCatalogs: parsed.data.copyCatalogs,
-                copySets: parsed.data.copySets,
-                copyEnumerations: parsed.data.copyEnumerations
-            })
+            const copyOptions: BranchCopyOptions = normalizeBranchCopyOptions(getNormalizedBranchCopyOptionsInput(parsed.data))
 
             const settingsService = getSettingsService(ctx)
             const {
@@ -359,16 +399,16 @@ export function createBranchesController(createHandler: ReturnType<typeof create
                 })
             } catch (error: unknown) {
                 const branchCopyErrorCode = getBranchCopyCompatibilityErrorCode(error)
-                if (branchCopyErrorCode === 'BRANCH_COPY_ENUM_REFERENCES') {
+                if (branchCopyErrorCode === 'BRANCH_COPY_OPTION_LIST_REFERENCES') {
                     return res.status(400).json({
-                        code: 'BRANCH_COPY_ENUM_REFERENCES',
-                        error: 'Cannot disable enumerations copy while catalogs/hubs with enumeration references are copied'
+                        code: 'BRANCH_COPY_OPTION_LIST_REFERENCES',
+                        error: 'Cannot disable option list copy while copied entity groups still reference option lists.'
                     })
                 }
-                if (branchCopyErrorCode === 'BRANCH_COPY_DANGLING_REFERENCES') {
+                if (branchCopyErrorCode === 'BRANCH_COPY_DANGLING_ENTITY_REFERENCES') {
                     return res.status(400).json({
-                        code: 'BRANCH_COPY_DANGLING_REFERENCES',
-                        error: 'Copy options would produce dangling object references. Keep all referenced object groups enabled.'
+                        code: 'BRANCH_COPY_DANGLING_ENTITY_REFERENCES',
+                        error: 'Copy options would produce dangling entity references. Keep all referenced entity groups enabled.'
                     })
                 }
                 if (database.isUniqueViolation(error)) {

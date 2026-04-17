@@ -59,11 +59,7 @@ export const listEntityActions = async (metahubId: string, entityId: string): Pr
     return response.data.items ?? []
 }
 
-export const createEntityAction = async (
-    metahubId: string,
-    entityId: string,
-    data: EntityActionPayload
-): Promise<MetahubEntityAction> => {
+export const createEntityAction = async (metahubId: string, entityId: string, data: EntityActionPayload): Promise<MetahubEntityAction> => {
     const response = await apiClient.post<MetahubEntityAction>(`/metahub/${metahubId}/object/${entityId}/actions`, data)
     return response.data
 }
@@ -82,9 +78,7 @@ export const deleteEntityAction = async (metahubId: string, actionId: string): P
 }
 
 export const listEntityEventBindings = async (metahubId: string, entityId: string): Promise<MetahubEventBinding[]> => {
-    const response = await apiClient.get<{ items?: MetahubEventBinding[] }>(
-        `/metahub/${metahubId}/object/${entityId}/event-bindings`
-    )
+    const response = await apiClient.get<{ items?: MetahubEventBinding[] }>(`/metahub/${metahubId}/object/${entityId}/event-bindings`)
     return response.data.items ?? []
 }
 

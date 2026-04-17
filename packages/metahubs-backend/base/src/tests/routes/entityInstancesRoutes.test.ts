@@ -8,8 +8,14 @@ const mockResolveUserId = jest.fn<() => string | undefined>()
 const mockEnsureMetahubAccess = jest.fn()
 const mockEnsureSchema = jest.fn()
 const mockCopyDesignTimeObjectChildren = jest.fn()
-const mockQueryMany = jest.fn(async (db: { query: (sql: string, params?: unknown[]) => Promise<unknown[]> }, sql: string, params?: unknown[]) =>
-    db.query(sql, params)
+const mockQueryMany = jest.fn(
+    async (db: { query: (sql: string, params?: unknown[]) => Promise<unknown[]> }, sql: string, params?: unknown[]) => db.query(sql, params)
+)
+const mockQueryOne = jest.fn(
+    async (db: { query: (sql: string, params?: unknown[]) => Promise<unknown[]> }, sql: string, params?: unknown[]) => {
+        const rows = await db.query(sql, params)
+        return Array.isArray(rows) && rows.length > 0 ? rows[0] : null
+    }
 )
 const mockIsUniqueViolation = jest.fn((error: unknown) => {
     if (!error || typeof error !== 'object') {
@@ -34,6 +40,7 @@ const mockGetDbErrorConstraint = jest.fn((error: unknown) => {
 
 const mockObjectsService = {
     findAllByKind: jest.fn(),
+    findAllByKinds: jest.fn(),
     findById: jest.fn(),
     findByCodenameAndKind: jest.fn(),
     createObject: jest.fn(),
@@ -48,19 +55,39 @@ const mockSettingsService = {
     findByKey: jest.fn()
 }
 
-const mockAttributesService = {
+const mockFieldDefinitionsService = {
+    countByObjectIds: jest.fn(),
     findCatalogReferenceBlockers: jest.fn(),
     findReferenceBlockersByTarget: jest.fn()
 }
 
-const mockConstantsService = {
+const mockRecordsService = {
+    countByObjectIds: jest.fn()
+}
+
+const mockFixedValuesService = {
     countByObjectId: jest.fn(),
     countByObjectIds: jest.fn(),
     findSetReferenceBlockers: jest.fn()
 }
 
+const mockOptionValuesService = {
+    countByObjectId: jest.fn(),
+    countByObjectIds: jest.fn(),
+    findAll: jest.fn(),
+    findAllMerged: jest.fn(),
+    findById: jest.fn(),
+    findByCodename: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    moveValue: jest.fn(),
+    reorderValue: jest.fn(),
+    reorderValueMergedOrder: jest.fn(),
+    delete: jest.fn()
+}
+
 const mockEntityTypeService = {
-    listCustomTypes: jest.fn(),
+    listEditableTypes: jest.fn(),
     resolveType: jest.fn()
 }
 
@@ -107,6 +134,7 @@ jest.mock('../../utils', () => ({
 jest.mock('@universo/utils/database', () => ({
     __esModule: true,
     getRequestDbSession: () => mockDbSession,
+    queryOne: (...args: unknown[]) => mockQueryOne(...args),
     queryMany: (...args: unknown[]) => mockQueryMany(...args),
     isUniqueViolation: (...args: unknown[]) => mockIsUniqueViolation(...args),
     getDbErrorConstraint: (...args: unknown[]) => mockGetDbErrorConstraint(...args)
@@ -119,7 +147,19 @@ jest.mock('../../domains/shared/routeAuth', () => ({
 
 jest.mock('../../domains/shared/guards', () => ({
     __esModule: true,
-    ensureMetahubAccess: (...args: unknown[]) => mockEnsureMetahubAccess(...args)
+    ensureMetahubAccess: (...args: unknown[]) => mockEnsureMetahubAccess(...args),
+    createEnsureMetahubRouteAccess:
+        () =>
+        async (_req: Request, res: Response, metahubId: string, permission?: string): Promise<string | null> => {
+            const userId = mockResolveUserId()
+            if (!userId) {
+                res.status(401).json({ error: 'Unauthorized' })
+                return null
+            }
+
+            await mockEnsureMetahubAccess(undefined, userId, metahubId, permission)
+            return userId
+        }
 }))
 
 jest.mock('../../domains/metahubs/services/MetahubSchemaService', () => ({
@@ -139,14 +179,24 @@ jest.mock('../../domains/settings/services/MetahubSettingsService', () => ({
     MetahubSettingsService: jest.fn().mockImplementation(() => mockSettingsService)
 }))
 
-jest.mock('../../domains/metahubs/services/MetahubAttributesService', () => ({
+jest.mock('../../domains/metahubs/services/MetahubFieldDefinitionsService', () => ({
     __esModule: true,
-    MetahubAttributesService: jest.fn().mockImplementation(() => mockAttributesService)
+    MetahubFieldDefinitionsService: jest.fn().mockImplementation(() => mockFieldDefinitionsService)
 }))
 
-jest.mock('../../domains/metahubs/services/MetahubConstantsService', () => ({
+jest.mock('../../domains/metahubs/services/MetahubRecordsService', () => ({
     __esModule: true,
-    MetahubConstantsService: jest.fn().mockImplementation(() => mockConstantsService)
+    MetahubRecordsService: jest.fn().mockImplementation(() => mockRecordsService)
+}))
+
+jest.mock('../../domains/metahubs/services/MetahubFixedValuesService', () => ({
+    __esModule: true,
+    MetahubFixedValuesService: jest.fn().mockImplementation(() => mockFixedValuesService)
+}))
+
+jest.mock('../../domains/metahubs/services/MetahubOptionValuesService', () => ({
+    __esModule: true,
+    MetahubOptionValuesService: jest.fn().mockImplementation(() => mockOptionValuesService)
 }))
 
 jest.mock('../../domains/entities/services/EntityTypeService', () => ({
@@ -213,11 +263,55 @@ describe('Entity instance routes', () => {
 
     beforeEach(() => {
         jest.clearAllMocks()
+        ;[
+            mockExec.query,
+            mockObjectsService.findAllByKind,
+            mockObjectsService.findAllByKinds,
+            mockObjectsService.findById,
+            mockObjectsService.findByCodenameAndKind,
+            mockObjectsService.createObject,
+            mockObjectsService.updateObject,
+            mockObjectsService.delete,
+            mockObjectsService.restore,
+            mockObjectsService.permanentDelete,
+            mockObjectsService.reorderByKind,
+            mockSettingsService.findByKey,
+            mockFieldDefinitionsService.countByObjectIds,
+            mockFieldDefinitionsService.findCatalogReferenceBlockers,
+            mockFieldDefinitionsService.findReferenceBlockersByTarget,
+            mockRecordsService.countByObjectIds,
+            mockFixedValuesService.countByObjectId,
+            mockFixedValuesService.countByObjectIds,
+            mockFixedValuesService.findSetReferenceBlockers,
+            mockOptionValuesService.countByObjectId,
+            mockOptionValuesService.countByObjectIds,
+            mockOptionValuesService.findAll,
+            mockOptionValuesService.findAllMerged,
+            mockOptionValuesService.findById,
+            mockOptionValuesService.findByCodename,
+            mockOptionValuesService.create,
+            mockOptionValuesService.update,
+            mockOptionValuesService.moveValue,
+            mockOptionValuesService.reorderValue,
+            mockOptionValuesService.reorderValueMergedOrder,
+            mockOptionValuesService.delete,
+            mockEntityTypeService.listEditableTypes,
+            mockEntityTypeService.resolveType,
+            mockResolver.resolve,
+            mockCopyDesignTimeObjectChildren,
+            mockMutationService.run
+        ].forEach((mockFn) => mockFn.mockReset())
         mockResolveUserId.mockReturnValue('user-1')
         mockEnsureSchema.mockResolvedValue('mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
         mockQueryMany.mockImplementation(
             async (db: { query: (sql: string, params?: unknown[]) => Promise<unknown[]> }, sql: string, params?: unknown[]) =>
                 db.query(sql, params)
+        )
+        mockQueryOne.mockImplementation(
+            async (db: { query: (sql: string, params?: unknown[]) => Promise<unknown[]> }, sql: string, params?: unknown[]) => {
+                const rows = await db.query(sql, params)
+                return Array.isArray(rows) && rows.length > 0 ? rows[0] : null
+            }
         )
         mockEnsureMetahubAccess.mockResolvedValue({
             membership: { role: 'owner' },
@@ -228,19 +322,33 @@ describe('Entity instance routes', () => {
 
         mockExec.query.mockResolvedValue([])
         mockSettingsService.findByKey.mockResolvedValue(null)
-        mockAttributesService.findCatalogReferenceBlockers.mockResolvedValue([])
-        mockAttributesService.findReferenceBlockersByTarget.mockResolvedValue([])
-        mockConstantsService.countByObjectId.mockResolvedValue(0)
-        mockConstantsService.countByObjectIds.mockResolvedValue(new Map())
-        mockConstantsService.findSetReferenceBlockers.mockResolvedValue([])
-        mockEntityTypeService.listCustomTypes.mockResolvedValue([])
+        mockFieldDefinitionsService.countByObjectIds.mockResolvedValue(new Map())
+        mockFieldDefinitionsService.findCatalogReferenceBlockers.mockResolvedValue([])
+        mockFieldDefinitionsService.findReferenceBlockersByTarget.mockResolvedValue([])
+        mockRecordsService.countByObjectIds.mockResolvedValue(new Map())
+        mockFixedValuesService.countByObjectId.mockResolvedValue(0)
+        mockFixedValuesService.countByObjectIds.mockResolvedValue(new Map())
+        mockFixedValuesService.findSetReferenceBlockers.mockResolvedValue([])
+        mockOptionValuesService.countByObjectId.mockResolvedValue(0)
+        mockOptionValuesService.countByObjectIds.mockResolvedValue(new Map())
+        mockOptionValuesService.findAll.mockResolvedValue([])
+        mockOptionValuesService.findAllMerged.mockResolvedValue([])
+        mockOptionValuesService.findById.mockResolvedValue(null)
+        mockOptionValuesService.findByCodename.mockResolvedValue(null)
+        mockOptionValuesService.create.mockResolvedValue({ id: 'value-1', objectId: 'enumeration-1', codename: 'Draft' })
+        mockOptionValuesService.update.mockResolvedValue({ id: 'value-1', objectId: 'enumeration-1', codename: 'Draft' })
+        mockOptionValuesService.moveValue.mockResolvedValue({ id: 'value-1', sortOrder: 2 })
+        mockOptionValuesService.reorderValue.mockResolvedValue({ id: 'value-1', sortOrder: 3 })
+        mockOptionValuesService.reorderValueMergedOrder.mockResolvedValue({ id: 'value-1', sortOrder: 3 })
+        mockOptionValuesService.delete.mockResolvedValue(undefined)
+        mockEntityTypeService.listEditableTypes.mockResolvedValue([])
         mockEntityTypeService.resolveType.mockResolvedValue(null)
-        mockResolver.resolve.mockResolvedValue({ kindKey: 'custom-order', source: 'custom', components: {} })
+        mockResolver.resolve.mockResolvedValue({ kindKey: 'custom-order', components: {} })
         mockCopyDesignTimeObjectChildren.mockResolvedValue({
-            attributesCopied: 0,
-            elementsCopied: 0,
-            constantsCopied: 0,
-            valuesCopied: 0
+            fieldDefinitionsCopied: 0,
+            recordsCopied: 0,
+            fixedValuesCopied: 0,
+            optionValuesCopied: 0
         })
         mockMutationService.run.mockImplementation(async ({ mutation }) => mutation(mockExec))
 
@@ -255,6 +363,7 @@ describe('Entity instance routes', () => {
                 _mhb_deleted: false
             }
         ])
+        mockObjectsService.findAllByKinds.mockResolvedValue([])
         mockObjectsService.findById.mockResolvedValue({
             id: 'entity-1',
             kind: 'custom-order',
@@ -317,14 +426,170 @@ describe('Entity instance routes', () => {
         expect(mockObjectsService.findById).toHaveBeenCalledWith('metahub-1', 'entity-1', 'user-1', { includeDeleted: true })
     })
 
-    it('rejects built-in kinds on generic routes', async () => {
-        mockResolver.resolve.mockResolvedValueOnce({ kindKey: 'catalog', source: 'builtin', components: {} })
+    it('lists direct standard kinds on generic routes after entity promotion', async () => {
+        mockResolver.resolve.mockResolvedValueOnce({ kindKey: 'catalog', components: {}, config: {} })
         const app = buildApp()
 
-        const response = await request(app).get('/metahub/metahub-1/entities?kind=catalog').expect(400)
+        const response = await request(app).get('/metahub/metahub-1/entities?kind=catalog').expect(200)
 
-        expect(response.body.error).toBe('Generic entity routes currently support custom entity kinds only')
-        expect(mockObjectsService.findAllByKind).not.toHaveBeenCalled()
+        expect(response.body.items).toHaveLength(1)
+        expect(mockObjectsService.findAllByKind).toHaveBeenCalledWith('metahub-1', 'catalog', 'user-1', {
+            includeDeleted: false,
+            onlyDeleted: false
+        })
+    })
+
+    it('lists nested tree entities through the entity-owned child route without tree controller dispatch', async () => {
+        mockEntityTypeService.listEditableTypes.mockResolvedValueOnce([])
+        mockExec.query
+            .mockResolvedValueOnce([
+                {
+                    id: 'hub-1',
+                    kind: 'hub',
+                    codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'ParentHub' } } },
+                    presentation: { name: { en: 'Parent hub' }, description: null },
+                    config: { sortOrder: 1, parentTreeEntityId: null },
+                    _upl_version: 1,
+                    _upl_created_at: '2026-04-15T00:00:00.000Z',
+                    _upl_updated_at: '2026-04-15T00:00:00.000Z'
+                }
+            ])
+            .mockResolvedValueOnce([{ total: '1' }])
+            .mockResolvedValueOnce([
+                {
+                    id: 'hub-2',
+                    codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'ChildHub' } } },
+                    presentation: { name: { en: 'Child hub' }, description: null },
+                    config: { sortOrder: 2, parentTreeEntityId: 'hub-1' },
+                    _upl_version: 3,
+                    _upl_created_at: '2026-04-15T01:00:00.000Z',
+                    _upl_updated_at: '2026-04-15T02:00:00.000Z'
+                }
+            ])
+
+        const app = buildApp()
+
+        const response = await request(app).get('/metahub/metahub-1/entities/hub/instance/hub-1/instances?limit=10&offset=0').expect(200)
+
+        expect(response.body.items).toEqual([
+            {
+                id: 'hub-2',
+                codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'ChildHub' } } },
+                name: { en: 'Child hub' },
+                description: null,
+                sortOrder: 2,
+                parentTreeEntityId: 'hub-1',
+                version: 3,
+                createdAt: '2026-04-15T01:00:00.000Z',
+                updatedAt: '2026-04-15T02:00:00.000Z'
+            }
+        ])
+        expect(response.body.pagination).toEqual({ total: 1, limit: 10, offset: 0 })
+    })
+
+    it('allows custom data-schema kinds on generic routes', async () => {
+        mockResolver.resolve.mockResolvedValueOnce({ kindKey: 'custom.invoice', components: {}, config: {} })
+        mockObjectsService.findAllByKind.mockResolvedValueOnce([
+            {
+                id: 'invoice-1',
+                kind: 'custom.invoice',
+                codename: 'CustomerInvoice',
+                name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Customer invoice' } } },
+                description: null,
+                config: { enabled: true },
+                _mhb_deleted: false
+            }
+        ])
+        const app = buildApp()
+
+        const response = await request(app).get('/metahub/metahub-1/entities?kind=custom.invoice').expect(200)
+
+        expect(response.body.items).toHaveLength(1)
+        expect(response.body.items[0]).toMatchObject({ id: 'invoice-1', kind: 'custom.invoice' })
+        expect(mockObjectsService.findAllByKind).toHaveBeenCalledWith('metahub-1', 'custom.invoice', 'user-1', {
+            includeDeleted: false,
+            onlyDeleted: false
+        })
+    })
+
+    it('lists enumeration values through the entity-owned nested route surface', async () => {
+        mockObjectsService.findById.mockResolvedValueOnce({
+            id: 'enumeration-1',
+            kind: 'enumeration',
+            codename: 'Status',
+            presentation: { name: { en: 'Status' }, description: null },
+            config: { hubs: ['hub-1'] },
+            _mhb_deleted: false
+        })
+        mockOptionValuesService.findAll.mockResolvedValueOnce([
+            { id: 'value-1', objectId: 'enumeration-1', codename: 'Draft' },
+            { id: 'value-2', objectId: 'enumeration-1', codename: 'Published' }
+        ])
+
+        const app = buildApp()
+
+        const response = await request(app)
+            .get('/metahub/metahub-1/entities/enumeration/instance/hub-1/instance/enumeration-1/values')
+            .expect(200)
+
+        expect(response.body.items).toHaveLength(2)
+        expect(response.body.total).toBe(2)
+        expect(response.body.meta).toEqual({ includeShared: false })
+        expect(mockObjectsService.findById).toHaveBeenCalledWith('metahub-1', 'enumeration-1', 'user-1')
+        expect(mockOptionValuesService.findAll).toHaveBeenCalledWith('metahub-1', 'enumeration-1', 'user-1')
+    })
+
+    it('loads a nested value group through the entity-owned route surface', async () => {
+        mockObjectsService.findById.mockResolvedValueOnce({
+            id: 'set-1',
+            kind: 'set',
+            codename: 'Statuses',
+            presentation: { name: { en: 'Statuses' }, description: null },
+            config: { hubs: ['hub-1'], sortOrder: 4, isSingleHub: false, isRequiredHub: false },
+            _upl_version: 2,
+            _upl_created_at: '2026-04-15T01:00:00.000Z',
+            _upl_updated_at: '2026-04-15T02:00:00.000Z',
+            _mhb_deleted: false
+        })
+        mockFixedValuesService.countByObjectId.mockResolvedValueOnce(3)
+
+        const app = buildApp()
+
+        const response = await request(app).get('/metahub/metahub-1/entities/set/instance/hub-1/instance/set-1').expect(200)
+
+        expect(response.body.id).toBe('set-1')
+        expect(response.body.fixedValuesCount).toBe(3)
+        expect(response.body.sortOrder).toBe(4)
+        expect(mockObjectsService.findById).toHaveBeenCalledWith('metahub-1', 'set-1', 'user-1')
+        expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', undefined, mockDbSession)
+    })
+
+    it('loads a nested linked collection through the entity-owned route surface', async () => {
+        mockObjectsService.findById.mockResolvedValueOnce({
+            id: 'catalog-1',
+            kind: 'catalog',
+            codename: 'Products',
+            name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Products' } } },
+            description: null,
+            config: { hubs: ['hub-1'], sortOrder: 7, isSingleHub: false, isRequiredHub: true },
+            _upl_version: 3,
+            created_at: '2026-04-15T03:00:00.000Z',
+            updated_at: '2026-04-15T04:00:00.000Z',
+            _mhb_deleted: false
+        })
+        mockFieldDefinitionsService.countByObjectIds.mockResolvedValueOnce(new Map([['catalog-1', 2]]))
+        mockRecordsService.countByObjectIds.mockResolvedValueOnce(new Map([['catalog-1', 5]]))
+
+        const app = buildApp()
+
+        const response = await request(app).get('/metahub/metahub-1/entities/catalog/instance/hub-1/instance/catalog-1').expect(200)
+
+        expect(response.body.id).toBe('catalog-1')
+        expect(response.body.fieldDefinitionsCount).toBe(2)
+        expect(response.body.recordsCount).toBe(5)
+        expect(response.body.sortOrder).toBe(7)
+        expect(mockObjectsService.findById).toHaveBeenCalledWith('metahub-1', 'catalog-1', 'user-1')
+        expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', undefined, mockDbSession)
     })
 
     it('creates a custom entity through the generic route surface', async () => {
@@ -359,7 +624,8 @@ describe('Entity instance routes', () => {
             'user-1',
             mockExec
         )
-        expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
+        expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'createContent', mockDbSession)
+        expect(mockEnsureMetahubAccess).not.toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
     })
 
     it('updates a custom entity via the mutation service', async () => {
@@ -379,6 +645,8 @@ describe('Entity instance routes', () => {
                 actionExecutor: expect.any(Function)
             })
         )
+        expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'editContent', mockDbSession)
+        expect(mockEnsureMetahubAccess).not.toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
         expect(mockObjectsService.updateObject).toHaveBeenCalledWith(
             'metahub-1',
             'entity-1',
@@ -402,6 +670,8 @@ describe('Entity instance routes', () => {
                 actionExecutor: expect.any(Function)
             })
         )
+        expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'deleteContent', mockDbSession)
+        expect(mockEnsureMetahubAccess).not.toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
         expect(mockObjectsService.delete).toHaveBeenCalledWith('metahub-1', 'entity-1', 'user-1', mockExec)
     })
 
@@ -417,7 +687,6 @@ describe('Entity instance routes', () => {
         })
         mockResolver.resolve.mockResolvedValueOnce({
             kindKey: 'custom-order',
-            source: 'custom',
             components: {},
             config: {}
         })
@@ -456,6 +725,8 @@ describe('Entity instance routes', () => {
             'user-1',
             mockExec
         )
+        expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'editContent', mockDbSession)
+        expect(mockEnsureMetahubAccess).not.toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
         expect(mockCopyDesignTimeObjectChildren).not.toHaveBeenCalled()
     })
 
@@ -522,12 +793,11 @@ describe('Entity instance routes', () => {
     it('copies enabled design-time children for custom entity kinds', async () => {
         mockResolver.resolve.mockResolvedValueOnce({
             kindKey: 'custom-order',
-            source: 'custom',
             components: {
                 dataSchema: { enabled: true },
-                predefinedElements: { enabled: true },
-                constants: { enabled: true },
-                enumerationValues: { enabled: true }
+                records: { enabled: true },
+                fixedValues: { enabled: true },
+                optionValues: { enabled: true }
             }
         })
 
@@ -542,41 +812,43 @@ describe('Entity instance routes', () => {
                 sourceObjectId: 'entity-1',
                 targetObjectId: 'entity-2',
                 schemaName: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1',
-                copyAttributes: true,
-                copyElements: true,
-                copyConstants: true,
-                copyEnumerationValues: true,
+                copyFieldDefinitions: true,
+                copyRecords: true,
+                copyFixedValues: true,
+                copyOptionValues: true,
                 codenameStyle: 'pascal-case',
                 codenameAlphabet: 'en-ru'
             })
         )
     })
 
-    it('allows catalog-style copy options to suppress design-time child copying for custom entities', async () => {
+    it('allows linked-collection-style copy options to suppress design-time child copying for custom entities', async () => {
         mockResolver.resolve.mockResolvedValueOnce({
             kindKey: 'custom-order',
-            source: 'custom',
             components: {
                 dataSchema: { enabled: true },
-                predefinedElements: { enabled: true },
-                constants: false,
-                enumerationValues: false
+                records: { enabled: true },
+                fixedValues: false,
+                optionValues: false
             }
         })
 
         const app = buildApp()
 
-        await request(app).post('/metahub/metahub-1/entity/entity-1/copy').send({ copyAttributes: false, copyElements: false }).expect(201)
+        await request(app)
+            .post('/metahub/metahub-1/entity/entity-1/copy')
+            .send({ copyFieldDefinitions: false, copyRecords: false })
+            .expect(201)
 
         expect(mockCopyDesignTimeObjectChildren).not.toHaveBeenCalled()
     })
 
-    it('rejects copyElements=true when copyAttributes=false for custom entity copies', async () => {
+    it('rejects copyRecords=true when copyFieldDefinitions=false for custom entity copies', async () => {
         const app = buildApp()
 
         const response = await request(app)
             .post('/metahub/metahub-1/entity/entity-1/copy')
-            .send({ copyAttributes: false, copyElements: true })
+            .send({ copyFieldDefinitions: false, copyRecords: true })
             .expect(400)
 
         expect(response.body.error).toBe('Invalid input')
@@ -647,21 +919,15 @@ describe('Entity instance routes', () => {
         expect(mockObjectsService.permanentDelete).not.toHaveBeenCalled()
     })
 
-    it('uses editContent parity for catalog-compatible creates on the generic route surface', async () => {
+    it('uses createContent for catalog entity creates on the generic route surface', async () => {
         mockResolver.resolve.mockResolvedValueOnce({
-            kindKey: 'custom.catalog-v2',
-            source: 'custom',
-            components: {},
-            config: {
-                compatibility: {
-                    legacyObjectKind: 'catalog'
-                }
-            }
+            kindKey: 'catalog',
+            components: {}
         })
         mockObjectsService.createObject.mockResolvedValueOnce({
             id: 'entity-2',
-            kind: 'custom.catalog-v2',
-            codename: 'CatalogV2'
+            kind: 'catalog',
+            codename: 'Catalog'
         })
 
         const app = buildApp()
@@ -669,32 +935,26 @@ describe('Entity instance routes', () => {
         await request(app)
             .post('/metahub/metahub-1/entities')
             .send({
-                kind: 'custom.catalog-v2',
-                codename: 'CatalogV2',
-                name: { en: 'Catalogs V2' },
+                kind: 'catalog',
+                codename: 'Catalog',
+                name: { en: 'Catalog' },
                 namePrimaryLocale: 'en'
             })
             .expect(201)
 
-        expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'editContent', mockDbSession)
+        expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'createContent', mockDbSession)
         expect(mockEnsureMetahubAccess).not.toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
     })
 
-    it('uses editContent parity for set-compatible creates on the generic route surface', async () => {
+    it('uses createContent for set-compatible creates on the generic route surface', async () => {
         mockResolver.resolve.mockResolvedValueOnce({
-            kindKey: 'custom.set-v2',
-            source: 'custom',
-            components: {},
-            config: {
-                compatibility: {
-                    legacyObjectKind: 'set'
-                }
-            }
+            kindKey: 'set',
+            components: {}
         })
         mockObjectsService.createObject.mockResolvedValueOnce({
             id: 'entity-2',
-            kind: 'custom.set-v2',
-            codename: 'SetV2'
+            kind: 'set',
+            codename: 'Set'
         })
 
         const app = buildApp()
@@ -702,27 +962,21 @@ describe('Entity instance routes', () => {
         await request(app)
             .post('/metahub/metahub-1/entities')
             .send({
-                kind: 'custom.set-v2',
-                codename: 'SetV2',
-                name: { en: 'Sets V2' },
+                kind: 'set',
+                codename: 'Set',
+                name: { en: 'Set' },
                 namePrimaryLocale: 'en'
             })
             .expect(201)
 
-        expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'editContent', mockDbSession)
+        expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'createContent', mockDbSession)
         expect(mockEnsureMetahubAccess).not.toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
     })
 
-    it('returns 403 when metahub access check fails for catalog-compatible creates on the generic route surface', async () => {
+    it('returns 403 when metahub access check fails for catalog entity creates on the generic route surface', async () => {
         mockResolver.resolve.mockResolvedValueOnce({
-            kindKey: 'custom.catalog-v2',
-            source: 'custom',
-            components: {},
-            config: {
-                compatibility: {
-                    legacyObjectKind: 'catalog'
-                }
-            }
+            kindKey: 'catalog',
+            components: {}
         })
         mockEnsureMetahubAccess.mockRejectedValueOnce(Object.assign(new Error('Access denied to this metahub'), { statusCode: 403 }))
 
@@ -731,9 +985,9 @@ describe('Entity instance routes', () => {
         const response = await request(app)
             .post('/metahub/metahub-1/entities')
             .send({
-                kind: 'custom.catalog-v2',
-                codename: 'CatalogV2',
-                name: { en: 'Catalogs V2' },
+                kind: 'catalog',
+                codename: 'Catalog',
+                name: { en: 'Catalog' },
                 namePrimaryLocale: 'en'
             })
             .expect(403)
@@ -742,28 +996,22 @@ describe('Entity instance routes', () => {
         expect(mockObjectsService.createObject).not.toHaveBeenCalled()
     })
 
-    it('rejects catalog-compatible copies when catalogs.allowCopy is disabled', async () => {
+    it('rejects catalog entity copies when entity.catalog.allowCopy is disabled', async () => {
         mockResolver.resolve.mockResolvedValueOnce({
-            kindKey: 'custom.catalog-v2',
-            source: 'custom',
-            components: {},
-            config: {
-                compatibility: {
-                    legacyObjectKind: 'catalog'
-                }
-            }
+            kindKey: 'catalog',
+            components: {}
         })
         mockObjectsService.findById.mockResolvedValueOnce({
             id: 'entity-1',
-            kind: 'custom.catalog-v2',
-            codename: 'CatalogV2',
-            name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Catalogs V2' } } },
+            kind: 'catalog',
+            codename: 'Catalog',
+            name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Catalog' } } },
             description: null,
             config: { enabled: true },
             _mhb_deleted: false
         })
         mockSettingsService.findByKey.mockImplementation(async (_metahubId: string, key: string) => {
-            if (key === 'catalogs.allowCopy') {
+            if (key === 'entity.catalog.allowCopy') {
                 return { key, value: { _value: false } }
             }
             return null
@@ -778,28 +1026,22 @@ describe('Entity instance routes', () => {
         expect(mockObjectsService.createObject).not.toHaveBeenCalled()
     })
 
-    it('rejects set-compatible copies when sets.allowCopy is disabled', async () => {
+    it('rejects set-compatible copies when entity.set.allowCopy is disabled', async () => {
         mockResolver.resolve.mockResolvedValueOnce({
-            kindKey: 'custom.set-v2',
-            source: 'custom',
-            components: {},
-            config: {
-                compatibility: {
-                    legacyObjectKind: 'set'
-                }
-            }
+            kindKey: 'set',
+            components: {}
         })
         mockObjectsService.findById.mockResolvedValueOnce({
             id: 'entity-1',
-            kind: 'custom.set-v2',
-            codename: 'SetV2',
-            name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Sets V2' } } },
+            kind: 'set',
+            codename: 'Set',
+            name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Set' } } },
             description: null,
             config: { enabled: true },
             _mhb_deleted: false
         })
         mockSettingsService.findByKey.mockImplementation(async (_metahubId: string, key: string) => {
-            if (key === 'sets.allowCopy') {
+            if (key === 'entity.set.allowCopy') {
                 return { key, value: { _value: false } }
             }
             return null
@@ -815,31 +1057,25 @@ describe('Entity instance routes', () => {
         expect(mockObjectsService.createObject).not.toHaveBeenCalled()
     })
 
-    it('blocks catalog-compatible deletes when other catalogs reference the entity', async () => {
+    it('blocks catalog entity deletes when other catalogs reference the entity', async () => {
         mockResolver.resolve.mockResolvedValueOnce({
-            kindKey: 'custom.catalog-v2',
-            source: 'custom',
-            components: {},
-            config: {
-                compatibility: {
-                    legacyObjectKind: 'catalog'
-                }
-            }
+            kindKey: 'catalog',
+            components: {}
         })
         mockObjectsService.findById.mockResolvedValueOnce({
             id: 'entity-1',
-            kind: 'custom.catalog-v2',
-            codename: 'CatalogV2',
-            name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Catalogs V2' } } },
+            kind: 'catalog',
+            codename: 'Catalog',
+            name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Catalog' } } },
             description: null,
             config: { enabled: true },
             _mhb_deleted: false
         })
-        mockAttributesService.findCatalogReferenceBlockers.mockResolvedValueOnce([
+        mockFieldDefinitionsService.findCatalogReferenceBlockers.mockResolvedValueOnce([
             {
-                sourceCatalogId: 'catalog-2',
+                sourceLinkedCollectionId: 'catalog-2',
                 sourceCatalogCodename: 'source-catalog',
-                attributeId: 'attribute-1',
+                fieldDefinitionId: 'attribute-1',
                 attributeCodename: 'linked-attribute'
             }
         ])
@@ -848,7 +1084,9 @@ describe('Entity instance routes', () => {
 
         const response = await request(app).delete('/metahub/metahub-1/entity/entity-1').expect(409)
 
-        expect(response.body.error).toBe('Cannot delete catalog: it is referenced by attributes in other catalogs')
+        expect(response.body.error).toBe(
+            'Cannot delete linked collection: it is referenced by field definitions in other linked collections'
+        )
         expect(response.body.blockingReferences).toHaveLength(1)
         expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'deleteContent', mockDbSession)
         expect(mockObjectsService.delete).not.toHaveBeenCalled()
@@ -856,26 +1094,20 @@ describe('Entity instance routes', () => {
 
     it('blocks set-compatible deletes when blocking constant references exist', async () => {
         mockResolver.resolve.mockResolvedValueOnce({
-            kindKey: 'custom.set-v2',
-            source: 'custom',
-            components: {},
-            config: {
-                compatibility: {
-                    legacyObjectKind: 'set'
-                }
-            }
+            kindKey: 'set',
+            components: {}
         })
         mockObjectsService.findById.mockResolvedValueOnce({
             id: 'entity-1',
-            kind: 'custom.set-v2',
-            codename: 'SetV2',
+            kind: 'set',
+            codename: 'Set',
             _mhb_deleted: false
         })
-        mockConstantsService.findSetReferenceBlockers.mockResolvedValueOnce([
+        mockFixedValuesService.findSetReferenceBlockers.mockResolvedValueOnce([
             {
-                sourceCatalogId: 'catalog-2',
+                sourceLinkedCollectionId: 'catalog-2',
                 sourceCatalogCodename: 'ProductsCatalog',
-                attributeId: 'attr-1',
+                fieldDefinitionId: 'attr-1',
                 attributeCodename: 'OwnerRef'
             }
         ])
@@ -884,7 +1116,7 @@ describe('Entity instance routes', () => {
 
         const response = await request(app).delete('/metahub/metahub-1/entity/entity-1').expect(409)
 
-        expect(response.body.error).toBe('Cannot delete set because there are blocking references')
+        expect(response.body.error).toBe('Cannot delete value group because there are blocking references')
         expect(response.body.code).toBe('SET_DELETE_BLOCKED_BY_REFERENCES')
         expect(response.body.blockingReferences).toHaveLength(1)
         expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'deleteContent', mockDbSession)
@@ -894,70 +1126,196 @@ describe('Entity instance routes', () => {
 
     it('blocks hub-compatible deletes when required relations or child hubs would become orphaned', async () => {
         mockResolver.resolve.mockResolvedValueOnce({
-            kindKey: 'custom.hub-v2',
-            source: 'custom',
-            components: {},
-            config: {
-                compatibility: {
-                    legacyObjectKind: 'hub'
-                }
-            }
+            kindKey: 'hub',
+            components: {}
         })
         mockObjectsService.findById.mockResolvedValueOnce({
             id: 'entity-1',
-            kind: 'custom.hub-v2',
-            codename: 'HubV2',
+            kind: 'hub',
+            codename: 'Hub',
             _mhb_deleted: false
         })
-        mockEntityTypeService.listCustomTypes.mockResolvedValueOnce([
+        mockEntityTypeService.listEditableTypes.mockResolvedValueOnce([
             {
-                kindKey: 'custom.hub-v2',
-                config: { compatibility: { legacyObjectKind: 'hub' } }
+                kindKey: 'hub'
             }
         ])
-        mockExec.query
-            .mockResolvedValueOnce([])
-            .mockResolvedValueOnce([
-                {
-                    id: 'child-hub-1',
-                    codename: 'ChildHub',
-                    presentation: { name: { en: 'Child hub' } }
-                }
-            ])
+        mockExec.query.mockResolvedValueOnce([]).mockResolvedValueOnce([
+            {
+                id: 'child-hub-1',
+                codename: 'ChildHub',
+                presentation: { name: { en: 'Child hub' } }
+            }
+        ])
 
         const app = buildApp()
 
         const response = await request(app).delete('/metahub/metahub-1/entity/entity-1').expect(409)
 
-        expect(response.body.error).toBe('Cannot delete hub: required objects would become orphaned')
+        expect(response.body.error).toBe('Cannot delete tree entity: required objects would become orphaned')
         expect(response.body.totalBlocking).toBe(1)
-        expect(response.body.blockingChildHubs).toHaveLength(1)
+        expect(response.body.blockingChildTreeEntities).toHaveLength(1)
         expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'deleteContent', mockDbSession)
         expect(mockEnsureMetahubAccess).not.toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
         expect(mockObjectsService.delete).not.toHaveBeenCalled()
     })
 
-    it('removes hub relations before deleting hub-compatible custom entities', async () => {
+    it('returns hub blocking dependencies through the behavior-based entity endpoint', async () => {
         mockResolver.resolve.mockResolvedValueOnce({
-            kindKey: 'custom.hub-v2',
-            source: 'custom',
-            components: {},
-            config: {
-                compatibility: {
-                    legacyObjectKind: 'hub'
-                }
-            }
+            kindKey: 'hub',
+            components: {}
         })
         mockObjectsService.findById.mockResolvedValueOnce({
             id: 'entity-1',
-            kind: 'custom.hub-v2',
-            codename: 'HubV2',
+            kind: 'hub',
+            codename: 'Hub',
             _mhb_deleted: false
         })
-        mockEntityTypeService.listCustomTypes.mockResolvedValueOnce([
+        mockEntityTypeService.listEditableTypes.mockResolvedValueOnce([
             {
-                kindKey: 'custom.hub-v2',
-                config: { compatibility: { legacyObjectKind: 'hub' } }
+                kindKey: 'hub'
+            }
+        ])
+        mockExec.query.mockResolvedValueOnce([]).mockResolvedValueOnce([
+            {
+                id: 'child-hub-1',
+                codename: 'ChildHub',
+                presentation: { name: { en: 'Child hub' } }
+            }
+        ])
+
+        const app = buildApp()
+
+        const response = await request(app).get('/metahub/metahub-1/entities/hub/instance/entity-1/blocking-dependencies').expect(200)
+
+        expect(response.body.treeEntityId).toBe('entity-1')
+        expect(response.body.totalBlocking).toBe(1)
+        expect(response.body.canDelete).toBe(false)
+        expect(response.body.blockingChildTreeEntities).toHaveLength(1)
+        expect(mockObjectsService.findById).toHaveBeenCalledWith('metahub-1', 'entity-1', 'user-1')
+        expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', undefined, mockDbSession)
+        expect(mockEnsureMetahubAccess).not.toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
+    })
+
+    it('returns catalog blocking references through the behavior-based entity endpoint', async () => {
+        mockResolver.resolve.mockResolvedValueOnce({
+            kindKey: 'catalog',
+            components: {},
+            config: {}
+        })
+        mockObjectsService.findById.mockResolvedValueOnce({
+            id: 'entity-1',
+            kind: 'catalog',
+            codename: 'Catalog',
+            _mhb_deleted: false
+        })
+        mockFieldDefinitionsService.findCatalogReferenceBlockers.mockResolvedValueOnce([
+            {
+                sourceLinkedCollectionId: 'catalog-2',
+                sourceCatalogCodename: 'ProductsCatalog',
+                fieldDefinitionId: 'attr-1',
+                attributeCodename: 'OwnerRef'
+            }
+        ])
+
+        const app = buildApp()
+
+        const response = await request(app).get('/metahub/metahub-1/entities/catalog/instance/entity-1/blocking-references').expect(200)
+
+        expect(response.body.linkedCollectionId).toBe('entity-1')
+        expect(response.body.canDelete).toBe(false)
+        expect(response.body.blockingReferences).toHaveLength(1)
+        expect(mockObjectsService.findById).toHaveBeenCalledWith('metahub-1', 'entity-1', 'user-1')
+        expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', undefined, mockDbSession)
+    })
+
+    it('returns set blocking references through the behavior-based entity endpoint', async () => {
+        mockResolver.resolve.mockResolvedValueOnce({
+            kindKey: 'set',
+            components: {},
+            config: {}
+        })
+        mockObjectsService.findById.mockResolvedValueOnce({
+            id: 'entity-1',
+            kind: 'set',
+            codename: 'Set',
+            _mhb_deleted: false
+        })
+        mockFixedValuesService.findSetReferenceBlockers.mockResolvedValueOnce([
+            {
+                sourceLinkedCollectionId: 'catalog-2',
+                sourceCatalogCodename: 'ProductsCatalog',
+                fieldDefinitionId: 'attr-1',
+                attributeCodename: 'OwnerRef'
+            }
+        ])
+
+        const app = buildApp()
+
+        const response = await request(app).get('/metahub/metahub-1/entities/set/instance/entity-1/blocking-references').expect(200)
+
+        expect(response.body.valueGroupId).toBe('entity-1')
+        expect(response.body.canDelete).toBe(false)
+        expect(response.body.blockingReferences).toHaveLength(1)
+        expect(mockObjectsService.findById).toHaveBeenCalledWith('metahub-1', 'entity-1', 'user-1')
+        expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', undefined, mockDbSession)
+    })
+
+    it('returns enumeration blocking references through the behavior-based entity endpoint', async () => {
+        mockResolver.resolve.mockResolvedValueOnce({
+            kindKey: 'enumeration',
+            components: {},
+            config: {}
+        })
+        mockObjectsService.findById.mockResolvedValueOnce({
+            id: 'entity-1',
+            kind: 'enumeration',
+            codename: 'Enumeration',
+            _mhb_deleted: false
+        })
+        mockFieldDefinitionsService.findReferenceBlockersByTarget.mockResolvedValueOnce([
+            {
+                sourceLinkedCollectionId: 'catalog-2',
+                sourceCatalogCodename: 'ProductsCatalog',
+                fieldDefinitionId: 'attr-1',
+                attributeCodename: 'OwnerRef'
+            }
+        ])
+
+        const app = buildApp()
+
+        const response = await request(app).get('/metahub/metahub-1/entities/enumeration/instance/entity-1/blocking-references').expect(200)
+
+        expect(response.body.optionListId).toBe('entity-1')
+        expect(response.body.canDelete).toBe(false)
+        expect(response.body.blockingReferences).toHaveLength(1)
+        expect(mockObjectsService.findById).toHaveBeenCalledWith('metahub-1', 'entity-1', 'user-1')
+        expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', undefined, mockDbSession)
+    })
+
+    it('rejects hub blocking-references requests on the generic behavior-based endpoint', async () => {
+        const app = buildApp()
+
+        const response = await request(app).get('/metahub/metahub-1/entities/hub/instance/entity-1/blocking-references').expect(404)
+
+        expect(response.body.error).toBe('Entity not found')
+        expect(mockResolver.resolve).not.toHaveBeenCalledWith('hub', { metahubId: 'metahub-1', userId: 'user-1' })
+    })
+
+    it('removes hub relations before deleting hub-compatible custom entities', async () => {
+        mockResolver.resolve.mockResolvedValueOnce({
+            kindKey: 'hub',
+            components: {}
+        })
+        mockObjectsService.findById.mockResolvedValueOnce({
+            id: 'entity-1',
+            kind: 'hub',
+            codename: 'Hub',
+            _mhb_deleted: false
+        })
+        mockEntityTypeService.listEditableTypes.mockResolvedValueOnce([
+            {
+                kindKey: 'hub'
             }
         ])
         mockExec.query.mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce([])
@@ -979,25 +1337,19 @@ describe('Entity instance routes', () => {
 
     it('blocks enumeration-compatible permanent delete when attributes still reference the entity', async () => {
         mockResolver.resolve.mockResolvedValueOnce({
-            kindKey: 'custom.enumeration-v2',
-            source: 'custom',
-            components: {},
-            config: {
-                compatibility: {
-                    legacyObjectKind: 'enumeration'
-                }
-            }
+            kindKey: 'enumeration',
+            components: {}
         })
         mockObjectsService.findById.mockResolvedValueOnce({
             id: 'entity-1',
-            kind: 'custom.enumeration-v2',
-            codename: 'EnumerationV2',
+            kind: 'enumeration',
+            codename: 'Enumeration',
             _mhb_deleted: true
         })
-        mockAttributesService.findReferenceBlockersByTarget.mockResolvedValueOnce([
+        mockFieldDefinitionsService.findReferenceBlockersByTarget.mockResolvedValueOnce([
             {
-                attributeId: 'attr-1',
-                catalogId: 'catalog-1',
+                fieldDefinitionId: 'attr-1',
+                linkedCollectionId: 'catalog-1',
                 codename: 'status'
             }
         ])
@@ -1006,32 +1358,26 @@ describe('Entity instance routes', () => {
 
         const response = await request(app).delete('/metahub/metahub-1/entity/entity-1/permanent').expect(409)
 
-        expect(response.body.error).toBe('Cannot delete enumeration: it is referenced by attributes')
+        expect(response.body.error).toBe('Cannot delete option list: it is referenced by field definitions')
         expect(response.body.blockingReferences).toHaveLength(1)
         expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'deleteContent', mockDbSession)
         expect(mockEnsureMetahubAccess).not.toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
         expect(mockObjectsService.permanentDelete).not.toHaveBeenCalled()
     })
 
-    it('rejects catalog-compatible permanent delete when catalogs.allowDelete is disabled', async () => {
+    it('rejects catalog entity permanent delete when entity.catalog.allowDelete is disabled', async () => {
         mockResolver.resolve.mockResolvedValueOnce({
-            kindKey: 'custom.catalog-v2',
-            source: 'custom',
-            components: {},
-            config: {
-                compatibility: {
-                    legacyObjectKind: 'catalog'
-                }
-            }
+            kindKey: 'catalog',
+            components: {}
         })
         mockObjectsService.findById.mockResolvedValueOnce({
             id: 'entity-1',
-            kind: 'custom.catalog-v2',
-            codename: 'CatalogV2',
+            kind: 'catalog',
+            codename: 'Catalog',
             _mhb_deleted: true
         })
         mockSettingsService.findByKey.mockImplementation(async (_metahubId: string, key: string) => {
-            if (key === 'catalogs.allowDelete') {
+            if (key === 'entity.catalog.allowDelete') {
                 return { key, value: { _value: false } }
             }
             return null
@@ -1041,30 +1387,24 @@ describe('Entity instance routes', () => {
 
         const response = await request(app).delete('/metahub/metahub-1/entity/entity-1/permanent').expect(403)
 
-        expect(response.body.error).toBe('Deleting catalogs is disabled in metahub settings')
+        expect(response.body.error).toBe('Deleting linked collections is disabled in metahub settings')
         expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'deleteContent', mockDbSession)
         expect(mockObjectsService.permanentDelete).not.toHaveBeenCalled()
     })
 
-    it('rejects enumeration-compatible permanent delete when enumerations.allowDelete is disabled', async () => {
+    it('rejects enumeration-compatible permanent delete when entity.enumeration.allowDelete is disabled', async () => {
         mockResolver.resolve.mockResolvedValueOnce({
-            kindKey: 'custom.enumeration-v2',
-            source: 'custom',
-            components: {},
-            config: {
-                compatibility: {
-                    legacyObjectKind: 'enumeration'
-                }
-            }
+            kindKey: 'enumeration',
+            components: {}
         })
         mockObjectsService.findById.mockResolvedValueOnce({
             id: 'entity-1',
-            kind: 'custom.enumeration-v2',
-            codename: 'EnumerationV2',
+            kind: 'enumeration',
+            codename: 'Enumeration',
             _mhb_deleted: true
         })
         mockSettingsService.findByKey.mockImplementation(async (_metahubId: string, key: string) => {
-            if (key === 'enumerations.allowDelete') {
+            if (key === 'entity.enumeration.allowDelete') {
                 return { key, value: { _value: false } }
             }
             return null
@@ -1074,7 +1414,7 @@ describe('Entity instance routes', () => {
 
         const response = await request(app).delete('/metahub/metahub-1/entity/entity-1/permanent').expect(403)
 
-        expect(response.body.error).toBe('Deleting enumerations is disabled in metahub settings')
+        expect(response.body.error).toBe('Deleting option lists is disabled in metahub settings')
         expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'deleteContent', mockDbSession)
         expect(mockEnsureMetahubAccess).not.toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
         expect(mockObjectsService.permanentDelete).not.toHaveBeenCalled()

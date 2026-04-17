@@ -11,11 +11,11 @@ import {
 } from '@universo/template-mui'
 import { metahubsQueryKeys } from './queryKeys'
 
-type HubScopedEntitySegment = 'sets' | 'catalogs' | 'enumerations'
+type HubScopedEntitySegment = 'valueGroups' | 'linkedCollections' | 'optionLists'
 
 type EntityWithOptionalHubs = {
     id: string
-    hubs?: Array<{ id: string }>
+    treeEntities?: Array<{ id: string }>
     [key: string]: unknown
 }
 
@@ -25,8 +25,8 @@ type CopyScopeOptions = {
     entityId: string
     entitySegment: HubScopedEntitySegment
     broadQueryKeyPrefix: QueryKey
-    scopedQueryKeyPrefixFactory: (hubId: string) => QueryKey
-    knownHubIds?: string[]
+    scopedQueryKeyPrefixFactory: (treeEntityId: string) => QueryKey
+    knownTreeEntityIds?: string[]
 }
 
 type MultiScopeApplyOptions<T extends { id: string }> = Omit<ApplyOptimisticCreateOptions<T>, 'queryKeyPrefix'> & {
@@ -71,7 +71,11 @@ const queryKeyStartsWith = (queryKey: QueryKey, prefix: readonly unknown[]): boo
     return prefix.length <= queryKey.length && prefix.every((value, index) => queryKey[index] === value)
 }
 
-const extractHubIdFromScopedQueryKey = (queryKey: QueryKey, metahubId: string, entitySegment: HubScopedEntitySegment): string | null => {
+const extractTreeEntityIdFromScopedQueryKey = (
+    queryKey: QueryKey,
+    metahubId: string,
+    entitySegment: HubScopedEntitySegment
+): string | null => {
     const detailPrefix = metahubsQueryKeys.detail(metahubId)
 
     if (!queryKeyStartsWith(queryKey, detailPrefix)) {
@@ -81,7 +85,7 @@ const extractHubIdFromScopedQueryKey = (queryKey: QueryKey, metahubId: string, e
     const relativeParts = queryKey.slice(detailPrefix.length)
 
     if (
-        relativeParts[0] !== 'hubs' ||
+        relativeParts[0] !== 'treeEntities' ||
         relativeParts[1] !== 'detail' ||
         typeof relativeParts[2] !== 'string' ||
         relativeParts[3] !== entitySegment
@@ -99,9 +103,9 @@ export const collectMetahubCopyQueryKeyPrefixes = ({
     entitySegment,
     broadQueryKeyPrefix,
     scopedQueryKeyPrefixFactory,
-    knownHubIds = []
+    knownTreeEntityIds = []
 }: CopyScopeOptions): QueryKey[] => {
-    const hubIds = new Set<string>(knownHubIds.filter((hubId) => hubId.length > 0))
+    const treeEntityIds = new Set<string>(knownTreeEntityIds.filter((treeEntityId) => treeEntityId.length > 0))
     const cachedEntries = queryClient.getQueriesData<ListCache<EntityWithOptionalHubs> | RowsListCache<EntityWithOptionalHubs>>({
         queryKey: metahubsQueryKeys.detail(metahubId)
     })
@@ -112,19 +116,22 @@ export const collectMetahubCopyQueryKeyPrefixes = ({
             continue
         }
 
-        for (const hub of matchedEntity.hubs ?? []) {
+        for (const hub of matchedEntity.treeEntities ?? []) {
             if (typeof hub?.id === 'string' && hub.id.length > 0) {
-                hubIds.add(hub.id)
+                treeEntityIds.add(hub.id)
             }
         }
 
-        const hubIdFromQueryKey = extractHubIdFromScopedQueryKey(queryKey, metahubId, entitySegment)
+        const hubIdFromQueryKey = extractTreeEntityIdFromScopedQueryKey(queryKey, metahubId, entitySegment)
         if (hubIdFromQueryKey) {
-            hubIds.add(hubIdFromQueryKey)
+            treeEntityIds.add(hubIdFromQueryKey)
         }
     }
 
-    return uniqueQueryKeyPrefixes([broadQueryKeyPrefix, ...Array.from(hubIds).map((hubId) => scopedQueryKeyPrefixFactory(hubId))])
+    return uniqueQueryKeyPrefixes([
+        broadQueryKeyPrefix,
+        ...Array.from(treeEntityIds).map((treeEntityId) => scopedQueryKeyPrefixFactory(treeEntityId))
+    ])
 }
 
 export const applyOptimisticCreateToQueryKeyPrefixes = async <T extends { id: string }>(

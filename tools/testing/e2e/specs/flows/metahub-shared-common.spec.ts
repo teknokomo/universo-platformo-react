@@ -6,21 +6,21 @@ import { waitForSettledMutationResponse } from '../../support/browser/network'
 import {
     createLoggedInApiContext,
     createMetahub,
-    createMetahubCatalog,
+    createLinkedCollection,
     createPublication,
     createPublicationLinkedApplication,
     createPublicationVersion,
     disposeApiContext,
     getApplicationRuntime,
     getLayout,
-    listCatalogAttributes,
-    listEnumerationValues,
+    listFieldDefinitions,
+    listOptionValues,
     listLayoutZoneWidgets,
     listLayouts,
-    listMetahubCatalogs,
-    listMetahubEnumerations,
-    listMetahubSets,
-    listSetConstants,
+    listLinkedCollections,
+    listOptionLists,
+    listValueGroups,
+    listFixedValues,
     sendWithCsrf,
     syncApplicationSchema,
     syncPublication,
@@ -404,7 +404,7 @@ async function createSharedLibraryScriptThroughBrowser(
     sourceCode = SHARED_LIBRARY_SOURCE
 ) {
     await page.goto(`/metahub/${metahubId}/common`)
-    await expect(page.getByRole('heading', { name: 'Common' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Common|Shared/ })).toBeVisible()
     await expect(page.getByTestId(pageSpacingSelectors.metahubCommonTabs)).toBeVisible()
     await page.getByRole('tab', { name: 'Scripts', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Attached scripts' })).toBeVisible()
@@ -476,7 +476,7 @@ async function createImportedWidgetScriptThroughBrowser(page: Page, metahubId: s
 
 async function openCommonScriptsTab(page: Page, metahubId: string) {
     await page.goto(`/metahub/${metahubId}/common`)
-    await expect(page.getByRole('heading', { name: 'Common' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Common|Shared/ })).toBeVisible()
     await expect(page.getByTestId(pageSpacingSelectors.metahubCommonTabs)).toBeVisible()
     await page.getByRole('tab', { name: 'Scripts', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Attached scripts' })).toBeVisible()
@@ -580,16 +580,16 @@ test('@flow Common shared entities merge, exclusion, publication, and runtime st
         })
 
         const defaultCatalogId = await waitForFirstEntityId(
-            () => listMetahubCatalogs(api, metahub.id, { limit: 100, offset: 0 }),
+            () => listLinkedCollections(api, metahub.id, { limit: 100, offset: 0 }),
             'catalog'
         )
         const enumerationId = await waitForFirstEntityId(
-            () => listMetahubEnumerations(api, metahub.id, { limit: 100, offset: 0 }),
+            () => listOptionLists(api, metahub.id, { limit: 100, offset: 0 }),
             'enumeration'
         )
-        const setId = await waitForFirstEntityId(() => listMetahubSets(api, metahub.id, { limit: 100, offset: 0 }), 'set')
+        const setId = await waitForFirstEntityId(() => listValueGroups(api, metahub.id, { limit: 100, offset: 0 }), 'set')
 
-        const excludedCatalog = await createMetahubCatalog(api, metahub.id, {
+        const excludedCatalog = await createLinkedCollection(api, metahub.id, {
             name: { en: excludedCatalogName },
             namePrimaryLocale: 'en',
             codename: createLocalizedContent('en', excludedCatalogCodename)
@@ -599,14 +599,14 @@ test('@flow Common shared entities merge, exclusion, publication, and runtime st
             throw new Error('Excluded catalog creation did not return an id for shared Common coverage')
         }
 
-        const catalogsPayload = await listMetahubCatalogs(api, metahub.id, { limit: 100, offset: 0 })
+        const catalogsPayload = await listLinkedCollections(api, metahub.id, { limit: 100, offset: 0 })
         const defaultCatalogName = readLocalizedText(catalogsPayload.items?.find((item) => item.id === defaultCatalogId)?.name, 'en')
         if (!defaultCatalogName) {
             throw new Error('Default catalog name could not be resolved for shared Common coverage')
         }
 
         await page.goto(`/metahub/${metahub.id}/common`)
-        await expect(page.getByRole('heading', { name: 'Common' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: /Common|Shared/ })).toBeVisible()
         await expect(page.getByTestId(pageSpacingSelectors.metahubCommonTabs)).toBeVisible()
         await expectEmbeddedCommonControlsAlignedEnd(page)
 
@@ -622,8 +622,8 @@ test('@flow Common shared entities merge, exclusion, publication, and runtime st
             page,
             (response) =>
                 response.request().method() === 'POST' &&
-                response.url().includes(`/api/v1/metahub/${metahub.id}/catalog/`) &&
-                response.url().endsWith('/attributes'),
+                response.url().includes(`/api/v1/metahub/${metahub.id}/entities/catalog/instance/`) &&
+                response.url().endsWith('/field-definitions'),
             { label: 'Creating shared attribute' }
         )
         await attributeDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -642,8 +642,8 @@ test('@flow Common shared entities merge, exclusion, publication, and runtime st
             page,
             (response) =>
                 response.request().method() === 'POST' &&
-                response.url().includes(`/api/v1/metahub/${metahub.id}/set/`) &&
-                response.url().endsWith('/constants'),
+                response.url().includes(`/api/v1/metahub/${metahub.id}/entities/set/instance/`) &&
+                response.url().endsWith('/fixed-values'),
             { label: 'Creating shared constant' }
         )
         await constantDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -662,7 +662,7 @@ test('@flow Common shared entities merge, exclusion, publication, and runtime st
             page,
             (response) =>
                 response.request().method() === 'POST' &&
-                response.url().includes(`/api/v1/metahub/${metahub.id}/enumeration/`) &&
+                response.url().includes(`/api/v1/metahub/${metahub.id}/entities/enumeration/instance/`) &&
                 response.url().endsWith('/values'),
             { label: 'Creating shared enumeration value' }
         )
@@ -705,48 +705,48 @@ test('@flow Common shared entities merge, exclusion, publication, and runtime st
         await expect(editAttributeDialog).toHaveCount(0)
 
         await waitForListEntity(
-            () => listCatalogAttributes(api, metahub.id, defaultCatalogId, { limit: 100, offset: 0, includeShared: true }),
+            () => listFieldDefinitions(api, metahub.id, defaultCatalogId, { limit: 100, offset: 0, includeShared: true }),
             createdAttribute.id,
             'shared attribute in included catalog'
         )
         await waitForEntityAbsence(
-            () => listCatalogAttributes(api, metahub.id, excludedCatalog.id, { limit: 100, offset: 0, includeShared: true }),
+            () => listFieldDefinitions(api, metahub.id, excludedCatalog.id, { limit: 100, offset: 0, includeShared: true }),
             createdAttribute.id,
             'shared attribute in excluded catalog'
         )
         await waitForListEntity(
-            () => listSetConstants(api, metahub.id, setId, { limit: 100, offset: 0, includeShared: true }),
+            () => listFixedValues(api, metahub.id, setId, { limit: 100, offset: 0, includeShared: true }),
             createdConstant.id,
             'shared constant in merged list'
         )
         await waitForListEntity(
-            () => listEnumerationValues(api, metahub.id, enumerationId, { includeShared: true }),
+            () => listOptionValues(api, metahub.id, enumerationId, { includeShared: true }),
             createdValue.id,
             'shared enumeration value in merged list'
         )
 
-        await page.goto(`/metahub/${metahub.id}/catalog/${defaultCatalogId}/attributes`)
-        await expect(page.getByRole('heading', { name: 'Attributes' })).toBeVisible()
+        await page.goto(`/metahub/${metahub.id}/entities/catalog/instance/${defaultCatalogId}/field-definitions`)
+        await expect(page.getByRole('heading', { name: 'Field Definitions' })).toBeVisible()
         await expect(page.getByText(sharedAttributeName, { exact: true })).toBeVisible()
         await expect(page.getByText('Shared', { exact: true }).first()).toBeVisible()
         await expect(page.getByTestId(buildEntityMenuTriggerSelector('attribute', createdAttribute.id))).toBeVisible()
 
-        await page.goto(`/metahub/${metahub.id}/catalog/${excludedCatalog.id}/attributes`)
-        await expect(page.getByRole('heading', { name: 'Attributes' })).toBeVisible()
+        await page.goto(`/metahub/${metahub.id}/entities/catalog/instance/${excludedCatalog.id}/field-definitions`)
+        await expect(page.getByRole('heading', { name: 'Field Definitions' })).toBeVisible()
         await expect(page.getByText(sharedAttributeName, { exact: true })).toHaveCount(0)
 
-        await page.goto(`/metahub/${metahub.id}/set/${setId}/constants`)
-        await expect(page.getByRole('heading', { name: 'Constants' })).toBeVisible()
+        await page.goto(`/metahub/${metahub.id}/entities/set/instance/${setId}/fixed-values`)
+        await expect(page.getByRole('heading', { name: 'Fixed values' })).toBeVisible()
         await expect(page.getByText(sharedConstantName, { exact: true })).toBeVisible()
         await expect(page.getByTestId(buildEntityMenuTriggerSelector('constant', createdConstant.id))).toBeVisible()
 
-        await page.goto(`/metahub/${metahub.id}/enumeration/${enumerationId}/values`)
+        await page.goto(`/metahub/${metahub.id}/entities/enumeration/instance/${enumerationId}/values`)
         await expect(page.getByRole('heading', { name: 'Values' })).toBeVisible()
         await expect(page.getByText(sharedValueName, { exact: true })).toBeVisible()
         await expect(page.getByTestId(buildEntityMenuTriggerSelector('enumerationValue', createdValue.id))).toBeVisible()
 
         await applyBrowserPreferences(page, { language: 'ru' })
-        await page.goto(`/metahub/${metahub.id}/catalog/${defaultCatalogId}/attributes`)
+        await page.goto(`/metahub/${metahub.id}/entities/catalog/instance/${defaultCatalogId}/field-definitions`)
         await expect(page.getByText('Общая', { exact: true }).first()).toBeVisible()
         await captureProofScreenshot(page, testInfo, 'shared-common-ru-badge.png')
         await page.getByTestId(buildEntityMenuTriggerSelector('attribute', createdAttribute.id)).click()

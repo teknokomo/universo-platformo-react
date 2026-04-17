@@ -157,7 +157,7 @@ async function waitForServerReady(timeoutMs) {
             return
         }
 
-        await sleep(1_000)
+        await sleep(env.serverPollIntervalMs)
     }
 
     throw new Error(`E2E server did not become ready at ${pingUrl} within ${timeoutMs}ms`)
@@ -171,7 +171,7 @@ async function waitForServerStopped(timeoutMs) {
             return
         }
 
-        await sleep(250)
+        await sleep(Math.min(env.serverPollIntervalMs, 250))
     }
 
     throw new Error(`E2E server at ${env.baseURL} did not stop within ${timeoutMs}ms`)
@@ -223,7 +223,7 @@ async function startServerIfNeeded() {
         })
     })
 
-    await Promise.race([waitForServerReady(180_000), earlyExit])
+    await Promise.race([waitForServerReady(env.serverReadyTimeoutMs), earlyExit])
     return true
 }
 
@@ -256,7 +256,7 @@ async function stopServerIfOwned() {
 
     await exitPromise
     clearTimeout(forcedKillTimer)
-    await waitForServerStopped(15_000)
+    await waitForServerStopped(env.serverStopTimeoutMs)
     serverProcess = null
 }
 

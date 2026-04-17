@@ -6,21 +6,21 @@ import {
     createLoggedInApiContext,
     createMetahub,
     disposeApiContext,
-    getCatalogAttribute,
-    getCatalogElement,
-    getEnumerationValue,
-    getMetahubEnumeration,
-    getMetahubHub,
-    getMetahubSet,
-    getSetConstant,
-    listCatalogAttributes,
-    listCatalogElements,
-    listEnumerationValues,
-    listMetahubCatalogs,
-    listMetahubEnumerations,
-    listMetahubHubs,
-    listMetahubSets,
-    listSetConstants
+    getFieldDefinition,
+    getRecord,
+    getOptionValue,
+    getOptionList,
+    getTreeEntity,
+    getValueGroup,
+    getFixedValue,
+    listFieldDefinitions,
+    listRecords,
+    listOptionValues,
+    listLinkedCollections,
+    listOptionLists,
+    listTreeEntities,
+    listValueGroups,
+    listFixedValues
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import {
@@ -96,7 +96,7 @@ function findElementValueByText(data: Record<string, unknown> | undefined, expec
     return undefined
 }
 
-async function openEntityDialog(page: Page, dialogName: string): Promise<Locator> {
+async function openEntityDialog(page: Page, dialogName: string | RegExp): Promise<Locator> {
     await page.getByTestId(toolbarSelectors.primaryAction).click()
     const dialog = page.getByRole('dialog', { name: dialogName })
     await expect(dialog).toBeVisible()
@@ -216,15 +216,16 @@ test('@flow @combined metahub collection routes support browser create plus hub 
             codename: metahubCodename
         })
 
-        await page.goto(`/metahub/${metahub.id}/hubs`)
-        await expect(page.getByRole('heading', { name: 'Hubs' })).toBeVisible()
+        await page.goto(`/metahub/${metahub.id}/entities/hub/instances`)
+        await expect(page.getByRole('heading', { name: 'Tree entities' })).toBeVisible()
 
-        const hubDialog = await openEntityDialog(page, 'Create Hub')
+        const hubDialog = await openEntityDialog(page, 'Create TreeEntity')
         await fillNameAndCodename(hubDialog, { name: hubName, codename: hubCodename })
 
         const createHubResponse = waitForSettledMutationResponse(
             page,
-            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/hubs`),
+            (response) =>
+                response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/entities/hub/instances`),
             { label: 'Creating hub' }
         )
         await hubDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -235,14 +236,14 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         }
 
         await expect(page.getByText(hubName, { exact: true })).toBeVisible()
-        await waitForListEntity(() => listMetahubHubs(api, metahub.id, { limit: 100, offset: 0 }), createdHub.id, 'hub')
-        const persistedHub = await getMetahubHub(api, metahub.id, createdHub.id)
+        await waitForListEntity(() => listTreeEntities(api, metahub.id, { limit: 100, offset: 0 }), createdHub.id, 'hub')
+        const persistedHub = await getTreeEntity(api, metahub.id, createdHub.id)
         expect(persistedHub.id).toBe(createdHub.id)
 
         await page.getByTestId(buildEntityMenuTriggerSelector('hub', createdHub.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('hub', 'edit', createdHub.id)).click()
 
-        const editHubDialog = page.getByRole('dialog', { name: 'Edit Hub' })
+        const editHubDialog = page.getByRole('dialog', { name: 'Edit TreeEntity' })
         await expect(editHubDialog).toBeVisible()
         await expect(editHubDialog.getByLabel('Name').first()).toBeVisible()
         await expect(editHubDialog.getByLabel('Description').first()).toBeVisible()
@@ -253,7 +254,7 @@ test('@flow @combined metahub collection routes support browser create plus hub 
 
         await expect
             .poll(async () => {
-                const updatedHub = await getMetahubHub(api, metahub.id, createdHub.id)
+                const updatedHub = await getTreeEntity(api, metahub.id, createdHub.id)
                 return readLocalizedText(updatedHub.description)
             })
             .toBe(updatedHubDescription)
@@ -261,13 +262,15 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         await page.getByTestId(buildEntityMenuTriggerSelector('hub', createdHub.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('hub', 'copy', createdHub.id)).click()
 
-        const copyHubDialog = page.getByRole('dialog', { name: 'Copying Hub' })
+        const copyHubDialog = page.getByRole('dialog', { name: 'Copying TreeEntity' })
         await expect(copyHubDialog).toBeVisible()
         await fillNameAndCodename(copyHubDialog, { codename: copiedHubCodename })
 
         const copyHubResponse = waitForSettledMutationResponse(
             page,
-            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/hub/${createdHub.id}/copy`),
+            (response) =>
+                response.request().method() === 'POST' &&
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/entities/hub/instance/${createdHub.id}/copy`),
             { label: 'Copying hub' }
         )
         await copyHubDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -277,34 +280,38 @@ test('@flow @combined metahub collection routes support browser create plus hub 
             throw new Error('Copy hub response did not contain an id')
         }
 
-        await waitForListEntity(() => listMetahubHubs(api, metahub.id, { limit: 100, offset: 0 }), copiedHub.id, 'copied hub')
+        await waitForListEntity(() => listTreeEntities(api, metahub.id, { limit: 100, offset: 0 }), copiedHub.id, 'copied hub')
         await expect(page.getByTestId(buildEntityMenuTriggerSelector('hub', copiedHub.id))).toBeVisible()
 
         await page.getByTestId(buildEntityMenuTriggerSelector('hub', copiedHub.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('hub', 'delete', copiedHub.id)).click()
 
-        const deleteHubDialog = page.getByRole('dialog', { name: 'Delete Hub' })
+        const deleteHubDialog = page.getByRole('dialog', { name: 'Delete TreeEntity' })
         await expect(deleteHubDialog).toBeVisible()
 
         const deleteHubResponse = waitForSettledMutationResponse(
             page,
-            (response) => response.request().method() === 'DELETE' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/hub/${copiedHub.id}`),
+            (response) =>
+                response.request().method() === 'DELETE' &&
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/entities/hub/instance/${copiedHub.id}`),
             { label: 'Deleting hub' }
         )
         await deleteHubDialog.getByRole('button', { name: 'Delete' }).click()
         const deleteHubResult = await deleteHubResponse
         expect(deleteHubResult.ok()).toBe(true)
-        await waitForEntityAbsence(() => listMetahubHubs(api, metahub.id, { limit: 100, offset: 0 }), copiedHub.id, 'copied hub')
+        await waitForEntityAbsence(() => listTreeEntities(api, metahub.id, { limit: 100, offset: 0 }), copiedHub.id, 'copied hub')
 
-        await page.goto(`/metahub/${metahub.id}/catalogs`)
-        await expect(page.getByRole('heading', { name: 'Catalogs' })).toBeVisible()
+        await page.goto(`/metahub/${metahub.id}/entities/catalog/instances`)
+        await expect(page.getByRole('heading', { name: 'Linked collections' })).toBeVisible()
 
-        const catalogDialog = await openEntityDialog(page, 'Create Catalog')
+        const catalogDialog = await openEntityDialog(page, 'Create LinkedCollectionEntity')
         await fillNameAndCodename(catalogDialog, { name: catalogName, codename: catalogCodename })
 
         const createCatalogResponse = waitForSettledMutationResponse(
             page,
-            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/catalogs`),
+            (response) =>
+                response.request().method() === 'POST' &&
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/entities/catalog/instances`),
             { label: 'Creating catalog' }
         )
         await catalogDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -315,12 +322,12 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         }
 
         await expect(page.getByText(catalogName, { exact: true })).toBeVisible()
-        await waitForListEntity(() => listMetahubCatalogs(api, metahub.id, { limit: 100, offset: 0 }), createdCatalog.id, 'catalog')
+        await waitForListEntity(() => listLinkedCollections(api, metahub.id, { limit: 100, offset: 0 }), createdCatalog.id, 'catalog')
 
         await page.getByTestId(buildEntityMenuTriggerSelector('catalog', createdCatalog.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('catalog', 'edit', createdCatalog.id)).click()
 
-        const editCatalogDialog = page.getByRole('dialog', { name: 'Edit Catalog' })
+        const editCatalogDialog = page.getByRole('dialog', { name: 'Edit LinkedCollectionEntity' })
         await expect(editCatalogDialog).toBeVisible()
         await expect(editCatalogDialog.getByLabel('Name').first()).toBeVisible()
         await expect(editCatalogDialog.getByLabel('Description').first()).toBeVisible()
@@ -331,7 +338,7 @@ test('@flow @combined metahub collection routes support browser create plus hub 
 
         await expect
             .poll(async () => {
-                const payload = await listMetahubCatalogs(api, metahub.id, { limit: 100, offset: 0 })
+                const payload = await listLinkedCollections(api, metahub.id, { limit: 100, offset: 0 })
                 const updatedCatalog = payload.items?.find((item) => item.id === createdCatalog.id)
                 return readLocalizedText((updatedCatalog as { description?: unknown } | undefined)?.description)
             })
@@ -340,7 +347,7 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         await page.getByTestId(buildEntityMenuTriggerSelector('catalog', createdCatalog.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('catalog', 'copy', createdCatalog.id)).click()
 
-        const copyCatalogDialog = page.getByRole('dialog', { name: 'Copying Catalog' })
+        const copyCatalogDialog = page.getByRole('dialog', { name: 'Copying LinkedCollectionEntity' })
         await expect(copyCatalogDialog).toBeVisible()
         await fillNameAndCodename(copyCatalogDialog, { codename: copiedCatalogCodename })
 
@@ -348,7 +355,7 @@ test('@flow @combined metahub collection routes support browser create plus hub 
             page,
             (response) =>
                 response.request().method() === 'POST' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/catalog/${createdCatalog.id}/copy`),
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/entities/catalog/instance/${createdCatalog.id}/copy`),
             { label: 'Copying catalog' }
         )
         await copyCatalogDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -358,40 +365,42 @@ test('@flow @combined metahub collection routes support browser create plus hub 
             throw new Error('Copy catalog response did not contain an id')
         }
 
-        await waitForListEntity(() => listMetahubCatalogs(api, metahub.id, { limit: 100, offset: 0 }), copiedCatalog.id, 'copied catalog')
+        await waitForListEntity(() => listLinkedCollections(api, metahub.id, { limit: 100, offset: 0 }), copiedCatalog.id, 'copied catalog')
         await expect(page.getByTestId(buildEntityMenuTriggerSelector('catalog', copiedCatalog.id))).toBeVisible()
 
         await page.getByTestId(buildEntityMenuTriggerSelector('catalog', copiedCatalog.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('catalog', 'delete', copiedCatalog.id)).click()
 
-        const deleteCatalogDialog = page.getByRole('dialog', { name: 'Delete Catalog' })
+        const deleteCatalogDialog = page.getByRole('dialog', { name: 'Delete linked collection' })
         await expect(deleteCatalogDialog).toBeVisible()
 
         const deleteCatalogResponse = waitForSettledMutationResponse(
             page,
             (response) =>
                 response.request().method() === 'DELETE' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/catalog/${copiedCatalog.id}`),
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/entities/catalog/instance/${copiedCatalog.id}`),
             { label: 'Deleting catalog' }
         )
         await deleteCatalogDialog.getByRole('button', { name: 'Delete' }).click()
         const deleteCatalogResult = await deleteCatalogResponse
         expect(deleteCatalogResult.ok()).toBe(true)
         await waitForEntityAbsence(
-            () => listMetahubCatalogs(api, metahub.id, { limit: 100, offset: 0 }),
+            () => listLinkedCollections(api, metahub.id, { limit: 100, offset: 0 }),
             copiedCatalog.id,
             'copied catalog'
         )
 
-        await page.goto(`/metahub/${metahub.id}/enumerations`)
-        await expect(page.getByRole('heading', { name: 'Enumerations' })).toBeVisible()
+        await page.goto(`/metahub/${metahub.id}/entities/enumeration/instances`)
+        await expect(page.getByRole('heading', { name: 'Option lists' })).toBeVisible()
 
-        const enumerationDialog = await openEntityDialog(page, 'Create Enumeration')
+        const enumerationDialog = await openEntityDialog(page, 'Create OptionListEntity')
         await fillNameAndCodename(enumerationDialog, { name: enumerationName, codename: enumerationCodename })
 
         const createEnumerationResponse = waitForSettledMutationResponse(
             page,
-            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/enumerations`),
+            (response) =>
+                response.request().method() === 'POST' &&
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/entities/enumeration/instances`),
             { label: 'Creating enumeration' }
         )
         await enumerationDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -403,17 +412,17 @@ test('@flow @combined metahub collection routes support browser create plus hub 
 
         await expect(page.getByText(enumerationName, { exact: true })).toBeVisible()
         await waitForListEntity(
-            () => listMetahubEnumerations(api, metahub.id, { limit: 100, offset: 0 }),
+            () => listOptionLists(api, metahub.id, { limit: 100, offset: 0 }),
             createdEnumeration.id,
             'enumeration'
         )
-        const persistedEnumeration = await getMetahubEnumeration(api, metahub.id, createdEnumeration.id)
+        const persistedEnumeration = await getOptionList(api, metahub.id, createdEnumeration.id)
         expect(persistedEnumeration.id).toBe(createdEnumeration.id)
 
         await page.getByTestId(buildEntityMenuTriggerSelector('enumeration', createdEnumeration.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('enumeration', 'edit', createdEnumeration.id)).click()
 
-        const editEnumerationDialog = page.getByRole('dialog', { name: 'Edit Enumeration' })
+        const editEnumerationDialog = page.getByRole('dialog', { name: 'Edit OptionListEntity' })
         await expect(editEnumerationDialog).toBeVisible()
         await expect(editEnumerationDialog.getByLabel('Name').first()).toBeVisible()
         await expect(editEnumerationDialog.getByLabel('Description').first()).toBeVisible()
@@ -424,7 +433,7 @@ test('@flow @combined metahub collection routes support browser create plus hub 
 
         await expect
             .poll(async () => {
-                const updatedEnumeration = await getMetahubEnumeration(api, metahub.id, createdEnumeration.id)
+                const updatedEnumeration = await getOptionList(api, metahub.id, createdEnumeration.id)
                 return readLocalizedText((updatedEnumeration as { description?: unknown } | undefined)?.description)
             })
             .toBe(updatedEnumerationDescription)
@@ -432,7 +441,7 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         await page.getByTestId(buildEntityMenuTriggerSelector('enumeration', createdEnumeration.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('enumeration', 'copy', createdEnumeration.id)).click()
 
-        const copyEnumerationDialog = page.getByRole('dialog', { name: 'Copying Enumeration' })
+        const copyEnumerationDialog = page.getByRole('dialog', { name: 'Copying OptionListEntity' })
         await expect(copyEnumerationDialog).toBeVisible()
         await fillNameAndCodename(copyEnumerationDialog, { codename: copiedEnumerationCodename })
 
@@ -440,7 +449,7 @@ test('@flow @combined metahub collection routes support browser create plus hub 
             page,
             (response) =>
                 response.request().method() === 'POST' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/enumeration/${createdEnumeration.id}/copy`),
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/entities/enumeration/instance/${createdEnumeration.id}/copy`),
             { label: 'Copying enumeration' }
         )
         await copyEnumerationDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -451,7 +460,7 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         }
 
         await waitForListEntity(
-            () => listMetahubEnumerations(api, metahub.id, { limit: 100, offset: 0 }),
+            () => listOptionLists(api, metahub.id, { limit: 100, offset: 0 }),
             copiedEnumeration.id,
             'copied enumeration'
         )
@@ -460,34 +469,35 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         await page.getByTestId(buildEntityMenuTriggerSelector('enumeration', copiedEnumeration.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('enumeration', 'delete', copiedEnumeration.id)).click()
 
-        const deleteEnumerationDialog = page.getByRole('dialog', { name: 'Delete Enumeration' })
+        const deleteEnumerationDialog = page.getByRole('dialog', { name: 'Delete option list' })
         await expect(deleteEnumerationDialog).toBeVisible()
 
         const deleteEnumerationResponse = waitForSettledMutationResponse(
             page,
             (response) =>
                 response.request().method() === 'DELETE' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/enumeration/${copiedEnumeration.id}`),
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/entities/enumeration/instance/${copiedEnumeration.id}`),
             { label: 'Deleting enumeration' }
         )
         await deleteEnumerationDialog.getByRole('button', { name: 'Delete' }).click()
         const deleteEnumerationResult = await deleteEnumerationResponse
         expect(deleteEnumerationResult.ok()).toBe(true)
         await waitForEntityAbsence(
-            () => listMetahubEnumerations(api, metahub.id, { limit: 100, offset: 0 }),
+            () => listOptionLists(api, metahub.id, { limit: 100, offset: 0 }),
             copiedEnumeration.id,
             'copied enumeration'
         )
 
-        await page.goto(`/metahub/${metahub.id}/sets`)
-        await expect(page.getByRole('heading', { name: 'Sets' })).toBeVisible()
+        await page.goto(`/metahub/${metahub.id}/entities/set/instances`)
+        await expect(page.getByRole('heading', { name: 'Value groups' })).toBeVisible()
 
-        const setDialog = await openEntityDialog(page, 'Create Set')
+        const setDialog = await openEntityDialog(page, 'Create Value Group')
         await fillNameAndCodename(setDialog, { name: setName, codename: setCodename })
 
         const createSetResponse = waitForSettledMutationResponse(
             page,
-            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/sets`),
+            (response) =>
+                response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/entities/set/instances`),
             { label: 'Creating set' }
         )
         await setDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -498,14 +508,14 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         }
 
         await expect(page.getByText(setName, { exact: true })).toBeVisible()
-        await waitForListEntity(() => listMetahubSets(api, metahub.id, { limit: 100, offset: 0 }), createdSet.id, 'set')
-        const persistedSet = await getMetahubSet(api, metahub.id, createdSet.id)
+        await waitForListEntity(() => listValueGroups(api, metahub.id, { limit: 100, offset: 0 }), createdSet.id, 'set')
+        const persistedSet = await getValueGroup(api, metahub.id, createdSet.id)
         expect(persistedSet.id).toBe(createdSet.id)
 
         await page.getByTestId(buildEntityMenuTriggerSelector('set', createdSet.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('set', 'edit', createdSet.id)).click()
 
-        const editSetDialog = page.getByRole('dialog', { name: 'Edit Set' })
+        const editSetDialog = page.getByRole('dialog', { name: 'Edit Value Group' })
         await expect(editSetDialog).toBeVisible()
         await expect(editSetDialog.getByLabel('Name').first()).toBeVisible()
         await expect(editSetDialog.getByLabel('Description').first()).toBeVisible()
@@ -516,7 +526,7 @@ test('@flow @combined metahub collection routes support browser create plus hub 
 
         await expect
             .poll(async () => {
-                const updatedSet = await getMetahubSet(api, metahub.id, createdSet.id)
+                const updatedSet = await getValueGroup(api, metahub.id, createdSet.id)
                 return readLocalizedText((updatedSet as { description?: unknown } | undefined)?.description)
             })
             .toBe(updatedSetDescription)
@@ -524,13 +534,15 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         await page.getByTestId(buildEntityMenuTriggerSelector('set', createdSet.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('set', 'copy', createdSet.id)).click()
 
-        const copySetDialog = page.getByRole('dialog', { name: 'Copying Set' })
+        const copySetDialog = page.getByRole('dialog', { name: 'Copying Value Group' })
         await expect(copySetDialog).toBeVisible()
         await fillNameAndCodename(copySetDialog, { codename: copiedSetCodename })
 
         const copySetResponse = waitForSettledMutationResponse(
             page,
-            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/set/${createdSet.id}/copy`),
+            (response) =>
+                response.request().method() === 'POST' &&
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/entities/set/instance/${createdSet.id}/copy`),
             { label: 'Copying set' }
         )
         await copySetDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -540,24 +552,26 @@ test('@flow @combined metahub collection routes support browser create plus hub 
             throw new Error('Copy set response did not contain an id')
         }
 
-        await waitForListEntity(() => listMetahubSets(api, metahub.id, { limit: 100, offset: 0 }), copiedSet.id, 'copied set')
+        await waitForListEntity(() => listValueGroups(api, metahub.id, { limit: 100, offset: 0 }), copiedSet.id, 'copied set')
         await expect(page.getByTestId(buildEntityMenuTriggerSelector('set', copiedSet.id))).toBeVisible()
 
         await page.getByTestId(buildEntityMenuTriggerSelector('set', copiedSet.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('set', 'delete', copiedSet.id)).click()
 
-        const deleteSetDialog = page.getByRole('dialog', { name: 'Delete Set' })
+        const deleteSetDialog = page.getByRole('dialog', { name: 'Delete value group' })
         await expect(deleteSetDialog).toBeVisible()
 
         const deleteSetResponse = waitForSettledMutationResponse(
             page,
-            (response) => response.request().method() === 'DELETE' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/set/${copiedSet.id}`),
+            (response) =>
+                response.request().method() === 'DELETE' &&
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/entities/set/instance/${copiedSet.id}`),
             { label: 'Deleting set' }
         )
         await deleteSetDialog.getByRole('button', { name: 'Delete' }).click()
         const deleteSetResult = await deleteSetResponse
         expect(deleteSetResult.ok()).toBe(true)
-        await waitForEntityAbsence(() => listMetahubSets(api, metahub.id, { limit: 100, offset: 0 }), copiedSet.id, 'copied set')
+        await waitForEntityAbsence(() => listValueGroups(api, metahub.id, { limit: 100, offset: 0 }), copiedSet.id, 'copied set')
     } finally {
         await disposeApiContext(api)
     }
@@ -601,24 +615,24 @@ test('@flow @combined metahub leaf routes support browser attribute element enum
             codename: metahubCodename
         })
 
-        const catalogId = await waitForFirstEntityId(() => listMetahubCatalogs(api, metahub.id, { limit: 100, offset: 0 }), 'catalog')
+        const catalogId = await waitForFirstEntityId(() => listLinkedCollections(api, metahub.id, { limit: 100, offset: 0 }), 'catalog')
         const enumerationId = await waitForFirstEntityId(
-            () => listMetahubEnumerations(api, metahub.id, { limit: 100, offset: 0 }),
+            () => listOptionLists(api, metahub.id, { limit: 100, offset: 0 }),
             'enumeration'
         )
-        const setId = await waitForFirstEntityId(() => listMetahubSets(api, metahub.id, { limit: 100, offset: 0 }), 'set')
+        const setId = await waitForFirstEntityId(() => listValueGroups(api, metahub.id, { limit: 100, offset: 0 }), 'set')
 
-        await page.goto(`/metahub/${metahub.id}/catalog/${catalogId}/attributes`)
-        await expect(page.getByRole('heading', { name: 'Attributes' })).toBeVisible()
+        await page.goto(`/metahub/${metahub.id}/entities/catalog/instance/${catalogId}/field-definitions`)
+        await expect(page.getByRole('heading', { name: 'Field Definitions' })).toBeVisible()
 
-        const attributeDialog = await openEntityDialog(page, 'Add Attribute')
+        const attributeDialog = await openEntityDialog(page, 'Add Field Definition')
         await fillNameAndCodename(attributeDialog, { name: attributeName, codename: attributeCodename })
 
         const createAttributeResponse = waitForSettledMutationResponse(
             page,
             (response) =>
                 response.request().method() === 'POST' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/catalog/${catalogId}/attributes`),
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/entities/catalog/instance/${catalogId}/field-definitions`),
             { label: 'Creating attribute' }
         )
         await attributeDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -628,35 +642,34 @@ test('@flow @combined metahub leaf routes support browser attribute element enum
             throw new Error('Create attribute response did not contain an id')
         }
 
-        await expect(page.getByText(attributeName, { exact: true })).toBeVisible()
         await waitForListEntity(
-            () => listCatalogAttributes(api, metahub.id, catalogId, { limit: 100, offset: 0 }),
+            () => listFieldDefinitions(api, metahub.id, catalogId, { limit: 100, offset: 0 }),
             createdAttribute.id,
             'attribute'
         )
-        const persistedAttribute = await getCatalogAttribute(api, metahub.id, catalogId, createdAttribute.id)
+        const persistedAttribute = await getFieldDefinition(api, metahub.id, catalogId, createdAttribute.id)
         expect(persistedAttribute.id).toBe(createdAttribute.id)
 
         await page.getByRole('tab', { name: 'Settings' }).click()
-        const attributeSettingsDialog = page.getByRole('dialog', { name: 'Edit Catalog' })
+        const attributeSettingsDialog = page.getByRole('dialog').filter({ has: page.getByRole('tab', { name: 'Layout' }) })
         await expect(attributeSettingsDialog).toBeVisible()
         await expect(attributeSettingsDialog.getByRole('tab', { name: 'Layout' })).toBeVisible()
         await attributeSettingsDialog.getByTestId(entityDialogSelectors.cancelButton).click()
         await expect(attributeSettingsDialog).toHaveCount(0)
 
-        await page.goto(`/metahub/${metahub.id}/catalog/${catalogId}/elements`)
-        await expect(page.getByRole('heading', { name: 'Elements' })).toBeVisible()
+        await page.goto(`/metahub/${metahub.id}/entities/catalog/instance/${catalogId}/records`)
+        await expect(page.getByRole('heading', { name: 'Records' })).toBeVisible()
         await expect(page.getByTestId(toolbarSelectors.primaryAction)).toBeEnabled()
 
         await page.getByRole('tab', { name: 'Settings' }).click()
-        const elementSettingsDialog = page.getByRole('dialog', { name: 'Edit Catalog' })
+        const elementSettingsDialog = page.getByRole('dialog').filter({ has: page.getByRole('tab', { name: 'Layout' }) })
         await expect(elementSettingsDialog).toBeVisible()
         await expect(elementSettingsDialog.getByRole('tab', { name: 'Layout' })).toBeVisible()
         await elementSettingsDialog.getByTestId(entityDialogSelectors.cancelButton).click()
         await expect(elementSettingsDialog).toHaveCount(0)
 
         await page.getByTestId(toolbarSelectors.primaryAction).click()
-        const elementDialog = page.getByRole('dialog', { name: 'Add Element' })
+        const elementDialog = page.getByRole('dialog', { name: 'Add Record' })
         await expect(elementDialog).toBeVisible()
         await elementDialog.getByLabel(attributeName).fill(elementValue)
 
@@ -664,7 +677,7 @@ test('@flow @combined metahub leaf routes support browser attribute element enum
             page,
             (response) =>
                 response.request().method() === 'POST' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/catalog/${catalogId}/elements`),
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/entities/catalog/instance/${catalogId}/records`),
             { label: 'Creating element' }
         )
         await elementDialog.getByRole('button', { name: 'Create' }).click()
@@ -676,11 +689,11 @@ test('@flow @combined metahub leaf routes support browser attribute element enum
 
         await expect(page.getByText(elementValue, { exact: true })).toBeVisible()
         await waitForListEntity(
-            () => listCatalogElements(api, metahub.id, catalogId, { limit: 100, offset: 0 }),
+            () => listRecords(api, metahub.id, catalogId, { limit: 100, offset: 0 }),
             createdElement.id,
             'element'
         )
-        const persistedElement = await getCatalogElement(api, metahub.id, catalogId, createdElement.id)
+        const persistedElement = await getRecord(api, metahub.id, catalogId, createdElement.id)
         expect(persistedElement.id).toBe(createdElement.id)
         const persistedAttributeCodename = typeof persistedAttribute.codename === 'string' ? persistedAttribute.codename : attributeCodename
         const persistedElementValue =
@@ -688,7 +701,7 @@ test('@flow @combined metahub leaf routes support browser attribute element enum
             findElementValueByText(persistedElement.data ?? {}, elementValue, 'en')
         expect(readLocalizedText(persistedElementValue, 'en')).toBe(elementValue)
 
-        await page.goto(`/metahub/${metahub.id}/enumeration/${enumerationId}/values`)
+        await page.goto(`/metahub/${metahub.id}/entities/enumeration/instance/${enumerationId}/values`)
         await expect(page.getByRole('heading', { name: 'Values' })).toBeVisible()
 
         const valueDialog = await openEntityDialog(page, 'Create value')
@@ -698,7 +711,7 @@ test('@flow @combined metahub leaf routes support browser attribute element enum
             page,
             (response) =>
                 response.request().method() === 'POST' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/enumeration/${enumerationId}/values`),
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/entities/enumeration/instance/${enumerationId}/values`),
             { label: 'Creating enumeration value' }
         )
         await valueDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -709,19 +722,20 @@ test('@flow @combined metahub leaf routes support browser attribute element enum
         }
 
         await expect(page.getByText(enumerationValueName, { exact: true })).toBeVisible()
-        await waitForListEntity(() => listEnumerationValues(api, metahub.id, enumerationId), createdValue.id, 'enumeration value')
-        const persistedValue = await getEnumerationValue(api, metahub.id, enumerationId, createdValue.id)
+        await waitForListEntity(() => listOptionValues(api, metahub.id, enumerationId), createdValue.id, 'enumeration value')
+        const persistedValue = await getOptionValue(api, metahub.id, enumerationId, createdValue.id)
         expect(persistedValue.id).toBe(createdValue.id)
 
-        await page.goto(`/metahub/${metahub.id}/set/${setId}/constants`)
-        await expect(page.getByRole('heading', { name: 'Constants' })).toBeVisible()
+        await page.goto(`/metahub/${metahub.id}/entities/set/instance/${setId}/fixed-values`)
+        await expect(page.getByRole('heading', { name: /(fixed values|constants)/i })).toBeVisible()
 
-        const constantDialog = await openEntityDialog(page, 'Create Constant')
+        const constantDialog = await openEntityDialog(page, /Create (Constant|Fixed Value)/i)
         await fillNameAndCodename(constantDialog, { name: constantName, codename: constantCodename })
 
         const createConstantResponse = waitForSettledMutationResponse(
             page,
-            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/set/${setId}/constants`),
+            (response) =>
+                response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/entities/set/instance/${setId}/fixed-values`),
             { label: 'Creating constant' }
         )
         await constantDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -732,8 +746,8 @@ test('@flow @combined metahub leaf routes support browser attribute element enum
         }
 
         await expect(page.getByText(constantName, { exact: true })).toBeVisible()
-        await waitForListEntity(() => listSetConstants(api, metahub.id, setId, { limit: 100, offset: 0 }), createdConstant.id, 'constant')
-        const persistedConstant = await getSetConstant(api, metahub.id, setId, createdConstant.id)
+        await waitForListEntity(() => listFixedValues(api, metahub.id, setId, { limit: 100, offset: 0 }), createdConstant.id, 'constant')
+        const persistedConstant = await getFixedValue(api, metahub.id, setId, createdConstant.id)
         expect(persistedConstant.id).toBe(createdConstant.id)
     } finally {
         await disposeApiContext(api)

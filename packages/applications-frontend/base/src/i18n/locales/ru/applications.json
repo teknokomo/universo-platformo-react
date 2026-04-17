@@ -307,7 +307,7 @@
             "elementsCount_few": "{{count}} элемента",
             "elementsCount_many": "{{count}} элементов",
             "fields": "Поля",
-            "predefinedElements": "Элементы по умолчанию",
+            "records": "Элементы по умолчанию",
             "columns": {
                 "codename": "Кодовое имя",
                 "type": "Тип",

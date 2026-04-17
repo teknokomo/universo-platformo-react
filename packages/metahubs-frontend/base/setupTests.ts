@@ -1,3 +1,5 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { setupServer } from 'msw/node'
 import { handlers } from './src/__mocks__/handlers'
 import { afterAll, afterEach, beforeAll, vi } from 'vitest'
@@ -20,6 +22,9 @@ export * from '@testing/frontend/setupTests'
 
 // Setup MSW server for HTTP request mocking
 export const server = setupServer(...handlers)
+
+const coverageTmpDir = path.resolve(process.cwd(), 'coverage', '.tmp')
+fs.mkdirSync(coverageTmpDir, { recursive: true })
 
 // Start server before all tests
 beforeAll(() => {

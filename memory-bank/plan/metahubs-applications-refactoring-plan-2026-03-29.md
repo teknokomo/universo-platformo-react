@@ -768,7 +768,7 @@ export function toCatalogDisplay(catalog: Catalog, locale = 'en'): CatalogDispla
 - [ ] **5.3** Refactor `HubList.tsx` (1,444 lines)
 - [ ] **5.4** Refactor `CatalogList.tsx` (1,715 lines)
 - [ ] **5.5** Refactor `EnumerationList.tsx` (1,724 lines)
-  - Also refactor `EnumerationValueList.tsx` (1,186 lines)
+  - Also refactor `OptionValueList.tsx` (1,186 lines)
 - [ ] **5.6** Refactor `AttributeList.tsx` (1,868 lines)
   - Also refactor `ChildAttributeList.tsx` (1,435 lines) and `AttributeActions.tsx` (836 lines)
 - [ ] **5.7** Refactor `ElementList.tsx` (2,246 lines) — the most complex:
@@ -815,7 +815,7 @@ export function toCatalogDisplay(catalog: Catalog, locale = 'en'): CatalogDispla
   - Tests: route + store tests
 
 - [ ] **7.2** Lift hub list fetch to shared context/hook
-  - Create `useMetahubHubs()` that caches across List components
+  - Create `useMetahubTrees()` that caches across List components
   - Reduces redundant API calls
 
 - [ ] **7.3** Review and optimize store queries

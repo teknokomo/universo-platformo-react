@@ -91,8 +91,8 @@ export interface SchemaDiffResponse {
                         isRequired: boolean
                         parentAttributeId?: string | null
                     }>
-                    predefinedElementsCount: number
-                    predefinedElementsPreview: Array<{
+                    recordsCount: number
+                    recordsPreview: Array<{
                         id: string
                         data: Record<string, unknown>
                         sortOrder: number

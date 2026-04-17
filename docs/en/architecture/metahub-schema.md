@@ -32,5 +32,5 @@ The shared-entity feature adds virtual container objects and sparse override row
 ## Related Reading
 
 - [Metahubs](../platform/metahubs.md)
-- [Common Section](../platform/metahubs/common-section.md)
+- [Resources Workspace](../platform/metahubs/common-section.md)
 - [Shared Entity Overrides](../api-reference/shared-entity-overrides.md)

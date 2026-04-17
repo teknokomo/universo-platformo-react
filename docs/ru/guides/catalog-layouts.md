@@ -37,6 +37,6 @@ Applications не вычисляют overlay logic на лету, а испол�
 
 ## Related Reading
 
-- [Common Section](general-section.md)
+- [Рабочая область Resources](general-section.md)
 - [Метахабы](../platform/metahubs.md)
 - [Приложения](../platform/applications.md)

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-    buildCatalogSystemAttributeSeedRecord,
+    buildCatalogSystemFieldDefinitionSeedRecord,
     deriveApplicationLifecycleContract,
     derivePlatformSystemFieldsContract,
     getCatalogSystemFieldDefinitions,
@@ -37,7 +37,7 @@ describe('catalogSystemFields', () => {
 
     it('builds shared seed records and reserved codenames from the same registry', () => {
         const seedInput = getCatalogSystemFieldSeedInputs().find((row) => row.key === 'app.deleted')
-        const record = buildCatalogSystemAttributeSeedRecord(seedInput!)
+        const record = buildCatalogSystemFieldDefinitionSeedRecord(seedInput!)
         const reserved = getReservedCatalogSystemFieldCodenames()
 
         expect(record).toMatchObject({

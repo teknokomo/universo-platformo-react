@@ -15,7 +15,7 @@ import {
     type SchemaSnapshot,
     type EntityDefinition
 } from '@universo/schema-ddl'
-import { ApplicationSchemaStatus, AttributeDataType } from '@universo/types'
+import { ApplicationSchemaStatus, FieldDefinitionDataType } from '@universo/types'
 import type { DbExecutor } from '@universo/utils'
 import { updateApplicationSyncFields } from '../../persistence/applicationsStore'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
@@ -653,7 +653,7 @@ export function buildPreviewLabelMaps(
         }
     }
 
-    for (const [objectId, values] of Object.entries(snapshot.enumerationValues ?? {})) {
+    for (const [objectId, values] of Object.entries(snapshot.optionValues ?? {})) {
         const labels = new Map<string, string>()
         const typedValues = Array.isArray(values) ? (values as SnapshotEnumerationValue[]) : []
         for (const value of typedValues) {
@@ -696,7 +696,7 @@ export function buildCreateTableDetails(options: {
             }))
 
             const elements = (snapshot.elements && (snapshot.elements as Record<string, unknown[]>)[entity.id]) as unknown[] | undefined
-            const predefinedElements = Array.isArray(elements)
+            const records = Array.isArray(elements)
                 ? elements.map((el) => {
                       const normalized = (el ?? {}) as Record<string, unknown>
                       const rawData = (normalized.data as Record<string, unknown>) ?? {}
@@ -709,7 +709,7 @@ export function buildCreateTableDetails(options: {
                               continue
                           }
 
-                          if (field.dataType !== AttributeDataType.REF) {
+                          if (field.dataType !== FieldDefinitionDataType.REF) {
                               previewData[field.codename] = rawValue
                               continue
                           }
@@ -753,8 +753,8 @@ export function buildCreateTableDetails(options: {
                 codename: entity.codename,
                 tableName: resolveEntityTableName(entity),
                 fields,
-                predefinedElementsCount: predefinedElements.length,
-                predefinedElementsPreview: predefinedElements.slice(0, 50)
+                recordsCount: records.length,
+                recordsPreview: records.slice(0, 50)
             }
         })
 }

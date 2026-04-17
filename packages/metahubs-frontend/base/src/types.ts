@@ -12,14 +12,14 @@ import type {
     GlobalRole,
     CodenameVLC,
     VersionedLocalizedContent,
-    AttributeDataType,
-    ConstantDataType,
+    FieldDefinitionDataType,
+    FixedValueDataType,
     EntityKind,
     SharedBehavior,
     DashboardLayoutZone,
     DashboardLayoutWidgetKey,
     BranchCopyOptions,
-    CatalogAttributeSystemMetadata
+    FieldDefinitionSystemMetadata
 } from '@universo/types'
 
 // Re-export centralized VLC utilities for consumers
@@ -39,11 +39,11 @@ export type { ConflictInfo } from '@universo/utils'
 // Re-export from @universo/types for consistency
 export type { PaginationParams, PaginationMeta, PaginatedResponse } from '@universo/types'
 export type {
-    AttributeDataType,
-    ConstantDataType,
-    AttributeValidationRules,
+    FieldDefinitionDataType,
+    FixedValueDataType,
+    FieldDefinitionValidationRules,
     PhysicalTypeInfo,
-    CatalogAttributeSystemMetadata
+    FieldDefinitionSystemMetadata
 } from '@universo/types'
 export { getDefaultValidationRules, getPhysicalDataType, formatPhysicalType } from '@universo/types'
 
@@ -91,7 +91,7 @@ export interface MetahubMembersResponse {
 
 // ============ METAHUB ENTITY ============
 
-/** Metahub - the root entity containing Hubs and Catalogs */
+/** Metahub root entity for tree entities, linked collections, and related metadata. */
 export interface Metahub {
     id: string
     codename: CodenameVLC
@@ -107,8 +107,8 @@ export interface Metahub {
     meta_sectionsCount?: number
     meta_entitiesCount?: number
     membersCount?: number
-    hubsCount?: number
-    catalogsCount?: number
+    treeEntitiesCount?: number
+    linkedCollectionsCount?: number
     // Access info
     role?: MetahubRole
     accessType?: AccessType
@@ -128,8 +128,8 @@ export interface MetahubDisplay {
     meta_sectionsCount?: number
     meta_entitiesCount?: number
     membersCount?: number
-    hubsCount?: number
-    catalogsCount?: number
+    treeEntitiesCount?: number
+    linkedCollectionsCount?: number
     role?: MetahubRole
     accessType?: AccessType
     permissions?: MetahubPermissions
@@ -186,7 +186,7 @@ export type LayoutTemplateKey = 'dashboard'
 
 export interface MetahubLayout {
     id: string
-    catalogId?: string | null
+    linkedCollectionId?: string | null
     baseLayoutId?: string | null
     templateKey: LayoutTemplateKey
     name: VersionedLocalizedContent<string>
@@ -227,7 +227,7 @@ export interface MetahubLayoutLocalizedPayload {
 }
 
 export interface MetahubCreateLayoutPayload extends MetahubLayoutLocalizedPayload {
-    catalogId?: string
+    linkedCollectionId?: string
     baseLayoutId?: string
 }
 
@@ -273,64 +273,64 @@ export interface PublicationDisplay {
     accessMode: 'full' | 'restricted'
 }
 
-// ============ HUB ENTITY ============
+// ============ TREE ENTITY ============
 
 /**
- * Hub - a subsystem within a Metahub (like 1C Подсистема)
- * Contains Catalogs via N:M relationship
+ * TreeEntity - a hierarchical container within a Metahub.
+ * Linked collections can be associated through an N:M relationship.
  */
-export interface Hub {
+export interface TreeEntity {
     id: string
     metahubId: string
     codename: CodenameVLC
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
     sortOrder: number
-    parentHubId?: string | null
+    parentTreeEntityId?: string | null
     createdAt: string
     updatedAt: string
     version?: number
-    catalogsCount?: number
+    linkedCollectionsCount?: number
     itemsCount?: number
     role?: MetahubRole
     permissions?: MetahubPermissions
 }
 
-/** Hub with localized strings for table rendering */
-export interface HubDisplay {
+/** TreeEntity with localized strings for table rendering */
+export interface TreeEntityDisplay {
     id: string
     metahubId: string
     codename: string
     name: string
     description: string
     sortOrder: number
-    parentHubId?: string | null
+    parentTreeEntityId?: string | null
     createdAt: string
     updatedAt: string
-    catalogsCount?: number
+    linkedCollectionsCount?: number
     itemsCount?: number
     role?: MetahubRole
     permissions?: MetahubPermissions
 }
 
-/** Hub reference for catalog associations */
-export interface HubRef {
+/** TreeEntity reference for container associations. */
+export interface TreeEntityRef {
     id: string
     name: VersionedLocalizedContent<string>
     codename: string
 }
 
-// ============ CATALOG ENTITY ============
+// ============ LINKED COLLECTION ENTITY ============
 
 /**
- * Catalog - a virtual table within a Metahub (like 1C Справочник)
- * Can be associated with multiple Hubs via junction table.
+ * LinkedCollectionEntity - a design-time collection inside a Metahub.
+ * Can be associated with multiple tree entities via a junction table.
  *
- * Hub association constraints (orthogonal flags):
+ * TreeEntity association constraints (orthogonal flags):
  * - isSingleHub: max 1 hub (true) or unlimited (false)
  * - isRequiredHub: min 1 hub required (true) or can have 0 (false)
  */
-export interface Catalog {
+export interface LinkedCollectionEntity {
     id: string
     metahubId: string
     codename: CodenameVLC
@@ -342,15 +342,15 @@ export interface Catalog {
     createdAt: string
     updatedAt: string
     version?: number
-    hubs?: HubRef[]
-    attributesCount?: number
-    elementsCount?: number
+    treeEntities?: TreeEntityRef[]
+    fieldDefinitionsCount?: number
+    recordsCount?: number
     role?: MetahubRole
     permissions?: MetahubPermissions
 }
 
-/** Catalog with localized strings for table rendering */
-export interface CatalogDisplay {
+/** LinkedCollectionEntity with localized strings for table rendering */
+export interface LinkedCollectionDisplay {
     id: string
     metahubId: string
     codename: string
@@ -361,20 +361,20 @@ export interface CatalogDisplay {
     sortOrder: number
     createdAt: string
     updatedAt: string
-    hubs?: Array<{ id: string; name: string; codename: string }>
-    attributesCount?: number
-    elementsCount?: number
+    treeEntities?: Array<{ id: string; name: string; codename: string }>
+    fieldDefinitionsCount?: number
+    recordsCount?: number
     role?: MetahubRole
     permissions?: MetahubPermissions
 }
 
-// ============ SET ENTITY ============
+// ============ VALUE GROUP ENTITY ============
 
 /**
- * Set - container of constants.
- * Mirrors catalog structure, but stores constants instead of attributes/elements.
+ * ValueGroupEntity - a container for grouped fixed values.
+ * Mirrors linked-collection association rules while storing fixed values instead of records.
  */
-export interface MetahubSet {
+export interface ValueGroupEntity {
     id: string
     metahubId: string
     codename: CodenameVLC
@@ -386,14 +386,14 @@ export interface MetahubSet {
     createdAt: string
     updatedAt: string
     version?: number
-    hubs?: HubRef[]
-    constantsCount?: number
+    treeEntities?: TreeEntityRef[]
+    fixedValuesCount?: number
     role?: MetahubRole
     permissions?: MetahubPermissions
 }
 
-/** Set with localized strings for table rendering. */
-export interface MetahubSetDisplay {
+/** ValueGroupEntity with localized strings for table rendering. */
+export interface ValueGroupDisplay {
     id: string
     metahubId: string
     codename: string
@@ -404,19 +404,19 @@ export interface MetahubSetDisplay {
     sortOrder: number
     createdAt: string
     updatedAt: string
-    hubs?: Array<{ id: string; name: string; codename: string }>
-    constantsCount?: number
+    treeEntities?: Array<{ id: string; name: string; codename: string }>
+    fixedValuesCount?: number
     role?: MetahubRole
     permissions?: MetahubPermissions
 }
 
-// ============ ENUMERATION ENTITY ============
+// ============ OPTION LIST ENTITY ============
 
 /**
- * Enumeration - fixed list of values (like 1C Enumerations).
+ * OptionListEntity - fixed list of selectable values.
  * Stores value options in `_mhb_values`.
  */
-export interface Enumeration {
+export interface OptionListEntity {
     id: string
     metahubId: string
     codename: CodenameVLC
@@ -428,14 +428,14 @@ export interface Enumeration {
     createdAt: string
     updatedAt: string
     version?: number
-    hubs?: HubRef[]
-    valuesCount?: number
+    treeEntities?: TreeEntityRef[]
+    optionValuesCount?: number
     role?: MetahubRole
     permissions?: MetahubPermissions
 }
 
-/** Enumeration with localized strings for table rendering */
-export interface EnumerationDisplay {
+/** OptionListEntity with localized strings for table rendering */
+export interface OptionListDisplay {
     id: string
     metahubId: string
     codename: string
@@ -446,14 +446,14 @@ export interface EnumerationDisplay {
     sortOrder: number
     createdAt: string
     updatedAt: string
-    hubs?: Array<{ id: string; name: string; codename: string }>
-    valuesCount?: number
+    treeEntities?: Array<{ id: string; name: string; codename: string }>
+    optionValuesCount?: number
     role?: MetahubRole
     permissions?: MetahubPermissions
 }
 
-/** Fixed value inside an Enumeration. */
-export interface EnumerationValue {
+/** Fixed value inside an OptionListEntity. */
+export interface OptionValue {
     id: string
     objectId: string
     codename: CodenameVLC
@@ -472,7 +472,7 @@ export interface EnumerationValue {
     version?: number
 }
 
-export interface EnumerationValueDisplay {
+export interface OptionValueDisplay {
     id: string
     objectId: string
     codename: string
@@ -489,17 +489,17 @@ export interface EnumerationValueDisplay {
     updatedAt: string
 }
 
-// ============ ATTRIBUTE ENTITY ============
+// ============ FIELD DEFINITION ENTITY ============
 
 /**
- * Attribute - a virtual field within a Catalog
- * Defines the schema for Catalog elements
+ * FieldDefinition - a virtual field within a LinkedCollectionEntity
+ * Defines the schema for LinkedCollectionEntity records
  */
-export interface Attribute {
+export interface FieldDefinition {
     id: string
-    catalogId: string
+    linkedCollectionId: string
     codename: CodenameVLC
-    dataType: AttributeDataType
+    dataType: FieldDefinitionDataType
     name: VersionedLocalizedContent<string>
     targetEntityId?: string | null
     targetEntityKind?: EntityKind | null
@@ -519,15 +519,15 @@ export interface Attribute {
     version?: number
     role?: MetahubRole
     permissions?: MetahubPermissions
-    system?: CatalogAttributeSystemMetadata | null
+    system?: FieldDefinitionSystemMetadata | null
 }
 
-/** Attribute with localized strings for table rendering */
-export interface AttributeDisplay {
+/** FieldDefinition with localized strings for table rendering */
+export interface FieldDefinitionDisplay {
     id: string
-    catalogId: string
+    linkedCollectionId: string
     codename: string
-    dataType: AttributeDataType
+    dataType: FieldDefinitionDataType
     name: string
     targetEntityId?: string | null
     targetEntityKind?: EntityKind | null
@@ -546,19 +546,19 @@ export interface AttributeDisplay {
     updatedAt: string
     role?: MetahubRole
     permissions?: MetahubPermissions
-    system?: CatalogAttributeSystemMetadata | null
+    system?: FieldDefinitionSystemMetadata | null
 }
 
-// ============ CONSTANT ENTITY ============
+// ============ FIXED VALUE ENTITY ============
 
 /**
- * Constant - typed value definition inside a Set.
+ * FixedValue - typed value definition inside a Set.
  */
-export interface Constant {
+export interface FixedValue {
     id: string
-    setId: string
+    valueGroupId: string
     codename: CodenameVLC
-    dataType: ConstantDataType
+    dataType: FixedValueDataType
     name: VersionedLocalizedContent<string>
     validationRules: Record<string, unknown>
     uiConfig: Record<string, unknown>
@@ -574,12 +574,12 @@ export interface Constant {
     version?: number
 }
 
-/** Constant with localized strings for table rendering. */
-export interface ConstantDisplay {
+/** FixedValue with localized strings for table rendering. */
+export interface FixedValueDisplay {
     id: string
-    setId: string
+    valueGroupId: string
     codename: string
-    dataType: ConstantDataType
+    dataType: FixedValueDataType
     name: string
     validationRules: Record<string, unknown>
     uiConfig: Record<string, unknown>
@@ -594,12 +594,12 @@ export interface ConstantDisplay {
     updatedAt: string
 }
 
-// ============ ELEMENT ENTITY ============
+// ============ RECORD ENTITY ============
 
-/** HubElement - a data row within a Catalog */
-export interface HubElement {
+/** RecordItem - a data row within a LinkedCollectionEntity */
+export interface RecordItem {
     id: string
-    catalogId: string
+    linkedCollectionId: string
     data: Record<string, unknown>
     ownerId: string | null
     sortOrder: number
@@ -608,10 +608,10 @@ export interface HubElement {
     version?: number
 }
 
-/** HubElement with derived name/description for FlowListTable compatibility */
-export interface HubElementDisplay {
+/** RecordItem with derived name/description for FlowListTable compatibility */
+export interface RecordItemDisplay {
     id: string
-    catalogId: string
+    linkedCollectionId: string
     name: string
     description: string
     data: Record<string, unknown>
@@ -632,14 +632,14 @@ export interface MetahubLocalizedPayload {
     descriptionPrimaryLocale?: string
 }
 
-/** Payload for creating/updating Hub */
-export interface HubLocalizedPayload {
+/** Payload for creating/updating TreeEntity */
+export interface TreeEntityLocalizedPayload {
     codename: CodenameVLC
     name: SimpleLocalizedInput
     description?: SimpleLocalizedInput
     namePrimaryLocale?: string
     descriptionPrimaryLocale?: string
-    parentHubId?: string | null
+    parentTreeEntityId?: string | null
 }
 
 /** Payload for creating/updating Branch */
@@ -652,14 +652,14 @@ export interface BranchLocalizedPayload {
     sourceBranchId?: string
     fullCopy?: BranchCopyOptions['fullCopy']
     copyLayouts?: BranchCopyOptions['copyLayouts']
-    copyHubs?: BranchCopyOptions['copyHubs']
-    copyCatalogs?: BranchCopyOptions['copyCatalogs']
-    copySets?: BranchCopyOptions['copySets']
-    copyEnumerations?: BranchCopyOptions['copyEnumerations']
+    copyTreeEntities?: BranchCopyOptions['copyTreeEntities']
+    copyLinkedCollections?: BranchCopyOptions['copyLinkedCollections']
+    copyValueGroups?: BranchCopyOptions['copyValueGroups']
+    copyOptionLists?: BranchCopyOptions['copyOptionLists']
 }
 
-/** Payload for creating/updating Catalog */
-export interface CatalogLocalizedPayload {
+/** Payload for creating/updating LinkedCollectionEntity */
+export interface LinkedCollectionLocalizedPayload {
     codename: CodenameVLC
     name: SimpleLocalizedInput
     description?: SimpleLocalizedInput
@@ -667,11 +667,11 @@ export interface CatalogLocalizedPayload {
     descriptionPrimaryLocale?: string
     isSingleHub?: boolean
     isRequiredHub?: boolean
-    hubIds?: string[]
+    treeEntityIds?: string[]
 }
 
 /** Payload for creating/updating Set. */
-export interface SetLocalizedPayload {
+export interface ValueGroupLocalizedPayload {
     codename: CodenameVLC
     name: SimpleLocalizedInput
     description?: SimpleLocalizedInput
@@ -679,11 +679,11 @@ export interface SetLocalizedPayload {
     descriptionPrimaryLocale?: string
     isSingleHub?: boolean
     isRequiredHub?: boolean
-    hubIds?: string[]
+    treeEntityIds?: string[]
 }
 
-/** Payload for creating/updating Enumeration */
-export interface EnumerationLocalizedPayload {
+/** Payload for creating/updating OptionListEntity */
+export interface OptionListLocalizedPayload {
     codename: CodenameVLC
     name: SimpleLocalizedInput
     description?: SimpleLocalizedInput
@@ -691,11 +691,11 @@ export interface EnumerationLocalizedPayload {
     descriptionPrimaryLocale?: string
     isSingleHub?: boolean
     isRequiredHub?: boolean
-    hubIds?: string[]
+    treeEntityIds?: string[]
 }
 
-/** Payload for creating/updating Enumeration value */
-export interface EnumerationValueLocalizedPayload {
+/** Payload for creating/updating option value */
+export interface OptionValueLocalizedPayload {
     codename: CodenameVLC
     name: SimpleLocalizedInput
     description?: SimpleLocalizedInput
@@ -706,10 +706,10 @@ export interface EnumerationValueLocalizedPayload {
     isDefault?: boolean
 }
 
-/** Payload for creating/updating Attribute */
-export interface AttributeLocalizedPayload {
+/** Payload for creating/updating field definition */
+export interface FieldDefinitionLocalizedPayload {
     codename: CodenameVLC
-    dataType: AttributeDataType
+    dataType: FieldDefinitionDataType
     name: SimpleLocalizedInput
     namePrimaryLocale?: string
     isRequired?: boolean
@@ -722,10 +722,10 @@ export interface AttributeLocalizedPayload {
     isEnabled?: boolean
 }
 
-/** Payload for creating/updating Constant. */
-export interface ConstantLocalizedPayload {
+/** Payload for creating/updating fixed value. */
+export interface FixedValueLocalizedPayload {
     codename: CodenameVLC
-    dataType: ConstantDataType
+    dataType: FixedValueDataType
     name: SimpleLocalizedInput
     namePrimaryLocale?: string
     validationRules?: Record<string, unknown>
@@ -736,17 +736,17 @@ export interface ConstantLocalizedPayload {
 }
 
 // ============ DISPLAY CONVERTERS ============
-// Re-exported from displayConverters.ts for backward compatibility
+// Re-exported from displayConverters.ts for the local types barrel
 export {
     toMetahubDisplay,
     toBranchDisplay,
     toMetahubLayoutDisplay,
-    toHubDisplay,
-    toCatalogDisplay,
-    toSetDisplay,
-    toEnumerationDisplay,
-    toEnumerationValueDisplay,
-    toAttributeDisplay,
-    toConstantDisplay,
-    toHubElementDisplay
+    toTreeEntityDisplay,
+    toLinkedCollectionDisplay,
+    toValueGroupDisplay,
+    toOptionListDisplay,
+    toOptionValueDisplay,
+    toFieldDefinitionDisplay,
+    toFixedValueDisplay,
+    toRecordItemDisplay
 } from './displayConverters'

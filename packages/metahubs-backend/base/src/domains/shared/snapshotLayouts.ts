@@ -44,7 +44,7 @@ export async function attachLayoutsToSnapshot(options: {
 
         const layouts = (layoutRows ?? []).map((r) => ({
             id: String(r.id),
-            catalogId: typeof r.catalog_id === 'string' ? r.catalog_id : null,
+            linkedCollectionId: typeof r.catalog_id === 'string' ? r.catalog_id : null,
             baseLayoutId: typeof r.base_layout_id === 'string' ? r.base_layout_id : null,
             templateKey: String(r.template_key ?? 'dashboard'),
             name: (r.name as Record<string, unknown>) ?? {},
@@ -55,8 +55,8 @@ export async function attachLayoutsToSnapshot(options: {
             sortOrder: typeof r.sort_order === 'number' ? r.sort_order : 0
         }))
 
-        const globalLayouts = layouts.filter((layout) => layout.catalogId === null)
-        const catalogLayouts = layouts.filter((layout) => layout.catalogId !== null && layout.baseLayoutId)
+        const globalLayouts = layouts.filter((layout) => layout.linkedCollectionId === null)
+        const catalogLayouts = layouts.filter((layout) => layout.linkedCollectionId !== null && layout.baseLayoutId)
         const defaultLayout =
             globalLayouts.find((layout) => layout.isDefault && layout.isActive) ??
             globalLayouts.find((layout) => layout.isActive) ??
@@ -64,10 +64,10 @@ export async function attachLayoutsToSnapshot(options: {
             globalLayouts[0] ??
             null
 
-        snapshot.layouts = globalLayouts.map(({ catalogId: _catalogId, baseLayoutId: _baseLayoutId, ...layout }) => layout)
-        snapshot.catalogLayouts = catalogLayouts.map(({ catalogId, baseLayoutId, ...layout }) => ({
+        snapshot.layouts = globalLayouts.map(({ linkedCollectionId: _catalogId, baseLayoutId: _baseLayoutId, ...layout }) => layout)
+        snapshot.catalogLayouts = catalogLayouts.map(({ linkedCollectionId, baseLayoutId, ...layout }) => ({
             ...layout,
-            catalogId: catalogId as string,
+            linkedCollectionId: linkedCollectionId as string,
             baseLayoutId: baseLayoutId as string
         }))
         snapshot.defaultLayoutId = defaultLayout?.id ?? null

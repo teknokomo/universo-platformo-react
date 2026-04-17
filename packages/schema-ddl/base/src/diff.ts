@@ -1,6 +1,6 @@
 import type { EntityDefinition, RuntimeEntityKind, SchemaSnapshot } from './types'
 import { resolveFieldColumnName, resolveEntityTableName, generateChildTableName } from './naming'
-import { isNonPhysicalLegacyCompatibleEntity, isSetCompatibleKind } from './legacyCompatibleKinds'
+import { isStandardSetKind, isNonPhysicalStandardEntity } from './builtinEntityKinds'
 
 export enum ChangeType {
     ADD_TABLE = 'ADD_TABLE',
@@ -62,7 +62,7 @@ const shouldHavePhysicalForeignKey = (field: {
 }): boolean => {
     if (field.dataType !== 'REF') return false
     if (!field.targetEntityId) return false
-    if (isSetCompatibleKind(field.targetEntityKind)) return false
+    if (isStandardSetKind(field.targetEntityKind)) return false
     return true
 }
 
@@ -73,10 +73,10 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
         destructive: [],
         summary: ''
     }
-    const newPhysicalEntities = newEntities.filter((entity) => !isNonPhysicalLegacyCompatibleEntity(entity))
+    const newPhysicalEntities = newEntities.filter((entity) => !isNonPhysicalStandardEntity(entity))
     const oldPhysicalEntities = oldSnapshot?.entities
         ? Object.entries(oldSnapshot.entities)
-              .filter(([, entity]) => !isNonPhysicalLegacyCompatibleEntity(entity))
+              .filter(([, entity]) => !isNonPhysicalStandardEntity(entity))
               .map(([entityId, entity]) => ({
                   ...entity,
                   id: entityId

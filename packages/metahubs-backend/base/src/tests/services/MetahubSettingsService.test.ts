@@ -1,9 +1,9 @@
-const mockListCustomTypesInSchema = jest.fn()
+const mockListEditableTypesInSchema = jest.fn()
 
 jest.mock('../../domains/entities/services/EntityTypeService', () => ({
     __esModule: true,
     EntityTypeService: jest.fn().mockImplementation(() => ({
-        listCustomTypesInSchema: (...args: unknown[]) => mockListCustomTypesInSchema(...args)
+        listEditableTypesInSchema: (...args: unknown[]) => mockListEditableTypesInSchema(...args)
     }))
 }))
 
@@ -21,13 +21,13 @@ describe('MetahubSettingsService', () => {
     beforeEach(() => {
         jest.clearAllMocks()
         mockEnsureSchema.mockResolvedValue('mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
-        mockListCustomTypesInSchema.mockResolvedValue([])
+        mockListEditableTypesInSchema.mockResolvedValue([])
     })
 
-    it('clearHubNesting updates built-in and legacy-compatible custom hub kinds together', async () => {
-        mockListCustomTypesInSchema.mockResolvedValue([
+    it('clearHubNesting updates the direct standard hub kind on the unified settings surface', async () => {
+        mockListEditableTypesInSchema.mockResolvedValue([
             {
-                kindKey: 'custom.hub-v2-compatible',
+                kindKey: 'custom.workspace-hub',
                 config: { compatibility: { legacyObjectKind: 'hub' } }
             }
         ])
@@ -38,16 +38,17 @@ describe('MetahubSettingsService', () => {
         const cleared = await service.clearHubNesting('metahub-1', 'test-user-id')
 
         expect(cleared).toBe(2)
-        expect(exec.query).toHaveBeenCalledWith(
-            expect.stringContaining('WHERE kind = ANY($3::text[])'),
-            [expect.any(Date), 'test-user-id', ['hub', 'custom.hub-v2-compatible']]
-        )
+        expect(exec.query).toHaveBeenCalledWith(expect.stringContaining('WHERE kind = ANY($3::text[])'), [
+            expect.any(Date),
+            'test-user-id',
+            ['hub']
+        ])
     })
 
-    it('hasHubNesting checks built-in and legacy-compatible custom hub kinds together', async () => {
-        mockListCustomTypesInSchema.mockResolvedValue([
+    it('hasHubNesting checks the direct standard hub kind on the unified settings surface', async () => {
+        mockListEditableTypesInSchema.mockResolvedValue([
             {
-                kindKey: 'custom.hub-v2-compatible',
+                kindKey: 'custom.workspace-hub',
                 config: { compatibility: { legacyObjectKind: 'hub' } }
             }
         ])
@@ -56,8 +57,6 @@ describe('MetahubSettingsService', () => {
         const service = new MetahubSettingsService(exec as never, { ensureSchema: mockEnsureSchema } as never)
 
         await expect(service.hasHubNesting('metahub-1', 'test-user-id')).resolves.toBe(true)
-        expect(exec.query).toHaveBeenCalledWith(expect.stringContaining('WHERE kind = ANY($1::text[])'), [
-            ['hub', 'custom.hub-v2-compatible']
-        ])
+        expect(exec.query).toHaveBeenCalledWith(expect.stringContaining('WHERE kind = ANY($1::text[])'), [['hub']])
     })
 })

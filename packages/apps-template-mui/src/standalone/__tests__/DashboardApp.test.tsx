@@ -49,7 +49,7 @@ vi.mock('../../hooks/useCrudDashboard', () => ({
             zoneWidgets: { left: [], right: [], center: [] },
             menus: [],
             activeMenuId: null,
-            catalog: {
+            linkedCollection: {
                 name: 'Standalone details'
             }
         },
@@ -87,8 +87,8 @@ vi.mock('../../hooks/useCrudDashboard', () => ({
         menuAnchorEl: null,
         menuRowId: null,
         menuSlot: undefined,
-        activeCatalogId: 'catalog-1',
-        selectedCatalogId: 'catalog-1',
+        activeLinkedCollectionId: 'catalog-1',
+        selectedLinkedCollectionId: 'catalog-1',
         handleOpenCreate: dashboardMocks.handleOpenCreate,
         handleOpenEdit: dashboardMocks.handleOpenEdit,
         handleOpenCopy: dashboardMocks.handleOpenCopy,
@@ -115,7 +115,7 @@ describe('DashboardApp', () => {
                 zoneWidgets: { left: [], right: [], center: [] },
                 menus: [],
                 activeMenuId: null,
-                catalog: {
+                linkedCollection: {
                     name: 'Standalone details',
                     runtimeConfig: { createSurface: 'page' }
                 }
@@ -138,7 +138,7 @@ describe('DashboardApp', () => {
                 zoneWidgets: { left: [], right: [], center: [] },
                 menus: [],
                 activeMenuId: null,
-                catalog: {
+                linkedCollection: {
                     name: 'Standalone details',
                     runtimeConfig: { editSurface: 'page', copySurface: 'page' }
                 }
@@ -159,7 +159,7 @@ describe('DashboardApp', () => {
                 zoneWidgets: { left: [], right: [], center: [] },
                 menus: [],
                 activeMenuId: null,
-                catalog: {
+                linkedCollection: {
                     name: 'Standalone details',
                     runtimeConfig: { editSurface: 'dialog', copySurface: 'page' }
                 }
@@ -191,7 +191,7 @@ describe('DashboardApp', () => {
                 zoneWidgets: { left: [], right: [], center: [] },
                 menus: [],
                 activeMenuId: null,
-                catalog: {
+                linkedCollection: {
                     name: 'Standalone details',
                     runtimeConfig: { showCreateButton: false }
                 }

@@ -5,8 +5,6 @@
         "lib": ["ES2020"],
         "outDir": "./dist",
         "rootDir": "./src",
-        "baseUrl": ".",
-        "ignoreDeprecations": "5.0",
         "paths": {
             "@universo/admin-backend": ["../../admin-backend/base/dist/index.d.ts"],
             "@universo/applications-backend": ["../../applications-backend/base/dist/index.d.ts"],

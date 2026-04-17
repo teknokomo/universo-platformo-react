@@ -98,7 +98,7 @@ describe('application sync predefined seeding', () => {
                     kind: 'enumeration'
                 }
             },
-            enumerationValues: {
+            optionValues: {
                 'enum-status': [
                     {
                         id: 'value-draft',

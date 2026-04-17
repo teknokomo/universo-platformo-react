@@ -4,7 +4,7 @@ Backend-пакет для design-time ресурсов metahub, metadata publica
 
 ## Overview
 
-Этот пакет владеет design-time стороной платформы: metahubs, branches, hubs, catalogs, sets, enumerations, attributes, constants, elements, layouts, settings, templates, publications и маршрутами управления миграциями.
+Этот пакет владеет design-time стороной платформы: metahubs, branches, direct-standard metadata kinds через entity-owned routes, field definitions, fixed values, records, layouts, settings, templates, publications и маршрутами управления миграциями.
 Он объединяет SQL-first domain services с изолированными DDL boundaries, template seeding, publication export flows и metahub-специфичной coordination runtime schema.
 
 ## Architecture
@@ -15,12 +15,12 @@ Backend-пакет для design-time ресурсов metahub, metadata publica
 - Publication-driven application sync компонуется через package boundaries вместо дублирования runtime ownership внутри этого пакета.
 - Service-level mutations fail closed и используют `RETURNING`, когда нужно подтверждение затронутой строки.
 
-## Legacy-Compatible Entity V2 Contract
+## Direct Standard Kind Contract
 
-- `config.compatibility.legacyObjectKind` является источником истины для совместимости catalog, hub, set и enumeration.
-- Custom V2 rows сохраняют свой custom `kindKey` в `_mhb_objects.kind`; controllers расширяют legacy наборы kind через compatibility helpers вместо переписывания сохранённых kind.
-- Controllers hubs, catalogs, sets и enumerations принимают `kindKey`-aware compatibility filters, чтобы legacy семейство routes обслуживало и built-in, и compatible custom rows.
-- Publication, runtime и schema seams классифицируют V2 kinds через compatibility metadata, поэтому в runtime navigation материализуются только catalog-compatible sections.
+- Standard metadata entity types используют прямые kind keys: `catalog`, `hub`, `set` и `enumeration`.
+- Platform-provided standard metadata requests входят через entity-owned top-level routes и при необходимости переиспользуют entity-owned child controllers under `domains/entities/**`.
+- Template presets и default instances остаются на прямых standard kind keys вместо алиасов `custom.*-v2`.
+- Publication, runtime и schema seams классифицируют standard metadata по сохранённым entity definitions вместо V2-specific compatibility aliases.
 
 ## Main Responsibilities
 
@@ -28,7 +28,7 @@ Backend-пакет для design-time ресурсов metahub, metadata publica
 - Держать design-time surfaces исходников и bundle-артефактов scripts за permission `manageMetahub`, а не за широкими member-level reads.
 - Экспортировать public read-only routes для опубликованных данных metahub.
 - Инициализировать rate limiters и собирать полное дерево маршрутов metahubs.
-- Выполнять seed встроенных templates через unified platform migration flow.
+- Выполнять seed platform templates через unified platform migration flow.
 - Предоставлять metahub migration history, dry-run, apply, rollback и publication-linked sync seams.
 - Держать DDL orchestration за выделенными package-local boundaries.
 
@@ -50,7 +50,7 @@ Backend-пакет для design-time ресурсов metahub, metadata publica
 
 ## Router Composition
 
-- `createMetahubsServiceRoutes()` монтирует metahubs, branches, hubs, catalogs, sets, enumerations, attributes, constants, elements, layouts, settings, publications и migration endpoints.
+- `createMetahubsServiceRoutes()` монтирует metahubs, branches, publications, migrations, entity types, entity instances, entity-owned metadata routes для field definitions, fixed values и records, а также actions, event bindings, layouts, scripts, shared entity overrides, settings и templates.
 - `createPublicMetahubsServiceRoutes()` предоставляет публичное чтение опубликованных metahub без аутентификации.
 - Package services и persistence helpers остаются переиспользуемыми вне top-level router composition.
 - Tests напрямую доказывают service-level contracts там, где route tests используют mocks.
@@ -73,7 +73,7 @@ Backend-пакет для design-time ресурсов metahub, metadata publica
 
 ```ts
 const handle = createMetahubHandler(getDbExecutor)
-router.get('/:metahubId/hubs', handle(hubsController.list, { permission: 'viewer' }))
+router.post('/metahub/:metahubId/entities', handle(entityInstancesController.create, { permission: 'editor' }))
 ```
 
 ### Иерархия доменных ошибок

@@ -215,6 +215,40 @@ describe('createRlsExecutor', () => {
         }
     })
 
+    it('reuses the outer request transaction when created with inTransaction', async () => {
+        const { knex, rawFn, connectionFn, connection } = createMockRlsKnex()
+
+        const executor = createRlsExecutor(knex, connection, { inTransaction: true })
+        await executor.transaction(async (tx) => {
+            await tx.query('SELECT 1')
+        })
+
+        const rawCalls = rawFn.mock.calls.map((c: any) => c[0])
+        expect(rawCalls).toEqual(['SELECT 1'])
+
+        for (const call of connectionFn.mock.calls) {
+            expect(call[0]).toBe(connection)
+        }
+    })
+
+    it('allows explicit nested savepoints inside a middleware-owned transaction', async () => {
+        const { knex, rawFn, connectionFn, connection } = createMockRlsKnex()
+
+        const executor = createRlsExecutor(knex, connection, { inTransaction: true })
+        await executor.transaction(async (tx) => {
+            await tx.transaction(async (innerTx) => {
+                await innerTx.query('SELECT 1')
+            })
+        })
+
+        const rawCalls = rawFn.mock.calls.map((c: any) => c[0])
+        expect(rawCalls).toEqual(['SAVEPOINT rls_sp_2', 'SELECT 1', 'RELEASE SAVEPOINT rls_sp_2'])
+
+        for (const call of connectionFn.mock.calls) {
+            expect(call[0]).toBe(connection)
+        }
+    })
+
     it('txDepth resets after transaction completes', async () => {
         const { knex, rawFn, connectionFn, connection } = createMockRlsKnex()
 

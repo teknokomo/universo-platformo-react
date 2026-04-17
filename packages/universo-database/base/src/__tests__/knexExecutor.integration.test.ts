@@ -67,7 +67,7 @@ describeIntegration('Executor Integration (requires PG)', () => {
         }
     })
 
-    it('RLS executor transaction uses SAVEPOINT for nested', async () => {
+    it('RLS executor reuses the middleware-owned outer transaction without extra savepoints', async () => {
         const connection = await knex.client.acquireConnection()
         try {
             await knex.raw('BEGIN').connection(connection)
@@ -79,6 +79,27 @@ describeIntegration('Executor Integration (requires PG)', () => {
 
             const rows = await exec.query<{ name: string }>('SELECT name FROM _test_exec WHERE id = $1', [3])
             expect(rows).toEqual([{ name: 'carol' }])
+
+            await knex.raw('ROLLBACK').connection(connection)
+        } finally {
+            await knex.client.releaseConnection(connection)
+        }
+    })
+
+    it('RLS executor still supports explicit nested savepoints inside a middleware-owned transaction', async () => {
+        const connection = await knex.client.acquireConnection()
+        try {
+            await knex.raw('BEGIN').connection(connection)
+            const exec = createRlsExecutor(knex, connection, { inTransaction: true })
+
+            await exec.transaction(async (txExec) => {
+                await txExec.transaction(async (innerExec) => {
+                    await innerExec.query('INSERT INTO _test_exec VALUES ($1, $2)', [4, 'dave'])
+                })
+            })
+
+            const rows = await exec.query<{ name: string }>('SELECT name FROM _test_exec WHERE id = $1', [4])
+            expect(rows).toEqual([{ name: 'dave' }])
 
             await knex.raw('ROLLBACK').connection(connection)
         } finally {

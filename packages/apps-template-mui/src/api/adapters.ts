@@ -14,38 +14,42 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
     return {
         queryKeyPrefix: appQueryKeys.list(applicationId),
 
-        fetchList: ({ limit, offset, locale, catalogId, sectionId }) =>
-            fetchAppData({ apiBaseUrl, applicationId, limit, offset, locale, catalogId, sectionId }),
+        fetchList: ({ limit, offset, locale, linkedCollectionId, sectionId }) =>
+            fetchAppData({ apiBaseUrl, applicationId, limit, offset, locale, linkedCollectionId, sectionId }),
 
-        fetchRow: (rowId, catalogId) => fetchAppRow({ apiBaseUrl, applicationId, rowId, catalogId, sectionId: catalogId }),
+        fetchRow: (rowId, linkedCollectionId) =>
+            fetchAppRow({ apiBaseUrl, applicationId, rowId, linkedCollectionId, sectionId: linkedCollectionId }),
 
-        fetchTabularRows: async ({ parentRowId, attributeId, catalogId, sectionId }) => {
-            const resolvedSectionId = sectionId ?? catalogId
+        fetchTabularRows: async ({ parentRowId, attributeId, linkedCollectionId, sectionId }) => {
+            const resolvedSectionId = sectionId ?? linkedCollectionId
             if (!resolvedSectionId) return []
             const response = await fetchTabularRows({
                 apiBaseUrl,
                 applicationId,
                 parentRecordId: parentRowId,
                 attributeId,
-                catalogId: resolvedSectionId,
+                linkedCollectionId: resolvedSectionId,
                 sectionId: resolvedSectionId
             })
             return response.items
         },
 
-        createRow: (data, catalogId) => createAppRow({ apiBaseUrl, applicationId, data, catalogId, sectionId: catalogId }),
+        createRow: (data, linkedCollectionId) =>
+            createAppRow({ apiBaseUrl, applicationId, data, linkedCollectionId, sectionId: linkedCollectionId }),
 
-        updateRow: (rowId, data, catalogId) => updateAppRow({ apiBaseUrl, applicationId, rowId, data, catalogId, sectionId: catalogId }),
+        updateRow: (rowId, data, linkedCollectionId) =>
+            updateAppRow({ apiBaseUrl, applicationId, rowId, data, linkedCollectionId, sectionId: linkedCollectionId }),
 
-        deleteRow: (rowId, catalogId) => deleteAppRow({ apiBaseUrl, applicationId, rowId, catalogId, sectionId: catalogId }),
+        deleteRow: (rowId, linkedCollectionId) =>
+            deleteAppRow({ apiBaseUrl, applicationId, rowId, linkedCollectionId, sectionId: linkedCollectionId }),
 
         copyRow: (rowId, data) =>
             copyAppRow({
                 apiBaseUrl,
                 applicationId,
                 rowId,
-                catalogId: data?.catalogId,
-                sectionId: data?.sectionId ?? data?.catalogId,
+                linkedCollectionId: data?.linkedCollectionId,
+                sectionId: data?.sectionId ?? data?.linkedCollectionId,
                 copyChildTables: data?.copyChildTables
             })
     }

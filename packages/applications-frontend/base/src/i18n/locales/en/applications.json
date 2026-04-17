@@ -305,7 +305,7 @@
             "elementsCount_one": "{{count}} element",
             "elementsCount_other": "{{count}} elements",
             "fields": "Fields",
-            "predefinedElements": "Predefined elements",
+            "records": "Predefined elements",
             "columns": {
                 "codename": "Codename",
                 "type": "Type",

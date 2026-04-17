@@ -202,7 +202,9 @@ const ApplicationSettings = () => {
                                         }
                                     >
                                         <MenuItem value='small'>{t('settings.dialogSizePresets.small', 'Small (about 480 px)')}</MenuItem>
-                                        <MenuItem value='medium'>{t('settings.dialogSizePresets.medium', 'Medium (about 600 px)')}</MenuItem>
+                                        <MenuItem value='medium'>
+                                            {t('settings.dialogSizePresets.medium', 'Medium (about 600 px)')}
+                                        </MenuItem>
                                         <MenuItem value='large'>{t('settings.dialogSizePresets.large', 'Large (about 800 px)')}</MenuItem>
                                     </Select>
                                 </FormControl>
@@ -244,9 +246,7 @@ const ApplicationSettings = () => {
                                 sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
                             >
                                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                                    <Typography variant='subtitle2'>
-                                        {t('settings.dialogAllowResize', 'Allow popup resize')}
-                                    </Typography>
+                                    <Typography variant='subtitle2'>{t('settings.dialogAllowResize', 'Allow popup resize')}</Typography>
                                     <Typography variant='body2' color='text.secondary'>
                                         {t(
                                             'settings.dialogAllowResizeDescription',
@@ -275,9 +275,7 @@ const ApplicationSettings = () => {
                                 sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
                             >
                                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                                    <Typography variant='subtitle2'>
-                                        {t('settings.dialogCloseBehavior', 'Popup window type')}
-                                    </Typography>
+                                    <Typography variant='subtitle2'>{t('settings.dialogCloseBehavior', 'Popup window type')}</Typography>
                                     <Typography variant='body2' color='text.secondary'>
                                         {t(
                                             'settings.dialogCloseBehaviorDescription',

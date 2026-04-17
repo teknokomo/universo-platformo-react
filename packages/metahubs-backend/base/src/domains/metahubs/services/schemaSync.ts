@@ -9,7 +9,7 @@ import { MetahubSchemaService } from './MetahubSchemaService'
  * to Application schemas (app_<uuid>).
  *
  * Design-Time schemas contain only metadata tables:
- * - _mhb_objects: Registry of all objects (Catalogs, Hubs, Documents)
+ * - _mhb_objects: Registry of metahub entity instances and metadata-owned objects
  * - _mhb_attributes: Attribute definitions for objects
  * - _mhb_elements: Predefined data for catalogs
  *

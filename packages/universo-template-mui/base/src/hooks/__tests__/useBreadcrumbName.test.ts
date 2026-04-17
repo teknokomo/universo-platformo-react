@@ -5,7 +5,12 @@ import { useAuth } from '@universo/auth-frontend'
 import {
     createEntityNameHook,
     createTruncateFunction,
+    useLinkedCollectionName,
+    useLinkedCollectionNameStandalone,
+    useOptionListName,
+    useTreeEntityName,
     useMetahubPublicationName,
+    useValueGroupNameStandalone,
     useMetaverseName,
     truncateMetaverseName
 } from '../useBreadcrumbName'
@@ -230,6 +235,94 @@ describe('useBreadcrumbName', () => {
             })
 
             expect(mockClientGet).toHaveBeenCalledWith('/metaverses/mv-123')
+        })
+
+        it('uses entity-owned hub and catalog endpoints for breadcrumb names', async () => {
+            mockClientGet
+                .mockResolvedValueOnce({
+                    data: {
+                        name: {
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Hub Name' }
+                            }
+                        }
+                    }
+                })
+                .mockResolvedValueOnce({
+                    data: {
+                        name: {
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Catalog Name' }
+                            }
+                        }
+                    }
+                })
+                .mockResolvedValueOnce({
+                    data: {
+                        name: {
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Standalone Catalog Name' }
+                            }
+                        }
+                    }
+                })
+
+            const { result: hubResult } = renderHook(() => useTreeEntityName('mh-1', 'hub-1'), { wrapper })
+            const { result: catalogResult } = renderHook(() => useLinkedCollectionName('mh-1', 'hub-1', 'catalog-1'), { wrapper })
+            const { result: standaloneCatalogResult } = renderHook(() => useLinkedCollectionNameStandalone('mh-1', 'catalog-1'), {
+                wrapper
+            })
+
+            await waitFor(() => {
+                expect(hubResult.current).toBe('Hub Name')
+                expect(catalogResult.current).toBe('Catalog Name')
+                expect(standaloneCatalogResult.current).toBe('Standalone Catalog Name')
+            })
+
+            expect(mockClientGet).toHaveBeenNthCalledWith(1, '/metahub/mh-1/entities/hub/instance/hub-1')
+            expect(mockClientGet).toHaveBeenNthCalledWith(
+                2,
+                '/metahub/mh-1/entities/catalog/instance/hub-1/catalog/catalog-1'
+            )
+            expect(mockClientGet).toHaveBeenNthCalledWith(3, '/metahub/mh-1/entities/catalog/instance/catalog-1')
+        })
+
+        it('uses entity-owned set and enumeration endpoints for breadcrumb names', async () => {
+            mockClientGet
+                .mockResolvedValueOnce({
+                    data: {
+                        name: {
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Set Name' }
+                            }
+                        }
+                    }
+                })
+                .mockResolvedValueOnce({
+                    data: {
+                        name: {
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Enumeration Name' }
+                            }
+                        }
+                    }
+                })
+
+            const { result: setResult } = renderHook(() => useValueGroupNameStandalone('mh-1', 'set-1'), { wrapper })
+            const { result: enumerationResult } = renderHook(() => useOptionListName('mh-1', 'enum-1'), { wrapper })
+
+            await waitFor(() => {
+                expect(setResult.current).toBe('Set Name')
+                expect(enumerationResult.current).toBe('Enumeration Name')
+            })
+
+            expect(mockClientGet).toHaveBeenNthCalledWith(1, '/metahub/mh-1/entities/set/instance/set-1')
+            expect(mockClientGet).toHaveBeenNthCalledWith(2, '/metahub/mh-1/entities/enumeration/instance/enum-1')
         })
 
         it('useMetahubPublicationName does not reuse publication detail objects as breadcrumb cache', async () => {

@@ -5,9 +5,7 @@ import { resolveSharedBehavior, type SharedBehavior, type SharedEntityKind } fro
 import { EntitySelectionPanel, type EntitySelectionLabels } from '@universo/template-mui'
 import { useTranslation } from 'react-i18next'
 import { getVLCString } from '../../../types'
-import * as catalogsApi from '../../catalogs/api/catalogs'
-import * as setsApi from '../../sets/api/sets'
-import * as enumerationsApi from '../../enumerations/api/enumerations'
+import { listEntityInstances, type MetahubEntityInstance } from '../../entities/api/entityInstances'
 import { fetchAllPaginatedItems } from '../fetchAllPaginatedItems'
 import { useSharedEntityOverridesByEntity } from '../hooks/useSharedEntityOverrides'
 import { metahubsQueryKeys } from '../queryKeys'
@@ -27,6 +25,10 @@ type SharedTargetOption = {
 
 type SharedTargetHubLike = {
     codename?: unknown
+}
+
+type SharedTargetEntity = MetahubEntityInstance & {
+    treeEntities?: SharedTargetHubLike[]
 }
 
 export type SharedEntitySettingsFieldsProps = {
@@ -84,17 +86,17 @@ const getTargetLabels = (entityKind: SharedEntityKind) => {
         case 'attribute':
             return {
                 singular: 'catalog',
-                plural: 'catalogs'
+                plural: 'linkedCollections'
             }
         case 'constant':
             return {
                 singular: 'set',
-                plural: 'sets'
+                plural: 'valueGroups'
             }
         default:
             return {
                 singular: 'enumeration',
-                plural: 'enumerations'
+                plural: 'optionLists'
             }
     }
 }
@@ -117,13 +119,13 @@ export const resolveSharedTargetLabel = (name: unknown, codename: unknown, local
 
 export const resolveSharedTargetSecondaryLabel = (
     codename: unknown,
-    hubs: SharedTargetHubLike[] | undefined,
+    treeEntities: SharedTargetHubLike[] | undefined,
     locale: string,
     fallbackId: string
 ): string => {
     const codenameText = resolveSharedTargetText(codename, locale) || fallbackId
     const hubLabels =
-        hubs
+        treeEntities
             ?.map((hub) => resolveSharedTargetText(hub?.codename, locale))
             .filter((value) => typeof value === 'string' && value.length > 0)
             .join(', ') ?? null
@@ -132,47 +134,23 @@ export const resolveSharedTargetSecondaryLabel = (
 }
 
 const mapSharedTargets = async (metahubId: string, entityKind: SharedEntityKind, locale: string): Promise<SharedTargetOption[]> => {
-    if (entityKind === 'attribute') {
-        const response = await fetchAllPaginatedItems((params) => catalogsApi.listAllCatalogs(metahubId, params), {
-            limit: 1000,
-            sortBy: 'sortOrder',
-            sortOrder: 'asc'
-        })
-        return response.items
-            .map((catalog) => ({
-                id: catalog.id,
-                label: resolveSharedTargetLabel(catalog.name, catalog.codename, locale, catalog.id),
-                secondaryLabel: resolveSharedTargetSecondaryLabel(catalog.codename, catalog.hubs, locale, catalog.id)
-            }))
-            .sort((left, right) => left.label.localeCompare(right.label) || left.id.localeCompare(right.id))
-    }
-
-    if (entityKind === 'constant') {
-        const response = await fetchAllPaginatedItems((params) => setsApi.listAllSets(metahubId, params), {
-            limit: 1000,
-            sortBy: 'sortOrder',
-            sortOrder: 'asc'
-        })
-        return response.items
-            .map((setItem) => ({
-                id: setItem.id,
-                label: resolveSharedTargetLabel(setItem.name, setItem.codename, locale, setItem.id),
-                secondaryLabel: resolveSharedTargetSecondaryLabel(setItem.codename, setItem.hubs, locale, setItem.id)
-            }))
-            .sort((left, right) => left.label.localeCompare(right.label) || left.id.localeCompare(right.id))
-    }
-
-    const response = await fetchAllPaginatedItems((params) => enumerationsApi.listAllEnumerations(metahubId, params), {
+    const kind = entityKind === 'attribute' ? 'catalog' : entityKind === 'constant' ? 'set' : 'enumeration'
+    const response = await fetchAllPaginatedItems((params) => listEntityInstances(metahubId, { ...params, kind }), {
         limit: 1000,
         sortBy: 'sortOrder',
         sortOrder: 'asc'
     })
 
     return response.items
-        .map((enumeration) => ({
-            id: enumeration.id,
-            label: resolveSharedTargetLabel(enumeration.name, enumeration.codename, locale, enumeration.id),
-            secondaryLabel: resolveSharedTargetSecondaryLabel(enumeration.codename, enumeration.hubs, locale, enumeration.id)
+        .map((entity) => ({
+            id: entity.id,
+            label: resolveSharedTargetLabel(entity.name, entity.codename, locale, entity.id),
+            secondaryLabel: resolveSharedTargetSecondaryLabel(
+                entity.codename,
+                (entity as SharedTargetEntity).treeEntities,
+                locale,
+                entity.id
+            )
         }))
         .sort((left, right) => left.label.localeCompare(right.label) || left.id.localeCompare(right.id))
 }

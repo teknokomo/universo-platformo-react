@@ -23,7 +23,7 @@ Exclusions — это sparse target-specific overrides, а не cloned copies sh
 
 ## Что читать дальше
 
-- [Shared Attributes](shared-attributes.md)
-- [Shared Constants](shared-constants.md)
-- [Shared Values](shared-values.md)
+- [Shared Field Definitions](shared-field-definitions.md)
+- [Shared Fixed Values](shared-fixed-values.md)
+- [Shared Option Values](shared-option-values.md)
 - [Shared Behavior Settings](shared-behavior-settings.md)

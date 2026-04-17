@@ -2,11 +2,9 @@ import { createHash } from 'crypto'
 import stableStringify from 'json-stable-stringify'
 import type { EntityDefinition, FieldDefinition } from '@universo/schema-ddl'
 import {
-    BUILTIN_ENTITY_TYPE_REGISTRY,
     MetaEntityKind,
     SHARED_OBJECT_KINDS,
-    getLegacyCompatibleObjectKind,
-    getLegacyCompatibleObjectKindForKindKey,
+    isBuiltinEntityKind,
     isEnabledComponentConfig,
     type CatalogSystemFieldsSnapshot,
     type ComponentManifest,
@@ -21,11 +19,11 @@ import {
 } from '@universo/types'
 import { serialization } from '@universo/utils'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
-import { MetahubAttributesService } from '../../metahubs/services/MetahubAttributesService'
-import { MetahubElementsService } from '../../metahubs/services/MetahubElementsService'
-import { MetahubHubsService } from '../../metahubs/services/MetahubHubsService'
-import { MetahubEnumerationValuesService } from '../../metahubs/services/MetahubEnumerationValuesService'
-import { MetahubConstantsService } from '../../metahubs/services/MetahubConstantsService'
+import { MetahubFieldDefinitionsService } from '../../metahubs/services/MetahubFieldDefinitionsService'
+import { MetahubRecordsService } from '../../metahubs/services/MetahubRecordsService'
+import { MetahubTreeEntitiesService } from '../../metahubs/services/MetahubTreeEntitiesService'
+import { MetahubOptionValuesService } from '../../metahubs/services/MetahubOptionValuesService'
+import { MetahubFixedValuesService } from '../../metahubs/services/MetahubFixedValuesService'
 import { MetahubScriptsService } from '../../scripts/services/MetahubScriptsService'
 import { EntityTypeService } from '../../entities/services/EntityTypeService'
 import { ActionService } from '../../entities/services/ActionService'
@@ -40,19 +38,8 @@ import { createLogger } from '../../../utils/logger'
 
 const log = createLogger('SnapshotSerializer')
 
-const resolveLegacyCompatibleKind = (kind: unknown, config?: unknown): 'catalog' | 'hub' | 'set' | 'enumeration' | null => {
-    if (kind === MetaEntityKind.CATALOG || kind === MetaEntityKind.HUB || kind === MetaEntityKind.SET || kind === MetaEntityKind.ENUMERATION) {
-        return kind
-    }
-
-    const fromConfig = getLegacyCompatibleObjectKind(config)
-    if (fromConfig && fromConfig !== 'document') {
-        return fromConfig
-    }
-
-    const fromKindKey = getLegacyCompatibleObjectKindForKindKey(kind)
-    return fromKindKey && fromKindKey !== 'document' ? fromKindKey : null
-}
+const resolveEntityMetadataKind = (kind: unknown, config?: unknown): 'catalog' | 'hub' | 'set' | 'enumeration' | null =>
+    typeof kind === 'string' && isBuiltinEntityKind(kind) ? kind : null
 
 export type SnapshotCodenameValue = VersionedLocalizedContent<string> | string
 
@@ -87,10 +74,14 @@ export interface MetahubSnapshot {
     entities: Record<string, MetaEntitySnapshot>
     entityTypeDefinitions?: Record<string, MetahubEntityTypeDefinitionSnapshot>
     elements?: Record<string, MetaElementSnapshot[]>
-    enumerationValues?: Record<string, MetaEnumerationValueSnapshot[]>
-    constants?: Record<string, MetaConstantSnapshot[]>
+    optionValues?: Record<string, MetaEnumerationValueSnapshot[]>
+    fixedValues?: Record<string, MetaFixedValueSnapshot[]>
+    sharedFieldDefinitions?: MetaFieldSnapshot[]
+    /** @deprecated use sharedFieldDefinitions */
     sharedAttributes?: MetaFieldSnapshot[]
-    sharedConstants?: MetaConstantSnapshot[]
+    sharedFixedValues?: MetaFixedValueSnapshot[]
+    sharedOptionValues?: MetaEnumerationValueSnapshot[]
+    /** @deprecated use sharedOptionValues */
     sharedEnumerationValues?: MetaEnumerationValueSnapshot[]
     sharedEntityOverrides?: MetahubSharedEntityOverrideSnapshot[]
     systemFields?: Record<string, CatalogSystemFieldsSnapshot>
@@ -131,7 +122,7 @@ export interface MetahubLayoutSnapshot {
 }
 
 export interface MetahubCatalogLayoutSnapshot extends MetahubLayoutSnapshot {
-    catalogId: string
+    linkedCollectionId: string
     baseLayoutId: string
 }
 
@@ -148,7 +139,6 @@ export interface MetahubEntityTypeDefinitionSnapshot {
     components: ComponentManifest
     ui: EntityTypeUIConfig
     config: Record<string, unknown>
-    isBuiltin: boolean
     published?: boolean
 }
 
@@ -235,9 +225,9 @@ type SnapshotAttributeRecord = {
     } | null
 }
 
-type SnapshotConstantRecord = {
+type SnapshotFixedValueRecord = {
     id: string
-    setId?: string | null
+    valueGroupId?: string | null
     codename: SnapshotCodenameValue
     dataType: string
     name?: VersionedLocalizedContent<string> | null
@@ -275,7 +265,7 @@ export interface MetaElementSnapshot {
     sortOrder: number
 }
 
-export interface MetaConstantSnapshot {
+export interface MetaFixedValueSnapshot {
     id: string
     objectId: string
     codename: SnapshotCodenameValue
@@ -290,11 +280,11 @@ export interface MetaConstantSnapshot {
 export class SnapshotSerializer {
     constructor(
         private readonly objectsService: MetahubObjectsService,
-        private readonly attributesService: MetahubAttributesService,
-        private readonly elementsService?: MetahubElementsService,
-        private readonly hubsService?: MetahubHubsService, // Hub repository removed - hubs are now in isolated schemas (_mhb_hubs)
-        private readonly enumerationValuesService?: MetahubEnumerationValuesService,
-        private readonly constantsService?: MetahubConstantsService,
+        private readonly fieldDefinitionsService: MetahubFieldDefinitionsService,
+        private readonly recordsService?: MetahubRecordsService,
+        private readonly treeEntitiesService?: MetahubTreeEntitiesService, // Hub repository removed - hubs are now in isolated schemas (_mhb_hubs)
+        private readonly optionValuesService?: MetahubOptionValuesService,
+        private readonly fixedValuesService?: MetahubFixedValuesService,
         private readonly scriptsService?: MetahubScriptsService,
         private readonly sharedContainerService?: SharedContainerService,
         private readonly sharedEntityOverridesService?: SharedEntityOverridesService,
@@ -369,19 +359,19 @@ export class SnapshotSerializer {
         })
     }
 
-    private static mapConstantSnapshots(constants: SnapshotConstantRecord[], fallbackObjectId: string): MetaConstantSnapshot[] {
-        return constants.map((constant) => ({
-            id: constant.id,
-            objectId: constant.setId ?? fallbackObjectId,
-            codename: SnapshotSerializer.toSnapshotCodenameValue(constant.codename),
-            dataType: constant.dataType,
+    private static mapFixedValueSnapshots(fixedValues: SnapshotFixedValueRecord[], fallbackObjectId: string): MetaFixedValueSnapshot[] {
+        return fixedValues.map((fixedValue) => ({
+            id: fixedValue.id,
+            objectId: fixedValue.valueGroupId ?? fallbackObjectId,
+            codename: SnapshotSerializer.toSnapshotCodenameValue(fixedValue.codename),
+            dataType: fixedValue.dataType,
             presentation: {
-                name: constant.name ?? {}
+                name: fixedValue.name ?? {}
             },
-            validationRules: (constant.validationRules ?? {}) as Record<string, unknown>,
-            uiConfig: (constant.uiConfig ?? {}) as Record<string, unknown>,
-            value: constant.value ?? null,
-            sortOrder: constant.sortOrder ?? 0
+            validationRules: (fixedValue.validationRules ?? {}) as Record<string, unknown>,
+            uiConfig: (fixedValue.uiConfig ?? {}) as Record<string, unknown>,
+            value: fixedValue.value ?? null,
+            sortOrder: fixedValue.sortOrder ?? 0
         }))
     }
 
@@ -435,14 +425,14 @@ export class SnapshotSerializer {
     }
 
     public static materializeSharedEntitiesForRuntime(snapshot: MetahubSnapshot): MetahubSnapshot {
-        const sharedAttributes = snapshot.sharedAttributes ?? []
-        const sharedConstants = snapshot.sharedConstants ?? []
-        const sharedEnumerationValues = snapshot.sharedEnumerationValues ?? []
+        const sharedAttributes = snapshot.sharedFieldDefinitions ?? snapshot.sharedAttributes ?? []
+        const sharedFixedValues = snapshot.sharedFixedValues ?? []
+        const sharedEnumerationValues = snapshot.sharedOptionValues ?? snapshot.sharedEnumerationValues ?? []
         const sharedOverrides = snapshot.sharedEntityOverrides ?? []
 
         if (
             sharedAttributes.length === 0 &&
-            sharedConstants.length === 0 &&
+            sharedFixedValues.length === 0 &&
             sharedEnumerationValues.length === 0 &&
             sharedOverrides.length === 0
         ) {
@@ -451,7 +441,7 @@ export class SnapshotSerializer {
 
         const entities = Object.fromEntries(
             Object.entries(snapshot.entities ?? {}).map(([entityId, entity]) => {
-                if (resolveLegacyCompatibleKind(entity.kind, entity.config) !== MetaEntityKind.CATALOG || sharedAttributes.length === 0) {
+                if (resolveEntityMetadataKind(entity.kind, entity.config) !== MetaEntityKind.CATALOG || sharedAttributes.length === 0) {
                     return [entityId, entity]
                 }
 
@@ -470,16 +460,16 @@ export class SnapshotSerializer {
             })
         )
 
-        const constantsByObjectId: Record<string, MetaConstantSnapshot[]> = { ...(snapshot.constants ?? {}) }
+        const fixedValuesByObjectId: Record<string, MetaFixedValueSnapshot[]> = { ...(snapshot.fixedValues ?? {}) }
         for (const entity of Object.values(snapshot.entities ?? {})) {
-            if (resolveLegacyCompatibleKind(entity.kind, entity.config) !== MetaEntityKind.SET) {
+            if (resolveEntityMetadataKind(entity.kind, entity.config) !== MetaEntityKind.SET) {
                 continue
             }
 
-            const localConstants = snapshot.constants?.[entity.id] ?? []
+            const localFixedValues = snapshot.fixedValues?.[entity.id] ?? []
             const mergedConstants = buildMergedSharedEntityList({
-                localItems: localConstants,
-                sharedItems: sharedConstants,
+                localItems: localFixedValues,
+                sharedItems: sharedFixedValues,
                 overrides: SnapshotSerializer.resolveRuntimeSharedOverrides(snapshot, 'constant', entity.id),
                 getId: (item) => item.id,
                 getSortOrder: (item) => item.sortOrder,
@@ -489,21 +479,21 @@ export class SnapshotSerializer {
             }).map((item) => SnapshotSerializer.stripSharedMetadata(item))
 
             if (mergedConstants.length > 0) {
-                constantsByObjectId[entity.id] = mergedConstants
+                fixedValuesByObjectId[entity.id] = mergedConstants
             } else {
-                delete constantsByObjectId[entity.id]
+                delete fixedValuesByObjectId[entity.id]
             }
         }
 
-        const enumerationValuesByObjectId: Record<string, MetaEnumerationValueSnapshot[]> = {
-            ...(snapshot.enumerationValues ?? {})
+        const optionValuesByObjectId: Record<string, MetaEnumerationValueSnapshot[]> = {
+            ...(snapshot.optionValues ?? {})
         }
         for (const entity of Object.values(snapshot.entities ?? {})) {
-            if (resolveLegacyCompatibleKind(entity.kind, entity.config) !== MetaEntityKind.ENUMERATION) {
+            if (resolveEntityMetadataKind(entity.kind, entity.config) !== MetaEntityKind.ENUMERATION) {
                 continue
             }
 
-            const localValues = snapshot.enumerationValues?.[entity.id] ?? []
+            const localValues = snapshot.optionValues?.[entity.id] ?? []
             const mergedValues = buildMergedSharedEntityList({
                 localItems: localValues,
                 sharedItems: sharedEnumerationValues,
@@ -517,17 +507,17 @@ export class SnapshotSerializer {
             }).map((item) => SnapshotSerializer.stripSharedMetadata(item))
 
             if (mergedValues.length > 0) {
-                enumerationValuesByObjectId[entity.id] = mergedValues
+                optionValuesByObjectId[entity.id] = mergedValues
             } else {
-                delete enumerationValuesByObjectId[entity.id]
+                delete optionValuesByObjectId[entity.id]
             }
         }
 
         return {
             ...snapshot,
             entities,
-            constants: Object.keys(constantsByObjectId).length > 0 ? constantsByObjectId : undefined,
-            enumerationValues: Object.keys(enumerationValuesByObjectId).length > 0 ? enumerationValuesByObjectId : undefined
+            fixedValues: Object.keys(fixedValuesByObjectId).length > 0 ? fixedValuesByObjectId : undefined,
+            optionValues: Object.keys(optionValuesByObjectId).length > 0 ? optionValuesByObjectId : undefined
         }
     }
 
@@ -578,18 +568,15 @@ export class SnapshotSerializer {
         entityTypeDefinitions?: Record<string, MetahubEntityTypeDefinitionSnapshot>
     }> {
         const typeByKind = new Map<string, { components: ComponentManifest; config?: Record<string, unknown> }>()
-        for (const [kindKey, definition] of BUILTIN_ENTITY_TYPE_REGISTRY.entries()) {
-            typeByKind.set(kindKey, definition)
-        }
 
         if (!this.entityTypeService) {
             return { typeByKind }
         }
 
-        const customDefinitions = await this.entityTypeService.listCustomTypes(metahubId)
+        const definitions = await this.entityTypeService.listTypes(metahubId)
         const entityTypeDefinitions: Record<string, MetahubEntityTypeDefinitionSnapshot> = {}
 
-        for (const definition of customDefinitions) {
+        for (const definition of definitions) {
             typeByKind.set(definition.kindKey, {
                 components: definition.components,
                 config: ensureRecord(definition.config)
@@ -602,7 +589,6 @@ export class SnapshotSerializer {
                 components: definition.components,
                 ui: definition.ui,
                 config: ensureRecord(definition.config),
-                isBuiltin: definition.isBuiltin === true,
                 published: definition.published === true
             }
         }
@@ -620,25 +606,25 @@ export class SnapshotSerializer {
         typeConfig?: Record<string, unknown>
     ): Promise<CatalogSystemFieldsSnapshot | null> {
         if (
-            resolveLegacyCompatibleKind(kind, typeConfig) === MetaEntityKind.CATALOG &&
-            typeof this.attributesService.getCatalogSystemFieldsSnapshot === 'function'
+            resolveEntityMetadataKind(kind, typeConfig) === MetaEntityKind.CATALOG &&
+            typeof this.fieldDefinitionsService.getCatalogSystemFieldsSnapshot === 'function'
         ) {
-            return this.attributesService.getCatalogSystemFieldsSnapshot(metahubId, objectId)
+            return this.fieldDefinitionsService.getCatalogSystemFieldsSnapshot(metahubId, objectId)
         }
 
         if (
-            typeof this.attributesService.listObjectSystemAttributes !== 'function' ||
-            typeof this.attributesService.getObjectSystemFieldsSnapshot !== 'function'
+            typeof this.fieldDefinitionsService.listObjectSystemFieldDefinitions !== 'function' ||
+            typeof this.fieldDefinitionsService.getObjectSystemFieldsSnapshot !== 'function'
         ) {
             return null
         }
 
-        const systemAttributes = await this.attributesService.listObjectSystemAttributes(metahubId, objectId)
-        if (!systemAttributes.length) {
+        const systemFieldDefinitions = await this.fieldDefinitionsService.listObjectSystemFieldDefinitions(metahubId, objectId)
+        if (!systemFieldDefinitions.length) {
             return null
         }
 
-        return this.attributesService.getObjectSystemFieldsSnapshot(metahubId, objectId)
+        return this.fieldDefinitionsService.getObjectSystemFieldsSnapshot(metahubId, objectId)
     }
 
     /**
@@ -653,7 +639,7 @@ export class SnapshotSerializer {
         const { typeByKind, entityTypeDefinitions } = await this.loadSnapshotTypeDefinitions(metahubId)
         const objectKinds = [...typeByKind.keys()].filter((kind) => {
             const definition = typeByKind.get(kind)
-            return resolveLegacyCompatibleKind(kind, definition?.config) !== MetaEntityKind.HUB
+            return resolveEntityMetadataKind(kind, definition?.config) !== MetaEntityKind.HUB
         })
         const objectsByKindEntries = await Promise.all(
             objectKinds.map(async (kind) => [kind, await this.objectsService.findAllByKind(metahubId, kind)] as const)
@@ -662,11 +648,11 @@ export class SnapshotSerializer {
 
         const entities: Record<string, MetaEntitySnapshot> = {}
         const elementsByObject: Record<string, MetaElementSnapshot[]> = {}
-        const enumerationValuesByObject: Record<string, MetaEnumerationValueSnapshot[]> = {}
-        const constantsByObject: Record<string, MetaConstantSnapshot[]> = {}
-        const sharedAttributes: MetaFieldSnapshot[] = []
-        const sharedConstants: MetaConstantSnapshot[] = []
-        const sharedEnumerationValues: MetaEnumerationValueSnapshot[] = []
+        const optionValuesByObject: Record<string, MetaEnumerationValueSnapshot[]> = {}
+        const fixedValuesByObject: Record<string, MetaFixedValueSnapshot[]> = {}
+        const sharedFieldDefinitions: MetaFieldSnapshot[] = []
+        const sharedFixedValues: MetaFixedValueSnapshot[] = []
+        const sharedOptionValues: MetaEnumerationValueSnapshot[] = []
         const sharedEntityOverrides: MetahubSharedEntityOverrideSnapshot[] = []
         const systemFieldsByObject: Record<string, CatalogSystemFieldsSnapshot> = {}
         const publishedScripts = this.scriptsService
@@ -693,12 +679,12 @@ export class SnapshotSerializer {
             .filter(({ kind, object }) => {
                 const resolvedKind = typeof object.kind === 'string' ? object.kind : kind
                 const definition = typeByKind.get(String(resolvedKind))
-                return definition ? isEnabledComponentConfig(definition.components.predefinedElements) : false
+                return definition ? isEnabledComponentConfig(definition.components.records) : false
             })
             .map(({ object }) => object.id)
         const allElements =
-            this.elementsService && elementObjectIds.length > 0
-                ? await this.elementsService.findAllByObjectIds(metahubId, elementObjectIds)
+            this.recordsService && elementObjectIds.length > 0
+                ? await this.recordsService.findAllByObjectIds(metahubId, elementObjectIds)
                 : []
         const elementsMap = new Map<string, MetaElementSnapshot[]>()
 
@@ -718,35 +704,32 @@ export class SnapshotSerializer {
             ])
 
             if (sharedCatalogPoolId) {
-                const allSharedAttributes = (await this.attributesService.findAllFlatForSnapshot(
+                const allSharedAttributes = (await this.fieldDefinitionsService.findAllFlatForSnapshot(
                     metahubId,
                     sharedCatalogPoolId,
                     undefined,
                     'all'
                 )) as SnapshotAttributeRecord[]
-                sharedAttributes.push(
+                sharedFieldDefinitions.push(
                     ...SnapshotSerializer.buildFieldSnapshots(
                         allSharedAttributes.filter((attribute) => attribute.system?.isSystem !== true)
                     )
                 )
             }
 
-            if (sharedSetPoolId && this.constantsService) {
-                sharedConstants.push(
-                    ...SnapshotSerializer.mapConstantSnapshots(
-                        (await this.constantsService.findAll(metahubId, sharedSetPoolId)) as SnapshotConstantRecord[],
+            if (sharedSetPoolId && this.fixedValuesService) {
+                sharedFixedValues.push(
+                    ...SnapshotSerializer.mapFixedValueSnapshots(
+                        (await this.fixedValuesService.findAll(metahubId, sharedSetPoolId)) as SnapshotFixedValueRecord[],
                         sharedSetPoolId
                     )
                 )
             }
 
-            if (sharedEnumerationPoolId && this.enumerationValuesService) {
-                sharedEnumerationValues.push(
+            if (sharedEnumerationPoolId && this.optionValuesService) {
+                sharedOptionValues.push(
                     ...SnapshotSerializer.mapEnumerationValueSnapshots(
-                        (await this.enumerationValuesService.findAll(
-                            metahubId,
-                            sharedEnumerationPoolId
-                        )) as SnapshotEnumerationValueRecord[],
+                        (await this.optionValuesService.findAll(metahubId, sharedEnumerationPoolId)) as SnapshotEnumerationValueRecord[],
                         sharedEnumerationPoolId
                     )
                 )
@@ -768,13 +751,13 @@ export class SnapshotSerializer {
         }
 
         for (const hub of hubs) {
-            const hubId = hub.id as string
+            const treeEntityId = hub.id as string
             const hubName = hub.name as unknown as import('@universo/types').VersionedLocalizedContent<string>
             const hubDescription = hub.description as unknown as import('@universo/types').VersionedLocalizedContent<string>
             const hubKind = typeof hub.kind === 'string' && hub.kind.trim().length > 0 ? hub.kind : MetaEntityKind.HUB
             const hubDefinition = typeByKind.get(hubKind)
-            entities[hubId] = {
-                id: hubId,
+            entities[treeEntityId] = {
+                id: treeEntityId,
                 kind: hubKind,
                 codename: SnapshotSerializer.toSnapshotCodenameValue(hub.codename),
                 presentation: {
@@ -783,7 +766,7 @@ export class SnapshotSerializer {
                 },
                 config: mergeEntitySnapshotConfig(hubDefinition?.config, {
                     sortOrder: (hub.sort_order as number) ?? 0,
-                    parentHubId: typeof hub.parent_hub_id === 'string' ? hub.parent_hub_id : null
+                    parentTreeEntityId: typeof hub.parent_hub_id === 'string' ? hub.parent_hub_id : null
                 }),
                 fields: [],
                 hubs: []
@@ -801,10 +784,10 @@ export class SnapshotSerializer {
             const physicalTableConfig = isEnabledComponentConfig(definition.components.physicalTable)
                 ? definition.components.physicalTable
                 : null
-            const legacyCompatibleKind = resolveLegacyCompatibleKind(kind, definition.config)
+            const entityMetadataKind = resolveEntityMetadataKind(kind, definition.config)
 
-            const hubIds = Array.isArray(object.config?.hubs)
-                ? object.config.hubs.filter((hubId: unknown): hubId is string => typeof hubId === 'string')
+            const treeEntityIds = Array.isArray(object.config?.hubs)
+                ? object.config.hubs.filter((treeEntityId: unknown): treeEntityId is string => typeof treeEntityId === 'string')
                 : []
 
             const entitySnapshot: MetaEntitySnapshot = {
@@ -816,8 +799,8 @@ export class SnapshotSerializer {
                         ? object.table_name
                         : physicalTableConfig
                         ? generateTableName(object.id, kind, physicalTableConfig.prefix)
-                        : legacyCompatibleKind === MetaEntityKind.SET || legacyCompatibleKind === MetaEntityKind.ENUMERATION
-                        ? generateTableName(object.id, legacyCompatibleKind)
+                        : entityMetadataKind === MetaEntityKind.SET || entityMetadataKind === MetaEntityKind.ENUMERATION
+                        ? generateTableName(object.id, entityMetadataKind)
                         : undefined,
                 presentation: {
                     name: (objectPresentation.name ?? {}) as MetaEntitySnapshot['presentation']['name'],
@@ -825,11 +808,11 @@ export class SnapshotSerializer {
                 },
                 config: mergeEntitySnapshotConfig(definition.config, object.config),
                 fields: [],
-                hubs: hubIds
+                hubs: treeEntityIds
             }
 
             if (isEnabledComponentConfig(definition.components.dataSchema)) {
-                const allAttributes = (await this.attributesService.findAllFlatForSnapshot(
+                const allAttributes = (await this.fieldDefinitionsService.findAllFlatForSnapshot(
                     metahubId,
                     object.id,
                     undefined,
@@ -849,17 +832,17 @@ export class SnapshotSerializer {
                 elementsByObject[object.id] = objectElements
             }
 
-            if (this.constantsService && isEnabledComponentConfig(definition.components.constants)) {
-                const constants = (await this.constantsService.findAll(metahubId, object.id)) as SnapshotConstantRecord[]
-                if (constants.length > 0) {
-                    constantsByObject[object.id] = SnapshotSerializer.mapConstantSnapshots(constants, object.id)
+            if (this.fixedValuesService && isEnabledComponentConfig(definition.components.fixedValues)) {
+                const fixedValues = (await this.fixedValuesService.findAll(metahubId, object.id)) as SnapshotFixedValueRecord[]
+                if (fixedValues.length > 0) {
+                    fixedValuesByObject[object.id] = SnapshotSerializer.mapFixedValueSnapshots(fixedValues, object.id)
                 }
             }
 
-            if (this.enumerationValuesService && isEnabledComponentConfig(definition.components.enumerationValues)) {
-                const values = (await this.enumerationValuesService.findAll(metahubId, object.id)) as SnapshotEnumerationValueRecord[]
+            if (this.optionValuesService && isEnabledComponentConfig(definition.components.optionValues)) {
+                const values = (await this.optionValuesService.findAll(metahubId, object.id)) as SnapshotEnumerationValueRecord[]
                 if (values.length > 0) {
-                    enumerationValuesByObject[object.id] = SnapshotSerializer.mapEnumerationValueSnapshots(values, object.id)
+                    optionValuesByObject[object.id] = SnapshotSerializer.mapEnumerationValueSnapshots(values, object.id)
                 }
             }
 
@@ -892,11 +875,11 @@ export class SnapshotSerializer {
             entities,
             entityTypeDefinitions,
             elements: Object.keys(elementsByObject).length > 0 ? elementsByObject : undefined,
-            enumerationValues: Object.keys(enumerationValuesByObject).length > 0 ? enumerationValuesByObject : undefined,
-            constants: Object.keys(constantsByObject).length > 0 ? constantsByObject : undefined,
-            sharedAttributes: sharedAttributes.length > 0 ? sharedAttributes : undefined,
-            sharedConstants: sharedConstants.length > 0 ? sharedConstants : undefined,
-            sharedEnumerationValues: sharedEnumerationValues.length > 0 ? sharedEnumerationValues : undefined,
+            optionValues: Object.keys(optionValuesByObject).length > 0 ? optionValuesByObject : undefined,
+            fixedValues: Object.keys(fixedValuesByObject).length > 0 ? fixedValuesByObject : undefined,
+            sharedFieldDefinitions: sharedFieldDefinitions.length > 0 ? sharedFieldDefinitions : undefined,
+            sharedFixedValues: sharedFixedValues.length > 0 ? sharedFixedValues : undefined,
+            sharedOptionValues: sharedOptionValues.length > 0 ? sharedOptionValues : undefined,
             sharedEntityOverrides: sharedEntityOverrides.length > 0 ? sharedEntityOverrides : undefined,
             systemFields: Object.keys(systemFieldsByObject).length > 0 ? systemFieldsByObject : undefined,
             scripts: publishedScripts.length > 0 ? publishedScripts : undefined
@@ -904,7 +887,7 @@ export class SnapshotSerializer {
     }
 
     private async fetchAllHubs(metahubId: string): Promise<Record<string, unknown>[]> {
-        if (!this.hubsService) return []
+        if (!this.treeEntitiesService) return []
 
         const limit = 1000
         const maxIterations = 100 // Safety limit: max 100k items
@@ -914,7 +897,7 @@ export class SnapshotSerializer {
         const seenIds = new Set<string>()
 
         while (iteration < maxIterations) {
-            const { items, total } = await this.hubsService.findAll(metahubId, { limit, offset })
+            const { items, total } = await this.treeEntitiesService.findAll(metahubId, { limit, offset })
 
             // Detect duplicate items (service bug protection)
             const newItems = items.filter((item) => {
@@ -973,7 +956,7 @@ export class SnapshotSerializer {
         })
 
         return Object.values(snapshot.entities).map((entity) => {
-            const definition = snapshot.entityTypeDefinitions?.[entity.kind] ?? BUILTIN_ENTITY_TYPE_REGISTRY.get(entity.kind)
+            const definition = snapshot.entityTypeDefinitions?.[entity.kind]
             const physicalTableConfig =
                 definition && isEnabledComponentConfig(definition.components.physicalTable) ? definition.components.physicalTable : null
 

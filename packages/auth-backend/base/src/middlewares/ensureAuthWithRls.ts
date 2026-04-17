@@ -8,6 +8,8 @@ import {
     getRequestDbContext,
     isDatabaseConnectTimeoutError,
     isWhitelistedApiPath,
+    type DbExecutor,
+    type DbSession,
     type RequestWithDbContext as BaseRequestWithDbContext
 } from '@universo/utils'
 import { ensureAuth } from './ensureAuth'
@@ -16,6 +18,11 @@ import type { AuthenticatedRequest } from '../services/supabaseSession'
 
 const RLS_DEBUG = process.env.AUTH_RLS_DEBUG === 'true'
 const REQUEST_STATEMENT_TIMEOUT_MS = 30_000
+
+const isRetryableRlsSetupError = (error: unknown): boolean => {
+    const message = error instanceof Error ? error.message : String(error)
+    return message.includes('current transaction is aborted') || message.includes('savepoint')
+}
 
 const logRlsDebug = (message: string, payload?: unknown): void => {
     if (!RLS_DEBUG) return
@@ -182,33 +189,81 @@ export function createEnsureAuthWithRls(options: EnsureAuthWithRlsOptions) {
             })
 
             try {
-                // Acquire a dedicated connection from the pool
-                connection = await knex.client.acquireConnection()
+                let session: DbSession | null = null
+                let executor: DbExecutor | null = null
 
-                // Begin a request-level transaction — JWT claims will be transaction-local.
-                // This guarantees claims auto-disappear on COMMIT/ROLLBACK, preventing leaks.
-                await knex.raw('BEGIN').connection(connection)
-                await knex.raw(buildSetLocalStatementTimeoutSql(REQUEST_STATEMENT_TIMEOUT_MS)).connection(connection)
+                for (let attempt = 1; attempt <= 2; attempt += 1) {
+                    // Acquire a dedicated connection from the pool
+                    connection = await knex.client.acquireConnection()
 
-                const session = createDbSession({
-                    query: <T = unknown>(sql: string, parameters?: unknown[]) => {
-                        if (released) throw new Error('RLS session already released')
-                        const { sql: knexSql, bindings } = convertPgBindings(sql, parameters)
-                        return knex
-                            .raw(knexSql, bindings as Knex.RawBinding[])
-                            .connection(connection)
-                            .then((result: any) => (result.rows ?? result) as T[])
-                    },
-                    isReleased: () => released
-                })
+                    try {
+                        // Defensive reset: pooled connections must start from a clean transaction state.
+                        // If a previous request returned the connection after an aborted transaction,
+                        // PostgreSQL will keep rejecting commands until a rollback clears the session.
+                        try {
+                            await knex.raw('ROLLBACK').connection(connection)
+                        } catch {
+                            /* no active transaction to reset */
+                        }
 
-                logRlsDebug('[RLS] Applying RLS context (JWT verification + SQL)', { path: req.path })
-                await applyRlsContext(session, access)
+                        // Begin a request-level transaction — JWT claims will be transaction-local.
+                        // This guarantees claims auto-disappear on COMMIT/ROLLBACK, preventing leaks.
+                        await knex.raw('BEGIN').connection(connection)
+                        await knex.raw(buildSetLocalStatementTimeoutSql(REQUEST_STATEMENT_TIMEOUT_MS)).connection(connection)
 
-                // Create an RLS executor — all queries AND transactions stay on
-                // the same pinned connection where set_config was called.
-                // inTransaction: true means top-level transaction() calls use SAVEPOINT.
-                const executor = createRlsExecutor(knex, connection, { inTransaction: true })
+                        session = createDbSession({
+                            query: <T = unknown>(sql: string, parameters?: unknown[]) => {
+                                if (released) throw new Error('RLS session already released')
+                                const { sql: knexSql, bindings } = convertPgBindings(sql, parameters)
+                                return knex
+                                    .raw(knexSql, bindings as Knex.RawBinding[])
+                                    .connection(connection)
+                                    .then((result: any) => (result.rows ?? result) as T[])
+                            },
+                            isReleased: () => released
+                        })
+
+                        logRlsDebug('[RLS] Applying RLS context (JWT verification + SQL)', { path: req.path, attempt })
+                        await applyRlsContext(session, access)
+
+                        // Create an RLS executor — all queries AND transactions stay on
+                        // the same pinned connection where set_config was called.
+                        // inTransaction: true means top-level transaction() reuses the
+                        // middleware-owned request transaction directly.
+                        executor = createRlsExecutor(knex, connection, { inTransaction: true })
+                        break
+                    } catch (error) {
+                        const shouldRetry = attempt < 2 && isRetryableRlsSetupError(error)
+                        console.warn('[RLS] Setup attempt failed', {
+                            path: req.path,
+                            attempt,
+                            retrying: shouldRetry,
+                            error: error instanceof Error ? error.message : String(error)
+                        })
+
+                        if (connection) {
+                            try {
+                                await knex.raw('ROLLBACK').connection(connection)
+                            } catch {
+                                /* best-effort rollback */
+                            }
+                            try {
+                                knex.client.releaseConnection(connection)
+                            } catch {
+                                /* best-effort release */
+                            }
+                            connection = null
+                        }
+
+                        if (!shouldRetry) {
+                            throw error
+                        }
+                    }
+                }
+
+                if (!session || !executor) {
+                    throw new Error('Failed to initialize request RLS context')
+                }
 
                 // Attach the neutral request-scoped context
                 ;(req as RequestWithDbContext).dbContext = createRequestDbContext(session, executor)

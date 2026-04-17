@@ -15,10 +15,41 @@ describe('EntityTypeService', () => {
         jest.clearAllMocks()
     })
 
-    it('lists builtin and custom entity types together', async () => {
+    it('lists standard and custom entity types from the schema-backed definitions table', async () => {
         const queryMock = jest.fn(async (sql: string) => {
             if (sql.includes('_mhb_entity_type_definitions')) {
                 return [
+                    {
+                        id: 'standard-type-catalog',
+                        kind_key: BuiltinEntityKinds.CATALOG,
+                        codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'catalog' } } },
+                        presentation: { name: { en: 'Catalogs' } },
+                        components: {
+                            dataSchema: { enabled: true },
+                            records: false,
+                            treeAssignment: { enabled: true },
+                            optionValues: false,
+                            constants: false,
+                            hierarchy: false,
+                            nestedCollections: false,
+                            relations: false,
+                            actions: { enabled: true },
+                            events: { enabled: true },
+                            scripting: false,
+                            layoutConfig: false,
+                            runtimeBehavior: false,
+                            physicalTable: false
+                        },
+                        ui_config: {
+                            iconName: 'IconDatabase',
+                            tabs: ['general'],
+                            sidebarSection: 'objects',
+                            nameKey: 'metahubs:linkedCollections.title'
+                        },
+                        config: {},
+                        _mhb_published: true,
+                        _upl_version: 1
+                    },
                     {
                         id: 'custom-type-1',
                         kind_key: 'custom-order',
@@ -26,9 +57,9 @@ describe('EntityTypeService', () => {
                         presentation: { name: { en: 'Custom Order' } },
                         components: {
                             dataSchema: { enabled: true },
-                            predefinedElements: false,
-                            hubAssignment: false,
-                            enumerationValues: false,
+                            records: false,
+                            treeAssignment: false,
+                            optionValues: false,
                             constants: false,
                             hierarchy: false,
                             nestedCollections: false,
@@ -47,7 +78,6 @@ describe('EntityTypeService', () => {
                             nameKey: 'Custom Order'
                         },
                         config: {},
-                        is_builtin: false,
                         _mhb_published: true,
                         _upl_version: 1
                     }
@@ -57,25 +87,25 @@ describe('EntityTypeService', () => {
         })
 
         const service = new EntityTypeService(createExecutor(queryMock) as any, { ensureSchema: mockEnsureSchema } as any)
-        const result = await service.listResolvedTypes('metahub-1', 'user-1')
+        const result = await service.listTypes('metahub-1', 'user-1')
 
-        expect(result.some((item) => item.kindKey === BuiltinEntityKinds.CATALOG && item.source === 'builtin')).toBe(true)
-        expect(result.some((item) => item.kindKey === 'custom-order' && item.source === 'custom')).toBe(true)
+        expect(result.some((item) => item.kindKey === BuiltinEntityKinds.CATALOG)).toBe(true)
+        expect(result.some((item) => item.kindKey === 'custom-order')).toBe(true)
         expect(result.find((item) => item.kindKey === 'custom-order')?.published).toBe(true)
     })
 
-    it('rejects attempts to redefine builtin entity kinds as custom types', async () => {
+    it('rejects attempts to redefine standard entity kinds as custom types', async () => {
         const service = new EntityTypeService(createExecutor(jest.fn(async () => [])) as any, { ensureSchema: mockEnsureSchema } as any)
 
         await expect(
-            service.createCustomType('metahub-1', {
+            service.createType('metahub-1', {
                 kindKey: BuiltinEntityKinds.CATALOG,
                 codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'catalog' } } },
                 components: {
                     dataSchema: { enabled: true },
-                    predefinedElements: false,
-                    hubAssignment: false,
-                    enumerationValues: false,
+                    records: false,
+                    treeAssignment: false,
+                    optionValues: false,
                     constants: false,
                     hierarchy: false,
                     nestedCollections: false,
@@ -94,12 +124,15 @@ describe('EntityTypeService', () => {
                     nameKey: 'Catalog clone'
                 }
             })
-        ).rejects.toThrow('Built-in entity kinds cannot be redefined as custom types')
+        ).rejects.toThrow('Standard entity kinds are reserved for platform-provided entity types')
     })
 
     it('creates a custom entity type when the kindKey is free and dependencies are valid', async () => {
         const queryMock = jest.fn(async (sql: string) => {
             if (sql.includes('WHERE kind_key =')) {
+                return []
+            }
+            if (sql.includes("LOWER(COALESCE(codename->'locales'->(codename->>'_primary')->>'content'")) {
                 return []
             }
             if (sql.includes('INSERT INTO')) {
@@ -111,9 +144,9 @@ describe('EntityTypeService', () => {
                         presentation: {},
                         components: {
                             dataSchema: { enabled: true },
-                            predefinedElements: false,
-                            hubAssignment: false,
-                            enumerationValues: false,
+                            records: false,
+                            treeAssignment: false,
+                            optionValues: false,
                             constants: false,
                             hierarchy: false,
                             nestedCollections: false,
@@ -132,7 +165,6 @@ describe('EntityTypeService', () => {
                             nameKey: 'Custom Order'
                         },
                         config: {},
-                        is_builtin: false,
                         _mhb_published: true,
                         _upl_version: 1
                     }
@@ -142,14 +174,14 @@ describe('EntityTypeService', () => {
         })
 
         const service = new EntityTypeService(createExecutor(queryMock) as any, { ensureSchema: mockEnsureSchema } as any)
-        const result = await service.createCustomType('metahub-1', {
+        const result = await service.createType('metahub-1', {
             kindKey: 'custom-order',
             codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-order' } } },
             components: {
                 dataSchema: { enabled: true },
-                predefinedElements: false,
-                hubAssignment: false,
-                enumerationValues: false,
+                records: false,
+                treeAssignment: false,
+                optionValues: false,
                 constants: false,
                 hierarchy: false,
                 nestedCollections: false,
@@ -170,8 +202,132 @@ describe('EntityTypeService', () => {
         })
 
         expect(result.kindKey).toBe('custom-order')
-        expect(result.source).toBe('custom')
         expect(result.published).toBe(true)
+    })
+
+    it('rejects creating a custom entity type when another active entity type already uses the same codename', async () => {
+        const queryMock = jest.fn(async (sql: string) => {
+            if (sql.includes('WHERE kind_key =')) {
+                return []
+            }
+            if (sql.includes("LOWER(COALESCE(codename->'locales'->(codename->>'_primary')->>'content'")) {
+                return [
+                    {
+                        id: 'custom-type-existing',
+                        kind_key: 'custom-existing',
+                        codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-order' } } },
+                        presentation: {},
+                        components: {
+                            dataSchema: { enabled: true },
+                            records: false,
+                            treeAssignment: false,
+                            optionValues: false,
+                            constants: false,
+                            hierarchy: false,
+                            nestedCollections: false,
+                            relations: false,
+                            actions: { enabled: true },
+                            events: { enabled: true },
+                            scripting: false,
+                            layoutConfig: false,
+                            runtimeBehavior: false,
+                            physicalTable: false
+                        },
+                        ui_config: {
+                            iconName: 'IconBolt',
+                            tabs: ['general'],
+                            sidebarSection: 'objects',
+                            nameKey: 'Custom Existing'
+                        },
+                        config: {},
+                        _mhb_published: true,
+                        _upl_version: 1
+                    }
+                ]
+            }
+            return []
+        })
+
+        const service = new EntityTypeService(createExecutor(queryMock) as any, { ensureSchema: mockEnsureSchema } as any)
+
+        await expect(
+            service.createType('metahub-1', {
+                kindKey: 'custom-order',
+                codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-order' } } },
+                components: {
+                    dataSchema: { enabled: true },
+                    records: false,
+                    treeAssignment: false,
+                    optionValues: false,
+                    constants: false,
+                    hierarchy: false,
+                    nestedCollections: false,
+                    relations: false,
+                    actions: { enabled: true },
+                    events: { enabled: true },
+                    scripting: false,
+                    layoutConfig: false,
+                    runtimeBehavior: false,
+                    physicalTable: false
+                },
+                ui: {
+                    iconName: 'IconBolt',
+                    tabs: ['general'],
+                    sidebarSection: 'objects',
+                    nameKey: 'Custom Order'
+                }
+            })
+        ).rejects.toThrow('Entity type codename already exists')
+    })
+
+    it('maps database codename unique violations during create to a conflict error', async () => {
+        const duplicateKeyError = Object.assign(new Error('duplicate key value violates unique constraint'), {
+            code: '23505',
+            constraint: 'idx_mhb_entity_type_definitions_codename_active'
+        })
+        const queryMock = jest.fn(async (sql: string) => {
+            if (sql.includes('WHERE kind_key =')) {
+                return []
+            }
+            if (sql.includes("LOWER(COALESCE(codename->'locales'->(codename->>'_primary')->>'content'")) {
+                return []
+            }
+            if (sql.includes('INSERT INTO')) {
+                throw duplicateKeyError
+            }
+            return []
+        })
+
+        const service = new EntityTypeService(createExecutor(queryMock) as any, { ensureSchema: mockEnsureSchema } as any)
+
+        await expect(
+            service.createType('metahub-1', {
+                kindKey: 'custom-order',
+                codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-order' } } },
+                components: {
+                    dataSchema: { enabled: true },
+                    records: false,
+                    treeAssignment: false,
+                    optionValues: false,
+                    constants: false,
+                    hierarchy: false,
+                    nestedCollections: false,
+                    relations: false,
+                    actions: { enabled: true },
+                    events: { enabled: true },
+                    scripting: false,
+                    layoutConfig: false,
+                    runtimeBehavior: false,
+                    physicalTable: false
+                },
+                ui: {
+                    iconName: 'IconBolt',
+                    tabs: ['general'],
+                    sidebarSection: 'objects',
+                    nameKey: 'Custom Order'
+                }
+            })
+        ).rejects.toThrow('Entity type codename already exists')
     })
 
     it('persists an explicit unpublished custom entity type when requested by the builder', async () => {
@@ -189,9 +345,9 @@ describe('EntityTypeService', () => {
                         presentation: {},
                         components: {
                             dataSchema: { enabled: true },
-                            predefinedElements: false,
-                            hubAssignment: false,
-                            enumerationValues: false,
+                            records: false,
+                            treeAssignment: false,
+                            optionValues: false,
                             constants: false,
                             hierarchy: false,
                             nestedCollections: false,
@@ -210,7 +366,6 @@ describe('EntityTypeService', () => {
                             nameKey: 'Hidden Custom'
                         },
                         config: {},
-                        is_builtin: false,
                         _mhb_published: false,
                         _upl_version: 1
                     }
@@ -220,14 +375,14 @@ describe('EntityTypeService', () => {
         })
 
         const service = new EntityTypeService(createExecutor(queryMock) as any, { ensureSchema: mockEnsureSchema } as any)
-        const result = await service.createCustomType('metahub-1', {
+        const result = await service.createType('metahub-1', {
             kindKey: 'custom-hidden',
             codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-hidden' } } },
             components: {
                 dataSchema: { enabled: true },
-                predefinedElements: false,
-                hubAssignment: false,
-                enumerationValues: false,
+                records: false,
+                treeAssignment: false,
+                optionValues: false,
                 constants: false,
                 hierarchy: false,
                 nestedCollections: false,
@@ -262,9 +417,9 @@ describe('EntityTypeService', () => {
                         presentation: {},
                         components: {
                             dataSchema: { enabled: true },
-                            predefinedElements: false,
-                            hubAssignment: false,
-                            enumerationValues: false,
+                            records: false,
+                            treeAssignment: false,
+                            optionValues: false,
                             constants: false,
                             hierarchy: false,
                             nestedCollections: false,
@@ -283,7 +438,6 @@ describe('EntityTypeService', () => {
                             nameKey: 'Custom Order'
                         },
                         config: {},
-                        is_builtin: false,
                         _mhb_published: true,
                         _upl_version: 3
                     }
@@ -304,9 +458,9 @@ describe('EntityTypeService', () => {
                         presentation: {},
                         components: {
                             dataSchema: { enabled: true },
-                            predefinedElements: false,
-                            hubAssignment: false,
-                            enumerationValues: false,
+                            records: false,
+                            treeAssignment: false,
+                            optionValues: false,
                             constants: false,
                             hierarchy: false,
                             nestedCollections: false,
@@ -325,7 +479,6 @@ describe('EntityTypeService', () => {
                             nameKey: 'Custom Order'
                         },
                         config: {},
-                        is_builtin: false,
                         _mhb_published: false,
                         _upl_version: 4
                     }
@@ -336,7 +489,7 @@ describe('EntityTypeService', () => {
         })
 
         const service = new EntityTypeService(createExecutor(queryMock) as any, { ensureSchema: mockEnsureSchema } as any)
-        const result = await service.updateCustomType(
+        const result = await service.updateType(
             'metahub-1',
             'custom-type-1',
             {
@@ -346,6 +499,101 @@ describe('EntityTypeService', () => {
         )
 
         expect(result.published).toBe(false)
+    })
+
+    it('rejects updating a custom entity type when another active entity type already uses the same codename', async () => {
+        const queryMock = jest.fn(async (sql: string) => {
+            if (sql.includes('WHERE id = $1 AND _upl_deleted = false AND _mhb_deleted = false')) {
+                return [
+                    {
+                        id: 'custom-type-1',
+                        kind_key: 'custom-order',
+                        codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-order' } } },
+                        presentation: {},
+                        components: {
+                            dataSchema: { enabled: true },
+                            records: false,
+                            treeAssignment: false,
+                            optionValues: false,
+                            constants: false,
+                            hierarchy: false,
+                            nestedCollections: false,
+                            relations: false,
+                            actions: { enabled: true },
+                            events: { enabled: true },
+                            scripting: false,
+                            layoutConfig: false,
+                            runtimeBehavior: false,
+                            physicalTable: false
+                        },
+                        ui_config: {
+                            iconName: 'IconBolt',
+                            tabs: ['general'],
+                            sidebarSection: 'objects',
+                            nameKey: 'Custom Order'
+                        },
+                        config: {},
+                        _mhb_published: true,
+                        _upl_version: 3
+                    }
+                ]
+            }
+
+            if (sql.includes('WHERE kind_key =')) {
+                return []
+            }
+
+            if (sql.includes("LOWER(COALESCE(codename->'locales'->(codename->>'_primary')->>'content'")) {
+                return [
+                    {
+                        id: 'custom-type-2',
+                        kind_key: 'custom-existing',
+                        codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'duplicate-codename' } } },
+                        presentation: {},
+                        components: {
+                            dataSchema: { enabled: true },
+                            records: false,
+                            treeAssignment: false,
+                            optionValues: false,
+                            constants: false,
+                            hierarchy: false,
+                            nestedCollections: false,
+                            relations: false,
+                            actions: { enabled: true },
+                            events: { enabled: true },
+                            scripting: false,
+                            layoutConfig: false,
+                            runtimeBehavior: false,
+                            physicalTable: false
+                        },
+                        ui_config: {
+                            iconName: 'IconBolt',
+                            tabs: ['general'],
+                            sidebarSection: 'objects',
+                            nameKey: 'Custom Existing'
+                        },
+                        config: {},
+                        _mhb_published: true,
+                        _upl_version: 2
+                    }
+                ]
+            }
+
+            return []
+        })
+
+        const service = new EntityTypeService(createExecutor(queryMock) as any, { ensureSchema: mockEnsureSchema } as any)
+
+        await expect(
+            service.updateType(
+                'metahub-1',
+                'custom-type-1',
+                {
+                    codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'duplicate-codename' } } }
+                },
+                'user-1'
+            )
+        ).rejects.toThrow('Entity type codename already exists')
     })
 
     it('blocks deleting a custom entity type while dependent entity instances still exist', async () => {
@@ -359,9 +607,9 @@ describe('EntityTypeService', () => {
                         presentation: {},
                         components: {
                             dataSchema: { enabled: true },
-                            predefinedElements: false,
-                            hubAssignment: false,
-                            enumerationValues: false,
+                            records: false,
+                            treeAssignment: false,
+                            optionValues: false,
                             constants: false,
                             hierarchy: false,
                             nestedCollections: false,
@@ -380,7 +628,6 @@ describe('EntityTypeService', () => {
                             nameKey: 'Custom Order'
                         },
                         config: {},
-                        is_builtin: false,
                         _mhb_published: true,
                         _upl_version: 3
                     }
@@ -400,7 +647,7 @@ describe('EntityTypeService', () => {
 
         const service = new EntityTypeService(createExecutor(queryMock) as any, { ensureSchema: mockEnsureSchema } as any)
 
-        await expect(service.deleteCustomType('metahub-1', 'custom-type-1', 'user-1')).rejects.toThrow(
+        await expect(service.deleteType('metahub-1', 'custom-type-1', 'user-1')).rejects.toThrow(
             'Entity type cannot be deleted while dependent entity instances still exist'
         )
     })
@@ -416,9 +663,9 @@ describe('EntityTypeService', () => {
                         presentation: {},
                         components: {
                             dataSchema: { enabled: true },
-                            predefinedElements: false,
-                            hubAssignment: false,
-                            enumerationValues: false,
+                            records: false,
+                            treeAssignment: false,
+                            optionValues: false,
                             constants: false,
                             hierarchy: false,
                             nestedCollections: false,
@@ -437,7 +684,6 @@ describe('EntityTypeService', () => {
                             nameKey: 'Custom Order'
                         },
                         config: {},
-                        is_builtin: false,
                         _mhb_published: true,
                         _upl_version: 3
                     }
@@ -457,9 +703,9 @@ describe('EntityTypeService', () => {
                         presentation: {},
                         components: {
                             dataSchema: { enabled: true },
-                            predefinedElements: false,
-                            hubAssignment: false,
-                            enumerationValues: false,
+                            records: false,
+                            treeAssignment: false,
+                            optionValues: false,
                             constants: false,
                             hierarchy: false,
                             nestedCollections: false,
@@ -478,7 +724,6 @@ describe('EntityTypeService', () => {
                             nameKey: 'Custom Order'
                         },
                         config: {},
-                        is_builtin: false,
                         _mhb_published: true,
                         _upl_version: 4,
                         _mhb_deleted: true
@@ -491,6 +736,6 @@ describe('EntityTypeService', () => {
 
         const service = new EntityTypeService(createExecutor(queryMock) as any, { ensureSchema: mockEnsureSchema } as any)
 
-        await expect(service.deleteCustomType('metahub-1', 'custom-type-1', 'user-1')).resolves.toBeUndefined()
+        await expect(service.deleteType('metahub-1', 'custom-type-1', 'user-1')).resolves.toBeUndefined()
     })
 })

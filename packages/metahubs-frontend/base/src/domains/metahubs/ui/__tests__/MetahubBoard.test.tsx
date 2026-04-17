@@ -114,7 +114,7 @@ registerNamespace('metahubs', {
 const createTestQueryClient = () =>
     new QueryClient({
         defaultOptions: {
-            // `useMetahubDetails` sets `retry: 3` explicitly; keep tests fast by forcing minimal retry delay.
+            // `useMetahubDetails` valueGroups `retry: 3` explicitly; keep tests fast by forcing minimal retry delay.
             queries: { retry: false, retryDelay: 1 },
             mutations: { retry: false }
         }
@@ -150,8 +150,10 @@ describe('MetahubBoard', () => {
         metahubId: 'test-metahub-id',
         activeBranchId: 'branch-1',
         branchesCount: 1,
-        hubsCount: 1,
-        catalogsCount: 1,
+        entityCounts: {
+            hub: 1,
+            catalog: 1
+        },
         membersCount: 1,
         publicationsCount: 1,
         publicationVersionsCount: 1,
@@ -341,8 +343,7 @@ describe('MetahubBoard', () => {
                 ...defaultBoardSummary,
                 membersCount: 0,
                 branchesCount: 0,
-                hubsCount: 0,
-                catalogsCount: 0,
+                entityCounts: {},
                 publicationsCount: 0,
                 publicationVersionsCount: 0,
                 applicationsCount: 0
@@ -400,8 +401,7 @@ describe('MetahubBoard', () => {
                 ...defaultBoardSummary,
                 membersCount: 0,
                 branchesCount: 0,
-                hubsCount: 0,
-                catalogsCount: 0,
+                entityCounts: {},
                 publicationsCount: 0,
                 publicationVersionsCount: 0,
                 applicationsCount: 0

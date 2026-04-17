@@ -10,70 +10,80 @@ export const DEFAULT_APPLICATION_COPY_OPTIONS: ApplicationCopyOptions = {
     copyAccess: false
 }
 
-export const BRANCH_COPY_OPTION_KEYS = ['copyLayouts', 'copyHubs', 'copyCatalogs', 'copySets', 'copyEnumerations'] as const
+export const BRANCH_COPY_OPTION_KEYS = ['copyLayouts', 'copyTreeEntities', 'copyLinkedCollections', 'copyValueGroups', 'copyOptionLists'] as const
 
 export type BranchCopyOptionKey = (typeof BRANCH_COPY_OPTION_KEYS)[number]
 
 export interface BranchCopyOptions {
     fullCopy: boolean
     copyLayouts: boolean
-    copyHubs: boolean
-    copyCatalogs: boolean
-    copySets: boolean
-    copyEnumerations: boolean
+    copyTreeEntities: boolean
+    copyLinkedCollections: boolean
+    copyValueGroups: boolean
+    copyOptionLists: boolean
 }
+
+export type BranchCopyOptionsInput = Partial<BranchCopyOptions>
 
 export const DEFAULT_BRANCH_COPY_OPTIONS: BranchCopyOptions = {
     fullCopy: true,
     copyLayouts: true,
-    copyHubs: true,
-    copyCatalogs: true,
-    copySets: true,
-    copyEnumerations: true
+    copyTreeEntities: true,
+    copyLinkedCollections: true,
+    copyValueGroups: true,
+    copyOptionLists: true
 }
 
-export const HUB_COPY_OPTION_KEYS = ['copyCatalogRelations', 'copySetRelations', 'copyEnumerationRelations'] as const
+export const TREE_ENTITY_COPY_OPTION_KEYS = ['copyLinkedCollectionRelations', 'copyValueGroupRelations', 'copyOptionListRelations'] as const
 
-export type HubCopyOptionKey = (typeof HUB_COPY_OPTION_KEYS)[number]
+export type TreeEntityCopyOptionKey = (typeof TREE_ENTITY_COPY_OPTION_KEYS)[number]
 
-export interface HubCopyOptions {
+export interface TreeEntityCopyOptions {
     copyAllRelations: boolean
-    copyCatalogRelations: boolean
-    copySetRelations: boolean
-    copyEnumerationRelations: boolean
+    copyLinkedCollectionRelations: boolean
+    copyValueGroupRelations: boolean
+    copyOptionListRelations: boolean
 }
 
-export const DEFAULT_HUB_COPY_OPTIONS: HubCopyOptions = {
+export type TreeEntityCopyOptionsInput = Partial<TreeEntityCopyOptions>
+
+export const DEFAULT_TREE_ENTITY_COPY_OPTIONS: TreeEntityCopyOptions = {
     copyAllRelations: true,
-    copyCatalogRelations: true,
-    copySetRelations: true,
-    copyEnumerationRelations: true
+    copyLinkedCollectionRelations: true,
+    copyValueGroupRelations: true,
+    copyOptionListRelations: true
 }
 
-export interface CatalogCopyOptions {
-    copyAttributes: boolean
-    copyElements: boolean
+export interface LinkedCollectionCopyOptions {
+    copyFieldDefinitions: boolean
+    copyRecords: boolean
 }
 
-export const DEFAULT_CATALOG_COPY_OPTIONS: CatalogCopyOptions = {
-    copyAttributes: true,
-    copyElements: true
+export type LinkedCollectionCopyOptionsInput = Partial<LinkedCollectionCopyOptions>
+
+export const DEFAULT_LINKED_COLLECTION_COPY_OPTIONS: LinkedCollectionCopyOptions = {
+    copyFieldDefinitions: true,
+    copyRecords: true
 }
 
-export interface EnumerationCopyOptions {
-    copyValues: boolean
+export interface OptionListCopyOptions {
+    copyOptionValues: boolean
 }
 
-export const DEFAULT_ENUMERATION_COPY_OPTIONS: EnumerationCopyOptions = {
-    copyValues: true
+export type OptionListCopyOptionsInput = Partial<OptionListCopyOptions>
+
+export const DEFAULT_OPTION_LIST_COPY_OPTIONS: OptionListCopyOptions = {
+    copyOptionValues: true
 }
 
-export interface SetCopyOptions {
-    copyConstants: boolean
+export interface ValueGroupCopyOptions {
+    copyFixedValues: boolean
 }
 
-export const DEFAULT_SET_COPY_OPTIONS: SetCopyOptions = {
-    copyConstants: true
+export type ValueGroupCopyOptionsInput = Partial<ValueGroupCopyOptions>
+
+export const DEFAULT_VALUE_GROUP_COPY_OPTIONS: ValueGroupCopyOptions = {
+    copyFixedValues: true
 }
 
 export interface LayoutCopyOptions {
@@ -86,26 +96,26 @@ export const DEFAULT_LAYOUT_COPY_OPTIONS: LayoutCopyOptions = {
     deactivateAllWidgets: false
 }
 
-export interface AttributeCopyOptions {
-    copyChildAttributes: boolean
+export interface FieldDefinitionCopyOptions {
+    copyChildFieldDefinitions: boolean
 }
 
-export const DEFAULT_ATTRIBUTE_COPY_OPTIONS: AttributeCopyOptions = {
-    copyChildAttributes: true
+export const DEFAULT_FIELD_DEFINITION_COPY_OPTIONS: FieldDefinitionCopyOptions = {
+    copyChildFieldDefinitions: true
 }
 
-export interface ConstantCopyOptions {
+export interface FixedValueCopyOptions {
     copyValue: boolean
 }
 
-export const DEFAULT_CONSTANT_COPY_OPTIONS: ConstantCopyOptions = {
+export const DEFAULT_FIXED_VALUE_COPY_OPTIONS: FixedValueCopyOptions = {
     copyValue: true
 }
 
-export interface ElementCopyOptions {
+export interface RecordCopyOptions {
     copyChildTables: boolean
 }
 
-export const DEFAULT_ELEMENT_COPY_OPTIONS: ElementCopyOptions = {
+export const DEFAULT_RECORD_COPY_OPTIONS: RecordCopyOptions = {
     copyChildTables: true
 }

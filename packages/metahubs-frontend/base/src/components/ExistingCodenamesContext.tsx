@@ -7,8 +7,8 @@
  *
  * Usage:
  * ```tsx
- * <ExistingCodenamesProvider entities={hubs}>
- *   <HubFormFields ... />
+ * <ExistingCodenamesProvider entities={treeEntities}>
+ *   <TreeEntityFormFields ... />
  * </ExistingCodenamesProvider>
  * ```
  */

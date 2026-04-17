@@ -135,7 +135,7 @@ describe('MetahubMigrationGuard', () => {
             refetch: vi.fn()
         } as unknown as ReturnType<typeof useMetahubMigrationsStatus>)
 
-        renderGuard('/metahub/019c4ea1-d889-705b-9798-1d28ba55a603/catalogs')
+        renderGuard('/metahub/019c4ea1-d889-705b-9798-1d28ba55a603/entities/catalog/instances')
 
         expect(screen.getByText('Migration required')).toBeInTheDocument()
         expect(screen.queryByTestId('guard-content')).not.toBeInTheDocument()
@@ -194,7 +194,7 @@ describe('MetahubMigrationGuard', () => {
             refetch: vi.fn()
         } as unknown as ReturnType<typeof useMetahubMigrationsStatus>)
 
-        renderGuard('/metahub/019c4ea1-d889-705b-9798-1d28ba55a603/catalogs')
+        renderGuard('/metahub/019c4ea1-d889-705b-9798-1d28ba55a603/entities/catalog/instances')
 
         expect(screen.getByTestId('guard-content')).toBeInTheDocument()
     })
@@ -227,7 +227,7 @@ describe('MetahubMigrationGuard', () => {
         } as unknown as ReturnType<typeof useMetahubMigrationsStatus>)
         vi.mocked(applyMetahubMigrations).mockResolvedValue(undefined)
 
-        renderGuard('/metahub/019c4ea1-d889-705b-9798-1d28ba55a603/catalogs')
+        renderGuard('/metahub/019c4ea1-d889-705b-9798-1d28ba55a603/entities/catalog/instances')
 
         await user.click(screen.getByRole('button', { name: 'Apply (keep user data)' }))
 
@@ -265,7 +265,7 @@ describe('MetahubMigrationGuard', () => {
         } as unknown as ReturnType<typeof useMetahubMigrationsStatus>)
         vi.mocked(applyMetahubMigrations).mockRejectedValue(new Error('apply exploded'))
 
-        renderGuard('/metahub/019c4ea1-d889-705b-9798-1d28ba55a603/catalogs')
+        renderGuard('/metahub/019c4ea1-d889-705b-9798-1d28ba55a603/entities/catalog/instances')
 
         await user.click(screen.getByRole('button', { name: 'Apply (keep user data)' }))
 
@@ -297,7 +297,7 @@ describe('MetahubMigrationGuard', () => {
             refetch: vi.fn()
         } as unknown as ReturnType<typeof useMetahubMigrationsStatus>)
 
-        renderGuard('/metahub/019c4ea1-d889-705b-9798-1d28ba55a603/catalogs')
+        renderGuard('/metahub/019c4ea1-d889-705b-9798-1d28ba55a603/entities/catalog/instances')
 
         expect(screen.getByRole('button', { name: 'Apply (keep user data)' })).toBeDisabled()
     })

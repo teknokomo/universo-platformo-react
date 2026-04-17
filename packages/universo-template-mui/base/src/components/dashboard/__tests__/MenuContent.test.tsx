@@ -61,9 +61,9 @@ const renderMenu = (
         metahubDetail?: { permissions?: { manageMetahub?: boolean; manageMembers?: boolean } }
         entityTypes?: Array<{
             kindKey: string
-            source: 'builtin' | 'custom'
             published?: boolean
             codename?: unknown
+            presentation?: { name?: unknown }
             ui?: { iconName?: string | null; nameKey?: string | null; sidebarSection?: 'objects' | 'admin' }
         }>
     }
@@ -84,7 +84,7 @@ const renderMenu = (
         queryClient.setQueryData(['metahubs', 'detail', metahubId], options.metahubDetail)
     }
     if (metahubId && options?.entityTypes) {
-        queryClient.setQueryData(['metahubs', 'detail', metahubId, 'entityTypes', 'publishedMenu'], {
+        queryClient.setQueryData(['metahubs', 'detail', metahubId, 'entityTypes', 'menu'], {
             items: options.entityTypes
         })
     }
@@ -130,15 +130,19 @@ describe('MenuContent', () => {
             metahubDetail: { permissions: { manageMetahub: true, manageMembers: true } },
             entityTypes: [
                 {
+                    kindKey: 'catalog',
+                    published: true,
+                    presentation: { name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Catalogs' } } } },
+                    ui: { iconName: 'IconDatabase', nameKey: 'metahubs:catalogs.title', sidebarSection: 'objects' }
+                },
+                {
                     kindKey: 'custom-order',
-                    source: 'custom',
                     published: true,
                     codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-order' } } },
                     ui: { iconName: 'IconBolt', nameKey: 'Custom Order', sidebarSection: 'objects' }
                 },
                 {
                     kindKey: 'custom-hidden',
-                    source: 'custom',
                     published: false,
                     ui: { iconName: 'IconBolt', nameKey: 'Hidden Order', sidebarSection: 'objects' }
                 }
@@ -162,13 +166,12 @@ describe('MenuContent', () => {
                 })
             }
 
-            if (path === '/metahub/mhb-1/entity-types?includeBuiltins=false&limit=1000&offset=0') {
+            if (path === '/metahub/mhb-1/entity-types?limit=1000&offset=0') {
                 return Promise.resolve({
                     data: {
                         items: [
                             {
                                 kindKey: 'custom-order',
-                                source: 'custom',
                                 published: true,
                                 ui: { iconName: 'IconBolt', nameKey: 'Custom Order', sidebarSection: 'objects' }
                             }
@@ -184,28 +187,32 @@ describe('MenuContent', () => {
 
         await waitFor(() => {
             expect(mockClientGet).toHaveBeenCalledWith('/metahub/mhb-1')
-            expect(mockClientGet).toHaveBeenCalledWith('/metahub/mhb-1/entity-types?includeBuiltins=false&limit=1000&offset=0')
+            expect(mockClientGet).toHaveBeenCalledWith('/metahub/mhb-1/entity-types?limit=1000&offset=0')
         })
     })
 
     it('hides metahub authoring-only navigation without manageMetahub permission', () => {
-        renderMenu('/metahub/mhb-1/hubs', {
+        renderMenu('/metahub/mhb-1/entities/catalog/instances', {
             metahubDetail: { permissions: { manageMetahub: false, manageMembers: false } },
             entityTypes: [
                 {
+                    kindKey: 'catalog',
+                    published: true,
+                    presentation: { name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Catalogs' } } } },
+                    ui: { iconName: 'IconDatabase', nameKey: 'metahubs:catalogs.title', sidebarSection: 'objects' }
+                },
+                {
                     kindKey: 'custom-order',
-                    source: 'custom',
                     published: true,
                     ui: { iconName: 'IconBolt', nameKey: 'Custom Order', sidebarSection: 'objects' }
                 }
             ]
         })
 
-        expect(screen.getByRole('link', { name: 'hubs' })).toBeInTheDocument()
-        expect(screen.getByRole('link', { name: 'catalogs' })).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: 'Catalogs' })).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: 'Custom Order' })).toBeInTheDocument()
         expect(screen.queryByRole('link', { name: 'commonSection' })).not.toBeInTheDocument()
         expect(screen.queryByRole('link', { name: 'entities' })).not.toBeInTheDocument()
         expect(screen.queryByRole('link', { name: 'publications' })).not.toBeInTheDocument()
-        expect(screen.queryByRole('link', { name: 'Custom Order' })).not.toBeInTheDocument()
     })
 })

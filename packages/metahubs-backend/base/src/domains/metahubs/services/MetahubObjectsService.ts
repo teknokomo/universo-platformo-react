@@ -1,13 +1,14 @@
 import type { DbExecutor, SqlQueryable } from '@universo/utils/database'
 import { queryMany, queryOne, queryOneOrThrow } from '@universo/utils/database'
 import { qSchemaTable } from '@universo/database'
-import { SHARED_OBJECT_KINDS, isEnabledComponentConfig, type ComponentManifest } from '@universo/types'
+import { SHARED_OBJECT_KINDS, SHARED_POOL_TO_TARGET_KIND, isEnabledComponentConfig, type ComponentManifest } from '@universo/types'
 import { generateTableName } from '../../ddl'
 import { MetahubSchemaService } from './MetahubSchemaService'
-import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
+import { updateWithVersionCheck, incrementVersion, type EntityType } from '../../../utils/optimisticLock'
 import { codenamePrimaryTextSql, ensureCodenameValue } from '../../shared/codename'
 import { MetahubNotFoundError } from '../../shared/domainErrors'
 import { SharedEntityOverridesService } from '../../shared/services/SharedEntityOverridesService'
+import { getEntityBehaviorService } from '../../entities/services/builtinKindBehaviorRegistry'
 
 /**
  * Options for querying objects
@@ -21,13 +22,10 @@ interface QueryOptions {
     includeVirtualContainers?: boolean
 }
 
-const BUILTIN_METAHUB_OBJECT_KINDS = ['catalog', 'set', 'enumeration', 'hub', 'document'] as const
+type SharedMetahubObjectKind = 'catalog' | 'set' | 'enumeration' | 'hub'
+export type MetahubObjectKind = SharedMetahubObjectKind | (string & {})
 
-type BuiltinMetahubObjectKind = (typeof BUILTIN_METAHUB_OBJECT_KINDS)[number]
-export type MetahubObjectKind = BuiltinMetahubObjectKind | (string & {})
-
-const isBuiltinMetahubObjectKind = (kind: string): kind is BuiltinMetahubObjectKind =>
-    BUILTIN_METAHUB_OBJECT_KINDS.includes(kind as BuiltinMetahubObjectKind)
+const resolveOptimisticLockEntityType = (kind: string): EntityType => getEntityBehaviorService(kind)?.aclEntityType ?? 'entity'
 
 const stripUndefinedEntries = (value: Record<string, unknown>) =>
     Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined)) as Record<string, unknown>
@@ -35,6 +33,22 @@ const stripUndefinedEntries = (value: Record<string, unknown>) =>
 const normalizeKinds = (kinds: readonly string[]): string[] => [
     ...new Set(kinds.map((kind) => String(kind).trim()).filter((kind) => kind.length > 0))
 ]
+
+const SHARED_OVERRIDE_TARGET_KINDS = new Set<string>(Object.values(SHARED_POOL_TO_TARGET_KIND))
+const SHARED_OVERRIDE_OBJECT_KINDS = new Set<string>([...SHARED_OVERRIDE_TARGET_KINDS, ...Object.values(SHARED_OBJECT_KINDS)])
+
+const shouldCleanupSharedOverridesForKind = (kind: string | undefined): boolean => {
+    if (!kind) {
+        return false
+    }
+
+    if (SHARED_OVERRIDE_OBJECT_KINDS.has(kind)) {
+        return true
+    }
+
+    const behaviorKindKey = getEntityBehaviorService(kind)?.kindKey
+    return typeof behaviorKindKey === 'string' && SHARED_OVERRIDE_TARGET_KINDS.has(behaviorKindKey)
+}
 
 export type MetahubObjectRow = {
     id: string
@@ -127,12 +141,9 @@ export class MetahubObjectsService {
     }
 
     private async resolveGeneratedTableName(schemaName: string, kind: string, objectId: string, db: SqlQueryable): Promise<string | null> {
-        if (kind === 'catalog' || kind === 'document') {
-            return generateTableName(objectId, kind)
-        }
-
-        if (isBuiltinMetahubObjectKind(kind)) {
-            return null
+        const behavior = getEntityBehaviorService(kind)
+        if (behavior?.resolveGeneratedTableName) {
+            return behavior.resolveGeneratedTableName(objectId)
         }
 
         const qt = qSchemaTable(schemaName, '_mhb_entity_type_definitions')
@@ -378,55 +389,6 @@ export class MetahubObjectsService {
         return this.exec.transaction(async (tx: SqlQueryable) => createWithRunner(tx))
     }
 
-    /**
-     * Creates a new Catalog object.
-     * Maps inputs to _mhb_objects structure and generates table_name from entity UUID.
-     */
-    async createCatalog(
-        metahubId: string,
-        input: {
-            codename: unknown
-            name: any // VLC
-            description?: any // VLC
-            config?: any
-            createdBy?: string | null
-        },
-        userId?: string,
-        db?: SqlQueryable
-    ) {
-        return this.createObject(metahubId, 'catalog', input, userId, db)
-    }
-
-    async createEnumeration(
-        metahubId: string,
-        input: {
-            codename: unknown
-            name: any // VLC
-            description?: any // VLC
-            config?: any
-            createdBy?: string | null
-        },
-        userId?: string,
-        db?: SqlQueryable
-    ) {
-        return this.createObject(metahubId, 'enumeration', input, userId, db)
-    }
-
-    async createSet(
-        metahubId: string,
-        input: {
-            codename: unknown
-            name: any
-            description?: any
-            config?: any
-            createdBy?: string | null
-        },
-        userId?: string,
-        db?: SqlQueryable
-    ) {
-        return this.createObject(metahubId, 'set', input, userId, db)
-    }
-
     async updateObject(
         metahubId: string,
         id: string,
@@ -483,61 +445,14 @@ export class MetahubObjectsService {
                 schemaName,
                 tableName: '_mhb_objects',
                 entityId: id,
-                entityType: isBuiltinMetahubObjectKind(kind) ? kind : 'entity',
+                entityType: resolveOptimisticLockEntityType(kind),
                 expectedVersion: input.expectedVersion,
-                updateData
+                updateData,
+                wrapInTransaction: db === undefined
             })
         }
 
         return incrementVersion(runner, schemaName, '_mhb_objects', id, updateData)
-    }
-
-    async updateCatalog(
-        metahubId: string,
-        id: string,
-        input: {
-            codename?: unknown
-            name?: any
-            description?: any
-            config?: any
-            updatedBy?: string | null
-            expectedVersion?: number
-        },
-        userId?: string
-    ) {
-        return this.updateObject(metahubId, id, 'catalog', input, userId)
-    }
-
-    async updateEnumeration(
-        metahubId: string,
-        id: string,
-        input: {
-            codename?: unknown
-            name?: any
-            description?: any
-            config?: any
-            updatedBy?: string | null
-            expectedVersion?: number
-        },
-        userId?: string
-    ) {
-        return this.updateObject(metahubId, id, 'enumeration', input, userId)
-    }
-
-    async updateSet(
-        metahubId: string,
-        id: string,
-        input: {
-            codename?: unknown
-            name?: any
-            description?: any
-            config?: any
-            updatedBy?: string | null
-            expectedVersion?: number
-        },
-        userId?: string
-    ) {
-        return this.updateObject(metahubId, id, 'set', input, userId)
     }
 
     /**
@@ -568,14 +483,7 @@ export class MetahubObjectsService {
             throw new MetahubNotFoundError('Object', id)
         }
 
-        if (
-            existing?.kind === 'catalog' ||
-            existing?.kind === 'set' ||
-            existing?.kind === 'enumeration' ||
-            existing?.kind === SHARED_OBJECT_KINDS.SHARED_CATALOG_POOL ||
-            existing?.kind === SHARED_OBJECT_KINDS.SHARED_SET_POOL ||
-            existing?.kind === SHARED_OBJECT_KINDS.SHARED_ENUM_POOL
-        ) {
+        if (shouldCleanupSharedOverridesForKind(existing?.kind)) {
             const sharedOverridesService = new SharedEntityOverridesService(this.exec, this.schemaService)
             await sharedOverridesService.cleanupForDeletedTargetObject(metahubId, id, userId, runner)
         }
@@ -627,14 +535,7 @@ export class MetahubObjectsService {
             throw new MetahubNotFoundError('Object', id)
         }
 
-        if (
-            existing?.kind === 'catalog' ||
-            existing?.kind === 'set' ||
-            existing?.kind === 'enumeration' ||
-            existing?.kind === SHARED_OBJECT_KINDS.SHARED_CATALOG_POOL ||
-            existing?.kind === SHARED_OBJECT_KINDS.SHARED_SET_POOL ||
-            existing?.kind === SHARED_OBJECT_KINDS.SHARED_ENUM_POOL
-        ) {
+        if (shouldCleanupSharedOverridesForKind(existing?.kind)) {
             const sharedOverridesService = new SharedEntityOverridesService(this.exec, this.schemaService)
             await sharedOverridesService.purgeDeletedTargetOverrides(metahubId, id, userId, runner)
         }

@@ -10,7 +10,7 @@ current platform shape and how to approach common tasks safely.
 
 ## Available Guides
 
-- [Common Section](general-section.md) — navigation and global layout authoring.
+- [Resources Workspace](general-section.md) — navigation and shared-layout authoring.
 - [Catalog Layouts](catalog-layouts.md) — overlay authoring, inheritance, and runtime behavior ownership.
 - [Application Template View Settings](app-template-views.md) — layout-level runtime display settings.
 - Creating a New Application.

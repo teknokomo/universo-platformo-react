@@ -32,8 +32,8 @@ import { EntityFormDialog, LocalizedInlineField } from '@universo/template-mui'
 import { createLocalizedContent, generateUuidV7, buildVLC as utilsBuildVLC, ensureVLC as utilsEnsureVLC } from '@universo/utils'
 
 import { fetchAllPaginatedItems, metahubsQueryKeys } from '../../shared'
-import * as catalogsApi from '../../catalogs/api'
-import { useMetahubHubs } from '../../hubs/hooks'
+import { listEntityInstances } from '../../entities/api/entityInstances'
+import { useTreeEntities } from '../../entities/presets/hooks/useTreeEntities'
 import { getVLCString, normalizeLocale } from '../../../types'
 import LayoutWidgetSharedBehaviorFields from './LayoutWidgetSharedBehaviorFields'
 
@@ -65,7 +65,7 @@ function makeDefaultConfig(): MenuWidgetConfig {
         title: buildVLC('', ''),
         autoShowAllCatalogs: false,
         bindToHub: false,
-        boundHubId: null,
+        boundTreeEntityId: null,
         items: []
     }
 }
@@ -82,7 +82,7 @@ function normalizeMenuConfig(
         title: ensureVLC(config.title, uiLocale) ?? defaultTitle,
         autoShowAllCatalogs: Boolean(config.autoShowAllCatalogs) && !config.bindToHub,
         bindToHub: Boolean(config.bindToHub),
-        boundHubId: typeof config.boundHubId === 'string' ? config.boundHubId : null,
+        boundTreeEntityId: typeof config.boundTreeEntityId === 'string' ? config.boundTreeEntityId : null,
         items: Array.isArray(config.items) ? config.items.filter((item) => item.kind !== 'catalogs_all') : []
     }
 }
@@ -104,7 +104,7 @@ function SortableItemRow({
     onEdit: () => void
     onRemove: () => void
 }) {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
+    const { fieldDefinitions, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
     const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
 
     return (
@@ -114,7 +114,7 @@ function SortableItemRow({
             variant='outlined'
             sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 1, borderRadius: 1.5 }}
         >
-            <IconButton size='small' sx={{ cursor: 'grab' }} {...attributes} {...listeners}>
+            <IconButton size='small' sx={{ cursor: 'grab' }} {...fieldDefinitions} {...listeners}>
                 <DragIndicatorRoundedIcon fontSize='small' />
             </IconButton>
             <Box sx={{ flexGrow: 1, minWidth: 0 }}>
@@ -164,8 +164,8 @@ function ItemFormDialog({
     )
     const [icon, setIcon] = useState(item?.icon ?? '')
     const [href, setHref] = useState(item?.href ?? '')
-    const [catalogId, setCatalogId] = useState(item?.catalogId ?? '')
-    const [hubId, setHubId] = useState(item?.hubId ?? '')
+    const [linkedCollectionId, setLinkedCollectionId] = useState(item?.linkedCollectionId ?? '')
+    const [treeEntityId, setTreeEntityId] = useState(item?.treeEntityId ?? '')
     const [isActive, setIsActive] = useState(item?.isActive ?? true)
 
     // BUG-1 fix: Reset local state when the edited item changes
@@ -178,21 +178,21 @@ function ItemFormDialog({
         setTitleVlc(ensureVLC(item?.title, uiLocale) ?? createLocalizedContent(normalizeLocale(uiLocale), ''))
         setIcon(item?.icon ?? '')
         setHref(item?.href ?? '')
-        setCatalogId(item?.catalogId ?? '')
-        setHubId(item?.hubId ?? '')
+        setLinkedCollectionId(item?.linkedCollectionId ?? '')
+        setTreeEntityId(item?.treeEntityId ?? '')
         setIsActive(item?.isActive ?? true)
     }, [item, uiLocale])
 
     const catalogsQuery = useQuery({
-        queryKey: metahubsQueryKeys.allCatalogsList(metahubId),
+        queryKey: metahubsQueryKeys.entitiesList(metahubId, { kind: 'catalog', limit: 1000, offset: 0, sortOrder: 'asc' }),
         enabled: open,
         queryFn: () =>
-            fetchAllPaginatedItems((params) => catalogsApi.listAllCatalogs(metahubId, params), {
+            fetchAllPaginatedItems((params) => listEntityInstances(metahubId, { ...params, kind: 'catalog' }), {
                 limit: 1000,
                 sortOrder: 'asc'
             })
     })
-    const hubs = useMetahubHubs(metahubId)
+    const treeEntities = useTreeEntities(metahubId)
 
     const hasTitleContent = useMemo(() => {
         if (!titleVlc?.locales || typeof titleVlc.locales !== 'object') return false
@@ -205,12 +205,12 @@ function ItemFormDialog({
             return
         }
 
-        if (kind === 'catalog' && !catalogId) {
+        if (kind === 'catalog' && !linkedCollectionId) {
             setSubmitError(t('layouts.menuEditor.validation.catalogRequired', 'Select a catalog for this menu item.'))
             return
         }
 
-        if (kind === 'hub' && !hubId) {
+        if (kind === 'hub' && !treeEntityId) {
             setSubmitError(t('layouts.menuEditor.validation.hubRequired', 'Select a hub for this menu item.'))
             return
         }
@@ -227,14 +227,14 @@ function ItemFormDialog({
             title: titleVlc ?? createLocalizedContent(normalizeLocale(uiLocale), ''),
             icon: icon.trim() || null,
             href: kind === 'link' ? href.trim() || null : null,
-            catalogId: kind === 'catalog' ? catalogId || null : null,
-            hubId: kind === 'hub' ? hubId || null : null,
+            linkedCollectionId: kind === 'catalog' ? linkedCollectionId || null : null,
+            treeEntityId: kind === 'hub' ? treeEntityId || null : null,
             sortOrder: item?.sortOrder ?? 0,
             isActive
         })
     }
 
-    const catalogs = catalogsQuery.data?.items ?? []
+    const linkedCollections = catalogsQuery.data?.items ?? []
 
     return (
         <EntityFormDialog
@@ -313,19 +313,19 @@ function ItemFormDialog({
                         <FormControl fullWidth>
                             <InputLabel>{t('layouts.menuEditor.itemCatalog')}</InputLabel>
                             <Select
-                                value={catalogId}
+                                value={linkedCollectionId}
                                 label={t('layouts.menuEditor.itemCatalog')}
                                 onChange={(e) => {
                                     setSubmitError(null)
-                                    setCatalogId(e.target.value)
+                                    setLinkedCollectionId(e.target.value)
                                 }}
                             >
-                                {catalogs.length === 0 ? (
+                                {linkedCollections.length === 0 ? (
                                     <MenuItem disabled tabIndex={-1}>
                                         {t('layouts.menuEditor.noCatalogs')}
                                     </MenuItem>
                                 ) : (
-                                    catalogs.map((cat) => {
+                                    linkedCollections.map((cat) => {
                                         const name = getVLCString(cat.name, uiLocale) || getVLCString(cat.name, 'en') || cat.codename
                                         return (
                                             <MenuItem key={cat.id} value={cat.id}>
@@ -341,19 +341,19 @@ function ItemFormDialog({
                         <FormControl fullWidth>
                             <InputLabel>{t('layouts.menuEditor.itemHub')}</InputLabel>
                             <Select
-                                value={hubId}
+                                value={treeEntityId}
                                 label={t('layouts.menuEditor.itemHub')}
                                 onChange={(e) => {
                                     setSubmitError(null)
-                                    setHubId(e.target.value)
+                                    setTreeEntityId(e.target.value)
                                 }}
                             >
-                                {hubs.length === 0 ? (
+                                {treeEntities.length === 0 ? (
                                     <MenuItem disabled tabIndex={-1}>
                                         {t('layouts.menuEditor.noHubs')}
                                     </MenuItem>
                                 ) : (
-                                    hubs.map((hub) => {
+                                    treeEntities.map((hub) => {
                                         const name = getVLCString(hub.name, uiLocale) || getVLCString(hub.name, 'en') || hub.codename
                                         return (
                                             <MenuItem key={hub.id} value={hub.id}>
@@ -413,7 +413,7 @@ export default function MenuWidgetEditorDialog({
     const [itemDialog, setItemDialog] = useState<{ open: boolean; item: MenuWidgetConfigItem | null }>({ open: false, item: null })
     const [dialogError, setDialogError] = useState<string | null>(null)
 
-    const availableHubs = useMetahubHubs(metahubId)
+    const availableHubs = useTreeEntities(metahubId)
 
     // WARN-1 fix: Reset draft when dialog opens with new config (moved from render to effect)
     const prevOpenRef = useRef(false)
@@ -471,7 +471,7 @@ export default function MenuWidgetEditorDialog({
     }
 
     const handleSave = () => {
-        if (draft.bindToHub && !draft.boundHubId) {
+        if (draft.bindToHub && !draft.boundTreeEntityId) {
             setDialogError(t('layouts.menuEditor.validation.boundHubRequired', 'Select a hub to bind this menu to.'))
             return
         }
@@ -542,7 +542,7 @@ export default function MenuWidgetEditorDialog({
                                                         ...p,
                                                         bindToHub: checked,
                                                         autoShowAllCatalogs: checked ? false : p.autoShowAllCatalogs,
-                                                        boundHubId: checked ? p.boundHubId ?? null : null
+                                                        boundTreeEntityId: checked ? p.boundTreeEntityId ?? null : null
                                                     }))
                                                 }}
                                             />
@@ -554,13 +554,14 @@ export default function MenuWidgetEditorDialog({
                                             <FormControl fullWidth size='small'>
                                                 <InputLabel>{t('layouts.menuEditor.boundHubLabel')}</InputLabel>
                                                 <Select
-                                                    value={draft.boundHubId ?? ''}
+                                                    value={draft.boundTreeEntityId ?? ''}
                                                     label={t('layouts.menuEditor.boundHubLabel')}
                                                     onChange={(event) => {
                                                         setDialogError(null)
                                                         setDraft((p) => ({
                                                             ...p,
-                                                            boundHubId: typeof event.target.value === 'string' ? event.target.value : null
+                                                            boundTreeEntityId:
+                                                                typeof event.target.value === 'string' ? event.target.value : null
                                                         }))
                                                     }}
                                                 >
@@ -576,7 +577,7 @@ export default function MenuWidgetEditorDialog({
                                                     })}
                                                 </Select>
                                             </FormControl>
-                                            {draft.boundHubId && (
+                                            {draft.boundTreeEntityId && (
                                                 <Alert severity='info' sx={{ borderRadius: 1.5 }}>
                                                     {t('layouts.menuEditor.boundHubInfo')}
                                                 </Alert>

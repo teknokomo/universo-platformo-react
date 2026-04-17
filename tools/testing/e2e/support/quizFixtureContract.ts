@@ -711,14 +711,14 @@ export function assertQuizFixtureEnvelopeContract(envelope: Record<string, any>)
         }
     }
 
-    const enumerationValues = Object.values(envelope?.snapshot?.enumerationValues ?? {}) as Array<Array<Record<string, any>>>
-    for (const value of enumerationValues.flat()) {
+    const optionValues = Object.values(envelope?.snapshot?.optionValues ?? {}) as Array<Array<Record<string, any>>>
+    for (const value of optionValues.flat()) {
         if (!isLocalizedCodenameObject(value?.codename) || !readCodenameText(value?.codename, 'en')) {
             errors.push(`Quiz fixture enumeration value ${String(value?.id ?? '<unknown>')} must keep codename as a localized snapshot object`)
         }
     }
 
-    const constants = Object.values(envelope?.snapshot?.constants ?? {}) as Array<Array<Record<string, any>>>
+    const constants = Object.values(envelope?.snapshot?.fixedValues ?? {}) as Array<Array<Record<string, any>>>
     for (const constant of constants.flat()) {
         if (!isLocalizedCodenameObject(constant?.codename) || !readCodenameText(constant?.codename, 'en')) {
             errors.push(`Quiz fixture constant ${String(constant?.id ?? '<unknown>')} must keep codename as a localized snapshot object`)

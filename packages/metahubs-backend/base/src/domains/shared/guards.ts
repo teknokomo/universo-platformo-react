@@ -218,14 +218,14 @@ export interface HubAccessContext extends MetahubMembershipContext {
  * Ensure user has access to a Hub through its parent Metahub.
  *
  * NOTE: This function requires knowning the metahubId in advance.
- * For routes that receive hubId without metahubId, the route handler
- * should use MetahubHubsService directly after ensureMetahubAccess.
+ * For routes that receive treeEntityId without metahubId, the route handler
+ * should use MetahubTreeEntitiesService directly after ensureMetahubAccess.
  */
 export async function ensureHubAccess(
     exec: DbExecutor,
     userId: string,
     metahubId: string,
-    hubId: string,
+    treeEntityId: string,
     permission?: RolePermission,
     dbSession?: DbSession
 ): Promise<HubAccessContext> {
@@ -234,18 +234,18 @@ export async function ensureHubAccess(
 
     // Import dynamically to avoid circular dependencies
     const { MetahubSchemaService } = await import('../metahubs/services/MetahubSchemaService.js')
-    const { MetahubHubsService } = await import('../metahubs/services/MetahubHubsService.js')
+    const { MetahubTreeEntitiesService } = await import('../metahubs/services/MetahubTreeEntitiesService.js')
 
     const schemaService = new MetahubSchemaService(exec)
-    const hubsService = new MetahubHubsService(exec, schemaService)
+    const treeEntitiesService = new MetahubTreeEntitiesService(exec, schemaService)
 
-    const hubData = await hubsService.findById(metahubId, hubId)
+    const hubData = await treeEntitiesService.findById(metahubId, treeEntityId)
 
     if (!hubData) {
         log.warn('Permission denied', {
             timestamp: new Date().toISOString(),
             userId,
-            hubId,
+            treeEntityId,
             action: permission || 'access',
             reason: 'hub_not_found'
         })

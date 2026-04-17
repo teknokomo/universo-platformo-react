@@ -396,7 +396,8 @@ export default function MainGrid({
     const columnsContainerWidgets = showColumnsContainer ? centerWidgets?.filter((w) => w.widgetKey === 'columnsContainer') ?? [] : []
     const standaloneCenterWidgets =
         centerWidgets?.filter((widget) => !['columnsContainer', 'detailsTable', 'detailsTitle'].includes(widget.widgetKey)) ?? []
-    const showCenterContent = hasCustomDetailsContent || showDetailsTitle || showColumnsContainer || showDetailsTable || standaloneCenterWidgets.length > 0
+    const showCenterContent =
+        hasCustomDetailsContent || showDetailsTitle || showColumnsContainer || showDetailsTable || standaloneCenterWidgets.length > 0
 
     return (
         <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
@@ -445,7 +446,9 @@ export default function MainGrid({
                     ) : (
                         <>
                             {/* Data-driven: columnsContainer(s) from center zone widgets */}
-                            {columnsContainerWidgets.length > 0 ? columnsContainerWidgets.map((widget) => <Box key={widget.id}>{renderWidget(widget)}</Box>) : null}
+                            {columnsContainerWidgets.length > 0
+                                ? columnsContainerWidgets.map((widget) => <Box key={widget.id}>{renderWidget(widget)}</Box>)
+                                : null}
 
                             {standaloneCenterWidgets.length > 0 ? (
                                 <Box sx={{ display: 'grid', gap: 2 }}>

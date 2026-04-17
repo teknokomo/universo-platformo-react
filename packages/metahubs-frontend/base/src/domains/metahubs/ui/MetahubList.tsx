@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
 import { useQueryClient } from '@tanstack/react-query'
-import type { VersionedLocalizedContent } from '@universo/types'
+import type { MetahubTemplateManifest, VersionedLocalizedContent } from '@universo/types'
 import { isPendingEntity, getPendingAction, type ConflictInfo } from '@universo/utils'
 
 // project imports
@@ -36,7 +36,7 @@ import { useCreateMetahub, useUpdateMetahub, useDeleteMetahub, useCopyMetahub, u
 import { exportMetahubSnapshot } from '../api/metahubs'
 import { useMetahubListData } from '../hooks/useMetahubListData'
 import { useViewPreference } from '../../../hooks/useViewPreference'
-import { STORAGE_KEYS } from '../../../constants/storage'
+import { STORAGE_KEYS } from '../../../view-preferences/storage'
 import { MetahubDisplay, MetahubLocalizedPayload, getVLCString } from '../../../types'
 import { metahubsQueryKeys } from '../../shared'
 import metahubActions from './MetahubActions'
@@ -44,8 +44,16 @@ import { ensureLocalizedContent, extractLocalizedInput, hasPrimaryContent, norma
 import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
 import { useCodenameConfig, getCodenameHelperKey } from '../../settings/hooks/useCodenameConfig'
 import { CodenameField, ExistingCodenamesProvider } from '../../../components'
+import { useTemplateDetail, useTemplates } from '../../templates/hooks/useTemplates'
 import { TemplateSelector } from '../../templates/ui/TemplateSelector'
-import type { GenericFormValues, ConfirmSpec, PendingMetahubNavigation, MetahubFormValues, BaseMenuContext } from './metahubListUtils'
+import type {
+    GenericFormValues,
+    ConfirmSpec,
+    PendingMetahubNavigation,
+    MetahubFormValues,
+    BaseMenuContext,
+    TranslationFn
+} from './metahubListUtils'
 import { extractResponseStatus, extractResponseMessage, extractConflict } from './metahubListUtils'
 import { ImportSnapshotDialog } from '../../publications/ui/ImportSnapshotDialog'
 
@@ -164,12 +172,44 @@ interface MetahubCreateOptionsTabProps {
 }
 
 function MetahubCreateOptionsTab({ values, setValue, isLoading, t }: MetahubCreateOptionsTabProps) {
-    const entityKinds = [
-        { key: 'createHub', label: t('createOptions.hub') },
-        { key: 'createCatalog', label: t('createOptions.catalog') },
-        { key: 'createSet', label: t('createOptions.set') },
-        { key: 'createEnumeration', label: t('createOptions.enumeration') }
-    ]
+    const { i18n } = useTranslation('metahubs')
+    const selectedTemplateId = typeof values.templateId === 'string' ? values.templateId : undefined
+    const presetToggles = ((values.presetToggles as Record<string, boolean> | undefined) ?? {}) as Record<string, boolean>
+    const { data: templateDetail, isLoading: isTemplateLoading } = useTemplateDetail(selectedTemplateId)
+    const { data: presetCatalog = [], isLoading: isPresetCatalogLoading } = useTemplates('entity_type_preset')
+    const templateManifest =
+        templateDetail?.activeVersionManifest && templateDetail.activeVersionManifest.$schema === 'metahub-template/v1'
+            ? (templateDetail.activeVersionManifest as MetahubTemplateManifest)
+            : null
+    const presetReferences = templateManifest?.presets ?? []
+    const presetLabels = useMemo(() => {
+        const locale = normalizeLocale(i18n.language)
+        return new Map(presetCatalog.map((preset) => [preset.codename, getVLCString(preset.name, locale) || preset.codename]))
+    }, [i18n.language, presetCatalog])
+
+    useEffect(() => {
+        const referencedPresetCodenames = new Set(presetReferences.map((preset) => preset.presetCodename))
+        const nextPresetToggles: Record<string, boolean> = { ...presetToggles }
+        let changed = false
+
+        for (const preset of presetReferences) {
+            if (typeof nextPresetToggles[preset.presetCodename] !== 'boolean') {
+                nextPresetToggles[preset.presetCodename] = preset.includedByDefault !== false
+                changed = true
+            }
+        }
+
+        for (const presetCodename of Object.keys(nextPresetToggles)) {
+            if (!referencedPresetCodenames.has(presetCodename)) {
+                delete nextPresetToggles[presetCodename]
+                changed = true
+            }
+        }
+
+        if (changed) {
+            setValue('presetToggles', nextPresetToggles)
+        }
+    }, [presetReferences, presetToggles, setValue])
 
     return (
         <Stack spacing={1} sx={{ mt: 1 }}>
@@ -184,15 +224,40 @@ function MetahubCreateOptionsTab({ values, setValue, isLoading, t }: MetahubCrea
             <Typography variant='subtitle2' color='text.secondary'>
                 {t('createOptions.optionalEntities')}
             </Typography>
-            {entityKinds.map(({ key, label }) => (
-                <FormControlLabel
-                    key={key}
-                    control={
-                        <Checkbox checked={values[key] !== false} onChange={(e) => setValue(key, e.target.checked)} disabled={isLoading} />
-                    }
-                    label={label}
-                />
-            ))}
+            {isTemplateLoading || isPresetCatalogLoading ? (
+                <Stack spacing={1}>
+                    <Skeleton variant='rounded' height={32} />
+                    <Skeleton variant='rounded' height={32} />
+                </Stack>
+            ) : presetReferences.length === 0 ? (
+                <Typography variant='body2' color='text.secondary'>
+                    {t('createOptions.noOptionalPresets', 'This template does not define optional presets.')}
+                </Typography>
+            ) : (
+                presetReferences.map((preset) => {
+                    const label = presetLabels.get(preset.presetCodename) || preset.presetCodename
+                    const checked = presetToggles[preset.presetCodename] ?? preset.includedByDefault !== false
+
+                    return (
+                        <FormControlLabel
+                            key={preset.presetCodename}
+                            control={
+                                <Checkbox
+                                    checked={checked}
+                                    onChange={(event) =>
+                                        setValue('presetToggles', {
+                                            ...presetToggles,
+                                            [preset.presetCodename]: event.target.checked
+                                        })
+                                    }
+                                    disabled={isLoading}
+                                />
+                            }
+                            label={label}
+                        />
+                    )
+                })
+            )}
         </Stack>
     )
 }
@@ -284,10 +349,8 @@ const MetahubList = () => {
             codename: null,
             codenameTouched: false,
             storageMode: 'main_db',
-            createHub: true,
-            createCatalog: true,
-            createSet: true,
-            createEnumeration: true
+            templateId: undefined,
+            presetToggles: {}
         }),
         []
     )
@@ -453,12 +516,8 @@ const MetahubList = () => {
         const { input: descriptionInput, primaryLocale: descriptionPrimaryLocale } = extractLocalizedInput(descriptionVlc)
         const codenamePayload = ensureLocalizedContent(codenameValue, namePrimaryLocale ?? 'en', normalizedCodename || '')
 
-        const createOptions = {
-            createHub: data.createHub !== false,
-            createCatalog: data.createCatalog !== false,
-            createSet: data.createSet !== false,
-            createEnumeration: data.createEnumeration !== false
-        }
+        const presetToggles = data.presetToggles as Record<string, boolean> | undefined
+        const createOptions = presetToggles && Object.keys(presetToggles).length > 0 ? { presetToggles } : undefined
 
         // Fire-and-forget: optimistic card appears via onMutate, errors via onError snackbar,
         // cache invalidation via onSettled. Dialog closes immediately after mutate() returns.
@@ -574,11 +633,11 @@ const MetahubList = () => {
                 render: (row: MetahubDisplay) => (row.role ? <RoleChip role={row.role} accessType={row.accessType} /> : '—')
             },
             {
-                id: 'hubs',
-                label: t('table.hubs'),
+                id: 'treeEntities',
+                label: t('table.treeEntities'),
                 width: '10%',
                 align: 'center' as const,
-                render: (row: MetahubDisplay) => (typeof row.hubsCount === 'number' ? row.hubsCount : '—')
+                render: (row: MetahubDisplay) => (typeof row.treeEntitiesCount === 'number' ? row.treeEntitiesCount : '—')
             }
         ],
         [handlePendingMetahubInteraction, t, tc]

@@ -13,6 +13,7 @@ export interface VersionedUpdateOptions {
     entityType: EntityType
     expectedVersion: number
     updateData: Record<string, unknown>
+    wrapInTransaction?: boolean
 }
 
 function buildUpdateAssignments(updateData: Record<string, unknown>): {
@@ -44,6 +45,7 @@ function buildUpdateAssignments(updateData: Record<string, unknown>): {
 export async function updateWithVersionCheck(options: VersionedUpdateOptions): Promise<Record<string, unknown>> {
     const { executor, schemaName, tableName, entityId, entityType, expectedVersion, updateData } = options
     const qt = qSchemaTable(schemaName, tableName)
+    const wrapInTransaction = options.wrapInTransaction !== false
 
     const runUpdate = async (tx: SqlQueryable): Promise<Record<string, unknown>> => {
         const current = await queryOneOrThrow<Record<string, unknown>>(
@@ -83,7 +85,7 @@ export async function updateWithVersionCheck(options: VersionedUpdateOptions): P
         )
     }
 
-    if ('transaction' in executor && typeof executor.transaction === 'function') {
+    if (wrapInTransaction && 'transaction' in executor && typeof executor.transaction === 'function') {
         return executor.transaction(async (tx) => runUpdate(tx))
     }
 

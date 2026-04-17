@@ -1,5 +1,5 @@
 import { createSystemAppManifestPresentation, type SystemAppDefinition } from '@universo/migrations-core'
-import { AttributeDataType } from '@universo/types'
+import { FieldDefinitionDataType } from '@universo/types'
 import { finalizeProfileSchemaSupportMigrationDefinition, prepareProfileSchemaSupportMigrationDefinition } from './migrations'
 
 export const profileSystemAppDefinition: SystemAppDefinition = {
@@ -51,14 +51,14 @@ export const profileSystemAppDefinition: SystemAppDefinition = {
                 {
                     codename: 'user_id',
                     physicalColumnName: 'user_id',
-                    dataType: AttributeDataType.STRING,
+                    dataType: FieldDefinitionDataType.STRING,
                     physicalDataType: 'UUID',
                     isRequired: true
                 },
                 {
                     codename: 'nickname',
                     physicalColumnName: 'nickname',
-                    dataType: AttributeDataType.STRING,
+                    dataType: FieldDefinitionDataType.STRING,
                     physicalDataType: 'VARCHAR(50)',
                     isRequired: true,
                     isDisplayAttribute: true,
@@ -72,19 +72,19 @@ export const profileSystemAppDefinition: SystemAppDefinition = {
                 {
                     codename: 'first_name',
                     physicalColumnName: 'first_name',
-                    dataType: AttributeDataType.STRING,
+                    dataType: FieldDefinitionDataType.STRING,
                     physicalDataType: 'VARCHAR(100)'
                 },
                 {
                     codename: 'last_name',
                     physicalColumnName: 'last_name',
-                    dataType: AttributeDataType.STRING,
+                    dataType: FieldDefinitionDataType.STRING,
                     physicalDataType: 'VARCHAR(100)'
                 },
                 {
                     codename: 'settings',
                     physicalColumnName: 'settings',
-                    dataType: AttributeDataType.JSON,
+                    dataType: FieldDefinitionDataType.JSON,
                     isRequired: true,
                     defaultSqlExpression: `'{}'::jsonb`,
                     presentation: createSystemAppManifestPresentation('Settings', 'JSON profile settings payload'),
@@ -95,44 +95,44 @@ export const profileSystemAppDefinition: SystemAppDefinition = {
                 {
                     codename: 'onboarding_completed',
                     physicalColumnName: 'onboarding_completed',
-                    dataType: AttributeDataType.BOOLEAN,
+                    dataType: FieldDefinitionDataType.BOOLEAN,
                     isRequired: true,
                     defaultSqlExpression: 'false'
                 },
                 {
                     codename: 'terms_accepted',
                     physicalColumnName: 'terms_accepted',
-                    dataType: AttributeDataType.BOOLEAN,
+                    dataType: FieldDefinitionDataType.BOOLEAN,
                     isRequired: true,
                     defaultSqlExpression: 'false'
                 },
                 {
                     codename: 'terms_accepted_at',
                     physicalColumnName: 'terms_accepted_at',
-                    dataType: AttributeDataType.DATE
+                    dataType: FieldDefinitionDataType.DATE
                 },
                 {
                     codename: 'privacy_accepted',
                     physicalColumnName: 'privacy_accepted',
-                    dataType: AttributeDataType.BOOLEAN,
+                    dataType: FieldDefinitionDataType.BOOLEAN,
                     isRequired: true,
                     defaultSqlExpression: 'false'
                 },
                 {
                     codename: 'privacy_accepted_at',
                     physicalColumnName: 'privacy_accepted_at',
-                    dataType: AttributeDataType.DATE
+                    dataType: FieldDefinitionDataType.DATE
                 },
                 {
                     codename: 'terms_version',
                     physicalColumnName: 'terms_version',
-                    dataType: AttributeDataType.STRING,
+                    dataType: FieldDefinitionDataType.STRING,
                     physicalDataType: 'VARCHAR(50)'
                 },
                 {
                     codename: 'privacy_version',
                     physicalColumnName: 'privacy_version',
-                    dataType: AttributeDataType.STRING,
+                    dataType: FieldDefinitionDataType.STRING,
                     physicalDataType: 'VARCHAR(50)'
                 }
             ]
@@ -148,14 +148,14 @@ export const profileSystemAppDefinition: SystemAppDefinition = {
                 {
                     codename: 'user_id',
                     physicalColumnName: 'user_id',
-                    dataType: AttributeDataType.STRING,
+                    dataType: FieldDefinitionDataType.STRING,
                     physicalDataType: 'UUID',
                     isRequired: true
                 },
                 {
                     codename: 'nickname',
                     physicalColumnName: 'nickname',
-                    dataType: AttributeDataType.STRING,
+                    dataType: FieldDefinitionDataType.STRING,
                     physicalDataType: 'VARCHAR(50)',
                     isRequired: true,
                     isDisplayAttribute: true,
@@ -169,19 +169,19 @@ export const profileSystemAppDefinition: SystemAppDefinition = {
                 {
                     codename: 'first_name',
                     physicalColumnName: 'first_name',
-                    dataType: AttributeDataType.STRING,
+                    dataType: FieldDefinitionDataType.STRING,
                     physicalDataType: 'VARCHAR(100)'
                 },
                 {
                     codename: 'last_name',
                     physicalColumnName: 'last_name',
-                    dataType: AttributeDataType.STRING,
+                    dataType: FieldDefinitionDataType.STRING,
                     physicalDataType: 'VARCHAR(100)'
                 },
                 {
                     codename: 'settings',
                     physicalColumnName: 'settings',
-                    dataType: AttributeDataType.JSON,
+                    dataType: FieldDefinitionDataType.JSON,
                     isRequired: true,
                     defaultSqlExpression: `'{}'::jsonb`,
                     presentation: createSystemAppManifestPresentation('Settings', 'JSON profile settings payload'),
@@ -192,44 +192,44 @@ export const profileSystemAppDefinition: SystemAppDefinition = {
                 {
                     codename: 'onboarding_completed',
                     physicalColumnName: 'onboarding_completed',
-                    dataType: AttributeDataType.BOOLEAN,
+                    dataType: FieldDefinitionDataType.BOOLEAN,
                     isRequired: true,
                     defaultSqlExpression: 'false'
                 },
                 {
                     codename: 'terms_accepted',
                     physicalColumnName: 'terms_accepted',
-                    dataType: AttributeDataType.BOOLEAN,
+                    dataType: FieldDefinitionDataType.BOOLEAN,
                     isRequired: true,
                     defaultSqlExpression: 'false'
                 },
                 {
                     codename: 'terms_accepted_at',
                     physicalColumnName: 'terms_accepted_at',
-                    dataType: AttributeDataType.DATE
+                    dataType: FieldDefinitionDataType.DATE
                 },
                 {
                     codename: 'privacy_accepted',
                     physicalColumnName: 'privacy_accepted',
-                    dataType: AttributeDataType.BOOLEAN,
+                    dataType: FieldDefinitionDataType.BOOLEAN,
                     isRequired: true,
                     defaultSqlExpression: 'false'
                 },
                 {
                     codename: 'privacy_accepted_at',
                     physicalColumnName: 'privacy_accepted_at',
-                    dataType: AttributeDataType.DATE
+                    dataType: FieldDefinitionDataType.DATE
                 },
                 {
                     codename: 'terms_version',
                     physicalColumnName: 'terms_version',
-                    dataType: AttributeDataType.STRING,
+                    dataType: FieldDefinitionDataType.STRING,
                     physicalDataType: 'VARCHAR(50)'
                 },
                 {
                     codename: 'privacy_version',
                     physicalColumnName: 'privacy_version',
-                    dataType: AttributeDataType.STRING,
+                    dataType: FieldDefinitionDataType.STRING,
                     physicalDataType: 'VARCHAR(50)'
                 }
             ]

@@ -23,9 +23,10 @@ export type BranchFormValues = {
     sourceBranchId?: string | null
     fullCopy?: boolean
     copyLayouts?: boolean
-    copyHubs?: boolean
-    copyCatalogs?: boolean
-    copyEnumerations?: boolean
+    copyTreeEntities?: boolean
+    copyLinkedCollections?: boolean
+    copyValueGroups?: boolean
+    copyOptionLists?: boolean
 }
 
 export type GenericFormValues = Record<string, unknown>

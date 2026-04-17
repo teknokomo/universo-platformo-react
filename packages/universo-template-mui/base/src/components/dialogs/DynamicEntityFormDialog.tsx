@@ -36,7 +36,7 @@ export type DynamicFieldType = 'STRING' | 'NUMBER' | 'BOOLEAN' | 'DATE' | 'REF' 
 
 /**
  * Validation rules for dynamic fields.
- * Matches AttributeValidationRules from @universo/types.
+ * Matches FieldDefinitionValidationRules from @universo/types.
  */
 export interface DynamicFieldValidationRules {
     // STRING settings

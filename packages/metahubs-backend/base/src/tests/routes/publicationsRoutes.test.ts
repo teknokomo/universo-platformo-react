@@ -142,34 +142,34 @@ jest.mock('../../domains/metahubs/services/MetahubObjectsService', () => ({
     MetahubObjectsService: jest.fn().mockImplementation(() => ({}))
 }))
 
-jest.mock('../../domains/metahubs/services/MetahubAttributesService', () => ({
+jest.mock('../../domains/metahubs/services/MetahubFieldDefinitionsService', () => ({
     __esModule: true,
-    MetahubAttributesService: jest.fn().mockImplementation(() => ({}))
+    MetahubFieldDefinitionsService: jest.fn().mockImplementation(() => ({}))
 }))
 
-jest.mock('../../domains/metahubs/services/MetahubElementsService', () => ({
+jest.mock('../../domains/metahubs/services/MetahubRecordsService', () => ({
     __esModule: true,
-    MetahubElementsService: jest.fn().mockImplementation(() => ({}))
+    MetahubRecordsService: jest.fn().mockImplementation(() => ({}))
 }))
 
-jest.mock('../../domains/metahubs/services/MetahubHubsService', () => ({
+jest.mock('../../domains/metahubs/services/MetahubTreeEntitiesService', () => ({
     __esModule: true,
-    MetahubHubsService: jest.fn().mockImplementation(() => ({}))
+    MetahubTreeEntitiesService: jest.fn().mockImplementation(() => ({}))
 }))
 
-jest.mock('../../domains/metahubs/services/MetahubEnumerationValuesService', () => ({
+jest.mock('../../domains/metahubs/services/MetahubOptionValuesService', () => ({
     __esModule: true,
-    MetahubEnumerationValuesService: jest.fn().mockImplementation(() => ({}))
+    MetahubOptionValuesService: jest.fn().mockImplementation(() => ({}))
 }))
 
-jest.mock('../../domains/metahubs/services/MetahubConstantsService', () => ({
+jest.mock('../../domains/metahubs/services/MetahubFixedValuesService', () => ({
     __esModule: true,
-    MetahubConstantsService: jest.fn().mockImplementation(() => ({}))
+    MetahubFixedValuesService: jest.fn().mockImplementation(() => ({}))
 }))
 
-jest.mock('../../domains/shared/setConstantRefs', () => ({
+jest.mock('../../domains/shared/valueGroupFixedValueRefs', () => ({
     __esModule: true,
-    enrichDefinitionsWithSetConstants: (...args: unknown[]) => mockEnrichDefinitionsWithSetConstants(...args)
+    enrichDefinitionsWithValueGroupFixedValues: (...args: unknown[]) => mockEnrichDefinitionsWithSetConstants(...args)
 }))
 
 import { createPublicationsRoutes } from '../../domains/publications/routes/publicationsRoutes'

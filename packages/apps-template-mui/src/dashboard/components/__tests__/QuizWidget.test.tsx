@@ -164,7 +164,7 @@ describe('QuizWidget', () => {
     it('renders quiz questions, submits the current answer payload, and shows the completion score', async () => {
         renderWidget({
             applicationId: 'app-1',
-            catalogId: 'catalog-1',
+            linkedCollectionId: 'catalog-1',
             apiBaseUrl: '/api/v1'
         })
 
@@ -249,7 +249,7 @@ describe('QuizWidget', () => {
 
         renderWidget({
             applicationId: 'app-1',
-            catalogId: 'catalog-1',
+            linkedCollectionId: 'catalog-1',
             apiBaseUrl: '/api/v1'
         })
 
@@ -273,7 +273,7 @@ describe('QuizWidget', () => {
     it('allows returning from the completion screen back to the answered questions', async () => {
         renderWidget({
             applicationId: 'app-1',
-            catalogId: 'catalog-1',
+            linkedCollectionId: 'catalog-1',
             apiBaseUrl: '/api/v1'
         })
 
@@ -343,7 +343,7 @@ describe('QuizWidget', () => {
 
         renderWidget({
             applicationId: 'app-1',
-            catalogId: 'catalog-1',
+            linkedCollectionId: 'catalog-1',
             apiBaseUrl: '/api/v1'
         })
 

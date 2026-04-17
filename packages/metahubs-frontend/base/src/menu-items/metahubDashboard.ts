@@ -1,11 +1,7 @@
 import {
     IconBuildingStore,
     IconBox,
-    IconHierarchy,
     IconUsersGroup,
-    IconDatabase,
-    IconFiles,
-    IconFileText,
     IconApps,
     IconGitBranch,
     IconLayoutDashboard,
@@ -27,14 +23,10 @@ export interface MenuItem {
 const icons = {
     IconBuildingStore,
     IconBox,
-    IconHierarchy,
     IconUsersGroup,
-    IconDatabase,
     IconApps,
     IconGitBranch,
     IconLayoutDashboard,
-    IconFiles,
-    IconFileText,
     IconHistory,
     IconSettings
 }
@@ -68,10 +60,10 @@ const metahubDashboard: MenuItem = {
             type: 'divider'
         },
         {
-            id: 'metahub-common',
+            id: 'metahub-resources',
             title: 'menu:commonSection',
             type: 'item',
-            url: '/common',
+            url: '/resources',
             icon: icons.IconLayoutDashboard,
             breadcrumbs: true
         },
@@ -81,38 +73,6 @@ const metahubDashboard: MenuItem = {
             type: 'item',
             url: '/entities',
             icon: icons.IconBox,
-            breadcrumbs: true
-        },
-        {
-            id: 'hubs',
-            title: 'menu:hubs',
-            type: 'item',
-            url: '/hubs',
-            icon: icons.IconHierarchy,
-            breadcrumbs: true
-        },
-        {
-            id: 'catalogs',
-            title: 'menu:catalogs',
-            type: 'item',
-            url: '/catalogs',
-            icon: icons.IconDatabase,
-            breadcrumbs: true
-        },
-        {
-            id: 'sets',
-            title: 'menu:sets',
-            type: 'item',
-            url: '/sets',
-            icon: icons.IconFileText,
-            breadcrumbs: true
-        },
-        {
-            id: 'enumerations',
-            title: 'menu:enumerations',
-            type: 'item',
-            url: '/enumerations',
-            icon: icons.IconFiles,
             breadcrumbs: true
         },
         {

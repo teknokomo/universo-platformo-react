@@ -17,14 +17,14 @@ They keep the base shared design reusable while still letting targets opt into c
 
 ## Storage Rules
 
-- Shared attributes and constants persist `sharedBehavior` in `uiConfig.sharedBehavior`.
-- Shared enumeration values persist `sharedBehavior` in `presentation.sharedBehavior`.
+- Shared field definitions and fixed values persist `sharedBehavior` in `uiConfig.sharedBehavior`.
+- Shared option values persist `sharedBehavior` in `presentation.sharedBehavior`.
 - Target-specific state still lives in sparse override rows instead of being copied into the base shared row.
 - Inherited widgets use the same behavior model through the base widget config and sparse catalog-widget overrides.
 
 ## Related Reading
 
 - [Exclusions](exclusions.md)
-- [Shared Attributes](shared-attributes.md)
-- [Shared Constants](shared-constants.md)
-- [Shared Values](shared-values.md)
+- [Shared Field Definitions](shared-field-definitions.md)
+- [Shared Fixed Values](shared-fixed-values.md)
+- [Shared Option Values](shared-option-values.md)

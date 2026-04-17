@@ -4,7 +4,7 @@ import { buildEntityTypePresetFormPatch, isEntityTypePresetManifest } from '../e
 
 const presetManifest = {
     $schema: 'entity-type-preset/v1' as const,
-    codename: 'catalog-v2',
+    codename: 'catalog',
     version: '0.1.0',
     minStructureVersion: '0.4.0',
     name: {
@@ -12,14 +12,14 @@ const presetManifest = {
         _primary: 'en',
         locales: {
             en: {
-                content: 'Catalogs V2',
+                content: 'Catalogs',
                 version: 1,
                 isActive: true,
                 createdAt: '2026-04-09T00:00:00.000Z',
                 updatedAt: '2026-04-09T00:00:00.000Z'
             },
             ru: {
-                content: 'Каталоги V2',
+                content: 'Каталоги',
                 version: 1,
                 isActive: true,
                 createdAt: '2026-04-09T00:00:00.000Z',
@@ -28,13 +28,13 @@ const presetManifest = {
         }
     },
     entityType: {
-        kindKey: 'custom.catalog-v2',
+        kindKey: 'catalog',
         codename: {
             _schema: '1' as const,
             _primary: 'en',
             locales: {
                 en: {
-                    content: 'CatalogV2',
+                    content: 'LinkedCollectionEntity',
                     version: 1,
                     isActive: true,
                     createdAt: '2026-04-09T00:00:00.000Z',
@@ -44,10 +44,10 @@ const presetManifest = {
         },
         components: {
             dataSchema: { enabled: true },
-            predefinedElements: { enabled: true },
-            hubAssignment: { enabled: true },
-            enumerationValues: false,
-            constants: false,
+            records: { enabled: true },
+            treeAssignment: { enabled: true },
+            optionValues: false,
+            fixedValues: false,
             hierarchy: { enabled: true, supportsFolders: true },
             nestedCollections: false,
             relations: { enabled: true, allowedRelationTypes: ['manyToOne'] },
@@ -60,11 +60,11 @@ const presetManifest = {
         },
         ui: {
             iconName: 'IconDatabase',
-            tabs: ['general', 'hubs', 'layout', 'scripts'],
+            tabs: ['general', 'treeEntities', 'layout', 'scripts'],
             sidebarSection: 'objects' as const,
             sidebarOrder: 20,
-            nameKey: 'Catalogs V2',
-            descriptionKey: 'Catalog-compatible preset'
+            nameKey: 'metahubs:linkedCollections.title',
+            descriptionKey: 'Standard catalog preset'
         },
         presentation: {
             name: {
@@ -72,14 +72,14 @@ const presetManifest = {
                 _primary: 'en',
                 locales: {
                     en: {
-                        content: 'Catalogs V2',
+                        content: 'Catalogs',
                         version: 1,
                         isActive: true,
                         createdAt: '2026-04-09T00:00:00.000Z',
                         updatedAt: '2026-04-09T00:00:00.000Z'
                     },
                     ru: {
-                        content: 'Каталоги V2',
+                        content: 'Каталоги',
                         version: 1,
                         isActive: true,
                         createdAt: '2026-04-09T00:00:00.000Z',
@@ -92,14 +92,14 @@ const presetManifest = {
                 _primary: 'en',
                 locales: {
                     en: {
-                        content: 'Catalog-compatible preset',
+                        content: 'Standard catalog preset',
                         version: 1,
                         isActive: true,
                         createdAt: '2026-04-09T00:00:00.000Z',
                         updatedAt: '2026-04-09T00:00:00.000Z'
                     },
                     ru: {
-                        content: 'Пресет каталога',
+                        content: 'Стандартный пресет каталога',
                         version: 1,
                         isActive: true,
                         createdAt: '2026-04-09T00:00:00.000Z',
@@ -122,9 +122,9 @@ describe('entityTypePreset helpers', () => {
         const patch = buildEntityTypePresetFormPatch(presetManifest, 'en', 'pascal-case', 'en-ru')
 
         expect(patch).toMatchObject({
-            kindKey: 'custom.catalog-v2',
+            kindKey: 'catalog',
             iconName: 'IconDatabase',
-            tabs: ['general', 'hubs', 'layout', 'scripts'],
+            tabs: ['general', 'treeEntities', 'layout', 'scripts'],
             customTabsInput: '',
             sidebarSection: 'objects',
             sidebarOrder: 20,
@@ -132,13 +132,13 @@ describe('entityTypePreset helpers', () => {
             published: true
         })
         expect((patch.nameVlc as { locales?: { en?: { content?: string }; ru?: { content?: string } } }).locales?.en?.content).toBe(
-            'Catalogs V2'
+            'Catalogs'
         )
         expect((patch.nameVlc as { locales?: { en?: { content?: string }; ru?: { content?: string } } }).locales?.ru?.content).toBe(
-            'Каталоги V2'
+            'Каталоги'
         )
         expect((patch.descriptionVlc as { locales?: { en?: { content?: string }; ru?: { content?: string } } }).locales?.ru?.content).toBe(
-            'Пресет каталога'
+            'Стандартный пресет каталога'
         )
         expect(patch.components).toMatchObject({
             physicalTable: { enabled: true, prefix: 'catx' }

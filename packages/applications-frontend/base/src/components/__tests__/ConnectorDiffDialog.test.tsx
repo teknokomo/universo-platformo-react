@@ -221,8 +221,8 @@ describe('ConnectorDiffDialog', () => {
                                                 parentAttributeId: 'field-table'
                                             }
                                         ],
-                                        predefinedElementsCount: 1,
-                                        predefinedElementsPreview: [
+                                        recordsCount: 1,
+                                        recordsPreview: [
                                             {
                                                 id: 'row-1',
                                                 sortOrder: 0,
@@ -324,8 +324,8 @@ describe('ConnectorDiffDialog', () => {
                                                 parentAttributeId: 'missing-parent'
                                             }
                                         ],
-                                        predefinedElementsCount: 1,
-                                        predefinedElementsPreview: [
+                                        recordsCount: 1,
+                                        recordsPreview: [
                                             {
                                                 id: 'row-1',
                                                 sortOrder: 0,

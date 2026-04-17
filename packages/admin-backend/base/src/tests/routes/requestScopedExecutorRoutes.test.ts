@@ -165,9 +165,9 @@ describe('admin routes request-scoped executor usage', () => {
     it('validates and persists platform system-attribute toggle batches through the request executor', async () => {
         const { poolExec, requestExec, session } = buildExecutors()
         settingsStore.bulkUpsertSettings.mockResolvedValue([
-            { category: 'metahubs', key: 'platformSystemAttributesConfigurable', value: { _value: true } },
-            { category: 'metahubs', key: 'platformSystemAttributesRequired', value: { _value: true } },
-            { category: 'metahubs', key: 'platformSystemAttributesIgnoreMetahubSettings', value: { _value: false } }
+            { category: 'metahubs', key: 'platformSystemFieldDefinitionsConfigurable', value: { _value: true } },
+            { category: 'metahubs', key: 'platformSystemFieldDefinitionsRequired', value: { _value: true } },
+            { category: 'metahubs', key: 'platformSystemFieldDefinitionsIgnoreMetahubSettings', value: { _value: false } }
         ])
 
         const app = express()
@@ -186,17 +186,17 @@ describe('admin routes request-scoped executor usage', () => {
             .put('/settings/metahubs')
             .send({
                 values: {
-                    platformSystemAttributesConfigurable: true,
-                    platformSystemAttributesRequired: true,
-                    platformSystemAttributesIgnoreMetahubSettings: false
+                    platformSystemFieldDefinitionsConfigurable: true,
+                    platformSystemFieldDefinitionsRequired: true,
+                    platformSystemFieldDefinitionsIgnoreMetahubSettings: false
                 }
             })
 
         expect(response.status).toBe(200)
         expect(settingsStore.bulkUpsertSettings).toHaveBeenCalledWith(requestExec, 'metahubs', [
-            ['platformSystemAttributesConfigurable', true],
-            ['platformSystemAttributesRequired', true],
-            ['platformSystemAttributesIgnoreMetahubSettings', false]
+            ['platformSystemFieldDefinitionsConfigurable', true],
+            ['platformSystemFieldDefinitionsRequired', true],
+            ['platformSystemFieldDefinitionsIgnoreMetahubSettings', false]
         ])
     })
 
@@ -218,12 +218,12 @@ describe('admin routes request-scoped executor usage', () => {
             .put('/settings/metahubs')
             .send({
                 values: {
-                    platformSystemAttributesUnknown: true
+                    platformSystemFieldDefinitionsUnknown: true
                 }
             })
 
         expect(response.status).toBe(400)
-        expect(response.body.error).toBe('Unknown metahubs setting key: platformSystemAttributesUnknown')
+        expect(response.body.error).toBe('Unknown metahubs setting key: platformSystemFieldDefinitionsUnknown')
         expect(settingsStore.bulkUpsertSettings).not.toHaveBeenCalled()
     })
 

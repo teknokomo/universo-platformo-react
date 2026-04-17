@@ -2,7 +2,7 @@
 
 > 🏗️ **Modern Package** - TypeScript-first architecture with dual build system
 
-Frontend application for managing metahubs, hubs, catalogs, attributes, and elements in the Universo Platformo ecosystem.
+Frontend package for entity-first metahub authoring, shared resources, and dynamic runtime navigation in the Universo Platformo ecosystem.
 
 ## Package Information
 
@@ -16,16 +16,16 @@ Frontend application for managing metahubs, hubs, catalogs, attributes, and elem
 ## Key Features
 
 ### 🌍 Metahub Management
-- **Hierarchical Organization**: Four-tier architecture (Metahubs → Hubs → Catalogs → Attributes/Elements)
+- **Entity-First Navigation**: Metahubs expose board, resources, entities, and nested entity-owned authoring flows
 - **Complete Data Isolation**: Data from different metahubs is completely separated
 - **Role-Based Access**: User roles and permissions for metahub access control
 - **Context-Aware Navigation**: Metahub-aware routing with breadcrumbs and sidebar preservation
 
-### 🗂️ Hubs & Catalogs
-- **Hubs**: Data containers that define the structure of your metahub
-- **Catalogs**: Reusable schema definitions with N:M relationship to hubs
-- **Attributes**: Field definitions within catalogs (name, type, validation)
-- **Elements**: Data entries conforming to catalog schemas (JSONB storage)
+### 🗂️ Entity Types & Shared Resources
+- **Entity Types**: Platform-provided standard kinds and custom kinds share the same authoring workspace
+- **Tree Entities**: Hierarchical containers drive nested authoring and publication-aware navigation
+- **Linked Collections**: Reusable schema/data surfaces stay on entity-owned child routes
+- **Shared Resources**: Common layouts, metadata pools, and scripts stay available on the dedicated `/resources` surface
 
 ### 🎨 User Interface
 - **Material-UI Integration**: Consistent UI components with modern design system
@@ -40,11 +40,12 @@ Frontend application for managing metahubs, hubs, catalogs, attributes, and elem
 - **Form Validation**: Comprehensive validation with Zod schemas
 - **API Integration**: RESTful API client with authentication
 
-### 🧩 Entity V2 Delegation
-- **Entities Workspace**: Hubs V2, Catalogs V2, Sets V2, and Enumerations V2 are created from presets and published into the dynamic metahub menu.
-- **Legacy Surface Reuse**: The V2 entity routes delegate to HubList, CatalogList, SetList, and EnumerationList instead of introducing parallel CRUD shells.
-- **Route Ownership**: Delegated detail tabs stay under `/metahub/:id/entities/:kindKey/...` while legacy routes continue to coexist for shared data visibility.
-- **Runtime Boundary**: Catalog-compatible V2 sections can surface in runtime after publication sync, while hub/set/enumeration-compatible V2 sections stay filtered out of runtime navigation.
+### 🧩 Standard Metadata Entity Routes
+- **Entities Workspace**: Platform-provided standard kinds and custom kinds are authored from the unified entities workspace and published through the dynamic metahub menu.
+- **Unified Authoring**: Standard and custom entity types share the same workspace actions and generic entity route contract.
+- **Entity-Owned Surfaces**: Standard kinds render through entity-owned route components, while shared resources remain on the dedicated `/resources` surface.
+- **Route Ownership**: Detail tabs stay under `/metahub/:id/entities/:kindKey/...`, and metahub resources stay under `/metahub/:id/resources/...`; removed top-level `/hubs`, `/catalogs`, `/sets`, and `/enumerations` authoring routes are no longer part of the shipped frontend contract.
+- **Runtime Boundary**: Runtime sections materialize from published entity metadata after publication sync instead of V2-specific compatibility aliases.
 
 ### 📋 Template Selection
 - **TemplateSelector Component**: Dropdown selector for choosing metahub templates during creation
@@ -79,44 +80,47 @@ pnpm --filter @universo/metahubs-frontend dev
 import { 
   MetahubList, 
   MetahubBoard, 
-  HubList,
-  CatalogList,
-  AttributeList,
-  ElementList,
+  MetahubResources,
+  StandardEntityCollectionPage,
+  StandardEntityChildCollectionPage,
+  FieldDefinitionList,
+  RecordList,
   metahubsDashboard 
 } from '@universo/metahubs-frontend'
 
 // Import i18n resources
 import { metahubsTranslations } from '@universo/metahubs-frontend'
 
-// Use in routes
+// Example route registration
 <Route path="/metahubs" element={<MetahubList />} />
 <Route path="/metahub/:id/board" element={<MetahubBoard />} />
-<Route path="/metahub/:id/hubs" element={<HubList />} />
-<Route path="/metahub/:id/hub/:hubId/catalogs" element={<CatalogList />} />
-<Route path="/metahub/:id/catalogs" element={<CatalogList />} />
-<Route path="/metahub/:id/catalog/:catalogId/attributes" element={<AttributeList />} />
-<Route path="/metahub/:id/catalog/:catalogId/elements" element={<ElementList />} />
+<Route path="/metahub/:id/resources" element={<MetahubResources />} />
+<Route path="/metahub/:id/entities/:kindKey/instances" element={<StandardEntityCollectionPage />} />
+<Route path="/metahub/:id/entities/:kindKey/instance/:entityId/instances" element={<StandardEntityChildCollectionPage />} />
+<Route path="/metahub/:id/entities/:kindKey/instance/:entityId/field-definitions" element={<FieldDefinitionList />} />
+<Route path="/metahub/:id/entities/:kindKey/instance/:entityId/records" element={<RecordList />} />
 ```
 
 ## Architecture
 
-### Four-Tier Entity Model
+### Entity-First Route Model
 ```
-Metahub (top-level organizational unit)
-  └── Hub (data container)
-        └── CatalogHub (N:M junction)
-              └── Catalog (schema definition)
-                    ├── Attribute (field definitions)
-                    └── Element (data entries)
+Metahub
+  ├── Shared Resources (/resources)
+  │   ├── Layouts / metadata pools / scripts
+  │   └── Reusable authoring surfaces for platform-wide assets
+  └── Entity Type (/entities/:kindKey)
+      └── Entity Instance (/entities/:kindKey/instance/:entityId)
+          ├── Field definitions / records / layout
+          └── Nested child collections (/instance/:entityId/instances)
 ```
 
 ### Key Concepts
 - **Metahubs**: Top-level organizational units providing complete data isolation
-- **Hubs**: Content containers within metahubs for organizing catalogs
-- **Catalogs**: Reusable schema definitions that can belong to multiple hubs (N:M relationship)
-- **Attributes**: Field definitions within catalogs (name, type, required, order)
-- **Elements**: Data entries stored as JSONB conforming to catalog attribute schema
+- **Shared Resources**: Common layouts, metadata pools, and reusable scripts available under the dedicated `/resources` surface
+- **Entity Types**: Platform-provided standard kinds and custom kinds published through the unified entities workspace
+- **Entity Instances**: Design-time objects authored on generic entity routes with role-aware actions
+- **Child Resources**: Field definitions, records, and standard child collections mounted under entity-owned routes
 
 ### Data Isolation Strategy
 - Complete separation between metahubs - no cross-metahub visibility
@@ -128,42 +132,29 @@ Metahub (top-level organizational unit)
 
 ```
 packages/metahubs-frontend/base/
+├── __mocks__/            # Test doubles for focused frontend slices
+├── __tests__/            # Package-level smoke and export tests
 ├── src/
-│   ├── api/              # API client functions
-│   │   ├── metahubs.ts   # Metahub CRUD operations
-│   │   ├── hubs.ts       # Hub management
-│   │   ├── catalogs.ts   # Catalog operations
-│   │   ├── attributes.ts # Attribute operations
-│   │   ├── elements.ts   # Element operations
-│   │   ├── templates.ts  # Template listing
-│   │   └── queryKeys.ts  # React Query keys
-│   ├── domains/
-│   │   ├── layouts/      # Layout management domain
-│   │   │   ├── ui/
-│   │   │   │   └── ColumnsContainerEditorDialog.tsx  # DnD column editor
-│   │   │   └── index.ts
-│   │   └── migrations/   # Migration guard domain
-│   │       ├── api/      # Migration status & apply API
-│   │       ├── hooks/    # useMetahubMigrationsStatus hook
-│   │       ├── ui/
-│   │       │   └── MetahubMigrationGuard.tsx         # Route guard component
-│   │       └── index.ts
-│   ├── hooks/            # Custom React hooks
-│   │   ├── mutations.ts  # useMutation hooks
-│   │   └── index.ts      # Hook exports
-│   ├── i18n/             # Internationalization
-│   │   └── locales/      # Language files (en, ru)
-│   ├── pages/            # Main page components
-│   │   ├── MetahubList.tsx
-│   │   ├── MetahubBoard.tsx
-│   │   ├── HubList.tsx
-│   │   ├── CatalogList.tsx
-│   │   ├── AttributeList.tsx
-│   │   └── ElementList.tsx
-│   ├── menu-items/       # Navigation configuration
-│   ├── types/            # TypeScript definitions
-│   ├── utils/            # Utility functions
-│   └── index.ts          # Package exports
+│   ├── components/       # Shared metahub-specific UI building blocks
+│   ├── constants/        # Package constants and storage keys
+│   ├── domains/          # Entity-first feature domains and screens
+│   │   ├── branches/     # Branch management routes and UI
+│   │   ├── entities/     # Entity types, instances, metadata, actions, events
+│   │   ├── layouts/      # Layout authoring and widget composition
+│   │   ├── metahubs/     # Metahub list, board, create, and members UX
+│   │   ├── migrations/   # Migration guard and migration-status UX
+│   │   ├── publications/ # Publication authoring and published data surfaces
+│   │   ├── scripts/      # Script editor and bundle authoring flows
+│   │   ├── settings/     # Metahub settings, permissions, and helpers
+│   │   ├── shared/       # Cross-domain API helpers, query keys, shared UI
+│   │   └── templates/    # Template selection and preset-aware create flows
+│   ├── hooks/            # Package-level shared React hooks
+│   ├── i18n/             # EN/RU translations for metahubs UI
+│   ├── menu-items/       # Sidebar navigation descriptors
+│   ├── utils/            # Local helpers and adapters
+│   ├── displayConverters.ts
+│   ├── types.ts
+│   └── index.ts          # Public package exports
 ├── dist/                 # Compiled output (CJS, ESM, types)
 ├── package.json
 ├── tsconfig.json
@@ -196,43 +187,43 @@ import { MetahubBoard } from '@universo/metahubs-frontend'
 
 // Features:
 // - Metahub-specific dashboard
-// - Statistics cards (hubs, catalogs, members)
+// - Statistics cards (entities, branches, members)
 // - Interactive data visualization
 ```
 
-### HubList
-Component for managing hubs within a metahub:
+### StandardEntityCollectionPage
+Entity-owned component for rendering standard metadata instances through a single dynamic route surface:
 
 ```tsx
-import { HubList } from '@universo/metahubs-frontend'
+import { StandardEntityCollectionPage } from '@universo/metahubs-frontend'
 
 // Features:
-// - Hub CRUD operations
-// - Catalog count display
-// - Codename with transliteration
+// - Single route surface for platform-provided standard entity instances
+// - Uses the route kind key instead of per-kind exported page components
+// - Keeps the standard metadata authoring contract inside the entity workspace
 ```
 
-### CatalogList
-Component for managing catalogs (hub-scoped or global):
+### StandardEntityChildCollectionPage
+Entity-owned component for rendering nested standard collections from a parent entity context:
 
 ```tsx
-import { CatalogList } from '@universo/metahubs-frontend'
+import { StandardEntityChildCollectionPage } from '@universo/metahubs-frontend'
 
 // Features:
-// - Dual mode: hub-scoped or metahub-wide
-// - N:M hub relationship management
-// - Attributes and elements count display
+// - Generic child collection entrypoint for nested standard entity collections
+// - Keeps nested authoring routes on the entity-owned path surface
+// - Removes the need for separate per-kind public page exports
 ```
 
-### AttributeList / ElementList
-Components for managing catalog data:
+### FieldDefinitionList / RecordList
+Components for managing entity-owned metadata and records:
 
 ```tsx
-import { AttributeList, ElementList } from '@universo/metahubs-frontend'
+import { FieldDefinitionList, RecordList } from '@universo/metahubs-frontend'
 
 // Features:
-// - Attribute ordering (drag & drop)
-// - Dynamic element forms based on attributes
+// - Field-definition ordering (drag & drop)
+// - Dynamic record forms based on field definitions
 // - Data type support (string, with extensibility)
 ```
 
@@ -430,7 +421,7 @@ Configurable factory for standard delete mutation hooks with optimistic delete, 
 
 Generic `useReducer`-based hook managing five dialog states (create, edit, copy, delete, conflict) with stable callback references. Eliminates repetitive dialog open/close state management in List components.
 
-### `useMetahubHubs(metahubId)`
+### `useMetahubTrees(metahubId)`
 
 Shared hook for fetching hub lists with consistent caching (staleTime: 5min). All List components share the same React Query key for automatic deduplication.
 

@@ -198,17 +198,40 @@ vi.mock('@universo/template-mui/components/dialogs', async () => {
 
 vi.mock('../../../../components', () => ({
     ExistingCodenamesProvider: ({ children }: any) => <>{children}</>,
-    CodenameField: ({ label, value, onChange, onTouchedChange }: any) => (
-        <label>
-            {label}
-            <input
-                aria-label={label}
-                value={value ?? ''}
-                onChange={(event) => onChange(event.target.value)}
-                onBlur={() => onTouchedChange?.(true)}
-            />
-        </label>
-    )
+    CodenameField: ({ label, value, onChange, onTouchedChange }: any) => {
+        const currentValue = value?._primary ? value?.locales?.[value._primary]?.content ?? '' : ''
+
+        return (
+            <label>
+                {label}
+                <input
+                    aria-label={label}
+                    value={currentValue}
+                    onChange={(event) => {
+                        const nextValue = event.target.value
+                        onChange(
+                            nextValue
+                                ? {
+                                      _schema: '1',
+                                      _primary: 'en',
+                                      locales: { en: { content: nextValue } }
+                                  }
+                                : null
+                        )
+                    }}
+                    onBlur={() => onTouchedChange?.(true)}
+                />
+            </label>
+        )
+    }
+}))
+
+const mockUseTemplates = vi.fn()
+const mockUseTemplateDetail = vi.fn()
+
+vi.mock('../../../templates/hooks/useTemplates', () => ({
+    useTemplates: (...args: any[]) => mockUseTemplates(...args),
+    useTemplateDetail: (...args: any[]) => mockUseTemplateDetail(...args)
 }))
 
 vi.mock('../../../templates/ui/TemplateSelector', () => ({
@@ -374,6 +397,16 @@ const makePaginatedResponse = <T,>(items: T[], params?: { total?: number; limit?
     }
 }
 
+const createVlc = (content: string) => ({
+    _schema: '1',
+    _primary: 'en',
+    locales: {
+        en: {
+            content
+        }
+    }
+})
+
 const renderWithProviders = (ui: React.ReactElement) => {
     const queryClient = createTestQueryClient()
     const store = createTestStore()
@@ -416,6 +449,73 @@ describe('MetahubList', () => {
         // Mock localStorage
         Storage.prototype.getItem = vi.fn(() => 'card')
         Storage.prototype.setItem = vi.fn()
+        mockUseTemplates.mockReturnValue({
+            data: [
+                {
+                    id: 'preset-hub',
+                    codename: 'hub',
+                    definitionType: 'entity_type_preset',
+                    name: createVlc('TreeEntity'),
+                    isSystem: true,
+                    sortOrder: 1,
+                    activeVersion: null
+                },
+                {
+                    id: 'preset-catalog',
+                    codename: 'catalog',
+                    definitionType: 'entity_type_preset',
+                    name: createVlc('LinkedCollectionEntity'),
+                    isSystem: true,
+                    sortOrder: 2,
+                    activeVersion: null
+                },
+                {
+                    id: 'preset-set',
+                    codename: 'set',
+                    definitionType: 'entity_type_preset',
+                    name: createVlc('Set'),
+                    isSystem: true,
+                    sortOrder: 3,
+                    activeVersion: null
+                },
+                {
+                    id: 'preset-enumeration',
+                    codename: 'enumeration',
+                    definitionType: 'entity_type_preset',
+                    name: createVlc('OptionListEntity'),
+                    isSystem: true,
+                    sortOrder: 4,
+                    activeVersion: null
+                }
+            ],
+            isLoading: false
+        })
+        mockUseTemplateDetail.mockImplementation((templateId?: string) => ({
+            data: templateId
+                ? {
+                      id: templateId,
+                      codename: 'template-1',
+                      definitionType: 'metahub_template',
+                      name: createVlc('Template 1'),
+                      isSystem: true,
+                      sortOrder: 1,
+                      isActive: true,
+                      activeVersionId: 'version-1',
+                      activeVersionManifest: {
+                          $schema: 'metahub-template/v1',
+                          name: 'Template 1',
+                          presets: [
+                              { presetCodename: 'hub', includedByDefault: true },
+                              { presetCodename: 'catalog', includedByDefault: true },
+                              { presetCodename: 'set', includedByDefault: true },
+                              { presetCodename: 'enumeration', includedByDefault: true }
+                          ]
+                      },
+                      versions: []
+                  }
+                : undefined,
+            isLoading: false
+        }))
     })
 
     describe('Loading State', () => {
@@ -660,14 +760,19 @@ describe('MetahubList', () => {
 
             await openCreateDialog(user)
 
-            await user.type(screen.getByLabelText('Name'), 'Sample Hub')
+            await user.type(screen.getByLabelText('Name'), 'Sample TreeEntity')
+            await user.selectOptions(screen.getByLabelText('Template'), 'template-1')
             await user.type(screen.getByLabelText('Codename'), 'SampleHub')
 
             const optionsTab = screen.queryByRole('tab', { name: 'Options' }) ?? screen.getByRole('tab', { name: 'createOptions.tab' })
             await user.click(optionsTab)
 
-            await user.click(screen.getByRole('checkbox', { name: 'createOptions.hub' }))
-            await user.click(screen.getByRole('checkbox', { name: 'createOptions.set' }))
+            await waitFor(() => {
+                expect(screen.getByRole('checkbox', { name: 'TreeEntity' })).toBeChecked()
+            })
+
+            await user.click(screen.getByRole('checkbox', { name: 'TreeEntity' }))
+            await user.click(screen.getByRole('checkbox', { name: 'Set' }))
 
             const createButton = within(screen.getByRole('dialog')).getByRole('button', { name: 'Create' })
             await waitFor(() => {
@@ -681,15 +786,17 @@ describe('MetahubList', () => {
                         codename: expect.objectContaining({
                             _primary: 'en',
                             locales: expect.objectContaining({
-                                en: expect.objectContaining({ content: 'SampleHub' })
+                                en: expect.objectContaining({ content: 'SampleTreeEntity' })
                             })
                         }),
-                        name: { en: 'Sample Hub' },
+                        name: { en: 'Sample TreeEntity' },
                         createOptions: {
-                            createHub: false,
-                            createCatalog: true,
-                            createSet: false,
-                            createEnumeration: true
+                            presetToggles: {
+                                hub: false,
+                                catalog: true,
+                                set: false,
+                                enumeration: true
+                            }
                         }
                     })
                 )
@@ -725,13 +832,7 @@ describe('MetahubList', () => {
                         description: { en: 'Created from page acceptance' },
                         namePrimaryLocale: 'en',
                         descriptionPrimaryLocale: 'en',
-                        templateId: 'template-1',
-                        createOptions: {
-                            createHub: true,
-                            createCatalog: true,
-                            createSet: true,
-                            createEnumeration: true
-                        }
+                        templateId: 'template-1'
                     })
                 )
             })

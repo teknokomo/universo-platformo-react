@@ -1,5 +1,5 @@
 import type { Knex } from 'knex'
-import type { AttributeDataType, MetaPresentation } from '@universo/types'
+import type { FieldDefinitionDataType, MetaPresentation } from '@universo/types'
 
 export type MigrationTransactionMode = 'single' | 'per_migration' | 'none'
 export type MigrationLockMode = 'transaction_advisory' | 'session_advisory' | 'none'
@@ -119,7 +119,7 @@ export type SystemAppBusinessTableKind = 'catalog' | 'document' | 'relation' | '
 export interface SystemAppBusinessFieldDefinition {
     codename: string
     physicalColumnName: string
-    dataType: AttributeDataType
+    dataType: FieldDefinitionDataType
     isRequired?: boolean
     isDisplayAttribute?: boolean
     targetTableCodename?: string

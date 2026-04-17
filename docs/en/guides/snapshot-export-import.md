@@ -85,7 +85,7 @@ metahub snapshot without going through publication versions.
 
 ## Shared Authoring Data
 
-- `sharedAttributes`, `sharedConstants`, and `sharedEnumerationValues` preserve the Common-section shared pools.
+- `sharedAttributes`, `sharedConstants`, and `sharedEnumerationValues` preserve the Resources-workspace shared pools.
 - `sharedEntityOverrides` preserves per-target exclusions, inactive overrides, and sparse sort-order changes.
 - Publication runtime loading materializes those shared sections before application sync and runtime deserialization.
 - Snapshot import recreates the shared containers first and then remaps shared override targets to the restored objects.

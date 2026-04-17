@@ -54,16 +54,21 @@ declare module '@universo/metahubs-frontend' {
     export const MetahubBoard: ComponentType<any>
     export const MetahubMembers: ComponentType<any>
     export const PublicationList: ComponentType<any>
+    export const PublicationVersionList: ComponentType<any>
+    export const PublicationApplicationList: ComponentType<any>
     export const BranchList: ComponentType<any>
     export const EntitiesWorkspace: ComponentType<any>
-    export const HubList: ComponentType<any>
-    export const CatalogList: ComponentType<any>
-    export const EnumerationList: ComponentType<any>
-    export const EnumerationValueList: ComponentType<any>
-    export const AttributeList: ComponentType<any>
-    export const ElementList: ComponentType<any>
+    export const EntityInstanceList: ComponentType<any>
+    export const BuiltinEntityCollectionPage: ComponentType<any>
+    export const StandardEntityChildCollectionPage: ComponentType<any>
+    export const SelectableOptionList: ComponentType<any>
+    export const FieldDefinitionList: ComponentType<any>
+    export const FixedValueList: ComponentType<any>
+    export const RecordList: ComponentType<any>
+    export const MetahubResources: ComponentType<any>
     export const MetahubLayouts: ComponentType<any>
     export const MetahubLayoutDetails: ComponentType<any>
     export const MetahubMigrations: ComponentType<any>
     export const MetahubMigrationGuard: ComponentType<any>
+    export const MetahubSettings: ComponentType<any>
 }

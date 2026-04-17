@@ -189,8 +189,12 @@ describe('attachLayoutsToSnapshot', () => {
         ])
 
         expect(snapshot.catalogLayouts).toEqual([
-            expect.objectContaining({ id: 'layout-catalog-active', catalogId: 'catalog-1', baseLayoutId: 'layout-global-active' }),
-            expect.objectContaining({ id: 'layout-catalog-inactive', catalogId: 'catalog-2', baseLayoutId: 'layout-global-inactive' })
+            expect.objectContaining({ id: 'layout-catalog-active', linkedCollectionId: 'catalog-1', baseLayoutId: 'layout-global-active' }),
+            expect.objectContaining({
+                id: 'layout-catalog-inactive',
+                linkedCollectionId: 'catalog-2',
+                baseLayoutId: 'layout-global-inactive'
+            })
         ])
 
         expect(snapshot.defaultLayoutId).toBe('layout-global-active')

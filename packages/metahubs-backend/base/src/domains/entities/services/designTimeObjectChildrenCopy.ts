@@ -3,8 +3,8 @@ import type {
     CatalogSystemFieldState,
     CodenameAlphabet,
     CodenameStyle,
-    ConstantDataType,
-    PlatformSystemAttributesPolicy
+    FixedValueDataType,
+    PlatformSystemFieldDefinitionsPolicy
 } from '@universo/types'
 import { queryMany, queryOne, type SqlQueryable } from '@universo/utils/database'
 import { MetahubDomainError, MetahubValidationError } from '../../shared/domainErrors'
@@ -45,7 +45,7 @@ type SourceEnumerationValueRow = {
 
 type SourceConstantRow = {
     codename: unknown
-    dataType: ConstantDataType
+    dataType: FixedValueDataType
     name: unknown
     validationRules?: unknown
     uiConfig?: unknown
@@ -53,22 +53,22 @@ type SourceConstantRow = {
     sortOrder?: number
 }
 
-type EnsureObjectSystemAttributes = (
+type EnsureObjectSystemFieldDefinitions = (
     metahubId: string,
     objectId: string,
     userId?: string,
     db?: SqlQueryable,
     options?: {
         states?: CatalogSystemFieldState[]
-        policy?: PlatformSystemAttributesPolicy
+        policy?: PlatformSystemFieldDefinitionsPolicy
     }
 ) => Promise<unknown>
 
-type ConstantsServiceAdapter = {
+type FixedValuesServiceAdapter = {
     findAll: (metahubId: string, objectId: string, userId?: string) => Promise<SourceConstantRow[]>
     ensureUniqueCodenameWithRetries: (options: {
         metahubId: string
-        setId: string
+        valueGroupId: string
         desiredCodename: string
         codenameStyle: CodenameStyle
         userId?: string
@@ -77,9 +77,9 @@ type ConstantsServiceAdapter = {
     create: (
         metahubId: string,
         data: {
-            setId: string
+            valueGroupId: string
             codename: unknown
-            dataType: ConstantDataType
+            dataType: FixedValueDataType
             name: unknown
             validationRules?: Record<string, unknown>
             uiConfig?: Record<string, unknown>
@@ -99,23 +99,23 @@ export type CopyDesignTimeObjectChildrenOptions = {
     tx: SqlQueryable
     userId?: string
     schemaName?: string
-    copyAttributes?: boolean
-    copyElements?: boolean
-    copyConstants?: boolean
-    copyEnumerationValues?: boolean
+    copyFieldDefinitions?: boolean
+    copyRecords?: boolean
+    copyFixedValues?: boolean
+    copyOptionValues?: boolean
     codenameStyle?: CodenameStyle
     codenameAlphabet?: CodenameAlphabet
-    attributeCopyFailureMessage?: string
-    ensureObjectSystemAttributes?: EnsureObjectSystemAttributes
-    platformSystemAttributesPolicy?: PlatformSystemAttributesPolicy
-    constantsService?: ConstantsServiceAdapter
+    fieldDefinitionCopyFailureMessage?: string
+    ensureObjectSystemFieldDefinitions?: EnsureObjectSystemFieldDefinitions
+    platformSystemFieldDefinitionsPolicy?: PlatformSystemFieldDefinitionsPolicy
+    fixedValuesService?: FixedValuesServiceAdapter
 }
 
 export type CopyDesignTimeObjectChildrenResult = {
-    attributesCopied: number
-    elementsCopied: number
-    constantsCopied: number
-    valuesCopied: number
+    fieldDefinitionsCopied: number
+    recordsCopied: number
+    fixedValuesCopied: number
+    optionValuesCopied: number
 }
 
 const getSchemaNameOrThrow = (schemaName: string | undefined, capability: string) => {
@@ -125,16 +125,16 @@ const getSchemaNameOrThrow = (schemaName: string | undefined, capability: string
     return schemaName
 }
 
-const getConstantsAdapterOrThrow = (constantsService: ConstantsServiceAdapter | undefined) => {
-    if (!constantsService) {
-        throw new MetahubValidationError('Constant copy requires the constants service adapter')
+const getFixedValuesAdapterOrThrow = (fixedValuesService: FixedValuesServiceAdapter | undefined) => {
+    if (!fixedValuesService) {
+        throw new MetahubValidationError('Fixed value copy requires the fixed-values service adapter')
     }
-    return constantsService
+    return fixedValuesService
 }
 
 const getCodenameSettingsOrThrow = (codenameStyle: CodenameStyle | undefined, codenameAlphabet: CodenameAlphabet | undefined) => {
     if (!codenameStyle || !codenameAlphabet) {
-        throw new MetahubValidationError('Constant copy requires codename style settings')
+        throw new MetahubValidationError('Fixed value copy requires codename style settings')
     }
 
     return { codenameStyle, codenameAlphabet }
@@ -153,32 +153,32 @@ export async function copyDesignTimeObjectChildren(
         tx,
         userId,
         schemaName,
-        copyAttributes = false,
-        copyElements = false,
-        copyConstants = false,
-        copyEnumerationValues = false,
+        copyFieldDefinitions = false,
+        copyRecords = false,
+        copyFixedValues = false,
+        copyOptionValues = false,
         codenameStyle,
         codenameAlphabet,
-        attributeCopyFailureMessage = 'Failed to copy object attributes hierarchy',
-        ensureObjectSystemAttributes,
-        platformSystemAttributesPolicy,
-        constantsService
+        fieldDefinitionCopyFailureMessage = 'Failed to copy object field definitions hierarchy',
+        ensureObjectSystemFieldDefinitions,
+        platformSystemFieldDefinitionsPolicy,
+        fixedValuesService
     } = options
 
     const result: CopyDesignTimeObjectChildrenResult = {
-        attributesCopied: 0,
-        elementsCopied: 0,
-        constantsCopied: 0,
-        valuesCopied: 0
+        fieldDefinitionsCopied: 0,
+        recordsCopied: 0,
+        fixedValuesCopied: 0,
+        optionValuesCopied: 0
     }
 
-    const needsAttributeTable = copyAttributes || copyElements || copyEnumerationValues || Boolean(ensureObjectSystemAttributes)
+    const needsAttributeTable = copyFieldDefinitions || copyRecords || copyOptionValues || Boolean(ensureObjectSystemFieldDefinitions)
     const resolvedSchemaName = needsAttributeTable ? getSchemaNameOrThrow(schemaName, 'Design-time child copy') : schemaName
     const attrQt = resolvedSchemaName ? qSchemaTable(resolvedSchemaName, '_mhb_attributes') : null
     const elemQt = resolvedSchemaName ? qSchemaTable(resolvedSchemaName, '_mhb_elements') : null
     const valuesQt = resolvedSchemaName ? qSchemaTable(resolvedSchemaName, '_mhb_values') : null
 
-    if (copyAttributes && attrQt) {
+    if (copyFieldDefinitions && attrQt) {
         const sourceAttributes = await queryMany<SourceAttributeRow>(
             tx,
             `SELECT * FROM ${attrQt}
@@ -239,7 +239,7 @@ export async function copyDesignTimeObjectChildren(
 
                 if (!createdAttr?.id) {
                     throw new MetahubDomainError({
-                        message: attributeCopyFailureMessage,
+                        message: fieldDefinitionCopyFailureMessage,
                         statusCode: 500,
                         code: 'COPY_ATTRIBUTES_FAILED'
                     })
@@ -248,13 +248,13 @@ export async function copyDesignTimeObjectChildren(
                 attributeIdMap.set(sourceAttr.id, createdAttr.id)
                 pendingAttributes.splice(index, 1)
                 index -= 1
-                result.attributesCopied += 1
+                result.fieldDefinitionsCopied += 1
                 progressed = true
             }
 
             if (!progressed) {
                 throw new MetahubDomainError({
-                    message: attributeCopyFailureMessage,
+                    message: fieldDefinitionCopyFailureMessage,
                     statusCode: 500,
                     code: 'COPY_ATTRIBUTES_FAILED'
                 })
@@ -263,7 +263,7 @@ export async function copyDesignTimeObjectChildren(
     }
 
     let sourceSystemStates: CatalogSystemFieldState[] | undefined
-    if (!copyAttributes && ensureObjectSystemAttributes && attrQt) {
+    if (!copyFieldDefinitions && ensureObjectSystemFieldDefinitions && attrQt) {
         const sourceSystemRows = await queryMany<Pick<SourceAttributeRow, 'system_key' | 'is_system_enabled'>>(
             tx,
             `SELECT system_key, is_system_enabled
@@ -288,7 +288,7 @@ export async function copyDesignTimeObjectChildren(
         )
     }
 
-    if (copyElements && elemQt) {
+    if (copyRecords && elemQt) {
         const sourceElements = await queryMany<SourceElementRow>(
             tx,
             `SELECT * FROM ${elemQt}
@@ -322,24 +322,24 @@ export async function copyDesignTimeObjectChildren(
                 params
             )
 
-            result.elementsCopied = insertedRows.length
+            result.recordsCopied = insertedRows.length
         }
     }
 
-    if (copyConstants) {
-        const constantsAdapter = getConstantsAdapterOrThrow(constantsService)
+    if (copyFixedValues) {
+        const fixedValuesAdapter = getFixedValuesAdapterOrThrow(fixedValuesService)
         const codenameSettings = getCodenameSettingsOrThrow(codenameStyle, codenameAlphabet)
-        const sourceConstants = await constantsAdapter.findAll(metahubId, sourceObjectId, userId)
+        const sourceConstants = await fixedValuesAdapter.findAll(metahubId, sourceObjectId, userId)
 
         for (const sourceConstant of sourceConstants) {
             const sourceConstantCodename = getCodenamePayloadText(sourceConstant.codename as Parameters<typeof getCodenamePayloadText>[0])
             if (!sourceConstantCodename) {
-                throw new MetahubValidationError('Source constant codename is missing')
+                throw new MetahubValidationError('Source fixed value codename is missing')
             }
 
-            const constantCodename = await constantsAdapter.ensureUniqueCodenameWithRetries({
+            const constantCodename = await fixedValuesAdapter.ensureUniqueCodenameWithRetries({
                 metahubId,
-                setId: targetObjectId,
+                valueGroupId: targetObjectId,
                 desiredCodename: sourceConstantCodename,
                 codenameStyle: codenameSettings.codenameStyle,
                 userId,
@@ -354,10 +354,10 @@ export async function copyDesignTimeObjectChildren(
                 codenameSettings.codenameAlphabet
             )
 
-            await constantsAdapter.create(
+            await fixedValuesAdapter.create(
                 metahubId,
                 {
-                    setId: targetObjectId,
+                    valueGroupId: targetObjectId,
                     codename: constantCodenamePayload ?? constantCodename,
                     dataType: sourceConstant.dataType,
                     name: sourceConstant.name,
@@ -371,11 +371,11 @@ export async function copyDesignTimeObjectChildren(
                 tx
             )
 
-            result.constantsCopied += 1
+            result.fixedValuesCopied += 1
         }
     }
 
-    if (copyEnumerationValues && valuesQt) {
+    if (copyOptionValues && valuesQt) {
         const sourceValues = await queryMany<SourceEnumerationValueRow>(
             tx,
             `SELECT codename, presentation, sort_order, is_default
@@ -412,14 +412,14 @@ export async function copyDesignTimeObjectChildren(
                 params
             )
 
-            result.valuesCopied = insertedRows.length
+            result.optionValuesCopied = insertedRows.length
         }
     }
 
-    if (ensureObjectSystemAttributes) {
-        await ensureObjectSystemAttributes(metahubId, targetObjectId, userId, tx, {
+    if (ensureObjectSystemFieldDefinitions) {
+        await ensureObjectSystemFieldDefinitions(metahubId, targetObjectId, userId, tx, {
             states: sourceSystemStates,
-            policy: platformSystemAttributesPolicy
+            policy: platformSystemFieldDefinitionsPolicy
         })
     }
 

@@ -213,24 +213,26 @@ describe('Metahubs Routes', () => {
     beforeEach(() => {
         jest.clearAllMocks()
         jest.spyOn(MetahubSchemaService.prototype, 'rewriteBaselineMigrationVersion').mockResolvedValue(undefined)
-        jest.spyOn(MetahubSchemaService.prototype, 'resolvePublicStructureVersion').mockImplementation(async (_schemaName, fallbackVersion) => {
-            if (typeof fallbackVersion === 'string' && fallbackVersion.trim()) {
-                return fallbackVersion
-            }
+        jest.spyOn(MetahubSchemaService.prototype, 'resolvePublicStructureVersion').mockImplementation(
+            async (_schemaName, fallbackVersion) => {
+                if (typeof fallbackVersion === 'string' && fallbackVersion.trim()) {
+                    return fallbackVersion
+                }
 
-            switch (fallbackVersion) {
-                case 1:
-                    return '0.1.0'
-                case 2:
-                    return '0.2.0'
-                case 3:
-                    return '0.3.0'
-                case 4:
-                    return '0.4.0'
-                default:
-                    return '0.4.0'
+                switch (fallbackVersion) {
+                    case 1:
+                        return '0.1.0'
+                    case 2:
+                        return '0.2.0'
+                    case 3:
+                        return '0.3.0'
+                    case 4:
+                        return '0.4.0'
+                    default:
+                        return '0.4.0'
+                }
             }
-        })
+        )
         mockIsSuperuser.mockResolvedValue(false)
         mockGetGlobalRoleCodename.mockResolvedValue(null)
         mockHasSubjectPermission.mockResolvedValue(false)
@@ -399,12 +401,11 @@ describe('Metahubs Routes', () => {
                 schemaName: 'mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b1'
             })
             mockExec.query.mockImplementation(async (sql: string) => {
-                if (
-                    sql.includes(`FROM "mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b1"._mhb_objects`) &&
-                    sql.includes(`COUNT(*) FILTER (WHERE kind = ANY($1::text[]))::int AS "hubsCount"`) &&
-                    sql.includes(`COUNT(*) FILTER (WHERE kind = ANY($2::text[]))::int AS "catalogsCount"`)
-                ) {
-                    return [{ hubsCount: 2, catalogsCount: 5 }]
+                if (sql.includes(`FROM "mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b1"._mhb_objects`) && sql.includes('GROUP BY kind')) {
+                    return [
+                        { kind: 'hub', count: 2 },
+                        { kind: 'catalog', count: 5 }
+                    ]
                 }
 
                 return []
@@ -419,8 +420,8 @@ describe('Metahubs Routes', () => {
                 id: 'metahub-1',
                 name: 'Test Metahub',
                 description: 'Test Description',
-                hubsCount: 2,
-                catalogsCount: 5,
+                treeEntitiesCount: 2,
+                linkedCollectionsCount: 5,
                 membersCount: 0
             })
             expect(response.body.items[0]).toHaveProperty('createdAt')
@@ -431,14 +432,9 @@ describe('Metahubs Routes', () => {
                 .map(([sql]: [string]) => sql)
                 .find((sql: string) => sql.includes(`FROM "mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b1"._mhb_objects`))
 
-            const countsParams = mockExec.query.mock.calls
-                .find(([sql]: [string]) => sql.includes(`FROM "mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b1"._mhb_objects`))?.[1]
-
             expect(countsSql).toContain(`_upl_deleted = false`)
             expect(countsSql).toContain(`_mhb_deleted = false`)
-            expect(countsSql).toContain(`COUNT(*) FILTER (WHERE kind = ANY($1::text[]))::int AS "hubsCount"`)
-            expect(countsSql).toContain(`COUNT(*) FILTER (WHERE kind = ANY($2::text[]))::int AS "catalogsCount"`)
-            expect(countsParams).toEqual([['hub'], ['catalog'], ['hub', 'catalog']])
+            expect(countsSql).toContain('GROUP BY kind')
         })
 
         it('should handle pagination parameters correctly', async () => {
@@ -607,9 +603,8 @@ describe('Metahubs Routes', () => {
         })
     })
 
-    // NOTE: Removed tests for deprecated /entities and /sections endpoints.
-    // These endpoints were removed in the metadata-driven platform refactoring.
-    // New tests for /hubs, /attributes, and /elements should be added.
+    // NOTE: Entity instance CRUD, metadata, and child-resource routes are tested
+    // in entityInstancesRoutes.test.ts under the entity-first architecture.
 
     describe('POST /metahub/:metahubId/copy', () => {
         it('should copy metahub with default branch and access rules', async () => {
@@ -1371,10 +1366,12 @@ describe('Metahubs Routes', () => {
                     name: 'New Hub',
                     codename: testCodenameVlc('NewHub'),
                     createOptions: {
-                        createHub: false,
-                        createCatalog: true,
-                        createSet: false,
-                        createEnumeration: true
+                        presetToggles: {
+                            'preset-hub': false,
+                            'preset-catalog': true,
+                            'preset-set': false,
+                            'preset-enumeration': true
+                        }
                     }
                 })
                 .expect(201)
@@ -1384,10 +1381,12 @@ describe('Metahubs Routes', () => {
                     metahubId: 'mock-id',
                     createdBy: 'test-user-id',
                     createOptions: {
-                        createHub: false,
-                        createCatalog: true,
-                        createSet: false,
-                        createEnumeration: true
+                        presetToggles: {
+                            'preset-hub': false,
+                            'preset-catalog': true,
+                            'preset-set': false,
+                            'preset-enumeration': true
+                        }
                     }
                 })
             )
@@ -1794,10 +1793,7 @@ describe('Metahubs Routes', () => {
                 await request(app).post('/metahubs/import').send(envelope).expect(201)
 
                 expect(rewriteBaselineSpy).toHaveBeenCalledWith('test_schema', '0.1.0')
-                expect(mockSerializeMetahub).toHaveBeenCalledWith(
-                    'new-metahub-id',
-                    expect.objectContaining({ structureVersion: '0.1.0' })
-                )
+                expect(mockSerializeMetahub).toHaveBeenCalledWith('new-metahub-id', expect.objectContaining({ structureVersion: '0.1.0' }))
             } finally {
                 rewriteBaselineSpy.mockRestore()
             }
@@ -2105,17 +2101,19 @@ describe('Metahubs Routes', () => {
                 metahubId,
                 structureVersion: 4
             })
-            mockSerializeMetahub.mockImplementationOnce(async (_resolvedMetahubId: string, versionEnvelope?: { structureVersion?: string }) => ({
-                version: 1,
-                generatedAt: '2026-04-12T00:00:00.000Z',
-                metahubId,
-                versionEnvelope: {
-                    structureVersion: versionEnvelope?.structureVersion ?? '0.4.0',
-                    templateVersion: null,
-                    snapshotFormatVersion: 3
-                },
-                entities: {}
-            }))
+            mockSerializeMetahub.mockImplementationOnce(
+                async (_resolvedMetahubId: string, versionEnvelope?: { structureVersion?: string }) => ({
+                    version: 1,
+                    generatedAt: '2026-04-12T00:00:00.000Z',
+                    metahubId,
+                    versionEnvelope: {
+                        structureVersion: versionEnvelope?.structureVersion ?? '0.4.0',
+                        templateVersion: null,
+                        snapshotFormatVersion: 3
+                    },
+                    entities: {}
+                })
+            )
 
             try {
                 const app = buildApp()

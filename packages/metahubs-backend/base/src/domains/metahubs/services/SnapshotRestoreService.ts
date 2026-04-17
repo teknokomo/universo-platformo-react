@@ -11,7 +11,10 @@ import type { MetahubSnapshot, MetaEntitySnapshot, MetaFieldSnapshot } from '../
 import { ensureCodenameValue } from '../../shared/codename'
 import { toJsonbValue } from '../../shared/jsonb'
 import { SHARED_CONTAINER_DESCRIPTORS } from '../../shared/services/SharedContainerService'
-import { ensureCatalogSystemAttributesSeed, readPlatformSystemAttributesPolicyWithKnex } from '../../templates/services/systemAttributeSeed'
+import {
+    ensureCatalogSystemFieldDefinitionsSeed,
+    readPlatformSystemFieldDefinitionsPolicyWithKnex
+} from '../../templates/services/systemFieldDefinitionSeed'
 import { resolveWidgetTableName } from '../../templates/services/widgetTableResolver'
 import { createLogger } from '../../../utils/logger'
 
@@ -85,7 +88,6 @@ export class SnapshotRestoreService {
                     components: definition.components ?? {},
                     ui_config: definition.ui ?? {},
                     config: definition.config ?? {},
-                    is_builtin: definition.isBuiltin === true,
                     _upl_created_at: now,
                     _upl_created_by: userId,
                     _upl_updated_at: now,
@@ -156,9 +158,9 @@ export class SnapshotRestoreService {
         const sharedEntityIdMaps = this.createSharedEntityIdMaps()
         const now = new Date()
 
-        const sharedAttributes = snapshot.sharedAttributes ?? []
-        const sharedConstants = snapshot.sharedConstants ?? []
-        const sharedEnumerationValues = snapshot.sharedEnumerationValues ?? []
+        const sharedAttributes = snapshot.sharedFieldDefinitions ?? snapshot.sharedAttributes ?? []
+        const sharedFixedValues = snapshot.sharedFixedValues ?? []
+        const sharedEnumerationValues = snapshot.sharedOptionValues ?? snapshot.sharedEnumerationValues ?? []
 
         const sharedContainerIds: Partial<Record<SharedEntityKind, string>> = {}
 
@@ -166,7 +168,7 @@ export class SnapshotRestoreService {
             sharedContainerIds.attribute = await this.createSharedContainer(qb, SHARED_ENTITY_KIND_TO_POOL_KIND.attribute, userId, now)
         }
 
-        if (sharedConstants.length > 0) {
+        if (sharedFixedValues.length > 0) {
             sharedContainerIds.constant = await this.createSharedContainer(qb, SHARED_ENTITY_KIND_TO_POOL_KIND.constant, userId, now)
         }
 
@@ -207,7 +209,7 @@ export class SnapshotRestoreService {
         }
 
         if (sharedContainerIds.constant) {
-            for (const constant of sharedConstants) {
+            for (const constant of sharedFixedValues) {
                 const [inserted] = await qb
                     .withSchema(this.schemaName)
                     .into('_mhb_constants')
@@ -325,10 +327,10 @@ export class SnapshotRestoreService {
         const now = new Date()
         const entities = snapshot.entities ?? {}
 
-        const needsSystemAttributeSeed = Object.entries(entities).some(
+        const needsSystemFieldDefinitionSeed = Object.entries(entities).some(
             ([oldId, entity]) => entity.kind === 'catalog' || Boolean(snapshot.systemFields?.[oldId])
         )
-        const platformPolicy = needsSystemAttributeSeed ? await readPlatformSystemAttributesPolicyWithKnex(qb) : undefined
+        const platformPolicy = needsSystemFieldDefinitionSeed ? await readPlatformSystemFieldDefinitionsPolicyWithKnex(qb) : undefined
 
         // Sort: hubs first (they may be referenced by catalogs/sets/enumerations via config.hubs)
         const sortedEntries = Object.entries(entities).sort(([, a], [, b]) => {
@@ -365,9 +367,9 @@ export class SnapshotRestoreService {
             entityIdMap.set(oldId, inserted.id)
 
             const systemFieldsSnap = snapshot.systemFields?.[oldId]
-            const shouldSeedSystemAttributes = entity.kind === 'catalog' || Boolean(systemFieldsSnap)
-            if (shouldSeedSystemAttributes) {
-                await ensureCatalogSystemAttributesSeed(qb, this.schemaName, inserted.id, userId, {
+            const shouldSeedSystemFieldDefinitions = entity.kind === 'catalog' || Boolean(systemFieldsSnap)
+            if (shouldSeedSystemFieldDefinitions) {
+                await ensureCatalogSystemFieldDefinitionsSeed(qb, this.schemaName, inserted.id, userId, {
                     states: systemFieldsSnap?.fields,
                     policy: platformPolicy
                 })
@@ -387,13 +389,13 @@ export class SnapshotRestoreService {
         // Remap hub references
         if (Array.isArray(entity.hubs) && entity.hubs.length > 0) {
             const mappedHubs: string[] = []
-            for (const oldHubId of entity.hubs) {
-                const newHubId = entityIdMap.get(oldHubId)
-                if (newHubId) {
-                    mappedHubs.push(newHubId)
+            for (const oldTreeEntityId of entity.hubs) {
+                const newTreeEntityId = entityIdMap.get(oldTreeEntityId)
+                if (newTreeEntityId) {
+                    mappedHubs.push(newTreeEntityId)
                 } else {
                     log.warn(
-                        `Hub reference ${oldHubId} not found in entityIdMap for entity codename=${entityCodenameText}, dropping reference`
+                        `Hub reference ${oldTreeEntityId} not found in entityIdMap for entity codename=${entityCodenameText}, dropping reference`
                     )
                 }
             }
@@ -412,17 +414,17 @@ export class SnapshotRestoreService {
         userId: string
     ): Promise<Map<string, string>> {
         const constantIdMap = new Map<string, string>()
-        const constants = snapshot.constants ?? {}
+        const constants = snapshot.fixedValues ?? {}
         const now = new Date()
 
-        for (const [oldEntityId, entityConstants] of Object.entries(constants)) {
+        for (const [oldEntityId, entityFixedValues] of Object.entries(constants)) {
             const newEntityId = entityIdMap.get(oldEntityId)
             if (!newEntityId) {
                 log.warn(`Entity ${oldEntityId} not found in entityIdMap, skipping constants`)
                 continue
             }
 
-            for (const constant of entityConstants) {
+            for (const constant of entityFixedValues) {
                 const [inserted] = await qb
                     .withSchema(this.schemaName)
                     .into('_mhb_constants')
@@ -582,10 +584,10 @@ export class SnapshotRestoreService {
         entityIdMap: Map<string, string>,
         userId: string
     ): Promise<void> {
-        const enumerationValues = snapshot.enumerationValues ?? {}
+        const optionValues = snapshot.optionValues ?? {}
         const now = new Date()
 
-        for (const [oldEntityId, values] of Object.entries(enumerationValues)) {
+        for (const [oldEntityId, values] of Object.entries(optionValues)) {
             const newEntityId = entityIdMap.get(oldEntityId)
             if (!newEntityId) {
                 log.warn(`Entity ${oldEntityId} not found in entityIdMap, skipping enum values`)
@@ -948,10 +950,10 @@ export class SnapshotRestoreService {
         }
 
         for (const layout of catalogLayouts) {
-            const newCatalogId = entityIdMap.get(layout.catalogId)
+            const newLinkedCollectionId = entityIdMap.get(layout.linkedCollectionId)
             const newBaseLayoutId = layoutIdMap.get(layout.baseLayoutId)
 
-            if (!newCatalogId || !newBaseLayoutId) {
+            if (!newLinkedCollectionId || !newBaseLayoutId) {
                 log.warn(`Catalog layout ${layout.id} has unresolved references, skipping restore`)
                 continue
             }
@@ -960,7 +962,7 @@ export class SnapshotRestoreService {
                 .withSchema(this.schemaName)
                 .into('_mhb_layouts')
                 .insert({
-                    catalog_id: newCatalogId,
+                    catalog_id: newLinkedCollectionId,
                     base_layout_id: newBaseLayoutId,
                     template_key: layout.templateKey ?? 'dashboard',
                     name: layout.name ?? {},

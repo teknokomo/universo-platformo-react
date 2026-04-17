@@ -1,4 +1,5 @@
 import type { ElementType } from 'react'
+import type { MetahubMenuEntityType } from '@universo/types'
 import {
     IconBox,
     IconBolt,
@@ -53,14 +54,6 @@ export const resolveTemplateMenuLabel = (
     }
 
     return item.titleKey ? t(item.titleKey, { defaultValue: item.titleKey }) : ''
-}
-
-export interface PublishedMetahubMenuEntityType {
-    kindKey: string
-    title: string
-    iconName?: string | null
-    sidebarSection?: 'objects' | 'admin'
-    sidebarOrder?: number | null
 }
 
 const menuIconRegistry: Record<string, ElementType> = {
@@ -152,10 +145,10 @@ export const getMetahubMenuItems = (
     options?: {
         canManageMetahub?: boolean
         canManageMembers?: boolean
-        publishedEntityTypes?: PublishedMetahubMenuEntityType[]
+        menuEntityTypes?: MetahubMenuEntityType[]
     }
 ): TemplateMenuItem[] => {
-    const publishedObjectItems = [...(options?.publishedEntityTypes ?? [])]
+    const objectMenuItems = [...(options?.menuEntityTypes ?? [])]
         .filter((entityType) => (entityType.sidebarSection ?? 'objects') === 'objects')
         .sort((left, right) => {
             const leftOrder = typeof left.sidebarOrder === 'number' ? left.sidebarOrder : Number.MAX_SAFE_INTEGER
@@ -172,8 +165,7 @@ export const getMetahubMenuItems = (
             title: entityType.title,
             url: `/metahub/${metahubId}/entities/${entityType.kindKey}/instances`,
             icon: resolveMenuIcon(entityType.iconName),
-            type: 'item',
-            requiredPermission: 'manageMetahub'
+            type: 'item'
         }))
 
     const items: TemplateMenuItem[] = [
@@ -197,9 +189,9 @@ export const getMetahubMenuItems = (
             type: 'divider'
         },
         {
-            id: 'metahub-common',
+            id: 'metahub-resources',
             titleKey: 'commonSection',
-            url: `/metahub/${metahubId}/common`,
+            url: `/metahub/${metahubId}/resources`,
             icon: IconLayoutDashboard,
             type: 'item',
             requiredPermission: 'manageMetahub'
@@ -212,35 +204,7 @@ export const getMetahubMenuItems = (
             type: 'item',
             requiredPermission: 'manageMetahub'
         },
-        {
-            id: 'metahub-hubs',
-            titleKey: 'hubs',
-            url: `/metahub/${metahubId}/hubs`,
-            icon: IconHierarchy3,
-            type: 'item'
-        },
-        {
-            id: 'metahub-catalogs',
-            titleKey: 'catalogs',
-            url: `/metahub/${metahubId}/catalogs`,
-            icon: IconDatabase,
-            type: 'item'
-        },
-        {
-            id: 'metahub-sets',
-            titleKey: 'sets',
-            url: `/metahub/${metahubId}/sets`,
-            icon: IconFileText,
-            type: 'item'
-        },
-        {
-            id: 'metahub-enumerations',
-            titleKey: 'enumerations',
-            url: `/metahub/${metahubId}/enumerations`,
-            icon: IconFiles,
-            type: 'item'
-        },
-        ...publishedObjectItems,
+        ...objectMenuItems,
         {
             id: 'metahub-divider-secondary',
             type: 'divider'

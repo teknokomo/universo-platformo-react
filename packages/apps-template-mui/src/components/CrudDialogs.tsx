@@ -14,7 +14,7 @@ export interface CrudDialogsProps {
     /** Application ID for TABLE (tabular part) CRUD operations. */
     applicationId?: string
     /** Catalog ID for TABLE (tabular part) CRUD operations. */
-    catalogId?: string
+    linkedCollectionId?: string
     /** Surface used for create/edit/copy forms. */
     surface?: 'dialog' | 'page'
     /** Render create/edit/copy form surface. */
@@ -53,7 +53,7 @@ export function CrudDialogs({
     labels,
     apiBaseUrl,
     applicationId,
-    catalogId,
+    linkedCollectionId,
     surface = 'dialog',
     renderForm = true,
     renderDelete = true
@@ -80,7 +80,7 @@ export function CrudDialogs({
                     onSubmit={state.handleFormSubmit}
                     apiBaseUrl={apiBaseUrl}
                     applicationId={applicationId}
-                    catalogId={catalogId}
+                    linkedCollectionId={linkedCollectionId}
                     editRowId={state.editRowId}
                 />
             ) : null}

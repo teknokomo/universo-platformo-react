@@ -16,6 +16,16 @@ export const storageStatePath = path.resolve(authDir, 'storage-state.json')
 
 let cachedEnv = null
 
+const parsePositiveInteger = (value, fallback) => {
+    const parsed = Number.parseInt(String(value ?? ''), 10)
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+
+const parsePositiveIntegerWithMinimum = (value, fallback, minimum) => {
+    const parsed = parsePositiveInteger(value, fallback)
+    return Math.max(parsed, minimum)
+}
+
 const normalizeFullResetMode = (value) => {
     const normalized = String(value || 'strict').trim().toLowerCase()
 
@@ -111,6 +121,26 @@ export function loadE2eEnvironment() {
     process.env.E2E_TEST_USER_ROLE_CODENAMES = process.env.E2E_TEST_USER_ROLE_CODENAMES || 'User'
     process.env.E2E_TEST_USER_EMAIL_DOMAIN = process.env.E2E_TEST_USER_EMAIL_DOMAIN || 'example.test'
     process.env.E2E_FULL_RESET_MODE = normalizeFullResetMode(process.env.E2E_FULL_RESET_MODE)
+    process.env.E2E_SERVER_READY_TIMEOUT_MS = String(parsePositiveInteger(process.env.E2E_SERVER_READY_TIMEOUT_MS, 300000))
+    process.env.E2E_SERVER_STOP_TIMEOUT_MS = String(parsePositiveInteger(process.env.E2E_SERVER_STOP_TIMEOUT_MS, 15000))
+    process.env.E2E_SERVER_POLL_INTERVAL_MS = String(parsePositiveInteger(process.env.E2E_SERVER_POLL_INTERVAL_MS, 1000))
+
+    if (envTarget === 'e2e') {
+        process.env.DATABASE_POOL_MAX = String(parsePositiveIntegerWithMinimum(process.env.DATABASE_POOL_MAX, 15, 15))
+        process.env.DATABASE_KNEX_ACQUIRE_TIMEOUT_MS = String(
+            parsePositiveIntegerWithMinimum(process.env.DATABASE_KNEX_ACQUIRE_TIMEOUT_MS, 60000, 60000)
+        )
+        process.env.DATABASE_KNEX_CREATE_TIMEOUT_MS = String(
+            parsePositiveIntegerWithMinimum(process.env.DATABASE_KNEX_CREATE_TIMEOUT_MS, 30000, 30000)
+        )
+        process.env.DATABASE_KNEX_IDLE_TIMEOUT_MS = String(
+            parsePositiveIntegerWithMinimum(process.env.DATABASE_KNEX_IDLE_TIMEOUT_MS, 30000, 30000)
+        )
+    }
+
+    const serverReadyTimeoutMs = parsePositiveInteger(process.env.E2E_SERVER_READY_TIMEOUT_MS, 300000)
+    const serverStopTimeoutMs = parsePositiveInteger(process.env.E2E_SERVER_STOP_TIMEOUT_MS, 15000)
+    const serverPollIntervalMs = parsePositiveInteger(process.env.E2E_SERVER_POLL_INTERVAL_MS, 1000)
 
     cachedEnv = {
         envTarget,
@@ -125,7 +155,10 @@ export function loadE2eEnvironment() {
         backendEnvPath,
         frontendEnvPath,
         baseURL,
-        fullResetMode: process.env.E2E_FULL_RESET_MODE
+        fullResetMode: process.env.E2E_FULL_RESET_MODE,
+        serverReadyTimeoutMs,
+        serverStopTimeoutMs,
+        serverPollIntervalMs
     }
 
     return cachedEnv

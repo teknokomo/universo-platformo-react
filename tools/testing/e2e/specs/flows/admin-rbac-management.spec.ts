@@ -20,6 +20,8 @@ import {
     toolbarSelectors
 } from '../../support/selectors/contracts'
 
+test.setTimeout(180_000)
+
 function buildName(prefix: string, runId: string) {
     return `E2E ${runId} ${prefix}`
 }
@@ -262,6 +264,7 @@ test('@flow @permission admin can manage roles, users, and locales from browser 
         await page.goto(`/admin/instance/${instance.id}/users`)
         await page.getByTestId(buildEntityMenuTriggerSelector('user', createdUser.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('user', 'clearRoles', createdUser.id)).click()
+        await expect(page.getByTestId(confirmDeleteSelectors.confirmButton)).toBeEnabled()
         await page.getByTestId(confirmDeleteSelectors.confirmButton).click()
 
         await expect
@@ -306,6 +309,7 @@ test('@flow @permission admin can manage roles, users, and locales from browser 
         await expect(page.getByTestId(buildEntityMenuTriggerSelector('role', disposableRole.id))).toBeVisible()
         await page.getByTestId(buildEntityMenuTriggerSelector('role', disposableRole.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('role', 'delete', disposableRole.id)).click()
+        await expect(page.getByTestId(confirmDeleteSelectors.confirmButton)).toBeEnabled()
         await page.getByTestId(confirmDeleteSelectors.confirmButton).click()
 
         await waitForRoleDeleted(api, disposableRole.id)

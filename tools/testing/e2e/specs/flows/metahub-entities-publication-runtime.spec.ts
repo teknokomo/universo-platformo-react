@@ -67,8 +67,8 @@ test('@flow @combined published custom entities survive publication sync and ope
     const metahubCodename = `${runManifest.runId}-entities-publication-runtime`
     const publicationName = `E2E ${runManifest.runId} Entities Publication`
     const applicationName = `E2E ${runManifest.runId} Entities Runtime`
-    const customKindKey = `custom.catalog-v2-${suffix}`
-    const customTypeName = `Catalogs V2 ${suffix}`
+    const customKindKey = `custom.catalog-${suffix}`
+    const customTypeName = `Catalogs ${suffix}`
     const customEntityName = `Published Catalog ${suffix}`
     const customEntityCodename = `published-catalog-${suffix}`
 
@@ -98,9 +98,9 @@ test('@flow @combined published custom entities survive publication sync and ope
         const createTypeDialog = page.getByRole('dialog', { name: 'Create Entity Type' })
         await expect(createTypeDialog).toBeVisible()
         await createTypeDialog.getByLabel('Select template').click()
-        await page.getByRole('option', { name: /Catalogs V2/i }).click()
+        await page.getByRole('option', { name: /^Catalogs\b/i }).click()
 
-        await expect.poll(async () => createTypeDialog.getByLabel('Kind key').inputValue()).toBe('custom.catalog-v2')
+        await expect.poll(async () => createTypeDialog.getByLabel('Kind key').inputValue()).toBe('catalog')
         await createTypeDialog.getByLabel('Kind key').fill(customKindKey)
         await createTypeDialog.getByLabel('Name').first().fill(customTypeName)
 
@@ -122,19 +122,21 @@ test('@flow @combined published custom entities survive publication sync and ope
         await dynamicMenuLink.click()
 
         await expect(page).toHaveURL(`/metahub/${metahub.id}/entities/${customKindKey}/instances`)
-        await expect(page.getByRole('heading', { name: 'Catalogs' })).toBeVisible()
-        await expect(page.getByTestId(toolbarSelectors.primaryAction)).toContainText('Create')
+        await expect(page.getByRole('heading', { name: new RegExp(customTypeName) })).toBeVisible()
+        await expect(page.getByTestId(toolbarSelectors.primaryAction)).toContainText('Create entity')
 
         await page.getByTestId(toolbarSelectors.primaryAction).click()
 
-        const createEntityDialog = page.getByRole('dialog', { name: 'Create Catalog' })
+        const createEntityDialog = page.getByRole('dialog', { name: 'Create Entity' })
         await expect(createEntityDialog).toBeVisible()
         await createEntityDialog.getByLabel('Name').first().fill(customEntityName)
         await createEntityDialog.getByLabel('Codename').first().fill(customEntityCodename)
 
         const createEntityRequest = waitForSettledMutationResponse(
             page,
-            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/catalogs`),
+            (response) =>
+                response.request().method() === 'POST' &&
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/entities`),
             { label: 'Creating published custom entity instance' }
         )
 

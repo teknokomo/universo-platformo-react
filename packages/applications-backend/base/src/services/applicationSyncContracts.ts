@@ -56,10 +56,16 @@ export interface PublishedApplicationSnapshot {
     versionEnvelope?: MetahubSnapshotVersionEnvelope
     entities: Record<string, SnapshotEntityDefinition>
     elements?: Record<string, unknown[]>
-    enumerationValues?: Record<string, SnapshotEnumerationValueDefinition[]>
+    optionValues?: Record<string, SnapshotEnumerationValueDefinition[]>
     constants?: Record<string, unknown[]>
+    sharedFieldDefinitions?: SnapshotFieldDefinition[]
+    /** @deprecated use sharedFieldDefinitions */
     sharedAttributes?: SnapshotFieldDefinition[]
+    sharedFixedValues?: SnapshotConstantDefinition[]
+    /** @deprecated use sharedFixedValues */
     sharedConstants?: SnapshotConstantDefinition[]
+    sharedOptionValues?: SnapshotEnumerationValueDefinition[]
+    /** @deprecated use sharedOptionValues */
     sharedEnumerationValues?: SnapshotEnumerationValueDefinition[]
     sharedEntityOverrides?: SnapshotSharedEntityOverrideDefinition[]
     scripts?: SnapshotScriptDefinition[]

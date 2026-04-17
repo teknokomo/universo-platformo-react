@@ -155,11 +155,12 @@ interface MappedRouteErrorPayload {
 const normalizeStructureVersion = (value: string | number | null | undefined): number => semverToStructureVersion(value)
 
 const zeroSeedCounts: MetahubTemplateSeedMigrationCounts = {
+    entityTypesSynced: 0,
     layoutsAdded: 0,
     zoneWidgetsAdded: 0,
     settingsAdded: 0,
     entitiesAdded: 0,
-    constantsAdded: 0,
+    fixedValuesAdded: 0,
     attributesAdded: 0,
     enumValuesAdded: 0,
     elementsAdded: 0
@@ -465,7 +466,7 @@ async function buildTemplatePlan(
             dryRunResult.zoneWidgetsAdded > 0 ||
             dryRunResult.settingsAdded > 0 ||
             dryRunResult.entitiesAdded > 0 ||
-            dryRunResult.constantsAdded > 0 ||
+            dryRunResult.fixedValuesAdded > 0 ||
             dryRunResult.attributesAdded > 0 ||
             dryRunResult.elementsAdded > 0
 

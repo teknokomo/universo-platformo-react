@@ -1,12 +1,11 @@
 import type { EntityTypePresetManifest, MetahubTemplateManifest, TemplateDefinitionManifest, TemplateDefinitionType } from '@universo/types'
 import { basicTemplate } from './basic.template'
 import { basicDemoTemplate } from './basic-demo.template'
-import { catalogV2EntityPreset } from './catalog-v2.entity-preset'
-import { constantsLibraryEntityPreset } from './constants-library.entity-preset'
-import { documentWorkspaceEntityPreset } from './document-workspace.entity-preset'
-import { enumerationV2EntityPreset } from './enumeration-v2.entity-preset'
-import { hubV2EntityPreset } from './hub-v2.entity-preset'
-import { setV2EntityPreset } from './set-v2.entity-preset'
+import { catalogEntityPreset } from './linked-collection.entity-preset'
+import { fixedValuesLibraryEntityPreset } from './fixed-values-library.entity-preset'
+import { enumerationEntityPreset } from './option-list.entity-preset'
+import { hubEntityPreset } from './tree-entity.entity-preset'
+import { setEntityPreset } from './value-group.entity-preset'
 
 /**
  * Registry of all built-in template manifests.
@@ -15,12 +14,11 @@ import { setV2EntityPreset } from './set-v2.entity-preset'
 export const builtinTemplates: MetahubTemplateManifest[] = [basicTemplate, basicDemoTemplate]
 
 export const builtinEntityTypePresets: EntityTypePresetManifest[] = [
-    hubV2EntityPreset,
-    catalogV2EntityPreset,
-    setV2EntityPreset,
-    enumerationV2EntityPreset,
-    documentWorkspaceEntityPreset,
-    constantsLibraryEntityPreset
+    hubEntityPreset,
+    catalogEntityPreset,
+    setEntityPreset,
+    enumerationEntityPreset,
+    fixedValuesLibraryEntityPreset
 ]
 
 export interface BuiltinTemplateDefinitionSeed {

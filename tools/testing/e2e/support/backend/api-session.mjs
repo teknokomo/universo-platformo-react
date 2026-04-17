@@ -30,6 +30,23 @@ const buildErrorFromPayload = (response, label, payload) => {
     return new Error(`${label} failed with ${response.status} ${response.statusText}: ${details}`)
 }
 
+const resolveManagedKindKey = (fallbackKindKey, kindKey) => {
+    const normalizedKindKey = typeof kindKey === 'string' ? kindKey.trim() : ''
+    return normalizedKindKey || fallbackKindKey
+}
+
+const buildManagedEntityInstancesApiPath = (metahubId, fallbackKindKey, kindKey) =>
+    `/api/v1/metahub/${metahubId}/entities/${encodeURIComponent(resolveManagedKindKey(fallbackKindKey, kindKey))}/instances`
+
+const buildManagedEntityInstanceApiPath = (metahubId, entityId, fallbackKindKey, kindKey) =>
+    `/api/v1/metahub/${metahubId}/entities/${encodeURIComponent(resolveManagedKindKey(fallbackKindKey, kindKey))}/instance/${entityId}`
+
+const buildManagedEntityChildCollectionApiPath = (metahubId, entityId, fallbackKindKey, suffix, kindKey) =>
+    `${buildManagedEntityInstanceApiPath(metahubId, entityId, fallbackKindKey, kindKey)}/${suffix}`
+
+const buildManagedEntityChildItemApiPath = (metahubId, entityId, fallbackKindKey, suffix, childId, kindKey) =>
+    `${buildManagedEntityChildCollectionApiPath(metahubId, entityId, fallbackKindKey, suffix, kindKey)}/${childId}`
+
 export async function createApiContext() {
     const env = loadE2eEnvironment()
 
@@ -557,10 +574,11 @@ export async function getTemplate(api, templateId) {
     return response.json()
 }
 
-export async function listMetahubCatalogs(api, metahubId, params = {}) {
+export async function listLinkedCollections(api, metahubId, params = {}) {
+    const { kindKey, ...queryParams } = params
     const query = new URLSearchParams()
 
-    for (const [key, value] of Object.entries(params)) {
+    for (const [key, value] of Object.entries(queryParams)) {
         if (value === undefined || value === null || value === '') {
             continue
         }
@@ -569,7 +587,7 @@ export async function listMetahubCatalogs(api, metahubId, params = {}) {
     }
 
     const suffix = query.size > 0 ? `?${query.toString()}` : ''
-    const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/catalogs${suffix}`, {
+    const response = await fetchFromApi(api, `${buildManagedEntityInstancesApiPath(metahubId, 'catalog', kindKey)}${suffix}`, {
         method: 'GET'
     })
     if (!response.ok) {
@@ -579,8 +597,13 @@ export async function listMetahubCatalogs(api, metahubId, params = {}) {
     return response.json()
 }
 
-export async function createMetahubCatalog(api, metahubId, payload) {
-    const response = await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahubId}/catalogs`, payload)
+export async function createLinkedCollection(api, metahubId, payload) {
+    const response = await sendWithCsrf(
+        api,
+        'POST',
+        buildManagedEntityInstancesApiPath(metahubId, 'catalog', payload?.kindKey),
+        payload
+    )
     if (!response.ok) {
         throw await buildError(response, `Creating catalog in metahub ${metahubId}`)
     }
@@ -610,10 +633,11 @@ export async function listMetahubScripts(api, metahubId, params = {}) {
     return response.json()
 }
 
-export async function listMetahubHubs(api, metahubId, params = {}) {
+export async function listTreeEntities(api, metahubId, params = {}) {
+    const { kindKey, ...queryParams } = params
     const query = new URLSearchParams()
 
-    for (const [key, value] of Object.entries(params)) {
+    for (const [key, value] of Object.entries(queryParams)) {
         if (value === undefined || value === null || value === '') {
             continue
         }
@@ -622,7 +646,7 @@ export async function listMetahubHubs(api, metahubId, params = {}) {
     }
 
     const suffix = query.size > 0 ? `?${query.toString()}` : ''
-    const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/hubs${suffix}`, {
+    const response = await fetchFromApi(api, `${buildManagedEntityInstancesApiPath(metahubId, 'hub', kindKey)}${suffix}`, {
         method: 'GET'
     })
     if (!response.ok) {
@@ -632,8 +656,8 @@ export async function listMetahubHubs(api, metahubId, params = {}) {
     return response.json()
 }
 
-export async function getMetahubHub(api, metahubId, hubId) {
-    const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/hub/${hubId}`, { method: 'GET' })
+export async function getTreeEntity(api, metahubId, hubId, kindKey) {
+    const response = await fetchFromApi(api, buildManagedEntityInstanceApiPath(metahubId, hubId, 'hub', kindKey), { method: 'GET' })
     if (!response.ok) {
         throw await buildError(response, `Fetching hub ${hubId} for metahub ${metahubId}`)
     }
@@ -641,10 +665,11 @@ export async function getMetahubHub(api, metahubId, hubId) {
     return response.json()
 }
 
-export async function listMetahubEnumerations(api, metahubId, params = {}) {
+export async function listOptionLists(api, metahubId, params = {}) {
+    const { kindKey, ...queryParams } = params
     const query = new URLSearchParams()
 
-    for (const [key, value] of Object.entries(params)) {
+    for (const [key, value] of Object.entries(queryParams)) {
         if (value === undefined || value === null || value === '') {
             continue
         }
@@ -653,7 +678,7 @@ export async function listMetahubEnumerations(api, metahubId, params = {}) {
     }
 
     const suffix = query.size > 0 ? `?${query.toString()}` : ''
-    const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/enumerations${suffix}`, {
+    const response = await fetchFromApi(api, `${buildManagedEntityInstancesApiPath(metahubId, 'enumeration', kindKey)}${suffix}`, {
         method: 'GET'
     })
     if (!response.ok) {
@@ -663,8 +688,12 @@ export async function listMetahubEnumerations(api, metahubId, params = {}) {
     return response.json()
 }
 
-export async function getMetahubEnumeration(api, metahubId, enumerationId) {
-    const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/enumeration/${enumerationId}`, { method: 'GET' })
+export async function getOptionList(api, metahubId, enumerationId, kindKey) {
+    const response = await fetchFromApi(
+        api,
+        buildManagedEntityInstanceApiPath(metahubId, enumerationId, 'enumeration', kindKey),
+        { method: 'GET' }
+    )
     if (!response.ok) {
         throw await buildError(response, `Fetching enumeration ${enumerationId} for metahub ${metahubId}`)
     }
@@ -672,10 +701,11 @@ export async function getMetahubEnumeration(api, metahubId, enumerationId) {
     return response.json()
 }
 
-export async function listMetahubSets(api, metahubId, params = {}) {
+export async function listValueGroups(api, metahubId, params = {}) {
+    const { kindKey, ...queryParams } = params
     const query = new URLSearchParams()
 
-    for (const [key, value] of Object.entries(params)) {
+    for (const [key, value] of Object.entries(queryParams)) {
         if (value === undefined || value === null || value === '') {
             continue
         }
@@ -684,7 +714,7 @@ export async function listMetahubSets(api, metahubId, params = {}) {
     }
 
     const suffix = query.size > 0 ? `?${query.toString()}` : ''
-    const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/sets${suffix}`, {
+    const response = await fetchFromApi(api, `${buildManagedEntityInstancesApiPath(metahubId, 'set', kindKey)}${suffix}`, {
         method: 'GET'
     })
     if (!response.ok) {
@@ -694,8 +724,8 @@ export async function listMetahubSets(api, metahubId, params = {}) {
     return response.json()
 }
 
-export async function getMetahubSet(api, metahubId, setId) {
-    const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/set/${setId}`, { method: 'GET' })
+export async function getValueGroup(api, metahubId, setId, kindKey) {
+    const response = await fetchFromApi(api, buildManagedEntityInstanceApiPath(metahubId, setId, 'set', kindKey), { method: 'GET' })
     if (!response.ok) {
         throw await buildError(response, `Fetching set ${setId} for metahub ${metahubId}`)
     }
@@ -889,8 +919,13 @@ export async function deleteMetahub(api, metahubId) {
     throw await buildError(response, `Deleting metahub ${metahubId}`)
 }
 
-export async function createMetahubAttribute(api, metahubId, catalogId, payload) {
-    const response = await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahubId}/catalog/${catalogId}/attributes`, payload)
+export async function createFieldDefinition(api, metahubId, catalogId, payload) {
+    const response = await sendWithCsrf(
+        api,
+        'POST',
+        buildManagedEntityChildCollectionApiPath(metahubId, catalogId, 'catalog', 'field-definitions'),
+        payload
+    )
     if (!response.ok) {
         throw await buildError(response, `Creating attribute in metahub ${metahubId} catalog ${catalogId}`)
     }
@@ -898,7 +933,7 @@ export async function createMetahubAttribute(api, metahubId, catalogId, payload)
     return response.json()
 }
 
-export async function listCatalogAttributes(api, metahubId, catalogId, params = {}) {
+export async function listFieldDefinitions(api, metahubId, catalogId, params = {}) {
     const query = new URLSearchParams()
 
     for (const [key, value] of Object.entries(params)) {
@@ -910,9 +945,13 @@ export async function listCatalogAttributes(api, metahubId, catalogId, params = 
     }
 
     const suffix = query.size > 0 ? `?${query.toString()}` : ''
-    const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/catalog/${catalogId}/attributes${suffix}`, {
-        method: 'GET'
-    })
+    const response = await fetchFromApi(
+        api,
+        `${buildManagedEntityChildCollectionApiPath(metahubId, catalogId, 'catalog', 'field-definitions')}${suffix}`,
+        {
+            method: 'GET'
+        }
+    )
     if (!response.ok) {
         throw await buildError(response, `Listing attributes for catalog ${catalogId} in metahub ${metahubId}`)
     }
@@ -920,10 +959,14 @@ export async function listCatalogAttributes(api, metahubId, catalogId, params = 
     return response.json()
 }
 
-export async function getCatalogAttribute(api, metahubId, catalogId, attributeId) {
-    const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/catalog/${catalogId}/attribute/${attributeId}`, {
-        method: 'GET'
-    })
+export async function getFieldDefinition(api, metahubId, catalogId, attributeId) {
+    const response = await fetchFromApi(
+        api,
+        buildManagedEntityChildItemApiPath(metahubId, catalogId, 'catalog', 'field-definition', attributeId),
+        {
+            method: 'GET'
+        }
+    )
     if (!response.ok) {
         throw await buildError(response, `Fetching attribute ${attributeId} for catalog ${catalogId} in metahub ${metahubId}`)
     }
@@ -931,7 +974,7 @@ export async function getCatalogAttribute(api, metahubId, catalogId, attributeId
     return response.json()
 }
 
-export async function listCatalogElements(api, metahubId, catalogId, params = {}) {
+export async function listRecords(api, metahubId, catalogId, params = {}) {
     const query = new URLSearchParams()
 
     for (const [key, value] of Object.entries(params)) {
@@ -943,7 +986,7 @@ export async function listCatalogElements(api, metahubId, catalogId, params = {}
     }
 
     const suffix = query.size > 0 ? `?${query.toString()}` : ''
-    const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/catalog/${catalogId}/elements${suffix}`, {
+    const response = await fetchFromApi(api, `${buildManagedEntityChildCollectionApiPath(metahubId, catalogId, 'catalog', 'records')}${suffix}`, {
         method: 'GET'
     })
     if (!response.ok) {
@@ -953,8 +996,8 @@ export async function listCatalogElements(api, metahubId, catalogId, params = {}
     return response.json()
 }
 
-export async function getCatalogElement(api, metahubId, catalogId, elementId) {
-    const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/catalog/${catalogId}/element/${elementId}`, { method: 'GET' })
+export async function getRecord(api, metahubId, catalogId, elementId) {
+    const response = await fetchFromApi(api, buildManagedEntityChildItemApiPath(metahubId, catalogId, 'catalog', 'record', elementId), { method: 'GET' })
     if (!response.ok) {
         throw await buildError(response, `Fetching element ${elementId} for catalog ${catalogId} in metahub ${metahubId}`)
     }
@@ -962,7 +1005,7 @@ export async function getCatalogElement(api, metahubId, catalogId, elementId) {
     return response.json()
 }
 
-export async function listEnumerationValues(api, metahubId, enumerationId, params = {}) {
+export async function listOptionValues(api, metahubId, enumerationId, params = {}) {
     const query = new URLSearchParams()
 
     for (const [key, value] of Object.entries(params)) {
@@ -974,7 +1017,11 @@ export async function listEnumerationValues(api, metahubId, enumerationId, param
     }
 
     const suffix = query.size > 0 ? `?${query.toString()}` : ''
-    const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/enumeration/${enumerationId}/values${suffix}`, { method: 'GET' })
+    const response = await fetchFromApi(
+        api,
+        `${buildManagedEntityChildCollectionApiPath(metahubId, enumerationId, 'enumeration', 'values')}${suffix}`,
+        { method: 'GET' }
+    )
     if (!response.ok) {
         throw await buildError(response, `Listing values for enumeration ${enumerationId} in metahub ${metahubId}`)
     }
@@ -982,10 +1029,14 @@ export async function listEnumerationValues(api, metahubId, enumerationId, param
     return response.json()
 }
 
-export async function getEnumerationValue(api, metahubId, enumerationId, valueId) {
-    const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/enumeration/${enumerationId}/value/${valueId}`, {
-        method: 'GET'
-    })
+export async function getOptionValue(api, metahubId, enumerationId, valueId) {
+    const response = await fetchFromApi(
+        api,
+        buildManagedEntityChildItemApiPath(metahubId, enumerationId, 'enumeration', 'value', valueId),
+        {
+            method: 'GET'
+        }
+    )
     if (!response.ok) {
         throw await buildError(response, `Fetching value ${valueId} for enumeration ${enumerationId} in metahub ${metahubId}`)
     }
@@ -993,7 +1044,7 @@ export async function getEnumerationValue(api, metahubId, enumerationId, valueId
     return response.json()
 }
 
-export async function listSetConstants(api, metahubId, setId, params = {}) {
+export async function listFixedValues(api, metahubId, setId, params = {}) {
     const query = new URLSearchParams()
 
     for (const [key, value] of Object.entries(params)) {
@@ -1005,7 +1056,7 @@ export async function listSetConstants(api, metahubId, setId, params = {}) {
     }
 
     const suffix = query.size > 0 ? `?${query.toString()}` : ''
-    const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/set/${setId}/constants${suffix}`, {
+    const response = await fetchFromApi(api, `${buildManagedEntityChildCollectionApiPath(metahubId, setId, 'set', 'fixed-values')}${suffix}`, {
         method: 'GET'
     })
     if (!response.ok) {
@@ -1015,8 +1066,10 @@ export async function listSetConstants(api, metahubId, setId, params = {}) {
     return response.json()
 }
 
-export async function getSetConstant(api, metahubId, setId, constantId) {
-    const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/set/${setId}/constant/${constantId}`, { method: 'GET' })
+export async function getFixedValue(api, metahubId, setId, constantId) {
+    const response = await fetchFromApi(api, buildManagedEntityChildItemApiPath(metahubId, setId, 'set', 'fixed-value', constantId), {
+        method: 'GET'
+    })
     if (!response.ok) {
         throw await buildError(response, `Fetching constant ${constantId} for set ${setId} in metahub ${metahubId}`)
     }

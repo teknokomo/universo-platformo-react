@@ -21,7 +21,7 @@ export type LayoutTemplateKey = 'dashboard'
 
 export interface MetahubLayoutRow {
     id: string
-    catalogId: string | null
+    linkedCollectionId: string | null
     baseLayoutId: string | null
     templateKey: LayoutTemplateKey
     name: VersionedLocalizedContent<string>
@@ -54,7 +54,7 @@ export interface LayoutListOptions {
     sortBy?: 'name' | 'created' | 'updated'
     sortOrder?: 'asc' | 'desc'
     search?: string
-    catalogId?: string
+    linkedCollectionId?: string
     includeDeleted?: boolean
 }
 
@@ -149,7 +149,7 @@ const multiInstanceSet = new Set<DashboardLayoutWidgetKey>(DASHBOARD_LAYOUT_WIDG
 
 export const createLayoutSchema = z
     .object({
-        catalogId: z.string().uuid().optional(),
+        linkedCollectionId: z.string().uuid().optional(),
         baseLayoutId: z.string().uuid().optional(),
         templateKey: layoutTemplateKeySchema.default('dashboard'),
         name: z.any(),
@@ -229,7 +229,7 @@ export class MetahubLayoutsService {
     private mapRow(row: DbRow): MetahubLayoutRow {
         return {
             id: String(row.id),
-            catalogId: typeof row.catalog_id === 'string' ? row.catalog_id : null,
+            linkedCollectionId: typeof row.catalog_id === 'string' ? row.catalog_id : null,
             baseLayoutId: typeof row.base_layout_id === 'string' ? row.base_layout_id : null,
             templateKey: (row.template_key ?? 'dashboard') as LayoutTemplateKey,
             name: row.name as VersionedLocalizedContent<string>,
@@ -265,9 +265,12 @@ export class MetahubLayoutsService {
         }
     }
 
-    private buildCatalogScopeWhereSql(catalogId: string | null | undefined, nextParamIndex: number): { sql: string; params: unknown[] } {
-        if (catalogId) {
-            return { sql: `catalog_id = $${nextParamIndex}`, params: [catalogId] }
+    private buildCatalogScopeWhereSql(
+        linkedCollectionId: string | null | undefined,
+        nextParamIndex: number
+    ): { sql: string; params: unknown[] } {
+        if (linkedCollectionId) {
+            return { sql: `catalog_id = $${nextParamIndex}`, params: [linkedCollectionId] }
         }
 
         return { sql: 'catalog_id IS NULL', params: [] }
@@ -284,7 +287,7 @@ export class MetahubLayoutsService {
         )
     }
 
-    private async assertCatalogObjectExists(db: SqlQueryable, schemaName: string, catalogId: string): Promise<void> {
+    private async assertCatalogObjectExists(db: SqlQueryable, schemaName: string, linkedCollectionId: string): Promise<void> {
         const ot = qSchemaTable(schemaName, '_mhb_objects')
         const catalogRow = await queryOne<{ id: string }>(
             db,
@@ -293,21 +296,21 @@ export class MetahubLayoutsService {
                AND kind = 'catalog'
                AND _upl_deleted = false
                AND _mhb_deleted = false`,
-            [catalogId]
+            [linkedCollectionId]
         )
 
         if (!catalogRow) {
-            throw new MetahubNotFoundError('Catalog', catalogId)
+            throw new MetahubNotFoundError('Catalog', linkedCollectionId)
         }
     }
 
     private async resolveCreateBaseLayout(
         db: SqlQueryable,
         schemaName: string,
-        catalogId: string | null | undefined,
+        linkedCollectionId: string | null | undefined,
         requestedBaseLayoutId: string | undefined
     ): Promise<LayoutScopeRow | null> {
-        if (!catalogId) {
+        if (!linkedCollectionId) {
             return null
         }
 
@@ -762,7 +765,15 @@ export class MetahubLayoutsService {
     async listLayouts(metahubId: string, options: LayoutListOptions, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const lt = qSchemaTable(schemaName, '_mhb_layouts')
-        const { limit = 20, offset = 0, sortBy = 'updated', sortOrder = 'desc', search, catalogId, includeDeleted = false } = options
+        const {
+            limit = 20,
+            offset = 0,
+            sortBy = 'updated',
+            sortOrder = 'desc',
+            search,
+            linkedCollectionId,
+            includeDeleted = false
+        } = options
 
         const conditions: string[] = []
         const params: unknown[] = []
@@ -778,7 +789,7 @@ export class MetahubLayoutsService {
             idx++
         }
 
-        const scopeClause = this.buildCatalogScopeWhereSql(catalogId ?? null, idx)
+        const scopeClause = this.buildCatalogScopeWhereSql(linkedCollectionId ?? null, idx)
         conditions.push(scopeClause.sql)
         params.push(...scopeClause.params)
         idx += scopeClause.params.length
@@ -826,7 +837,7 @@ export class MetahubLayoutsService {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId ?? undefined)
         const lt = qSchemaTable(schemaName, '_mhb_layouts')
         const now = new Date()
-        const catalogId = input.catalogId ?? null
+        const linkedCollectionId = input.linkedCollectionId ?? null
 
         const isActive = input.isActive ?? true
         const isDefault = input.isDefault ?? false
@@ -835,14 +846,14 @@ export class MetahubLayoutsService {
         }
 
         return this.exec.transaction(async (tx: SqlQueryable) => {
-            if (catalogId) {
-                await this.assertCatalogObjectExists(tx, schemaName, catalogId)
+            if (linkedCollectionId) {
+                await this.assertCatalogObjectExists(tx, schemaName, linkedCollectionId)
             }
 
-            const baseLayout = await this.resolveCreateBaseLayout(tx, schemaName, catalogId, input.baseLayoutId)
+            const baseLayout = await this.resolveCreateBaseLayout(tx, schemaName, linkedCollectionId, input.baseLayoutId)
 
             if (isDefault) {
-                const scopeClause = this.buildCatalogScopeWhereSql(catalogId, 3)
+                const scopeClause = this.buildCatalogScopeWhereSql(linkedCollectionId, 3)
                 await tx.query(
                     `UPDATE ${lt} SET is_default = false, _upl_updated_at = $1, _upl_updated_by = $2, _upl_version = _upl_version + 1
                      WHERE _upl_deleted = false AND _mhb_deleted = false AND ${scopeClause.sql}`,
@@ -851,7 +862,7 @@ export class MetahubLayoutsService {
             }
 
             const baseLayoutConfig = stripDashboardWidgetVisibilityConfig(baseLayout?.config)
-            const nextConfig = catalogId
+            const nextConfig = linkedCollectionId
                 ? { ...baseLayoutConfig, ...stripDashboardWidgetVisibilityConfig(input.config) }
                 : input.config ?? { ...buildDashboardLayoutConfig([]), [LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY]: true }
             const created = await queryOneOrThrow<DbRow>(
@@ -863,7 +874,7 @@ export class MetahubLayoutsService {
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $11, $12, 1, false, false, false, true, false, false)
                  RETURNING *`,
                 [
-                    catalogId,
+                    linkedCollectionId,
                     baseLayout?.id ?? null,
                     input.templateKey ?? 'dashboard',
                     JSON.stringify(input.name),
@@ -878,7 +889,7 @@ export class MetahubLayoutsService {
                 ]
             )
 
-            if (!catalogId && !this.shouldSkipDefaultZoneWidgetSeed(nextConfig)) {
+            if (!linkedCollectionId && !this.shouldSkipDefaultZoneWidgetSeed(nextConfig)) {
                 await this.ensureDefaultZoneWidgets(tx, schemaName, String(created.id), userId ?? null)
             }
             return this.mapRow(created)
@@ -904,7 +915,7 @@ export class MetahubLayoutsService {
                 throw new MetahubNotFoundError('Layout', layoutId)
             }
 
-            const catalogId = typeof existing.catalog_id === 'string' ? existing.catalog_id : null
+            const linkedCollectionId = typeof existing.catalog_id === 'string' ? existing.catalog_id : null
 
             const nextIsActive = input.isActive ?? Boolean(existing.is_active)
             const nextIsDefault = input.isDefault ?? Boolean(existing.is_default)
@@ -915,7 +926,7 @@ export class MetahubLayoutsService {
 
             // Prevent unsetting the last default layout.
             if (Boolean(existing.is_default) && !nextIsDefault) {
-                const scopeClause = this.buildCatalogScopeWhereSql(catalogId, 1)
+                const scopeClause = this.buildCatalogScopeWhereSql(linkedCollectionId, 1)
                 const [countRow] = await tx.query<{ count: number }>(
                     `SELECT COUNT(*)::int AS count FROM ${lt} WHERE ${ACTIVE} AND is_default = true AND ${scopeClause.sql}`,
                     scopeClause.params
@@ -928,7 +939,7 @@ export class MetahubLayoutsService {
 
             // Prevent deactivating the last active layout.
             if (!nextIsActive) {
-                const scopeClause = this.buildCatalogScopeWhereSql(catalogId, 1)
+                const scopeClause = this.buildCatalogScopeWhereSql(linkedCollectionId, 1)
                 const [countRow] = await tx.query<{ count: number }>(
                     `SELECT COUNT(*)::int AS count FROM ${lt} WHERE ${ACTIVE} AND is_active = true AND ${scopeClause.sql}`,
                     scopeClause.params
@@ -940,7 +951,7 @@ export class MetahubLayoutsService {
             }
 
             if (nextIsDefault) {
-                const scopeClause = this.buildCatalogScopeWhereSql(catalogId, 4)
+                const scopeClause = this.buildCatalogScopeWhereSql(linkedCollectionId, 4)
                 await tx.query(
                     `UPDATE ${lt} SET is_default = false, _upl_updated_at = $1, _upl_updated_by = $2, _upl_version = _upl_version + 1
                      WHERE ${ACTIVE} AND id != $3 AND ${scopeClause.sql}`,
@@ -963,13 +974,14 @@ export class MetahubLayoutsService {
 
             const updated = input.expectedVersion
                 ? await updateWithVersionCheck({
-                      executor: tx as DbExecutor,
+                      executor: tx,
                       schemaName,
                       tableName: '_mhb_layouts',
                       entityId: layoutId,
                       entityType: 'layout',
                       expectedVersion: input.expectedVersion,
-                      updateData
+                      updateData,
+                      wrapInTransaction: false
                   })
                 : await incrementVersion(tx, schemaName, '_mhb_layouts', layoutId, updateData)
 
@@ -991,12 +1003,12 @@ export class MetahubLayoutsService {
             if (!existing) {
                 throw new MetahubNotFoundError('Layout', layoutId)
             }
-            const catalogId = typeof existing.catalog_id === 'string' ? existing.catalog_id : null
+            const linkedCollectionId = typeof existing.catalog_id === 'string' ? existing.catalog_id : null
             if (existing.is_default) {
                 throw this.createConflictError('Cannot delete default layout')
             }
 
-            if (!catalogId) {
+            if (!linkedCollectionId) {
                 const [dependentCatalogLayout] = await tx.query<{ id: string }>(
                     `SELECT id FROM ${lt}
                      WHERE base_layout_id = $1 AND ${ACTIVE}
@@ -1010,7 +1022,7 @@ export class MetahubLayoutsService {
             }
 
             if (existing.is_active) {
-                const scopeClause = this.buildCatalogScopeWhereSql(catalogId, 1)
+                const scopeClause = this.buildCatalogScopeWhereSql(linkedCollectionId, 1)
                 const [countRow] = await tx.query<{ count: number }>(
                     `SELECT COUNT(*)::int AS count FROM ${lt} WHERE ${ACTIVE} AND is_active = true AND ${scopeClause.sql}`,
                     scopeClause.params

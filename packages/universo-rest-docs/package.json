@@ -4,12 +4,13 @@
     "description": "Universo Platformo REST API documentation server with generated current-state OpenAPI 3.1 specification",
     "scripts": {
         "generate:openapi": "node scripts/generate-openapi-source.js",
-        "build": "pnpm generate:openapi && pnpm build:ts && pnpm build:openapi",
+        "verify:route-sources": "node scripts/verify-route-sources.js",
+        "build": "pnpm verify:route-sources && pnpm generate:openapi && pnpm build:ts && pnpm build:openapi",
         "build:ts": "tsc",
         "build:openapi": "node scripts/bundle-openapi.js",
         "start": "node dist/index.js",
         "dev": "tsc-watch --onSuccess \"node dist/index.js\"",
-        "validate": "pnpm generate:openapi && openapi lint src/openapi/index.yml",
+        "validate": "pnpm verify:route-sources && pnpm generate:openapi && openapi lint src/openapi/index.yml",
         "validate:bundled": "openapi lint dist/openapi-bundled.yml",
         "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
     },

@@ -1,4 +1,4 @@
-import { AttributeDataType } from '@universo/types'
+import { FieldDefinitionDataType } from '@universo/types'
 import { SchemaGenerator } from '../SchemaGenerator'
 import { generateSchemaName, generateTableName, generateColumnName } from '../naming'
 
@@ -97,51 +97,51 @@ describe('SchemaGenerator', () => {
 
         describe('mapDataType', () => {
             it('should map STRING to TEXT by default', () => {
-                expect(SchemaGenerator.mapDataType(AttributeDataType.STRING)).toBe('TEXT')
+                expect(SchemaGenerator.mapDataType(FieldDefinitionDataType.STRING)).toBe('TEXT')
             })
 
             it('should map STRING to VARCHAR(n) when maxLength is specified', () => {
-                expect(SchemaGenerator.mapDataType(AttributeDataType.STRING, { maxLength: 255 })).toBe('VARCHAR(255)')
+                expect(SchemaGenerator.mapDataType(FieldDefinitionDataType.STRING, { maxLength: 255 })).toBe('VARCHAR(255)')
             })
 
             it('should map NUMBER to NUMERIC(10,0) by default', () => {
-                expect(SchemaGenerator.mapDataType(AttributeDataType.NUMBER)).toBe('NUMERIC(10,0)')
+                expect(SchemaGenerator.mapDataType(FieldDefinitionDataType.NUMBER)).toBe('NUMERIC(10,0)')
             })
 
             it('should map NUMBER with custom precision and scale', () => {
-                expect(SchemaGenerator.mapDataType(AttributeDataType.NUMBER, { precision: 15, scale: 4 })).toBe('NUMERIC(15,4)')
+                expect(SchemaGenerator.mapDataType(FieldDefinitionDataType.NUMBER, { precision: 15, scale: 4 })).toBe('NUMERIC(15,4)')
             })
 
             it('should map BOOLEAN to BOOLEAN', () => {
-                expect(SchemaGenerator.mapDataType(AttributeDataType.BOOLEAN)).toBe('BOOLEAN')
+                expect(SchemaGenerator.mapDataType(FieldDefinitionDataType.BOOLEAN)).toBe('BOOLEAN')
             })
 
             it('should map DATE to TIMESTAMPTZ by default (datetime composition)', () => {
-                expect(SchemaGenerator.mapDataType(AttributeDataType.DATE)).toBe('TIMESTAMPTZ')
+                expect(SchemaGenerator.mapDataType(FieldDefinitionDataType.DATE)).toBe('TIMESTAMPTZ')
             })
 
             it('should map DATE to DATE when dateComposition is date', () => {
-                expect(SchemaGenerator.mapDataType(AttributeDataType.DATE, { dateComposition: 'date' })).toBe('DATE')
+                expect(SchemaGenerator.mapDataType(FieldDefinitionDataType.DATE, { dateComposition: 'date' })).toBe('DATE')
             })
 
             it('should map DATE to TIME when dateComposition is time', () => {
-                expect(SchemaGenerator.mapDataType(AttributeDataType.DATE, { dateComposition: 'time' })).toBe('TIME')
+                expect(SchemaGenerator.mapDataType(FieldDefinitionDataType.DATE, { dateComposition: 'time' })).toBe('TIME')
             })
 
             it('should map DATE to TIMESTAMPTZ when dateComposition is datetime', () => {
-                expect(SchemaGenerator.mapDataType(AttributeDataType.DATE, { dateComposition: 'datetime' })).toBe('TIMESTAMPTZ')
+                expect(SchemaGenerator.mapDataType(FieldDefinitionDataType.DATE, { dateComposition: 'datetime' })).toBe('TIMESTAMPTZ')
             })
 
             it('should map REF to UUID', () => {
-                expect(SchemaGenerator.mapDataType(AttributeDataType.REF)).toBe('UUID')
+                expect(SchemaGenerator.mapDataType(FieldDefinitionDataType.REF)).toBe('UUID')
             })
 
             it('should map JSON to JSONB', () => {
-                expect(SchemaGenerator.mapDataType(AttributeDataType.JSON)).toBe('JSONB')
+                expect(SchemaGenerator.mapDataType(FieldDefinitionDataType.JSON)).toBe('JSONB')
             })
 
             it('should default unknown types to TEXT', () => {
-                expect(SchemaGenerator.mapDataType('unknown' as AttributeDataType)).toBe('TEXT')
+                expect(SchemaGenerator.mapDataType('unknown' as FieldDefinitionDataType)).toBe('TEXT')
             })
         })
     })
@@ -202,7 +202,7 @@ describe('SchemaGenerator', () => {
                     {
                         id: 'field-1111-2222-3333-444455556666',
                         codename: 'name',
-                        dataType: AttributeDataType.STRING,
+                        dataType: FieldDefinitionDataType.STRING,
                         isRequired: true
                     }
                 ]
@@ -231,7 +231,7 @@ describe('SchemaGenerator', () => {
             expect(result.schemaName).toBe('app_test123')
         })
 
-        it('should skip physical table creation for legacy-compatible custom hub kinds', async () => {
+        it('should create physical tables for custom kinds even when compatibility hints map to hub', async () => {
             const catalogId = 'catalog-1111-2222-3333-444455556666'
             const customHubId = 'hub-1111-2222-3333-444455556666'
 
@@ -245,14 +245,14 @@ describe('SchemaGenerator', () => {
                 {
                     id: customHubId,
                     codename: 'workspace_hub',
-                    kind: 'custom.hub-v2' as import('../types').RuntimeEntityKind,
+                    kind: 'custom.workspace-root' as import('../types').RuntimeEntityKind,
                     config: { compatibility: { legacyObjectKind: 'hub' } },
                     fields: []
                 }
             ])
 
             expect(result.tablesCreated).toContain('products')
-            expect(result.tablesCreated).not.toContain('workspace_hub')
+            expect(result.tablesCreated).toContain('workspace_hub')
         })
 
         it('should create business tables using explicit physical table names when provided', async () => {
@@ -311,7 +311,7 @@ describe('SchemaGenerator', () => {
                             id: 'nickname-field-1111-2222-333344445555',
                             codename: 'nickname',
                             physicalColumnName: 'nickname',
-                            dataType: AttributeDataType.STRING,
+                            dataType: FieldDefinitionDataType.STRING,
                             isRequired: true
                         }
                     ]
@@ -323,14 +323,14 @@ describe('SchemaGenerator', () => {
     })
 
     describe('addForeignKey', () => {
-        it('skips physical FK for REF fields targeting legacy-compatible custom set constants', async () => {
+        it('skips physical FK for REF fields targeting set constants', async () => {
             const field = {
                 id: 'field-ref-set-0000-0000-0000-000000000001',
                 codename: 'version',
-                dataType: AttributeDataType.REF,
+                dataType: FieldDefinitionDataType.REF,
                 isRequired: false,
                 targetEntityId: 'set-0000-0000-0000-000000000001',
-                targetEntityKind: 'custom.set-v2' as import('../types').RuntimeEntityKind
+                targetEntityKind: 'set' as import('../types').RuntimeEntityKind
             }
             const entity = {
                 id: 'catalog-0000-0000-0000-000000000001',
@@ -404,7 +404,7 @@ describe('SchemaGenerator', () => {
                             {
                                 id: 'field-1',
                                 codename: 'name',
-                                dataType: AttributeDataType.STRING,
+                                dataType: FieldDefinitionDataType.STRING,
                                 isRequired: false,
                                 presentation: { name: emptyVlc }
                             }
@@ -540,7 +540,7 @@ describe('SchemaGenerator', () => {
                             id: 'field-nickname-1',
                             codename: 'nickname',
                             physicalColumnName: 'nickname',
-                            dataType: AttributeDataType.STRING,
+                            dataType: FieldDefinitionDataType.STRING,
                             isRequired: true,
                             presentation: { name: emptyVlc }
                         }

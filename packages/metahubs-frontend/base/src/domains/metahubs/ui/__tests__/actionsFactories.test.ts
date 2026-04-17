@@ -3,6 +3,25 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 type DescriptorLike = { id?: string; dialog?: unknown; onSelect?: unknown }
 type ChildrenProps = { children?: unknown }
 
+const asDescriptors = (value: unknown): readonly DescriptorLike[] => value as unknown as readonly DescriptorLike[]
+
+const asDialogDescriptors = (value: unknown): readonly (DescriptorLike & { dialog?: { buildProps?: (ctx: any) => any } })[] =>
+    value as unknown as readonly (DescriptorLike & { dialog?: { buildProps?: (ctx: any) => any } })[]
+
+const buildLinkedCollectionDisplay = () => ({
+    id: 'catalog-1',
+    metahubId: 'metahub-1',
+    name: 'LinkedCollectionEntity 1',
+    codename: 'CatalogOne',
+    description: '',
+    isSingleHub: false,
+    isRequiredHub: false,
+    sortOrder: 0,
+    createdAt: '2026-04-14T00:00:00.000Z',
+    updatedAt: '2026-04-14T00:00:00.000Z',
+    treeEntityId: 'hub-1'
+})
+
 const createEntityActions = vi.fn((config: unknown) => config)
 const createMemberActions = vi.fn((config: unknown) => config)
 
@@ -51,7 +70,7 @@ describe('Metahubs page action factories', () => {
 
         expect(createEntityActions).not.toHaveBeenCalled()
 
-        const descriptors = mod.default as DescriptorLike[]
+        const descriptors = asDescriptors(mod.default)
         expect(Array.isArray(descriptors)).toBe(true)
 
         const edit = descriptors.find((d) => d.id === 'edit')
@@ -59,17 +78,17 @@ describe('Metahubs page action factories', () => {
         const del = descriptors.find((d) => d.id === 'delete')
 
         expect(edit).toBeTruthy()
-        expect(edit.dialog).toBeTruthy()
+        expect(edit?.dialog).toBeTruthy()
         expect(copy).toBeTruthy()
-        expect(copy.dialog).toBeTruthy()
+        expect(copy?.dialog).toBeTruthy()
         expect(del).toBeTruthy()
-        expect(del.dialog || del.onSelect).toBeTruthy()
+        expect(del?.dialog || del?.onSelect).toBeTruthy()
     }, 30000)
 
     it('Metahub edit dialog opens the scripts tab in metahub-level scope', async () => {
         const mod = await import('../MetahubActions')
 
-        const descriptors = mod.default as Array<DescriptorLike & { dialog?: { buildProps?: (ctx: any) => any } }>
+        const descriptors = asDialogDescriptors(mod.default)
         const edit = descriptors.find((d) => d.id === 'edit')
         expect(edit?.dialog?.buildProps).toBeTypeOf('function')
 
@@ -89,11 +108,11 @@ describe('Metahubs page action factories', () => {
         expect(scriptsTab.content.props.attachedToId).toBeNull()
     })
 
-    it('HubActions exports edit/copy/delete descriptors for localized forms', async () => {
-        const mod = await import('../../../hubs/ui/HubActions')
+    it('TreeEntityActions exports edit/copy/delete descriptors for localized forms', async () => {
+        const mod = await import('../../../entities/presets/ui/TreeEntityActions')
 
-        // HubActions exports an array of ActionDescriptors directly (not via createEntityActions)
-        const descriptors = mod.default as DescriptorLike[]
+        // TreeEntityActions exports an array of ActionDescriptors directly (not via createEntityActions)
+        const descriptors = asDescriptors(mod.default)
         expect(Array.isArray(descriptors)).toBe(true)
 
         const edit = descriptors.find((d) => d.id === 'edit')
@@ -101,45 +120,46 @@ describe('Metahubs page action factories', () => {
         const del = descriptors.find((d) => d.id === 'delete')
 
         expect(edit).toBeTruthy()
-        expect(edit.dialog).toBeTruthy()
+        expect(edit?.dialog).toBeTruthy()
         expect(copy).toBeTruthy()
-        expect(copy.dialog).toBeTruthy()
+        expect(copy?.dialog).toBeTruthy()
         expect(del).toBeTruthy()
-        expect(del.dialog || del.onSelect).toBeTruthy()
+        expect(del?.dialog || del?.onSelect).toBeTruthy()
     }, 20000)
 
-    it('CatalogActions exports edit/copy/delete descriptors for localized forms', async () => {
-        const mod = await import('../../../catalogs/ui/CatalogActions')
+    it('LinkedCollectionActions exports edit/copy/delete descriptors for localized forms', async () => {
+        const mod = await import('../../../entities/presets/ui/LinkedCollectionActions')
 
-        // CatalogActions exports an array of ActionDescriptors directly (not via createEntityActions)
-        const descriptors = mod.default as DescriptorLike[]
+        // LinkedCollectionActions exports an array of ActionDescriptors directly (not via createEntityActions)
+        const descriptors = asDescriptors(mod.default)
         expect(Array.isArray(descriptors)).toBe(true)
         expect(mod.buildInitialValues).toBeTypeOf('function')
-        expect(mod.validateCatalogForm).toBeTypeOf('function')
+        expect(mod.validateLinkedCollectionForm).toBeTypeOf('function')
 
         const edit = descriptors.find((d) => d.id === 'edit')
         const copy = descriptors.find((d) => d.id === 'copy')
         const del = descriptors.find((d) => d.id === 'delete')
 
         expect(edit).toBeTruthy()
-        expect(edit.dialog).toBeTruthy()
+        expect(edit?.dialog).toBeTruthy()
         expect(copy).toBeTruthy()
-        expect(copy.dialog).toBeTruthy()
+        expect(copy?.dialog).toBeTruthy()
         expect(del).toBeTruthy()
-        expect(del.dialog || del.onSelect).toBeTruthy()
+        expect(del?.dialog || del?.onSelect).toBeTruthy()
     }, 30000)
 
-    it('Catalog edit dialog passes metahub and catalog context into the layout tab', async () => {
-        const mod = await import('../../../catalogs/ui/CatalogActions')
+    it('LinkedCollectionEntity edit dialog passes metahub and catalog context into the layout tab', async () => {
+        const mod = await import('../../../entities/presets/ui/LinkedCollectionActions')
 
-        const descriptors = mod.default as Array<DescriptorLike & { dialog?: { buildProps?: (ctx: any) => any } }>
+        const descriptors = asDialogDescriptors(mod.default)
         const edit = descriptors.find((d) => d.id === 'edit')
         expect(edit?.dialog?.buildProps).toBeTypeOf('function')
 
         const props = edit!.dialog!.buildProps!({
-            entity: { id: 'catalog-1', name: 'Catalog 1', codename: 'CatalogOne' },
+            entity: buildLinkedCollectionDisplay(),
+            entityKind: 'linkedCollection',
             catalogMap: new Map(),
-            hubs: [],
+            treeEntities: [],
             metahubId: 'metahub-1',
             uiLocale: 'en',
             t: (key: string, fallback?: string) => fallback ?? key
@@ -147,9 +167,10 @@ describe('Metahubs page action factories', () => {
 
         expect(
             mod.buildInitialValues({
-                entity: { id: 'catalog-1', name: 'Catalog 1', codename: 'CatalogOne', hubId: 'hub-1' },
+                entity: buildLinkedCollectionDisplay(),
+                entityKind: 'linkedCollection',
                 catalogMap: new Map(),
-                hubs: [],
+                treeEntities: [],
                 metahubId: 'metahub-1',
                 uiLocale: 'en',
                 t: (key: string, fallback?: string) => fallback ?? key
@@ -157,12 +178,12 @@ describe('Metahubs page action factories', () => {
         ).toEqual(
             expect.objectContaining({
                 codenameTouched: true,
-                hubIds: ['hub-1']
+                treeEntityIds: ['hub-1']
             })
         )
 
         const tabs = props.tabs({
-            values: { hubIds: [], isSingleHub: false, isRequiredHub: false },
+            values: { treeEntityIds: [], isSingleHub: false, isRequiredHub: false },
             setValue: vi.fn(),
             isLoading: false,
             errors: {}
@@ -171,20 +192,21 @@ describe('Metahubs page action factories', () => {
 
         expect(layoutTab).toBeTruthy()
         expect(layoutTab.content.props.metahubId).toBe('metahub-1')
-        expect(layoutTab.content.props.catalogId).toBe('catalog-1')
+        expect(layoutTab.content.props.linkedCollectionId).toBe('catalog-1')
     })
 
-    it('Catalog copy dialog build props remain callable for fire-and-forget copy flows', async () => {
-        const mod = await import('../../../catalogs/ui/CatalogActions')
+    it('LinkedCollectionEntity copy dialog build props remain callable for fire-and-forget copy flows', async () => {
+        const mod = await import('../../../entities/presets/ui/LinkedCollectionActions')
 
-        const descriptors = mod.default as Array<DescriptorLike & { dialog?: { buildProps?: (ctx: any) => any } }>
+        const descriptors = asDialogDescriptors(mod.default)
         const copy = descriptors.find((d) => d.id === 'copy')
         expect(copy?.dialog?.buildProps).toBeTypeOf('function')
 
         const props = copy!.dialog!.buildProps!({
-            entity: { id: 'catalog-1', name: 'Catalog 1', codename: 'CatalogOne', hubId: 'hub-1' },
+            entity: buildLinkedCollectionDisplay(),
+            entityKind: 'linkedCollection',
             catalogMap: new Map(),
-            hubs: [],
+            treeEntities: [],
             metahubId: 'metahub-1',
             uiLocale: 'en',
             t: (key: string, fallback?: string) => fallback ?? key
@@ -194,15 +216,15 @@ describe('Metahubs page action factories', () => {
             expect.objectContaining({
                 codename: null,
                 codenameTouched: false,
-                hubIds: ['hub-1']
+                treeEntityIds: ['hub-1']
             })
         )
     })
 
-    it('EnumerationActions exports edit/copy/delete descriptors for localized forms', async () => {
-        const mod = await import('../../../enumerations/ui/EnumerationActions')
+    it('OptionListActions exports edit/copy/delete descriptors for localized forms', async () => {
+        const mod = await import('../../../entities/presets/ui/OptionListActions')
 
-        const descriptors = mod.default as DescriptorLike[]
+        const descriptors = asDescriptors(mod.default)
         expect(Array.isArray(descriptors)).toBe(true)
 
         const edit = descriptors.find((d) => d.id === 'edit')
@@ -210,11 +232,11 @@ describe('Metahubs page action factories', () => {
         const del = descriptors.find((d) => d.id === 'delete')
 
         expect(edit).toBeTruthy()
-        expect(edit.dialog).toBeTruthy()
+        expect(edit?.dialog).toBeTruthy()
         expect(copy).toBeTruthy()
-        expect(copy.dialog).toBeTruthy()
+        expect(copy?.dialog).toBeTruthy()
         expect(del).toBeTruthy()
-        expect(del.dialog || del.onSelect).toBeTruthy()
+        expect(del?.dialog || del?.onSelect).toBeTruthy()
     }, 30000)
 
     it('MetahubMemberActions passes correct config', async () => {

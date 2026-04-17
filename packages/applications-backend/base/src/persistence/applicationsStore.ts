@@ -94,7 +94,7 @@ const activeRowPredicate = (alias?: string): string => {
     return activeAppRowCondition(alias)
 }
 
-const assertManagedApplicationSchemaName = (schemaName: string): void => {
+const assertApplicationSchemaName = (schemaName: string): void => {
     if (!schemaName.startsWith('app_') || !isValidSchemaName(schemaName)) {
         throw new Error(`Invalid application schema name: ${schemaName}`)
     }
@@ -993,7 +993,7 @@ export async function deleteApplicationWithSchema(
 ): Promise<boolean> {
     return executor.transaction(async (trx) => {
         if (input.schemaName) {
-            assertManagedApplicationSchemaName(input.schemaName)
+            assertApplicationSchemaName(input.schemaName)
             await trx.query(`DROP SCHEMA IF EXISTS ${quoteIdentifier(input.schemaName)} CASCADE`)
         }
 

@@ -13,7 +13,7 @@ Scripts currently cover four product needs:
 
 - add server logic that reacts to runtime events;
 - expose client code for widgets and interactive UI;
-- share reusable Common-section helpers through `general/library` modules and `@shared/<codename>` imports;
+- share reusable Resources-workspace helpers through library modules and `@shared/<codename>` imports;
 - attach custom logic to Common, metahub-level, and entity-level design surfaces.
 
 ## Supported Contract
@@ -46,12 +46,12 @@ Role choice is not cosmetic. It drives the allowed capabilities, default capabil
 | `widget` | Interactive widgets such as the quiz widget. | Widget drafts default to the client RPC capability needed for runtime bridges. |
 | `module` | Shared business logic modules. | Use this for non-widget runtime helpers. |
 | `lifecycle` | Event-driven server hooks. | Lifecycle handlers are never callable through public runtime RPC. |
-| `library` | Shared Common-section helpers. | Libraries are import-only, stay pure, and cannot declare decorators or runtime ctx access. |
+| `library` | Shared Resources-workspace helpers. | Libraries are import-only, stay pure, and cannot declare decorators or runtime ctx access. |
 
 ## Shared Library Contract
 
 - Library scripts are authored only from Common -> Scripts with attachment scope `general`.
-- `general` and `library` are inseparable: Common rejects any other role for `general`, and new `library` authoring is rejected outside Common/general.
+- `general` and `library` are inseparable: Resources rejects any other role for `general`, and new `library` authoring is rejected outside the Resources workspace.
 - Libraries are compiled for dependency resolution and validation before consumer scripts are bundled.
 - Consumer scripts import them through `@shared/<codename>` and keep ordinary scope-specific attachment rules.
 - Libraries are not exposed as direct runtime entrypoints, RPC targets, or lifecycle handlers.

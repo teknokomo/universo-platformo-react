@@ -323,7 +323,8 @@ export class EventBindingService {
                           entityId: bindingId,
                           entityType: 'event_binding',
                           expectedVersion: input.expectedVersion,
-                          updateData
+                          updateData,
+                          wrapInTransaction: false
                       })
                     : await incrementVersion(tx, schemaName, TABLE, bindingId, updateData)
 

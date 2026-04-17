@@ -97,21 +97,21 @@ export function useCreateBranch() {
                 enqueueSnackbar(t('branches.numberConflict', 'Branch numbering conflict. Please try again.'), { variant: 'warning' })
                 return
             }
-            if (status === 400 && compatibilityCode === 'BRANCH_COPY_ENUM_REFERENCES') {
+            if (status === 400 && compatibilityCode === 'BRANCH_COPY_OPTION_LIST_REFERENCES') {
                 enqueueSnackbar(
                     t(
-                        'branches.copyEnumReferencesError',
-                        'Cannot disable enumerations copy while related catalogs or hubs are being copied.'
+                        'branches.copyOptionListReferencesError',
+                        'Cannot disable option list copy while copied entity groups still reference option lists.'
                     ),
                     { variant: 'warning' }
                 )
                 return
             }
-            if (status === 400 && compatibilityCode === 'BRANCH_COPY_DANGLING_REFERENCES') {
+            if (status === 400 && compatibilityCode === 'BRANCH_COPY_DANGLING_ENTITY_REFERENCES') {
                 enqueueSnackbar(
                     t(
-                        'branches.copyDanglingReferencesError',
-                        'Copy options would create invalid references. Keep all referenced entity groups enabled.'
+                        'branches.copyDanglingEntityReferencesError',
+                        'Copy options would create invalid entity references. Keep all referenced entity groups enabled.'
                     ),
                     { variant: 'warning' }
                 )
@@ -193,21 +193,21 @@ export function useCopyBranch() {
                 enqueueSnackbar(t('branches.numberConflict', 'Branch numbering conflict. Please try again.'), { variant: 'warning' })
                 return
             }
-            if (status === 400 && compatibilityCode === 'BRANCH_COPY_ENUM_REFERENCES') {
+            if (status === 400 && compatibilityCode === 'BRANCH_COPY_OPTION_LIST_REFERENCES') {
                 enqueueSnackbar(
                     t(
-                        'branches.copyEnumReferencesError',
-                        'Cannot disable enumerations copy while related catalogs or hubs are being copied.'
+                        'branches.copyOptionListReferencesError',
+                        'Cannot disable option list copy while copied entity groups still reference option lists.'
                     ),
                     { variant: 'warning' }
                 )
                 return
             }
-            if (status === 400 && compatibilityCode === 'BRANCH_COPY_DANGLING_REFERENCES') {
+            if (status === 400 && compatibilityCode === 'BRANCH_COPY_DANGLING_ENTITY_REFERENCES') {
                 enqueueSnackbar(
                     t(
-                        'branches.copyDanglingReferencesError',
-                        'Copy options would create invalid references. Keep all referenced entity groups enabled.'
+                        'branches.copyDanglingEntityReferencesError',
+                        'Copy options would create invalid entity references. Keep all referenced entity groups enabled.'
                     ),
                     { variant: 'warning' }
                 )

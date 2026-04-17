@@ -293,21 +293,26 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
     const [currentScore, setCurrentScore] = useState(0)
 
     const applicationId = details?.applicationId
-    const catalogId = details?.catalogId ?? null
+    const linkedCollectionId = details?.linkedCollectionId ?? null
     const apiBaseUrl = details?.apiBaseUrl ?? '/api/v1'
     const mountMethodName = widgetConfig.mountMethodName || 'mount'
     const submitMethodName = widgetConfig.submitMethodName || 'submit'
 
     const scriptsQuery = useQuery({
-        queryKey: ['quiz-widget-scripts', applicationId, catalogId, widgetConfig.scriptCodename, widgetConfig.attachedToKind],
+        queryKey: ['quiz-widget-scripts', applicationId, linkedCollectionId, widgetConfig.scriptCodename, widgetConfig.attachedToKind],
         enabled: Boolean(applicationId),
         queryFn: async () => {
-            const shouldQueryCatalog = widgetConfig.attachedToKind !== 'metahub' && Boolean(catalogId)
+            const shouldQueryCatalog = widgetConfig.attachedToKind !== 'metahub' && Boolean(linkedCollectionId)
             const shouldQueryMetahub = widgetConfig.attachedToKind !== 'catalog'
 
             const [catalogScripts, metahubScripts] = await Promise.all([
                 shouldQueryCatalog
-                    ? fetchRuntimeScripts({ apiBaseUrl, applicationId: applicationId!, attachedToKind: 'catalog', attachedToId: catalogId })
+                    ? fetchRuntimeScripts({
+                          apiBaseUrl,
+                          applicationId: applicationId!,
+                          attachedToKind: 'catalog',
+                          attachedToId: linkedCollectionId
+                      })
                     : Promise.resolve([]),
                 shouldQueryMetahub
                     ? fetchRuntimeScripts({ apiBaseUrl, applicationId: applicationId!, attachedToKind: 'metahub' })
@@ -350,7 +355,7 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
     const clientBundle = clientBundleQuery.data
 
     const quizModelQuery = useQuery({
-        queryKey: ['quiz-widget-model', selectedScript?.id, catalogId, mountMethodName],
+        queryKey: ['quiz-widget-model', selectedScript?.id, linkedCollectionId, mountMethodName],
         enabled: Boolean(applicationId && selectedScript && clientBundle),
         queryFn: async () => {
             if (!applicationId || !selectedScript || !clientBundle) {

@@ -26,7 +26,7 @@ import { metahubsQueryKeys } from '../../shared'
 import * as metahubsApi from '../api'
 import type { MetahubInput } from '../api'
 import type {
-    LegacyMetahubInput,
+    MetahubDraftInput,
     UpdateMetahubParams,
     CopyMetahubParams,
     UpdateMemberRoleParams,
@@ -55,7 +55,7 @@ export function useCreateMetahub() {
 
     return useMutation({
         mutationKey: ['metahubs', 'create'],
-        mutationFn: async (data: LegacyMetahubInput | MetahubInput) => {
+        mutationFn: async (data: MetahubDraftInput | MetahubInput) => {
             const locale = normalizeLocale(i18n.language)
             const payload: MetahubInput =
                 typeof data.name === 'string'
@@ -97,8 +97,8 @@ export function useCreateMetahub() {
                 description: isLocalized ? (data as MetahubLocalizedPayload).description : undefined,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
-                hubsCount: 0,
-                catalogsCount: 0,
+                treeEntitiesCount: 0,
+                linkedCollectionsCount: 0,
                 membersCount: 1,
                 role: 'owner',
                 accessType: 'member',

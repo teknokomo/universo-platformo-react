@@ -1,11 +1,6 @@
 import { qSchemaTable } from '@universo/database'
 import { ScriptEngine } from '@universo/scripting-engine'
-import {
-    hasScriptCapability,
-    isServerScriptMethodTarget,
-    type MetahubScriptRecord,
-    type ScriptAttachmentKind
-} from '@universo/types'
+import { hasScriptCapability, isServerScriptMethodTarget, type MetahubScriptRecord, type ScriptAttachmentKind } from '@universo/types'
 import { queryOne, type DbExecutor } from '@universo/utils/database'
 import { codenamePrimaryTextSql, getCodenameText } from '../../shared/codename'
 import { createLogger } from '../../../utils/logger'
@@ -81,10 +76,7 @@ const normalizeLifecycleRow = (row: StoredLifecycleObjectRow): Record<string, un
 }
 
 export class EntityActionExecutionService {
-    constructor(
-        private readonly scriptsService: MetahubScriptsService,
-        private readonly engine: ScriptEngine = new ScriptEngine()
-    ) {}
+    constructor(private readonly scriptsService: MetahubScriptsService, private readonly engine: ScriptEngine = new ScriptEngine()) {}
 
     readonly execute: EntityActionExecutor = async (request) => {
         if (request.action.actionType !== 'script') {

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { catalogRuntimeViewConfigSchema, dashboardLayoutConfigSchema } from '@universo/types'
+import { linkedCollectionRuntimeViewConfigSchema, dashboardLayoutConfigSchema } from '@universo/types'
 
 export type { DashboardLayoutConfig } from '@universo/types'
 
@@ -122,15 +122,15 @@ export const appDataResponseSchema = z.object({
             codename: z.string(),
             tableName: z.string(),
             name: z.string(),
-            runtimeConfig: catalogRuntimeViewConfigSchema.optional()
+            runtimeConfig: linkedCollectionRuntimeViewConfigSchema.optional()
         })
         .optional(),
-    catalog: z.object({
+    linkedCollection: z.object({
         id: z.string(),
         codename: z.string(),
         tableName: z.string(),
         name: z.string(),
-        runtimeConfig: catalogRuntimeViewConfigSchema.optional()
+        runtimeConfig: linkedCollectionRuntimeViewConfigSchema.optional()
     }),
     sections: z
         .array(
@@ -139,25 +139,25 @@ export const appDataResponseSchema = z.object({
                 codename: z.string(),
                 tableName: z.string(),
                 name: z.string(),
-                runtimeConfig: catalogRuntimeViewConfigSchema.optional()
+                runtimeConfig: linkedCollectionRuntimeViewConfigSchema.optional()
             })
         )
         .optional()
         .default([]),
-    catalogs: z
+    linkedCollections: z
         .array(
             z.object({
                 id: z.string(),
                 codename: z.string(),
                 tableName: z.string(),
                 name: z.string(),
-                runtimeConfig: catalogRuntimeViewConfigSchema.optional()
+                runtimeConfig: linkedCollectionRuntimeViewConfigSchema.optional()
             })
         )
         .optional()
         .default([]),
     activeSectionId: z.string().optional(),
-    activeCatalogId: z.string().optional(),
+    activeLinkedCollectionId: z.string().optional(),
     columns: z.array(
         z.object({
             id: z.string(),
@@ -305,8 +305,8 @@ export const appDataResponseSchema = z.object({
                         icon: z.string().nullable().optional(),
                         href: z.string().nullable().optional(),
                         sectionId: z.string().nullable().optional(),
-                        catalogId: z.string().nullable().optional(),
-                        hubId: z.string().nullable().optional(),
+                        linkedCollectionId: z.string().nullable().optional(),
+                        treeEntityId: z.string().nullable().optional(),
                         sortOrder: z.number().optional().default(0),
                         isActive: z.boolean().optional().default(true)
                     })
@@ -329,11 +329,11 @@ export async function fetchAppData(options: {
     limit: number
     offset: number
     locale: string
-    catalogId?: string
+    linkedCollectionId?: string
     sectionId?: string
 }): Promise<AppDataResponse> {
-    const { apiBaseUrl, applicationId, limit, offset, locale, catalogId, sectionId } = options
-    const resolvedSectionId = sectionId ?? catalogId
+    const { apiBaseUrl, applicationId, limit, offset, locale, linkedCollectionId, sectionId } = options
+    const resolvedSectionId = sectionId ?? linkedCollectionId
     const normalizedBase = apiBaseUrl.replace(/\/$/, '')
     const runtimePath = `${normalizedBase}/applications/${applicationId}/runtime`
     const isAbsoluteBase = /^https?:\/\//i.test(normalizedBase)
@@ -342,7 +342,7 @@ export async function fetchAppData(options: {
     url.searchParams.set('offset', String(offset))
     url.searchParams.set('locale', locale)
     if (resolvedSectionId) {
-        url.searchParams.set('catalogId', resolvedSectionId)
+        url.searchParams.set('linkedCollectionId', resolvedSectionId)
     }
 
     const res = await fetch(url.toString(), { credentials: 'include' })
@@ -368,14 +368,14 @@ export async function fetchAppRow(options: {
     apiBaseUrl: string
     applicationId: string
     rowId: string
-    catalogId?: string
+    linkedCollectionId?: string
     sectionId?: string
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, rowId, catalogId, sectionId } = options
-    const resolvedSectionId = sectionId ?? catalogId
+    const { apiBaseUrl, applicationId, rowId, linkedCollectionId, sectionId } = options
+    const resolvedSectionId = sectionId ?? linkedCollectionId
     let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}`)
     if (resolvedSectionId) {
-        url += `?catalogId=${encodeURIComponent(resolvedSectionId)}`
+        url += `?linkedCollectionId=${encodeURIComponent(resolvedSectionId)}`
     }
 
     const res = await fetch(url, { credentials: 'include' })
@@ -389,16 +389,16 @@ export async function fetchAppRow(options: {
 export async function createAppRow(options: {
     apiBaseUrl: string
     applicationId: string
-    catalogId?: string
+    linkedCollectionId?: string
     sectionId?: string
     data: Record<string, unknown>
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, catalogId, sectionId, data } = options
-    const resolvedSectionId = sectionId ?? catalogId
+    const { apiBaseUrl, applicationId, linkedCollectionId, sectionId, data } = options
+    const resolvedSectionId = sectionId ?? linkedCollectionId
     const url = buildAppApiUrl(apiBaseUrl, applicationId, '/rows')
 
     const body: Record<string, unknown> = { data }
-    if (resolvedSectionId) body.catalogId = resolvedSectionId
+    if (resolvedSectionId) body.linkedCollectionId = resolvedSectionId
 
     const res = await fetchWithCsrf(apiBaseUrl, url, {
         method: 'POST',
@@ -416,16 +416,16 @@ export async function updateAppRow(options: {
     apiBaseUrl: string
     applicationId: string
     rowId: string
-    catalogId?: string
+    linkedCollectionId?: string
     sectionId?: string
     data: Record<string, unknown>
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, rowId, catalogId, sectionId, data } = options
-    const resolvedSectionId = sectionId ?? catalogId
+    const { apiBaseUrl, applicationId, rowId, linkedCollectionId, sectionId, data } = options
+    const resolvedSectionId = sectionId ?? linkedCollectionId
     const url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}`)
 
     const body: Record<string, unknown> = { data }
-    if (resolvedSectionId) body.catalogId = resolvedSectionId
+    if (resolvedSectionId) body.linkedCollectionId = resolvedSectionId
 
     const res = await fetchWithCsrf(apiBaseUrl, url, {
         method: 'PATCH',
@@ -443,14 +443,14 @@ export async function deleteAppRow(options: {
     apiBaseUrl: string
     applicationId: string
     rowId: string
-    catalogId?: string
+    linkedCollectionId?: string
     sectionId?: string
 }): Promise<void> {
-    const { apiBaseUrl, applicationId, rowId, catalogId, sectionId } = options
-    const resolvedSectionId = sectionId ?? catalogId
+    const { apiBaseUrl, applicationId, rowId, linkedCollectionId, sectionId } = options
+    const resolvedSectionId = sectionId ?? linkedCollectionId
     let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}`)
     if (resolvedSectionId) {
-        url += `?catalogId=${encodeURIComponent(resolvedSectionId)}`
+        url += `?linkedCollectionId=${encodeURIComponent(resolvedSectionId)}`
     }
 
     const res = await fetchWithCsrf(apiBaseUrl, url, { method: 'DELETE' })
@@ -464,15 +464,15 @@ export async function copyAppRow(options: {
     apiBaseUrl: string
     applicationId: string
     rowId: string
-    catalogId?: string
+    linkedCollectionId?: string
     sectionId?: string
     copyChildTables?: boolean
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, rowId, catalogId, sectionId, copyChildTables = true } = options
-    const resolvedSectionId = sectionId ?? catalogId
+    const { apiBaseUrl, applicationId, rowId, linkedCollectionId, sectionId, copyChildTables = true } = options
+    const resolvedSectionId = sectionId ?? linkedCollectionId
     const url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}/copy`)
     const body: Record<string, unknown> = { copyChildTables }
-    if (resolvedSectionId) body.catalogId = resolvedSectionId
+    if (resolvedSectionId) body.linkedCollectionId = resolvedSectionId
 
     const res = await fetchWithCsrf(apiBaseUrl, url, {
         method: 'POST',
@@ -503,13 +503,13 @@ export async function fetchTabularRows(options: {
     applicationId: string
     parentRecordId: string
     attributeId: string
-    catalogId: string
+    linkedCollectionId: string
     sectionId?: string
 }): Promise<TabularRowsResponse> {
-    const { apiBaseUrl, applicationId, parentRecordId, attributeId, catalogId, sectionId } = options
-    const resolvedSectionId = sectionId ?? catalogId
+    const { apiBaseUrl, applicationId, parentRecordId, attributeId, linkedCollectionId, sectionId } = options
+    const resolvedSectionId = sectionId ?? linkedCollectionId
     let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${attributeId}`)
-    url += `?catalogId=${encodeURIComponent(resolvedSectionId)}`
+    url += `?linkedCollectionId=${encodeURIComponent(resolvedSectionId)}`
 
     const res = await fetch(url, { credentials: 'include' })
     if (!res.ok) {
@@ -529,14 +529,14 @@ export async function createTabularRow(options: {
     applicationId: string
     parentRecordId: string
     attributeId: string
-    catalogId: string
+    linkedCollectionId: string
     sectionId?: string
     data: Record<string, unknown>
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, parentRecordId, attributeId, catalogId, sectionId, data } = options
-    const resolvedSectionId = sectionId ?? catalogId
+    const { apiBaseUrl, applicationId, parentRecordId, attributeId, linkedCollectionId, sectionId, data } = options
+    const resolvedSectionId = sectionId ?? linkedCollectionId
     let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${attributeId}`)
-    url += `?catalogId=${encodeURIComponent(resolvedSectionId)}`
+    url += `?linkedCollectionId=${encodeURIComponent(resolvedSectionId)}`
 
     const res = await fetchWithCsrf(apiBaseUrl, url, {
         method: 'POST',
@@ -555,15 +555,15 @@ export async function updateTabularRow(options: {
     applicationId: string
     parentRecordId: string
     attributeId: string
-    catalogId: string
+    linkedCollectionId: string
     sectionId?: string
     childRowId: string
     data: Record<string, unknown>
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, parentRecordId, attributeId, catalogId, sectionId, childRowId, data } = options
-    const resolvedSectionId = sectionId ?? catalogId
+    const { apiBaseUrl, applicationId, parentRecordId, attributeId, linkedCollectionId, sectionId, childRowId, data } = options
+    const resolvedSectionId = sectionId ?? linkedCollectionId
     let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${attributeId}/${encodeURIComponent(childRowId)}`)
-    url += `?catalogId=${encodeURIComponent(resolvedSectionId)}`
+    url += `?linkedCollectionId=${encodeURIComponent(resolvedSectionId)}`
 
     const res = await fetchWithCsrf(apiBaseUrl, url, {
         method: 'PATCH',
@@ -582,14 +582,14 @@ export async function deleteTabularRow(options: {
     applicationId: string
     parentRecordId: string
     attributeId: string
-    catalogId: string
+    linkedCollectionId: string
     sectionId?: string
     childRowId: string
 }): Promise<void> {
-    const { apiBaseUrl, applicationId, parentRecordId, attributeId, catalogId, sectionId, childRowId } = options
-    const resolvedSectionId = sectionId ?? catalogId
+    const { apiBaseUrl, applicationId, parentRecordId, attributeId, linkedCollectionId, sectionId, childRowId } = options
+    const resolvedSectionId = sectionId ?? linkedCollectionId
     let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${attributeId}/${encodeURIComponent(childRowId)}`)
-    url += `?catalogId=${encodeURIComponent(resolvedSectionId)}`
+    url += `?linkedCollectionId=${encodeURIComponent(resolvedSectionId)}`
 
     const res = await fetchWithCsrf(apiBaseUrl, url, { method: 'DELETE' })
     if (!res.ok) {
@@ -603,18 +603,18 @@ export async function copyTabularRow(options: {
     applicationId: string
     parentRecordId: string
     attributeId: string
-    catalogId: string
+    linkedCollectionId: string
     sectionId?: string
     childRowId: string
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, parentRecordId, attributeId, catalogId, sectionId, childRowId } = options
-    const resolvedSectionId = sectionId ?? catalogId
+    const { apiBaseUrl, applicationId, parentRecordId, attributeId, linkedCollectionId, sectionId, childRowId } = options
+    const resolvedSectionId = sectionId ?? linkedCollectionId
     let url = buildAppApiUrl(
         apiBaseUrl,
         applicationId,
         `/rows/${parentRecordId}/tabular/${attributeId}/${encodeURIComponent(childRowId)}/copy`
     )
-    url += `?catalogId=${encodeURIComponent(resolvedSectionId)}`
+    url += `?linkedCollectionId=${encodeURIComponent(resolvedSectionId)}`
 
     const res = await fetchWithCsrf(apiBaseUrl, url, { method: 'POST' })
     if (!res.ok) {

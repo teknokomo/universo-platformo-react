@@ -3,21 +3,17 @@ import { MetaEntityKind } from '@universo/types'
 import { EntityTypeResolver } from '../../domains/shared/entityTypeResolver'
 
 describe('EntityTypeResolver', () => {
-    it('resolves built-in entity kinds from the shared registry', async () => {
+    it('returns null for standard kinds without metahub DB context', async () => {
         const resolver = new EntityTypeResolver()
         const resolved = await resolver.resolve(MetaEntityKind.CATALOG)
 
-        expect(resolved).not.toBeNull()
-        expect(resolved?.kindKey).toBe(MetaEntityKind.CATALOG)
-        expect(resolved?.source).toBe('builtin')
+        expect(resolved).toBeNull()
     })
 
     it('resolves custom kinds through the DB-backed entity type service when metahub context is provided', async () => {
         const mockEntityTypeService = {
             resolveType: jest.fn(async () => ({
                 kindKey: 'custom_registry',
-                source: 'custom',
-                isBuiltin: false,
                 components: { dataSchema: { enabled: true } },
                 ui: { iconName: 'IconBolt', tabs: ['general'], sidebarSection: 'objects', nameKey: 'Custom Registry' }
             }))
@@ -27,7 +23,6 @@ describe('EntityTypeResolver', () => {
         const resolved = await resolver.resolve('custom_registry', { metahubId: 'metahub-1', userId: 'user-1' })
 
         expect(resolved?.kindKey).toBe('custom_registry')
-        expect(resolved?.source).toBe('custom')
         expect(mockEntityTypeService.resolveType).toHaveBeenCalledWith('metahub-1', 'custom_registry', 'user-1')
     })
 
@@ -35,8 +30,6 @@ describe('EntityTypeResolver', () => {
         const mockEntityTypeService = {
             resolveType: jest.fn(async () => ({
                 kindKey: 'custom_registry',
-                source: 'custom',
-                isBuiltin: false,
                 components: { actions: { enabled: true } },
                 ui: { iconName: 'IconBolt', tabs: ['general'], sidebarSection: 'objects', nameKey: 'Custom Registry' }
             }))
@@ -57,9 +50,24 @@ describe('EntityTypeResolver', () => {
     })
 
     it('checks component enablement against the resolved entity definition', async () => {
-        const resolver = new EntityTypeResolver()
+        const mockEntityTypeService = {
+            resolveType: jest.fn(async (_metahubId: string, kindKey: string) =>
+                kindKey === 'custom_registry'
+                    ? {
+                          kindKey: 'custom_registry',
+                          components: { dataSchema: { enabled: true } },
+                          ui: { iconName: 'IconBolt', tabs: ['general'], sidebarSection: 'objects', nameKey: 'Custom Registry' }
+                      }
+                    : null
+            )
+        }
+        const resolver = new EntityTypeResolver(mockEntityTypeService as never)
 
-        await expect(resolver.isComponentEnabled(MetaEntityKind.CATALOG, 'dataSchema')).resolves.toBe(true)
-        await expect(resolver.isComponentEnabled(MetaEntityKind.HUB, 'dataSchema')).resolves.toBe(false)
+        await expect(
+            resolver.isComponentEnabled('custom_registry', 'dataSchema', { metahubId: 'metahub-1', userId: 'user-1' })
+        ).resolves.toBe(true)
+        await expect(
+            resolver.isComponentEnabled(MetaEntityKind.HUB, 'dataSchema', { metahubId: 'metahub-1', userId: 'user-1' })
+        ).resolves.toBe(false)
     })
 })

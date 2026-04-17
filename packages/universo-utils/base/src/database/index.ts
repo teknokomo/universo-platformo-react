@@ -57,8 +57,8 @@ export {
     getCatalogSystemFieldDefinitions,
     getCatalogSystemFieldDefinition,
     getCatalogSystemFieldSeedInputs,
-    buildCatalogSystemAttributeSeedRecord,
-    getCatalogSystemAttributeSeedRecords,
+    buildCatalogSystemFieldDefinitionSeedRecord,
+    getCatalogSystemFieldDefinitionSeedRecords,
     getReservedCatalogSystemFieldCodenames,
     getDefaultCatalogSystemFieldStates,
     validateCatalogSystemFieldToggleSet,
@@ -68,8 +68,8 @@ export {
     resolveApplicationLifecycleContractFromConfig,
     resolvePlatformSystemFieldsContractFromConfig,
     type CatalogSystemFieldToggleValidationResult,
-    type CatalogSystemAttributeSeedInput,
-    type CatalogSystemAttributeSeedRecord,
+    type CatalogSystemFieldDefinitionSeedInput,
+    type CatalogSystemFieldDefinitionSeedRecord,
     type PlatformSystemFieldFamilyContract,
     type PlatformSystemFieldsContract
 } from './catalogSystemFields'

@@ -5,9 +5,15 @@
  * building release bundles, and resolving release lineage.
  */
 
-import { generateTableName, generateColumnName, generateChildTableName, type EntityDefinition, type SchemaSnapshot } from '@universo/schema-ddl'
+import {
+    generateTableName,
+    generateColumnName,
+    generateChildTableName,
+    type EntityDefinition,
+    type SchemaSnapshot
+} from '@universo/schema-ddl'
 import { quoteQualifiedIdentifier } from '@universo/migrations-core'
-import { AttributeDataType } from '@universo/types'
+import { FieldDefinitionDataType } from '@universo/types'
 import type { DbExecutor } from '@universo/utils'
 import {
     createApplicationReleaseBundle,
@@ -16,10 +22,7 @@ import {
     validateApplicationReleaseBundleArtifacts,
     type ApplicationReleaseBundle
 } from '../../services/applicationReleaseBundle'
-import type {
-    PublishedApplicationSnapshot,
-    SnapshotEnumerationValueDefinition
-} from '../../services/applicationSyncContracts'
+import type { PublishedApplicationSnapshot, SnapshotEnumerationValueDefinition } from '../../services/applicationSyncContracts'
 import { TARGET_APP_STRUCTURE_VERSION } from '../../constants'
 import {
     type SyncableApplicationRecord,
@@ -28,7 +31,7 @@ import {
     type RuntimeApplicationAttributeRow,
     type RuntimeApplicationEnumerationValueRow,
     type RuntimeApplicationLayoutRow,
-    type RuntimeApplicationWidgetRow,
+    type RuntimeApplicationWidgetRow
 } from './syncTypes'
 import {
     isRecord,
@@ -43,10 +46,7 @@ import {
     extractInstalledReleaseMetadataString,
     extractInstalledReleaseMetadataSchemaSnapshot,
     extractSetConstantRefConfig,
-    toWorkspaceAwareSnapshot,
-    toWorkspaceAwareSchemaSnapshot,
-    resolveApplicationReleaseVersion,
-    toStructuralSchemaSnapshot,
+    resolveApplicationReleaseVersion
 } from './syncHelpers'
 
 // --- Runtime data loaders ---
@@ -100,7 +100,7 @@ export async function loadApplicationRuntimeEntities(exec: DbExecutor, schemaNam
         const id = typeof row.id === 'string' ? row.id : null
         const objectId = typeof row.object_id === 'string' ? row.object_id : null
         const codename = typeof row.codename === 'string' ? row.codename : null
-        const dataType = typeof row.data_type === 'string' ? (row.data_type as AttributeDataType) : null
+        const dataType = typeof row.data_type === 'string' ? (row.data_type as FieldDefinitionDataType) : null
         const columnName = typeof row.column_name === 'string' ? row.column_name : null
 
         if (!id || !objectId || !codename || !dataType || !columnName) {
@@ -200,9 +200,9 @@ export async function loadApplicationRuntimeElements(
         const tableName = entity.physicalTableName ?? generateTableName(entity.id, entity.kind)
         const tableIdent = quoteQualifiedIdentifier(schemaName, tableName)
         const runtimeRowCondition = buildDynamicRuntimeActiveRowSql(resolveEntityLifecycleContract(entity), entity.config)
-        const topLevelFields = entity.fields.filter((field) => field.dataType !== AttributeDataType.TABLE && !field.parentAttributeId)
+        const topLevelFields = entity.fields.filter((field) => field.dataType !== FieldDefinitionDataType.TABLE && !field.parentAttributeId)
         const tableFields = entity.fields.filter(
-            (field) => field.dataType === AttributeDataType.TABLE && !field.parentAttributeId && (field.childFields?.length ?? 0) > 0
+            (field) => field.dataType === FieldDefinitionDataType.TABLE && !field.parentAttributeId && (field.childFields?.length ?? 0) > 0
         )
         const selectColumns = [
             'id',
@@ -295,8 +295,8 @@ export async function loadApplicationRuntimeEnumerationValues(
     schemaName: string,
     entities: EntityDefinition[]
 ): Promise<Record<string, SnapshotEnumerationValueDefinition[]>> {
-    const enumerationIds = new Set(entities.filter((entity) => entity.kind === 'enumeration').map((entity) => entity.id))
-    if (enumerationIds.size === 0) {
+    const optionListIds = new Set(entities.filter((entity) => entity.kind === 'enumeration').map((entity) => entity.id))
+    if (optionListIds.size === 0) {
         return {}
     }
 
@@ -306,7 +306,9 @@ export async function loadApplicationRuntimeEnumerationValues(
     try {
         rows = await exec.query<RuntimeApplicationEnumerationValueRow>(
             `
-                                SELECT id, object_id, ${runtimeCodenameTextSql('codename')} AS codename, presentation, sort_order, is_default
+                                SELECT id, object_id, ${runtimeCodenameTextSql(
+                                    'codename'
+                                )} AS codename, presentation, sort_order, is_default
                 FROM ${schemaIdent}._app_values
                 WHERE _upl_deleted = false
                   AND _app_deleted = false
@@ -322,7 +324,7 @@ export async function loadApplicationRuntimeEnumerationValues(
         const objectId = typeof row.object_id === 'string' ? row.object_id : null
         const id = typeof row.id === 'string' ? row.id : null
         const codename = typeof row.codename === 'string' ? row.codename : null
-        if (!objectId || !id || !codename || !enumerationIds.has(objectId)) {
+        if (!objectId || !id || !codename || !optionListIds.has(objectId)) {
             continue
         }
 
@@ -343,20 +345,20 @@ export async function loadApplicationRuntimeEnumerationValues(
     return result
 }
 
-export function loadApplicationRuntimeSetConstants(entities: EntityDefinition[]): Record<string, unknown[]> {
-    const constantsBySetId = new Map<string, Map<string, Record<string, unknown>>>()
+export function loadApplicationRuntimeFixedValues(entities: EntityDefinition[]): Record<string, unknown[]> {
+    const fixedValuesByValueGroupId = new Map<string, Map<string, Record<string, unknown>>>()
 
-    const registerFieldConstant = (field: EntityDefinition['fields'][number]): void => {
-        const setId = typeof field.targetEntityId === 'string' && field.targetEntityKind === 'set' ? field.targetEntityId : null
+    const registerFieldFixedValue = (field: EntityDefinition['fields'][number]): void => {
+        const valueGroupId = typeof field.targetEntityId === 'string' && field.targetEntityKind === 'set' ? field.targetEntityId : null
         const setConstantRef = extractSetConstantRefConfig(field.uiConfig)
         const constantId =
             typeof field.targetConstantId === 'string' && field.targetConstantId.trim().length > 0
                 ? field.targetConstantId.trim()
                 : setConstantRef?.id ?? null
 
-        if (setId && constantId && setConstantRef) {
-            const constants = constantsBySetId.get(setId) ?? new Map<string, Record<string, unknown>>()
-            constants.set(constantId, {
+        if (valueGroupId && constantId && setConstantRef) {
+            const fixedValues = fixedValuesByValueGroupId.get(valueGroupId) ?? new Map<string, Record<string, unknown>>()
+            fixedValues.set(constantId, {
                 id: constantId,
                 codename: setConstantRef.codename ?? constantId,
                 dataType: setConstantRef.dataType ?? 'STRING',
@@ -366,11 +368,11 @@ export function loadApplicationRuntimeSetConstants(entities: EntityDefinition[])
                 value: setConstantRef.value ?? null,
                 sortOrder: 0
             })
-            constantsBySetId.set(setId, constants)
+            fixedValuesByValueGroupId.set(valueGroupId, fixedValues)
         }
 
         for (const childField of field.childFields ?? []) {
-            registerFieldConstant(childField)
+            registerFieldFixedValue(childField)
         }
     }
 
@@ -380,15 +382,15 @@ export function loadApplicationRuntimeSetConstants(entities: EntityDefinition[])
                 continue
             }
 
-            registerFieldConstant(field)
+            registerFieldFixedValue(field)
         }
     }
 
     return Object.fromEntries(
-        [...constantsBySetId.entries()]
-            .map(([setId, constants]) => [
-                setId,
-                [...constants.values()].sort((left, right) => {
+        [...fixedValuesByValueGroupId.entries()]
+            .map(([valueGroupId, fixedValueEntries]) => [
+                valueGroupId,
+                [...fixedValueEntries.values()].sort((left, right) => {
                     const leftCodename = typeof left.codename === 'string' ? left.codename : ''
                     const rightCodename = typeof right.codename === 'string' ? right.codename : ''
                     if (leftCodename !== rightCodename) {
@@ -648,8 +650,8 @@ export async function createExistingApplicationReleaseBundle(options: {
     }
 
     const elements = await loadApplicationRuntimeElements(exec, application.schemaName, entities)
-    const enumerationValues = await loadApplicationRuntimeEnumerationValues(exec, application.schemaName, entities)
-    const constants = loadApplicationRuntimeSetConstants(entities)
+    const optionValues = await loadApplicationRuntimeEnumerationValues(exec, application.schemaName, entities)
+    const runtimeFixedValues = loadApplicationRuntimeFixedValues(entities)
     const runtimeLayouts = await loadApplicationRuntimeLayouts(exec, application.schemaName)
     const installedReleaseVersion = extractInstalledReleaseVersion(application.installedReleaseMetadata)
     const snapshot: PublishedApplicationSnapshot = {
@@ -668,11 +670,11 @@ export async function createExistingApplicationReleaseBundle(options: {
     if (Object.keys(elements).length > 0) {
         snapshot.elements = elements
     }
-    if (Object.keys(enumerationValues).length > 0) {
-        snapshot.enumerationValues = enumerationValues
+    if (Object.keys(optionValues).length > 0) {
+        snapshot.optionValues = optionValues
     }
-    if (Object.keys(constants).length > 0) {
-        snapshot.constants = constants
+    if (Object.keys(runtimeFixedValues).length > 0) {
+        snapshot.fixedValues = runtimeFixedValues
     }
     if (runtimeLayouts.layouts.length > 0) {
         snapshot.layouts = runtimeLayouts.layouts
@@ -709,4 +711,3 @@ export async function createExistingApplicationReleaseBundle(options: {
         previousSchemaSnapshot
     })
 }
-

@@ -9,10 +9,17 @@ export interface PublicationSnapshotHashInput {
     metahubId?: unknown
     entities?: Record<string, unknown>
     elements?: Record<string, unknown>
-    enumerationValues?: Record<string, unknown>
+    optionValues?: Record<string, unknown>
     constants?: Record<string, unknown>
+    fixedValues?: Record<string, unknown>
+    sharedFieldDefinitions?: unknown
+    /** @deprecated use sharedFieldDefinitions */
     sharedAttributes?: unknown
+    sharedFixedValues?: unknown
+    /** @deprecated use sharedFixedValues */
     sharedConstants?: unknown
+    sharedOptionValues?: unknown
+    /** @deprecated use sharedOptionValues */
     sharedEnumerationValues?: unknown
     sharedEntityOverrides?: unknown
     systemFields?: Record<string, CatalogSystemFieldsSnapshot | SnapshotRecord>
@@ -158,17 +165,17 @@ const normalizeField = (fieldValue: unknown): Record<string, unknown> => {
 }
 
 const normalizeConstant = (constantValue: unknown): Record<string, unknown> => {
-    const constant = asRecord(constantValue)
+    const fixedValue = asRecord(constantValue)
 
     return {
-        id: typeof constant.id === 'string' ? constant.id : '',
-        codename: normalizeCodenameValue(constant.codename),
-        dataType: constant.dataType,
-        presentation: constant.presentation ?? {},
-        validationRules: constant.validationRules ?? {},
-        uiConfig: constant.uiConfig ?? {},
-        value: constant.value ?? null,
-        sortOrder: typeof constant.sortOrder === 'number' ? constant.sortOrder : 0
+        id: typeof fixedValue.id === 'string' ? fixedValue.id : '',
+        codename: normalizeCodenameValue(fixedValue.codename),
+        dataType: fixedValue.dataType,
+        presentation: fixedValue.presentation ?? {},
+        validationRules: fixedValue.validationRules ?? {},
+        uiConfig: fixedValue.uiConfig ?? {},
+        value: fixedValue.value ?? null,
+        sortOrder: typeof fixedValue.sortOrder === 'number' ? fixedValue.sortOrder : 0
     }
 }
 
@@ -237,9 +244,9 @@ export const normalizePublicationSnapshotForHash = (
         })
         .sort((left, right) => {
             if (left.kind !== right.kind) return left.kind.localeCompare(right.kind)
-                if (resolveCodenameSortText(left.codename) !== resolveCodenameSortText(right.codename)) {
-                    return resolveCodenameSortText(left.codename).localeCompare(resolveCodenameSortText(right.codename))
-                }
+            if (resolveCodenameSortText(left.codename) !== resolveCodenameSortText(right.codename)) {
+                return resolveCodenameSortText(left.codename).localeCompare(resolveCodenameSortText(right.codename))
+            }
             return left.id.localeCompare(right.id)
         })
 
@@ -259,33 +266,25 @@ export const normalizePublicationSnapshotForHash = (
         }))
         .sort((left, right) => left.objectId.localeCompare(right.objectId))
 
-    const enumerationValues = Object.entries(snapshot.enumerationValues ?? {})
+    const optionValues = Object.entries(snapshot.optionValues ?? {})
         .map(([objectId, list]) => ({
             objectId,
-            values: asArray<SnapshotRecord>(list)
-                .map(normalizeEnumerationValue)
-                .sort(compareBySortOrderCodenameAndId)
+            values: asArray<SnapshotRecord>(list).map(normalizeEnumerationValue).sort(compareBySortOrderCodenameAndId)
         }))
         .sort((left, right) => left.objectId.localeCompare(right.objectId))
 
-    const constants = Object.entries(snapshot.constants ?? {})
+    const fixedValues = Object.entries(snapshot.fixedValues ?? snapshot.constants ?? {})
         .map(([objectId, list]) => ({
             objectId,
-            constants: asArray<SnapshotRecord>(list)
-                .map(normalizeConstant)
-                .sort(compareBySortOrderCodenameAndId)
+            constants: asArray<SnapshotRecord>(list).map(normalizeConstant).sort(compareBySortOrderCodenameAndId)
         }))
         .sort((left, right) => left.objectId.localeCompare(right.objectId))
 
-    const sharedAttributes = asArray<unknown>(snapshot.sharedAttributes)
-        .map(normalizeField)
-        .sort(compareBySortOrderCodenameAndId)
+    const sharedAttributes = asArray<unknown>(snapshot.sharedFieldDefinitions ?? snapshot.sharedAttributes).map(normalizeField).sort(compareBySortOrderCodenameAndId)
 
-    const sharedConstants = asArray<unknown>(snapshot.sharedConstants)
-        .map(normalizeConstant)
-        .sort(compareBySortOrderCodenameAndId)
+    const sharedConstants = asArray<unknown>(snapshot.sharedFixedValues ?? snapshot.sharedConstants).map(normalizeConstant).sort(compareBySortOrderCodenameAndId)
 
-    const sharedEnumerationValues = asArray<unknown>(snapshot.sharedEnumerationValues)
+    const sharedEnumerationValues = asArray<unknown>(snapshot.sharedOptionValues ?? snapshot.sharedEnumerationValues)
         .map(normalizeEnumerationValue)
         .sort(compareBySortOrderCodenameAndId)
 
@@ -429,8 +428,8 @@ export const normalizePublicationSnapshotForHash = (
         metahubId: snapshot.metahubId,
         entities,
         elements,
-        enumerationValues,
-        constants,
+        optionValues,
+        fixedValues,
         sharedAttributes,
         sharedConstants,
         sharedEnumerationValues,

@@ -343,7 +343,7 @@ export function ConnectorDiffDialog({
                                 {createTables.map((table) => {
                                     const fields = (table.fields ?? []) as PreviewTableField[]
                                     const fieldsById = new Map(fields.map((field) => [field.id, field]))
-                                    const preview = (table.predefinedElementsPreview ?? [])
+                                    const preview = (table.recordsPreview ?? [])
                                         .slice()
                                         .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.id.localeCompare(b.id))
 
@@ -364,7 +364,7 @@ export function ConnectorDiffDialog({
                                                             count: fields.length
                                                         }),
                                                         elements: t('connectors.diffDialog.elementsCount', '{{count}} elements', {
-                                                            count: table.predefinedElementsCount ?? 0
+                                                            count: table.recordsCount ?? 0
                                                         })
                                                     })}
                                                 </Typography>
@@ -397,7 +397,7 @@ export function ConnectorDiffDialog({
                                                 {preview.length > 0 && (
                                                     <Box sx={{ mt: 2 }}>
                                                         <Typography variant='subtitle2' sx={{ mb: 1 }}>
-                                                            {t('connectors.diffDialog.predefinedElements', 'Predefined elements')}
+                                                            {t('connectors.diffDialog.records', 'Predefined elements')}
                                                         </Typography>
                                                         <Table size='small'>
                                                             <TableHead>
@@ -494,7 +494,7 @@ export function ConnectorDiffDialog({
                                         {createTables.map((table) => {
                                             const fields = (table.fields ?? []) as PreviewTableField[]
                                             const fieldsById = new Map(fields.map((field) => [field.id, field]))
-                                            const preview = (table.predefinedElementsPreview ?? [])
+                                            const preview = (table.recordsPreview ?? [])
                                                 .slice()
                                                 .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.id.localeCompare(b.id))
 
@@ -515,7 +515,7 @@ export function ConnectorDiffDialog({
                                                                     count: fields.length
                                                                 }),
                                                                 elements: t('connectors.diffDialog.elementsCount', '{{count}} elements', {
-                                                                    count: table.predefinedElementsCount ?? 0
+                                                                    count: table.recordsCount ?? 0
                                                                 })
                                                             })}
                                                         </Typography>
@@ -552,7 +552,7 @@ export function ConnectorDiffDialog({
                                                         {preview.length > 0 && (
                                                             <Box sx={{ mt: 2 }}>
                                                                 <Typography variant='subtitle2' sx={{ mb: 1 }}>
-                                                                    {t('connectors.diffDialog.predefinedElements', 'Predefined elements')}
+                                                                    {t('connectors.diffDialog.records', 'Predefined elements')}
                                                                 </Typography>
                                                                 <Table size='small'>
                                                                     <TableHead>

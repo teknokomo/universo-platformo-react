@@ -1140,9 +1140,9 @@ VALUES
     ('metahubs', 'codenameAlphabet', '{"_value": "en-ru"}'::jsonb),
     ('metahubs', 'codenameAllowMixedAlphabets', '{"_value": false}'::jsonb),
     ('metahubs', 'codenameAutoConvertMixedAlphabets', '{"_value": true}'::jsonb),
-    ('metahubs', 'platformSystemAttributesConfigurable', '{"_value": false}'::jsonb),
-    ('metahubs', 'platformSystemAttributesRequired', '{"_value": true}'::jsonb),
-    ('metahubs', 'platformSystemAttributesIgnoreMetahubSettings', '{"_value": true}'::jsonb)
+    ('metahubs', 'platformSystemFieldDefinitionsConfigurable', '{"_value": false}'::jsonb),
+    ('metahubs', 'platformSystemFieldDefinitionsRequired', '{"_value": true}'::jsonb),
+    ('metahubs', 'platformSystemFieldDefinitionsIgnoreMetahubSettings', '{"_value": true}'::jsonb)
 ON CONFLICT (category, key) WHERE _upl_deleted = false AND _app_deleted = false
 DO NOTHING
         `

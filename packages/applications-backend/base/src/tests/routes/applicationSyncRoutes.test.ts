@@ -551,7 +551,7 @@ describe('applicationSyncRoutes', () => {
                 })
             ])
         )
-        expect(response.body.diff.details.create.tables[0].predefinedElementsPreview[0].data.NestedResources).toEqual(
+        expect(response.body.diff.details.create.tables[0].recordsPreview[0].data.NestedResources).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({
                     NestedTitle: expect.objectContaining({
@@ -693,7 +693,7 @@ describe('applicationSyncRoutes', () => {
         const tableFieldId = '019d1104-1add-7a40-974a-bd58f6f5e6b2'
         const childFieldId = '019d1105-0d7b-73ea-ab5c-8c513518e0c3'
         const setFieldId = '019d10e2-8c41-7725-813e-598731237ab2'
-        const setId = '019d0d8e-ddb0-7c8f-93f4-11048896d993'
+        const valueGroupId = '019d0d8e-ddb0-7c8f-93f4-11048896d993'
         const constantId = '019d10d1-79ec-78bf-a0d9-1768ee647b33'
 
         const rawCatalogEntity = {
@@ -732,7 +732,7 @@ describe('applicationSyncRoutes', () => {
                     dataType: 'REF',
                     isRequired: false,
                     isDisplayAttribute: false,
-                    targetEntityId: setId,
+                    targetEntityId: valueGroupId,
                     targetEntityKind: 'set',
                     targetConstantId: constantId,
                     presentation: { name: {} },
@@ -756,10 +756,10 @@ describe('applicationSyncRoutes', () => {
                 'catalog-resources': rawCatalogEntity
             },
             constants: {
-                [setId]: [
+                [valueGroupId]: [
                     {
                         id: constantId,
-                        objectId: setId,
+                        objectId: valueGroupId,
                         codename: 'MottoConstant',
                         dataType: 'STRING',
                         presentation: {
@@ -861,7 +861,7 @@ describe('applicationSyncRoutes', () => {
         const tableFieldId = '019d1104-1add-7a40-974a-bd58f6f5e6b2'
         const childFieldId = '019d1105-0d7b-73ea-ab5c-8c513518e0c3'
         const setFieldId = '019d10e2-8c41-7725-813e-598731237ab2'
-        const setId = '019d0d8e-ddb0-7c8f-93f4-11048896d993'
+        const valueGroupId = '019d0d8e-ddb0-7c8f-93f4-11048896d993'
         const constantId = '019d10d1-79ec-78bf-a0d9-1768ee647b33'
 
         const rawCatalogEntity = {
@@ -900,7 +900,7 @@ describe('applicationSyncRoutes', () => {
                     dataType: 'REF',
                     isRequired: false,
                     isDisplayAttribute: false,
-                    targetEntityId: setId,
+                    targetEntityId: valueGroupId,
                     targetEntityKind: 'set',
                     targetConstantId: constantId,
                     presentation: { name: {} },
@@ -924,10 +924,10 @@ describe('applicationSyncRoutes', () => {
                 'catalog-resources': rawCatalogEntity
             },
             constants: {
-                [setId]: [
+                [valueGroupId]: [
                     {
                         id: constantId,
-                        objectId: setId,
+                        objectId: valueGroupId,
                         codename: 'MottoConstant',
                         dataType: 'STRING',
                         presentation: {
@@ -987,7 +987,7 @@ describe('applicationSyncRoutes', () => {
                                 id: setFieldId,
                                 codename: 'Motto',
                                 dataType: 'REF',
-                                targetEntityId: setId,
+                                targetEntityId: valueGroupId,
                                 targetEntityKind: 'set',
                                 targetConstantId: constantId,
                                 uiConfig: {

@@ -39,8 +39,7 @@ type ApplicationSummary = {
 type MetahubBoardSummary = {
     metahubId?: string
     branchesCount?: number
-    hubsCount?: number
-    catalogsCount?: number
+    entityCounts?: Record<string, number>
     membersCount?: number
     publicationsCount?: number
     publicationVersionsCount?: number
@@ -269,8 +268,8 @@ test('@flow board routes show backend-backed overview counters for metahub, appl
         await expectStatCardValue(page, buildStatCardSelector('metahub-board', 'branches'), metahubSummary.branchesCount ?? 0)
         await expectStatCardValue(page, buildStatCardSelector('metahub-board', 'applications'), metahubSummary.applicationsCount ?? 0)
         await expectStatCardValue(page, buildStatCardSelector('metahub-board', 'members'), metahubSummary.membersCount ?? 0)
-        await expectStatCardValue(page, buildStatCardSelector('metahub-board', 'hubs'), metahubSummary.hubsCount ?? 0)
-        await expectStatCardValue(page, buildStatCardSelector('metahub-board', 'catalogs'), metahubSummary.catalogsCount ?? 0)
+        await expectStatCardValue(page, buildStatCardSelector('metahub-board', 'hubs'), metahubSummary.entityCounts?.hub ?? 0)
+        await expectStatCardValue(page, buildStatCardSelector('metahub-board', 'catalogs'), metahubSummary.entityCounts?.catalog ?? 0)
         await expectStatCardValue(page, buildStatCardSelector('metahub-board', 'publications'), metahubSummary.publicationsCount ?? 0)
         await expectStatCardValue(page, buildStatCardSelector('metahub-board', 'versions'), metahubSummary.publicationVersionsCount ?? 0)
 

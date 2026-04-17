@@ -1,11 +1,12 @@
 import { randomBytes } from 'crypto'
-import type { MetahubCreateOptions, MetahubTemplateManifest, MetahubTemplateSeed } from '@universo/types'
+import type { EntityTypePresetManifest, MetahubCreateOptions, MetahubTemplateManifest, MetahubTemplateSeed } from '@universo/types'
 import type { SqlQueryable } from '../../../persistence/types'
 import {
     findMetahubById,
     findBranchByIdAndMetahub,
     findBranchesByMetahub,
     findMetahubMembership,
+    findTemplateByCodename,
     findTemplateVersionById,
     updateBranch
 } from '../../../persistence'
@@ -26,8 +27,8 @@ import { TemplateSeedMigrator } from '../../templates/services/TemplateSeedMigra
 import { mirrorToGlobalCatalog } from '@universo/migrations-catalog'
 import { hasRuntimeHistoryTable, quoteIdentifier } from '@universo/migrations-core'
 import { clearWidgetTableResolverCache } from '../../templates/services/widgetTableResolver'
-import { validateTemplateManifest } from '../../templates/services/TemplateManifestValidator'
-import { builtinTemplates, DEFAULT_TEMPLATE_CODENAME } from '../../templates/data'
+import { validateEntityTypePresetManifest, validateTemplateManifest } from '../../templates/services/TemplateManifestValidator'
+import { builtinEntityTypePresets, builtinTemplates, DEFAULT_TEMPLATE_CODENAME } from '../../templates/data'
 import {
     MetahubMigrationRequiredError,
     MetahubPoolExhaustedError,
@@ -38,10 +39,13 @@ import {
     MetahubSchemaSyncError
 } from '../../shared/domainErrors'
 import { isGlobalMigrationCatalogEnabled } from '@universo/utils'
+import { ensureCodenameValue } from '../../shared/codename'
 import { createLogger } from '../../../utils/logger'
 
 const log = createLogger('MetahubSchemaService')
 const PUBLIC_BASELINE_STRUCTURE_VERSION = 1
+const TEMPLATE_PRESET_TOGGLES_SETTING_KEY = 'system.templatePresetToggles'
+const ENTITY_TYPE_PRESET_REGISTRY = new Map(builtinEntityTypePresets.map((manifest) => [manifest.codename, manifest]))
 
 /**
  * In-memory cache for schema existence.
@@ -82,6 +86,43 @@ const clearCachedUserBranchId = (metahubId: string, userId?: string) => {
         }
     }
 }
+
+type TemplatePresetToggleMap = Record<string, boolean>
+
+type TemplateBootstrapBundle = {
+    seed: MetahubTemplateSeed
+    entityTypePresets: EntityTypePresetManifest[]
+    effectivePresetToggles: TemplatePresetToggleMap
+}
+
+const hasNonEmptyObject = (value: unknown): value is Record<string, unknown> =>
+    Boolean(value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value as Record<string, unknown>).length > 0)
+
+const toPresetToggleMap = (value: unknown): TemplatePresetToggleMap => {
+    if (!hasNonEmptyObject(value)) {
+        return {}
+    }
+
+    const normalized: TemplatePresetToggleMap = {}
+    for (const [key, entry] of Object.entries(value)) {
+        if (typeof key === 'string' && typeof entry === 'boolean') {
+            normalized[key] = entry
+        }
+    }
+    return normalized
+}
+
+const cloneSeed = (seed: MetahubTemplateSeed): MetahubTemplateSeed => ({
+    ...seed,
+    layouts: [...seed.layouts],
+    layoutZoneWidgets: Object.fromEntries(Object.entries(seed.layoutZoneWidgets).map(([key, widgets]) => [key, [...widgets]])),
+    settings: seed.settings ? [...seed.settings] : undefined,
+    entities: seed.entities ? [...seed.entities] : undefined,
+    elements: seed.elements ? Object.fromEntries(Object.entries(seed.elements).map(([key, items]) => [key, [...items]])) : undefined,
+    optionValues: seed.optionValues
+        ? Object.fromEntries(Object.entries(seed.optionValues).map(([key, items]) => [key, [...items]]))
+        : undefined
+})
 
 interface EnsureSchemaOptions {
     mode?: 'read_only' | 'initialize' | 'apply_migrations'
@@ -599,6 +640,265 @@ export class MetahubSchemaService {
         return defaultTemplate
     }
 
+    private async loadEntityTypePresetManifest(presetCodename: string): Promise<EntityTypePresetManifest> {
+        const builtinPreset = ENTITY_TYPE_PRESET_REGISTRY.get(presetCodename)
+        if (builtinPreset) {
+            return validateEntityTypePresetManifest(builtinPreset)
+        }
+
+        const template = await findTemplateByCodename(this.exec, presetCodename)
+        if (!template || template.definitionType !== 'entity_type_preset' || !template.isActive || !template.activeVersionId) {
+            throw new MetahubValidationError(`Entity type preset '${presetCodename}' not found or inactive`, { presetCodename })
+        }
+
+        const version = await findTemplateVersionById(this.exec, template.activeVersionId)
+        if (!version?.manifestJson) {
+            throw new MetahubValidationError(`Entity type preset '${presetCodename}' has no active manifest`, { presetCodename })
+        }
+
+        return validateEntityTypePresetManifest(version.manifestJson)
+    }
+
+    private async readPersistedPresetToggles(schemaName: string): Promise<TemplatePresetToggleMap> {
+        const schemaIdent = quoteIdentifier(schemaName)
+        const rows = await this.exec.query<{ value?: { _value?: unknown } | null }>(
+            `SELECT value
+             FROM ${schemaIdent}._mhb_settings
+             WHERE key = $1
+             LIMIT 1`,
+            [TEMPLATE_PRESET_TOGGLES_SETTING_KEY]
+        )
+
+        const rawValue = rows[0]?.value
+        return toPresetToggleMap(rawValue?._value ?? rawValue)
+    }
+
+    private static buildEffectivePresetToggles(
+        manifest: MetahubTemplateManifest,
+        createOptions?: MetahubCreateOptions,
+        persistedToggles?: TemplatePresetToggleMap
+    ): TemplatePresetToggleMap {
+        const toggles: TemplatePresetToggleMap = {}
+        for (const preset of manifest.presets ?? []) {
+            const requestedToggle = createOptions?.presetToggles?.[preset.presetCodename]
+            const persistedToggle = persistedToggles?.[preset.presetCodename]
+            toggles[preset.presetCodename] = requestedToggle ?? persistedToggle ?? preset.includedByDefault !== false
+        }
+        return toggles
+    }
+
+    private static buildSeedFromPresetDefaults(presets: EntityTypePresetManifest[]): MetahubTemplateSeed {
+        const entities: NonNullable<MetahubTemplateSeed['entities']> = []
+        const elements: NonNullable<MetahubTemplateSeed['elements']> = {}
+        const optionValues: NonNullable<MetahubTemplateSeed['optionValues']> = {}
+
+        for (const preset of presets) {
+            for (const instance of preset.defaultInstances ?? []) {
+                entities.push({
+                    codename: instance.codename,
+                    kind: preset.entityType.kindKey,
+                    name: instance.name,
+                    description: instance.description,
+                    config: instance.config,
+                    attributes: instance.attributes,
+                    fixedValues: instance.fixedValues,
+                    hubs: instance.hubs
+                })
+
+                if (instance.elements?.length) {
+                    elements[instance.codename] = [...instance.elements]
+                }
+
+                if (instance.optionValues?.length) {
+                    optionValues[instance.codename] = [...instance.optionValues]
+                }
+            }
+        }
+
+        return {
+            layouts: [],
+            layoutZoneWidgets: {},
+            entities: entities.length > 0 ? entities : undefined,
+            elements: Object.keys(elements).length > 0 ? elements : undefined,
+            optionValues: Object.keys(optionValues).length > 0 ? optionValues : undefined
+        }
+    }
+
+    private static mergePresetSeedIntoTemplateSeed(
+        seed: MetahubTemplateSeed,
+        presetSeed: MetahubTemplateSeed,
+        presetToggles: TemplatePresetToggleMap,
+        includePresetSettings: boolean
+    ): MetahubTemplateSeed {
+        const merged = cloneSeed(seed)
+        const presetEntities = presetSeed.entities ?? []
+        const templateEntities = merged.entities ?? []
+        const entityIdentitySet = new Set<string>()
+
+        for (const entity of [...presetEntities, ...templateEntities]) {
+            const identity = `${entity.kind}:${entity.codename}`
+            if (entityIdentitySet.has(identity)) {
+                throw new MetahubValidationError('Template seed duplicates a preset default instance', { identity })
+            }
+            entityIdentitySet.add(identity)
+        }
+
+        const mergedElements: NonNullable<MetahubTemplateSeed['elements']> = {
+            ...(presetSeed.elements ?? {})
+        }
+        for (const [codename, items] of Object.entries(merged.elements ?? {})) {
+            if (mergedElements[codename]) {
+                throw new MetahubValidationError('Template seed elements duplicate a preset default instance', { codename })
+            }
+            mergedElements[codename] = [...items]
+        }
+
+        const mergedEnumerationValues: NonNullable<MetahubTemplateSeed['optionValues']> = {
+            ...(presetSeed.optionValues ?? {})
+        }
+        for (const [codename, items] of Object.entries(merged.optionValues ?? {})) {
+            if (mergedEnumerationValues[codename]) {
+                throw new MetahubValidationError('Template seed optionValues duplicate a preset default instance', { codename })
+            }
+            mergedEnumerationValues[codename] = [...items]
+        }
+
+        const nextSettings = merged.settings ? [...merged.settings] : []
+        if (includePresetSettings) {
+            const existingSettingIndex = nextSettings.findIndex((setting) => setting.key === TEMPLATE_PRESET_TOGGLES_SETTING_KEY)
+            const presetToggleSetting = {
+                key: TEMPLATE_PRESET_TOGGLES_SETTING_KEY,
+                value: {
+                    _value: presetToggles
+                }
+            }
+            if (existingSettingIndex >= 0) {
+                nextSettings[existingSettingIndex] = presetToggleSetting
+            } else {
+                nextSettings.push(presetToggleSetting)
+            }
+        }
+
+        return {
+            ...merged,
+            settings: nextSettings.length > 0 ? nextSettings : undefined,
+            entities: [...presetEntities, ...templateEntities],
+            elements: Object.keys(mergedElements).length > 0 ? mergedElements : undefined,
+            optionValues: Object.keys(mergedEnumerationValues).length > 0 ? mergedEnumerationValues : undefined
+        }
+    }
+
+    private async buildTemplateBootstrapBundle(
+        manifest: MetahubTemplateManifest,
+        options?: { schemaName?: string; createOptions?: MetahubCreateOptions }
+    ): Promise<TemplateBootstrapBundle> {
+        const presetRefs = manifest.presets ?? []
+        if (presetRefs.length === 0) {
+            return {
+                seed: cloneSeed(manifest.seed),
+                entityTypePresets: [],
+                effectivePresetToggles: {}
+            }
+        }
+
+        const persistedToggles = options?.schemaName ? await this.readPersistedPresetToggles(options.schemaName) : undefined
+        const effectivePresetToggles = MetahubSchemaService.buildEffectivePresetToggles(manifest, options?.createOptions, persistedToggles)
+
+        const enabledPresets = presetRefs.filter((preset) => effectivePresetToggles[preset.presetCodename] !== false)
+        const entityTypePresets = await Promise.all(
+            enabledPresets.map((preset) => this.loadEntityTypePresetManifest(preset.presetCodename))
+        )
+
+        const presetSeed = MetahubSchemaService.buildSeedFromPresetDefaults(entityTypePresets)
+        const seed = MetahubSchemaService.mergePresetSeedIntoTemplateSeed(manifest.seed, presetSeed, effectivePresetToggles, true)
+
+        return {
+            seed,
+            entityTypePresets,
+            effectivePresetToggles
+        }
+    }
+
+    private async syncEntityTypePresets(schemaName: string, presets: EntityTypePresetManifest[]): Promise<number> {
+        if (presets.length === 0) {
+            return 0
+        }
+
+        let synced = 0
+        for (const preset of presets) {
+            const now = new Date()
+            const codename = ensureCodenameValue(preset.entityType.codename ?? preset.codename)
+            const presentation = preset.entityType.presentation ?? {}
+            const config = preset.entityType.config ?? {}
+            const existing = await this.knex
+                .withSchema(schemaName)
+                .from('_mhb_entity_type_definitions')
+                .where({ kind_key: preset.entityType.kindKey, _upl_deleted: false, _mhb_deleted: false })
+                .first<{
+                    id: string
+                    codename: unknown
+                    presentation: unknown
+                    components: unknown
+                    ui_config: unknown
+                    config: unknown
+                }>()
+
+            const shouldUpdate =
+                !existing ||
+                JSON.stringify(existing.codename ?? null) !== JSON.stringify(codename) ||
+                JSON.stringify(existing.presentation ?? {}) !== JSON.stringify(presentation) ||
+                JSON.stringify(existing.components ?? {}) !== JSON.stringify(preset.entityType.components) ||
+                JSON.stringify(existing.ui_config ?? {}) !== JSON.stringify(preset.entityType.ui) ||
+                JSON.stringify(existing.config ?? {}) !== JSON.stringify(config)
+
+            if (!shouldUpdate) {
+                continue
+            }
+
+            synced += 1
+            if (!existing) {
+                await this.knex.withSchema(schemaName).into('_mhb_entity_type_definitions').insert({
+                    kind_key: preset.entityType.kindKey,
+                    codename,
+                    presentation,
+                    components: preset.entityType.components,
+                    ui_config: preset.entityType.ui,
+                    config,
+                    _upl_created_at: now,
+                    _upl_created_by: null,
+                    _upl_updated_at: now,
+                    _upl_updated_by: null,
+                    _upl_version: 1,
+                    _upl_archived: false,
+                    _upl_deleted: false,
+                    _upl_locked: false,
+                    _mhb_published: true,
+                    _mhb_archived: false,
+                    _mhb_deleted: false
+                })
+                continue
+            }
+
+            await this.knex
+                .withSchema(schemaName)
+                .from('_mhb_entity_type_definitions')
+                .where({ id: existing.id })
+                .update({
+                    codename,
+                    presentation,
+                    components: preset.entityType.components,
+                    ui_config: preset.entityType.ui,
+                    config,
+                    _mhb_published: true,
+                    _upl_updated_at: now,
+                    _upl_updated_by: null,
+                    _upl_version: this.knex.raw('_upl_version + 1')
+                })
+        }
+
+        return synced
+    }
+
     /**
      * Initialize system tables in the isolated schema.
      *
@@ -614,60 +914,16 @@ export class MetahubSchemaService {
         const versionHandler = getStructureVersion(CURRENT_STRUCTURE_VERSION)
         await versionHandler.init(this.knex, schemaName)
 
-        // 2. Filter seed entities based on createOptions, then apply seed data
-        const filteredSeed = MetahubSchemaService.filterSeedByCreateOptions(manifest.seed, createOptions)
+        // 2. Resolve preset-backed entity type definitions and the effective template seed.
+        const bootstrap = await this.buildTemplateBootstrapBundle(manifest, { schemaName, createOptions })
+        await this.syncEntityTypePresets(schemaName, bootstrap.entityTypePresets)
+
+        // 3. Apply seed data, including default instances synthesized from enabled presets.
         const executor = new TemplateSeedExecutor(this.knex, schemaName)
-        await executor.apply(filteredSeed)
+        await executor.apply(bootstrap.seed)
 
-        // 3. Record baseline migration for fresh schemas
+        // 4. Record baseline migration for fresh schemas
         await this.recordBaselineMigration(schemaName, CURRENT_STRUCTURE_VERSION, manifest.version)
-    }
-
-    /**
-     * Filter seed entities based on MetahubCreateOptions.
-     * Removes entities (and their associated elements/enumerationValues) that the user
-     * toggled off during metahub creation. Branch and Layout are never filtered.
-     */
-    private static filterSeedByCreateOptions(seed: MetahubTemplateSeed, options?: MetahubCreateOptions): MetahubTemplateSeed {
-        if (!seed.entities || !options) return seed
-
-        const filteredEntities = seed.entities.filter((entity) => {
-            switch (entity.kind) {
-                case 'hub':
-                    return options.createHub !== false
-                case 'catalog':
-                    return options.createCatalog !== false
-                case 'set':
-                    return options.createSet !== false
-                case 'enumeration':
-                    return options.createEnumeration !== false
-                default:
-                    return true
-            }
-        })
-
-        const includedCodenames = new Set(filteredEntities.map((e) => e.codename))
-
-        const filteredElements: Record<string, NonNullable<MetahubTemplateSeed['elements']>[string]> = {}
-        if (seed.elements) {
-            for (const [key, value] of Object.entries(seed.elements)) {
-                if (includedCodenames.has(key)) filteredElements[key] = value
-            }
-        }
-
-        const filteredEnumValues: Record<string, NonNullable<MetahubTemplateSeed['enumerationValues']>[string]> = {}
-        if (seed.enumerationValues) {
-            for (const [key, value] of Object.entries(seed.enumerationValues)) {
-                if (includedCodenames.has(key)) filteredEnumValues[key] = value
-            }
-        }
-
-        return {
-            ...seed,
-            entities: filteredEntities,
-            elements: filteredElements,
-            enumerationValues: filteredEnumValues
-        }
     }
 
     /**
@@ -808,27 +1064,31 @@ export class MetahubSchemaService {
     ): Promise<boolean> {
         // Refresh widget table resolver cache to avoid stale table-name mapping after structure renames.
         clearWidgetTableResolverCache()
+        const bootstrap = await this.buildTemplateBootstrapBundle(manifest, { schemaName })
+        const entityTypesSynced = await this.syncEntityTypePresets(schemaName, bootstrap.entityTypePresets)
         const seedMigrator = new TemplateSeedMigrator(this.knex, schemaName)
-        const seedResult = await seedMigrator.migrateSeed(manifest.seed)
+        const seedResult = await seedMigrator.migrateSeed(bootstrap.seed)
 
         const hasChanges =
+            entityTypesSynced > 0 ||
             seedResult.layoutsAdded > 0 ||
             seedResult.zoneWidgetsAdded > 0 ||
             seedResult.settingsAdded > 0 ||
             seedResult.entitiesAdded > 0 ||
-            seedResult.constantsAdded > 0 ||
+            seedResult.fixedValuesAdded > 0 ||
             seedResult.attributesAdded > 0 ||
+            seedResult.enumValuesAdded > 0 ||
             seedResult.elementsAdded > 0
 
         if (!hasChanges) return false
 
-        await this.recordTemplateSeedMigration(schemaName, structureVersion, seedResult, templateVersionInfo)
+        await this.recordTemplateSeedMigration(schemaName, structureVersion, { ...seedResult, entityTypesSynced }, templateVersionInfo)
 
         log.info(
             `Seed sync for ${schemaName}: ` +
-                `+${seedResult.layoutsAdded} layouts, +${seedResult.zoneWidgetsAdded} zoneWidgets, ` +
+                `+${entityTypesSynced} entity types, +${seedResult.layoutsAdded} layouts, +${seedResult.zoneWidgetsAdded} zoneWidgets, ` +
                 `+${seedResult.settingsAdded} settings, +${seedResult.entitiesAdded} entities, ` +
-                `+${seedResult.constantsAdded} constants, +${seedResult.attributesAdded} attributes, ` +
+                `+${seedResult.fixedValuesAdded} constants, +${seedResult.attributesAdded} attributes, ` +
                 `+${seedResult.enumValuesAdded} enum values, +${seedResult.elementsAdded} elements`
         )
         return true
@@ -838,11 +1098,12 @@ export class MetahubSchemaService {
         schemaName: string,
         structureVersion: number,
         seedResult: {
+            entityTypesSynced: number
             layoutsAdded: number
             zoneWidgetsAdded: number
             settingsAdded: number
             entitiesAdded: number
-            constantsAdded: number
+            fixedValuesAdded: number
             attributesAdded: number
             enumValuesAdded: number
             elementsAdded: number
@@ -855,11 +1116,12 @@ export class MetahubSchemaService {
 
         const name = `template_seed_${Date.now()}_${randomBytes(4).toString('hex')}`
         const counts = {
+            entityTypesSynced: seedResult.entityTypesSynced,
             layoutsAdded: seedResult.layoutsAdded,
             zoneWidgetsAdded: seedResult.zoneWidgetsAdded,
             settingsAdded: seedResult.settingsAdded,
             entitiesAdded: seedResult.entitiesAdded,
-            constantsAdded: seedResult.constantsAdded,
+            fixedValuesAdded: seedResult.fixedValuesAdded,
             attributesAdded: seedResult.attributesAdded,
             enumValuesAdded: seedResult.enumValuesAdded,
             elementsAdded: seedResult.elementsAdded

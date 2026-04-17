@@ -93,136 +93,166 @@ export const SELF_HOSTED_APP_PUBLICATION = {
     }
 }
 
-const createSelfHostedAppLegacyCompatibleEntityType = ({
+const createSelfHostedAppEntityType = ({
     templateCodename,
+    displayLabel,
     kindKey,
     codename,
     components = {},
     ui,
-    compatibility,
     physicalTable = false,
     published = true
 }) => ({
     templateCodename,
+    displayLabel,
     kindKey,
     codename,
     components,
     ui,
-    compatibility,
     physicalTable,
     published
 })
 
-export const SELF_HOSTED_APP_HUB_V2_ENTITY_TYPE = createSelfHostedAppLegacyCompatibleEntityType({
-    templateCodename: 'hub-v2',
-    kindKey: 'custom.hub-v2',
+export const SELF_HOSTED_APP_HUB_ENTITY_TYPE = createSelfHostedAppEntityType({
+    templateCodename: 'hub',
+    displayLabel: 'Hubs',
+    kindKey: 'hub',
     codename: {
-        en: 'HubV2',
-        ru: 'HubV2'
+        en: 'Hub',
+        ru: 'Hub'
     },
     components: {
+        dataSchema: false,
+        records: false,
+        treeAssignment: false,
+        optionValues: false,
+        fixedValues: false,
+        hierarchy: false,
+        nestedCollections: false,
+        relations: false,
         scripting: { enabled: true },
         actions: { enabled: true },
-        events: { enabled: true }
+        events: { enabled: true },
+        layoutConfig: false,
+        runtimeBehavior: false,
+        physicalTable: false
     },
     ui: {
         iconName: 'IconHierarchy',
         tabs: ['general'],
         sidebarSection: 'objects',
         sidebarOrder: 10,
-        nameKey: 'Hubs V2',
-        descriptionKey: 'Hub-compatible custom entity with shared legacy hub navigation, widget binding support, and design-time automation.'
-    },
-    compatibility: {
-        legacyObjectKind: 'hub'
+        nameKey: 'metahubs:treeEntities.title'
     }
 })
 
-export const SELF_HOSTED_APP_CATALOG_V2_ENTITY_TYPE = createSelfHostedAppLegacyCompatibleEntityType({
-    templateCodename: 'catalog-v2',
-    kindKey: 'custom.catalog-v2',
+export const SELF_HOSTED_APP_CATALOG_ENTITY_TYPE = createSelfHostedAppEntityType({
+    templateCodename: 'catalog',
+    displayLabel: 'Catalogs',
+    kindKey: 'catalog',
     codename: {
-        en: 'CatalogV2',
-        ru: 'CatalogV2'
+        en: 'Catalog',
+        ru: 'Catalog'
     },
     components: {
+        dataSchema: { enabled: true },
+        records: { enabled: true },
+        treeAssignment: { enabled: true },
+        optionValues: false,
+        fixedValues: false,
+        hierarchy: { enabled: true, supportsFolders: true },
+        nestedCollections: false,
+        relations: { enabled: true, allowedRelationTypes: ['manyToOne'] },
         scripting: { enabled: true },
         actions: { enabled: true },
-        events: { enabled: true }
+        events: { enabled: true },
+        layoutConfig: { enabled: true },
+        runtimeBehavior: { enabled: true }
     },
     ui: {
         iconName: 'IconDatabase',
         tabs: ['general', 'hubs', 'layout', 'scripts'],
         sidebarSection: 'objects',
         sidebarOrder: 20,
-        nameKey: 'Catalogs V2',
-        descriptionKey:
-            'Catalog-compatible custom entity with hubs, hierarchy, references, scripts, and publication-ready layout support.'
+        nameKey: 'metahubs:linkedCollections.title'
     },
     physicalTable: {
         enabled: true,
-        prefix: 'catx'
-    },
-    compatibility: {
-        legacyObjectKind: 'catalog'
+        prefix: 'cat'
     }
 })
 
-export const SELF_HOSTED_APP_SET_V2_ENTITY_TYPE = createSelfHostedAppLegacyCompatibleEntityType({
-    templateCodename: 'set-v2',
-    kindKey: 'custom.set-v2',
+export const SELF_HOSTED_APP_SET_ENTITY_TYPE = createSelfHostedAppEntityType({
+    templateCodename: 'set',
+    displayLabel: 'Sets',
+    kindKey: 'set',
     codename: {
-        en: 'SetV2',
-        ru: 'SetV2'
+        en: 'Set',
+        ru: 'Set'
     },
     components: {
+        dataSchema: { enabled: true },
+        records: false,
+        treeAssignment: false,
+        optionValues: false,
+        fixedValues: { enabled: true },
+        hierarchy: false,
+        nestedCollections: false,
+        relations: false,
         scripting: { enabled: true },
         actions: { enabled: true },
-        events: { enabled: true }
+        events: { enabled: true },
+        layoutConfig: { enabled: true },
+        runtimeBehavior: false,
+        physicalTable: false
     },
     ui: {
         iconName: 'IconFileText',
         tabs: ['general', 'scripts'],
         sidebarSection: 'objects',
         sidebarOrder: 30,
-        nameKey: 'Sets V2',
-        descriptionKey: 'Set-compatible custom entity with shared constants authoring and legacy set lifecycle behavior.'
-    },
-    compatibility: {
-        legacyObjectKind: 'set'
+        nameKey: 'metahubs:valueGroups.title'
     }
 })
 
-export const SELF_HOSTED_APP_ENUMERATION_V2_ENTITY_TYPE = createSelfHostedAppLegacyCompatibleEntityType({
-    templateCodename: 'enumeration-v2',
-    kindKey: 'custom.enumeration-v2',
+export const SELF_HOSTED_APP_ENUMERATION_ENTITY_TYPE = createSelfHostedAppEntityType({
+    templateCodename: 'enumeration',
+    displayLabel: 'Enumerations',
+    kindKey: 'enumeration',
     codename: {
-        en: 'EnumerationV2',
-        ru: 'EnumerationV2'
+        en: 'Enumeration',
+        ru: 'Enumeration'
     },
     components: {
+        dataSchema: false,
+        records: false,
+        treeAssignment: false,
+        optionValues: { enabled: true },
+        fixedValues: false,
+        hierarchy: false,
+        nestedCollections: false,
+        relations: false,
         scripting: { enabled: true },
         actions: { enabled: true },
-        events: { enabled: true }
+        events: { enabled: true },
+        layoutConfig: false,
+        runtimeBehavior: false,
+        physicalTable: false
     },
     ui: {
         iconName: 'IconFiles',
         tabs: ['general', 'scripts'],
         sidebarSection: 'objects',
         sidebarOrder: 40,
-        nameKey: 'Enumerations V2',
-        descriptionKey: 'Enumeration-compatible custom entity with shared values authoring, scripting, and design-time automation.'
-    },
-    compatibility: {
-        legacyObjectKind: 'enumeration'
+        nameKey: 'metahubs:optionLists.title'
     }
 })
 
-export const SELF_HOSTED_APP_V2_ENTITY_TYPES = [
-    SELF_HOSTED_APP_HUB_V2_ENTITY_TYPE,
-    SELF_HOSTED_APP_CATALOG_V2_ENTITY_TYPE,
-    SELF_HOSTED_APP_SET_V2_ENTITY_TYPE,
-    SELF_HOSTED_APP_ENUMERATION_V2_ENTITY_TYPE
+export const SELF_HOSTED_APP_STANDARD_ENTITY_TYPES = [
+    SELF_HOSTED_APP_HUB_ENTITY_TYPE,
+    SELF_HOSTED_APP_CATALOG_ENTITY_TYPE,
+    SELF_HOSTED_APP_SET_ENTITY_TYPE,
+    SELF_HOSTED_APP_ENUMERATION_ENTITY_TYPE
 ]
 
 export const SELF_HOSTED_APP_SHARED_ENTITIES = {
@@ -585,47 +615,44 @@ const findDefaultLayout = (envelope) => {
 }
 
 const assertSelfHostedAppEntityTypeDefinition = (entityTypeDefinitions, expectedEntityType, errors) => {
-    const entityTypeLabel = expectedEntityType.ui.nameKey
+    const entityTypeLabel = expectedEntityType.displayLabel ?? expectedEntityType.kindKey
     const persistedEntityType = entityTypeDefinitions[expectedEntityType.kindKey]
 
     if (!persistedEntityType || typeof persistedEntityType !== 'object') {
-        errors.push(`Self-hosted app fixture must export the published ${entityTypeLabel} custom entity definition`)
+        errors.push(`Self-hosted app fixture must export the published ${entityTypeLabel} entity definition`)
         return
     }
 
-    if (persistedEntityType.isBuiltin === true) {
-        errors.push(`${entityTypeLabel} custom entity definition must stay custom in the self-hosted app fixture`)
-    }
     if (persistedEntityType.published !== expectedEntityType.published) {
-        errors.push(`${entityTypeLabel} custom entity definition must remain published in the self-hosted app fixture`)
+        errors.push(`${entityTypeLabel} entity definition must remain published in the self-hosted app fixture`)
     }
     if (readLocalizedText(persistedEntityType.codename, 'en') !== expectedEntityType.codename.en) {
-        errors.push(`${entityTypeLabel} custom entity definition is missing the canonical English codename locale`)
+        errors.push(`${entityTypeLabel} entity definition is missing the canonical English codename locale`)
     }
     if (readLocalizedText(persistedEntityType.codename, 'ru') !== expectedEntityType.codename.ru) {
-        errors.push(`${entityTypeLabel} custom entity definition is missing the canonical Russian codename locale`)
+        errors.push(`${entityTypeLabel} entity definition is missing the canonical Russian codename locale`)
     }
 
     const persistedUi = persistedEntityType.ui && typeof persistedEntityType.ui === 'object' ? persistedEntityType.ui : {}
     if (persistedUi.iconName !== expectedEntityType.ui.iconName) {
-        errors.push(`${entityTypeLabel} custom entity definition icon drifted in the self-hosted app fixture`)
+        errors.push(`${entityTypeLabel} entity definition icon drifted in the self-hosted app fixture`)
     }
     if (persistedUi.sidebarSection !== expectedEntityType.ui.sidebarSection) {
-        errors.push(`${entityTypeLabel} custom entity definition sidebar section drifted in the self-hosted app fixture`)
+        errors.push(`${entityTypeLabel} entity definition sidebar section drifted in the self-hosted app fixture`)
     }
     if (persistedUi.sidebarOrder !== expectedEntityType.ui.sidebarOrder) {
-        errors.push(`${entityTypeLabel} custom entity definition sidebar order drifted in the self-hosted app fixture`)
+        errors.push(`${entityTypeLabel} entity definition sidebar order drifted in the self-hosted app fixture`)
     }
     if (persistedUi.nameKey !== expectedEntityType.ui.nameKey) {
-        errors.push(`${entityTypeLabel} custom entity definition nameKey drifted in the self-hosted app fixture`)
+        errors.push(`${entityTypeLabel} entity definition nameKey drifted in the self-hosted app fixture`)
     }
     if (persistedUi.descriptionKey !== expectedEntityType.ui.descriptionKey) {
-        errors.push(`${entityTypeLabel} custom entity definition descriptionKey drifted in the self-hosted app fixture`)
+        errors.push(`${entityTypeLabel} entity definition descriptionKey drifted in the self-hosted app fixture`)
     }
 
     const persistedTabs = Array.isArray(persistedUi.tabs) ? persistedUi.tabs : []
     if (JSON.stringify(persistedTabs) !== JSON.stringify(expectedEntityType.ui.tabs)) {
-        errors.push(`${entityTypeLabel} custom entity definition tabs drifted in the self-hosted app fixture`)
+        errors.push(`${entityTypeLabel} entity definition tabs drifted in the self-hosted app fixture`)
     }
 
     const persistedComponents =
@@ -642,27 +669,18 @@ const assertSelfHostedAppEntityTypeDefinition = (entityTypeDefinitions, expected
         }
 
         if (!persistedComponent || typeof persistedComponent !== 'object' || persistedComponent.enabled !== expectedComponent.enabled) {
-            errors.push(`${entityTypeLabel} custom entity definition component ${componentKey} drifted in the self-hosted app fixture`)
+            errors.push(`${entityTypeLabel} entity definition component ${componentKey} drifted in the self-hosted app fixture`)
         }
     }
 
     if (expectedEntityType.physicalTable && typeof expectedEntityType.physicalTable === 'object') {
         if (!persistedPhysicalTable || typeof persistedPhysicalTable !== 'object' || persistedPhysicalTable.enabled !== true) {
-            errors.push(`${entityTypeLabel} custom entity definition must keep the physicalTable component enabled`)
+            errors.push(`${entityTypeLabel} entity definition must keep the physicalTable component enabled`)
         } else if (persistedPhysicalTable.prefix !== expectedEntityType.physicalTable.prefix) {
-            errors.push(`${entityTypeLabel} custom entity definition physicalTable prefix drifted in the self-hosted app fixture`)
+            errors.push(`${entityTypeLabel} entity definition physicalTable prefix drifted in the self-hosted app fixture`)
         }
     } else if (persistedPhysicalTable && typeof persistedPhysicalTable === 'object' && persistedPhysicalTable.enabled === true) {
-        errors.push(`${entityTypeLabel} custom entity definition must keep the physicalTable component disabled`)
-    }
-
-    const persistedConfig =
-        persistedEntityType.config && typeof persistedEntityType.config === 'object' ? persistedEntityType.config : {}
-    const persistedCompatibility =
-        persistedConfig.compatibility && typeof persistedConfig.compatibility === 'object' ? persistedConfig.compatibility : {}
-
-    if (persistedCompatibility.legacyObjectKind !== expectedEntityType.compatibility.legacyObjectKind) {
-        errors.push(`${entityTypeLabel} custom entity definition legacy compatibility drifted in the self-hosted app fixture`)
+        errors.push(`${entityTypeLabel} entity definition must keep the physicalTable component disabled`)
     }
 }
 
@@ -712,7 +730,7 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
         envelope?.snapshot?.entityTypeDefinitions && typeof envelope.snapshot.entityTypeDefinitions === 'object'
             ? envelope.snapshot.entityTypeDefinitions
             : {}
-    for (const expectedEntityType of SELF_HOSTED_APP_V2_ENTITY_TYPES) {
+    for (const expectedEntityType of SELF_HOSTED_APP_STANDARD_ENTITY_TYPES) {
         assertSelfHostedAppEntityTypeDefinition(entityTypeDefinitions, expectedEntityType, errors)
     }
 
@@ -762,8 +780,8 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
         }
     }
 
-    const constants = Object.values(envelope?.snapshot?.constants ?? {})
-    for (const constant of constants.flat()) {
+    const fixedValues = Object.values(envelope?.snapshot?.fixedValues ?? {})
+    for (const constant of fixedValues.flat()) {
         if (!isLocalizedCodenameObject(constant?.codename) || !readCodenameText(constant?.codename)) {
             errors.push(`Constant ${String(constant?.id || '<unknown>')} must keep codename as a localized snapshot object`)
         }
@@ -776,11 +794,21 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
         }
     }
 
-    const sharedAttributes = Array.isArray(envelope?.snapshot?.sharedAttributes) ? envelope.snapshot.sharedAttributes : []
-    const sharedConstants = Array.isArray(envelope?.snapshot?.sharedConstants) ? envelope.snapshot.sharedConstants : []
-    const sharedEnumerationValues = Array.isArray(envelope?.snapshot?.sharedEnumerationValues)
-        ? envelope.snapshot.sharedEnumerationValues
-        : []
+    const sharedAttributes = Array.isArray(envelope?.snapshot?.sharedFieldDefinitions)
+        ? envelope.snapshot.sharedFieldDefinitions
+        : Array.isArray(envelope?.snapshot?.sharedAttributes)
+            ? envelope.snapshot.sharedAttributes
+            : []
+    const sharedConstants = Array.isArray(envelope?.snapshot?.sharedFixedValues)
+        ? envelope.snapshot.sharedFixedValues
+        : Array.isArray(envelope?.snapshot?.sharedConstants)
+            ? envelope.snapshot.sharedConstants
+            : []
+    const sharedEnumerationValues = Array.isArray(envelope?.snapshot?.sharedOptionValues)
+        ? envelope.snapshot.sharedOptionValues
+        : Array.isArray(envelope?.snapshot?.sharedEnumerationValues)
+            ? envelope.snapshot.sharedEnumerationValues
+            : []
     const sharedEntityOverrides = Array.isArray(envelope?.snapshot?.sharedEntityOverrides) ? envelope.snapshot.sharedEntityOverrides : []
 
     const canonicalSharedAttribute = sharedAttributes.find(
@@ -966,7 +994,9 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
         }
 
         const catalogLayouts = Array.isArray(envelope?.snapshot?.catalogLayouts) ? envelope.snapshot.catalogLayouts : []
-        const settingsCatalogLayouts = catalogLayouts.filter((layout) => layout?.catalogId === settingsCatalog.id)
+        const settingsCatalogLayouts = catalogLayouts.filter(
+            (layout) => (layout?.linkedCollectionId ?? layout?.catalogId) === settingsCatalog.id
+        )
 
         if (settingsCatalogLayouts.length !== 1) {
             errors.push(

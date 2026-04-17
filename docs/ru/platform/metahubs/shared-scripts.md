@@ -4,7 +4,7 @@ description: Справочная страница о Common shared library scri
 
 # Shared Scripts
 
-Shared scripts — это Common/general library modules, которые публикуют reusable helper-ы для других metahub scripts.
+Shared scripts — это library modules из рабочей области Resources, которые публикуют reusable helper-ы для других metahub scripts.
 Они являются import-only design assets и не раскрываются как прямые runtime entrypoints.
 
 ## Правила authoring

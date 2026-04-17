@@ -1,12 +1,46 @@
 import React from 'react'
+import '@testing-library/jest-dom/vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createLocalizedContent } from '@universo/utils'
 
 import EntityInstanceList from '../EntityInstanceList'
 
-const mockPaginatedResult = {
+const makeVlc = (content: string) => createLocalizedContent('en', content)
+
+type MockDialogState = {
+    create: { open: boolean }
+    edit: { open: boolean; item: unknown | null }
+    copy: { open: boolean; item: unknown | null }
+    delete: { open: boolean; item: unknown | null }
+    conflict: { open: boolean; data: unknown | null }
+}
+
+const mockPaginatedResult: {
+    data: Array<Record<string, unknown>>
+    pagination: {
+        currentPage: number
+        pageSize: number
+        totalItems: number
+        totalPages: number
+        hasNextPage: boolean
+        hasPreviousPage: boolean
+        search: string
+    }
+    actions: {
+        goToPage: ReturnType<typeof vi.fn>
+        nextPage: ReturnType<typeof vi.fn>
+        previousPage: ReturnType<typeof vi.fn>
+        setSearch: ReturnType<typeof vi.fn>
+        setSort: ReturnType<typeof vi.fn>
+        setPageSize: ReturnType<typeof vi.fn>
+    }
+    isLoading: boolean
+    isError: boolean
+    error: null
+} = {
     data: [],
     pagination: {
         currentPage: 1,
@@ -37,10 +71,10 @@ const mockUseMetahubHubs = vi.fn()
 const mockUseMetahubDetails = vi.fn()
 const mockUseEntityPermissions = vi.fn()
 const templateMainCardMock = vi.fn()
-const catalogListMock = vi.fn()
-const hubListMock = vi.fn()
-const setListMock = vi.fn()
-const enumerationListMock = vi.fn()
+const catalogEntityInstanceViewMock = vi.fn()
+const hubEntityInstanceViewMock = vi.fn()
+const setEntityInstanceViewMock = vi.fn()
+const enumerationEntityInstanceViewMock = vi.fn()
 
 type MockListRow = {
     id: string
@@ -175,7 +209,7 @@ vi.mock('@universo/template-mui', async (importOriginal) => {
         useDebouncedSearch: () => ({ searchValue: '', handleSearchChange: vi.fn() }),
         usePaginated: () => mockPaginatedResult,
         useListDialogs: () => {
-            const [dialogs, setDialogs] = ReactModule.useState({
+            const [dialogs, setDialogs] = ReactModule.useState<MockDialogState>({
                 create: { open: false },
                 edit: { open: false, item: null },
                 copy: { open: false, item: null },
@@ -226,16 +260,17 @@ vi.mock('@universo/template-mui/components/dialogs', () => ({
 
 vi.mock('../../../../components', () => ({
     ExistingCodenamesProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-    HubSelectionPanel: () => <div>HubSelectionPanel</div>,
-    CatalogDeleteDialog: ({ open }: { open: boolean }) => (open ? <div data-testid='catalog-delete-dialog'>CatalogDeleteDialog</div> : null)
+    ContainerSelectionPanel: () => <div>ContainerSelectionPanel</div>,
+    LinkedCollectionDeleteDialog: ({ open }: { open: boolean }) =>
+        open ? <div data-testid='catalog-delete-dialog'>LinkedCollectionDeleteDialog</div> : null
 }))
 
 vi.mock('../../../shared/ui/GeneralTabFields', () => ({
     default: () => <div>GeneralTabFields</div>
 }))
 
-vi.mock('../../../attributes/ui/AttributeList', () => ({
-    AttributeListContent: () => <div>AttributeListContent</div>
+vi.mock('../metadata/fieldDefinition/ui/FieldDefinitionList', () => ({
+    FieldDefinitionListContent: () => <div>FieldDefinitionListContent</div>
 }))
 
 vi.mock('../../../layouts/ui/LayoutList', () => ({
@@ -250,31 +285,29 @@ vi.mock('../../../scripts/ui/EntityScriptsTab', () => ({
     })
 }))
 
-vi.mock('../../../catalogs/ui/CatalogList', () => ({
-    default: () => {
-        catalogListMock()
-        return <div>CatalogList</div>
-    }
-}))
+vi.mock('../BuiltinEntityCollectionPage', () => ({
+    BuiltinEntityCollectionPage: ({ kindKey }: { kindKey?: string | null }) => {
+        if (kindKey === 'catalog') {
+            catalogEntityInstanceViewMock()
+            return <div>BuiltinEntityCollectionPage:catalog</div>
+        }
 
-vi.mock('../../../hubs/ui/HubList', () => ({
-    default: () => {
-        hubListMock()
-        return <div>HubList</div>
-    }
-}))
+        if (kindKey === 'hub') {
+            hubEntityInstanceViewMock()
+            return <div>BuiltinEntityCollectionPage:hub</div>
+        }
 
-vi.mock('../../../sets/ui/SetList', () => ({
-    default: () => {
-        setListMock()
-        return <div>SetList</div>
-    }
-}))
+        if (kindKey === 'set') {
+            setEntityInstanceViewMock()
+            return <div>BuiltinEntityCollectionPage:set</div>
+        }
 
-vi.mock('../../../enumerations/ui/EnumerationList', () => ({
-    default: () => {
-        enumerationListMock()
-        return <div>EnumerationList</div>
+        if (kindKey === 'enumeration') {
+            enumerationEntityInstanceViewMock()
+            return <div>BuiltinEntityCollectionPage:enumeration</div>
+        }
+
+        return <div>BuiltinEntityCollectionPage:unknown</div>
     }
 }))
 
@@ -294,8 +327,8 @@ vi.mock('../../../settings/hooks/useCodenameConfig', () => ({
     })
 }))
 
-vi.mock('../../../hubs/hooks', () => ({
-    useMetahubHubs: () => mockUseMetahubHubs()
+vi.mock('../../../entities/presets/hooks/useTreeEntities', () => ({
+    useTreeEntities: () => mockUseMetahubHubs()
 }))
 
 vi.mock('../../../metahubs/hooks', () => ({
@@ -322,10 +355,10 @@ describe('EntityInstanceList', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         templateMainCardMock.mockClear()
-        catalogListMock.mockClear()
-        hubListMock.mockClear()
-        setListMock.mockClear()
-        enumerationListMock.mockClear()
+        catalogEntityInstanceViewMock.mockClear()
+        hubEntityInstanceViewMock.mockClear()
+        setEntityInstanceViewMock.mockClear()
+        enumerationEntityInstanceViewMock.mockClear()
 
         mockUseMetahubDetails.mockReturnValue({
             data: { permissions: { manageMetahub: true, editContent: true, deleteContent: true } },
@@ -344,7 +377,7 @@ describe('EntityInstanceList', () => {
             {
                 id: 'hub-1',
                 codename: 'hub-1',
-                name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Hub 1' } } }
+                name: makeVlc('TreeEntity 1')
             }
         ])
 
@@ -354,18 +387,16 @@ describe('EntityInstanceList', () => {
                     {
                         id: 'type-1',
                         kindKey: 'custom.product',
-                        source: 'custom',
-                        isBuiltin: false,
-                        codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'CustomProduct' } } },
+                        codename: makeVlc('CustomProduct'),
                         ui: {
                             iconName: 'IconBox',
-                            tabs: ['general', 'hubs', 'layout', 'scripts'],
+                            tabs: ['general', 'treeEntities', 'layout', 'scripts'],
                             sidebarSection: 'objects',
                             nameKey: 'Products'
                         },
                         components: {
                             dataSchema: { enabled: true },
-                            hubAssignment: { enabled: true },
+                            treeAssignment: { enabled: true },
                             layoutConfig: { enabled: true },
                             scripting: { enabled: true },
                             actions: { enabled: true },
@@ -382,10 +413,10 @@ describe('EntityInstanceList', () => {
             {
                 id: 'entity-1',
                 kind: 'custom.product',
-                codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'product-one' } } },
-                name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Product One' } } },
-                description: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'First entity' } } },
-                config: { hubs: ['hub-1'], isSingleHub: false, isRequiredHub: false, sortOrder: 1 },
+                codename: makeVlc('product-one'),
+                name: makeVlc('Product One'),
+                description: makeVlc('First entity'),
+                config: { treeEntities: ['hub-1'], isSingleHub: false, isRequiredHub: false, sortOrder: 1 },
                 sortOrder: 1,
                 version: 3,
                 updatedAt: '2026-04-09T12:00:00.000Z',
@@ -401,10 +432,10 @@ describe('EntityInstanceList', () => {
             data: {
                 id: 'entity-1',
                 kind: 'custom.product',
-                codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'product-one' } } },
-                name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Product One' } } },
-                description: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Fresh shared description' } } },
-                config: { hubs: ['hub-1'], isSingleHub: false, isRequiredHub: false, sortOrder: 1 },
+                codename: makeVlc('product-one'),
+                name: makeVlc('Product One'),
+                description: makeVlc('Fresh shared description'),
+                config: { treeEntities: ['hub-1'], isSingleHub: false, isRequiredHub: false, sortOrder: 1 },
                 sortOrder: 1,
                 version: 4,
                 updatedAt: '2026-04-09T12:05:00.000Z',
@@ -414,7 +445,7 @@ describe('EntityInstanceList', () => {
         })
     })
 
-    it('renders with the legacy catalogs page shell contract', () => {
+    it('renders with the shared entity-metadata page shell contract', () => {
         render(
             <MemoryRouter initialEntries={['/metahub/metahub-1/entities/custom.product/instances']}>
                 <Routes>
@@ -451,7 +482,7 @@ describe('EntityInstanceList', () => {
         await user.click(screen.getByRole('button', { name: 'Create entity' }))
 
         expect(screen.getByText('General')).toBeInTheDocument()
-        expect(screen.getByText('Hubs')).toBeInTheDocument()
+        expect(screen.getByText('Containers')).toBeInTheDocument()
         expect(screen.queryByText('Attributes')).not.toBeInTheDocument()
         expect(screen.queryByText('Layouts')).not.toBeInTheDocument()
         expect(screen.queryByText('Scripts')).not.toBeInTheDocument()
@@ -485,33 +516,25 @@ describe('EntityInstanceList', () => {
         expect(screen.getByText('Attributes')).toBeInTheDocument()
     })
 
-    it('renders the catalog-compatible authoring surface on the entity route', () => {
+    it('renders the linked-collection authoring surface on the entity route', () => {
         mockEntityTypesQuery.mockReturnValue({
             data: {
                 items: [
                     {
                         id: 'type-1',
-                        kindKey: 'custom.catalog-v2',
-                        source: 'custom',
-                        isBuiltin: false,
-                        codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'CatalogV2' } } },
+                        kindKey: 'catalog',
+                        codename: makeVlc('LinkedCollectionEntity'),
                         ui: {
                             iconName: 'IconBox',
-                            tabs: ['general', 'hubs', 'layout', 'scripts'],
+                            tabs: ['general', 'treeEntities', 'layout', 'scripts'],
                             sidebarSection: 'objects',
-                            nameKey: 'Catalogs v2'
+                            nameKey: 'metahubs:linkedCollections.title'
                         },
                         components: {
                             dataSchema: { enabled: true },
-                            hubAssignment: { enabled: true },
-                            layoutConfig: { enabled: true },
                             scripting: { enabled: true }
                         },
-                        config: {
-                            compatibility: {
-                                legacyObjectKind: 'catalog'
-                            }
-                        }
+                        config: {}
                     }
                 ]
             },
@@ -522,11 +545,11 @@ describe('EntityInstanceList', () => {
         mockPaginatedResult.data = [
             {
                 id: 'catalog-1',
-                kind: 'custom.catalog-v2',
-                codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'catalog-one' } } },
-                name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Catalog One' } } },
-                description: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Catalog row' } } },
-                config: { hubs: ['hub-1'], isSingleHub: false, isRequiredHub: false, sortOrder: 1 },
+                kind: 'catalog',
+                codename: makeVlc('catalog-one'),
+                name: makeVlc('LinkedCollectionEntity One'),
+                description: makeVlc('LinkedCollectionEntity row'),
+                config: { treeEntities: ['hub-1'], isSingleHub: false, isRequiredHub: false, sortOrder: 1 },
                 sortOrder: 1,
                 version: 3,
                 updatedAt: '2026-04-09T12:00:00.000Z',
@@ -539,18 +562,18 @@ describe('EntityInstanceList', () => {
         })
 
         render(
-            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/custom.catalog-v2/instances']}>
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/catalog/instances']}>
                 <Routes>
                     <Route path='/metahub/:metahubId/entities/:kindKey/instances' element={<EntityInstanceList />} />
                 </Routes>
             </MemoryRouter>
         )
 
-        expect(screen.getByText('CatalogList')).toBeInTheDocument()
-        expect(catalogListMock).toHaveBeenCalledTimes(1)
+        expect(screen.getByText('BuiltinEntityCollectionPage:catalog')).toBeInTheDocument()
+        expect(catalogEntityInstanceViewMock).toHaveBeenCalledTimes(1)
     })
 
-    it('renders the catalog-compatible surface immediately for the known Catalogs V2 route', () => {
+    it('renders the linked-collection surface immediately for the standard catalog route', () => {
         mockEntityTypesQuery.mockReturnValue({
             data: undefined,
             error: null,
@@ -558,18 +581,18 @@ describe('EntityInstanceList', () => {
         })
 
         render(
-            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/custom.catalog-v2/instances']}>
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/catalog/instances']}>
                 <Routes>
                     <Route path='/metahub/:metahubId/entities/:kindKey/instances' element={<EntityInstanceList />} />
                 </Routes>
             </MemoryRouter>
         )
 
-        expect(screen.getByText('CatalogList')).toBeInTheDocument()
-        expect(catalogListMock).toHaveBeenCalledTimes(1)
+        expect(screen.getByText('BuiltinEntityCollectionPage:catalog')).toBeInTheDocument()
+        expect(catalogEntityInstanceViewMock).toHaveBeenCalledTimes(1)
     })
 
-    it('renders the hub-compatible surface immediately for the known Hubs V2 route', () => {
+    it('renders the tree-entity surface immediately for the standard hub route', () => {
         mockEntityTypesQuery.mockReturnValue({
             data: undefined,
             error: null,
@@ -577,18 +600,18 @@ describe('EntityInstanceList', () => {
         })
 
         render(
-            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/custom.hub-v2/instances']}>
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/hub/instances']}>
                 <Routes>
                     <Route path='/metahub/:metahubId/entities/:kindKey/instances' element={<EntityInstanceList />} />
                 </Routes>
             </MemoryRouter>
         )
 
-        expect(screen.getByText('HubList')).toBeInTheDocument()
-        expect(hubListMock).toHaveBeenCalledTimes(1)
+        expect(screen.getByText('BuiltinEntityCollectionPage:hub')).toBeInTheDocument()
+        expect(hubEntityInstanceViewMock).toHaveBeenCalledTimes(1)
     })
 
-    it('renders the set-compatible surface immediately for the known Sets V2 route', () => {
+    it('renders the value-group surface immediately for the standard set route', () => {
         mockEntityTypesQuery.mockReturnValue({
             data: undefined,
             error: null,
@@ -596,18 +619,18 @@ describe('EntityInstanceList', () => {
         })
 
         render(
-            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/custom.set-v2/instances']}>
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/set/instances']}>
                 <Routes>
                     <Route path='/metahub/:metahubId/entities/:kindKey/instances' element={<EntityInstanceList />} />
                 </Routes>
             </MemoryRouter>
         )
 
-        expect(screen.getByText('SetList')).toBeInTheDocument()
-        expect(setListMock).toHaveBeenCalledTimes(1)
+        expect(screen.getByText('BuiltinEntityCollectionPage:set')).toBeInTheDocument()
+        expect(setEntityInstanceViewMock).toHaveBeenCalledTimes(1)
     })
 
-    it('renders the enumeration-compatible surface immediately for the known Enumerations V2 route', () => {
+    it('renders the option-list surface immediately for the standard enumeration route', () => {
         mockEntityTypesQuery.mockReturnValue({
             data: undefined,
             error: null,
@@ -615,18 +638,18 @@ describe('EntityInstanceList', () => {
         })
 
         render(
-            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/custom.enumeration-v2/instances']}>
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/enumeration/instances']}>
                 <Routes>
                     <Route path='/metahub/:metahubId/entities/:kindKey/instances' element={<EntityInstanceList />} />
                 </Routes>
             </MemoryRouter>
         )
 
-        expect(screen.getByText('EnumerationList')).toBeInTheDocument()
-        expect(enumerationListMock).toHaveBeenCalledTimes(1)
+        expect(screen.getByText('BuiltinEntityCollectionPage:enumeration')).toBeInTheDocument()
+        expect(enumerationEntityInstanceViewMock).toHaveBeenCalledTimes(1)
     })
 
-    it('keeps the catalog-compatible surface when legacy settings limit copy and delete', () => {
+    it('keeps the linked-collection surface when existing settings limit copy and delete', () => {
         mockUseMetahubDetails.mockReturnValue({
             data: { permissions: { manageMetahub: false, editContent: true, deleteContent: false } },
             isLoading: false
@@ -643,27 +666,21 @@ describe('EntityInstanceList', () => {
                 items: [
                     {
                         id: 'type-1',
-                        kindKey: 'custom.catalog-v2',
-                        source: 'custom',
-                        isBuiltin: false,
-                        codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'CatalogV2' } } },
+                        kindKey: 'catalog',
+                        codename: makeVlc('LinkedCollectionEntity'),
                         ui: {
                             iconName: 'IconBox',
-                            tabs: ['general', 'hubs', 'layout', 'scripts'],
+                            tabs: ['general', 'treeEntities', 'layout', 'scripts'],
                             sidebarSection: 'objects',
-                            nameKey: 'Catalogs v2'
+                            nameKey: 'metahubs:linkedCollections.title'
                         },
                         components: {
                             dataSchema: { enabled: true },
-                            hubAssignment: { enabled: true },
+                            treeAssignment: { enabled: true },
                             layoutConfig: { enabled: true },
                             scripting: { enabled: true }
                         },
-                        config: {
-                            compatibility: {
-                                legacyObjectKind: 'catalog'
-                            }
-                        }
+                        config: {}
                     }
                 ]
             },
@@ -674,11 +691,11 @@ describe('EntityInstanceList', () => {
         mockPaginatedResult.data = [
             {
                 id: 'catalog-1',
-                kind: 'custom.catalog-v2',
-                codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'catalog-one' } } },
-                name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Catalog One' } } },
+                kind: 'catalog',
+                codename: makeVlc('catalog-one'),
+                name: makeVlc('LinkedCollectionEntity One'),
                 description: null,
-                config: { hubs: ['hub-1'], isSingleHub: false, isRequiredHub: false, sortOrder: 1 },
+                config: { treeEntities: ['hub-1'], isSingleHub: false, isRequiredHub: false, sortOrder: 1 },
                 sortOrder: 1,
                 version: 3,
                 updatedAt: '2026-04-09T12:00:00.000Z',
@@ -695,11 +712,11 @@ describe('EntityInstanceList', () => {
                 entityId === 'catalog-1'
                     ? {
                           id: 'catalog-1',
-                          kind: 'custom.catalog-v2',
-                          codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'catalog-one' } } },
-                          name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Catalog One' } } },
-                          description: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Fresh shared description' } } },
-                          config: { hubs: ['hub-1'], isSingleHub: false, isRequiredHub: false, sortOrder: 1 },
+                          kind: 'catalog',
+                          codename: makeVlc('catalog-one'),
+                          name: makeVlc('LinkedCollectionEntity One'),
+                          description: makeVlc('Fresh shared description'),
+                          config: { treeEntities: ['hub-1'], isSingleHub: false, isRequiredHub: false, sortOrder: 1 },
                           sortOrder: 1,
                           version: 4,
                           updatedAt: '2026-04-09T12:05:00.000Z',
@@ -710,15 +727,15 @@ describe('EntityInstanceList', () => {
         }))
 
         render(
-            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/custom.catalog-v2/instances']}>
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/catalog/instances']}>
                 <Routes>
                     <Route path='/metahub/:metahubId/entities/:kindKey/instances' element={<EntityInstanceList />} />
                 </Routes>
             </MemoryRouter>
         )
 
-        expect(screen.getByText('CatalogList')).toBeInTheDocument()
-        expect(catalogListMock).toHaveBeenCalledTimes(1)
+        expect(screen.getByText('BuiltinEntityCollectionPage:catalog')).toBeInTheDocument()
+        expect(catalogEntityInstanceViewMock).toHaveBeenCalledTimes(1)
     })
 
     it('keeps read-only visibility but hides entity instance authoring affordances without manageMetahub', () => {
@@ -743,7 +760,7 @@ describe('EntityInstanceList', () => {
         expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
         expect(mockEntityTypesQuery).toHaveBeenCalledWith(
             'metahub-1',
-            expect.objectContaining({ includeBuiltins: false, limit: 1000, offset: 0 })
+            expect.objectContaining({ limit: 1000, offset: 0, sortBy: 'codename', sortOrder: 'asc' })
         )
     })
 
@@ -752,10 +769,10 @@ describe('EntityInstanceList', () => {
             {
                 id: 'entity-deleted-1',
                 kind: 'custom.product',
-                codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'product-deleted' } } },
-                name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Deleted Product' } } },
-                description: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Deleted entity' } } },
-                config: { hubs: ['hub-1'], isSingleHub: false, isRequiredHub: false, sortOrder: 2 },
+                codename: makeVlc('product-deleted'),
+                name: makeVlc('Deleted Product'),
+                description: makeVlc('Deleted entity'),
+                config: { treeEntities: ['hub-1'], isSingleHub: false, isRequiredHub: false, sortOrder: 2 },
                 sortOrder: 2,
                 version: 4,
                 updatedAt: '2026-04-09T13:00:00.000Z',

@@ -319,7 +319,7 @@ Following the `LayoutList` → `LayoutListContent` extraction pattern:
 
 - [ ] **AttributeList.tsx**: Extract `AttributeListContent` that accepts `objectId`, `metahubId`, `renderPageShell` props
 - [ ] **SetList.tsx → ConstantListContent**: *(Note: existing SetList manages constants/set items)* Extract `ConstantListContent`
-- [ ] **EnumerationValueList.tsx → ValueListContent**: Extract `ValueListContent`
+- [ ] **OptionValueList.tsx → ValueListContent**: Extract `ValueListContent`
 - [ ] Each *Content component receives the virtual container's `objectId` and renders the same table/toolbar as the regular list, with `isShared` context for visual indicators
 
 #### Step 2.3: Extend GeneralPage with New Tabs
@@ -431,7 +431,7 @@ const SharedEntityBadge = () => {
 }
 ```
 
-- [ ] In `AttributeList` / `ConstantList` / `EnumerationValueList`:
+- [ ] In `AttributeList` / `ConstantList` / `OptionValueList`:
   - Add background tint for shared rows: `alpha(theme.palette.info.main, 0.04)`
   - Add `SharedEntityBadge` next to entity name for shared rows
   - Add explicit inactive indicator for shared rows with effective `isActive === false`

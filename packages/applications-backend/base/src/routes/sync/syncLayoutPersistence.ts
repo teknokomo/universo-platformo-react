@@ -8,23 +8,14 @@
 import stableStringify from 'json-stable-stringify'
 import type { DDLServices } from '@universo/schema-ddl'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
-import {
-    type ApplicationSyncTransaction,
-    getApplicationSyncDdlServices,
-    getApplicationSyncKnex
-} from '../../ddl'
+import { type ApplicationSyncTransaction, getApplicationSyncDdlServices, getApplicationSyncKnex } from '../../ddl'
 import {
     type PersistedAppLayout,
     type PersistedAppLayoutZoneWidget,
     type PersistedAppLayoutRowDb,
-    type PersistedAppWidgetRowDb,
+    type PersistedAppWidgetRowDb
 } from './syncTypes'
-import {
-    isRecord,
-    normalizeSnapshotLayouts,
-    normalizeSnapshotLayoutZoneWidgets,
-    buildMergedDashboardLayoutConfig,
-} from './syncHelpers'
+import { isRecord, normalizeSnapshotLayouts, normalizeSnapshotLayoutZoneWidgets, buildMergedDashboardLayoutConfig } from './syncHelpers'
 
 // --- Layout persistence ---
 
@@ -73,7 +64,7 @@ export async function persistPublishedLayouts(options: {
 
         for (const row of nextLayouts) {
             const payload = {
-                catalog_id: row.catalogId,
+                catalog_id: row.linkedCollectionId,
                 template_key: row.templateKey,
                 name: row.name,
                 description: row.description,
@@ -280,7 +271,7 @@ export async function getPersistedPublishedLayouts(options: {
 
     const layouts = rows.map((row) => ({
         id: String(row.id),
-        catalogId: typeof row.catalog_id === 'string' && row.catalog_id.length > 0 ? row.catalog_id : null,
+        linkedCollectionId: typeof row.catalog_id === 'string' && row.catalog_id.length > 0 ? row.catalog_id : null,
         templateKey: typeof row.template_key === 'string' && row.template_key.length > 0 ? row.template_key : 'dashboard',
         name: isRecord(row.name) ? row.name : {},
         description: isRecord(row.description) ? row.description : null,
@@ -289,7 +280,7 @@ export async function getPersistedPublishedLayouts(options: {
         isDefault: Boolean(row.is_default),
         sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0
     }))
-    const defaultLayoutId = layouts.find((layout) => layout.catalogId === null && layout.isDefault)?.id ?? null
+    const defaultLayoutId = layouts.find((layout) => layout.linkedCollectionId === null && layout.isDefault)?.id ?? null
     return { layouts, defaultLayoutId }
 }
 
@@ -326,7 +317,10 @@ export async function getPersistedPublishedWidgets(options: { schemaName: string
 
 // --- Change detection ---
 
-export async function hasDashboardLayoutConfigChanges(options: { schemaName: string; snapshot: PublishedApplicationSnapshot }): Promise<boolean> {
+export async function hasDashboardLayoutConfigChanges(options: {
+    schemaName: string
+    snapshot: PublishedApplicationSnapshot
+}): Promise<boolean> {
     const { schemaName, snapshot } = options
 
     const current = await getPersistedDashboardLayoutConfig({ schemaName })
@@ -336,7 +330,10 @@ export async function hasDashboardLayoutConfigChanges(options: { schemaName: str
     return stableStringify(current) !== stableStringify(next)
 }
 
-export async function hasPublishedLayoutsChanges(options: { schemaName: string; snapshot: PublishedApplicationSnapshot }): Promise<boolean> {
+export async function hasPublishedLayoutsChanges(options: {
+    schemaName: string
+    snapshot: PublishedApplicationSnapshot
+}): Promise<boolean> {
     const { schemaName, snapshot } = options
 
     const current = await getPersistedPublishedLayouts({ schemaName })
@@ -349,7 +346,10 @@ export async function hasPublishedLayoutsChanges(options: { schemaName: string; 
     return stableStringify(current) !== stableStringify(next)
 }
 
-export async function hasPublishedWidgetsChanges(options: { schemaName: string; snapshot: PublishedApplicationSnapshot }): Promise<boolean> {
+export async function hasPublishedWidgetsChanges(options: {
+    schemaName: string
+    snapshot: PublishedApplicationSnapshot
+}): Promise<boolean> {
     const { schemaName, snapshot } = options
     const current = await getPersistedPublishedWidgets({ schemaName })
     const next = normalizeSnapshotLayoutZoneWidgets(snapshot)
@@ -420,4 +420,3 @@ export async function persistSeedWarnings(
             })
         })
 }
-

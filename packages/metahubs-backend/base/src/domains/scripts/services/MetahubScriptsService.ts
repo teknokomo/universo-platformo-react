@@ -15,7 +15,6 @@ import {
     type ScriptModuleRole,
     type ScriptPresentation,
     type ScriptSourceKind,
-    isLegacyCompatibleObjectKind,
     isScriptAttachmentKind,
     normalizeScriptCapabilities,
     normalizeScriptModuleRole,
@@ -75,7 +74,7 @@ export interface UpdateMetahubScriptInput {
 
 const ACTIVE_ATTACHMENT_CLAUSE = '_upl_deleted = false AND _mhb_deleted = false'
 const LEGACY_GLOBAL_SCRIPT_ROLE = 'global'
-const CATALOG_COMPATIBLE_KIND_KEY = 'custom.catalog-v2'
+const CATALOG_COMPATIBLE_KIND_KEY = 'catalog'
 
 const isGeneralAttachmentScope = (attachedToKind: ScriptAttachmentKind, attachedToId: string | null): boolean =>
     attachedToKind === 'general' && attachedToId === null
@@ -105,9 +104,8 @@ const assertScopeModuleRoleCompatibility = (
         })
     }
 
-    if (isOutOfScopeLibrary(attachedToKind, attachedToId, moduleRole) && !options.allowOutOfScopeLibrary) {
+    if (moduleRole === 'library' && !isGeneralAttachmentScope(attachedToKind, attachedToId) && !options.allowOutOfScopeLibrary) {
         throw new MetahubValidationError('Library scripts must use the general attachment scope', {
-            attachedToKind,
             attachedToId,
             moduleRole
         })
@@ -227,7 +225,7 @@ const isLegacyGlobalScript = (row: Pick<StoredMetahubScriptRow, 'module_role'>):
     String(row.module_role) === LEGACY_GLOBAL_SCRIPT_ROLE
 
 const isCatalogCompatibleEntityType = (entityType: { kindKey: string; config?: Record<string, unknown> | null }): boolean =>
-    entityType.kindKey === CATALOG_COMPATIBLE_KIND_KEY || isLegacyCompatibleObjectKind(entityType.config, 'catalog')
+    entityType.kindKey === CATALOG_COMPATIBLE_KIND_KEY
 
 const toSharedLibraryDependency = (script: MetahubScriptRecord) => ({
     id: script.id,
@@ -713,9 +711,10 @@ export class MetahubScriptsService {
         }
 
         const entityTypeService = new EntityTypeService(this.exec, this.schemaService)
-        const customTypes = await entityTypeService.listCustomTypes(metahubId)
+        const customTypes = await entityTypeService.listEditableTypes(metahubId)
+        const compatibleKinds = customTypes.filter(isCatalogCompatibleEntityType).map((entityType) => entityType.kindKey)
 
-        return [attachedToKind, ...customTypes.filter(isCatalogCompatibleEntityType).map((entityType) => entityType.kindKey)]
+        return Array.from(new Set([attachedToKind, ...compatibleKinds]))
     }
 
     private async findSharedLibraryDependents(

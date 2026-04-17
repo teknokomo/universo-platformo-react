@@ -6,10 +6,8 @@ import type { PaginatedResponse, PaginationParams } from '../../../types'
 export interface MetahubEntityType {
     id?: string
     kindKey: string
-    isBuiltin: boolean
     components: ComponentManifest
     ui: EntityTypeUIConfig
-    source: 'builtin' | 'custom'
     codename?: VersionedLocalizedContent<string> | string | null
     presentation?: Record<string, unknown>
     config?: Record<string, unknown>
@@ -18,9 +16,7 @@ export interface MetahubEntityType {
     updatedAt?: string | null
 }
 
-export interface EntityTypeListParams extends PaginationParams {
-    includeBuiltins?: boolean
-}
+export interface EntityTypeListParams extends PaginationParams {}
 
 export interface EntityTypePayload {
     kindKey: string
@@ -69,8 +65,7 @@ export const listEntityTypes = async (metahubId: string, params?: EntityTypeList
             offset: params?.offset,
             sortBy: params?.sortBy,
             sortOrder: params?.sortOrder,
-            search: params?.search,
-            includeBuiltins: params?.includeBuiltins
+            search: params?.search
         }
     })
 

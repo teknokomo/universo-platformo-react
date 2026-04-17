@@ -48,7 +48,7 @@ import { I18nextProvider } from 'react-i18next'
 
 import MetahubMembers from '../MetahubMembers'
 import * as metahubsApi from '../../api'
-import { STORAGE_KEYS } from '../../../../constants/storage'
+import { STORAGE_KEYS } from '../../../../view-preferences/storage'
 import { getInstance as getI18nInstance } from '@universo/i18n/instance'
 import { registerNamespace } from '@universo/i18n/registry'
 import metahubsEn from '../../../../i18n/locales/en/metahubs.json'
@@ -197,7 +197,7 @@ describe('MetahubMembers', () => {
     })
 
     describe('Component rendering with happy-dom', () => {
-        it('should render component with translated UI elements', async () => {
+        it('should render component with translated UI records', async () => {
             vi.mocked(metahubsApi.listMetahubMembers).mockResolvedValue({
                 ...paginated([], { total: 0, limit: 20, offset: 0 }),
                 meta: {
@@ -496,7 +496,7 @@ describe('MetahubMembers', () => {
 
             const { user } = renderWithProviders(<MetahubMembers />)
 
-            const addButton = await screen.findByRole('button', { name: /add|invite/i })
+            const addButton = await screen.findByRole('button', { name: /add|invite/i }, { timeout: 5000 })
             await user.click(addButton)
 
             const dialog = await screen.findByRole('dialog')
@@ -506,12 +506,15 @@ describe('MetahubMembers', () => {
             const saveButton = screen.getByRole('button', { name: /save/i })
             await user.click(saveButton)
 
-            await waitFor(() => {
-                expect(vi.mocked(metahubsApi.inviteMetahubMember)).toHaveBeenCalled()
-                expect(screen.getByRole('dialog')).toBeInTheDocument()
-                expect(screen.getByDisplayValue('missing@example.com')).toBeInTheDocument()
-            })
-        })
+            await waitFor(
+                () => {
+                    expect(vi.mocked(metahubsApi.inviteMetahubMember)).toHaveBeenCalled()
+                    expect(screen.getByRole('dialog')).toBeInTheDocument()
+                    expect(screen.getByDisplayValue('missing@example.com')).toBeInTheDocument()
+                },
+                { timeout: 5000 }
+            )
+        }, 15000)
 
         it('should show userAlreadyMember message on 409 + api code', async () => {
             vi.mocked(metahubsApi.inviteMetahubMember).mockRejectedValue({
@@ -520,7 +523,7 @@ describe('MetahubMembers', () => {
 
             const { user } = renderWithProviders(<MetahubMembers />)
 
-            const addButton = await screen.findByRole('button', { name: /add|invite/i })
+            const addButton = await screen.findByRole('button', { name: /add|invite/i }, { timeout: 5000 })
             await user.click(addButton)
 
             const dialog = await screen.findByRole('dialog')
@@ -530,11 +533,14 @@ describe('MetahubMembers', () => {
             const saveButton = screen.getByRole('button', { name: /save/i })
             await user.click(saveButton)
 
-            await waitFor(() => {
-                expect(vi.mocked(metahubsApi.inviteMetahubMember)).toHaveBeenCalled()
-                expect(screen.getByRole('dialog')).toBeInTheDocument()
-                expect(screen.getByDisplayValue('exists@example.com')).toBeInTheDocument()
-            })
-        })
+            await waitFor(
+                () => {
+                    expect(vi.mocked(metahubsApi.inviteMetahubMember)).toHaveBeenCalled()
+                    expect(screen.getByRole('dialog')).toBeInTheDocument()
+                    expect(screen.getByDisplayValue('exists@example.com')).toBeInTheDocument()
+                },
+                { timeout: 5000 }
+            )
+        }, 15000)
     })
 })

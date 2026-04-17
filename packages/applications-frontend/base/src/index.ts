@@ -40,7 +40,7 @@ export type {
     SimpleLocalizedInput,
     ApplicationLocalizedPayload,
     ApplicationRuntimeResponse,
-    ApplicationRuntimeCatalog,
+    ApplicationRuntimeLinkedCollection,
     ApplicationRuntimeColumn,
     ApplicationRuntimeMenu,
     ApplicationRuntimeMenuItem,

@@ -315,9 +315,9 @@ Required behavior:
 - `packages/metahubs-frontend/base/src/domains/hubs/ui/HubList.tsx`
 - `packages/metahubs-frontend/base/src/domains/sets/ui/SetList.tsx`
 - `packages/metahubs-frontend/base/src/domains/enumerations/ui/EnumerationList.tsx`
-- `packages/metahubs-frontend/base/src/domains/hubs/hooks/useHubListData.ts`
-- `packages/metahubs-frontend/base/src/domains/sets/hooks/useSetListData.ts`
-- `packages/metahubs-frontend/base/src/domains/enumerations/hooks/useEnumerationListData.ts`
+- `packages/metahubs-frontend/base/src/domains/hubs/hooks/useTreeListData.ts`
+- `packages/metahubs-frontend/base/src/domains/sets/hooks/useValueGroupListData.ts`
+- `packages/metahubs-frontend/base/src/domains/enumerations/hooks/useOptionListData.ts`
 
 These components currently render, but still hardcode legacy navigation targets such as `/metahub/:id/set/:setId/constants` and `/metahub/:id/enumeration/:enumerationId/values`.
 

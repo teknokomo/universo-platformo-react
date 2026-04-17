@@ -51,7 +51,7 @@ export interface RuntimeInlineTabularEditorProps {
     /** Application UUID. */
     applicationId: string
     /** Catalog UUID that owns the parent record. */
-    catalogId: string
+    linkedCollectionId: string
     /** Parent record UUID. */
     parentRecordId: string
     /** TABLE attribute UUID. */
@@ -90,7 +90,7 @@ export interface RuntimeInlineTabularEditorProps {
 export function RuntimeInlineTabularEditor({
     apiBaseUrl,
     applicationId,
-    catalogId,
+    linkedCollectionId,
     parentRecordId,
     attributeId,
     childFields,
@@ -121,7 +121,7 @@ export function RuntimeInlineTabularEditor({
         error: fetchError
     } = useQuery({
         queryKey,
-        queryFn: () => fetchTabularRows({ apiBaseUrl, applicationId, parentRecordId, attributeId, catalogId }),
+        queryFn: () => fetchTabularRows({ apiBaseUrl, applicationId, parentRecordId, attributeId, linkedCollectionId }),
         staleTime: 0,
         refetchOnMount: 'always'
     })
@@ -249,7 +249,7 @@ export function RuntimeInlineTabularEditor({
                 data[field.id] = field.type === 'BOOLEAN' ? false : null
             }
             data._tp_sort_order = maxSortOrder + 1
-            await createTabularRow({ apiBaseUrl, applicationId, parentRecordId, attributeId, catalogId, data })
+            await createTabularRow({ apiBaseUrl, applicationId, parentRecordId, attributeId, linkedCollectionId, data })
             await queryClient.invalidateQueries({ queryKey })
         } catch (err) {
             const message = extractApiErrorMessage(err, 'Failed to create row')
@@ -268,7 +268,7 @@ export function RuntimeInlineTabularEditor({
         applicationId,
         parentRecordId,
         attributeId,
-        catalogId,
+        linkedCollectionId,
         queryClient,
         queryKey,
         onError
@@ -303,7 +303,7 @@ export function RuntimeInlineTabularEditor({
                 applicationId,
                 parentRecordId,
                 attributeId,
-                catalogId,
+                linkedCollectionId,
                 childRowId: deleteRowId
             })
             setDeleteRowId(null)
@@ -324,7 +324,7 @@ export function RuntimeInlineTabularEditor({
         applicationId,
         parentRecordId,
         attributeId,
-        catalogId,
+        linkedCollectionId,
         queryClient,
         queryKey,
         onError
@@ -391,7 +391,7 @@ export function RuntimeInlineTabularEditor({
                 applicationId,
                 parentRecordId,
                 attributeId,
-                catalogId,
+                linkedCollectionId,
                 childRowId: menuRowId
             })
             await queryClient.invalidateQueries({ queryKey })
@@ -412,7 +412,7 @@ export function RuntimeInlineTabularEditor({
         applicationId,
         parentRecordId,
         attributeId,
-        catalogId,
+        linkedCollectionId,
         queryClient,
         queryKey,
         onError,
@@ -490,7 +490,7 @@ export function RuntimeInlineTabularEditor({
                 applicationId,
                 parentRecordId,
                 attributeId,
-                catalogId,
+                linkedCollectionId,
                 childRowId: rowId,
                 data
             })
@@ -507,7 +507,7 @@ export function RuntimeInlineTabularEditor({
             applicationId,
             parentRecordId,
             attributeId,
-            catalogId,
+            linkedCollectionId,
             queryClient,
             queryKey
         ]
@@ -550,7 +550,7 @@ export function RuntimeInlineTabularEditor({
                     applicationId,
                     parentRecordId,
                     attributeId,
-                    catalogId,
+                    linkedCollectionId,
                     childRowId: rowId,
                     data: { [fieldId]: newValue }
                 })
@@ -571,7 +571,7 @@ export function RuntimeInlineTabularEditor({
             applicationId,
             parentRecordId,
             attributeId,
-            catalogId,
+            linkedCollectionId,
             queryClient,
             queryKey,
             onError

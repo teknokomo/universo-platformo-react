@@ -48,7 +48,7 @@ import {
 } from '../hooks/mutations'
 import { useBranchListData } from '../hooks/useBranchListData'
 import { useViewPreference } from '../../../hooks/useViewPreference'
-import { STORAGE_KEYS } from '../../../constants/storage'
+import { STORAGE_KEYS } from '../../../view-preferences/storage'
 import { invalidateBranchesQueries } from '../../shared'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { BRANCH_COPY_OPTION_KEYS } from '@universo/types'
@@ -291,32 +291,42 @@ const BranchCopyOptionsFields = ({ values, setValue, isLoading, t }: BranchCopyO
             <FormControlLabel
                 control={
                     <Checkbox
-                        checked={options.copyHubs}
-                        onChange={(event) => toggleBranchCopyChild(setValue, 'copyHubs', event.target.checked, values)}
+                        checked={options.copyTreeEntities}
+                        onChange={(event) => toggleBranchCopyChild(setValue, 'copyTreeEntities', event.target.checked, values)}
                         disabled={controlDisabled}
                     />
                 }
-                label={t('metahubs:branches.copy.options.copyHubs', 'Hubs')}
+                label={t('metahubs:branches.copy.options.copyTreeEntities', 'Tree entities')}
             />
             <FormControlLabel
                 control={
                     <Checkbox
-                        checked={options.copyCatalogs}
-                        onChange={(event) => toggleBranchCopyChild(setValue, 'copyCatalogs', event.target.checked, values)}
+                        checked={options.copyLinkedCollections}
+                        onChange={(event) => toggleBranchCopyChild(setValue, 'copyLinkedCollections', event.target.checked, values)}
                         disabled={controlDisabled}
                     />
                 }
-                label={t('metahubs:branches.copy.options.copyCatalogs', 'Catalogs')}
+                label={t('metahubs:branches.copy.options.copyLinkedCollections', 'Linked collections')}
             />
             <FormControlLabel
                 control={
                     <Checkbox
-                        checked={options.copyEnumerations}
-                        onChange={(event) => toggleBranchCopyChild(setValue, 'copyEnumerations', event.target.checked, values)}
+                        checked={options.copyValueGroups}
+                        onChange={(event) => toggleBranchCopyChild(setValue, 'copyValueGroups', event.target.checked, values)}
                         disabled={controlDisabled}
                     />
                 }
-                label={t('metahubs:branches.copy.options.copyEnumerations', 'Enumerations')}
+                label={t('metahubs:branches.copy.options.copyValueGroups', 'Value groups')}
+            />
+            <FormControlLabel
+                control={
+                    <Checkbox
+                        checked={options.copyOptionLists}
+                        onChange={(event) => toggleBranchCopyChild(setValue, 'copyOptionLists', event.target.checked, values)}
+                        disabled={controlDisabled}
+                    />
+                }
+                label={t('metahubs:branches.copy.options.copyOptionLists', 'Option lists')}
             />
         </Stack>
     )
@@ -576,9 +586,10 @@ const BranchList = () => {
                         sourceBranchId?: string
                         fullCopy?: boolean
                         copyLayouts?: boolean
-                        copyHubs?: boolean
-                        copyCatalogs?: boolean
-                        copyEnumerations?: boolean
+                        copyTreeEntities?: boolean
+                        copyLinkedCollections?: boolean
+                        copyValueGroups?: boolean
+                        copyOptionLists?: boolean
                     }
                 ) => {
                     if (!metahubId) return Promise.resolve()

@@ -1,5 +1,5 @@
 import { createHash } from 'crypto'
-import { AttributeDataType, getLegacyCompatibleObjectKindForKindKey } from '@universo/types'
+import { FieldDefinitionDataType } from '@universo/types'
 import { getCodenamePrimary, serialization } from '@universo/utils'
 import type {
     PublishedApplicationRuntimeSource,
@@ -17,7 +17,9 @@ const buildDeterministicScopedUuid = (seed: string): string => {
     hex[12] = '5'
     hex[16] = ((parseInt(hex[16] ?? '0', 16) & 0x3) | 0x8).toString(16)
 
-    return `${hex.slice(0, 8).join('')}-${hex.slice(8, 12).join('')}-${hex.slice(12, 16).join('')}-${hex.slice(16, 20).join('')}-${hex.slice(20, 32).join('')}`
+    return `${hex.slice(0, 8).join('')}-${hex.slice(8, 12).join('')}-${hex.slice(12, 16).join('')}-${hex.slice(16, 20).join('')}-${hex
+        .slice(20, 32)
+        .join('')}`
 }
 
 const resolveSnapshotCodenameText = (value: unknown): string | null => {
@@ -32,8 +34,7 @@ const resolveSnapshotCodenameText = (value: unknown): string | null => {
     return null
 }
 
-const isEnumerationCompatibleKind = (kind: unknown): boolean =>
-    kind === 'enumeration' || getLegacyCompatibleObjectKindForKindKey(kind) === 'enumeration'
+const isEnumerationStandardKind = (kind: unknown): boolean => kind === 'enumeration'
 
 const calculatePublicationSnapshotHash = (snapshot: PublishedApplicationSnapshot): string =>
     createHash('sha256')
@@ -43,7 +44,7 @@ const calculatePublicationSnapshotHash = (snapshot: PublishedApplicationSnapshot
 const collectDuplicatedEnumerationValueIds = (snapshot: PublishedApplicationSnapshot): Set<string> => {
     const ownersByValueId = new Map<string, Set<string>>()
 
-    for (const [objectId, values] of Object.entries(snapshot.enumerationValues ?? {})) {
+    for (const [objectId, values] of Object.entries(snapshot.optionValues ?? {})) {
         const typedValues = Array.isArray(values) ? (values as SnapshotEnumerationValueDefinition[]) : []
         for (const value of typedValues) {
             const valueId = typeof value.id === 'string' && value.id.length > 0 ? value.id : null
@@ -74,7 +75,7 @@ const buildEnumerationValueIdMap = (
         return scopedIdsByObject
     }
 
-    for (const [objectId, values] of Object.entries(snapshot.enumerationValues ?? {})) {
+    for (const [objectId, values] of Object.entries(snapshot.optionValues ?? {})) {
         const typedValues = Array.isArray(values) ? (values as SnapshotEnumerationValueDefinition[]) : []
         const scopedIds = new Map<string, string>()
 
@@ -151,7 +152,7 @@ const rewriteElementDataForFields = (
             continue
         }
 
-        if (field.dataType === AttributeDataType.TABLE && Array.isArray(rawValue) && Array.isArray(field.childFields)) {
+        if (field.dataType === FieldDefinitionDataType.TABLE && Array.isArray(rawValue) && Array.isArray(field.childFields)) {
             const nextRows = rawValue.map((row) => {
                 if (!isRecord(row)) {
                     return row
@@ -168,8 +169,8 @@ const rewriteElementDataForFields = (
         }
 
         if (
-            field.dataType === AttributeDataType.REF &&
-            isEnumerationCompatibleKind(field.targetEntityKind) &&
+            field.dataType === FieldDefinitionDataType.REF &&
+            isEnumerationStandardKind(field.targetEntityKind) &&
             typeof field.targetEntityId === 'string'
         ) {
             const nextValue = remapEnumerationReferenceValue(rawValue, field.targetEntityId, scopedIdsByObject)
@@ -183,9 +184,7 @@ const rewriteElementDataForFields = (
     return changed ? nextData : data
 }
 
-export const normalizePublishedApplicationRuntimeSnapshot = (
-    snapshot: PublishedApplicationSnapshot
-): PublishedApplicationSnapshot => {
+export const normalizePublishedApplicationRuntimeSnapshot = (snapshot: PublishedApplicationSnapshot): PublishedApplicationSnapshot => {
     const duplicatedValueIds = collectDuplicatedEnumerationValueIds(snapshot)
     const scopedIdsByObject = buildEnumerationValueIdMap(snapshot, duplicatedValueIds)
 
@@ -193,8 +192,8 @@ export const normalizePublishedApplicationRuntimeSnapshot = (
         return snapshot
     }
 
-    const enumerationValues = Object.fromEntries(
-        Object.entries(snapshot.enumerationValues ?? {}).map(([objectId, values]) => {
+    const optionValues = Object.fromEntries(
+        Object.entries(snapshot.optionValues ?? {}).map(([objectId, values]) => {
             const typedValues = Array.isArray(values) ? (values as SnapshotEnumerationValueDefinition[]) : []
             const scopedIds = scopedIdsByObject.get(objectId)
 
@@ -242,7 +241,7 @@ export const normalizePublishedApplicationRuntimeSnapshot = (
 
     return {
         ...snapshot,
-        enumerationValues,
+        optionValues,
         elements
     }
 }

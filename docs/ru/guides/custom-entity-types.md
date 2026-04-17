@@ -10,24 +10,24 @@ description: Практическое руководство по создани
 
 - Используйте custom entity type, когда объект специфичен для metahub и не должен становиться новым фиксированным модулем платформы.
 - Используйте reusable preset, когда форма должна оставаться одинаковой между разными metahubs.
-- Сохраняйте built-in Catalogs, Sets и Enumerations для legacy-поверхностей, которые ещё остаются authoritative во время coexistence.
+- Используйте прямые standard presets для Linked Collections, Tree Entities, Value Groups и Option Lists вместо legacy V2 aliases.
 
 ## Typical Flow
 
 1. Откройте workspace Entities ниже Common.
-2. Начните с preset вроде Hubs V2, Catalogs V2, Sets V2, Enumerations V2 или с пустого типа.
+2. Начните с preset вроде Hubs, Catalogs, Sets, Enumerations или с пустого типа.
 3. Заполните kind key, codename, name и конфигурацию tabs.
 4. Включите только те components, которые соответствуют требуемому поведению.
 5. Сохраните тип, откройте страницу его instances и создайте первый экземпляр до перехода к automation tabs.
 6. В edit dialog последовательно настройте Scripts, затем Actions, затем Events для сохранённого экземпляра.
 7. Отмечайте тип как published только тогда, когда он должен стать runtime section.
 
-## Legacy-Compatible V2 Presets
+## Standard Presets
 
-- Hubs V2 переиспользует делегированную поверхность HubList, ownership вложенных entity routes и save-first automation tabs.
-- Catalogs V2 переиспользует CatalogList и остаётся runtime-visible контрольным случаем после publication sync.
-- Sets V2 переиспользует SetList и сохраняет authoring констант и automation на общих legacy routes.
-- Enumerations V2 переиспользует EnumerationList и сохраняет authoring значений и action/event automation на общих legacy routes.
+- Tree Entities переиспользуют делегированную поверхность tree entities, ownership вложенных entity routes и save-first automation tabs.
+- Linked Collections переиспользуют общую authoring-поверхность связанных коллекций и остаются runtime-visible контрольным случаем после publication sync.
+- Value Groups сохраняют authoring фиксированных значений и automation на общих entity-owned routes.
+- Option Lists сохраняют authoring значений опций и action/event automation на общих entity-owned routes.
 
 ## Current Component Set
 
@@ -48,17 +48,17 @@ description: Практическое руководство по создани
 ## Guardrails
 
 - Для parity-heavy flows предпочитайте presets вместо ручной сборки того же manifest.
-- Automation authoring на generic custom entity routes следует контракту manageMetahub; legacy-compatible presets переиспользуют соответствующую legacy list/detail surface вместо второго generic CRUD shell.
+- Automation authoring на generic custom entity routes следует контракту manageMetahub; standard metadata presets переиспользуют соответствующую list/detail surface вместо второго generic CRUD shell.
 - Публикация влияет на dynamic menu и runtime только после publication sync или application sync.
-- Catalog-compatible presets могут появляться как runtime sections после publication sync, тогда как hub-compatible, set-compatible и enumeration-compatible presets остаются отфильтрованными из runtime navigation.
-- Legacy `/hubs`, `/sets` и `/enumerations` routes продолжают показывать compatible custom rows во время coexistence, тогда как каждый V2 entity route остаётся отфильтрованным до своего custom kind.
-- Generic instance routes предназначены для custom kinds; built-in kinds остаются на legacy routes.
+- Standard metadata presets остаются на прямых kind keys и публикуются через entity-owned route tree.
+- Runtime sections материализуются из published entity metadata и текущих runtime adapters после publication sync.
+- Generic instance routes теперь владеют всеми entity kinds, а standard metadata presets по-прежнему рендерятся через свои dedicated authoring surfaces внутри общего entity-owned route tree.
 - Advanced visual composition остаётся вне текущей parity wave.
 
 ## Visual References
 
 ![Create Entity Type dialog](../.gitbook/assets/entities/metahub-entities-create-dialog.png)
-![Catalog-compatible general panel](../.gitbook/assets/entities/catalog-compatible-edit-general-panel.png)
+Текущий browser proof и генерируемые screenshots используют общий entity workspace и dialog создания, показанный выше.
 
 ## Related References
 
@@ -69,5 +69,5 @@ description: Практическое руководство по создани
 
 - Подтвердите, что тип сохраняется с ожидаемым component manifest.
 - Подтвердите, что страница custom instances открывается из dynamic menu.
-- Подтвердите, что publication sync материализует catalog-compatible sections в runtime и не выводит hub/set/enumeration-compatible sections в runtime navigation.
+- Подтвердите, что publication sync материализует ожидаемые runtime sections из published entity metadata.
 - Подтвердите, что shipped path покрыт focused tests или browser flows до более широкого rollout.

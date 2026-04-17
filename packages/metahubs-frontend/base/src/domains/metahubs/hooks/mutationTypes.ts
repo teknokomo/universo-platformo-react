@@ -2,11 +2,11 @@ import type { AssignableRole } from '@universo/template-mui'
 import type { MetahubLocalizedPayload, SimpleLocalizedInput } from '../../../types'
 import type { MetahubCopyInput } from '../api'
 
-export type LegacyMetahubInput = { name: string; description?: string }
+export type MetahubDraftInput = { name: string; description?: string }
 
 export interface UpdateMetahubParams {
     id: string
-    data: LegacyMetahubInput | MetahubLocalizedPayload
+    data: MetahubDraftInput | MetahubLocalizedPayload
     expectedVersion?: number
 }
 

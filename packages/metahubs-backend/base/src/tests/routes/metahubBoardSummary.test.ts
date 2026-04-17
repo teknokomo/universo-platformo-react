@@ -120,12 +120,12 @@ describe('Metahub Board Summary', () => {
         mockCountMetahubMembers.mockResolvedValue(5)
 
         mockExec.query.mockImplementation(async (sql: string) => {
-            if (
-                sql.includes('_mhb_objects') &&
-                sql.includes('COUNT(*) FILTER (WHERE kind = ANY($1::text[]))::int AS "hubsCount"') &&
-                sql.includes('COUNT(*) FILTER (WHERE kind = ANY($2::text[]))::int AS "catalogsCount"')
-            ) {
-                return [{ hubsCount: 2, catalogsCount: 4 }]
+            if (sql.includes('_mhb_objects') && sql.includes('SELECT kind, COUNT(*)::int AS count') && sql.includes('GROUP BY kind')) {
+                return [
+                    { kind: 'hub', count: 2 },
+                    { kind: 'catalog', count: 4 },
+                    { kind: 'custom.article', count: 3 }
+                ]
             }
             if (sql.includes('doc_publication_versions')) {
                 return [{ count: 7 }]
@@ -147,8 +147,11 @@ describe('Metahub Board Summary', () => {
             metahubId,
             activeBranchId: branchId,
             branchesCount: 3,
-            hubsCount: 2,
-            catalogsCount: 4,
+            entityCounts: {
+                hub: 2,
+                catalog: 4,
+                'custom.article': 3
+            },
             membersCount: 5,
             publicationsCount: 2,
             publicationVersionsCount: 7,
@@ -157,9 +160,9 @@ describe('Metahub Board Summary', () => {
 
         const countsCall = mockExec.query.mock.calls.find(([sql]: [string]) => sql.includes('_mhb_objects'))
 
-        expect(countsCall?.[0]).toContain('COUNT(*) FILTER (WHERE kind = ANY($1::text[]))::int AS "hubsCount"')
-        expect(countsCall?.[0]).toContain('COUNT(*) FILTER (WHERE kind = ANY($2::text[]))::int AS "catalogsCount"')
-        expect(countsCall?.[1]).toEqual([['hub'], ['catalog'], ['hub', 'catalog']])
+        expect(countsCall?.[0]).toContain('SELECT kind, COUNT(*)::int AS count')
+        expect(countsCall?.[0]).toContain('GROUP BY kind')
+        expect(countsCall?.[1]).toBeUndefined()
     })
 
     it('skips metahub object counting for invalid branch schema names', async () => {
@@ -197,7 +200,6 @@ describe('Metahub Board Summary', () => {
         const app = buildApp()
         const response = await request(app).get(`/metahub/${metahubId}/board/summary`).expect(200)
 
-        expect(response.body.hubsCount).toBe(0)
-        expect(response.body.catalogsCount).toBe(0)
+        expect(response.body.entityCounts).toEqual({})
     })
 })

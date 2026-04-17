@@ -74,7 +74,7 @@ Root attributes use `usePaginated`. DnD only reorders items **within the visible
 
 | Package | Scope |
 |---------|-------|
-| `metahubs-frontend` | New DnD components, hooks, API functions; modify AttributeList, ChildAttributeList, EnumerationValueList |
+| `metahubs-frontend` | New DnD components, hooks, API functions; modify AttributeList, ChildAttributeList, OptionValueList |
 | `metahubs-backend` | New reorder/transfer endpoints and service methods |
 | `universo-types` | 2 new settings in `METAHUB_SETTINGS_REGISTRY` (cross-list permissions, default `true`) |
 | `universo-template-mui` | (1) Fix FlowListTable `key={index}` → `key={row.id}`; (2) Export `StyledTableCell`/`StyledTableRow` from shared file (QA-F10); (3) Add `hideCancelButton?: boolean` to `ConfirmPayload` interface and handle in `ConfirmDialog` (QA-F4) |
@@ -84,7 +84,7 @@ Root attributes use `usePaginated`. DnD only reorders items **within the visible
 **Frontend (metahubs-frontend)**:
 - `src/domains/attributes/ui/AttributeList.tsx` — wrap with DndContext, replace FlowListTable with DnD table
 - `src/domains/attributes/ui/ChildAttributeList.tsx` — same
-- `src/domains/enumerations/ui/EnumerationValueList.tsx` — same
+- `src/domains/enumerations/ui/OptionValueList.tsx` — same
 - **NEW** `src/domains/attributes/ui/dnd/` — DnD components and hooks
 - **NEW** `src/domains/enumerations/ui/dnd/` — DnD components and hooks
 - `src/domains/attributes/api/attributes.ts` — new `reorderAttribute` API function
@@ -1539,12 +1539,12 @@ export function useReorderEnumerationValue() {
 }
 ```
 
-- [ ] **Step 9.3**: Integrate in `EnumerationValueList.tsx`
+- [ ] **Step 9.3**: Integrate in `OptionValueList.tsx`
 
 DnD is always enabled for enumeration values (no setting to disable it):
 
 ```tsx
-// In EnumerationValueList.tsx:
+// In OptionValueList.tsx:
 const reorderMutation = useReorderEnumerationValue()
 
 const handleReorder = useCallback(async (valueId: string, newSortOrder: number) => {

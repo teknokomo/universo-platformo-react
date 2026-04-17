@@ -199,7 +199,7 @@ describe('Scripts Routes', () => {
     it('accepts custom entity attachment kinds through the route schema', async () => {
         mockCreateScript.mockResolvedValueOnce(
             createScriptRecord({
-                attachedToKind: 'document',
+                attachedToKind: 'custom.invoice',
                 attachedToId: '018f8a78-7b8f-7c1d-a111-222233334400'
             })
         )
@@ -209,22 +209,22 @@ describe('Scripts Routes', () => {
         const response = await request(app)
             .post('/metahub/metahub-1/scripts')
             .send({
-                codename: 'document-widget',
-                name: 'Document widget',
-                attachedToKind: 'document',
+                codename: 'invoice-widget',
+                name: 'Invoice widget',
+                attachedToKind: 'custom.invoice',
                 attachedToId: '018f8a78-7b8f-7c1d-a111-222233334400',
                 moduleRole: 'widget',
                 sourceKind: 'embedded',
                 sourceCode:
-                    "import { ExtensionScript } from '@universo/extension-sdk'\nexport default class DocumentWidget extends ExtensionScript {}"
+                    "import { ExtensionScript } from '@universo/extension-sdk'\nexport default class InvoiceWidget extends ExtensionScript {}"
             })
             .expect(201)
 
-        expect(response.body.attachedToKind).toBe('document')
+        expect(response.body.attachedToKind).toBe('custom.invoice')
         expect(mockCreateScript).toHaveBeenCalledWith(
             'metahub-1',
             expect.objectContaining({
-                attachedToKind: 'document',
+                attachedToKind: 'custom.invoice',
                 attachedToId: '018f8a78-7b8f-7c1d-a111-222233334400'
             }),
             'user-1'

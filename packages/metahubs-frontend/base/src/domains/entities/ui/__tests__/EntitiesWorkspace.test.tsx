@@ -13,7 +13,6 @@ type MockListRow = {
     id: string
     name: string
     kindKey?: string
-    source?: 'builtin' | 'custom'
     raw?: {
         id?: string | null
     }
@@ -41,10 +40,6 @@ type ToolbarControlsProps = {
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
         t: (key: string, defaultValueOrOptions?: string | { defaultValue?: string; ns?: string }) => {
-            if (key === 'metahubs:documents.title') return 'Documents'
-            if (key === 'documents.title' && typeof defaultValueOrOptions === 'object' && defaultValueOrOptions?.ns === 'metahubs') {
-                return 'Documents'
-            }
             if (typeof defaultValueOrOptions === 'string') return defaultValueOrOptions
             if (typeof defaultValueOrOptions?.defaultValue === 'string') return defaultValueOrOptions.defaultValue
             return key
@@ -143,7 +138,7 @@ vi.mock('@universo/template-mui', async (importOriginal) => {
                 {data.map((row) => (
                     <div key={row.id}>
                         <span>{row.name}</span>
-                        {renderActions ? renderActions({ id: row.id, name: row.name, kindKey: row.kindKey, source: row.source }) : null}
+                        {renderActions ? renderActions({ id: row.id, name: row.name, kindKey: row.kindKey }) : null}
                     </div>
                 ))}
             </div>
@@ -286,34 +281,51 @@ describe('EntitiesWorkspace', () => {
             isLoading: false
         })
 
-        mockEntityTypesQuery.mockImplementation((_metahubId: string, params?: { includeBuiltins?: boolean }) => ({
+        mockEntityTypesQuery.mockImplementation(() => ({
             data: {
                 items: [
                     {
-                        id: 'builtin-document',
-                        kindKey: 'document',
-                        source: 'builtin',
-                        isBuiltin: true,
-                        codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'document' } } },
+                        id: 'type-0',
+                        kindKey: 'hub',
+                        codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'TreeEntity' } } },
+                        ui: {
+                            iconName: 'IconHierarchy',
+                            tabs: ['general', 'treeEntities'],
+                            sidebarSection: 'objects',
+                            nameKey: 'Hubs',
+                            descriptionKey: 'Manage treeEntities'
+                        },
+                        presentation: {
+                            name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Hubs' } } },
+                            description: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Manage treeEntities' } } }
+                        },
+                        components: {
+                            dataSchema: { enabled: true },
+                            hierarchy: { enabled: true }
+                        },
+                        updatedAt: '2026-04-10T12:00:00.000Z'
+                    },
+                    {
+                        id: 'type-2',
+                        kindKey: 'custom.invoice',
+                        codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'CustomInvoice' } } },
                         ui: {
                             iconName: 'IconFileText',
                             tabs: ['general'],
                             sidebarSection: 'objects',
-                            nameKey: 'metahubs:documents.title',
-                            descriptionKey: ''
+                            nameKey: 'Invoices',
+                            descriptionKey: 'Manage invoices'
                         },
                         components: {
                             dataSchema: { enabled: true },
-                            predefinedElements: true,
-                            hubAssignment: { enabled: true }
+                            records: true,
+                            treeAssignment: { enabled: true }
                         },
                         updatedAt: ''
                     },
                     {
                         id: 'type-1',
                         kindKey: 'custom.product',
-                        source: 'custom',
-                        isBuiltin: false,
                         codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'CustomProduct' } } },
                         ui: {
                             iconName: 'IconBox',
@@ -324,13 +336,13 @@ describe('EntitiesWorkspace', () => {
                         },
                         components: {
                             dataSchema: { enabled: true },
-                            hubAssignment: { enabled: true },
+                            treeAssignment: { enabled: true },
                             layoutConfig: { enabled: true },
                             scripting: { enabled: true }
                         },
                         updatedAt: '2026-04-09T12:00:00.000Z'
                     }
-                ].filter((item) => (params?.includeBuiltins === false ? item.source === 'custom' : true))
+                ]
             },
             error: null,
             isLoading: false
@@ -353,6 +365,24 @@ describe('EntitiesWorkspace', () => {
         await user.click(screen.getByTestId('entity-menu-item-entity-type-instances-type-1'))
 
         expect(navigateSpy).toHaveBeenCalledWith('/metahub/metahub-1/entities/custom.product/instances')
+    })
+
+    it('keeps direct standard entity types authorable from the shared workspace', async () => {
+        const user = userEvent.setup()
+        const { default: EntitiesWorkspace } = await import('../EntitiesWorkspace')
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities' element={<EntitiesWorkspace />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        await user.click(screen.getByTestId('entity-menu-trigger-entity-type-type-0'))
+        await user.click(screen.getByTestId('entity-menu-item-entity-type-instances-type-0'))
+
+        expect(navigateSpy).toHaveBeenCalledWith('/metahub/metahub-1/entities/hub/instances')
     })
 
     it('opens the populated edit dialog from the shared list-view menu', async () => {
@@ -396,6 +426,24 @@ describe('EntitiesWorkspace', () => {
         expect(screen.getByRole('checkbox', { name: 'Publish to dynamic menu' })).toBeChecked()
     })
 
+    it('keeps custom data-schema types authorable on the shared entities workspace', async () => {
+        const user = userEvent.setup()
+        const { default: EntitiesWorkspace } = await import('../EntitiesWorkspace')
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities' element={<EntitiesWorkspace />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        await user.click(screen.getByTestId('entity-menu-trigger-entity-type-type-2'))
+        await user.click(screen.getByTestId('entity-menu-item-entity-type-instances-type-2'))
+
+        expect(navigateSpy).toHaveBeenCalledWith('/metahub/metahub-1/entities/custom.invoice/instances')
+    })
+
     it('hides entity authoring affordances for read-only metahub members', async () => {
         mockUseMetahubDetails.mockReturnValue({
             data: { permissions: { manageMetahub: false } },
@@ -413,21 +461,17 @@ describe('EntitiesWorkspace', () => {
         )
 
         expect(screen.getByText('Products')).toBeInTheDocument()
-        expect(screen.getByText('Documents')).toBeInTheDocument()
+        expect(screen.getByText('Invoices')).toBeInTheDocument()
         expect(screen.getByText('You do not have permission to manage entity types for this metahub.')).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Create' })).not.toBeInTheDocument()
         expect(screen.queryByTestId('entity-menu-trigger-entity-type-type-1')).not.toBeInTheDocument()
         expect(mockEntityTypesQuery).toHaveBeenCalledWith(
             'metahub-1',
-            expect.objectContaining({ includeBuiltins: true, limit: 1000, offset: 0 })
-        )
-        expect(mockEntityTypesQuery).toHaveBeenCalledWith(
-            'metahub-1',
-            expect.objectContaining({ includeBuiltins: false, limit: 1000, offset: 0 })
+            expect.objectContaining({ limit: 1000, offset: 0, sortBy: 'codename', sortOrder: 'asc' })
         )
     })
 
-    it('renders with the legacy catalogs page shell contract', async () => {
+    it('renders with the shared entity-metadata page shell contract', async () => {
         const { default: EntitiesWorkspace } = await import('../EntitiesWorkspace')
 
         render(
@@ -475,7 +519,7 @@ describe('EntitiesWorkspace', () => {
         expect(screen.getByRole('checkbox', { name: 'Events' })).not.toBeChecked()
 
         await user.click(screen.getByRole('checkbox', { name: 'Data schema' }))
-        expect(screen.getByRole('checkbox', { name: 'Predefined elements' })).not.toBeChecked()
+        expect(screen.getByRole('checkbox', { name: 'Predefined records' })).not.toBeChecked()
         expect(screen.getByRole('checkbox', { name: 'Hierarchy' })).not.toBeChecked()
         expect(screen.getByRole('checkbox', { name: 'Relations' })).not.toBeChecked()
     })

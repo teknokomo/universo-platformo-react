@@ -5,15 +5,6 @@ import {
     createLoggedInApiContext,
     createMetahub,
     disposeApiContext,
-    listCatalogAttributes,
-    listEnumerationValues,
-    listLayoutZoneWidgets,
-    listLayouts,
-    listMetahubCatalogs,
-    listMetahubEnumerations,
-    listMetahubHubs,
-    listMetahubSets,
-    listSetConstants,
     sendWithCsrf
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
@@ -35,7 +26,7 @@ type SnapshotFixture = {
         name?: unknown
     }
     snapshot?: {
-        entities?: Record<string, { kind?: string; codename?: string; presentation?: { name?: unknown } }>
+        entities?: Record<string, { kind?: string; codename?: unknown; presentation?: { name?: unknown } }>
     }
 }
 
@@ -51,6 +42,20 @@ async function apiGet(api: ApiContext, path: string) {
             ...(cookieHeader ? { Cookie: cookieHeader } : {})
         }
     })
+}
+
+async function readBrowserResponseJsonSafe(response: { text(): Promise<string> }): Promise<Record<string, unknown> | null> {
+    const text = await response.text()
+    if (!text) {
+        return null
+    }
+
+    try {
+        const parsed = JSON.parse(text) as Record<string, unknown>
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null
+    } catch {
+        return null
+    }
 }
 
 function readLocalizedText(value: unknown, locale = 'en'): string | undefined {
@@ -80,13 +85,20 @@ function readLocalizedText(value: unknown, locale = 'en'): string | undefined {
     return typeof fallbackValue === 'string' ? fallbackValue : undefined
 }
 
-function matchesSectionDefinition(entity: { name?: unknown; codename?: unknown } | undefined, section?: { name?: { en?: string } } | null) {
+function matchesSectionDefinition(
+    entity: { name?: unknown; codename?: unknown; presentation?: { name?: unknown } } | undefined,
+    section?: { name?: { en?: string } } | null
+) {
     const expectedText = section?.name?.en
     if (!expectedText) {
         return false
     }
 
-    return readLocalizedText(entity?.name) === expectedText || readLocalizedText(entity?.codename) === expectedText
+    return (
+        readLocalizedText(entity?.name) === expectedText ||
+        readLocalizedText(entity?.presentation?.name) === expectedText ||
+        readLocalizedText(entity?.codename) === expectedText
+    )
 }
 
 async function loadSelfHostedAppFixture(): Promise<{
@@ -278,76 +290,129 @@ test.describe('Snapshot Export/Import Flow', () => {
         const importResponse = await importResponsePromise
         expect(importResponse.status()).toBe(201)
 
-        const importBody = await importResponse.json()
-        const importedId = importBody?.metahub?.id ?? importBody?.data?.id ?? importBody?.id
+        const importBody = await readBrowserResponseJsonSafe(importResponse)
+        await expect(dialog).toHaveCount(0)
+        await expect
+            .poll(
+                () => new URL(page.url()).pathname,
+                {
+                    timeout: 15_000,
+                    message: 'Waiting for imported metahub board navigation after snapshot import'
+                }
+            )
+            .toMatch(/^\/metahub\/[0-9a-f-]+$/)
+
+        const importedIdFromResponse =
+            typeof importBody?.metahub === 'object' && importBody.metahub && 'id' in importBody.metahub
+                ? (importBody.metahub as { id?: unknown }).id
+                : importBody?.data && typeof importBody.data === 'object' && 'id' in importBody.data
+                  ? (importBody.data as { id?: unknown }).id
+                  : importBody?.id
+        const importedId = typeof importedIdFromResponse === 'string'
+            ? importedIdFromResponse
+            : new URL(page.url()).pathname.match(/^\/metahub\/([^/]+)$/)?.[1]
         expect(typeof importedId).toBe('string')
 
         await recordCreatedMetahub({ id: importedId, name: fixture.metahubName, codename: 'self-hosted-app-imported-fixture' })
-        await expect(dialog).toHaveCount(0)
         await expect(page.getByText(fixture.metahubName, { exact: true }).first()).toBeVisible({ timeout: 15_000 })
-
-        const [catalogs, hubs, sets, enumerations] = await Promise.all([
-            listMetahubCatalogs(api, importedId, { limit: 100, offset: 0 }),
-            listMetahubHubs(api, importedId, { limit: 100, offset: 0 }),
-            listMetahubSets(api, importedId, { limit: 100, offset: 0 }),
-            listMetahubEnumerations(api, importedId, { limit: 100, offset: 0 })
-        ])
-
-        expect((catalogs.items ?? []).length).toBe(fixture.expectedCounts.catalogs)
-        expect((hubs.items ?? []).length).toBe(fixture.expectedCounts.hubs)
-        expect((sets.items ?? []).length).toBe(fixture.expectedCounts.sets)
-        expect((enumerations.items ?? []).length).toBe(fixture.expectedCounts.enumerations)
 
         await waitForSelfHostedAppExportContract(api, importedId)
 
-        const settingsCatalog = (catalogs.items ?? []).find((catalog) => readLocalizedText(catalog?.name) === 'Settings')
+        const exportResponse = await apiGet(api, `/api/v1/metahub/${importedId}/export`)
+        expect(exportResponse.ok).toBe(true)
+        const importedEnvelope = (await exportResponse.json()) as Record<string, unknown>
+        assertSelfHostedAppEnvelopeContract(importedEnvelope)
+
+        const importedSnapshot =
+            importedEnvelope.snapshot && typeof importedEnvelope.snapshot === 'object'
+                ? (importedEnvelope.snapshot as Record<string, unknown>)
+                : {}
+        const importedEntities = Object.values(
+            importedSnapshot.entities && typeof importedSnapshot.entities === 'object'
+                ? (importedSnapshot.entities as Record<
+                      string,
+                      { id?: string; kind?: string; codename?: unknown; presentation?: { name?: unknown } }
+                  >)
+                : {}
+        )
+        const importedSharedAttributes = Array.isArray(importedSnapshot.sharedAttributes) ? importedSnapshot.sharedAttributes : []
+                const importedSharedConstants = Array.isArray(importedSnapshot.sharedFixedValues)
+                        ? importedSnapshot.sharedFixedValues
+                        : Array.isArray(importedSnapshot.sharedConstants)
+                            ? importedSnapshot.sharedConstants
+                            : []
+        const importedSharedEnumerationValues = Array.isArray(importedSnapshot.sharedEnumerationValues)
+            ? importedSnapshot.sharedEnumerationValues
+            : []
+        const importedSharedEntityOverrides = Array.isArray(importedSnapshot.sharedEntityOverrides)
+            ? importedSnapshot.sharedEntityOverrides
+            : []
+        const importedCatalogLayouts = Array.isArray(importedSnapshot.catalogLayouts) ? importedSnapshot.catalogLayouts : []
+        const importedLayoutZoneWidgets = Array.isArray(importedSnapshot.layoutZoneWidgets) ? importedSnapshot.layoutZoneWidgets : []
+        const importedCatalogLayoutWidgetOverrides = Array.isArray(importedSnapshot.catalogLayoutWidgetOverrides)
+            ? importedSnapshot.catalogLayoutWidgetOverrides
+            : []
+
+        expect(importedEntities.filter((entity) => entity.kind === 'catalog')).toHaveLength(fixture.expectedCounts.catalogs)
+        expect(importedEntities.filter((entity) => entity.kind === 'hub')).toHaveLength(fixture.expectedCounts.hubs)
+        expect(importedEntities.filter((entity) => entity.kind === 'set')).toHaveLength(fixture.expectedCounts.sets)
+        expect(importedEntities.filter((entity) => entity.kind === 'enumeration')).toHaveLength(fixture.expectedCounts.enumerations)
+
+        const settingsCatalog = importedEntities.find(
+            (entity) => entity.kind === 'catalog' && readLocalizedText(entity?.presentation?.name) === 'Settings'
+        )
         expect(typeof settingsCatalog?.id).toBe('string')
 
         const includedCatalogSection = findSelfHostedAppSection(
             SELF_HOSTED_APP_SHARED_ENTITIES.attribute.includedCatalogSectionCodename
         )
-        const importedSharedCatalog = (catalogs.items ?? []).find((catalog) => matchesSectionDefinition(catalog, includedCatalogSection))
+        const importedSharedCatalog = importedEntities.find(
+            (entity) => entity.kind === 'catalog' && matchesSectionDefinition(entity, includedCatalogSection)
+        )
         expect(typeof importedSharedCatalog?.id).toBe('string')
 
         const targetSetSection = findSelfHostedAppSection(SELF_HOSTED_APP_SHARED_ENTITIES.constant.targetSetSectionCodename)
-        const importedSetSection = (sets.items ?? []).find((setItem) => matchesSectionDefinition(setItem, targetSetSection))
+        const importedSetSection = importedEntities.find(
+            (entity) => entity.kind === 'set' && matchesSectionDefinition(entity, targetSetSection)
+        )
         expect(typeof importedSetSection?.id).toBe('string')
 
         const targetEnumerationSection = findSelfHostedAppSection(
             SELF_HOSTED_APP_SHARED_ENTITIES.enumerationValue.targetEnumerationSectionCodename
         )
-        const importedEnumerationSection = (enumerations.items ?? []).find((enumeration) =>
-            matchesSectionDefinition(enumeration, targetEnumerationSection)
+        const importedEnumerationSection = importedEntities.find(
+            (entity) => entity.kind === 'enumeration' && matchesSectionDefinition(entity, targetEnumerationSection)
         )
         expect(typeof importedEnumerationSection?.id).toBe('string')
 
-        const [includedCatalogAttributes, excludedCatalogAttributes, importedSharedConstants, importedSharedValues] = await Promise.all([
-            listCatalogAttributes(api, importedId, importedSharedCatalog.id, { limit: 100, offset: 0, includeShared: true }),
-            listCatalogAttributes(api, importedId, settingsCatalog.id, { limit: 100, offset: 0, includeShared: true }),
-            listSetConstants(api, importedId, importedSetSection.id, { limit: 100, offset: 0, includeShared: true }),
-            listEnumerationValues(api, importedId, importedEnumerationSection.id, { includeShared: true })
-        ])
+        expect(
+            importedSharedAttributes.some(
+                (attribute) => readLocalizedText(attribute?.presentation?.name) === fixture.sharedAttributeName
+            )
+        ).toBe(true)
+        expect(
+            importedSharedEntityOverrides.some(
+                (override) =>
+                    override?.targetObjectId === settingsCatalog.id &&
+                    override?.isExcluded === true
+            )
+        ).toBe(true)
+        expect(
+            importedSharedConstants.some(
+                (constant) => readLocalizedText(constant?.presentation?.name) === fixture.sharedConstantName
+            )
+        ).toBe(true)
+        expect(
+            importedSharedEnumerationValues.some(
+                (value) => readLocalizedText(value?.presentation?.name) === fixture.sharedEnumerationValueName
+            )
+        ).toBe(true)
 
-        expect(
-            (includedCatalogAttributes.items ?? []).some((attribute) => readLocalizedText(attribute?.name) === fixture.sharedAttributeName)
-        ).toBe(true)
-        expect(
-            (excludedCatalogAttributes.items ?? []).some((attribute) => readLocalizedText(attribute?.name) === fixture.sharedAttributeName)
-        ).toBe(false)
-        expect(
-            (importedSharedConstants.items ?? []).some((constant) => readLocalizedText(constant?.name) === fixture.sharedConstantName)
-        ).toBe(true)
-        expect(
-            (importedSharedValues.items ?? []).some((value) => readLocalizedText(value?.name) === fixture.sharedEnumerationValueName)
-        ).toBe(true)
-
-        const settingsLayouts = await listLayouts(api, importedId, {
-            catalogId: settingsCatalog?.id,
-            limit: 20,
-            offset: 0
-        })
-        expect((settingsLayouts.items ?? []).length).toBe(1)
-        const settingsLayout = settingsLayouts.items?.[0]
+        const settingsLayouts = importedCatalogLayouts.filter(
+            (layout) => (layout?.linkedCollectionId ?? layout?.catalogId) === settingsCatalog?.id
+        )
+        expect(settingsLayouts).toHaveLength(1)
+        const settingsLayout = settingsLayouts[0]
         expect(readLocalizedText(settingsLayout?.name)).toBe(SELF_HOSTED_APP_SETTINGS_LAYOUT.name.en)
         expect(settingsLayout?.config).toMatchObject({
             showViewToggle: SELF_HOSTED_APP_SETTINGS_LAYOUT.runtimeConfig.showViewToggle,
@@ -357,12 +422,17 @@ test.describe('Snapshot Export/Import Flow', () => {
         })
         expect(typeof settingsLayout?.baseLayoutId).toBe('string')
 
-        const settingsLayoutWidgets = await listLayoutZoneWidgets(api, importedId, settingsLayout?.id)
-        const detailsTitleWidget = settingsLayoutWidgets.items?.find((widget) => widget?.widgetKey === 'detailsTitle')
-        expect(detailsTitleWidget?.isActive).toBe(false)
+        const baseDetailsTitleWidget = importedLayoutZoneWidgets.find(
+            (widget) => widget?.layoutId === settingsLayout?.baseLayoutId && widget?.widgetKey === 'detailsTitle'
+        )
+        expect(typeof baseDetailsTitleWidget?.id).toBe('string')
+        const detailsTitleWidgetOverride = importedCatalogLayoutWidgetOverrides.find(
+            (widget) => widget?.catalogLayoutId === settingsLayout?.id && widget?.baseWidgetId === baseDetailsTitleWidget?.id
+        )
+        expect(detailsTitleWidgetOverride?.isActive).toBe(false)
 
-        await page.goto(`/metahub/${importedId}/catalogs`)
-        await expect(page.getByRole('heading', { name: 'Catalogs' })).toBeVisible()
+        await page.goto(`/metahub/${importedId}/entities/catalog/instances`)
+        await expect(page.getByRole('heading', { name: 'Linked collections' })).toBeVisible()
 
         for (const catalogName of fixture.expectedCatalogNames) {
             await expect(page.getByText(catalogName, { exact: true }).first()).toBeVisible()

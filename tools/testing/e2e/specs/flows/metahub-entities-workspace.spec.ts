@@ -7,11 +7,10 @@ import {
     createAdminUser,
     createLoggedInApiContext,
     createMetahub,
-    createMetahubAttribute,
-    createMetahubCatalog,
+    createFieldDefinition,
+    createLinkedCollection,
     disposeApiContext,
     getAssignableRoles,
-    listMetahubCatalogs,
     listMetahubEntityTypes,
     listMetahubScripts,
     listMetahubMembers,
@@ -32,7 +31,6 @@ import {
 type EntityTypeRecord = {
     id?: string
     kindKey?: string
-    source?: 'builtin' | 'custom'
     published?: boolean
 }
 
@@ -40,14 +38,15 @@ type EntityTypeListPayload = {
     items?: EntityTypeRecord[]
 }
 
-type CatalogRecord = {
+type EntityRecord = {
     id?: string
     description?: unknown
     name?: unknown
+    codename?: unknown
 }
 
-type CatalogListPayload = {
-    items?: CatalogRecord[]
+type EntityListPayload = {
+    items?: EntityRecord[]
 }
 
 type ActionRecord = {
@@ -90,9 +89,20 @@ function buildApiCookieHeader(api: ApiSessionLike): string {
         .join('; ')
 }
 
+const buildCatalogInstancesPagePath = (metahubId: string, kindKey = 'catalog') =>
+    `/metahub/${metahubId}/entities/${encodeURIComponent(kindKey)}/instances`
 
-async function getCatalogViaApi(api: ApiSessionLike, metahubId: string, catalogId: string): Promise<CatalogRecord> {
-    const response = await fetch(new URL(`/api/v1/metahub/${metahubId}/catalog/${catalogId}`, api.baseURL), {
+const buildCatalogAttributesPagePath = (metahubId: string, catalogId: string, kindKey = 'catalog') =>
+    `/metahub/${metahubId}/entities/${encodeURIComponent(kindKey)}/instance/${catalogId}/field-definitions`
+
+const buildEntityInstancesApiPath = (metahubId: string, kindKey: string) =>
+    `/api/v1/metahub/${metahubId}/entities?kind=${encodeURIComponent(kindKey)}`
+
+const buildEntityInstanceApiPath = (metahubId: string, entityId: string) => `/api/v1/metahub/${metahubId}/entity/${entityId}`
+
+
+async function getEntityViaApi(api: ApiSessionLike, metahubId: string, entityId: string): Promise<EntityRecord> {
+    const response = await fetch(new URL(buildEntityInstanceApiPath(metahubId, entityId), api.baseURL), {
         headers: {
             Accept: 'application/json',
             Cookie: buildApiCookieHeader(api)
@@ -100,10 +110,25 @@ async function getCatalogViaApi(api: ApiSessionLike, metahubId: string, catalogI
     })
 
     if (!response.ok) {
-        throw new Error(`Fetching catalog ${catalogId} failed with ${response.status} ${response.statusText}: ${await response.text()}`)
+        throw new Error(`Fetching entity ${entityId} failed with ${response.status} ${response.statusText}: ${await response.text()}`)
     }
 
-    return (await response.json()) as CatalogRecord
+    return (await response.json()) as EntityRecord
+}
+
+async function listEntitiesViaApi(api: ApiSessionLike, metahubId: string, kindKey: string): Promise<EntityListPayload> {
+    const response = await fetch(new URL(buildEntityInstancesApiPath(metahubId, kindKey), api.baseURL), {
+        headers: {
+            Accept: 'application/json',
+            Cookie: buildApiCookieHeader(api)
+        }
+    })
+
+    if (!response.ok) {
+        throw new Error(`Listing entities for ${kindKey} failed with ${response.status} ${response.statusText}: ${await response.text()}`)
+    }
+
+    return (await response.json()) as EntityListPayload
 }
 
 async function listEntityActionsViaApi(api: ApiSessionLike, metahubId: string, entityId: string): Promise<ActionListPayload> {
@@ -253,15 +278,20 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
     const metahubName = `E2E ${runManifest.runId} entities workspace`
     const metahubCodename = `${runManifest.runId}-entities-workspace`
     const kindSuffix = buildKindSuffix(runManifest.runId)
-    const customKindKey = `custom.catalog-v2-${kindSuffix}`
-    const customName = `Catalogs V2 ${kindSuffix}`
+    const customKindKey = `custom.catalog-${kindSuffix}`
+    const customName = `Catalogs ${kindSuffix}`
     const instanceName = `${customName} Instance`
     const instanceCodename = `catalog-instance-${kindSuffix}`
-    const legacyDescription = `Legacy route description ${kindSuffix}`
-    const copiedInstanceName = `${customName} Legacy Copy`
-    const copiedInstanceCodename = `catalog-instance-${kindSuffix}-legacy-copy`
+    const entityDescription = `Entity description ${kindSuffix}`
+    const copiedInstanceName = `${customName} Copy`
+    const copiedInstanceCodename = `catalog-instance-${kindSuffix}-copy`
     const attributeName = `Title ${kindSuffix}`
     const attributeCodename = `title-${kindSuffix}`
+    const standardManagedSurfaces = [
+        { kindKey: 'hub', heading: 'Tree entities' },
+        { kindKey: 'set', heading: 'Value groups' },
+        { kindKey: 'enumeration', heading: 'Option lists' }
+    ]
 
     try {
         const metahub = await createMetahub(api, {
@@ -290,6 +320,15 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
         await expect(page.getByRole('heading', { name: 'Entities' })).toBeVisible()
         await expect(page.getByTestId(toolbarSelectors.primaryAction)).toContainText('Create')
 
+        for (const surface of standardManagedSurfaces) {
+            await page.goto(buildCatalogInstancesPagePath(metahub.id, surface.kindKey))
+            await expect(page).toHaveURL(`/metahub/${metahub.id}/entities/${surface.kindKey}/instances`)
+            await expect(page.getByRole('heading', { name: surface.heading })).toBeVisible()
+            await expect(page.getByTestId(toolbarSelectors.primaryAction)).toContainText('Create')
+        }
+
+        await page.goto(`/metahub/${metahub.id}/entities`)
+
         await page.getByTestId(toolbarSelectors.primaryAction).click()
 
         const createDialog = page.getByRole('dialog', { name: 'Create Entity Type' })
@@ -298,10 +337,10 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
         await expect(createDialog.getByText('Reusable presets are sourced from the existing template registry.')).toBeVisible()
 
         await createDialog.getByLabel('Select template').click()
-        await page.getByRole('option', { name: /Catalogs V2/i }).click()
+        await page.getByRole('option', { name: /^Catalogs\b/i }).click()
 
-        await expect.poll(async () => createDialog.getByLabel('Kind key').inputValue()).toBe('custom.catalog-v2')
-        await expect(createDialog.getByLabel('Name').first()).toHaveValue('Catalogs V2')
+        await expect.poll(async () => createDialog.getByLabel('Kind key').inputValue()).toBe('catalog')
+        await expect(createDialog.getByLabel('Name').first()).toHaveValue('Catalogs')
         await expect(createDialog.getByRole('checkbox', { name: 'Publish to dynamic menu' })).toBeChecked()
         await expect(createDialog.getByRole('checkbox', { name: 'Hubs' })).toBeChecked()
         await expect(createDialog.getByRole('checkbox', { name: 'Layout' })).toBeChecked()
@@ -334,7 +373,6 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
             .poll(
                 async () => {
                     const payload = (await listMetahubEntityTypes(api, metahub.id, {
-                        includeBuiltins: false,
                         limit: 100,
                         offset: 0
                     })) as EntityTypeListPayload
@@ -345,8 +383,6 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
             )
             .toBe(customKindKey)
 
-        expect(persistedEntityType?.source).toBe('custom')
-
         await page.goto(`/metahub/${metahub.id}/entities`)
 
         const dynamicMenuLink = page.getByRole('link', { name: customName, exact: true })
@@ -354,101 +390,100 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
         await dynamicMenuLink.click()
 
         await expect(page).toHaveURL(`/metahub/${metahub.id}/entities/${customKindKey}/instances`)
-        await expect(page.getByRole('heading', { name: 'Catalogs' })).toBeVisible()
-        await expect(page.getByTestId(toolbarSelectors.primaryAction)).toContainText('Create')
+        await expect(page.getByRole('heading', { name: `${customName} instances` })).toBeVisible()
+        await expect(page.getByTestId(toolbarSelectors.primaryAction)).toContainText('Create entity')
 
         await page.getByTestId(toolbarSelectors.primaryAction).click()
 
-        const createInstanceDialog = page.getByRole('dialog', { name: 'Create Catalog' })
+        const createInstanceDialog = page.getByRole('dialog', { name: 'Create Entity' })
         await expect(createInstanceDialog).toBeVisible()
         await createInstanceDialog.getByLabel('Name').first().fill(instanceName)
         await createInstanceDialog.getByLabel('Codename').first().fill(instanceCodename)
 
         const createInstanceResponse = waitForSettledMutationResponse(
             page,
-            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/catalogs`),
-            { label: 'Creating catalog through the Catalogs V2 surface' }
+            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/entities`),
+            { label: 'Creating entity through the generic entity surface' }
         )
 
         await createInstanceDialog.getByTestId(entityDialogSelectors.submitButton).click()
 
-        const createdCatalogCompatibleInstance = await parseJsonResponse<{ id?: string }>(await createInstanceResponse, 'Creating catalog through the Catalogs V2 surface')
+        const createdCatalogCompatibleInstance = await parseJsonResponse<{ id?: string }>(
+            await createInstanceResponse,
+            'Creating entity through the generic entity surface'
+        )
 
         if (!createdCatalogCompatibleInstance.id) {
-            throw new Error('Create catalog response did not contain an id')
+            throw new Error('Create entity response did not contain an id')
         }
 
         await expect(page.getByText(instanceName, { exact: true })).toBeVisible()
 
-        let legacyCatalogRecord: CatalogRecord | undefined
+        let persistedEntityRecord: EntityRecord | undefined
         await expect
             .poll(
                 async () => {
-                    const payload = (await listMetahubCatalogs(api, metahub.id, {
-                        limit: 100,
-                        offset: 0
-                    })) as CatalogListPayload
-                    legacyCatalogRecord = payload.items?.find((item) => item.id === createdCatalogCompatibleInstance.id)
-                    return legacyCatalogRecord?.id ?? null
+                    const payload = await listEntitiesViaApi(api, metahub.id, customKindKey)
+                    persistedEntityRecord = payload.items?.find((item) => item.id === createdCatalogCompatibleInstance.id)
+                    return persistedEntityRecord?.id ?? null
                 },
-                { message: 'Waiting for catalog-compatible entity instance to appear in legacy catalog list' }
+                { message: 'Waiting for the created entity instance to appear in the generic entity list' }
             )
             .toBe(createdCatalogCompatibleInstance.id)
 
-        await page.getByTestId(buildEntityMenuTriggerSelector('catalog', createdCatalogCompatibleInstance.id)).click()
-        await page.getByTestId(buildEntityMenuItemSelector('catalog', 'edit', createdCatalogCompatibleInstance.id)).click()
+        const createdEntityRow = page.getByRole('row').filter({ hasText: instanceName })
+        await createdEntityRow.getByRole('button', { name: 'Edit' }).click()
 
-        const legacyEditDialog = page.getByRole('dialog', { name: 'Edit Catalog' })
-        await expect(legacyEditDialog).toBeVisible()
-        await expect(legacyEditDialog.getByRole('tab', { name: 'Layout' })).toBeVisible()
+        const entityEditDialog = page.getByRole('dialog', { name: 'Edit Entity' })
+        await expect(entityEditDialog).toBeVisible()
+        await expect(entityEditDialog.getByRole('tab', { name: 'Field definitions' })).toBeVisible()
+        await expect(entityEditDialog.getByRole('tab', { name: 'Layout' })).toBeVisible()
+        await expect(entityEditDialog.getByRole('tab', { name: 'Scripts' })).toBeVisible()
 
-        const legacyEditResponse = waitForSettledMutationResponse(
+        const entityEditResponse = waitForSettledMutationResponse(
             page,
             (response) =>
                 response.request().method() === 'PATCH' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/catalog/${createdCatalogCompatibleInstance.id}`),
-            { label: 'Updating catalog-compatible entity instance through legacy catalog route' }
+                response.url().endsWith(buildEntityInstanceApiPath(metahub.id, createdCatalogCompatibleInstance.id)),
+            { label: 'Updating entity instance through the generic entity route' }
         )
 
-        const legacyDescriptionField = legacyEditDialog.getByRole('tabpanel', { name: 'General' }).locator('textarea:not([readonly])')
-        await legacyDescriptionField.fill(legacyDescription)
-        await expect(legacyDescriptionField).toHaveValue(legacyDescription)
-        await legacyEditDialog.getByTestId(entityDialogSelectors.submitButton).click()
-        const legacyEditNetworkResponse = await legacyEditResponse
-        expect(legacyEditNetworkResponse.request().postDataJSON()).toMatchObject({
+        const entityDescriptionField = entityEditDialog.getByRole('tabpanel', { name: 'General' }).locator('textarea:not([readonly])')
+        await entityDescriptionField.fill(entityDescription)
+        await expect(entityDescriptionField).toHaveValue(entityDescription)
+        await entityEditDialog.getByTestId(entityDialogSelectors.submitButton).click()
+        const entityEditNetworkResponse = await entityEditResponse
+        expect(entityEditNetworkResponse.request().postDataJSON()).toMatchObject({
             description: {
-                en: legacyDescription
+                en: entityDescription
             }
         })
-        const legacyEditResponseBody = (await legacyEditNetworkResponse.json()) as CatalogRecord
-        expect(legacyEditResponseBody.id).toBe(createdCatalogCompatibleInstance.id)
-        await expect(legacyEditDialog).toHaveCount(0)
+        const entityEditResponseBody = (await entityEditNetworkResponse.json()) as EntityRecord
+        expect(entityEditResponseBody.id).toBe(createdCatalogCompatibleInstance.id)
+        await expect(entityEditDialog).toHaveCount(0)
 
         await expect
             .poll(
                 async () => {
-                    const catalogRecord = await getCatalogViaApi(api, metahub.id, createdCatalogCompatibleInstance.id)
-                    return readLocalizedText(catalogRecord.description)
+                    const entityRecord = await getEntityViaApi(api, metahub.id, createdCatalogCompatibleInstance.id)
+                    return readLocalizedText(entityRecord.description)
                 },
-                { message: 'Waiting for legacy catalog get-by-id endpoint to expose the edited description' }
+                { message: 'Waiting for the generic entity get-by-id endpoint to expose the edited description' }
             )
-            .toBe(legacyDescription)
+            .toBe(entityDescription)
 
         await expect
             .poll(
                 async () => {
-                    const payload = (await listMetahubCatalogs(api, metahub.id, {
-                        limit: 100,
-                        offset: 0
-                    })) as CatalogListPayload
-                    const catalogRecord = payload.items?.find((item) => item.id === createdCatalogCompatibleInstance.id)
-                    return readLocalizedText(catalogRecord?.description)
+                    const payload = await listEntitiesViaApi(api, metahub.id, customKindKey)
+                    const entityRecord = payload.items?.find((item) => item.id === createdCatalogCompatibleInstance.id)
+                    return readLocalizedText(entityRecord?.description)
                 },
-                { message: 'Waiting for legacy catalog endpoint to expose the edited description' }
+                { message: 'Waiting for the generic entity list endpoint to expose the edited description' }
             )
-            .toBe(legacyDescription)
+            .toBe(entityDescription)
 
-        await createMetahubAttribute(api, metahub.id, createdCatalogCompatibleInstance.id, {
+        await createFieldDefinition(api, metahub.id, createdCatalogCompatibleInstance.id, {
             name: { en: attributeName },
             namePrimaryLocale: 'en',
             codename: createLocalizedContent('en', attributeCodename),
@@ -456,79 +491,76 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
             isRequired: false
         })
 
-        await page.goto(`/metahub/${metahub.id}/entities/${customKindKey}/instances`)
-        await expect(page.getByRole('heading', { name: 'Catalogs' })).toBeVisible()
+        await page.goto(buildCatalogInstancesPagePath(metahub.id, customKindKey))
+        await expect(page.getByRole('heading', { name: `${customName} instances` })).toBeVisible()
         await expect(page.getByText(instanceName, { exact: true })).toBeVisible()
-        await page.getByTestId(buildEntityMenuTriggerSelector('catalog', createdCatalogCompatibleInstance.id)).click()
-        await page.getByTestId(buildEntityMenuItemSelector('catalog', 'edit', createdCatalogCompatibleInstance.id)).click()
+        const reopenedEntityRow = page.getByRole('row').filter({ hasText: instanceName })
+        await reopenedEntityRow.getByRole('button', { name: 'Edit' }).click()
 
-        const entityEditDialog = page.getByRole('dialog', { name: 'Edit Catalog' })
-        await expect(entityEditDialog).toBeVisible()
-        await expect(entityEditDialog.getByRole('tabpanel', { name: 'General' }).locator('textarea:not([readonly])')).toHaveValue(legacyDescription)
-        await entityEditDialog.getByTestId(entityDialogSelectors.cancelButton).click()
-        await expect(entityEditDialog).toHaveCount(0)
+        const reopenedEditDialog = page.getByRole('dialog', { name: 'Edit Entity' })
+        await expect(reopenedEditDialog).toBeVisible()
+        await expect(reopenedEditDialog.getByRole('tabpanel', { name: 'General' }).locator('textarea:not([readonly])')).toHaveValue(
+            entityDescription
+        )
+        await reopenedEditDialog.getByTestId(entityDialogSelectors.cancelButton).click()
+        await expect(reopenedEditDialog).toHaveCount(0)
 
-        await page.goto(`/metahub/${metahub.id}/entities/${customKindKey}/instance/${createdCatalogCompatibleInstance.id}/attributes`)
+        await page.goto(buildCatalogAttributesPagePath(metahub.id, createdCatalogCompatibleInstance.id, customKindKey))
         const entityBreadcrumbs = page.getByLabel('breadcrumb')
-        await expect(page.getByRole('heading', { name: 'Attributes' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Field Definitions' })).toBeVisible()
         await expect(entityBreadcrumbs).toContainText('Entities')
         await expect(entityBreadcrumbs).toContainText('Catalogs')
         await expect(entityBreadcrumbs).toContainText(instanceName)
+        await expect(entityBreadcrumbs.getByRole('link', { name: 'Catalogs' })).toHaveAttribute(
+            'href',
+            `/metahub/${metahub.id}/entities/${encodeURIComponent(customKindKey)}/instances`
+        )
+        await expect(entityBreadcrumbs.getByRole('link', { name: instanceName })).toHaveAttribute(
+            'href',
+            `/metahub/${metahub.id}/entities/${encodeURIComponent(customKindKey)}/instance/${createdCatalogCompatibleInstance.id}/field-definitions`
+        )
         await page.getByRole('tab', { name: 'System' }).click()
-        await expect(page.getByRole('heading', { name: 'System Attributes' })).toBeVisible()
-        await expect(entityBreadcrumbs).toContainText('System Attributes')
-        await page.getByRole('tab', { name: 'Elements' }).click()
-        await expect(page.getByRole('heading', { name: 'Elements' })).toBeVisible()
-        await expect(entityBreadcrumbs).toContainText('Elements')
+        await expect(page.getByRole('heading', { name: /System Attributes|System Field Definitions/ })).toBeVisible()
+        await expect(entityBreadcrumbs).toContainText(/System Attributes|System Field Definitions/)
+        await page.getByRole('tab', { name: /Records|Elements|records.title/ }).click()
+        await expect(page.getByRole('heading', { name: /Records|Elements|records.title/ })).toBeVisible()
+        await expect(entityBreadcrumbs).toContainText(/Records|Elements|records.title/)
 
-        await page.goto(`/metahub/${metahub.id}/catalog/${createdCatalogCompatibleInstance.id}/attributes`)
-        await expect(page.getByRole('heading', { name: 'Attributes' })).toBeVisible()
-        await expect(page.getByRole('tab', { name: 'System' })).toBeVisible()
-        await expect(page.getByRole('tab', { name: 'Elements' })).toBeVisible()
-        await page.getByRole('tab', { name: 'System' }).click()
-        await expect(page.getByRole('heading', { name: 'System Attributes' })).toBeVisible()
-        await page.getByRole('tab', { name: 'Elements' }).click()
-        await expect(page.getByRole('heading', { name: 'Elements' })).toBeVisible()
+        await page.goto(buildCatalogInstancesPagePath(metahub.id, customKindKey))
+        const copySourceRow = page.getByRole('row').filter({ hasText: instanceName })
+        await copySourceRow.getByRole('button', { name: 'Copy' }).click()
 
-        await page.goto(`/metahub/${metahub.id}/entities/${customKindKey}/instances`)
-        await page.getByTestId(buildEntityMenuTriggerSelector('catalog', createdCatalogCompatibleInstance.id)).click()
-        await page.getByTestId(buildEntityMenuItemSelector('catalog', 'copy', createdCatalogCompatibleInstance.id)).click()
+        const entityCopyDialog = page.getByRole('dialog', { name: 'Copy Entity' })
+        await expect(entityCopyDialog).toBeVisible()
+        await entityCopyDialog.getByLabel('Name').first().fill(copiedInstanceName)
+        await entityCopyDialog.getByLabel('Codename').first().fill(copiedInstanceCodename)
 
-        const legacyCopyDialog = page.getByRole('dialog', { name: 'Copying Catalog' })
-        await expect(legacyCopyDialog).toBeVisible()
-        await expect(legacyCopyDialog.getByRole('tab', { name: 'Options' })).toBeVisible()
-        await legacyCopyDialog.getByLabel('Name').first().fill(copiedInstanceName)
-        await legacyCopyDialog.getByLabel('Codename').first().fill(copiedInstanceCodename)
-
-        const legacyCopyResponse = waitForSettledMutationResponse(
+        const entityCopyResponse = waitForSettledMutationResponse(
             page,
             (response) =>
                 response.request().method() === 'POST' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/catalog/${createdCatalogCompatibleInstance.id}/copy`),
-            { label: 'Copying catalog-compatible entity instance through legacy catalog route' }
+                response.url().endsWith(`${buildEntityInstanceApiPath(metahub.id, createdCatalogCompatibleInstance.id)}/copy`),
+            { label: 'Copying entity instance through the generic entity route' }
         )
 
-        await legacyCopyDialog.getByTestId(entityDialogSelectors.submitButton).click()
+        await entityCopyDialog.getByTestId(entityDialogSelectors.submitButton).click()
 
-        const copiedLegacyCatalog = await parseJsonResponse<{ id?: string }>(
-            await legacyCopyResponse,
-            'Copying catalog-compatible entity instance through legacy catalog route'
+        const copiedEntity = await parseJsonResponse<{ id?: string }>(
+            await entityCopyResponse,
+            'Copying entity instance through the generic entity route'
         )
 
-        if (!copiedLegacyCatalog.id) {
-            throw new Error('Legacy catalog copy response did not contain an id for the shared catalog-compatible row')
+        if (!copiedEntity.id) {
+            throw new Error('Copy entity response did not contain an id')
         }
 
         await expect
             .poll(
                 async () => {
-                    const payload = (await listMetahubCatalogs(api, metahub.id, {
-                        limit: 100,
-                        offset: 0
-                    })) as CatalogListPayload
-                    return payload.items?.some((item) => item.id === copiedLegacyCatalog.id) ?? false
+                    const payload = await listEntitiesViaApi(api, metahub.id, customKindKey)
+                    return payload.items?.some((item) => item.id === copiedEntity.id) ?? false
                 },
-                { message: 'Waiting for legacy catalog copy to appear in shared catalog list' }
+                { message: 'Waiting for the copied entity instance to appear in the generic entity list' }
             )
             .toBe(true)
 
@@ -541,9 +573,10 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
         await expect(page.locator('html')).toHaveAttribute('lang', 'ru')
         await expect(page.getByRole('heading', { name: 'Сущности' })).toBeVisible()
         await expect(page.getByTestId(toolbarSelectors.primaryAction)).toContainText('Создать')
-        await expect(page.getByRole('link', { name: /Каталоги V2/i })).toBeVisible()
-        await page.getByRole('link', { name: /Каталоги V2/i }).click()
-        await expect(page.getByRole('heading', { name: 'Каталоги' })).toBeVisible()
+        const customEntityLink = page.locator(`a[href="/metahub/${metahub.id}/entities/${customKindKey}/instances"]`).first()
+        await expect(customEntityLink).toBeVisible()
+        await customEntityLink.click()
+        await expect(page.getByRole('heading', { name: /Связанные коллекции|Linked collections/ })).toBeVisible()
         await expect(page.getByTestId(toolbarSelectors.primaryAction)).toContainText('Создать')
         await page.goto(`/metahub/${metahub.id}/entities`)
 
@@ -554,7 +587,7 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
         await expect(ruDialog.getByLabel('Выберите шаблон')).toBeVisible()
 
         await ruDialog.getByLabel('Выберите шаблон').click()
-        await expect(page.getByRole('option', { name: /Каталоги V2/i })).toBeVisible()
+        await expect(page.getByRole('option', { name: /Каталоги|Catalogs/i }).first()).toBeVisible()
         await page.keyboard.press('Escape')
         await ruDialog.getByTestId(entityDialogSelectors.cancelButton).click()
         await expect(ruDialog).toHaveCount(0)
@@ -574,15 +607,15 @@ test('@flow metahub custom entity instances author scripts actions and events th
     const metahubName = `E2E ${runManifest.runId} custom entity scripts`
     const metahubCodename = `${runManifest.runId}-custom-entity-scripts`
     const kindSuffix = buildKindSuffix(`${runManifest.runId}-scripts`)
-    const customKindKey = `custom.document-${kindSuffix}`
-    const customTypeName = `Document ${kindSuffix}`
+    const customKindKey = `custom.entity-${kindSuffix}`
+    const customTypeName = `Entity ${kindSuffix}`
     const typeCodename = `Document${kindSuffix}`
     const entityName = `${customTypeName} Instance`
-    const entityCodename = `document-instance-${kindSuffix}`
+    const entityCodename = `entity-instance-${kindSuffix}`
     const scriptName = `${customTypeName} Widget`
-    const scriptCodename = `document-widget-${kindSuffix}`
+    const scriptCodename = `entity-widget-${kindSuffix}`
     const actionName = `${customTypeName} Render Action`
-    const actionCodename = `document-render-${kindSuffix}`
+    const actionCodename = `entity-render-${kindSuffix}`
     const bindingPriority = '10'
 
     try {
@@ -608,9 +641,9 @@ test('@flow metahub custom entity instances author scripts actions and events th
             presentation: {},
             components: {
                 dataSchema: { enabled: true },
-                predefinedElements: false,
-                hubAssignment: false,
-                enumerationValues: false,
+                records: false,
+                treeAssignment: false,
+                optionValues: false,
                 constants: false,
                 hierarchy: false,
                 nestedCollections: false,
@@ -620,7 +653,7 @@ test('@flow metahub custom entity instances author scripts actions and events th
                 scripting: { enabled: true },
                 layoutConfig: false,
                 runtimeBehavior: false,
-                physicalTable: { enabled: true, prefix: `doc${kindSuffix.slice(0, 6) || 'e2e'}` }
+                physicalTable: { enabled: true, prefix: `ent${kindSuffix.slice(0, 6) || 'e2e'}` }
             },
             ui: {
                 iconName: 'IconLayoutDashboard',
@@ -809,7 +842,7 @@ test('@flow metahub custom entity instances author scripts actions and events th
     }
 })
 
-test('@flow @permission catalog-compatible entity instances stay read-only for metahub members', async ({ browser, runManifest }) => {
+test('@flow @permission catalog-style entity instances stay read-only for metahub members', async ({ browser, runManifest }) => {
     test.setTimeout(300_000)
 
     const bootstrapApi = await createBootstrapApiContext()
@@ -824,13 +857,13 @@ test('@flow @permission catalog-compatible entity instances stay read-only for m
         .split(',')
         .map((entry) => entry.trim())
         .filter(Boolean)
-    const metahubName = `E2E ${runManifest.runId} catalog-compatible member metahub`
-    const metahubCodename = `${runManifest.runId}-catalog-compatible-member`
+    const metahubName = `E2E ${runManifest.runId} catalog-style member metahub`
+    const metahubCodename = `${runManifest.runId}-catalog-style-member`
     const kindSuffix = buildKindSuffix(`${runManifest.runId}-readonly`)
-    const customKindKey = `custom.catalog-v2-readonly-${kindSuffix}`
-    const customName = `Catalogs V2 Read Only ${kindSuffix}`
+    const customKindKey = `custom.catalog-readonly-${kindSuffix}`
+    const customName = `Catalogs Read Only ${kindSuffix}`
     const instanceName = `${customName} Instance`
-    const typeCodename = `CatalogV2ReadOnly${kindSuffix}`
+    const typeCodename = `CatalogReadOnly${kindSuffix}`
     const instanceCodename = `CatalogReadOnly${kindSuffix}`
 
     let memberSession: Awaited<ReturnType<typeof createLoggedInBrowserContext>> | null = null
@@ -843,7 +876,7 @@ test('@flow @permission catalog-compatible entity instances stay read-only for m
             email: memberEmail,
             password: memberPassword,
             roleIds: defaultRoleIds,
-            comment: `Created for catalog-compatible member ACL coverage ${runManifest.runId}`
+            comment: `Created for catalog-style member ACL coverage ${runManifest.runId}`
         })
 
         if (!createdUser?.userId) {
@@ -859,7 +892,7 @@ test('@flow @permission catalog-compatible entity instances stay read-only for m
         })
 
         if (!metahub?.id) {
-            throw new Error('Metahub creation did not return an id for catalog-compatible member coverage')
+            throw new Error('Metahub creation did not return an id for catalog-style member coverage')
         }
 
         await recordCreatedMetahub({
@@ -874,9 +907,9 @@ test('@flow @permission catalog-compatible entity instances stay read-only for m
             presentation: {},
             components: {
                 dataSchema: { enabled: true },
-                predefinedElements: { enabled: true },
-                hubAssignment: { enabled: true },
-                enumerationValues: false,
+                records: { enabled: true },
+                treeAssignment: { enabled: true },
+                optionValues: false,
                 constants: false,
                 hierarchy: { enabled: true, supportsFolders: true },
                 nestedCollections: false,
@@ -893,7 +926,7 @@ test('@flow @permission catalog-compatible entity instances stay read-only for m
                 tabs: ['general', 'hubs', 'layout', 'scripts'],
                 sidebarSection: 'objects',
                 nameKey: customName,
-                descriptionKey: 'Catalog-compatible read-only ACL proof'
+                descriptionKey: 'Catalog-style read-only ACL proof'
             },
             config: {
                 compatibility: {
@@ -904,17 +937,18 @@ test('@flow @permission catalog-compatible entity instances stay read-only for m
         })
 
         if (!createdEntityType.id) {
-            throw new Error('Entity type creation did not return an id for catalog-compatible member coverage')
+            throw new Error('Entity type creation did not return an id for catalog-style member coverage')
         }
 
-        const createdInstance = await createMetahubCatalog(ownerApi, metahub.id, {
+        const createdInstance = await createEntityInstanceViaApi(ownerApi, metahub.id, {
+            kind: customKindKey,
             codename: createLocalizedContent('en', instanceCodename),
             name: { en: instanceName },
             namePrimaryLocale: 'en'
         })
 
         if (!createdInstance.id) {
-            throw new Error('Catalog creation did not return an id for catalog-compatible member coverage')
+            throw new Error('Entity instance creation did not return an id for catalog-style member coverage')
         }
 
         await addMetahubMember(ownerApi, metahub.id, {

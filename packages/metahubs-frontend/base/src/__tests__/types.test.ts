@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { toAttributeDisplay, type Attribute } from '../types'
+import { toFieldDefinitionDisplay, type FieldDefinition } from '../types'
 
 describe('metahubs frontend attribute types', () => {
     it('preserves system metadata when converting to display form', () => {
-        const attribute: Attribute = {
+        const attribute: FieldDefinition = {
             id: 'attribute-1',
-            catalogId: 'catalog-1',
+            linkedCollectionId: 'catalog-1',
             codename: {
                 _primary: 'en',
                 locales: {
@@ -36,7 +36,7 @@ describe('metahubs frontend attribute types', () => {
             }
         }
 
-        const display = toAttributeDisplay(attribute, 'ru')
+        const display = toFieldDefinitionDisplay(attribute, 'ru')
 
         expect(display.name).toBe('Удалён')
         expect(display.codename).toBe('_app_deleted')

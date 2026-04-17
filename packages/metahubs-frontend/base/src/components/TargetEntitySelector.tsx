@@ -18,21 +18,18 @@ import {
 import Autocomplete, { autocompleteClasses } from '@mui/material/Autocomplete'
 import { styled } from '@mui/material/styles'
 import UnfoldMoreRoundedIcon from '@mui/icons-material/UnfoldMoreRounded'
-import { isEnabledComponentConfig, type EntityKind } from '@universo/types'
+import { isBuiltinEntityKind, isEnabledComponentConfig, type EntityKind } from '@universo/types'
 import { getVLCString } from '../types'
-import type { Catalog, Constant, Enumeration } from '../types'
-import { listAllCatalogs } from '../domains/catalogs/api'
-import { listConstantsDirect } from '../domains/constants/api'
+import type { FixedValue } from '../types'
+import { listFixedValuesDirect } from '../domains/entities/metadata/fixedValue/api'
 import { listEntityInstances, type MetahubEntityInstance } from '../domains/entities/api/entityInstances'
 import { listEntityTypes, type MetahubEntityType } from '../domains/entities/api/entityTypes'
-import { listAllEnumerations } from '../domains/enumerations/api'
-import { listAllSets, type SetWithHubs } from '../domains/sets/api'
 import { metahubsQueryKeys } from '../domains/shared'
-
-const LEGACY_TARGET_ENTITY_KINDS = ['catalog', 'enumeration', 'set'] as const
 
 const isReferenceableEntityType = (entityType: MetahubEntityType) =>
     entityType.kindKey === 'enumeration' || isEnabledComponentConfig(entityType.components.dataSchema)
+
+const shouldTranslateEntityTypeUiText = (kindKey: string) => isBuiltinEntityKind(kindKey)
 
 const StyledPopper = styled(Popper)(({ theme }) => ({
     boxShadow: theme.shadows[4],
@@ -64,7 +61,7 @@ export interface TargetEntitySelectorProps {
     /** Callback when target constant ID changes */
     onTargetConstantIdChange?: (id: string | null) => void
     /** ID of current catalog to exclude from selection (prevent self-reference) */
-    excludeCatalogId?: string
+    excludeLinkedCollectionId?: string
     /** Whether the selector is disabled */
     disabled?: boolean
     /** Error message to display */
@@ -79,7 +76,7 @@ export interface TargetEntitySelectorProps {
  * Component for selecting target entity for REF (reference) field type.
  * Allows selecting entity kind and then the specific entity.
  *
- * Loads available entities (catalogs/enumerations) automatically from the API.
+ * Loads available entities (linkedCollections/optionLists) automatically from the API.
  */
 export const TargetEntitySelector = ({
     metahubId,
@@ -89,7 +86,7 @@ export const TargetEntitySelector = ({
     onEntityIdChange,
     targetConstantId,
     onTargetConstantIdChange,
-    excludeCatalogId,
+    excludeLinkedCollectionId,
     disabled = false,
     error,
     targetConstantError,
@@ -108,13 +105,10 @@ export const TargetEntitySelector = ({
 
     const entityTypeListParams = useMemo(
         () => ({
-            ...listParams,
-            includeBuiltins: true
+            ...listParams
         }),
         [listParams]
     )
-
-    const legacyTargetKinds = useMemo(() => new Set<string>(LEGACY_TARGET_ENTITY_KINDS), [])
 
     const { data: entityTypesData, isLoading: isLoadingEntityTypes } = useQuery({
         queryKey: metahubsQueryKeys.entityTypesList(metahubId, entityTypeListParams),
@@ -123,67 +117,41 @@ export const TargetEntitySelector = ({
         staleTime: 30000
     })
 
-    // Load all catalogs for the metahub
-    const { data: catalogsData, isLoading: isLoadingCatalogs } = useQuery({
-        queryKey: metahubsQueryKeys.allCatalogsList(metahubId, listParams),
-        queryFn: () => listAllCatalogs(metahubId, listParams),
-        enabled: !!metahubId && targetEntityKind === 'catalog',
-        staleTime: 30000 // 30 seconds
-    })
-    // Load all enumerations for the metahub
-    const { data: enumerationsData, isLoading: isLoadingEnumerations } = useQuery({
-        queryKey: metahubsQueryKeys.allEnumerationsList(metahubId, listParams),
-        queryFn: () => listAllEnumerations(metahubId, listParams),
-        enabled: !!metahubId && targetEntityKind === 'enumeration',
-        staleTime: 30000 // 30 seconds
-    })
-    // Load all sets for the metahub
-    const { data: setsData, isLoading: isLoadingSets } = useQuery({
-        queryKey: metahubsQueryKeys.allSetsList(metahubId, listParams),
-        queryFn: () => listAllSets(metahubId, listParams),
-        enabled: !!metahubId && targetEntityKind === 'set',
-        staleTime: 30000 // 30 seconds
-    })
     const { data: constantsData, isLoading: isLoadingConstants } = useQuery({
         queryKey: targetEntityId
-            ? metahubsQueryKeys.constantsListDirect(metahubId, targetEntityId, {
+            ? metahubsQueryKeys.fixedValuesListDirect(metahubId, targetEntityId, {
                   ...listParams,
                   locale: uiLocale,
                   includeShared: true
               })
-            : ['metahubs', 'constants', 'empty'],
-        queryFn: () => listConstantsDirect(metahubId, targetEntityId!, { ...listParams, locale: uiLocale, includeShared: true }),
+            : ['metahubs', 'fixedValues', 'empty'],
+        queryFn: () => listFixedValuesDirect(metahubId, targetEntityId!, { ...listParams, locale: uiLocale, includeShared: true }),
         enabled: !!metahubId && targetEntityKind === 'set' && !!targetEntityId,
         staleTime: 30000 // 30 seconds
     })
 
-    const isGenericEntityKind = Boolean(targetEntityKind && !legacyTargetKinds.has(targetEntityKind))
-
-    const { data: genericEntitiesData, isLoading: isLoadingGenericEntities } = useQuery({
+    const { data: targetEntitiesData, isLoading: isLoadingTargetEntities } = useQuery({
         queryKey:
             metahubId && targetEntityKind
                 ? metahubsQueryKeys.entitiesList(metahubId, { ...listParams, kind: targetEntityKind, locale: uiLocale })
                 : ['metahubs', 'entities', 'empty'],
         queryFn: () => listEntityInstances(metahubId, { ...listParams, kind: targetEntityKind!, locale: uiLocale }),
-        enabled: !!metahubId && !!targetEntityKind && isGenericEntityKind,
+        enabled: !!metahubId && !!targetEntityKind,
         staleTime: 30000
     })
 
-    const availableCatalogs = useMemo(() => catalogsData?.items ?? [], [catalogsData?.items])
-    const availableEnumerations = useMemo(() => enumerationsData?.items ?? [], [enumerationsData?.items])
-    const availableSets = useMemo(() => setsData?.items ?? [], [setsData?.items])
     const availableConstants = useMemo(() => constantsData?.items ?? [], [constantsData?.items])
     const availableEntityTypes = useMemo(
         () => (entityTypesData?.items ?? []).filter((entityType) => isReferenceableEntityType(entityType)),
         [entityTypesData?.items]
     )
-    const availableGenericEntities = useMemo(() => genericEntitiesData?.items ?? [], [genericEntitiesData?.items])
+    const availableTargetEntities = useMemo(() => targetEntitiesData?.items ?? [], [targetEntitiesData?.items])
 
     // Entity kind options with localized labels
     const getEntityTypeDisplayName = useCallback(
         (entityType: MetahubEntityType): string => {
             const codename = getVLCString(entityType.codename, uiLocale) || getVLCString(entityType.codename, 'en')
-            if (entityType.source === 'builtin') {
+            if (shouldTranslateEntityTypeUiText(entityType.kindKey)) {
                 const translated = entityType.ui.nameKey ? t(entityType.ui.nameKey, { defaultValue: '' }) : ''
                 return translated || codename || entityType.kindKey
             }
@@ -202,35 +170,14 @@ export const TargetEntitySelector = ({
         [availableEntityTypes, getEntityTypeDisplayName]
     )
 
-    // Get display name for catalog
-    const getCatalogDisplayName = useCallback(
-        (catalog: Catalog): string => {
-            return getVLCString(catalog.name, uiLocale) || getVLCString(catalog.name, 'en') || catalog.codename
-        },
-        [uiLocale]
-    )
-    // Get display name for enumeration
-    const getEnumerationDisplayName = useCallback(
-        (enumeration: Enumeration): string => {
-            return getVLCString(enumeration.name, uiLocale) || getVLCString(enumeration.name, 'en') || enumeration.codename
-        },
-        [uiLocale]
-    )
-    // Get display name for set
-    const getSetDisplayName = useCallback(
-        (set: SetWithHubs): string => {
-            return getVLCString(set.name, uiLocale) || getVLCString(set.name, 'en') || set.codename
-        },
-        [uiLocale]
-    )
     // Get display name for constant
     const getConstantDisplayName = useCallback(
-        (constant: Constant): string => {
+        (constant: FixedValue): string => {
             return getVLCString(constant.name, uiLocale) || getVLCString(constant.name, 'en') || constant.codename
         },
         [uiLocale]
     )
-    const getGenericEntityDisplayName = useCallback(
+    const getTargetEntityDisplayName = useCallback(
         (entity: MetahubEntityInstance): string => {
             return (
                 getVLCString(entity.name, uiLocale) ||
@@ -243,25 +190,10 @@ export const TargetEntitySelector = ({
         [uiLocale]
     )
 
-    // Find selected catalog
-    const selectedCatalog = useMemo(() => {
-        if (!targetEntityId || targetEntityKind !== 'catalog') return null
-        return availableCatalogs.find((c) => c.id === targetEntityId) || null
-    }, [targetEntityId, targetEntityKind, availableCatalogs])
-    // Find selected enumeration
-    const selectedEnumeration = useMemo(() => {
-        if (!targetEntityId || targetEntityKind !== 'enumeration') return null
-        return availableEnumerations.find((enumeration) => enumeration.id === targetEntityId) || null
-    }, [targetEntityId, targetEntityKind, availableEnumerations])
-    // Find selected set
-    const selectedSet = useMemo(() => {
-        if (!targetEntityId || targetEntityKind !== 'set') return null
-        return availableSets.find((set) => set.id === targetEntityId) || null
-    }, [targetEntityId, targetEntityKind, availableSets])
-    const selectedGenericEntity = useMemo(() => {
-        if (!targetEntityId || !targetEntityKind || !isGenericEntityKind) return null
-        return availableGenericEntities.find((entity) => entity.id === targetEntityId) || null
-    }, [targetEntityId, targetEntityKind, isGenericEntityKind, availableGenericEntities])
+    const selectedTargetEntity = useMemo(() => {
+        if (!targetEntityId || !targetEntityKind) return null
+        return availableTargetEntities.find((entity) => entity.id === targetEntityId) || null
+    }, [targetEntityId, targetEntityKind, availableTargetEntities])
     // Find selected constant
     const selectedConstant = useMemo(() => {
         if (!targetConstantId || targetEntityKind !== 'set') return null
@@ -281,47 +213,65 @@ export const TargetEntitySelector = ({
         [onEntityKindChange, onEntityIdChange, onTargetConstantIdChange, targetEntityKind]
     )
 
-    // Handle catalog selection
-    const handleCatalogChange = useCallback(
-        (_event: unknown, newValue: Catalog | null) => {
+    const handleTargetEntityChange = useCallback(
+        (_event: unknown, newValue: MetahubEntityInstance | null) => {
             onEntityIdChange(newValue?.id || null)
+            if (targetEntityKind === 'set') {
+                onTargetConstantIdChange?.(null)
+            }
         },
-        [onEntityIdChange]
-    )
-
-    const handleEnumerationChange = useCallback(
-        (_event: unknown, newValue: Enumeration | null) => {
-            onEntityIdChange(newValue?.id || null)
-        },
-        [onEntityIdChange]
-    )
-    // Handle set selection
-    const handleSetChange = useCallback(
-        (_event: unknown, newValue: SetWithHubs | null) => {
-            onEntityIdChange(newValue?.id || null)
-            onTargetConstantIdChange?.(null)
-        },
-        [onEntityIdChange, onTargetConstantIdChange]
+        [onEntityIdChange, onTargetConstantIdChange, targetEntityKind]
     )
 
     const handleConstantChange = useCallback(
-        (_event: unknown, newValue: Constant | null) => {
+        (_event: unknown, newValue: FixedValue | null) => {
             onTargetConstantIdChange?.(newValue?.id || null)
         },
         [onTargetConstantIdChange]
     )
-    const handleGenericEntityChange = useCallback(
-        (_event: unknown, newValue: MetahubEntityInstance | null) => {
-            onEntityIdChange(newValue?.id || null)
-        },
-        [onEntityIdChange]
-    )
-
     // Filter out the current catalog to prevent self-reference
-    const selectableCatalogs = useMemo(() => {
-        if (!excludeCatalogId) return availableCatalogs
-        return availableCatalogs.filter((c) => c.id !== excludeCatalogId)
-    }, [availableCatalogs, excludeCatalogId])
+    const selectableTargetEntities = useMemo(() => {
+        if (!(excludeLinkedCollectionId && targetEntityKind === 'catalog')) return availableTargetEntities
+        return availableTargetEntities.filter((entity) => entity.id !== excludeLinkedCollectionId)
+    }, [availableTargetEntities, excludeLinkedCollectionId, targetEntityKind])
+
+    const targetEntityLabel =
+        targetEntityKind === 'catalog'
+            ? t('ref.targetCatalog', 'Target LinkedCollectionEntity')
+            : targetEntityKind === 'enumeration'
+            ? t('ref.targetEnumeration', 'Target OptionListEntity')
+            : targetEntityKind === 'set'
+            ? t('ref.targetSet', 'Target Set')
+            : t('ref.targetEntity', 'Target Entity')
+
+    const targetEntityPlaceholder =
+        targetEntityKind === 'catalog'
+            ? t('ref.selectCatalog', 'Select catalog...')
+            : targetEntityKind === 'enumeration'
+            ? t('ref.selectEnumeration', 'Select enumeration...')
+            : targetEntityKind === 'set'
+            ? t('ref.selectSet', 'Select set...')
+            : t('ref.selectEntity', 'Select entity...')
+
+    const targetEntityHelperText =
+        !targetEntityId && error
+            ? targetEntityKind === 'catalog'
+                ? t('ref.catalogRequired', 'Please select a catalog')
+                : targetEntityKind === 'enumeration'
+                ? t('ref.enumerationRequired', 'Please select an enumeration')
+                : targetEntityKind === 'set'
+                ? t('ref.setRequired', 'Please select a set')
+                : t('ref.entityRequired', 'Please select an entity')
+            : undefined
+
+    const targetEntityNoOptionsText =
+        targetEntityKind === 'catalog'
+            ? t('ref.noCatalogsAvailable', 'No linkedCollections available')
+            : targetEntityKind === 'enumeration'
+            ? t('ref.noEnumerationsAvailable', 'No optionLists available')
+            : targetEntityKind === 'set'
+            ? t('ref.noSetsAvailable', 'No valueGroups available')
+            : t('ref.noEntitiesAvailable', 'No entities available')
 
     const isKindSupported =
         !targetEntityKind || isLoadingEntityTypes || entityKindOptions.some((option) => option.value === targetEntityKind)
@@ -349,16 +299,16 @@ export const TargetEntitySelector = ({
                 {error && <FormHelperText>{error}</FormHelperText>}
             </FormControl>
 
-            {/* Entity Selector - render based on kind */}
-            {targetEntityKind === 'catalog' && (
+            {/* Entity Selector */}
+            {targetEntityKind && isKindSupported && (
                 <Autocomplete
                     size='small'
                     disabled={disabled}
                     disableClearable
-                    options={selectableCatalogs}
-                    value={selectedCatalog}
-                    onChange={handleCatalogChange}
-                    getOptionLabel={(catalog) => getCatalogDisplayName(catalog)}
+                    options={selectableTargetEntities}
+                    value={selectedTargetEntity}
+                    onChange={handleTargetEntityChange}
+                    getOptionLabel={(entity) => getTargetEntityDisplayName(entity)}
                     isOptionEqualToValue={(option, value) => option.id === value.id}
                     popupIcon={<UnfoldMoreRoundedIcon fontSize='small' />}
                     PopperComponent={StyledPopper}
@@ -390,169 +340,31 @@ export const TargetEntitySelector = ({
                         <TextField
                             {...params}
                             size='small'
-                            label={t('ref.targetCatalog', 'Target Catalog')}
-                            placeholder={t('ref.selectCatalog', 'Select catalog...')}
+                            label={targetEntityLabel}
+                            placeholder={targetEntityPlaceholder}
                             error={Boolean(error && !targetEntityId)}
-                            helperText={!targetEntityId && error ? t('ref.catalogRequired', 'Please select a catalog') : undefined}
+                            helperText={targetEntityHelperText}
                             InputProps={{
                                 ...params.InputProps,
                                 endAdornment: (
                                     <>
-                                        {isLoadingCatalogs ? <CircularProgress color='inherit' size={16} /> : null}
+                                        {isLoadingTargetEntities ? <CircularProgress color='inherit' size={16} /> : null}
                                         {params.InputProps.endAdornment}
                                     </>
                                 )
                             }}
                         />
                     )}
-                    renderOption={(props, catalog) => (
-                        <Box component='li' {...props} key={catalog.id}>
+                    renderOption={(props, entity) => (
+                        <Box component='li' {...props} key={entity.id}>
                             <Stack direction='row' spacing={1} alignItems='center'>
-                                <Typography variant='body2'>{getCatalogDisplayName(catalog)}</Typography>
-                                <Chip label={catalog.codename} size='small' variant='outlined' sx={{ fontSize: 11 }} />
+                                <Typography variant='body2'>{getTargetEntityDisplayName(entity)}</Typography>
+                                <Chip label={String(entity.codename ?? entity.id)} size='small' variant='outlined' sx={{ fontSize: 11 }} />
                             </Stack>
                         </Box>
                     )}
-                    noOptionsText={t('ref.noCatalogsAvailable', 'No catalogs available')}
-                    loading={isLoadingCatalogs}
-                    loadingText={t('common.loading', 'Loading...')}
-                />
-            )}
-
-            {targetEntityKind === 'enumeration' && (
-                <Autocomplete
-                    size='small'
-                    disabled={disabled}
-                    disableClearable
-                    options={availableEnumerations}
-                    value={selectedEnumeration}
-                    onChange={handleEnumerationChange}
-                    getOptionLabel={(enumeration) => getEnumerationDisplayName(enumeration)}
-                    isOptionEqualToValue={(option, value) => option.id === value.id}
-                    popupIcon={<UnfoldMoreRoundedIcon fontSize='small' />}
-                    PopperComponent={StyledPopper}
-                    slotProps={{
-                        popupIndicator: {
-                            disableRipple: true,
-                            sx: {
-                                backgroundColor: 'transparent',
-                                border: 'none',
-                                boxShadow: 'none',
-                                padding: 0.5,
-                                '&:hover': { backgroundColor: 'transparent' }
-                            }
-                        }
-                    }}
-                    sx={{
-                        '& .MuiInputBase-root': { minHeight: 40 },
-                        '& .MuiAutocomplete-endAdornment': {
-                            top: '50%',
-                            transform: 'translateY(-50%)'
-                        },
-                        '& .MuiAutocomplete-popupIndicator': {
-                            backgroundColor: 'transparent',
-                            border: 'none',
-                            boxShadow: 'none'
-                        }
-                    }}
-                    renderInput={(params) => (
-                        <TextField
-                            {...params}
-                            size='small'
-                            label={t('ref.targetEnumeration', 'Target Enumeration')}
-                            placeholder={t('ref.selectEnumeration', 'Select enumeration...')}
-                            error={Boolean(error && !targetEntityId)}
-                            helperText={!targetEntityId && error ? t('ref.enumerationRequired', 'Please select an enumeration') : undefined}
-                            InputProps={{
-                                ...params.InputProps,
-                                endAdornment: (
-                                    <>
-                                        {isLoadingEnumerations ? <CircularProgress color='inherit' size={16} /> : null}
-                                        {params.InputProps.endAdornment}
-                                    </>
-                                )
-                            }}
-                        />
-                    )}
-                    renderOption={(props, enumeration) => (
-                        <Box component='li' {...props} key={enumeration.id}>
-                            <Stack direction='row' spacing={1} alignItems='center'>
-                                <Typography variant='body2'>{getEnumerationDisplayName(enumeration)}</Typography>
-                                <Chip label={enumeration.codename} size='small' variant='outlined' sx={{ fontSize: 11 }} />
-                            </Stack>
-                        </Box>
-                    )}
-                    noOptionsText={t('ref.noEnumerationsAvailable', 'No enumerations available')}
-                    loading={isLoadingEnumerations}
-                    loadingText={t('common.loading', 'Loading...')}
-                />
-            )}
-
-            {targetEntityKind === 'set' && (
-                <Autocomplete
-                    size='small'
-                    disabled={disabled}
-                    disableClearable
-                    options={availableSets}
-                    value={selectedSet}
-                    onChange={handleSetChange}
-                    getOptionLabel={(set) => getSetDisplayName(set)}
-                    isOptionEqualToValue={(option, value) => option.id === value.id}
-                    popupIcon={<UnfoldMoreRoundedIcon fontSize='small' />}
-                    PopperComponent={StyledPopper}
-                    slotProps={{
-                        popupIndicator: {
-                            disableRipple: true,
-                            sx: {
-                                backgroundColor: 'transparent',
-                                border: 'none',
-                                boxShadow: 'none',
-                                padding: 0.5,
-                                '&:hover': { backgroundColor: 'transparent' }
-                            }
-                        }
-                    }}
-                    sx={{
-                        '& .MuiInputBase-root': { minHeight: 40 },
-                        '& .MuiAutocomplete-endAdornment': {
-                            top: '50%',
-                            transform: 'translateY(-50%)'
-                        },
-                        '& .MuiAutocomplete-popupIndicator': {
-                            backgroundColor: 'transparent',
-                            border: 'none',
-                            boxShadow: 'none'
-                        }
-                    }}
-                    renderInput={(params) => (
-                        <TextField
-                            {...params}
-                            size='small'
-                            label={t('ref.targetSet', 'Target Set')}
-                            placeholder={t('ref.selectSet', 'Select set...')}
-                            error={Boolean(error && !targetEntityId)}
-                            helperText={!targetEntityId && error ? t('ref.setRequired', 'Please select a set') : undefined}
-                            InputProps={{
-                                ...params.InputProps,
-                                endAdornment: (
-                                    <>
-                                        {isLoadingSets ? <CircularProgress color='inherit' size={16} /> : null}
-                                        {params.InputProps.endAdornment}
-                                    </>
-                                )
-                            }}
-                        />
-                    )}
-                    renderOption={(props, set) => (
-                        <Box component='li' {...props} key={set.id}>
-                            <Stack direction='row' spacing={1} alignItems='center'>
-                                <Typography variant='body2'>{getSetDisplayName(set)}</Typography>
-                                <Chip label={set.codename} size='small' variant='outlined' sx={{ fontSize: 11 }} />
-                            </Stack>
-                        </Box>
-                    )}
-                    noOptionsText={t('ref.noSetsAvailable', 'No sets available')}
-                    loading={isLoadingSets}
+                    noOptionsText={targetEntityNoOptionsText}
+                    loading={isLoadingTargetEntities}
                     loadingText={t('common.loading', 'Loading...')}
                 />
             )}
@@ -624,77 +436,8 @@ export const TargetEntitySelector = ({
                             </Stack>
                         </Box>
                     )}
-                    noOptionsText={t('ref.noConstantsAvailable', 'No constants available')}
+                    noOptionsText={t('ref.noConstantsAvailable', 'No fixedValues available')}
                     loading={isLoadingConstants}
-                    loadingText={t('common.loading', 'Loading...')}
-                />
-            )}
-
-            {isGenericEntityKind && (
-                <Autocomplete
-                    size='small'
-                    disabled={disabled}
-                    disableClearable
-                    options={availableGenericEntities}
-                    value={selectedGenericEntity}
-                    onChange={handleGenericEntityChange}
-                    getOptionLabel={(entity) => getGenericEntityDisplayName(entity)}
-                    isOptionEqualToValue={(option, value) => option.id === value.id}
-                    popupIcon={<UnfoldMoreRoundedIcon fontSize='small' />}
-                    PopperComponent={StyledPopper}
-                    slotProps={{
-                        popupIndicator: {
-                            disableRipple: true,
-                            sx: {
-                                backgroundColor: 'transparent',
-                                border: 'none',
-                                boxShadow: 'none',
-                                padding: 0.5,
-                                '&:hover': { backgroundColor: 'transparent' }
-                            }
-                        }
-                    }}
-                    sx={{
-                        '& .MuiInputBase-root': { minHeight: 40 },
-                        '& .MuiAutocomplete-endAdornment': {
-                            top: '50%',
-                            transform: 'translateY(-50%)'
-                        },
-                        '& .MuiAutocomplete-popupIndicator': {
-                            backgroundColor: 'transparent',
-                            border: 'none',
-                            boxShadow: 'none'
-                        }
-                    }}
-                    renderInput={(params) => (
-                        <TextField
-                            {...params}
-                            size='small'
-                            label={t('ref.targetEntity', 'Target Entity')}
-                            placeholder={t('ref.selectEntity', 'Select entity...')}
-                            error={Boolean(error && !targetEntityId)}
-                            helperText={!targetEntityId && error ? t('ref.entityRequired', 'Please select an entity') : undefined}
-                            InputProps={{
-                                ...params.InputProps,
-                                endAdornment: (
-                                    <>
-                                        {isLoadingGenericEntities ? <CircularProgress color='inherit' size={16} /> : null}
-                                        {params.InputProps.endAdornment}
-                                    </>
-                                )
-                            }}
-                        />
-                    )}
-                    renderOption={(props, entity) => (
-                        <Box component='li' {...props} key={entity.id}>
-                            <Stack direction='row' spacing={1} alignItems='center'>
-                                <Typography variant='body2'>{getGenericEntityDisplayName(entity)}</Typography>
-                                <Chip label={String(entity.codename ?? entity.id)} size='small' variant='outlined' sx={{ fontSize: 11 }} />
-                            </Stack>
-                        </Box>
-                    )}
-                    noOptionsText={t('ref.noEntitiesAvailable', 'No entities available')}
-                    loading={isLoadingGenericEntities}
                     loadingText={t('common.loading', 'Loading...')}
                 />
             )}

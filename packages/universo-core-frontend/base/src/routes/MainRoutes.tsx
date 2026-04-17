@@ -1,5 +1,5 @@
 import { lazy } from 'react'
-import { Navigate, Outlet, useParams } from 'react-router-dom'
+import { Navigate, Outlet } from 'react-router-dom'
 
 import '@universo/admin-frontend/i18n'
 import '@universo/start-frontend/i18n'
@@ -45,15 +45,14 @@ const MetahubBoard = Loadable(lazy(() => import('@universo/metahubs-frontend').t
 const PublicationList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.PublicationList }))))
 const BranchList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.BranchList }))))
 const EntitiesWorkspace = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.EntitiesWorkspace }))))
-const HubList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.HubList }))))
-const CatalogList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.CatalogList }))))
-const SetList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m: any) => ({ default: m.SetList }))))
-const EnumerationList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.EnumerationList }))))
-const EnumerationValueList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.EnumerationValueList }))))
-const AttributeList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.AttributeList }))))
-const ConstantList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m: any) => ({ default: m.ConstantList }))))
-const ElementList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.ElementList }))))
-const MetahubCommon = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubCommon }))))
+const StandardEntityChildCollectionPage = Loadable(
+    lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.StandardEntityChildCollectionPage })))
+)
+const SelectableOptionList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.SelectableOptionList }))))
+const FieldDefinitionList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.FieldDefinitionList }))))
+const FixedValueList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m: any) => ({ default: m.FixedValueList }))))
+const RecordList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.RecordList }))))
+const MetahubResources = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubResources }))))
 const MetahubLayoutDetails = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubLayoutDetails }))))
 const MetahubMigrations = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubMigrations }))))
 const MetahubMigrationGuard = Loadable(
@@ -100,16 +99,6 @@ const ApplicationDialogScope = () => (
         <Outlet />
     </ApplicationDialogSettingsProvider>
 )
-
-const LegacyMetahubLayoutsRedirect = () => {
-    const { metahubId } = useParams<{ metahubId: string }>()
-    return <Navigate to={metahubId ? `/metahub/${metahubId}/common` : '/metahubs'} replace />
-}
-
-const LegacyMetahubLayoutDetailsRedirect = () => {
-    const { metahubId, layoutId } = useParams<{ metahubId: string; layoutId: string }>()
-    return <Navigate to={metahubId && layoutId ? `/metahub/${metahubId}/common/layouts/${layoutId}` : '/metahubs'} replace />
-}
 
 const HomeRoute = {
     path: '/',
@@ -241,48 +230,22 @@ const MainRoutes = {
                 { path: 'publication/:publicationId/applications', element: <PublicationApplicationList /> },
                 { path: 'migrations', element: <MetahubMigrations /> },
                 { path: 'branches', element: <BranchList /> },
-                { path: 'common', element: <MetahubCommon /> },
+                { path: 'resources', element: <MetahubResources /> },
                 { path: 'entities', element: <EntitiesWorkspace /> },
                 { path: 'entities/:kindKey/instances', element: <EntityInstanceList /> },
-                { path: 'common/layouts/:layoutId', element: <MetahubLayoutDetails /> },
-                { path: 'entities/:kindKey/instance/:catalogId/layout/:layoutId', element: <MetahubLayoutDetails /> },
-                { path: 'entities/:kindKey/instance/:catalogId/attributes', element: <AttributeList /> },
-                { path: 'entities/:kindKey/instance/:catalogId/system', element: <AttributeList /> },
-                { path: 'entities/:kindKey/instance/:catalogId/elements', element: <ElementList /> },
-                { path: 'entities/:kindKey/instance/:hubId/hubs', element: <HubList /> },
-                { path: 'entities/:kindKey/instance/:hubId/catalogs', element: <CatalogList /> },
-                { path: 'entities/:kindKey/instance/:hubId/sets', element: <SetList /> },
-                { path: 'entities/:kindKey/instance/:hubId/enumerations', element: <EnumerationList /> },
-                { path: 'entities/:kindKey/instance/:hubId/catalog/:catalogId/attributes', element: <AttributeList /> },
-                { path: 'entities/:kindKey/instance/:hubId/catalog/:catalogId/system', element: <AttributeList /> },
-                { path: 'entities/:kindKey/instance/:hubId/catalog/:catalogId/elements', element: <ElementList /> },
-                { path: 'entities/:kindKey/instance/:setId/constants', element: <ConstantList /> },
-                { path: 'entities/:kindKey/instance/:hubId/set/:setId/constants', element: <ConstantList /> },
-                { path: 'entities/:kindKey/instance/:enumerationId/values', element: <EnumerationValueList /> },
-                { path: 'entities/:kindKey/instance/:hubId/enumeration/:enumerationId/values', element: <EnumerationValueList /> },
-                { path: 'general', element: <Navigate to='../common' replace /> },
-                { path: 'general/layouts/:layoutId', element: <LegacyMetahubLayoutDetailsRedirect /> },
-                { path: 'catalog/:catalogId/layout/:layoutId', element: <MetahubLayoutDetails /> },
-                { path: 'hubs', element: <HubList /> },
-                { path: 'catalogs', element: <CatalogList /> },
-                { path: 'sets', element: <SetList /> },
-                { path: 'enumerations', element: <EnumerationList /> },
-                { path: 'layouts', element: <LegacyMetahubLayoutsRedirect /> },
-                { path: 'layouts/:layoutId', element: <LegacyMetahubLayoutDetailsRedirect /> },
-                { path: 'catalog/:catalogId/attributes', element: <AttributeList /> },
-                { path: 'catalog/:catalogId/system', element: <AttributeList /> },
-                { path: 'catalog/:catalogId/elements', element: <ElementList /> },
-                { path: 'set/:setId/constants', element: <ConstantList /> },
-                { path: 'enumeration/:enumerationId/values', element: <EnumerationValueList /> },
-                { path: 'hub/:hubId/hubs', element: <HubList /> },
-                { path: 'hub/:hubId/catalogs', element: <CatalogList /> },
-                { path: 'hub/:hubId/sets', element: <SetList /> },
-                { path: 'hub/:hubId/enumerations', element: <EnumerationList /> },
-                { path: 'hub/:hubId/catalog/:catalogId/attributes', element: <AttributeList /> },
-                { path: 'hub/:hubId/catalog/:catalogId/system', element: <AttributeList /> },
-                { path: 'hub/:hubId/catalog/:catalogId/elements', element: <ElementList /> },
-                { path: 'hub/:hubId/set/:setId/constants', element: <ConstantList /> },
-                { path: 'hub/:hubId/enumeration/:enumerationId/values', element: <EnumerationValueList /> },
+                { path: 'resources/layouts/:layoutId', element: <MetahubLayoutDetails /> },
+                { path: 'entities/:kindKey/instance/:linkedCollectionId/layout/:layoutId', element: <MetahubLayoutDetails /> },
+                { path: 'entities/:kindKey/instance/:linkedCollectionId/field-definitions', element: <FieldDefinitionList /> },
+                { path: 'entities/:kindKey/instance/:linkedCollectionId/system', element: <FieldDefinitionList /> },
+                { path: 'entities/:kindKey/instance/:linkedCollectionId/records', element: <RecordList /> },
+                { path: 'entities/:kindKey/instance/:treeEntityId/instances', element: <StandardEntityChildCollectionPage /> },
+                { path: 'entities/:kindKey/instance/:treeEntityId/instance/:linkedCollectionId/field-definitions', element: <FieldDefinitionList /> },
+                { path: 'entities/:kindKey/instance/:treeEntityId/instance/:linkedCollectionId/system', element: <FieldDefinitionList /> },
+                { path: 'entities/:kindKey/instance/:treeEntityId/instance/:linkedCollectionId/records', element: <RecordList /> },
+                { path: 'entities/:kindKey/instance/:valueGroupId/fixed-values', element: <FixedValueList /> },
+                { path: 'entities/:kindKey/instance/:treeEntityId/instance/:valueGroupId/fixed-values', element: <FixedValueList /> },
+                { path: 'entities/:kindKey/instance/:optionListId/values', element: <SelectableOptionList /> },
+                { path: 'entities/:kindKey/instance/:treeEntityId/instance/:optionListId/values', element: <SelectableOptionList /> },
                 { path: 'members', element: <MetahubMembers /> },
                 { path: 'access', element: <MetahubMembers /> },
                 { path: 'settings', element: <MetahubSettings /> }

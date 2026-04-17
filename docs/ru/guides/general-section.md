@@ -1,52 +1,52 @@
 ---
-description: Как использовать раздел Common в metahub как реальную точку входа для layout, shared entities и shared library scripts.
+description: Как использовать resources workspace в metahub как реальную точку входа для layout, reusable metadata resources и shared library scripts.
 ---
 
-# Раздел Common
+# Рабочая область Resources
 
-Страница Common является реальной точкой входа для настройки layout, shared entities и shared library scripts внутри metahub.
-Legacy-ссылки `/layouts` по-прежнему работают, но перенаправляют в Common, чтобы старые закладки не ломались.
+Страница Resources является реальной точкой входа для настройки layout, reusable metadata resources и shared library scripts внутри metahub.
+Живая навигация теперь ведёт прямо на `/resources`, поэтому активный контракт больше не зависит от legacy Common или surface `/layouts`.
 
 ## Что находится здесь
 
-- глобальные layout, которые формируют общую runtime-композицию;
-- общие attributes, constants и values перечислений, которые могут наследоваться target objects;
-- навигация к catalog-specific layout и sparse overrides;
-- скрипты `general/library`, которые отдают переиспользуемые helper-ы через `@shared/<codename>`;
+- shared layouts, которые формируют reusable runtime-композицию;
+- общие пулы field definitions, fixed values и option values, которые могут наследоваться совместимыми entity types;
+- навигация к entity-specific layout и sparse overrides;
+- скрипты resources/library, которые отдают переиспользуемые helper-ы через `@shared/<codename>`;
 - общее view behavior, которое должно жить рядом с настройкой layout, а не в отдельных admin settings.
 
 ## Навигационный контракт
 
 1. Откройте metahub.
-2. Используйте элемент боковой панели Common.
-3. Переключайтесь между вкладками Layouts, Attributes, Constants, Values и Scripts в зависимости от нужного общего ресурса.
-4. Откройте catalog и перейдите на его собственный route, когда нужно проверить merged inherited rows или catalog-specific layout behavior.
+2. Используйте элемент боковой панели Resources.
+3. Переключайтесь между вкладками Layouts, Field Definitions, Fixed Values, Option Values и Scripts в зависимости от нужного общего asset.
+4. Откройте target entity и перейдите на его собственный route, когда нужно проверить merged inherited rows или entity-specific layout behavior.
 
-## Поток работы с shared entities
+## Поток работы с общими ресурсами
 
-1. Создавайте общие attributes, constants или values на соответствующей вкладке Common.
+1. Создавайте общие field definitions, fixed values или option values на соответствующей вкладке Resources.
 2. Используйте вкладки Presentation и Exclusions в диалоге, когда нужны behavior locks или target-specific exclusions.
-3. Откройте target catalog, set или enumeration, чтобы проверить merged inherited rows и read-only action gating.
+3. Откройте target entity, чтобы проверить merged inherited rows и read-only action gating.
 4. Публикуйте и синхронизируйте linked application, когда runtime должен materialize общие rows.
 
 ## Поток работы с shared scripts
 
-1. Откройте Common -> Scripts, чтобы писать helper-ы `general/library`.
+1. Откройте Resources -> Scripts, чтобы писать reusable library helper-ы.
 2. Импортируйте эти helper-ы из consumer scripts через `@shared/<codename>`.
 3. Держите libraries чистыми: они компилируются для dependency resolution, а не как прямые runtime entrypoints.
 4. Публикуйте version и проверяйте consuming widget или module на `/a/:applicationId`.
 
-## Fail-Closed правила Common
+## Fail-Closed правила Resources
 
-- shared rows остаются read-only в target object lists, а per-target overrides нужно настраивать через вкладки Presentation и Exclusions в Common;
-- Common -> Scripts принимает только authoring `general/library`, поэтому reusable helper-ы нельзя создавать как drafts с ролями widget, module или lifecycle;
+- shared rows остаются read-only в списках target entity, а per-target overrides нужно настраивать через вкладки Presentation и Exclusions в Resources;
+- Resources -> Scripts принимает только reusable library authoring, поэтому shared helper-ы нельзя создавать как drafts с ролями widget, module или lifecycle;
 - удаление shared library или смена её codename завершаются fail-closed, пока consumer scripts всё ещё импортируют `@shared/<codename>`;
-- циклы `@shared/*` отклоняются уже во время authoring, поэтому publication не отгружает неоднозначные Common dependencies.
+- циклы `@shared/*` отклоняются уже во время authoring, поэтому publication не отгружает неоднозначные shared dependencies.
 
-## Почему Common продолжает расти
+## Почему Resources продолжает расти
 
-Платформа теперь держит cross-cutting-настройку metahub внутри одной tabbed surface Common.
-Это убирает разделение layout, shared-entity и shared-library работы между разными menu items и оставляет место для будущих вкладок Common без нового navigation refactor.
+Платформа теперь держит cross-cutting-настройку metahub внутри одной dedicated surface Resources.
+Это убирает разделение layout, shared-resource и shared-library работы между разными menu items и оставляет место для будущих resource-level вкладок без нового navigation refactor.
 
 ## Что читать дальше
 

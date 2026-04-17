@@ -4,14 +4,7 @@ import { ListQuerySchema, paginateItems } from '../../shared/queryParams'
 import { getCodenameText } from '../../shared/codename'
 import { EntityTypeService } from '../services/EntityTypeService'
 
-const optionalBooleanFromQuery = z.preprocess((value) => {
-    if (value === undefined) return undefined
-    return value === 'true' || value === true
-}, z.boolean().optional())
-
-const entityTypeListQuerySchema = ListQuerySchema.extend({
-    includeBuiltins: optionalBooleanFromQuery.default(true)
-})
+const entityTypeListQuerySchema = ListQuerySchema
 
 const codenameInputSchema = z.union([z.string().min(1), z.record(z.unknown())])
 
@@ -59,9 +52,7 @@ export function createEntityTypesController(createHandler: ReturnType<typeof cre
         }
 
         const service = new EntityTypeService(exec, schemaService)
-        const allItems = parsed.data.includeBuiltins
-            ? await service.listResolvedTypes(metahubId, userId)
-            : await service.listCustomTypes(metahubId, userId)
+        const allItems = await service.listTypes(metahubId, userId)
 
         const search = parsed.data.search?.toLowerCase()
         const filteredItems =
@@ -82,7 +73,7 @@ export function createEntityTypesController(createHandler: ReturnType<typeof cre
 
     const getById = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {
         const service = new EntityTypeService(exec, schemaService)
-        const item = await service.getCustomTypeById(metahubId, req.params.entityTypeId, userId)
+        const item = await service.getTypeById(metahubId, req.params.entityTypeId, userId)
         if (!item) {
             return res.status(404).json({ error: 'Entity type not found' })
         }
@@ -97,7 +88,7 @@ export function createEntityTypesController(createHandler: ReturnType<typeof cre
             }
 
             const service = new EntityTypeService(exec, schemaService)
-            const created = await service.createCustomType(
+            const created = await service.createType(
                 metahubId,
                 {
                     kindKey: parsed.data.kindKey,
@@ -124,7 +115,7 @@ export function createEntityTypesController(createHandler: ReturnType<typeof cre
             }
 
             const service = new EntityTypeService(exec, schemaService)
-            const updated = await service.updateCustomType(
+            const updated = await service.updateType(
                 metahubId,
                 req.params.entityTypeId,
                 {
@@ -148,7 +139,7 @@ export function createEntityTypesController(createHandler: ReturnType<typeof cre
     const remove = createHandler(
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
             const service = new EntityTypeService(exec, schemaService)
-            await service.deleteCustomType(metahubId, req.params.entityTypeId, userId)
+            await service.deleteType(metahubId, req.params.entityTypeId, userId)
             return res.status(204).send()
         },
         { permission: 'manageMetahub' }

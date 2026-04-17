@@ -176,7 +176,7 @@ describe('Branches Options Routes', () => {
     it('returns 400 for incompatible branch copy options', async () => {
         const metahubId = 'metahub-1'
 
-        jest.spyOn(MetahubBranchesService.prototype, 'createBranch').mockRejectedValue(new Error('BRANCH_COPY_ENUM_REFERENCES'))
+        jest.spyOn(MetahubBranchesService.prototype, 'createBranch').mockRejectedValue(new Error('BRANCH_COPY_OPTION_LIST_REFERENCES'))
 
         const app = buildApp()
 
@@ -193,15 +193,15 @@ describe('Branches Options Routes', () => {
             .expect(400)
 
         expect(response.body).toEqual({
-            code: 'BRANCH_COPY_ENUM_REFERENCES',
-            error: 'Cannot disable enumerations copy while catalogs/hubs with enumeration references are copied'
+            code: 'BRANCH_COPY_OPTION_LIST_REFERENCES',
+            error: 'Cannot disable option list copy while copied entity groups still reference option lists.'
         })
     })
 
     it('returns 400 for branch copy options that produce dangling references', async () => {
         const metahubId = 'metahub-1'
 
-        jest.spyOn(MetahubBranchesService.prototype, 'createBranch').mockRejectedValue(new Error('BRANCH_COPY_DANGLING_REFERENCES'))
+        jest.spyOn(MetahubBranchesService.prototype, 'createBranch').mockRejectedValue(new Error('BRANCH_COPY_DANGLING_ENTITY_REFERENCES'))
 
         const app = buildApp()
 
@@ -218,8 +218,8 @@ describe('Branches Options Routes', () => {
             .expect(400)
 
         expect(response.body).toEqual({
-            code: 'BRANCH_COPY_DANGLING_REFERENCES',
-            error: 'Copy options would produce dangling object references. Keep all referenced object groups enabled.'
+            code: 'BRANCH_COPY_DANGLING_ENTITY_REFERENCES',
+            error: 'Copy options would produce dangling entity references. Keep all referenced entity groups enabled.'
         })
     })
 
@@ -227,7 +227,7 @@ describe('Branches Options Routes', () => {
         const metahubId = 'metahub-1'
 
         const structuredError = Object.assign(new Error('copy compatibility failed'), {
-            code: 'BRANCH_COPY_DANGLING_REFERENCES'
+            code: 'BRANCH_COPY_DANGLING_ENTITY_REFERENCES'
         })
         jest.spyOn(MetahubBranchesService.prototype, 'createBranch').mockRejectedValue(structuredError)
 
@@ -240,14 +240,14 @@ describe('Branches Options Routes', () => {
                 name: { en: 'Copy Test Structured' },
                 sourceBranchId: '00000000-0000-0000-0000-000000000001',
                 fullCopy: false,
-                copyHubs: true,
-                copyCatalogs: false
+                copyTreeEntities: true,
+                copyLinkedCollections: false
             })
             .expect(400)
 
         expect(response.body).toEqual({
-            code: 'BRANCH_COPY_DANGLING_REFERENCES',
-            error: 'Copy options would produce dangling object references. Keep all referenced object groups enabled.'
+            code: 'BRANCH_COPY_DANGLING_ENTITY_REFERENCES',
+            error: 'Copy options would produce dangling entity references. Keep all referenced entity groups enabled.'
         })
     })
 

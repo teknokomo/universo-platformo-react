@@ -16,30 +16,33 @@ import type {
     MetahubBranchDisplay,
     MetahubLayout,
     MetahubLayoutDisplay,
-    Hub,
-    HubDisplay,
-    HubRef,
-    Catalog,
-    CatalogDisplay,
-    MetahubSet,
-    MetahubSetDisplay,
-    Enumeration,
-    EnumerationDisplay,
-    EnumerationValue,
-    EnumerationValueDisplay,
-    Attribute,
-    AttributeDisplay,
-    Constant,
-    ConstantDisplay,
-    HubElement,
-    HubElementDisplay
+    TreeEntity,
+    TreeEntityDisplay,
+    TreeEntityRef,
+    LinkedCollectionEntity,
+    LinkedCollectionDisplay,
+    ValueGroupEntity,
+    ValueGroupDisplay,
+    OptionListEntity,
+    OptionListDisplay,
+    OptionValue,
+    OptionValueDisplay,
+    FieldDefinition,
+    FieldDefinitionDisplay,
+    FixedValue,
+    FixedValueDisplay,
+    RecordItem,
+    RecordItemDisplay
 } from './types'
 
 // ============ SHARED HELPERS ============
 
 /** Map hub references to display-ready objects with localized names */
-function mapHubRefs(hubs: HubRef[] | undefined, locale: string): Array<{ id: string; name: string; codename: string }> | undefined {
-    return hubs?.map((hub) => ({
+function mapHubRefs(
+    treeEntities: TreeEntityRef[] | undefined,
+    locale: string
+): Array<{ id: string; name: string; codename: string }> | undefined {
+    return treeEntities?.map((hub) => ({
         id: hub.id,
         name: getVLCString(hub.name, locale) || hub.codename,
         codename: hub.codename
@@ -58,8 +61,8 @@ export function toBranchDisplay(branch: MetahubBranch, locale = 'en'): MetahubBr
     return mapBaseVlcFields(branch, locale)
 }
 
-/** Convert EnumerationValue to EnumerationValueDisplay for table rendering */
-export function toEnumerationValueDisplay(value: EnumerationValue, locale = 'en'): EnumerationValueDisplay {
+/** Convert OptionValue to OptionValueDisplay for table rendering */
+export function toOptionValueDisplay(value: OptionValue, locale = 'en'): OptionValueDisplay {
     const base = mapBaseVlcFields(value, locale)
     return {
         ...base,
@@ -80,36 +83,36 @@ export function toMetahubLayoutDisplay(layout: MetahubLayout, locale = 'en'): Me
     return { ...base, name: base.name || base.templateKey }
 }
 
-/** Convert Hub to HubDisplay for table rendering */
-export function toHubDisplay(hub: Hub, locale = 'en'): HubDisplay {
+/** Convert TreeEntity to TreeEntityDisplay for table rendering */
+export function toTreeEntityDisplay(hub: TreeEntity, locale = 'en'): TreeEntityDisplay {
     const base = mapBaseVlcFields(hub, locale)
     return { ...base, name: base.name || base.codename }
 }
 
 // ============ HUB-MAPPING CONVERTERS ============
 
-/** Convert Catalog to CatalogDisplay for table rendering */
-export function toCatalogDisplay(catalog: Catalog, locale = 'en'): CatalogDisplay {
+/** Convert LinkedCollectionEntity to LinkedCollectionDisplay for table rendering */
+export function toLinkedCollectionDisplay(catalog: LinkedCollectionEntity, locale = 'en'): LinkedCollectionDisplay {
     const base = mapBaseVlcFields(catalog, locale)
-    return { ...base, name: base.name || base.codename, hubs: mapHubRefs(catalog.hubs, locale) }
+    return { ...base, name: base.name || base.codename, treeEntities: mapHubRefs(catalog.treeEntities, locale) }
 }
 
-/** Convert Set to MetahubSetDisplay for table rendering. */
-export function toSetDisplay(set: MetahubSet, locale = 'en'): MetahubSetDisplay {
+/** Convert Set to ValueGroupDisplay for table rendering. */
+export function toValueGroupDisplay(set: ValueGroupEntity, locale = 'en'): ValueGroupDisplay {
     const base = mapBaseVlcFields(set, locale)
-    return { ...base, name: base.name || base.codename, hubs: mapHubRefs(set.hubs, locale) }
+    return { ...base, name: base.name || base.codename, treeEntities: mapHubRefs(set.treeEntities, locale) }
 }
 
-/** Convert Enumeration to EnumerationDisplay for table rendering */
-export function toEnumerationDisplay(enumeration: Enumeration, locale = 'en'): EnumerationDisplay {
+/** Convert OptionListEntity to OptionListDisplay for table rendering */
+export function toOptionListDisplay(enumeration: OptionListEntity, locale = 'en'): OptionListDisplay {
     const base = mapBaseVlcFields(enumeration, locale)
-    return { ...base, name: base.name || base.codename, hubs: mapHubRefs(enumeration.hubs, locale) }
+    return { ...base, name: base.name || base.codename, treeEntities: mapHubRefs(enumeration.treeEntities, locale) }
 }
 
 // ============ SPECIAL CONVERTERS ============
 
-/** Convert Attribute to AttributeDisplay for table rendering */
-export function toAttributeDisplay(attr: Attribute, locale = 'en'): AttributeDisplay {
+/** Convert FieldDefinition to FieldDefinitionDisplay for table rendering */
+export function toFieldDefinitionDisplay(attr: FieldDefinition, locale = 'en'): FieldDefinitionDisplay {
     return {
         ...attr,
         sortOrder: attr.effectiveSortOrder ?? attr.sortOrder,
@@ -123,8 +126,8 @@ export function toAttributeDisplay(attr: Attribute, locale = 'en'): AttributeDis
     }
 }
 
-/** Convert Constant to ConstantDisplay for table rendering. */
-export function toConstantDisplay(constant: Constant, locale = 'en'): ConstantDisplay {
+/** Convert FixedValue to FixedValueDisplay for table rendering. */
+export function toFixedValueDisplay(constant: FixedValue, locale = 'en'): FixedValueDisplay {
     return {
         ...constant,
         sortOrder: constant.effectiveSortOrder ?? constant.sortOrder,
@@ -138,10 +141,10 @@ export function toConstantDisplay(constant: Constant, locale = 'en'): ConstantDi
     }
 }
 
-/** Convert HubElement to HubElementDisplay for table rendering */
-export function toHubElementDisplay(element: HubElement, attributes: Attribute[] = [], locale = 'en'): HubElementDisplay {
-    const displayAttr = attributes.find((a) => a.isDisplayAttribute)
-    const fallbackAttr = attributes.find((a) => a.dataType === 'STRING')
+/** Convert RecordItem to RecordItemDisplay for table rendering */
+export function toRecordItemDisplay(element: RecordItem, fieldDefinitions: FieldDefinition[] = [], locale = 'en'): RecordItemDisplay {
+    const displayAttr = fieldDefinitions.find((a) => a.isDisplayAttribute)
+    const fallbackAttr = fieldDefinitions.find((a) => a.dataType === 'STRING')
     const selectedAttr = displayAttr || fallbackAttr
     const rawValue = selectedAttr ? element.data[selectedAttr.codename] : undefined
     const nameValue =

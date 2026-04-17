@@ -4,7 +4,7 @@ description: Platform reference for Common shared library scripts and their fail
 
 # Shared Scripts
 
-Shared scripts are the Common/general library modules that publish reusable helpers for other metahub scripts.
+Shared scripts are the Resources-workspace library modules that publish reusable helpers for other metahub scripts.
 They are import-only design assets and are not exposed as direct runtime entrypoints.
 
 ## Authoring Rules

@@ -1,22 +1,31 @@
 import { qSchemaTable } from '@universo/database'
 import {
-    BUILTIN_ENTITY_TYPE_REGISTRY,
-    isBuiltinKind,
+    isBuiltinEntityKind,
     validateComponentDependencies,
     type ComponentManifest,
     type EntityKind,
     type EntityTypeUIConfig,
     type ResolvedEntityType
 } from '@universo/types'
-import { queryMany, queryOne, queryOneOrThrow, type DbExecutor, type SqlQueryable } from '@universo/utils/database'
+import {
+    getDbErrorConstraint,
+    isUniqueViolation,
+    queryMany,
+    queryOne,
+    queryOneOrThrow,
+    type DbExecutor,
+    type SqlQueryable
+} from '@universo/utils/database'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
-import { codenamePrimaryTextSql, ensureCodenameValue } from '../../shared/codename'
+import { codenamePrimaryTextSql, ensureCodenameValue, getCodenameText } from '../../shared/codename'
 import { MetahubConflictError, MetahubNotFoundError, MetahubValidationError } from '../../shared/domainErrors'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 
 const TABLE = '_mhb_entity_type_definitions'
 const ACTIVE_CLAUSE = '_upl_deleted = false AND _mhb_deleted = false'
 const KIND_KEY_PATTERN = /^[a-z][a-z0-9._-]{0,63}$/
+const ENTITY_TYPE_KIND_KEY_ACTIVE_CONSTRAINT = 'idx_mhb_entity_type_definitions_kind_key_active'
+const ENTITY_TYPE_CODENAME_ACTIVE_CONSTRAINT = 'idx_mhb_entity_type_definitions_codename_active'
 
 type JsonRecord = Record<string, unknown>
 
@@ -28,7 +37,6 @@ interface StoredEntityTypeRow {
     components: unknown
     ui_config: unknown
     config: unknown
-    is_builtin: boolean
     _mhb_published?: boolean | null
     _upl_version?: number
     _upl_updated_at?: string | Date | null
@@ -44,7 +52,7 @@ export interface MetahubResolvedEntityType extends ResolvedEntityType {
     updatedAt?: string | null
 }
 
-export interface CreateCustomEntityTypeInput {
+export interface CreateEntityTypeInput {
     kindKey: string
     codename: unknown
     presentation?: JsonRecord
@@ -55,7 +63,7 @@ export interface CreateCustomEntityTypeInput {
     createdBy?: string | null
 }
 
-export interface UpdateCustomEntityTypeInput {
+export interface UpdateEntityTypeInput {
     kindKey?: string
     codename?: unknown
     presentation?: JsonRecord
@@ -81,6 +89,14 @@ const normalizeEntityTypeKindKey = (value: string): string => {
         throw new MetahubValidationError('Entity type kindKey must use lowercase letters, digits, dots, underscores, or hyphens')
     }
     return normalized
+}
+
+const normalizeEntityTypeCodename = (value: unknown): JsonRecord => {
+    return ensureCodenameValue(value)
+}
+
+const getNormalizedPrimaryCodenameText = (value: unknown): string => {
+    return getCodenameText(value).trim().toLowerCase()
 }
 
 const normalizeUiConfig = (value: EntityTypeUIConfig): EntityTypeUIConfig => {
@@ -145,24 +161,12 @@ export class EntityTypeService {
         return row ? parseInt(row.count, 10) : 0
     }
 
-    private toBuiltinResolvedType(definition: ResolvedEntityType): MetahubResolvedEntityType {
-        return {
-            ...definition,
-            presentation: {},
-            config: {},
-            codename: null,
-            updatedAt: null
-        }
-    }
-
-    private normalizeCustomRow(row: StoredEntityTypeRow): MetahubResolvedEntityType {
+    private normalizeTypeRow(row: StoredEntityTypeRow): MetahubResolvedEntityType {
         return {
             id: row.id,
             kindKey: row.kind_key as EntityKind,
-            isBuiltin: Boolean(row.is_builtin),
             components: parseStoredComponentManifest(row.components),
             ui: parseStoredUiConfig(row.ui_config),
-            source: 'custom',
             codename: ensureCodenameValue(row.codename),
             presentation: ensureJsonRecord(row.presentation),
             config: ensureJsonRecord(row.config),
@@ -177,18 +181,18 @@ export class EntityTypeService {
         }
     }
 
-    private async findCustomRowById(schemaName: string, id: string, db: SqlQueryable = this.exec): Promise<StoredEntityTypeRow | null> {
+    private async findTypeRowById(schemaName: string, id: string, db: SqlQueryable = this.exec): Promise<StoredEntityTypeRow | null> {
         const qt = qSchemaTable(schemaName, TABLE)
         return queryOne<StoredEntityTypeRow>(db, `SELECT * FROM ${qt} WHERE id = $1 AND ${ACTIVE_CLAUSE} LIMIT 1`, [id])
     }
 
-    async getCustomTypeById(metahubId: string, entityTypeId: string, userId?: string): Promise<MetahubResolvedEntityType | null> {
+    async getTypeById(metahubId: string, entityTypeId: string, userId?: string): Promise<MetahubResolvedEntityType | null> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const row = await this.findCustomRowById(schemaName, entityTypeId)
-        return row ? this.normalizeCustomRow(row) : null
+        const row = await this.findTypeRowById(schemaName, entityTypeId)
+        return row ? this.normalizeTypeRow(row) : null
     }
 
-    private async findCustomRowByKindKey(
+    private async findTypeRowByKindKey(
         schemaName: string,
         kindKey: string,
         db: SqlQueryable = this.exec
@@ -197,28 +201,73 @@ export class EntityTypeService {
         return queryOne<StoredEntityTypeRow>(db, `SELECT * FROM ${qt} WHERE kind_key = $1 AND ${ACTIVE_CLAUSE} LIMIT 1`, [kindKey])
     }
 
-    async listCustomTypesInSchema(schemaName: string, db: SqlQueryable = this.exec): Promise<MetahubResolvedEntityType[]> {
+    private async findTypeRowByCodename(
+        schemaName: string,
+        codename: unknown,
+        db: SqlQueryable = this.exec
+    ): Promise<StoredEntityTypeRow | null> {
+        const qt = qSchemaTable(schemaName, TABLE)
+        return queryOne<StoredEntityTypeRow>(
+            db,
+            `SELECT * FROM ${qt}
+             WHERE LOWER(${codenamePrimaryTextSql('codename')}) = $1 AND ${ACTIVE_CLAUSE}
+             LIMIT 1`,
+            [getNormalizedPrimaryCodenameText(codename)]
+        )
+    }
+
+    private rethrowDuplicateConstraint(error: unknown, details: { kindKey: string; codename: unknown; existingId?: string }): never {
+        if (!isUniqueViolation(error)) {
+            throw error
+        }
+
+        const constraint = getDbErrorConstraint(error) ?? ''
+        if (constraint === ENTITY_TYPE_KIND_KEY_ACTIVE_CONSTRAINT) {
+            throw new MetahubConflictError('Entity type kindKey already exists', {
+                kindKey: details.kindKey,
+                ...(details.existingId ? { existingId: details.existingId } : {})
+            })
+        }
+
+        if (constraint === ENTITY_TYPE_CODENAME_ACTIVE_CONSTRAINT) {
+            throw new MetahubConflictError('Entity type codename already exists', {
+                code: 'CODENAME_CONFLICT',
+                kindKey: details.kindKey,
+                codename: getCodenameText(details.codename)
+            })
+        }
+
+        throw error
+    }
+
+    async listEditableTypesInSchema(schemaName: string, db: SqlQueryable = this.exec): Promise<MetahubResolvedEntityType[]> {
         const qt = qSchemaTable(schemaName, TABLE)
         const rows = await queryMany<StoredEntityTypeRow>(
             db,
             `SELECT * FROM ${qt} WHERE ${ACTIVE_CLAUSE} ORDER BY kind_key ASC, _upl_created_at ASC, id ASC`
         )
 
-        return rows.map((row) => this.normalizeCustomRow(row))
+        return rows.map((row) => this.normalizeTypeRow(row)).filter((row) => !isBuiltinEntityKind(row.kindKey))
     }
 
-    async listCustomTypes(metahubId: string, userId?: string): Promise<MetahubResolvedEntityType[]> {
-        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        return this.listCustomTypesInSchema(schemaName)
-    }
-
-    async listResolvedTypes(metahubId: string, userId?: string): Promise<MetahubResolvedEntityType[]> {
-        const customTypes = await this.listCustomTypes(metahubId, userId)
-        const builtinTypes = [...BUILTIN_ENTITY_TYPE_REGISTRY.values()].map((definition) =>
-            this.toBuiltinResolvedType({ ...definition, source: 'builtin' })
+    async listTypesInSchema(schemaName: string, db: SqlQueryable = this.exec): Promise<MetahubResolvedEntityType[]> {
+        const qt = qSchemaTable(schemaName, TABLE)
+        const rows = await queryMany<StoredEntityTypeRow>(
+            db,
+            `SELECT * FROM ${qt} WHERE ${ACTIVE_CLAUSE} ORDER BY kind_key ASC, _upl_created_at ASC, id ASC`
         )
 
-        return [...builtinTypes, ...customTypes]
+        return rows.map((row) => this.normalizeTypeRow(row))
+    }
+
+    async listEditableTypes(metahubId: string, userId?: string): Promise<MetahubResolvedEntityType[]> {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        return this.listEditableTypesInSchema(schemaName)
+    }
+
+    async listTypes(metahubId: string, userId?: string): Promise<MetahubResolvedEntityType[]> {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        return this.listTypesInSchema(schemaName)
     }
 
     async resolveType(metahubId: string, kindKey: EntityKind | string, userId?: string): Promise<MetahubResolvedEntityType | null> {
@@ -232,95 +281,105 @@ export class EntityTypeService {
         db: SqlQueryable = this.exec
     ): Promise<MetahubResolvedEntityType | null> {
         const normalizedKindKey = String(kindKey).trim()
-        const builtin = BUILTIN_ENTITY_TYPE_REGISTRY.get(normalizedKindKey)
-        if (builtin) {
-            return this.toBuiltinResolvedType({ ...builtin, source: 'builtin' })
-        }
-
-        const customRow = await this.findCustomRowByKindKey(schemaName, normalizedKindKey, db)
-        return customRow ? this.normalizeCustomRow(customRow) : null
+        const typeRow = await this.findTypeRowByKindKey(schemaName, normalizedKindKey, db)
+        return typeRow ? this.normalizeTypeRow(typeRow) : null
     }
 
-    async createCustomType(metahubId: string, input: CreateCustomEntityTypeInput, userId?: string): Promise<MetahubResolvedEntityType> {
+    async createType(metahubId: string, input: CreateEntityTypeInput, userId?: string): Promise<MetahubResolvedEntityType> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const kindKey = normalizeEntityTypeKindKey(input.kindKey)
 
-        if (isBuiltinKind(kindKey)) {
-            throw new MetahubValidationError('Built-in entity kinds cannot be redefined as custom types', { kindKey })
+        if (isBuiltinEntityKind(kindKey)) {
+            throw new MetahubValidationError('Standard entity kinds are reserved for platform-provided entity types', { kindKey })
         }
 
         const components = normalizeComponentManifest(input.components)
         const ui = normalizeUiConfig(input.ui)
-        const codename = ensureCodenameValue(input.codename)
+        const codename = normalizeEntityTypeCodename(input.codename)
         const presentation = ensureJsonRecord(input.presentation)
         const config = ensureJsonRecord(input.config)
         const published = input.published !== false
         const qt = qSchemaTable(schemaName, TABLE)
 
         return this.exec.transaction(async (tx) => {
-            const existing = await this.findCustomRowByKindKey(schemaName, kindKey, tx)
-            if (existing) {
-                throw new MetahubConflictError('Entity type kindKey already exists', { kindKey, existingId: existing.id })
+            const existingByKindKey = await this.findTypeRowByKindKey(schemaName, kindKey, tx)
+            if (existingByKindKey) {
+                throw new MetahubConflictError('Entity type kindKey already exists', { kindKey, existingId: existingByKindKey.id })
             }
 
-            const created = await queryOneOrThrow<StoredEntityTypeRow>(
-                tx,
-                `INSERT INTO ${qt} (
-                    kind_key,
-                    codename,
-                    presentation,
-                    components,
-                    ui_config,
-                    config,
-                    is_builtin,
-                    _upl_created_at,
-                    _upl_created_by,
-                    _upl_updated_at,
-                    _upl_updated_by,
-                    _upl_version,
-                    _upl_archived,
-                    _upl_deleted,
-                    _upl_locked,
-                    _mhb_published,
-                    _mhb_archived,
-                    _mhb_deleted
-                 ) VALUES (
-                    $1, $2::jsonb, $3::jsonb, $4::jsonb, $5::jsonb, $6::jsonb, false,
-                          $7, $8, $7, $8, 1, false, false, false, $9, false, false
-                 )
-                 RETURNING *`,
-                [
+            const existingByCodename = await this.findTypeRowByCodename(schemaName, codename, tx)
+            if (existingByCodename) {
+                throw new MetahubConflictError('Entity type codename already exists', {
+                    code: 'CODENAME_CONFLICT',
                     kindKey,
-                    JSON.stringify(codename),
-                    JSON.stringify(presentation),
-                    JSON.stringify(components),
-                    JSON.stringify(ui),
-                    JSON.stringify(config),
-                    new Date(),
-                    input.createdBy ?? userId ?? null,
-                    published
-                ]
-            )
+                    codename: getCodenameText(codename),
+                    existingId: existingByCodename.id
+                })
+            }
 
-            return this.normalizeCustomRow(created)
+            try {
+                const created = await queryOneOrThrow<StoredEntityTypeRow>(
+                    tx,
+                    `INSERT INTO ${qt} (
+                        kind_key,
+                        codename,
+                        presentation,
+                        components,
+                        ui_config,
+                        config,
+                        _upl_created_at,
+                        _upl_created_by,
+                        _upl_updated_at,
+                        _upl_updated_by,
+                        _upl_version,
+                        _upl_archived,
+                        _upl_deleted,
+                        _upl_locked,
+                        _mhb_published,
+                        _mhb_archived,
+                        _mhb_deleted
+                     ) VALUES (
+                              $1, $2::jsonb, $3::jsonb, $4::jsonb, $5::jsonb, $6::jsonb,
+                              $7, $8, $7, $8, 1, false, false, false, $9, false, false
+                     )
+                     RETURNING *`,
+                    [
+                        kindKey,
+                        JSON.stringify(codename),
+                        JSON.stringify(presentation),
+                        JSON.stringify(components),
+                        JSON.stringify(ui),
+                        JSON.stringify(config),
+                        new Date(),
+                        input.createdBy ?? userId ?? null,
+                        published
+                    ]
+                )
+
+                return this.normalizeTypeRow(created)
+            } catch (error) {
+                this.rethrowDuplicateConstraint(error, { kindKey, codename })
+            }
         })
     }
 
-    async updateCustomType(
+    async updateType(
         metahubId: string,
         entityTypeId: string,
-        input: UpdateCustomEntityTypeInput,
+        input: UpdateEntityTypeInput,
         userId?: string
     ): Promise<MetahubResolvedEntityType> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const existing = await this.findCustomRowById(schemaName, entityTypeId)
+        const existing = await this.findTypeRowById(schemaName, entityTypeId)
         if (!existing) {
             throw new MetahubNotFoundError('Entity type', entityTypeId)
         }
 
         const nextKindKey = input.kindKey !== undefined ? normalizeEntityTypeKindKey(input.kindKey) : existing.kind_key
-        if (isBuiltinKind(nextKindKey)) {
-            throw new MetahubValidationError('Built-in entity kinds cannot be assigned to custom entity types', { kindKey: nextKindKey })
+        if (isBuiltinEntityKind(nextKindKey)) {
+            throw new MetahubValidationError('Standard entity kinds are reserved for platform-provided entity types', {
+                kindKey: nextKindKey
+            })
         }
 
         const nextComponents =
@@ -328,16 +387,30 @@ export class EntityTypeService {
                 ? normalizeComponentManifest(input.components)
                 : parseStoredComponentManifest(existing.components)
         const nextUi = input.ui !== undefined ? normalizeUiConfig(input.ui) : parseStoredUiConfig(existing.ui_config)
-        const nextCodename = input.codename !== undefined ? ensureCodenameValue(input.codename) : ensureCodenameValue(existing.codename)
+        const nextCodename =
+            input.codename !== undefined ? normalizeEntityTypeCodename(input.codename) : normalizeEntityTypeCodename(existing.codename)
         const nextPresentation =
             input.presentation !== undefined ? ensureJsonRecord(input.presentation) : ensureJsonRecord(existing.presentation)
         const nextConfig = input.config !== undefined ? ensureJsonRecord(input.config) : ensureJsonRecord(existing.config)
         const nextPublished = input.published !== undefined ? input.published : existing._mhb_published === true
 
         return this.exec.transaction(async (tx) => {
-            const conflict = await this.findCustomRowByKindKey(schemaName, nextKindKey, tx)
-            if (conflict && conflict.id !== existing.id) {
-                throw new MetahubConflictError('Entity type kindKey already exists', { kindKey: nextKindKey, existingId: conflict.id })
+            const conflictByKindKey = await this.findTypeRowByKindKey(schemaName, nextKindKey, tx)
+            if (conflictByKindKey && conflictByKindKey.id !== existing.id) {
+                throw new MetahubConflictError('Entity type kindKey already exists', {
+                    kindKey: nextKindKey,
+                    existingId: conflictByKindKey.id
+                })
+            }
+
+            const conflictByCodename = await this.findTypeRowByCodename(schemaName, nextCodename, tx)
+            if (conflictByCodename && conflictByCodename.id !== existing.id) {
+                throw new MetahubConflictError('Entity type codename already exists', {
+                    code: 'CODENAME_CONFLICT',
+                    kindKey: nextKindKey,
+                    codename: getCodenameText(nextCodename),
+                    existingId: conflictByCodename.id
+                })
             }
 
             const updateData = {
@@ -352,28 +425,40 @@ export class EntityTypeService {
                 _upl_updated_by: input.updatedBy ?? userId ?? null
             }
 
-            const updated =
-                input.expectedVersion !== undefined
-                    ? await updateWithVersionCheck({
-                          executor: tx,
-                          schemaName,
-                          tableName: TABLE,
-                          entityId: entityTypeId,
-                          entityType: 'entity_type',
-                          expectedVersion: input.expectedVersion,
-                          updateData
-                      })
-                    : await incrementVersion(tx, schemaName, TABLE, entityTypeId, updateData)
+            try {
+                const updated =
+                    input.expectedVersion !== undefined
+                        ? await updateWithVersionCheck({
+                              executor: tx,
+                              schemaName,
+                              tableName: TABLE,
+                              entityId: entityTypeId,
+                              entityType: 'entity_type',
+                              expectedVersion: input.expectedVersion,
+                              updateData,
+                              wrapInTransaction: false
+                          })
+                        : await incrementVersion(tx, schemaName, TABLE, entityTypeId, updateData)
 
-            return this.normalizeCustomRow(updated as unknown as StoredEntityTypeRow)
+                return this.normalizeTypeRow(updated as unknown as StoredEntityTypeRow)
+            } catch (error) {
+                this.rethrowDuplicateConstraint(error, { kindKey: nextKindKey, codename: nextCodename, existingId: entityTypeId })
+            }
         })
     }
 
-    async deleteCustomType(metahubId: string, entityTypeId: string, userId?: string): Promise<void> {
+    async deleteType(metahubId: string, entityTypeId: string, userId?: string): Promise<void> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const existing = await this.findCustomRowById(schemaName, entityTypeId)
+        const existing = await this.findTypeRowById(schemaName, entityTypeId)
         if (!existing) {
             throw new MetahubNotFoundError('Entity type', entityTypeId)
+        }
+
+        if (isBuiltinEntityKind(existing.kind_key)) {
+            throw new MetahubValidationError('Standard entity types are managed by template presets and cannot be deleted', {
+                entityTypeId,
+                kindKey: existing.kind_key
+            })
         }
 
         await this.exec.transaction(async (tx) => {
@@ -396,7 +481,7 @@ export class EntityTypeService {
         })
     }
 
-    async findCustomTypeByCodename(metahubId: string, codename: string, userId?: string): Promise<MetahubResolvedEntityType | null> {
+    async findTypeByCodename(metahubId: string, codename: string, userId?: string): Promise<MetahubResolvedEntityType | null> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, TABLE)
         const row = await queryOne<StoredEntityTypeRow>(
@@ -407,6 +492,6 @@ export class EntityTypeService {
             [codename]
         )
 
-        return row ? this.normalizeCustomRow(row) : null
+        return row ? this.normalizeTypeRow(row) : null
     }
 }

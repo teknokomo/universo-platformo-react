@@ -1,27 +1,27 @@
 ---
-description: Explain what metahubs own, how the Common section and settings layers work, and how publications feed applications.
+description: Explain what metahubs own, how the resources workspace and settings layers work, and how publications feed applications.
 ---
 
 # Metahubs
 
-Metahubs are the design-time source of truth for structures, Common-section layouts, scripts, and publication-ready content.
+Metahubs are the design-time source of truth for structures, resources-workspace assets, scripts, and publication-ready content.
 They are not just folders: each metahub owns the authoring model that later becomes publication data and application runtime state.
 
 ## What A Metahub Owns
 
 - branches for design-time evolution;
-- catalogs, hubs, sets, enumerations, attributes, and other authoring entities;
-- the Common section, including global layouts, shared attributes/constants/values, and catalog-specific layout overlays;
-- scripts attached at Common/general, metahub, or entity scope;
+- entity types, entity instances, field definitions, fixed values, records, and other authoring resources;
+- the dedicated resources workspace, including shared layouts, reusable metadata pools, and reusable scripts;
+- scripts attached at resources, metahub, or entity scope;
 - publications that package the current approved state.
 
 ## Main Authoring Surfaces
 
 | Surface | Purpose |
 | --- | --- |
-| Common | Author global layouts, shared entities, catalog-specific layout variants, and shared view behavior from one tabbed surface. |
+| Resources | Author shared layouts, reusable metadata resources, and reusable scripts from one dedicated surface. |
+| Entities | Author platform-provided standard kinds and custom kinds from the unified entity workspace. |
 | Branches | Separate design-time timelines and controlled activation. |
-| Scripts | Author embedded runtime modules, `general/library` helpers, lifecycle handlers, and widget code. |
 | Publications | Freeze a version that can be delivered to applications. |
 | Members | Control who can author and manage the metahub. |
 
@@ -31,20 +31,20 @@ Metahub behavior is controlled by more than one settings layer, and the layers a
 
 | Layer | Stored at | Affects |
 | --- | --- | --- |
-| Metahub common settings | Metahub settings storage | Authoring dialog size, fullscreen, resize, and close behavior for metahub-scoped dialogs. |
-| Global layout behavior | Selected global layout config | Default catalog runtime view settings and create/edit/copy surface behavior before a catalog gets its first custom layout. |
-| Catalog layout behavior | Selected catalog layout config | `showCreateButton`, `searchMode`, and create/edit/copy surface behavior for the chosen catalog layout. |
+| Metahub dialog settings | Metahub settings storage | Authoring dialog size, fullscreen, resize, and close behavior for metahub-scoped dialogs. |
+| Shared layout behavior | Selected shared layout config | Default runtime view settings and create/edit/copy behavior before an entity gets its first layout override. |
+| Entity layout behavior | Selected entity layout config | `showCreateButton`, `searchMode`, and create/edit/copy behavior for the chosen entity layout. |
 | Application settings | Application record | Application control-panel dialogs only, not metahub authoring dialogs. |
 
-## Common Section Scope
+## Resources Workspace Scope
 
-The real cross-cutting authoring entrypoint now lives under the tabbed Common page, and legacy `/layouts` links redirect there.
-Catalog layouts stay sparse, shared entities stay centralized, and Common/library scripts stay reusable through `@shared/<codename>` imports.
+The cross-cutting authoring entrypoint now lives on the dedicated resources workspace under `/resources`.
+Shared layouts stay centralized, reusable metadata pools stay reusable, and resources scripts keep the shared `@shared/<codename>` import contract.
 This keeps metahub authoring separate from admin dialogs and from application-control-panel dialogs.
 
 ## How Metahubs Feed Runtime
 
-1. Author the structure, Common layouts, shared entities, and scripts in the metahub.
+1. Author the structure, shared layouts, reusable metadata resources, and scripts in the metahub.
 2. Publish a version when the design-time state is ready.
 3. Link or update an application from that publication.
 4. Let application sync materialize the flattened runtime layouts, widgets, and scripts into application tables.
@@ -53,8 +53,8 @@ This keeps metahub authoring separate from admin dialogs and from application-co
 ## Scripts And Layouts Together
 
 The quiz flow is a good example of why metahubs stay the source of truth.
-The shared library helper is authored in Common, the widget consumer script is authored at metahub scope, the widget placement is configured in the Common-section layout model, and the resulting publication carries all three pieces into the linked application.
-Until a catalog gets its first custom layout, runtime behavior comes from the selected global layout; after that, the selected catalog layout owns the runtime create/edit/copy surface behavior.
+The shared library helper is authored in Resources, the widget consumer script is authored at metahub scope, the widget placement is configured in the shared layout model, and the resulting publication carries all three pieces into the linked application.
+Until an entity gets its first layout override, runtime behavior comes from the selected shared layout; after that, the selected entity layout owns the runtime create/edit/copy behavior.
 
 ## Practical Reading Order
 

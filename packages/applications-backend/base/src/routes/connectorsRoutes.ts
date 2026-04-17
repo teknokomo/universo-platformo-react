@@ -24,7 +24,11 @@ export function createConnectorsRoutes(
     // Connector ↔ Publication link management
     router.get('/applications/:applicationId/connectors/:connectorId/publications', readLimiter, asyncHandler(ctrl.listPublicationLinks))
     router.post('/applications/:applicationId/connectors/:connectorId/publications', writeLimiter, asyncHandler(ctrl.createPublicationLink))
-    router.delete('/applications/:applicationId/connectors/:connectorId/publications/:linkId', writeLimiter, asyncHandler(ctrl.deletePublicationLink))
+    router.delete(
+        '/applications/:applicationId/connectors/:connectorId/publications/:linkId',
+        writeLimiter,
+        asyncHandler(ctrl.deletePublicationLink)
+    )
 
     return router
 }
