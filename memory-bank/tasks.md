@@ -6,6 +6,20 @@
 
 ## Current Task Ledger (Canonical)
 
+## Active: PR #767 Review Comment Triage (2026-04-18)
+
+> Goal: audit bot review comments in PR #767, implement only validated safe fixes, re-run targeted verification, and push the resulting changes to the same PR branch.
+
+- [x] Fetch and classify all unresolved PR #767 review comments
+- [x] Validate each suggested fix against the current codebase and relevant external docs
+- [x] Implement only the fixes that are correct and regression-safe
+- [x] Run targeted validation for touched areas and root `pnpm build`
+- [x] Update memory-bank status files and push the follow-up commit to PR #767
+
+- Review outcome note:
+  - Two bot comments were present. The unsafe translation-context cast in `PublicationList.tsx` was valid and fixed.
+  - The `SharedResourcesPage.tsx` fallback-tab suggestion was intentionally not applied because current derived rendering is safe, preserves hidden-tab intent, and does not justify an extra synchronization effect.
+
 ## Completed: QA Closure — i18n, Resources, Lint, Documentation (2026-04-18)
 
 > Goal: fix 5 critical post-migration issues — broken i18n keys, confusing Resources tabs, fixture hash mismatch, documentation drift, lint debt.

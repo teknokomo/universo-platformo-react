@@ -16,5 +16,7 @@
       "Bash(pnpm install *)",
       "Bash(pnpm playwright *)"
     ]
-  }
+  },
+  "plansDirectory": "./memory-bank/plan",
+  "enableAllProjectMcpServers": true
 }

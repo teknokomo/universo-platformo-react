@@ -30,6 +30,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import {
     TemplateMainCard as MainCard,
     ItemCard,
+    type ActionContext,
     ToolbarControls,
     EmptyListState,
     SkeletonGrid,
@@ -76,6 +77,22 @@ type PublicationFormFieldsProps = {
     uiLocale: string
     nameLabel: string
     descriptionLabel: string
+}
+
+type PublicationMenuBaseContext = Partial<ActionContext<PublicationDisplay, PublicationLocalizedPayload>> & {
+    t: ActionContext<PublicationDisplay, PublicationLocalizedPayload>['t']
+}
+
+type PublicationConfirmSpec = {
+    titleKey?: string
+    descriptionKey?: string
+    confirmKey?: string
+    cancelKey?: string
+    interpolate?: Record<string, unknown>
+    title?: string
+    description?: string
+    confirmButtonName?: string
+    cancelButtonName?: string
 }
 
 const PublicationFormFields = ({
@@ -538,7 +555,7 @@ const PublicationList = () => {
     )
 
     const createPublicationContext = useCallback(
-        (baseContext: Record<string, unknown>) => ({
+        (baseContext: PublicationMenuBaseContext) => ({
             ...baseContext,
             publicationMap,
             uiLocale: i18n.language,
@@ -593,19 +610,19 @@ const PublicationList = () => {
                         openDelete(publication)
                     }
                 },
-                confirm: async (spec: Record<string, unknown>) => {
-                    const t = (baseContext as Record<string, unknown> & { t: (key: string, args?: unknown) => string }).t
+                confirm: async (spec: PublicationConfirmSpec) => {
+                    const translate = baseContext.t
                     const confirmed = await confirm({
-                        title: spec.titleKey ? t(spec.titleKey as string, spec.interpolate) : (spec.title as string),
+                        title: spec.titleKey ? translate(spec.titleKey, spec.interpolate) : spec.title,
                         description: spec.descriptionKey
-                            ? t(spec.descriptionKey as string, spec.interpolate)
-                            : (spec.description as string),
+                            ? translate(spec.descriptionKey, spec.interpolate)
+                            : spec.description,
                         confirmButtonName: spec.confirmKey
-                            ? t(spec.confirmKey as string)
-                            : (spec.confirmButtonName as string) || t('confirm.delete.confirm'),
+                            ? translate(spec.confirmKey)
+                            : spec.confirmButtonName || translate('confirm.delete.confirm'),
                         cancelButtonName: spec.cancelKey
-                            ? t(spec.cancelKey as string)
-                            : (spec.cancelButtonName as string) || t('confirm.delete.cancel')
+                            ? translate(spec.cancelKey)
+                            : spec.cancelButtonName || translate('confirm.delete.cancel')
                     })
                     return confirmed
                 },

@@ -46,6 +46,16 @@
 | 0.22.0-alpha | 2025-07-27 | 0.22.0 Alpha — 2025-07-27 (Global Impulse) ⚡️ | Memory Bank, MMOOMM improvements |
 | 0.21.0-alpha | 2025-07-20 | 0.21.0 Alpha — 2025-07-20 (Firm Resolve) 💪 | Handler refactoring, PlayCanvas stabilization |
 
+## 2026-04-18 PR #767 Bot Review Triage
+
+Reviewed the bot feedback on PR #767 and applied only the fix that was supported by the current code and safe to merge.
+
+| Area | Resolution |
+| --- | --- |
+| `PublicationList.tsx` type safety | Replaced the unsafe `baseContext` cast used to access `t` inside the publication confirm helper with typed `PublicationMenuBaseContext` and `PublicationConfirmSpec` contracts. Behavior is unchanged; only the context contract is safer and explicit. |
+| `SharedResourcesPage.tsx` fallback-tab suggestion | Not applied after QA review. The component already renders through the derived `effectiveTab`, and no confirmed consumer relies on the hidden stale `activeTab`. Adding an effect only to mirror fallback state would introduce extra synchronization logic without a proven bug. |
+| Validation | Root `pnpm build` passed successfully after the PublicationList follow-up fix. |
+
 ## 2026-04-18 QA Closure — i18n, Resources, Lint, Documentation
 
 Completed the final QA closure session addressing 5 issues: broken i18n keys, confusing Resources tab labels, fixture hash mismatch, documentation drift, and lint debt.

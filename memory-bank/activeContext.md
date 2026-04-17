@@ -6,6 +6,14 @@
 
 ## Current Focus: QA Closure — i18n, Resources, Lint, Documentation — Complete ✅ (2026-04-18)
 
+## Current Focus: PR #767 Bot Review Triage — Complete ✅ (2026-04-18)
+
+- **Scope**: Review bot feedback on PR #767, apply only verified safe fixes, and avoid speculative changes that could regress current entity-first behavior.
+- **Reviewed feedback**:
+  - `SharedResourcesPage.tsx`: bot suggested synchronizing `activeTab` state with `effectiveTab` fallback. After code review, this was not applied because rendering already uses the safe derived tab, no other logic consumes `activeTab`, and forcing synchronization would add effect-driven state churn without a confirmed bug.
+  - `PublicationList.tsx`: bot flagged an unsafe cast used to access `baseContext.t` inside the confirm helper. This was valid and replaced with typed `PublicationMenuBaseContext` / `PublicationConfirmSpec` definitions.
+- **Validated**: root `pnpm build` passed after the `PublicationList.tsx` type-safety fix.
+
 - **Scope**: Fixed 5 critical issues identified after entity-first migration: broken i18n keys, confusing Resources tab labels, fixture hash mismatch, documentation drift, and lint debt in production files.
 - **Completed in this session**:
   - Added complete `records.*` i18n section (~44 keys) to EN/RU locales fixing raw `records.title` key in Catalogs UI.
