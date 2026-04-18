@@ -153,7 +153,7 @@ export const buildBuiltinKindDeletePlan = async (
                 policyOutcome: {
                     status: 409,
                     body: {
-                        error: 'Cannot delete catalog: it is referenced by field definitions in other catalogs',
+                        error: 'Cannot delete catalog: it is referenced by attributes in other catalogs',
                         blockingReferences
                     }
                 }
@@ -196,7 +196,7 @@ export const buildBuiltinKindDeletePlan = async (
                 policyOutcome: {
                     status: 409,
                     body: {
-                        error: 'Cannot delete enumeration: it is referenced by field definitions',
+                        error: 'Cannot delete enumeration: it is referenced by attributes',
                         blockingReferences
                     }
                 }

@@ -83,7 +83,7 @@ describe('metahubs-frontend entry exports', () => {
         expect((en as any).catalogs.runtime.showSearch).toBe('Search/filter bar')
         expect((en as any).catalogs.runtime.createSurface).toBe('Create form type')
         expect((en as any).catalogs.runtime.surfacePage).toBe('Page')
-        expect((en as any).entities.title).toBe('Entity Types')
+        expect((en as any).entities.title).toBe('Entities')
         expect((en as any).sets.tabs).toEqual({
             general: 'General',
             treeEntities: 'Hubs',
@@ -95,6 +95,6 @@ describe('metahubs-frontend entry exports', () => {
         expect((ru as any).catalogs.tabs.layout).toBe('Макеты')
         expect((ru as any).catalogs.runtime.showSearch).toBe('Строка поиска/фильтрации')
         expect((ru as any).catalogs.runtime.createSurface).toBe('Тип окна создания')
-        expect((ru as any).entities.title).toBe('Типы сущностей')
+        expect((ru as any).entities.title).toBe('Сущности')
     })
 })

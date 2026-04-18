@@ -55,7 +55,7 @@ describe('builtinKindCapabilities', () => {
             policyOutcome: {
                 status: 409,
                 body: {
-                    error: 'Cannot delete catalog: it is referenced by field definitions in other catalogs',
+                    error: 'Cannot delete catalog: it is referenced by attributes in other catalogs',
                     blockingReferences: [{ id: 'attr-1' }]
                 }
             }

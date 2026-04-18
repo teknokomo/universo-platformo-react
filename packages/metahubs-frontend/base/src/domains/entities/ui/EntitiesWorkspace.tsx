@@ -34,6 +34,8 @@ import {
     validateComponentDependencies,
     type ComponentManifest,
     type EntityComponentKey,
+    type EntityResourceSurfaceCapability,
+    type EntityResourceSurfaceDefinition,
     type EntityTypeUIConfig,
     type VersionedLocalizedContent
 } from '@universo/types'
@@ -83,6 +85,31 @@ const STRUCTURED_ENTITY_TAB_LABELS: Record<SupportedEntityTab, string> = {
     layout: 'Layout',
     scripts: 'Scripts'
 }
+
+const RESOURCE_SURFACE_METADATA: Record<
+    EntityResourceSurfaceCapability,
+    Pick<EntityResourceSurfaceDefinition, 'key' | 'routeSegment' | 'fallbackTitle'>
+> = {
+    dataSchema: {
+        key: 'fieldDefinitions',
+        routeSegment: 'field-definitions',
+        fallbackTitle: 'Attributes'
+    },
+    fixedValues: {
+        key: 'fixedValues',
+        routeSegment: 'fixed-values',
+        fallbackTitle: 'Constants'
+    },
+    optionValues: {
+        key: 'optionValues',
+        routeSegment: 'values',
+        fallbackTitle: 'Values'
+    }
+}
+
+const RESOURCE_SURFACE_CAPABILITY_ORDER: readonly EntityResourceSurfaceCapability[] = ['dataSchema', 'fixedValues', 'optionValues']
+const RESOURCE_SURFACE_KEY_PATTERN = /^[a-z][a-zA-Z0-9._-]{0,63}$/
+const RESOURCE_SURFACE_ROUTE_PATTERN = /^[a-z][a-z0-9-]{0,63}$/
 
 const EMPTY_ENTITY_TYPES: MetahubEntityType[] = []
 
@@ -227,6 +254,80 @@ const parseTabsInput = (value: unknown): string[] => {
                 .filter((item) => item.length > 0)
         )
     )
+}
+
+const isResourceSurfaceCapability = (value: unknown): value is EntityResourceSurfaceCapability =>
+    value === 'dataSchema' || value === 'fixedValues' || value === 'optionValues'
+
+const buildDefaultResourceSurface = (capability: EntityResourceSurfaceCapability): EntityResourceSurfaceDefinition => ({
+    key: RESOURCE_SURFACE_METADATA[capability].key,
+    capability,
+    routeSegment: RESOURCE_SURFACE_METADATA[capability].routeSegment,
+    fallbackTitle: RESOURCE_SURFACE_METADATA[capability].fallbackTitle
+})
+
+const normalizeResourceSurfaceDefinitions = (value: unknown, components?: ComponentManifest): EntityResourceSurfaceDefinition[] => {
+    const source = Array.isArray(value) ? value : []
+    const byCapability = new Map<EntityResourceSurfaceCapability, EntityResourceSurfaceDefinition>()
+
+    for (const item of source) {
+        if (!isRecord(item)) {
+            continue
+        }
+
+        const capability = typeof item.capability === 'string' ? item.capability.trim() : ''
+        if (!isResourceSurfaceCapability(capability)) {
+            continue
+        }
+
+        const base = buildDefaultResourceSurface(capability)
+        const key = String(item.key ?? '').trim() || base.key
+        const routeSegment = String(item.routeSegment ?? '').trim() || base.routeSegment
+        const fallbackTitle = String(item.fallbackTitle ?? '').trim() || base.fallbackTitle
+        const titleKey = typeof item.titleKey === 'string' && item.titleKey.trim().length > 0 ? item.titleKey.trim() : undefined
+
+        if (!RESOURCE_SURFACE_KEY_PATTERN.test(key) || !RESOURCE_SURFACE_ROUTE_PATTERN.test(routeSegment)) {
+            continue
+        }
+
+        byCapability.set(capability, {
+            key,
+            capability,
+            routeSegment,
+            fallbackTitle,
+            titleKey
+        })
+    }
+
+    for (const capability of RESOURCE_SURFACE_CAPABILITY_ORDER) {
+        if (components && !isEnabledComponentConfig(components[capability])) {
+            byCapability.delete(capability)
+            continue
+        }
+
+        if (!byCapability.has(capability)) {
+            byCapability.set(capability, buildDefaultResourceSurface(capability))
+        }
+    }
+
+    const orderedSurfaces = RESOURCE_SURFACE_CAPABILITY_ORDER.map((capability) => byCapability.get(capability))
+    return orderedSurfaces.filter((surface): surface is EntityResourceSurfaceDefinition => Boolean(surface))
+}
+
+const updateResourceSurfaceDefinition = (
+    value: unknown,
+    capability: EntityResourceSurfaceCapability,
+    patch: Partial<EntityResourceSurfaceDefinition>,
+    components?: ComponentManifest
+): EntityResourceSurfaceDefinition[] => {
+    const surfaces = normalizeResourceSurfaceDefinitions(value, components)
+    const nextSurfaces = surfaces.map((surface) => (surface.capability === capability ? { ...surface, ...patch } : surface))
+
+    if (!nextSurfaces.some((surface) => surface.capability === capability)) {
+        nextSurfaces.push({ ...buildDefaultResourceSurface(capability), ...patch })
+    }
+
+    return normalizeResourceSurfaceDefinitions(nextSurfaces, components)
 }
 
 const parseJsonRecordField = (value: unknown, emptyFallback: Record<string, unknown> = {}): Record<string, unknown> => {
@@ -561,6 +662,7 @@ const buildInitialFormValues = (uiLocale: string, entityType?: MetahubEntityType
             sidebarSection: 'objects',
             sidebarOrder: '',
             components: normalizeComponentManifestForBuilder(DEFAULT_COMPONENTS_TEMPLATE),
+            resourceSurfaces: normalizeResourceSurfaceDefinitions([], normalizeComponentManifestForBuilder(DEFAULT_COMPONENTS_TEMPLATE)),
             presentationText: stringifyJson(DEFAULT_PRESENTATION_TEMPLATE),
             configText: stringifyJson(DEFAULT_CONFIG_TEMPLATE),
             published: true
@@ -592,6 +694,10 @@ const buildInitialFormValues = (uiLocale: string, entityType?: MetahubEntityType
         sidebarSection: entityType.ui.sidebarSection === 'admin' ? 'admin' : 'objects',
         sidebarOrder: typeof entityType.ui.sidebarOrder === 'number' ? String(entityType.ui.sidebarOrder) : '',
         components: normalizeComponentManifestForBuilder(entityType.components),
+        resourceSurfaces: normalizeResourceSurfaceDefinitions(
+            entityType.ui.resourceSurfaces,
+            normalizeComponentManifestForBuilder(entityType.components)
+        ),
         presentationText: stringifyJson(entityType.presentation ?? DEFAULT_PRESENTATION_TEMPLATE),
         configText: stringifyJson(entityType.config ?? DEFAULT_CONFIG_TEMPLATE),
         published: entityType.published !== false
@@ -852,6 +958,7 @@ const EntitiesWorkspace = () => {
             const sidebarOrder = parseSidebarOrderValue(values.sidebarOrder)
             const tabs = normalizeEntityTypeTabs(values.tabs, values.customTabsInput)
             const components = normalizeComponentManifestForBuilder(values.components)
+            const resourceSurfaces = normalizeResourceSurfaceDefinitions(values.resourceSurfaces, components)
             const presentation = parseJsonRecordField(values.presentationText, DEFAULT_PRESENTATION_TEMPLATE)
             const config = parseJsonRecordField(values.configText, DEFAULT_CONFIG_TEMPLATE)
             const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
@@ -880,7 +987,8 @@ const EntitiesWorkspace = () => {
                 sidebarSection,
                 ...(sidebarOrder !== undefined ? { sidebarOrder } : {}),
                 nameKey: getLocalizedContentText(nameVlc, namePrimaryLocale ?? preferredVlcLocale, kindKey),
-                descriptionKey: getLocalizedContentText(descriptionVlc, descriptionLocale, '').trim() || undefined
+                descriptionKey: getLocalizedContentText(descriptionVlc, descriptionLocale, '').trim() || undefined,
+                resourceSurfaces: resourceSurfaces.length > 0 ? resourceSurfaces : undefined
             }
 
             return {
@@ -966,6 +1074,49 @@ const EntitiesWorkspace = () => {
                 const dependencyErrors = validateComponentDependencies(components)
                 if (dependencyErrors.length > 0) {
                     errors.components = dependencyErrors[0]
+                }
+
+                const resourceSurfaces = normalizeResourceSurfaceDefinitions(values.resourceSurfaces, components)
+                const resourceSurfaceKeys = new Set<string>()
+                const resourceSurfaceRoutes = new Set<string>()
+
+                for (const surface of resourceSurfaces) {
+                    if (!RESOURCE_SURFACE_KEY_PATTERN.test(surface.key)) {
+                        errors.resourceSurfaces = t(
+                            'entities.validation.resourceSurfaceKeyInvalid',
+                            'Resource tab key must start with a letter and use only letters, digits, dots, underscores, or hyphens'
+                        )
+                        break
+                    }
+
+                    if (!RESOURCE_SURFACE_ROUTE_PATTERN.test(surface.routeSegment)) {
+                        errors.resourceSurfaces = t(
+                            'entities.validation.resourceSurfaceRouteInvalid',
+                            'Resource tab route segment must use lowercase kebab-case'
+                        )
+                        break
+                    }
+
+                    if (!surface.fallbackTitle.trim()) {
+                        errors.resourceSurfaces = t('entities.validation.resourceSurfaceTitleRequired', 'Resource tab title is required')
+                        break
+                    }
+
+                    if (resourceSurfaceKeys.has(surface.key)) {
+                        errors.resourceSurfaces = t('entities.validation.resourceSurfaceKeyDuplicate', 'Resource tab keys must be unique')
+                        break
+                    }
+
+                    if (resourceSurfaceRoutes.has(surface.routeSegment)) {
+                        errors.resourceSurfaces = t(
+                            'entities.validation.resourceSurfaceRouteDuplicate',
+                            'Resource tab route segments must be unique'
+                        )
+                        break
+                    }
+
+                    resourceSurfaceKeys.add(surface.key)
+                    resourceSurfaceRoutes.add(surface.routeSegment)
                 }
             } catch {
                 errors.components = t('entities.validation.componentsInvalid', 'Components must be a valid JSON object')
@@ -1106,6 +1257,7 @@ const EntitiesWorkspace = () => {
         }): TabConfig[] => {
             const structuredTabs = normalizeStructuredEntityTabs(values.tabs)
             const components = normalizeComponentManifestForBuilder(values.components)
+            const resourceSurfaces = normalizeResourceSurfaceDefinitions(values.resourceSurfaces, components)
 
             const toggleAuthoringTab = (tab: Exclude<SupportedEntityTab, 'general'>, checked: boolean) => {
                 const nextTabs = checked ? [...structuredTabs, tab] : structuredTabs.filter((currentTab) => currentTab !== tab)
@@ -1122,6 +1274,13 @@ const EntitiesWorkspace = () => {
 
             const updateComponentConfig = (key: EntityComponentKey, patch: Record<string, unknown>) => {
                 setValue('components', patchEnabledComponentConfig(values.components, key, patch))
+            }
+
+            const updateResourceSurface = (
+                capability: EntityResourceSurfaceCapability,
+                patch: Partial<EntityResourceSurfaceDefinition>
+            ) => {
+                setValue('resourceSurfaces', updateResourceSurfaceDefinition(values.resourceSurfaces, capability, patch, components))
             }
 
             return [
@@ -1223,6 +1382,80 @@ const EntitiesWorkspace = () => {
                                     />
                                 </Stack>
                             </Box>
+                            {resourceSurfaces.length > 0 ? (
+                                <Box sx={COMPONENT_SECTION_SX}>
+                                    <Stack spacing={1.5}>
+                                        <Typography variant='subtitle2'>
+                                            {t('entities.fields.resourceTabs', 'Resources section tabs')}
+                                        </Typography>
+                                        <Typography variant='body2' color='text.secondary'>
+                                            {t(
+                                                'entities.fields.resourceTabsHelper',
+                                                'These titles are used by the shared Resources workspace for compatible entity capabilities.'
+                                            )}
+                                        </Typography>
+                                        {errors.resourceSurfaces ? <Alert severity='error'>{errors.resourceSurfaces}</Alert> : null}
+                                        {resourceSurfaces.map((surface) => (
+                                            <Box
+                                                key={surface.capability}
+                                                sx={{
+                                                    border: 1,
+                                                    borderColor: 'divider',
+                                                    borderRadius: 2,
+                                                    p: 2
+                                                }}
+                                            >
+                                                <Stack spacing={1.5}>
+                                                    <Typography variant='subtitle2'>
+                                                        {t(`entities.components.${surface.capability}`, surface.fallbackTitle)}
+                                                    </Typography>
+                                                    <TextField
+                                                        label={t('entities.fields.resourceSurfaceKey', 'Resource tab key')}
+                                                        value={surface.key}
+                                                        onChange={(event) =>
+                                                            updateResourceSurface(surface.capability, { key: event.target.value })
+                                                        }
+                                                        disabled={isLoading}
+                                                        helperText={t(
+                                                            'entities.fields.resourceSurfaceKeyHelper',
+                                                            'Stable identifier stored in the entity-type contract.'
+                                                        )}
+                                                        fullWidth
+                                                    />
+                                                    <TextField
+                                                        label={t(
+                                                            'entities.fields.resourceSurfaceRouteSegment',
+                                                            'Resource tab route segment'
+                                                        )}
+                                                        value={surface.routeSegment}
+                                                        onChange={(event) =>
+                                                            updateResourceSurface(surface.capability, { routeSegment: event.target.value })
+                                                        }
+                                                        disabled={isLoading}
+                                                        helperText={t(
+                                                            'entities.fields.resourceSurfaceRouteSegmentHelper',
+                                                            'Lowercase kebab-case segment reserved for compatible authoring routes.'
+                                                        )}
+                                                        fullWidth
+                                                    />
+                                                    <TextField
+                                                        label={t('entities.fields.resourceSurfaceTitle', 'Resource tab title')}
+                                                        value={surface.fallbackTitle}
+                                                        onChange={(event) =>
+                                                            updateResourceSurface(surface.capability, {
+                                                                fallbackTitle: event.target.value,
+                                                                titleKey: undefined
+                                                            })
+                                                        }
+                                                        disabled={isLoading}
+                                                        fullWidth
+                                                    />
+                                                </Stack>
+                                            </Box>
+                                        ))}
+                                    </Stack>
+                                </Box>
+                            ) : null}
                             <FormControl fullWidth error={Boolean(errors.sidebarSection)} disabled={isLoading}>
                                 <InputLabel id='entity-type-sidebar-section-label'>
                                     {t('entities.fields.sidebarSection', 'Sidebar section')}

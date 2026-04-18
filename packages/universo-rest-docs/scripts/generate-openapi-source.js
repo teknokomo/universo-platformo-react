@@ -34,8 +34,8 @@ const tagDescriptions = {
     Entities: 'Canonical entity-owned instance routes for custom and standard metadata kinds, including managed child-resource tabs.',
     'Entity Actions': 'Entity action definition and execution endpoints.',
     'Event Bindings': 'Entity event-binding endpoints for design-time automation wiring.',
-    'Field Definitions': 'Field-definition CRUD, move, display, reorder, and child management endpoints.',
-    'Fixed Values': 'Fixed-value CRUD, reorder, move, and copy endpoints.',
+    Attributes: 'Attribute CRUD, move, display, reorder, and child management endpoints.',
+    Constants: 'Constant CRUD, reorder, move, and copy endpoints.',
     Records: 'Record CRUD, reorder, move, and copy endpoints.',
     Layouts: 'Layout CRUD and zone-widget endpoints.',
     Scripts: 'Metahub script CRUD and source-management endpoints.',
@@ -187,13 +187,13 @@ const routeSources = [
     {
         file: 'packages/metahubs-backend/base/src/domains/entities/metadata/fieldDefinition/routes.ts',
         mountPrefix: '',
-        tag: 'Field Definitions',
+        tag: 'Attributes',
         security: bearerSecurity
     },
     {
         file: 'packages/metahubs-backend/base/src/domains/entities/metadata/fixedValue/routes.ts',
         mountPrefix: '',
-        tag: 'Fixed Values',
+        tag: 'Constants',
         security: bearerSecurity
     },
     {

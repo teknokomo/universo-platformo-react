@@ -1,30 +1,29 @@
----
-description: Справочная страница о canDeactivate, canExclude и positionLocked для shared entities и inherited widgets.
+description: Справочная страница о параметрах общего поведения для общих сущностей и унаследованных виджетов.
 ---
 
-# Shared Behavior Settings
+# Настройки общего поведения
 
-Shared behavior settings определяют, какие sparse per-target changes разрешены после того, как row становится shared.
-Они сохраняют базовый shared design reusable и при этом позволяют target-ам входить в контролируемое расхождение.
+Настройки общего поведения определяют, какие точечные изменения для целевых объектов разрешены после того, как строка становится общей.
+Они сохраняют переиспользуемую базовую конфигурацию и при этом позволяют целевым объектам входить в контролируемое расхождение.
 
 ## Настройки
 
-| Setting | Meaning | Effect |
+| Параметр | Значение | Эффект |
 | --- | --- | --- |
-| `canDeactivate` | Target-ы могут отключать inherited row. | Overrides с `isActive=false` разрешены только когда это true. |
-| `canExclude` | Target-ы могут убирать inherited row из своего merged view. | Exclusion overrides разрешены только когда это true. |
-| `positionLocked` | Target-ы не могут переставлять inherited row. | Sort-order overrides отклоняются, пока это true. |
+| `canDeactivate` | Целевые объекты могут отключать унаследованную строку. | Переопределения с `isActive=false` разрешены только когда это значение истинно. |
+| `canExclude` | Целевые объекты могут убирать унаследованную строку из своего объединённого представления. | Переопределения исключения разрешены только когда это значение истинно. |
+| `positionLocked` | Целевые объекты не могут менять порядок унаследованной строки. | Переопределения порядка отклоняются, пока параметр включён. |
 
 ## Правила хранения
 
-- Общие определения полей и общие фиксированные значения сохраняют `sharedBehavior` в `uiConfig.sharedBehavior`.
-- Общие значения опций сохраняют `sharedBehavior` в `presentation.sharedBehavior`.
-- Target-specific state по-прежнему живёт в sparse override rows вместо копирования в базовую shared row.
-- Inherited widgets используют ту же behavior model через config базового widget и sparse catalog-widget overrides.
+- Общие атрибуты и общие константы сохраняют `sharedBehavior` в `uiConfig.sharedBehavior`.
+- Общие значения сохраняют `sharedBehavior` в `presentation.sharedBehavior`.
+- Состояние для конкретных целевых объектов по-прежнему хранится в точечных строках переопределений, а не копируется в базовую общую строку.
+- Унаследованные виджеты используют ту же модель поведения через конфигурацию базового виджета и точечные переопределения виджетов каталога.
 
 ## Что читать дальше
 
 - [Исключения](exclusions.md)
-- [Общие определения полей](shared-field-definitions.md)
-- [Общие фиксированные значения](shared-fixed-values.md)
-- [Общие значения опций](shared-option-values.md)
+- [Общие атрибуты](shared-field-definitions.md)
+- [Общие константы](shared-fixed-values.md)
+- [Общие значения](shared-option-values.md)

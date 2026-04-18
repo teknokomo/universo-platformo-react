@@ -1685,7 +1685,7 @@ export const FieldDefinitionListContent = ({
 
             <EntityFormDialog
                 open={dialogs.create.open}
-                title={t('fieldDefinitions.createDialog.title', 'Add Attribute')}
+                title={t('fieldDefinitions.createDialog.title', 'Add Field Definition')}
                 nameLabel={tc('fields.name', 'Name')}
                 descriptionLabel={tc('fields.description', 'Description')}
                 saveButtonText={tc('actions.create', 'Create')}

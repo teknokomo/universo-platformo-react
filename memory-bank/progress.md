@@ -46,6 +46,55 @@
 | 0.22.0-alpha | 2025-07-27 | 0.22.0 Alpha — 2025-07-27 (Global Impulse) ⚡️ | Memory Bank, MMOOMM improvements |
 | 0.21.0-alpha | 2025-07-20 | 0.21.0 Alpha — 2025-07-20 (Firm Resolve) 💪 | Handler refactoring, PlayCanvas stabilization |
 
+## 2026-04-18 Metahub Final QA Debt Elimination
+
+Closed the last repository-level cleanup items that remained after the metahub entity/resources rollout had already shipped functionally green.
+
+| Area | Resolution |
+| --- | --- |
+| REST/OpenAPI terminology | Updated the REST docs generator and regenerated `packages/universo-rest-docs/src/openapi/index.yml` so `Field Definitions`/`Fixed Values` are now consistently emitted as `Attributes`/`Constants`, including the generated operation tags and ids. |
+| Shared repository wording | Aligned shared menu locale entries and remaining public metahub route comments with the shipped entity-first terminology, removing the last legacy labels from the touched repository surfaces. |
+| Frontend lint debt | Added a package-scoped ESLint override for metahubs frontend test files only, eliminating the long-standing test-only warning noise while preserving the production lint contract. |
+| Validation | `@universo/metahubs-frontend` lint passed, focused frontend vitest passed (`40/40`), focused backend tests passed (`79/79`), `@universo/rest-docs` OpenAPI generation passed, and canonical root `pnpm build` finished green (`30/30 successful`). |
+
+## 2026-04-18 Metahub Resource Surfaces QA Follow-up Closure
+
+Closed the residual QA findings from the entity-driven Resources rollout and brought the implementation to a fully verified state without widening the shipped surface area.
+
+| Area | Resolution |
+| --- | --- |
+| Backend contract hardening | `EntityTypeService` and `TemplateManifestValidator` now reject duplicate `resourceSurfaces.routeSegment` values, so callers cannot bypass the frontend-only duplicate-route guard. |
+| Shared Resources determinism | `SharedResourcesPage.tsx` now loads a larger sorted entity-type slice, resolves labels by stable capability rules, prefers the canonical built-in kind when present, and falls back to the canonical shared label when custom types disagree. |
+| Permission regression proof | Route tests now explicitly cover `403` create/update/delete attempts for read-only metahub members on the entity-type CRUD surface. |
+| Docs completion | `docs/ru/guides/custom-entity-types.md` was fully rewritten into consistent Russian so the documentation phase is no longer partially mixed-language. |
+| Validation | Focused backend tests passed (`43/43`), focused frontend vitest passed (`36/36`), `@universo/metahubs-frontend` build passed, the targeted Playwright `empty` authoring flow passed, and root `pnpm build` passed (`30/30 successful`). |
+
+## 2026-04-18 Metahub Resource Surfaces Final QA Closure
+
+Removed the last residual debt after the QA follow-up so the entity-driven `Resources` rollout is closed in data flow, terminology, and browser proof coverage.
+
+| Area | Resolution |
+| --- | --- |
+| Full entity-type pagination | Added `useAllEntityTypesQuery()` on top of `fetchAllPaginatedItems()` and moved shared `Resources` label resolution off the hard `limit=1000` lookup. The page now derives labels from the complete entity-type set. |
+| Legacy tab wording | Updated EN/RU `general.tabs` locale keys so reusable shared-resource labels no longer expose the old `Field definitions / Fixed values / Option values` terminology. |
+| RU resource docs | Rewrote the remaining RU metahub resource pages (`common-section`, `shared-field-definitions`, `shared-fixed-values`, `shared-option-values`, `shared-behavior-settings`, `exclusions`) into consistent Russian aligned with the current UI and architecture. |
+| Browser ACL coverage | Extended the `catalog-style entity instances stay read-only for metahub members` Playwright flow so the same member also opens the real `Entities` workspace and still gets no create affordance or entity-type actions. |
+| Validation | Focused frontend vitest passed (`36/36`), `@universo/metahubs-frontend` lint returned warnings only (`0 errors`), `@universo/metahubs-frontend` build passed, the `empty` authoring Playwright flow passed, the member ACL Playwright flow passed, and the shared `Resources` publication/runtime Playwright flow passed. |
+
+## 2026-04-18 Metahub Resource Surfaces QA Closure
+
+Completed the post-QA closure for entity-driven Resources, the `empty` metahub template path, and the remaining documentation drift.
+
+| Area | Resolution |
+| --- | --- |
+| `resourceSurfaces` contract | `@universo/types`, backend validation, and the Entities builder now allow custom stable surface keys and route segments while still constraining surfaces to supported metadata capabilities. |
+| Shared Resources safety | `SharedResourcesPage.tsx` now resolves visible shared tab labels by capability instead of by hardcoded built-in keys, so custom labels remain visible without opening unsupported shared tabs. |
+| Builder preservation | Entity-type editing no longer collapses resource-surface metadata back to fixed built-in labels. The form keeps stable key, route segment, and title editable for each enabled compatible capability. |
+| Backend validation | Added direct service, route, and template-manifest tests for valid custom surface metadata, duplicate constraints, and fail-closed rejection when the matching component is disabled. |
+| Browser coverage | Added Playwright coverage for creating a metahub from the built-in `empty` template and manually creating the first entity type through the real browser UI. |
+| GitBook docs | Rewrote the remaining priority EN/RU pages for entity-system architecture, browser E2E guidance, and REST API wording so they describe the shipped entity-first model and the `empty` template correctly. |
+| Validation | Focused backend tests passed, focused frontend vitest passed, `pnpm --filter @universo/metahubs-frontend build` passed, root `pnpm build` passed, and the targeted Playwright `empty` authoring flow passed. |
+
 ## 2026-04-18 PR #767 Bot Review Triage
 
 Reviewed the bot feedback on PR #767 and applied only the fix that was supported by the current code and safe to merge.
@@ -55,6 +104,19 @@ Reviewed the bot feedback on PR #767 and applied only the fix that was supported
 | `PublicationList.tsx` type safety | Replaced the unsafe `baseContext` cast used to access `t` inside the publication confirm helper with typed `PublicationMenuBaseContext` and `PublicationConfirmSpec` contracts. Behavior is unchanged; only the context contract is safer and explicit. |
 | `SharedResourcesPage.tsx` fallback-tab suggestion | Not applied after QA review. The component already renders through the derived `effectiveTab`, and no confirmed consumer relies on the hidden stale `activeTab`. Adding an effect only to mirror fallback state would introduce extra synchronization logic without a proven bug. |
 | Validation | Root `pnpm build` passed successfully after the PublicationList follow-up fix. |
+
+## 2026-04-18 Metahub Terminology And QA Closure Completion
+
+Closed the last user-facing terminology drift left after the resource-surface rollout so shared `Resources`, entity-owned catalog metadata, browser specs, and generated GitBook screenshots all use the same `Attributes / Constants / Values` language.
+
+| Area | Resolution |
+| --- | --- |
+| Entity-owned metadata copy | Renamed catalog metadata headings, dialogs, delete warnings, and empty-state messages from legacy `Field Definitions` wording to `Attributes` in EN/RU metahub locales. |
+| Delete blocking UX | Updated catalog/set/enumeration delete dialogs and backend blocking-reference error strings to refer to `attributes` instead of `field definitions`, keeping frontend and API wording aligned. |
+| Documentation generators | Updated `docs-entity-screenshots.spec.ts` so the generated GitBook screenshots now capture the final `Attributes` terminology on both EN and RU routes. |
+| Browser regressions | Synced Playwright expectations in `metahub-entities-workspace`, `metahub-entity-dialog-regressions`, and `metahub-shared-common` with the shipped headings and dialog titles after the terminology cleanup. |
+| Workspace build boundary | Re-ran the canonical root `pnpm build` so the core frontend bundle consumed the updated metahubs package before the final browser validation. |
+| Validation | Frontend targeted Vitest `40/40`, backend targeted Jest `44/44`, `pnpm --filter @universo/metahubs-frontend build`, root `pnpm build`, docs generator, entity-dialog regression flow, member ACL flow, and shared publication/runtime flow all passed. |
 
 ## 2026-04-18 QA Closure — i18n, Resources, Lint, Documentation
 

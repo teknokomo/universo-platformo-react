@@ -317,7 +317,7 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
         await page.goto(`/metahub/${metahub.id}/entities`)
 
         await expect(page.locator('html')).toHaveAttribute('lang', 'en')
-        await expect(page.getByRole('heading', { name: 'Entity Types' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Entities' })).toBeVisible()
         await expect(page.getByTestId(toolbarSelectors.primaryAction)).toContainText('Create')
 
         for (const surface of standardManagedSurfaces) {
@@ -436,7 +436,7 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
 
         const entityEditDialog = page.getByRole('dialog', { name: 'Edit Entity' })
         await expect(entityEditDialog).toBeVisible()
-        await expect(entityEditDialog.getByRole('tab', { name: 'Field definitions' })).toBeVisible()
+        await expect(entityEditDialog.getByRole('tab', { name: 'Attributes' })).toBeVisible()
         await expect(entityEditDialog.getByRole('tab', { name: 'Layout' })).toBeVisible()
         await expect(entityEditDialog.getByRole('tab', { name: 'Scripts' })).toBeVisible()
 
@@ -507,7 +507,7 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
 
         await page.goto(buildCatalogAttributesPagePath(metahub.id, createdCatalogCompatibleInstance.id, customKindKey))
         const entityBreadcrumbs = page.getByLabel('breadcrumb')
-        await expect(page.getByRole('heading', { name: 'Field Definitions' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Attributes' })).toBeVisible()
         await expect(entityBreadcrumbs).toContainText('Entities')
         await expect(entityBreadcrumbs).toContainText('Catalogs')
         await expect(entityBreadcrumbs).toContainText(instanceName)
@@ -520,8 +520,8 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
             `/metahub/${metahub.id}/entities/${encodeURIComponent(customKindKey)}/instance/${createdCatalogCompatibleInstance.id}/field-definitions`
         )
         await page.getByRole('tab', { name: 'System' }).click()
-        await expect(page.getByRole('heading', { name: /System Attributes|System Field Definitions/ })).toBeVisible()
-        await expect(entityBreadcrumbs).toContainText(/System Attributes|System Field Definitions/)
+        await expect(page.getByRole('heading', { name: 'System Attributes' })).toBeVisible()
+        await expect(entityBreadcrumbs).toContainText('System Attributes')
         await page.getByRole('tab', { name: /Records|Elements|records.title/ }).click()
         await expect(page.getByRole('heading', { name: /Records|Elements|records.title/ })).toBeVisible()
         await expect(entityBreadcrumbs).toContainText(/Records|Elements|records.title/)
@@ -975,6 +975,15 @@ test('@flow @permission catalog-style entity instances stay read-only for metahu
         await expect(memberPage.getByRole('button', { name: 'Edit' })).toHaveCount(0)
         await expect(memberPage.getByRole('button', { name: 'Copy' })).toHaveCount(0)
         await expect(memberPage.getByRole('button', { name: 'Delete' })).toHaveCount(0)
+
+        await memberPage.goto(`/metahub/${metahub.id}/entities`)
+
+        await expect(memberPage).toHaveURL(new RegExp(`/metahub/${metahub.id}/entities(?:\\?.*)?$`))
+        await expect(memberPage.getByRole('heading', { name: 'Entities' })).toBeVisible()
+        await expect(memberPage.getByRole('link', { name: customName, exact: true })).toBeVisible()
+        await expect(memberPage.getByTestId(toolbarSelectors.primaryAction)).toHaveCount(0)
+        await expect(memberPage.getByRole('button', { name: 'Create Entity Type' })).toHaveCount(0)
+        await expect(memberPage.getByRole('button', { name: 'Edit Entity Type' })).toHaveCount(0)
     } finally {
         await memberSession?.context.close().catch(() => undefined)
         await disposeApiContext(ownerApi)

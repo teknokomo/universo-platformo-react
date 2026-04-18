@@ -1,9 +1,11 @@
 import { qSchemaTable } from '@universo/database'
 import {
+    isEnabledComponentConfig,
     isBuiltinEntityKind,
     validateComponentDependencies,
     type ComponentManifest,
     type EntityKind,
+    type EntityResourceSurfaceDefinition,
     type EntityTypeUIConfig,
     type ResolvedEntityType
 } from '@universo/types'
@@ -24,6 +26,8 @@ import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaServi
 const TABLE = '_mhb_entity_type_definitions'
 const ACTIVE_CLAUSE = '_upl_deleted = false AND _mhb_deleted = false'
 const KIND_KEY_PATTERN = /^[a-z][a-z0-9._-]{0,63}$/
+const RESOURCE_SURFACE_KEY_PATTERN = /^[a-z][a-zA-Z0-9._-]{0,63}$/
+const RESOURCE_SURFACE_ROUTE_PATTERN = /^[a-z][a-z0-9-]{0,63}$/
 const ENTITY_TYPE_KIND_KEY_ACTIVE_CONSTRAINT = 'idx_mhb_entity_type_definitions_kind_key_active'
 const ENTITY_TYPE_CODENAME_ACTIVE_CONSTRAINT = 'idx_mhb_entity_type_definitions_codename_active'
 
@@ -121,6 +125,76 @@ const normalizeUiConfig = (value: EntityTypeUIConfig): EntityTypeUIConfig => {
         throw new MetahubValidationError('Entity type UI config sidebarOrder must be a non-negative integer')
     }
 
+    const resourceSurfaces = Array.isArray(value.resourceSurfaces)
+        ? value.resourceSurfaces
+              .map((surface): EntityResourceSurfaceDefinition | null => {
+                  const key = String(surface?.key ?? '').trim()
+                  const capability = String(surface?.capability ?? '').trim()
+                  const routeSegment = String(surface?.routeSegment ?? '').trim()
+                  const titleKey = typeof surface?.titleKey === 'string' ? surface.titleKey.trim() : ''
+                  const fallbackTitle = String(surface?.fallbackTitle ?? '').trim()
+
+                  if (!RESOURCE_SURFACE_KEY_PATTERN.test(key)) {
+                      throw new MetahubValidationError(
+                          `Entity resource surface key must start with a letter and use only letters, digits, dots, underscores, or hyphens: ${
+                              key || 'empty'
+                          }`
+                      )
+                  }
+
+                  if (capability !== 'dataSchema' && capability !== 'fixedValues' && capability !== 'optionValues') {
+                      throw new MetahubValidationError(`Unsupported entity resource surface capability: ${capability || 'empty'}`)
+                  }
+
+                  if (!routeSegment) {
+                      throw new MetahubValidationError(`Entity resource surface ${key} must contain a routeSegment`)
+                  }
+
+                  if (!RESOURCE_SURFACE_ROUTE_PATTERN.test(routeSegment)) {
+                      throw new MetahubValidationError(`Entity resource surface ${key} must use a lowercase kebab-case routeSegment`)
+                  }
+
+                  if (!fallbackTitle) {
+                      throw new MetahubValidationError(`Entity resource surface ${key} must contain a fallbackTitle`)
+                  }
+
+                  return {
+                      key,
+                      capability,
+                      routeSegment,
+                      titleKey: titleKey || undefined,
+                      fallbackTitle
+                  }
+              })
+              .filter((surface): surface is EntityResourceSurfaceDefinition => Boolean(surface))
+        : undefined
+
+    if (resourceSurfaces) {
+        const uniqueKeys = new Set<string>()
+        const uniqueCapabilities = new Set<string>()
+        const uniqueRouteSegments = new Set<string>()
+        for (const surface of resourceSurfaces) {
+            if (uniqueKeys.has(surface.key)) {
+                throw new MetahubValidationError(`Entity type UI config resourceSurfaces must not contain duplicate key ${surface.key}`)
+            }
+            uniqueKeys.add(surface.key)
+
+            if (uniqueCapabilities.has(surface.capability)) {
+                throw new MetahubValidationError(
+                    `Entity type UI config resourceSurfaces must not contain duplicate capability ${surface.capability}`
+                )
+            }
+            uniqueCapabilities.add(surface.capability)
+
+            if (uniqueRouteSegments.has(surface.routeSegment)) {
+                throw new MetahubValidationError(
+                    `Entity type UI config resourceSurfaces must not contain duplicate routeSegment ${surface.routeSegment}`
+                )
+            }
+            uniqueRouteSegments.add(surface.routeSegment)
+        }
+    }
+
     return {
         iconName,
         tabs,
@@ -128,7 +202,19 @@ const normalizeUiConfig = (value: EntityTypeUIConfig): EntityTypeUIConfig => {
         sidebarOrder,
         nameKey,
         descriptionKey:
-            typeof value.descriptionKey === 'string' && value.descriptionKey.trim().length > 0 ? value.descriptionKey : undefined
+            typeof value.descriptionKey === 'string' && value.descriptionKey.trim().length > 0 ? value.descriptionKey : undefined,
+        resourceSurfaces
+    }
+}
+
+const validateResourceSurfacesAgainstComponents = (ui: EntityTypeUIConfig, components: ComponentManifest): void => {
+    for (const surface of ui.resourceSurfaces ?? []) {
+        if (!isEnabledComponentConfig(components[surface.capability])) {
+            throw new MetahubValidationError(`Entity resource surface ${surface.key} requires enabled component ${surface.capability}`, {
+                key: surface.key,
+                capability: surface.capability
+            })
+        }
     }
 }
 
@@ -295,6 +381,7 @@ export class EntityTypeService {
 
         const components = normalizeComponentManifest(input.components)
         const ui = normalizeUiConfig(input.ui)
+        validateResourceSurfacesAgainstComponents(ui, components)
         const codename = normalizeEntityTypeCodename(input.codename)
         const presentation = ensureJsonRecord(input.presentation)
         const config = ensureJsonRecord(input.config)
@@ -387,6 +474,7 @@ export class EntityTypeService {
                 ? normalizeComponentManifest(input.components)
                 : parseStoredComponentManifest(existing.components)
         const nextUi = input.ui !== undefined ? normalizeUiConfig(input.ui) : parseStoredUiConfig(existing.ui_config)
+        validateResourceSurfacesAgainstComponents(nextUi, nextComponents)
         const nextCodename =
             input.codename !== undefined ? normalizeEntityTypeCodename(input.codename) : normalizeEntityTypeCodename(existing.codename)
         const nextPresentation =

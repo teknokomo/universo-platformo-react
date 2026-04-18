@@ -2,7 +2,13 @@ import { useMemo, useState } from 'react'
 import { Box, Tab, Tabs, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router-dom'
-import { isEnabledComponentConfig, type ComponentManifest, SHARED_OBJECT_KINDS } from '@universo/types'
+import {
+    isBuiltinEntityKind,
+    isEnabledComponentConfig,
+    type ComponentManifest,
+    type EntityResourceSurfaceDefinition,
+    SHARED_OBJECT_KINDS
+} from '@universo/types'
 
 import { TemplateMainCard as MainCard, ViewHeaderMUI as ViewHeader } from '@universo/template-mui'
 
@@ -12,7 +18,7 @@ import { SelectableOptionListContent } from '../../metadata/optionValue/ui/Selec
 import { LayoutListContent } from '../../../layouts/ui/LayoutList'
 import { EntityScriptsTab } from '../../../scripts/ui/EntityScriptsTab'
 import { useSharedContainerIds } from '../../../shared/hooks/useSharedContainerIds'
-import { useEntityTypesQuery } from '../../hooks/queries'
+import { useAllEntityTypesQuery } from '../../hooks/queries'
 
 type SharedResourcesTab = 'layouts' | 'fieldDefinitions' | 'fixedValues' | 'optionValues' | 'scripts'
 
@@ -27,35 +33,137 @@ function hasAnyEnabledComponent(manifests: ComponentManifest[], component: keyof
     return manifests.some((m) => isEnabledComponentConfig(m[component]))
 }
 
+type EntityTypeSummary = {
+    components: ComponentManifest
+    ui?: {
+        resourceSurfaces?: readonly EntityResourceSurfaceDefinition[]
+    }
+}
+
+const RESOURCE_SURFACE_CAPABILITIES: Record<
+    Extract<SharedResourcesTab, 'fieldDefinitions' | 'fixedValues' | 'optionValues'>,
+    EntityResourceSurfaceDefinition['capability']
+> = {
+    fieldDefinitions: 'dataSchema',
+    fixedValues: 'fixedValues',
+    optionValues: 'optionValues'
+}
+
+const DEFAULT_RESOURCE_TAB_LABELS: Record<
+    Extract<SharedResourcesTab, 'fieldDefinitions' | 'fixedValues' | 'optionValues'>,
+    { labelKey: string; labelFallback: string }
+> = {
+    fieldDefinitions: { labelKey: 'fieldDefinitions.resourceTabTitle', labelFallback: 'Attributes' },
+    fixedValues: { labelKey: 'fixedValues.resourceTabTitle', labelFallback: 'Constants' },
+    optionValues: { labelKey: 'optionValues.resourceTabTitle', labelFallback: 'Values' }
+}
+
+const RESOURCE_SURFACE_KIND_PRIORITY: Record<EntityResourceSurfaceDefinition['capability'], readonly string[]> = {
+    dataSchema: ['catalog'],
+    fixedValues: ['set'],
+    optionValues: ['enumeration']
+}
+
+const normalizeResourceSurfaceLabelToken = (value: string | undefined): string => value?.trim().toLowerCase() || ''
+
+const compareEntityTypePriority = (
+    left: EntityTypeSummary & { kindKey?: string },
+    right: EntityTypeSummary & { kindKey?: string }
+): number => {
+    const leftBuiltin = isBuiltinEntityKind(left.kindKey ?? '')
+    const rightBuiltin = isBuiltinEntityKind(right.kindKey ?? '')
+
+    if (leftBuiltin !== rightBuiltin) {
+        return leftBuiltin ? -1 : 1
+    }
+
+    return (left.kindKey ?? '').localeCompare(right.kindKey ?? '')
+}
+
+function resolveResourceSurfaceLabel(
+    entityTypes: (EntityTypeSummary & { kindKey?: string })[],
+    tab: Extract<SharedResourcesTab, 'fieldDefinitions' | 'fixedValues' | 'optionValues'>
+): { labelKey: string; labelFallback: string } {
+    const surfaceCapability = RESOURCE_SURFACE_CAPABILITIES[tab]
+    const compatibleSurfaces = entityTypes
+        .map((entityType) => ({
+            entityType,
+            surface: entityType.ui?.resourceSurfaces?.find((item) => item.capability === surfaceCapability)
+        }))
+        .filter(
+            (
+                entry
+            ): entry is {
+                entityType: EntityTypeSummary & { kindKey?: string }
+                surface: EntityResourceSurfaceDefinition
+            } => Boolean(entry.surface)
+        )
+        .sort((left, right) => compareEntityTypePriority(left.entityType, right.entityType))
+
+    if (compatibleSurfaces.length === 0) {
+        return DEFAULT_RESOURCE_TAB_LABELS[tab]
+    }
+
+    const preferredBuiltinKind = RESOURCE_SURFACE_KIND_PRIORITY[surfaceCapability][0]
+    const preferredBuiltinSurface = compatibleSurfaces.find((entry) => entry.entityType.kindKey === preferredBuiltinKind)?.surface
+    if (preferredBuiltinSurface) {
+        return {
+            labelKey: preferredBuiltinSurface.titleKey?.trim() || '',
+            labelFallback: preferredBuiltinSurface.fallbackTitle?.trim() || DEFAULT_RESOURCE_TAB_LABELS[tab].labelFallback
+        }
+    }
+
+    const distinctSurfaceLabels = new Set(
+        compatibleSurfaces.map(
+            ({ surface }) =>
+                `${normalizeResourceSurfaceLabelToken(surface.titleKey)}|${normalizeResourceSurfaceLabelToken(surface.fallbackTitle)}`
+        )
+    )
+
+    if (distinctSurfaceLabels.size > 1) {
+        return DEFAULT_RESOURCE_TAB_LABELS[tab]
+    }
+
+    const resolvedSurface = compatibleSurfaces[0]?.surface
+    return {
+        labelKey: resolvedSurface?.titleKey?.trim() || '',
+        labelFallback: resolvedSurface?.fallbackTitle?.trim() || DEFAULT_RESOURCE_TAB_LABELS[tab].labelFallback
+    }
+}
+
 export default function SharedResourcesPage() {
     const { metahubId } = useParams<{ metahubId: string }>()
     const { t } = useTranslation('metahubs')
     const [activeTab, setActiveTab] = useState<SharedResourcesTab>('layouts')
     const sharedContainerIdsQuery = useSharedContainerIds(metahubId)
 
-    const entityTypesQuery = useEntityTypesQuery(metahubId, { limit: 100 })
+    const entityTypesQuery = useAllEntityTypesQuery(metahubId)
 
     const tabs = useMemo<TabConfig[]>(() => {
-        const manifests = (entityTypesQuery.data?.items ?? []).map((et) => et.components)
+        const entityTypes = (entityTypesQuery.data?.items ?? []) as EntityTypeSummary[]
+        const manifests = entityTypes.map((et) => et.components)
+        const fieldDefinitionsLabel = resolveResourceSurfaceLabel(entityTypes, 'fieldDefinitions')
+        const fixedValuesLabel = resolveResourceSurfaceLabel(entityTypes, 'fixedValues')
+        const optionValuesLabel = resolveResourceSurfaceLabel(entityTypes, 'optionValues')
 
         return [
             { value: 'layouts', labelKey: 'general.tabs.layouts', labelFallback: 'Layouts', visible: true },
             {
                 value: 'fieldDefinitions',
-                labelKey: 'general.tabs.fieldDefinitions',
-                labelFallback: 'Field definitions',
+                labelKey: fieldDefinitionsLabel.labelKey,
+                labelFallback: fieldDefinitionsLabel.labelFallback,
                 visible: hasAnyEnabledComponent(manifests, 'dataSchema')
             },
             {
                 value: 'fixedValues',
-                labelKey: 'general.tabs.fixedValues',
-                labelFallback: 'Fixed values',
+                labelKey: fixedValuesLabel.labelKey,
+                labelFallback: fixedValuesLabel.labelFallback,
                 visible: hasAnyEnabledComponent(manifests, 'fixedValues')
             },
             {
                 value: 'optionValues',
-                labelKey: 'general.tabs.optionValues',
-                labelFallback: 'Option values',
+                labelKey: optionValuesLabel.labelKey,
+                labelFallback: optionValuesLabel.labelFallback,
                 visible: hasAnyEnabledComponent(manifests, 'optionValues')
             },
             { value: 'scripts', labelKey: 'general.tabs.scripts', labelFallback: 'Scripts', visible: true }

@@ -4,6 +4,76 @@
 
 ---
 
+## Current Focus: Metahub Resource Surfaces Final QA Closure — Complete ✅ (2026-04-18)
+
+- **Final QA debt elimination completed in this session**:
+  - Removed the last legacy metadata wording from the shipped shared menu labels, REST docs generator, generated OpenAPI source, and remaining public metahub route comments so the repository-facing contract now aligns with the shipped `Attributes` / `Constants` terminology.
+  - Added a package-scoped `@universo/metahubs-frontend` ESLint override for test files only, following the existing neighboring frontend pattern, to eliminate the historical test-only `no-explicit-any` and `no-empty-function` warning noise without relaxing production code rules.
+  - Re-ran the canonical repository build after regenerating the OpenAPI source from the updated generator, confirming that the docs pipeline now reproduces the cleaned terminology instead of patching the generated YAML by hand.
+- **Validated in this final debt-elimination pass**:
+  - `pnpm --filter @universo/metahubs-frontend lint`
+  - `pnpm --filter @universo/metahubs-frontend exec vitest run src/i18n/__tests__/index.test.ts src/components/__tests__/ValueGroupDeleteDialog.test.tsx src/domains/entities/shared/ui/__tests__/SharedResourcesPage.test.tsx src/domains/entities/ui/__tests__/EntitiesWorkspace.test.tsx src/domains/metahubs/ui/__tests__/MetahubList.test.tsx`
+  - `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/routes/entityInstancesRoutes.test.ts src/tests/services/builtinKindCapabilities.test.ts src/tests/routes/entitiesRoutes.test.ts src/tests/routes/publicMetahubsRoutes.test.ts`
+  - `pnpm --filter @universo/rest-docs generate:openapi`
+  - `pnpm build`
+
+- **Final terminology closure completed after the last QA pass**:
+  - Renamed the remaining shipped entity-owned field-definition headings, dialogs, delete warnings, and record empty-state copy to `Attributes` / `Атрибуты` so shared `Resources` and entity-owned catalog metadata no longer present mixed terminology.
+  - Synced the same wording across Playwright product specs, docs screenshot generator copy, backend/system descriptions, and blocking-reference contracts that surface through delete dialogs.
+  - Rebuilt the whole workspace so the e2e environment picked up the updated metahubs frontend bundle instead of the stale pre-build wording.
+- **Validated in this terminology closure**:
+  - `pnpm --filter @universo/metahubs-frontend exec vitest run src/i18n/__tests__/index.test.ts src/components/__tests__/ValueGroupDeleteDialog.test.tsx src/domains/entities/shared/ui/__tests__/SharedResourcesPage.test.tsx src/domains/entities/ui/__tests__/EntitiesWorkspace.test.tsx src/domains/metahubs/ui/__tests__/MetahubList.test.tsx`
+  - `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/routes/entityInstancesRoutes.test.ts src/tests/services/builtinKindCapabilities.test.ts`
+  - `pnpm --filter @universo/metahubs-frontend lint`
+  - `pnpm --filter @universo/metahubs-frontend build`
+  - `pnpm build`
+  - `node tools/testing/e2e/run-playwright-suite.mjs specs/flows/metahub-entities-workspace.spec.ts --grep "catalog-style entity instances stay read-only for metahub members"`
+  - `node tools/testing/e2e/run-playwright-suite.mjs specs/flows/metahub-entity-dialog-regressions.spec.ts`
+  - `node tools/testing/e2e/run-playwright-suite.mjs specs/flows/metahub-shared-common.spec.ts --grep "Common shared entities merge, exclusion, publication, and runtime stay aligned"`
+  - `node tools/testing/e2e/run-playwright-suite.mjs --project=generators specs/generators/docs-entity-screenshots.spec.ts`
+
+- **Final residual debt removed in this session**:
+  - Replaced the shared `Resources` entity-type lookup hard limit with full pagination through the existing `fetchAllPaginatedItems()` helper, so label resolution now sees the complete entity-type set instead of the first page only.
+  - Removed stale legacy `general.tabs` terminology from EN/RU locale files so reusable resource-tab labels no longer expose the old wording.
+  - Rewrote the remaining RU metahub resource reference pages into consistent Russian aligned with the shipped `Resources` workspace and shared-override architecture.
+  - Extended browser ACL coverage so a metahub `member` can open the real `Entities` workspace and view entity types, but still gets no create affordance or entity-type mutation actions.
+- **Validated in this final closure**:
+  - `pnpm --filter @universo/metahubs-frontend exec vitest run src/domains/entities/shared/ui/__tests__/SharedResourcesPage.test.tsx src/domains/entities/ui/__tests__/EntitiesWorkspace.test.tsx src/domains/metahubs/ui/__tests__/MetahubList.test.tsx`
+  - `pnpm --filter @universo/metahubs-frontend lint`
+  - `pnpm --filter @universo/metahubs-frontend build`
+  - `node tools/testing/e2e/run-playwright-suite.mjs specs/flows/metahub-create.spec.ts --grep "empty metahub template supports manual entity-type authoring"`
+  - `node tools/testing/e2e/run-playwright-suite.mjs specs/flows/metahub-entities-workspace.spec.ts --grep "catalog-style entity instances stay read-only for metahub members"`
+  - `node tools/testing/e2e/run-playwright-suite.mjs specs/flows/metahub-shared-common.spec.ts --grep "Common shared entities merge, exclusion, publication, and runtime stay aligned"`
+
+## Previous Focus: Metahub Resource Surfaces QA Closure — Complete ✅ (2026-04-18)
+
+- **Residual QA follow-up closed in this session**:
+  - Added backend and template-level duplicate `resourceSurfaces.routeSegment` validation so the contract is fail-closed even when callers bypass the frontend builder.
+  - Made shared `Resources` label resolution deterministic by capability: the page now loads a larger sorted entity-type slice, prefers the canonical built-in kind when present, and falls back to the canonical label when multiple custom types disagree.
+  - Added explicit permission-regression coverage for forbidden entity-type create/update/delete route mutations.
+  - Rewrote the remaining mixed-language RU custom entity types guide into a fully localized GitBook page.
+- **Validated in this follow-up**:
+  - `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/routes/entitiesRoutes.test.ts src/tests/services/EntityTypeService.test.ts src/tests/services/templateManifestValidator.test.ts`
+  - `pnpm --filter @universo/metahubs-frontend exec vitest run src/domains/entities/shared/ui/__tests__/SharedResourcesPage.test.tsx src/domains/entities/ui/__tests__/EntitiesWorkspace.test.tsx src/domains/metahubs/ui/__tests__/MetahubList.test.tsx`
+  - `pnpm --filter @universo/metahubs-frontend build`
+  - `node tools/testing/e2e/run-playwright-suite.mjs specs/flows/metahub-create.spec.ts --grep "empty metahub template supports manual entity-type authoring"`
+  - `pnpm build`
+
+- **Scope**: Closed the remaining QA gaps after the entity-driven Resources implementation: contract extensibility, stale architecture/docs pages, and missing direct backend/browser coverage.
+- **Completed in this session**:
+  - Reopened the `resourceSurfaces` contract so entity types can customize stable surface keys and route segments without a hardcoded built-in-key whitelist.
+  - Kept shared `Resources` fail-closed by capability: the shared workspace still renders only supported metadata capabilities, but labels now resolve from the entity-type contract even for custom surface keys.
+  - Updated the Entities builder so resource-surface metadata is preserved and editable through the entity-type form instead of being collapsed back to hardcoded labels.
+  - Added direct backend coverage for route validation, service validation, and template-manifest validation around `resourceSurfaces`.
+  - Added browser coverage for the `empty` metahub template and manual entity-type authoring through the real UI.
+  - Rewrote the remaining priority EN/RU GitBook pages for entity-system architecture, browser E2E guidance, and REST API wording.
+- **Validated**:
+  - `pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/routes/entitiesRoutes.test.ts src/tests/services/EntityTypeService.test.ts src/tests/services/templateManifestValidator.test.ts`
+  - `pnpm --filter @universo/metahubs-frontend exec vitest run src/domains/entities/shared/ui/__tests__/SharedResourcesPage.test.tsx src/domains/metahubs/ui/__tests__/MetahubList.test.tsx`
+  - `pnpm --filter @universo/metahubs-frontend build`
+  - `pnpm build`
+  - `node tools/testing/e2e/run-playwright-suite.mjs specs/flows/metahub-create.spec.ts --grep "empty metahub template supports manual entity-type authoring"`
+
 ## Current Focus: QA Closure — i18n, Resources, Lint, Documentation — Complete ✅ (2026-04-18)
 
 ## Current Focus: PR #767 Bot Review Triage — Complete ✅ (2026-04-18)

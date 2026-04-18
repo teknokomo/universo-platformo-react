@@ -427,7 +427,7 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
         }
 
         await page.goto(`/metahub/${metahub.id}/entities/catalog/instance/${catalogId}/field-definitions`)
-        await expect(page.getByRole('heading', { name: 'Field Definitions' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Attributes' })).toBeVisible()
         await page.getByTestId(buildEntityMenuTriggerSelector('attribute', attribute.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('attribute', 'copy', attribute.id)).click()
 
@@ -486,11 +486,11 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
 
         const setDeleteDialog = page.getByRole('dialog', { name: 'Delete Set' })
         await expect(setDeleteDialog).toBeVisible()
-        await expect(setDeleteDialog.getByText('Cannot delete set. Remove these references from catalog field definitions first:')).toBeVisible()
+        await expect(setDeleteDialog.getByText('Cannot delete set. Remove these references from catalog attributes first:')).toBeVisible()
         await expect(setDeleteDialog.locator(`a[href*="/entities/catalog/instance/${catalogId}/field-definitions"]`).first()).toBeVisible()
         await setDeleteDialog.locator(`a[href*="/entities/catalog/instance/${catalogId}/field-definitions"]`).first().click()
         await expect(page).toHaveURL(new RegExp(`/metahub/${metahub.id}/entities/catalog/instance/${catalogId}/field-definitions$`))
-        await expect(page.getByRole('heading', { name: 'Field Definitions' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Attributes' })).toBeVisible()
 
         await page.goto(`/metahub/${metahub.id}/entities/enumeration/instances`)
         await expect(page.getByRole('heading', { name: 'Enumerations' })).toBeVisible()
@@ -499,11 +499,11 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
 
         const enumerationDeleteDialog = page.getByRole('dialog', { name: 'Delete Enumeration' })
         await expect(enumerationDeleteDialog).toBeVisible()
-        await expect(enumerationDeleteDialog.getByText('Cannot delete enumeration. Remove these references from field definitions first:')).toBeVisible()
+        await expect(enumerationDeleteDialog.getByText('Cannot delete enumeration. Remove these references from attributes first:')).toBeVisible()
         await expect(enumerationDeleteDialog.locator(`a[href*="/entities/catalog/instance/${catalogId}/field-definitions"]`).first()).toBeVisible()
         await enumerationDeleteDialog.locator(`a[href*="/entities/catalog/instance/${catalogId}/field-definitions"]`).first().click()
         await expect(page).toHaveURL(new RegExp(`/metahub/${metahub.id}/entities/catalog/instance/${catalogId}/field-definitions$`))
-        await expect(page.getByRole('heading', { name: 'Field Definitions' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Attributes' })).toBeVisible()
     } finally {
         await disposeApiContext(api)
     }

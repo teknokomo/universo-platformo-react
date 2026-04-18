@@ -11,7 +11,7 @@ import { createPublicMetahubsController } from '../controllers/publicMetahubsCon
  * Only metahubs with isPublic=true are accessible.
  * All operations are read-only.
  *
- * Hierarchy: Metahub → Hub → Catalog → Field Definitions/Records
+ * Hierarchy: Metahub → Hub → Catalog → Attributes/Records
  */
 export function createPublicMetahubsRoutes(getDbExecutor: () => DbExecutor, readLimiter: RateLimitRequestHandler): Router {
     const router = Router({ mergeParams: true })

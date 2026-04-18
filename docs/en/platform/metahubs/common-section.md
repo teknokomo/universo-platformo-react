@@ -7,12 +7,14 @@ description: Platform reference for the resources workspace and its reusable tab
 The Resources workspace is the metahub-level surface for authoring assets that must stay reusable across multiple target objects.
 It is separate from target-object CRUD because it owns the shared design contract before publication flattens that contract into runtime state.
 
+![Resources workspace](../../.gitbook/assets/entities/resources-workspace.png)
+
 ## Tabs
 
 - Layouts: shared layouts and entity-specific layout overrides.
-- Field Definitions: shared field-definition pools reused by compatible entity types.
-- Fixed Values: shared fixed-value pools reused by compatible entity types.
-- Option Values: shared option-value pools reused by compatible entity types.
+- Attributes: shared attribute pools reused by compatible entity types with the `dataSchema` capability.
+- Constants: shared constant pools reused by compatible entity types with the `fixedValues` capability.
+- Values: shared enumeration-value pools reused by compatible entity types with the `optionValues` capability.
 - Scripts: resources-scoped library scripts imported through `@shared/<codename>`.
 
 ## Operator Rules
@@ -29,8 +31,8 @@ This keeps authoring reusable while keeping runtime tables flat and predictable.
 
 ## Related Reading
 
-- [Shared Field Definitions](shared-field-definitions.md)
-- [Shared Fixed Values](shared-fixed-values.md)
-- [Shared Option Values](shared-option-values.md)
+- [Shared Attributes](shared-field-definitions.md)
+- [Shared Constants](shared-fixed-values.md)
+- [Shared Values](shared-option-values.md)
 - [Shared Scripts](shared-scripts.md)
 - [Metahubs](../metahubs.md)

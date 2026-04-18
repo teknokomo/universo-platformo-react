@@ -241,6 +241,7 @@ vi.mock('../../../templates/ui/TemplateSelector', () => ({
             <select aria-label='Template' value={value ?? ''} onChange={(event) => onChange(event.target.value || undefined)}>
                 <option value=''>Default</option>
                 <option value='template-1'>Template 1</option>
+                <option value='template-empty'>Empty</option>
             </select>
         </label>
     )
@@ -836,6 +837,53 @@ describe('MetahubList', () => {
                     })
                 )
             })
+        })
+
+        it('hides optional preset toggles for the empty template', async () => {
+            mockUseTemplateDetail.mockImplementation((templateId?: string) => ({
+                data: templateId
+                    ? {
+                          id: templateId,
+                          codename: templateId === 'template-empty' ? 'empty' : 'template-1',
+                          definitionType: 'metahub_template',
+                          name: createVlc(templateId === 'template-empty' ? 'Empty' : 'Template 1'),
+                          isSystem: true,
+                          sortOrder: 1,
+                          isActive: true,
+                          activeVersionId: 'version-1',
+                          activeVersionManifest: {
+                              $schema: 'metahub-template/v1',
+                              name: templateId === 'template-empty' ? 'Empty' : 'Template 1',
+                              presets:
+                                  templateId === 'template-empty'
+                                      ? []
+                                      : [
+                                            { presetCodename: 'hub', includedByDefault: true },
+                                            { presetCodename: 'catalog', includedByDefault: true },
+                                            { presetCodename: 'set', includedByDefault: true },
+                                            { presetCodename: 'enumeration', includedByDefault: true }
+                                        ]
+                          },
+                          versions: []
+                      }
+                    : undefined,
+                isLoading: false
+            }))
+
+            const { user } = renderWithProviders(<MetahubList />)
+
+            await openCreateDialog(user)
+            await user.selectOptions(screen.getByLabelText('Template'), 'template-empty')
+
+            const optionsTab = screen.queryByRole('tab', { name: 'Options' }) ?? screen.getByRole('tab', { name: 'createOptions.tab' })
+            await user.click(optionsTab)
+
+            await waitFor(() => {
+                expect(screen.getByText('This template does not define optional presets.')).toBeInTheDocument()
+            })
+
+            expect(screen.queryByRole('checkbox', { name: 'TreeEntity' })).not.toBeInTheDocument()
+            expect(screen.queryByRole('checkbox', { name: 'LinkedCollectionEntity' })).not.toBeInTheDocument()
         })
     })
 

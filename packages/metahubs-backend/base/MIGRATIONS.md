@@ -89,6 +89,6 @@ Publication-driven application creation crosses this boundary, but the final run
 
 ## Template Registry And Create Options
 
-The built-in template registry still ships `basic` and `basic-demo`.
+The built-in template registry ships `basic`, `basic-demo`, and `empty`.
 When creating a metahub, `createOptions` can still pre-seed the default hub, catalog, set, and enumeration entities, while branch creation and base layout creation remain mandatory.
 Read this file as the package-local map of today’s hybrid state: a fixed design-time system app bootstrapped from a manual snapshot-equivalent baseline, plus runtime branch and application migration-control flows layered on top.

@@ -623,7 +623,7 @@ test('@flow @combined metahub leaf routes support browser attribute element enum
         const setId = await waitForFirstEntityId(() => listValueGroups(api, metahub.id, { limit: 100, offset: 0 }), 'set')
 
         await page.goto(`/metahub/${metahub.id}/entities/catalog/instance/${catalogId}/field-definitions`)
-        await expect(page.getByRole('heading', { name: 'Field Definitions' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Attributes' })).toBeVisible()
 
         const attributeDialog = await openEntityDialog(page, 'Add Field Definition')
         await fillNameAndCodename(attributeDialog, { name: attributeName, codename: attributeCodename })

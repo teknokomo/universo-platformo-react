@@ -1401,13 +1401,22 @@ export async function updateApplicationWorkspaceLimits(api, applicationId, limit
 
 export async function getApplicationRuntime(api, applicationId, params = {}) {
     const query = new URLSearchParams()
+    const resolvedLinkedCollectionId = params.linkedCollectionId ?? params.sectionId ?? params.catalogId ?? null
 
     for (const [key, value] of Object.entries(params)) {
         if (value === undefined || value === null || value === '') {
             continue
         }
 
+        if (key === 'catalogId' || key === 'sectionId' || key === 'linkedCollectionId') {
+            continue
+        }
+
         query.set(key, String(value))
+    }
+
+    if (resolvedLinkedCollectionId) {
+        query.set('linkedCollectionId', String(resolvedLinkedCollectionId))
     }
 
     const suffix = query.size > 0 ? `?${query.toString()}` : ''
@@ -1416,7 +1425,17 @@ export async function getApplicationRuntime(api, applicationId, params = {}) {
         throw await buildError(response, `Fetching runtime for application ${applicationId}`)
     }
 
-    return response.json()
+    const body = await response.json()
+    const resolvedCatalog = body?.catalog ?? body?.section ?? body?.linkedCollection ?? null
+    const resolvedCatalogs = body?.catalogs ?? body?.sections ?? body?.linkedCollections ?? []
+    const resolvedActiveCatalogId = body?.activeCatalogId ?? body?.activeSectionId ?? body?.activeLinkedCollectionId ?? null
+
+    return {
+        ...body,
+        catalog: resolvedCatalog,
+        catalogs: resolvedCatalogs,
+        activeCatalogId: resolvedActiveCatalogId
+    }
 }
 
 export async function addApplicationMember(api, applicationId, payload) {

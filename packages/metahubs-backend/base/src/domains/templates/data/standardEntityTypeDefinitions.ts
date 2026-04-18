@@ -50,6 +50,14 @@ export const HUB_TYPE_UI: EntityTypeUIConfig = {
     nameKey: 'metahubs:hubs.title'
 }
 
+const FIELD_DEFINITIONS_RESOURCE_SURFACE: NonNullable<EntityTypeUIConfig['resourceSurfaces']>[number] = {
+    key: 'fieldDefinitions',
+    capability: 'dataSchema',
+    routeSegment: 'field-definitions',
+    titleKey: 'metahubs:fieldDefinitions.resourceTabTitle',
+    fallbackTitle: 'Attributes'
+}
+
 export const CATALOG_TYPE_COMPONENTS: ComponentManifest = {
     dataSchema: { enabled: true },
     records: { enabled: true },
@@ -72,7 +80,8 @@ export const CATALOG_TYPE_UI: EntityTypeUIConfig = {
     tabs: ['general', 'hubs', 'layout', 'scripts'],
     sidebarSection: 'objects',
     sidebarOrder: 20,
-    nameKey: 'metahubs:catalogs.title'
+    nameKey: 'metahubs:catalogs.title',
+    resourceSurfaces: [FIELD_DEFINITIONS_RESOURCE_SURFACE]
 }
 
 export const SET_TYPE_COMPONENTS: ComponentManifest = {
@@ -97,7 +106,16 @@ export const SET_TYPE_UI: EntityTypeUIConfig = {
     tabs: ['general', 'scripts'],
     sidebarSection: 'objects',
     sidebarOrder: 30,
-    nameKey: 'metahubs:sets.title'
+    nameKey: 'metahubs:sets.title',
+    resourceSurfaces: [
+        {
+            key: 'fixedValues',
+            capability: 'fixedValues',
+            routeSegment: 'fixed-values',
+            titleKey: 'metahubs:fixedValues.resourceTabTitle',
+            fallbackTitle: 'Constants'
+        }
+    ]
 }
 
 export const ENUMERATION_TYPE_COMPONENTS: ComponentManifest = {
@@ -122,7 +140,16 @@ export const ENUMERATION_TYPE_UI: EntityTypeUIConfig = {
     tabs: ['general', 'scripts'],
     sidebarSection: 'objects',
     sidebarOrder: 40,
-    nameKey: 'metahubs:enumerations.title'
+    nameKey: 'metahubs:enumerations.title',
+    resourceSurfaces: [
+        {
+            key: 'optionValues',
+            capability: 'optionValues',
+            routeSegment: 'values',
+            titleKey: 'metahubs:optionValues.resourceTabTitle',
+            fallbackTitle: 'Values'
+        }
+    ]
 }
 
 export const HUB_DEFAULT_INSTANCES: PresetDefaultInstance[] = [

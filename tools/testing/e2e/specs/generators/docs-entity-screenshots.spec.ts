@@ -23,7 +23,7 @@ import {
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { repoRoot } from '../../support/env/load-e2e-env.mjs'
-import { toolbarSelectors } from '../../support/selectors/contracts'
+import { pageSpacingSelectors, toolbarSelectors } from '../../support/selectors/contracts'
 import { createLocalizedContent } from '@universo/utils'
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
@@ -49,19 +49,23 @@ async function captureScreenshot(page: import('@playwright/test').Page, locale: 
 
 const ENTITY_UI_COPY = {
     en: {
-        entityTypes: 'Entity Types',
+        entityTypes: 'Entities',
         metahubs: 'Metahubs',
+        resources: 'Resources',
         hubs: 'Hubs',
-        fieldDefinitions: 'Field Definitions',
+        attributes: 'Attributes',
+        fieldDefinitions: 'Attributes',
         records: 'Records',
         constants: 'Constants',
         values: 'Values'
     },
     ru: {
-        entityTypes: 'Типы сущностей',
+        entityTypes: 'Сущности',
         metahubs: 'Метахабы',
+        resources: 'Ресурсы',
         hubs: 'Хабы',
-        fieldDefinitions: 'Определения полей',
+        attributes: 'Атрибуты',
+        fieldDefinitions: 'Атрибуты',
         records: 'Записи',
         constants: 'Константы',
         values: 'Значения'
@@ -121,11 +125,36 @@ test('@generator capture entity documentation screenshots for EN and RU locales'
             await expect(page.getByRole('heading', { name: uiCopy.hubs })).toBeVisible({ timeout: 30_000 })
             await captureScreenshot(page, locale, 'hub-tree-view')
 
+            // 4. Shared resources workspace
+            await page.goto(`/metahub/${metahubId}/resources`)
+            await expect(page.getByRole('heading', { name: uiCopy.resources })).toBeVisible({ timeout: 30_000 })
+            await expect(page.getByTestId(pageSpacingSelectors.metahubResourcesTabs)).toBeVisible({ timeout: 30_000 })
+            await captureScreenshot(page, locale, 'resources-workspace')
+
+            await page.getByRole('tab', { name: uiCopy.attributes, exact: true }).click()
+            await expect(page.getByRole('tab', { name: uiCopy.attributes, exact: true, selected: true })).toBeVisible({
+                timeout: 30_000
+            })
+            await expect(page.getByTestId(pageSpacingSelectors.metahubResourcesContent)).toBeVisible({ timeout: 30_000 })
+            await captureScreenshot(page, locale, 'shared-attributes')
+
+            await page.getByRole('tab', { name: uiCopy.constants, exact: true }).click()
+            await expect(page.getByRole('tab', { name: uiCopy.constants, exact: true, selected: true })).toBeVisible({
+                timeout: 30_000
+            })
+            await captureScreenshot(page, locale, 'shared-constants')
+
+            await page.getByRole('tab', { name: uiCopy.values, exact: true }).click()
+            await expect(page.getByRole('tab', { name: uiCopy.values, exact: true, selected: true })).toBeVisible({
+                timeout: 30_000
+            })
+            await captureScreenshot(page, locale, 'shared-values')
+
             const treeEntities = await listTreeEntities(ctx, metahubId, { limit: 100, offset: 0 })
             if (treeEntities?.items?.length > 0) {
                 const hub = treeEntities.items[0]
 
-                // 4. Catalogs under hub
+                // 5. Catalogs under hub
                 const catalogs = await listLinkedCollections(ctx, metahubId, { limit: 100, offset: 0, treeEntityId: hub.id })
                 if (catalogs?.items?.length > 0) {
                     const catalog = catalogs.items[0]
@@ -139,7 +168,7 @@ test('@generator capture entity documentation screenshots for EN and RU locales'
                 }
             }
 
-            // 5. Sets
+            // 6. Sets
             const valueGroups = await listValueGroups(ctx, metahubId, { limit: 100, offset: 0 })
             if (valueGroups?.items?.length > 0) {
                 const vg = valueGroups.items[0]
@@ -148,7 +177,7 @@ test('@generator capture entity documentation screenshots for EN and RU locales'
                 await captureScreenshot(page, locale, 'set-fixed-values')
             }
 
-            // 6. Enumerations
+            // 7. Enumerations
             const optionLists = await listOptionLists(ctx, metahubId, { limit: 100, offset: 0 })
             if (optionLists?.items?.length > 0) {
                 const ol = optionLists.items[0]

@@ -7,10 +7,12 @@ description: How to use the metahub resources workspace as the real entrypoint f
 The Resources page is the real authoring entrypoint for layouts, reusable metadata resources, and shared library scripts in a metahub.
 The live navigation now points directly to `/resources`, so the active contract no longer depends on legacy Common or `/layouts` surfaces.
 
+![Resources workspace](../.gitbook/assets/entities/resources-workspace.png)
+
 ## What Lives Here
 
 - shared layouts that shape reusable runtime composition;
-- shared field-definition, fixed-value, and option-value pools that can be inherited by compatible entity types;
+- shared attribute, constant, and value pools that can be inherited by compatible entity types;
 - entity-specific layout navigation and sparse layout overrides;
 - resources/library scripts that expose reusable `@shared/<codename>` helpers;
 - shared view behavior that belongs with layout authoring instead of separate admin settings.
@@ -19,12 +21,12 @@ The live navigation now points directly to `/resources`, so the active contract 
 
 1. Open a metahub.
 2. Use the sidebar item Resources.
-3. Switch between Layouts, Field Definitions, Fixed Values, Option Values, and Scripts depending on the shared asset you need.
+3. Switch between Layouts, Attributes, Constants, Values, and Scripts depending on the shared asset you need.
 4. Open a target entity and continue into its own route when you need to inspect merged inherited rows or entity-specific layout behavior.
 
 ## Shared Resource Workflow
 
-1. Create shared field definitions, fixed values, or option values from the corresponding Resources tab.
+1. Create shared attributes, constants, or values from the corresponding Resources tab.
 2. Use the Presentation and Exclusions tabs in the dialog when you need behavior locks or target-specific exclusions.
 3. Open a target entity to verify merged inherited rows and read-only action gating.
 4. Publish and sync the linked application when runtime should materialize the shared rows.

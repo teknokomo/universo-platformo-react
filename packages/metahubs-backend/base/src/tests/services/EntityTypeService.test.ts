@@ -406,6 +406,193 @@ describe('EntityTypeService', () => {
         expect(result.published).toBe(false)
     })
 
+    it('accepts custom resource surface keys and route segments for enabled capabilities', async () => {
+        const queryMock = jest.fn(async (sql: string) => {
+            if (sql.includes('WHERE kind_key =')) {
+                return []
+            }
+            if (sql.includes("LOWER(COALESCE(codename->'locales'->(codename->>'_primary')->>'content'")) {
+                return []
+            }
+            if (sql.includes('INSERT INTO')) {
+                return [
+                    {
+                        id: 'custom-type-4',
+                        kind_key: 'custom-knowledge',
+                        codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-knowledge' } } },
+                        presentation: {},
+                        components: {
+                            dataSchema: { enabled: true },
+                            records: false,
+                            treeAssignment: false,
+                            optionValues: false,
+                            fixedValues: false,
+                            hierarchy: false,
+                            nestedCollections: false,
+                            relations: false,
+                            actions: { enabled: true },
+                            events: { enabled: true },
+                            scripting: false,
+                            layoutConfig: false,
+                            runtimeBehavior: false,
+                            physicalTable: false
+                        },
+                        ui_config: {
+                            iconName: 'IconBook',
+                            tabs: ['general'],
+                            sidebarSection: 'objects',
+                            nameKey: 'Knowledge',
+                            resourceSurfaces: [
+                                {
+                                    key: 'attributes',
+                                    capability: 'dataSchema',
+                                    routeSegment: 'attributes',
+                                    fallbackTitle: 'Attributes'
+                                }
+                            ]
+                        },
+                        config: {},
+                        _mhb_published: true,
+                        _upl_version: 1
+                    }
+                ]
+            }
+            return []
+        })
+
+        const service = new EntityTypeService(createExecutor(queryMock) as any, { ensureSchema: mockEnsureSchema } as any)
+        const result = await service.createType('metahub-1', {
+            kindKey: 'custom-knowledge',
+            codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-knowledge' } } },
+            components: {
+                dataSchema: { enabled: true },
+                records: false,
+                treeAssignment: false,
+                optionValues: false,
+                fixedValues: false,
+                hierarchy: false,
+                nestedCollections: false,
+                relations: false,
+                actions: { enabled: true },
+                events: { enabled: true },
+                scripting: false,
+                layoutConfig: false,
+                runtimeBehavior: false,
+                physicalTable: false
+            },
+            ui: {
+                iconName: 'IconBook',
+                tabs: ['general'],
+                sidebarSection: 'objects',
+                nameKey: 'Knowledge',
+                resourceSurfaces: [
+                    {
+                        key: 'attributes',
+                        capability: 'dataSchema',
+                        routeSegment: 'attributes',
+                        fallbackTitle: 'Attributes'
+                    }
+                ]
+            }
+        })
+
+        expect(result.ui.resourceSurfaces).toEqual([
+            expect.objectContaining({
+                key: 'attributes',
+                capability: 'dataSchema',
+                routeSegment: 'attributes'
+            })
+        ])
+    })
+
+    it('rejects resource surfaces when the matching capability is disabled', async () => {
+        const service = new EntityTypeService(createExecutor(jest.fn(async () => [])) as any, { ensureSchema: mockEnsureSchema } as any)
+
+        await expect(
+            service.createType('metahub-1', {
+                kindKey: 'custom-invalid-surface',
+                codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-invalid-surface' } } },
+                components: {
+                    dataSchema: false,
+                    records: false,
+                    treeAssignment: false,
+                    optionValues: false,
+                    fixedValues: false,
+                    hierarchy: false,
+                    nestedCollections: false,
+                    relations: false,
+                    actions: { enabled: true },
+                    events: { enabled: true },
+                    scripting: false,
+                    layoutConfig: false,
+                    runtimeBehavior: false,
+                    physicalTable: false
+                },
+                ui: {
+                    iconName: 'IconAlertCircle',
+                    tabs: ['general'],
+                    sidebarSection: 'objects',
+                    nameKey: 'Invalid Surface',
+                    resourceSurfaces: [
+                        {
+                            key: 'attributes',
+                            capability: 'dataSchema',
+                            routeSegment: 'attributes',
+                            fallbackTitle: 'Attributes'
+                        }
+                    ]
+                }
+            })
+        ).rejects.toThrow('Entity resource surface attributes requires enabled component dataSchema')
+    })
+
+    it('rejects duplicate resource surface route segments even when keys differ', async () => {
+        const service = new EntityTypeService(createExecutor(jest.fn(async () => [])) as any, { ensureSchema: mockEnsureSchema } as any)
+
+        await expect(
+            service.createType('metahub-1', {
+                kindKey: 'custom-duplicate-route',
+                codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-duplicate-route' } } },
+                components: {
+                    dataSchema: { enabled: true },
+                    records: false,
+                    treeAssignment: false,
+                    optionValues: { enabled: true },
+                    fixedValues: false,
+                    hierarchy: false,
+                    nestedCollections: false,
+                    relations: false,
+                    actions: { enabled: true },
+                    events: { enabled: true },
+                    scripting: false,
+                    layoutConfig: false,
+                    runtimeBehavior: false,
+                    physicalTable: false
+                },
+                ui: {
+                    iconName: 'IconAlertCircle',
+                    tabs: ['general'],
+                    sidebarSection: 'objects',
+                    nameKey: 'Duplicate Route',
+                    resourceSurfaces: [
+                        {
+                            key: 'attributes',
+                            capability: 'dataSchema',
+                            routeSegment: 'shared-tab',
+                            fallbackTitle: 'Attributes'
+                        },
+                        {
+                            key: 'values',
+                            capability: 'optionValues',
+                            routeSegment: 'shared-tab',
+                            fallbackTitle: 'Values'
+                        }
+                    ]
+                }
+            })
+        ).rejects.toThrow('Entity type UI config resourceSurfaces must not contain duplicate routeSegment shared-tab')
+    })
+
     it('updates the published flag without mutating the rest of the entity type contract', async () => {
         const queryMock = jest.fn(async (sql: string, params?: unknown[]) => {
             if (sql.includes('WHERE id = $1 AND _upl_deleted = false AND _mhb_deleted = false')) {

@@ -15,7 +15,20 @@ const entityTypeUiSchema = z
         sidebarSection: z.enum(['objects', 'admin']).default('objects'),
         sidebarOrder: z.number().int().min(0).optional(),
         nameKey: z.string().trim().min(1),
-        descriptionKey: z.string().trim().min(1).optional()
+        descriptionKey: z.string().trim().min(1).optional(),
+        resourceSurfaces: z
+            .array(
+                z
+                    .object({
+                        key: z.string().trim().min(1).max(64),
+                        capability: z.enum(['dataSchema', 'fixedValues', 'optionValues']),
+                        routeSegment: z.string().trim().min(1).max(64),
+                        titleKey: z.string().trim().min(1).optional(),
+                        fallbackTitle: z.string().trim().min(1)
+                    })
+                    .strict()
+            )
+            .optional()
     })
     .strict()
 

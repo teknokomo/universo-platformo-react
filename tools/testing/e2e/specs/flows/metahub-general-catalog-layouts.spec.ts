@@ -311,9 +311,9 @@ test('@flow @combined metahub General and catalog-specific layouts drive runtime
             widgetKey: 'divider'
         })
 
-        await page.goto(`/metahub/${metahub.id}/common`)
-        await expect(page.getByRole('heading', { name: 'Common' })).toBeVisible()
-        await expect(page.getByTestId(pageSpacingSelectors.metahubCommonTabs)).toBeVisible()
+        await page.goto(`/metahub/${metahub.id}/resources`)
+        await expect(page.getByRole('heading', { name: 'Resources' })).toBeVisible()
+        await expect(page.getByTestId(pageSpacingSelectors.metahubResourcesTabs)).toBeVisible()
         await expect(page.getByRole('tab', { name: 'Layouts' })).toHaveAttribute('aria-selected', 'true')
 
         await page.goto(`/metahub/${metahub.id}/catalog/${customCatalog.id}/layout/${customLayout.id}`)

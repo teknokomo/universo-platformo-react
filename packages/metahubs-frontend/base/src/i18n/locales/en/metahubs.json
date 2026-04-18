@@ -570,6 +570,13 @@
       "components": "Components JSON",
       "componentsHelper": "Full ComponentManifest JSON. Dependency rules are validated before save.",
       "componentsHelperStructured": "Use guided toggles for the current Zerocode scope. Dependency-sensitive components are enabled and pruned automatically.",
+      "resourceTabs": "Resources section tabs",
+      "resourceTabsHelper": "These titles are used by the shared Resources workspace for compatible entity capabilities.",
+      "resourceSurfaceKey": "Resource tab key",
+      "resourceSurfaceKeyHelper": "Stable identifier stored in the entity-type contract.",
+      "resourceSurfaceRouteSegment": "Resource tab route segment",
+      "resourceSurfaceRouteSegmentHelper": "Lowercase kebab-case segment reserved for compatible authoring routes.",
+      "resourceSurfaceTitle": "Resource tab title",
       "customTabs": "Additional tabs",
       "customTabsHelper": "Optional extra tab identifiers, separated by commas or new lines. Structured toggles above cover the current supported tabs.",
       "presentation": "Presentation JSON",
@@ -598,6 +605,11 @@
       "general": "General",
       "layout": "Layout",
       "scripts": "Scripts"
+    },
+    "resourceSurfaces": {
+      "fieldDefinitions": "Attributes",
+      "fixedValues": "Constants",
+      "optionValues": "Values"
     },
     "components": {
       "dataSchema": "Data schema",
@@ -666,7 +678,12 @@
       "tabsRequired": "At least one tab is required",
       "componentsInvalid": "Components must be a valid JSON object",
       "presentationInvalid": "Presentation must be a valid JSON object",
-      "configInvalid": "Config must be a valid JSON object"
+      "configInvalid": "Config must be a valid JSON object",
+      "resourceSurfaceKeyInvalid": "Resource tab key must start with a letter and use only letters, digits, dots, underscores, or hyphens",
+      "resourceSurfaceRouteInvalid": "Resource tab route segment must use lowercase kebab-case",
+      "resourceSurfaceTitleRequired": "Resource tab title is required",
+      "resourceSurfaceKeyDuplicate": "Resource tab keys must be unique",
+      "resourceSurfaceRouteDuplicate": "Resource tab route segments must be unique"
     },
     "selection": {
       "title": "Containers",
@@ -957,10 +974,10 @@
     "title": "Resources",
     "tabs": {
       "layouts": "Layouts",
-      "fixedValues": "Fixed values",
+      "fixedValues": "Constants",
       "values": "Values",
-      "fieldDefinitions": "Field definitions",
-      "optionValues": "Option values",
+      "fieldDefinitions": "Attributes",
+      "optionValues": "Values",
       "scripts": "Scripts"
     },
     "shared": {
@@ -1024,10 +1041,10 @@
     "title": "Catalogs",
     "allTitle": "Catalogs",
     "allDescription": "All catalogs across all hubs in this metahub",
-    "description": "Entity collections that organize field definitions and records within a hub",
+    "description": "Entity collections that organize attributes and records within a hub",
     "searchPlaceholder": "Search catalogs...",
     "empty": "No catalogs yet",
-    "emptyDescription": "Create your first catalog to organize field definitions and records",
+    "emptyDescription": "Create your first catalog to organize attributes and records",
     "emptyHint": "Create catalogs in specific hubs",
     "noSearchResults": "No catalogs found",
     "noSearchResultsHint": "Try different search terms",
@@ -1042,14 +1059,14 @@
     },
     "deleteDialog": {
       "title": "Delete catalog",
-      "message": "Are you sure you want to delete this catalog? All field definitions and records will be permanently removed.",
+      "message": "Are you sure you want to delete this catalog? All attributes and records will be permanently removed.",
       "confirmMessage": "Are you sure you want to delete this catalog? This action cannot be undone.",
       "fetchBlockingError": "Failed to check for blocking references",
       "hasBlockingReferences": "Cannot delete catalog. The following references from other catalogs must be removed first:",
-      "resolutionHint": "Open the source catalogs from the table and remove or reconfigure reference field definitions.",
+      "resolutionHint": "Open the source catalogs from the table and remove or reconfigure reference attributes.",
       "blockingTable": {
         "catalog": "Catalog",
-        "attribute": "Field definition"
+        "attribute": "Attribute"
       }
     },
     "deleted": "Catalog deleted",
@@ -1218,12 +1235,12 @@
       "title": "Delete set",
       "message": "Are you sure you want to delete this set?",
       "confirmMessage": "Are you sure you want to delete this set? This action cannot be undone.",
-      "hasBlockingReferences": "Cannot delete set. Remove these references from catalog field definitions first:",
-      "resolutionHint": "Open source catalogs from the table and adjust the listed field definitions.",
+      "hasBlockingReferences": "Cannot delete set. Remove these references from catalog attributes first:",
+      "resolutionHint": "Open source catalogs from the table and adjust the listed attributes.",
       "fetchBlockingError": "Failed to check for blocking references",
       "blockingTable": {
         "catalog": "Catalog",
-        "attribute": "Field definition"
+        "attribute": "Attribute"
       }
     },
     "reorderSuccess": "Set order updated",
@@ -1251,6 +1268,7 @@
   },
   "fixedValues": {
     "title": "Constants",
+    "resourceTabTitle": "Constants",
     "searchPlaceholder": "Search constants...",
     "empty": "No constants yet",
     "emptyDescription": "Create constants to store reusable typed values",
@@ -1364,12 +1382,12 @@
       "title": "Delete enumeration",
       "message": "Are you sure you want to delete this enumeration? This action cannot be undone.",
       "confirmMessage": "Are you sure you want to delete this enumeration? This action cannot be undone.",
-      "hasBlockingReferences": "Cannot delete enumeration. Remove these references from field definitions first:",
-      "resolutionHint": "Open the source catalogs and update or remove the reference field definitions.",
+      "hasBlockingReferences": "Cannot delete enumeration. Remove these references from attributes first:",
+      "resolutionHint": "Open the source catalogs and update or remove the reference attributes.",
       "fetchBlockingError": "Failed to check for blocking references",
       "blockingTable": {
         "catalog": "Catalog",
-        "attribute": "Field definition"
+        "attribute": "Attribute"
       }
     },
     "codename": "Codename",
@@ -1406,6 +1424,7 @@
   },
   "optionValues": {
     "title": "Values",
+    "resourceTabTitle": "Values",
     "titleWithName": "Enumeration Values: {{name}}",
     "searchPlaceholder": "Search values...",
     "empty": "No values yet",
@@ -1806,6 +1825,7 @@
     "branch": "Branch (Main)",
     "layout": "Layout (Main)",
     "optionalEntities": "Default entities",
+    "noOptionalPresets": "This template does not define optional presets.",
     "hub": "Hub",
     "catalog": "Catalog",
     "set": "Set",
@@ -1971,32 +1991,33 @@
     "exportError": "Failed to export snapshot"
   },
   "fieldDefinitions": {
-    "title": "Field Definitions",
+    "title": "Attributes",
+    "resourceTabTitle": "Attributes",
     "description": "Define the fields for this catalog",
-    "searchPlaceholder": "Search field definitions...",
-    "empty": "No field definitions yet",
-    "emptyDescription": "Add field definitions to define the structure of your catalog data",
-    "limitReached": "Limit reached: maximum {{limit}} field definitions per catalog. Remove a field definition to add a new one.",
-    "create": "Add Field Definition",
+    "searchPlaceholder": "Search attributes...",
+    "empty": "No attributes yet",
+    "emptyDescription": "Add attributes to define the structure of your catalog data",
+    "limitReached": "Limit reached: maximum {{limit}} attributes per catalog. Remove an attribute to add a new one.",
+    "create": "Add Attribute",
     "createDialog": {
-      "title": "Add Field Definition"
+      "title": "Add Attribute"
     },
     "editDialog": {
-      "title": "Edit Field Definition"
+      "title": "Edit Attribute"
     },
     "actions": {
       "moveUp": "Move up",
       "moveDown": "Move down",
       "setRequired": "Mark as required",
       "setOptional": "Mark as optional",
-      "setDisplayAttribute": "Set as display field definition",
-      "clearDisplayAttribute": "Clear display field definition",
+      "setDisplayAttribute": "Set as display attribute",
+      "clearDisplayAttribute": "Clear display attribute",
       "enableSystemField": "Enable",
       "disableSystemField": "Disable"
     },
     "deleteDialog": {
-      "title": "Delete Field Definition",
-      "message": "Are you sure you want to delete this field definition? All data in this field will be lost."
+      "title": "Delete Attribute",
+      "message": "Are you sure you want to delete this attribute? All data in this field will be lost."
     },
     "table": {
       "order": "#"
@@ -2045,7 +2066,7 @@
       },
       "table": {
         "showTitle": "Show table title",
-        "hint": "TABLE field definitions store rows in a separate child table. Each row can have its own set of fields.",
+        "hint": "TABLE attributes store rows in a separate child table. Each row can have its own set of fields.",
         "minRows": "Min rows",
         "minRowsHelper": "Leave empty for no limit",
         "maxRows": "Max rows",
@@ -2055,9 +2076,9 @@
         "noRows": "No rows yet",
         "rowCount_one": "{{count}} row",
         "rowCount_other": "{{count}} rows",
-        "maxChildAttributes": "Max child field definitions",
-        "maxChildAttributesHelper": "Limit for child field definitions in this TABLE. Leave empty for no limit",
-        "maxChildAttributesReached": "Maximum {{max}} child field definitions reached"
+        "maxChildAttributes": "Max child attributes",
+        "maxChildAttributesHelper": "Limit for child attributes in this TABLE. Leave empty for no limit",
+        "maxChildAttributesReached": "Maximum {{max}} child attributes reached"
       }
     },
     "physicalType": {
@@ -2071,18 +2092,18 @@
       "system": "System"
     },
     "system": {
-      "title": "System Field Definitions",
-      "description": "Lifecycle and runtime infrastructure field definitions for this catalog",
-      "empty": "No system field definitions",
-      "emptyDescription": "This catalog has no configurable system field definitions.",
-      "hint": "System field definitions are provided by the platform. You can only enable or disable supported field definitions.",
+      "title": "System Attributes",
+      "description": "Lifecycle and runtime infrastructure attributes for this catalog",
+      "empty": "No system attributes",
+      "emptyDescription": "This catalog has no configurable system attributes.",
+      "hint": "System attributes are provided by the platform. You can only enable or disable supported attributes.",
       "status": "Status",
       "enabled": "Enabled",
       "disabled": "Disabled",
       "keyLabel": "System key",
       "managed": "Platform",
-      "enableSuccess": "System field definition enabled",
-      "disableSuccess": "System field definition disabled"
+      "enableSuccess": "System attribute enabled",
+      "disableSuccess": "System attribute disabled"
     },
     "presentation": {
       "headerAsCheckbox": "Display header as checkbox",
@@ -2118,9 +2139,9 @@
       "settingsReadOnly": "Type settings cannot be modified after creation"
     },
     "isRequiredLabel": "Required",
-    "isDisplayAttributeLabel": "Display field definition",
-    "isDisplayAttributeHelper": "Use this field definition as representation when referencing records of this catalog",
-    "isDisplayAttributeTooltip": "This field definition is the display representation for this catalog",
+    "isDisplayAttributeLabel": "Display attribute",
+    "isDisplayAttributeHelper": "Use this attribute as representation when referencing records of this catalog",
+    "isDisplayAttributeTooltip": "This attribute is the display representation for this catalog",
     "required": "Required",
     "nameEn": "Name (English)",
     "nameRu": "Name (Russian)",
@@ -2142,52 +2163,52 @@
       "targetConstantIdRequired": "Target fixed value is required for references to set",
       "targetConstantOnlyForSet": "Target fixed value can be selected only for references to set"
     },
-    "createError": "Failed to create field definition",
-    "updateError": "Failed to update field definition",
-    "deleteError": "Failed to delete field definition",
-    "deleteDisplayAttributeBlocked": "Display field definition cannot be deleted. Set another field definition as display first.",
-    "deleteBlockedBySettings": "Field definition deletion is disabled in metahub settings.",
-    "deleteLastDisplayAttributeBlocked": "Cannot delete the last display field definition while this setting is disabled.",
-    "moveSuccess": "Field definition order updated",
-    "moveError": "Failed to update field definition order",
-    "setRequiredSuccess": "Field definition marked as required",
-    "setOptionalSuccess": "Field definition marked as optional",
-    "toggleRequiredError": "Failed to update field definition",
-    "setDisplaySuccess": "Field definition set as display field",
-    "setDisplayError": "Failed to set display field definition",
-    "clearDisplaySuccess": "Display field definition flag cleared",
-    "clearDisplayError": "Failed to clear display field definition",
-    "childAttributes": "Child Field Definitions",
-    "noChildAttributes": "No child field definitions yet",
+    "createError": "Failed to create attribute",
+    "updateError": "Failed to update attribute",
+    "deleteError": "Failed to delete attribute",
+    "deleteDisplayAttributeBlocked": "Display attribute cannot be deleted. Set another attribute as display first.",
+    "deleteBlockedBySettings": "Attribute deletion is disabled in metahub settings.",
+    "deleteLastDisplayAttributeBlocked": "Cannot delete the last display attribute while this setting is disabled.",
+    "moveSuccess": "Attribute order updated",
+    "moveError": "Failed to update attribute order",
+    "setRequiredSuccess": "Attribute marked as required",
+    "setOptionalSuccess": "Attribute marked as optional",
+    "toggleRequiredError": "Failed to update attribute",
+    "setDisplaySuccess": "Attribute set as display attribute",
+    "setDisplayError": "Failed to set display attribute",
+    "clearDisplaySuccess": "Display attribute flag cleared",
+    "clearDisplayError": "Failed to clear display attribute",
+    "childAttributes": "Child Attributes",
+    "noChildAttributes": "No child attributes yet",
     "createChildDialog": {
-      "title": "Add Child Field Definition"
+      "title": "Add Child Attribute"
     },
     "editChildDialog": {
-      "title": "Edit Child Field Definition"
+      "title": "Edit Child Attribute"
     },
     "deleteChildDialog": {
-      "message": "Are you sure you want to delete this child field definition?"
+      "message": "Are you sure you want to delete this child attribute?"
     },
     "tableValidation": {
-      "maxTableAttributes": "Maximum {{max}} TABLE field definitions per catalog",
-      "maxChildAttributes": "Maximum {{max}} child field definitions per TABLE",
-      "nestedTableNotAllowed": "Nested TABLE field definitions are not allowed",
-      "tableCannotBeDisplay": "TABLE field definitions cannot be set as the display field definition"
+      "maxTableAttributes": "Maximum {{max}} TABLE attributes per catalog",
+      "maxChildAttributes": "Maximum {{max}} child attributes per TABLE",
+      "nestedTableNotAllowed": "Nested TABLE attributes are not allowed",
+      "tableCannotBeDisplay": "TABLE attributes cannot be set as the display attribute"
     },
-    "reorderSuccess": "Field definition order updated",
-    "reorderError": "Failed to reorder field definition",
+    "reorderSuccess": "Attribute order updated",
+    "reorderError": "Failed to reorder attribute",
     "dnd": {
       "dragHandle": "Drag to reorder",
       "codenameConflictTitle": "Codename conflict",
-      "codenameConflictDescription": "A field definition with codename \"{{codename}}\" already exists in the target list. Move with automatic codename rename?",
+      "codenameConflictDescription": "An attribute with codename \"{{codename}}\" already exists in the target list. Move with automatic codename rename?",
       "confirmMove": "Move",
-      "displayAttributeBlockedTitle": "Cannot move display field definition",
-      "displayAttributeBlockedDescription": "This field definition is the display field definition for its list. Assign another field definition as the display first, then try again.",
-      "tableCannotMoveTitle": "Cannot move TABLE field definition",
-      "tableCannotMoveDescription": "TABLE field definitions can only exist at the root level.",
-      "firstChildAttributeTitle": "First child field definition",
-      "firstChildAttributeDescription": "This will be the first field definition in the table. It will automatically become the display field definition and required. After that, it cannot be moved out until another field definition is set as the display.",
-      "tableChildLimitTitle": "Cannot move field definition"
+      "displayAttributeBlockedTitle": "Cannot move display attribute",
+      "displayAttributeBlockedDescription": "This attribute is the display attribute for its list. Assign another attribute as the display first, then try again.",
+      "tableCannotMoveTitle": "Cannot move TABLE attribute",
+      "tableCannotMoveDescription": "TABLE attributes can only exist at the root level.",
+      "firstChildAttributeTitle": "First child attribute",
+      "firstChildAttributeDescription": "This will be the first attribute in the table. It will automatically become the display attribute and required. After that, it cannot be moved out until another attribute is set as the display.",
+      "tableChildLimitTitle": "Cannot move attribute"
     }
   },
   "records": {
@@ -2195,8 +2216,8 @@
     "searchPlaceholder": "Search records...",
     "empty": "No records yet",
     "emptyDescription": "Add records to store data in this catalog",
-    "addAttributesFirst": "Add field definitions first to start creating records",
-    "noAttributes": "No field definitions configured. Add field definitions to enable record creation.",
+    "addAttributesFirst": "Add attributes first to start creating records",
+    "noAttributes": "No attributes configured. Add attributes to enable record creation.",
     "createDialog": {
       "title": "Add Record"
     },

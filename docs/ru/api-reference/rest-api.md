@@ -20,7 +20,7 @@ onboarding, applications, connectors, admin, public metahub и metahub design-ti
 
 ## Generic Entity Authoring Endpoints
 
-- `GET /metahub/{metahubId}/entity-types` и `POST /metahub/{metahubId}/entity-types` перечисляют и создают определения entity type для раздела Entity Types (в администрировании).
+- `GET /metahub/{metahubId}/entity-types` и `POST /metahub/{metahubId}/entity-types` перечисляют и создают определения entity type для рабочего пространства Entities и административного реестра типов сущностей.
 - `GET /metahub/{metahubId}/entity-type/{entityTypeId}`, `PATCH /metahub/{metahubId}/entity-type/{entityTypeId}` и `DELETE /metahub/{metahubId}/entity-type/{entityTypeId}` управляют одним entity type, включая его publication flag.
 - `GET /metahub/{metahubId}/entities`, `POST /metahub/{metahubId}/entities` и `POST /metahub/{metahubId}/entities/reorder` перечисляют, создают и переупорядочивают design-time instances для одного custom kind.
 - `GET /metahub/{metahubId}/entity/{entityId}`, `PATCH /metahub/{metahubId}/entity/{entityId}`, `DELETE /metahub/{metahubId}/entity/{entityId}`, `POST /metahub/{metahubId}/entity/{entityId}/restore`, `DELETE /metahub/{metahubId}/entity/{entityId}/permanent` и `POST /metahub/{metahubId}/entity/{entityId}/copy` управляют одним custom entity instance через generic route surface.
@@ -46,7 +46,7 @@ onboarding, applications, connectors, admin, public metahub и metahub design-ti
 
 ## Metahub Shared Authoring Endpoints
 
-- `GET /metahub/{metahubId}/shared-containers` разрешает виртуальные контейнеры рабочего пространства ресурсов, которые используются для общих определений полей, фиксированных значений и значений опций.
+- `GET /metahub/{metahubId}/shared-containers` разрешает виртуальные контейнеры рабочего пространства Resources, которые используются для общих атрибутов, констант и значений.
 - `GET /metahub/{metahubId}/shared-entity-overrides` перечисляет sparse overrides исключения или порядка для одной shared entity либо одного target object.
 - `PATCH /metahub/{metahubId}/shared-entity-overrides` выполняет fail-closed upsert overrides исключения, active-state или sort-order для shared entities.
 - `GET /metahub/{metahubId}/scripts` и `POST /metahub/{metahubId}/scripts` перечисляют и создают design-time scripts; authoring в рабочем пространстве ресурсов обязан сочетать `attachedToKind=general` с `moduleRole=library`.

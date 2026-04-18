@@ -1084,7 +1084,7 @@ describe('Entity instance routes', () => {
 
         const response = await request(app).delete('/metahub/metahub-1/entity/entity-1').expect(409)
 
-        expect(response.body.error).toBe('Cannot delete catalog: it is referenced by field definitions in other catalogs')
+        expect(response.body.error).toBe('Cannot delete catalog: it is referenced by attributes in other catalogs')
         expect(response.body.blockingReferences).toHaveLength(1)
         expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'deleteContent', mockDbSession)
         expect(mockObjectsService.delete).not.toHaveBeenCalled()
@@ -1356,7 +1356,7 @@ describe('Entity instance routes', () => {
 
         const response = await request(app).delete('/metahub/metahub-1/entity/entity-1/permanent').expect(409)
 
-        expect(response.body.error).toBe('Cannot delete enumeration: it is referenced by field definitions')
+        expect(response.body.error).toBe('Cannot delete enumeration: it is referenced by attributes')
         expect(response.body.blockingReferences).toHaveLength(1)
         expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'deleteContent', mockDbSession)
         expect(mockEnsureMetahubAccess).not.toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)

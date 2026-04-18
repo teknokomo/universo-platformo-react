@@ -20,7 +20,7 @@ applications, connectors, admin, public metahub, and metahub design-time APIs.
 
 ## Generic Entity Authoring Endpoints
 
-- `GET /metahub/{metahubId}/entity-types` and `POST /metahub/{metahubId}/entity-types` list and create entity type definitions for the Entity Types section (in admin).
+- `GET /metahub/{metahubId}/entity-types` and `POST /metahub/{metahubId}/entity-types` list and create entity type definitions for the Entities workspace and admin-managed entity-type registry.
 - `GET /metahub/{metahubId}/entity-type/{entityTypeId}`, `PATCH /metahub/{metahubId}/entity-type/{entityTypeId}`, and `DELETE /metahub/{metahubId}/entity-type/{entityTypeId}` manage one entity type, including its publication flag.
 - `GET /metahub/{metahubId}/entities`, `POST /metahub/{metahubId}/entities`, and `POST /metahub/{metahubId}/entities/reorder` list, create, and reorder design-time instances for one custom kind.
 - `GET /metahub/{metahubId}/entity/{entityId}`, `PATCH /metahub/{metahubId}/entity/{entityId}`, `DELETE /metahub/{metahubId}/entity/{entityId}`, `POST /metahub/{metahubId}/entity/{entityId}/restore`, `DELETE /metahub/{metahubId}/entity/{entityId}/permanent`, and `POST /metahub/{metahubId}/entity/{entityId}/copy` manage one custom entity instance through the generic route surface.
@@ -46,7 +46,7 @@ this section.
 
 ## Metahub Shared Authoring Endpoints
 
-- `GET /metahub/{metahubId}/shared-containers` resolves the virtual Common containers used for shared attributes, constants, and values.
+- `GET /metahub/{metahubId}/shared-containers` resolves the virtual Resources containers used for shared attributes, constants, and values.
 - `GET /metahub/{metahubId}/shared-entity-overrides` lists sparse exclusion or ordering overrides for one shared entity or one target object.
 - `PATCH /metahub/{metahubId}/shared-entity-overrides` upserts fail-closed exclusion, active-state, or sort-order overrides for shared entities.
 - `GET /metahub/{metahubId}/scripts` plus `POST /metahub/{metahubId}/scripts` list and create design-time scripts; Common authoring must pair `attachedToKind=general` with `moduleRole=library`.

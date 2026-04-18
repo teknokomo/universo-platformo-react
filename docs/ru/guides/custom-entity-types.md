@@ -2,72 +2,74 @@
 description: Практическое руководство по созданию и публикации пользовательских типов сущностей.
 ---
 
-# Custom Entity Types
+# Пользовательские типы сущностей
 
-Пользовательские типы сущностей позволяют metahub определять новые authoring и runtime sections поверх общего entity pipeline. Система сущностей является полностью универсальным конструктором — Хабы, Каталоги, Наборы и Перечисления являются шаблонами типов сущностей (entity type presets), определёнными в шаблонах метахабов, а не захардкоженными типами.
+Пользовательские типы сущностей позволяют расширять метахаб новыми разделами проектирования и runtime-поведения поверх общего entity-first контура. Сами Хабы, Каталоги, Наборы и Перечисления больше не являются отдельными захардкоженными модулями: это такие же шаблонные типы сущностей, которые поставляются шаблонами метахабов.
 
-## When To Use Them
+## Когда использовать
 
-- Используйте custom entity type, когда объект специфичен для metahub и не должен становиться новым фиксированным модулем платформы.
-- Используйте reusable preset, когда форма должна оставаться одинаковой между разными metahubs.
-- Используйте стандартные пресеты для Хабов, Каталогов, Наборов и Перечислений при создании известных типов ресурсов.
+- Используйте пользовательский тип сущности, когда объект специфичен для конкретного метахаба и не должен становиться новым фиксированным модулем платформы.
+- Используйте шаблон сущности, когда хотите переиспользовать одну и ту же форму и набор возможностей в нескольких метахабах.
+- Используйте стандартные пресеты Хабов, Каталогов, Наборов и Перечислений, когда нужен уже известный тип метаданных с готовым поведением.
 
-## Typical Flow
+## Типичный сценарий
 
-1. Откройте workspace Entities ниже Common.
-2. Начните с preset вроде Hubs, Catalogs, Sets, Enumerations или с пустого типа.
-3. Заполните kind key, codename, name и конфигурацию tabs.
-4. Включите только те components, которые соответствуют требуемому поведению.
-5. Сохраните тип, откройте страницу его instances и создайте первый экземпляр до перехода к automation tabs.
-6. В edit dialog последовательно настройте Scripts, затем Actions, затем Events для сохранённого экземпляра.
-7. Отмечайте тип как published только тогда, когда он должен стать runtime section.
+1. Откройте раздел `Сущности` в боковом меню метахаба.
+2. Создайте тип либо из готового пресета, либо с пустого шаблона.
+3. Заполните `kind key`, `codename`, имя, состав вкладок и названия вкладок раздела `Ресурсы`, если тип включает общие metadata-capabilities.
+4. Включите только те компоненты, которые действительно нужны этому типу.
+5. Сохраните тип, откройте страницу его экземпляров и создайте первый экземпляр до перехода к автоматизации.
+6. После первого сохранения настройте вкладки `Скрипты`, затем `Действия`, затем `События`.
+7. Отмечайте тип как опубликованный только тогда, когда он должен стать видимым в динамическом меню и runtime-секции.
 
-## Standard Presets
+## Стандартные пресеты
 
-- Хабы переиспользуют делегированную поверхность хабов, ownership вложенных entity routes и save-first automation tabs.
-- Каталоги переиспользуют общую authoring-поверхность каталогов и остаются runtime-visible контрольным случаем после publication sync.
-- Наборы сохраняют authoring фиксированных значений и automation на общих entity-owned routes.
-- Перечисления сохраняют authoring значений опций и action/event automation на общих entity-owned routes.
+- Хабы переиспользуют иерархический authoring-контур и поведение вложенных сущностей.
+- Каталоги переиспользуют authoring-поверхность атрибутов, записей, макетов и runtime-поведения.
+- Наборы переиспользуют authoring констант и общие automation hooks.
+- Перечисления переиспользуют authoring значений и hooks для действий и событий.
 
-## Current Component Set
+## Текущий набор компонентов
 
-- Data schema, predefined elements, hub assignment, constants и enumeration values покрывают текущую metadata surface.
-- Actions и event bindings добавляют object-owned automation hooks.
-- Layout, scripting, runtime behavior и physical table settings расширяют publication и runtime behavior.
-- Зависимости компонентов валидируются в builder, поэтому unsupported combinations должны оставаться выключенными.
+- `Data schema`, `records`, `tree assignment`, `fixed values` и `option values` покрывают текущий метаданный слой.
+- `Actions` и `event bindings` добавляют object-owned автоматизацию.
+- `Layout`, `scripting`, `runtime behavior` и `physical table` расширяют публикацию и runtime-контракт.
+- Зависимости между компонентами валидируются в builder-е, поэтому неподдерживаемые комбинации должны оставаться выключенными.
 
-## Automation Authoring
+## Настройка автоматизации
 
-1. Откройте сохранённый экземпляр в edit mode; до первого сохранения вкладки Actions и Events остаются недоступными.
-2. Во вкладке Scripts создайте или привяжите скрипт, который должен обрабатывать lifecycle behavior.
-3. Во вкладке Actions создайте object-owned action, выберите script action type и свяжите сохранённый скрипт.
-4. Во вкладке Events привяжите lifecycle event вроде beforeCreate, afterCreate, beforeUpdate или afterUpdate к action.
-5. Используйте priority и config только там, где потоку нужны порядок выполнения или дополнительные подсказки payload.
-6. Перед более широким rollout повторно прогоняйте focused browser proof или прямые тесты EntityAutomationTab.
+1. Откройте уже сохранённый экземпляр в режиме редактирования.
+2. Во вкладке `Скрипты` создайте или привяжите скрипт, который будет реализовывать нужную логику жизненного цикла.
+3. Во вкладке `Действия` создайте action, выберите тип `script` и свяжите его с нужным скриптом.
+4. Во вкладке `События` привяжите lifecycle event, например `beforeCreate`, `afterCreate`, `beforeUpdate` или `afterUpdate`, к нужному action.
+5. Используйте `priority` и `config` только там, где действительно требуется порядок выполнения или дополнительные параметры.
+6. Перед более широким rollout прогоняйте focused browser proof или прямые тесты `EntityAutomationTab`.
 
-## Guardrails
+## Ограничения и правила
 
-- Для parity-heavy flows предпочитайте presets вместо ручной сборки того же manifest.
-- Automation authoring на generic custom entity routes следует контракту manageMetahub; standard metadata presets переиспользуют соответствующую list/detail surface вместо второго generic CRUD shell.
-- Публикация влияет на dynamic menu и runtime только после publication sync или application sync.
-- Standard metadata presets остаются на прямых kind keys и публикуются через entity-owned route tree.
-- Runtime sections материализуются из published entity metadata и текущих runtime adapters после publication sync.
-- Generic instance routes теперь владеют всеми entity kinds, а standard metadata presets по-прежнему рендерятся через свои dedicated authoring surfaces внутри общего entity-owned route tree.
-- Advanced visual composition остаётся вне текущей parity wave.
+- Для сценариев, где важна полная паритетность поведения, лучше брать готовый пресет, а не собирать тот же manifest вручную.
+- Автоматизация на generic custom entity routes подчиняется permission-контракту `manageMetahub`.
+- Стандартные metadata-пресеты продолжают использовать свои специализированные authoring surfaces внутри общего entity-owned route tree.
+- Публикация влияет на динамическое меню и runtime только после publication sync или application sync.
+- Runtime-секции материализуются из опубликованных entity metadata и текущих runtime adapters.
+- Расширенная визуальная композиция остаётся вне текущей волны паритета.
 
-## Visual References
+## Визуальные примеры
 
 ![Create Entity Type dialog](../.gitbook/assets/entities/metahub-entities-create-dialog.png)
-Текущий browser proof и генерируемые screenshots используют общий entity workspace и dialog создания, показанный выше.
+Текущий browser proof и автоматически генерируемые скриншоты используют общее рабочее пространство сущностей и актуальный диалог создания.
 
-## Related References
+![Рабочее пространство ресурсов](../.gitbook/assets/entities/resources-workspace.png)
+Вкладки общих ресурсов теперь задаются конфигурацией типа сущности: catalog-compatible пресеты показывают `Атрибуты`, set-compatible пресеты показывают `Константы`, а enumeration-compatible пресеты показывают `Значения`.
 
-- Смотрите guide REST API для generic entity и automation endpoints.
-- Смотрите guide Metahub scripting для @OnEvent(...) handlers и script capabilities.
+## Что посмотреть дальше
 
-## Validation Checklist
+- Руководство по REST API для generic entity и automation endpoints.
+- Руководство по Metahub scripting для `@OnEvent(...)` и возможностей скриптов.
+
+## Чеклист проверки
 
 - Подтвердите, что тип сохраняется с ожидаемым component manifest.
-- Подтвердите, что страница custom instances открывается из dynamic menu.
-- Подтвердите, что publication sync материализует ожидаемые runtime sections из published entity metadata.
-- Подтвердите, что shipped path покрыт focused tests или browser flows до более широкого rollout.
+- Подтвердите, что страница экземпляров открывается из динамического меню.
+- Подтвердите, что publication sync материализует ожидаемые runtime sections из опубликованных entity metadata.
+- Подтвердите, что целевой shipped path покрыт focused tests или browser flows.

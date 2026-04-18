@@ -320,7 +320,7 @@ async function waitForRuntimeState(api: ApiContext, applicationId: string, catal
         .poll(async () => {
             runtimeState = (await getApplicationRuntime(api, applicationId, { catalogId })) as RuntimeState
             return typeof runtimeState?.catalog?.id === 'string' && Array.isArray(runtimeState?.columns)
-        })
+        }, { timeout: 60_000, message: `Waiting for runtime catalog ${catalogId} in application ${applicationId}` })
         .toBe(true)
 
     if (!runtimeState?.catalog?.id) {
@@ -403,9 +403,9 @@ async function createSharedLibraryScriptThroughBrowser(
     scriptCodename: string,
     sourceCode = SHARED_LIBRARY_SOURCE
 ) {
-    await page.goto(`/metahub/${metahubId}/common`)
-    await expect(page.getByRole('heading', { name: /Common|Shared/ })).toBeVisible()
-    await expect(page.getByTestId(pageSpacingSelectors.metahubCommonTabs)).toBeVisible()
+    await page.goto(`/metahub/${metahubId}/resources`)
+    await expect(page.getByRole('heading', { name: /Resources|Ресурсы/ })).toBeVisible()
+    await expect(page.getByTestId(pageSpacingSelectors.metahubResourcesTabs)).toBeVisible()
     await page.getByRole('tab', { name: 'Scripts', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Attached scripts' })).toBeVisible()
     await page.getByRole('button', { name: 'New', exact: true }).click()
@@ -475,9 +475,9 @@ async function createImportedWidgetScriptThroughBrowser(page: Page, metahubId: s
 }
 
 async function openCommonScriptsTab(page: Page, metahubId: string) {
-    await page.goto(`/metahub/${metahubId}/common`)
-    await expect(page.getByRole('heading', { name: /Common|Shared/ })).toBeVisible()
-    await expect(page.getByTestId(pageSpacingSelectors.metahubCommonTabs)).toBeVisible()
+    await page.goto(`/metahub/${metahubId}/resources`)
+    await expect(page.getByRole('heading', { name: /Resources|Ресурсы/ })).toBeVisible()
+    await expect(page.getByTestId(pageSpacingSelectors.metahubResourcesTabs)).toBeVisible()
     await page.getByRole('tab', { name: 'Scripts', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Attached scripts' })).toBeVisible()
 }
@@ -513,7 +513,7 @@ async function deleteSelectedScript(page: Page, metahubId: string) {
 
 async function configureQuizWidgetThroughBrowser(page: Page, api: ApiContext, metahubId: string, layoutId: string, scriptCodename: string) {
     await applyCenteredQuizLayout(api, metahubId, layoutId)
-    await page.goto(`/metahub/${metahubId}/common/layouts/${layoutId}`)
+    await page.goto(`/metahub/${metahubId}/resources/layouts/${layoutId}`)
 
     const centerZone = page.getByTestId(buildLayoutZoneSelector('center'))
     await expect(centerZone).toBeVisible()
@@ -605,9 +605,9 @@ test('@flow Common shared entities merge, exclusion, publication, and runtime st
             throw new Error('Default catalog name could not be resolved for shared Common coverage')
         }
 
-        await page.goto(`/metahub/${metahub.id}/common`)
-        await expect(page.getByRole('heading', { name: /Common|Shared/ })).toBeVisible()
-        await expect(page.getByTestId(pageSpacingSelectors.metahubCommonTabs)).toBeVisible()
+        await page.goto(`/metahub/${metahub.id}/resources`)
+        await expect(page.getByRole('heading', { name: /Resources|Ресурсы/ })).toBeVisible()
+        await expect(page.getByTestId(pageSpacingSelectors.metahubResourcesTabs)).toBeVisible()
         await expectEmbeddedCommonControlsAlignedEnd(page)
 
         await page.getByRole('tab', { name: 'Attributes', exact: true }).click()
@@ -726,17 +726,17 @@ test('@flow Common shared entities merge, exclusion, publication, and runtime st
         )
 
         await page.goto(`/metahub/${metahub.id}/entities/catalog/instance/${defaultCatalogId}/field-definitions`)
-        await expect(page.getByRole('heading', { name: 'Field Definitions' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Attributes' })).toBeVisible()
         await expect(page.getByText(sharedAttributeName, { exact: true })).toBeVisible()
         await expect(page.getByText('Shared', { exact: true }).first()).toBeVisible()
         await expect(page.getByTestId(buildEntityMenuTriggerSelector('attribute', createdAttribute.id))).toBeVisible()
 
         await page.goto(`/metahub/${metahub.id}/entities/catalog/instance/${excludedCatalog.id}/field-definitions`)
-        await expect(page.getByRole('heading', { name: 'Field Definitions' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Attributes' })).toBeVisible()
         await expect(page.getByText(sharedAttributeName, { exact: true })).toHaveCount(0)
 
         await page.goto(`/metahub/${metahub.id}/entities/set/instance/${setId}/fixed-values`)
-        await expect(page.getByRole('heading', { name: 'Fixed values' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Constants' })).toBeVisible()
         await expect(page.getByText(sharedConstantName, { exact: true })).toBeVisible()
         await expect(page.getByTestId(buildEntityMenuTriggerSelector('constant', createdConstant.id))).toBeVisible()
 
@@ -753,7 +753,7 @@ test('@flow Common shared entities merge, exclusion, publication, and runtime st
         await expect(page.getByRole('menuitem', { name: 'Деактивировать' })).toBeVisible()
         await expect(page.getByRole('menuitem', { name: 'Исключить' })).toBeVisible()
 
-        await page.goto(`/metahub/${metahub.id}/common`)
+        await page.goto(`/metahub/${metahub.id}/resources`)
         await expect(page.getByRole('tab', { name: 'Атрибуты', exact: true })).toBeVisible()
         await page.getByRole('tab', { name: 'Атрибуты', exact: true }).click()
         await page.getByTestId(buildEntityMenuTriggerSelector('attribute', createdAttribute.id)).click()

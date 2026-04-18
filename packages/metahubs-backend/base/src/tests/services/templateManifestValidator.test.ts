@@ -1,4 +1,5 @@
 import { basicTemplate } from '../../domains/templates/data/basic.template'
+import { emptyTemplate } from '../../domains/templates/data/empty.template'
 import { catalogEntityPreset } from '../../domains/templates/data/linked-collection.entity-preset'
 import { enumerationEntityPreset } from '../../domains/templates/data/option-list.entity-preset'
 import { hubEntityPreset } from '../../domains/templates/data/tree-entity.entity-preset'
@@ -12,6 +13,10 @@ describe('TemplateManifestValidator', () => {
         expect(() => validateTemplateManifest(cloneTemplate(basicTemplate))).not.toThrow()
     })
 
+    it('accepts the built-in empty template', () => {
+        expect(() => validateTemplateManifest(cloneTemplate(emptyTemplate))).not.toThrow()
+    })
+
     it('accepts the built-in catalog entity preset', () => {
         expect(() => validateEntityTypePresetManifest(cloneTemplate(catalogEntityPreset))).not.toThrow()
     })
@@ -20,6 +25,37 @@ describe('TemplateManifestValidator', () => {
         expect(() => validateEntityTypePresetManifest(cloneTemplate(hubEntityPreset))).not.toThrow()
         expect(() => validateEntityTypePresetManifest(cloneTemplate(setEntityPreset))).not.toThrow()
         expect(() => validateEntityTypePresetManifest(cloneTemplate(enumerationEntityPreset))).not.toThrow()
+    })
+
+    it('keeps standard resource surface definitions aligned with component capabilities', () => {
+        const catalogManifest = cloneTemplate(catalogEntityPreset)
+        const setManifest = cloneTemplate(setEntityPreset)
+        const enumerationManifest = cloneTemplate(enumerationEntityPreset)
+
+        expect(catalogManifest.entityType.ui.resourceSurfaces).toEqual([
+            expect.objectContaining({
+                key: 'fieldDefinitions',
+                capability: 'dataSchema',
+                routeSegment: 'field-definitions',
+                fallbackTitle: 'Attributes'
+            })
+        ])
+        expect(setManifest.entityType.ui.resourceSurfaces).toEqual([
+            expect.objectContaining({
+                key: 'fixedValues',
+                capability: 'fixedValues',
+                routeSegment: 'fixed-values',
+                fallbackTitle: 'Constants'
+            })
+        ])
+        expect(enumerationManifest.entityType.ui.resourceSurfaces).toEqual([
+            expect.objectContaining({
+                key: 'optionValues',
+                capability: 'optionValues',
+                routeSegment: 'values',
+                fallbackTitle: 'Values'
+            })
+        ])
     })
 
     it('keeps the standard preset automation uplift enabled for hub, set, and enumeration entity presets', () => {
@@ -92,5 +128,47 @@ describe('TemplateManifestValidator', () => {
         manifest.entityType.components.actions = false
 
         expect(() => validateEntityTypePresetManifest(manifest)).toThrow(/actions/i)
+    })
+
+    it('accepts custom resource surface keys when the capability contract stays valid', () => {
+        const manifest = cloneTemplate(catalogEntityPreset)
+        manifest.entityType.ui.resourceSurfaces = [
+            {
+                key: 'attributes',
+                capability: 'dataSchema',
+                routeSegment: 'attributes',
+                fallbackTitle: 'Attributes'
+            }
+        ]
+
+        expect(() => validateEntityTypePresetManifest(manifest)).not.toThrow()
+    })
+
+    it('rejects resource surfaces that target disabled capabilities', () => {
+        const manifest = cloneTemplate(catalogEntityPreset)
+        manifest.entityType.components.dataSchema = false
+
+        expect(() => validateEntityTypePresetManifest(manifest)).toThrow(/requires the matching entity component/i)
+    })
+
+    it('rejects duplicate resource surface route segments in entity presets', () => {
+        const manifest = cloneTemplate(catalogEntityPreset)
+        manifest.entityType.components.optionValues = { enabled: true }
+        manifest.entityType.ui.resourceSurfaces = [
+            {
+                key: 'attributes',
+                capability: 'dataSchema',
+                routeSegment: 'shared-tab',
+                fallbackTitle: 'Attributes'
+            },
+            {
+                key: 'values',
+                capability: 'optionValues',
+                routeSegment: 'shared-tab',
+                fallbackTitle: 'Values'
+            }
+        ]
+
+        expect(() => validateEntityTypePresetManifest(manifest)).toThrow(/Duplicate resource surface routeSegment/i)
     })
 })
