@@ -1,58 +1,77 @@
 ---
-description: Архитектурный обзор entity-first системы.
+description: Архитектурный обзор entity-first системы метахабов.
 ---
 
 # Архитектура Entity Systems
 
-Entity system предоставляет унифицированную модель для всех структурированных данных внутри метахаба. Каждый элемент контента — будь то хаб, каталог, набор или перечисление — представлен как **entity instance**, принадлежащий **entity type**. Система является полностью универсальным конструктором сущностей; Хабы, Каталоги, Наборы и Перечисления — это **шаблоны типов сущностей** (entity type presets), определённые в шаблонах метахабов, а не захардкоженные типы.
+Теперь метахабы используют единый entity-first конструктор и для платформенных пресетов, и для пользовательских типов метаданных. Хабы, Каталоги, Наборы и Перечисления больше не являются отдельными захардкоженными модулями продукта. Это встроенные пресеты типов сущностей, которые поставляются шаблонами метахабов и материализуются в том же реестре типов сущностей, что и пользовательские типы.
 
-## Основные концепции
+## Основные слои
 
-### Entity Types
+### Типы сущностей
 
-Entity types определяют форму и поведение экземпляров. Выделяют две категории:
+Тип сущности определяет:
 
-- **Standard presets**: Шаблоны типов сущностей, создаваемые шаблонами метахабов. К ним относятся `hub`, `catalog`, `set` и `enumeration`. Каждый пресет имеет специализированные UI и backend behavior, зарегистрированные через behavior service registry. Они не являются захардкоженными — система сущностей это универсальный конструктор, который обрабатывает все виды единообразно.
-- **Custom entity types**: Пользовательские типы, создаваемые через UI управления Entity Types (в разделе администрирования). Custom types используют generic entity instance CRUD и могут иметь кастомные component manifests.
+- свой `kindKey`
+- локализованные presentation- и codename-метаданные
+- component manifest, который включает schema, records, fixed values, option values, scripts, layouts, runtime behavior и другие возможности
+- UI-настройки: иконку, размещение в боковом меню, вкладки authoring-а и метаданные resource surfaces
 
-### Behavior Service Registry
+Платформенные пресеты и пользовательские типы проходят через одно и то же хранилище и один и тот же контур валидации.
 
-Behavior registry сопоставляет kind keys со специализированными сервисами и UI-компонентами. При загрузке entity instance система находит его kind key и делегирует соответствующим:
-- Backend controller handlers (CRUD, reorder, copy, delete with blocking references)
-- Frontend list components (HubList, CatalogList, SetList, EnumerationList)
-- Delete dialogs (TreeDeleteDialog, BlockingEntitiesDeleteDialog)
+### Экземпляры сущностей
 
-### Template Presets
+Каждый design-time объект внутри метахаба является entity instance, привязанным к одному типу сущности. CRUD, reorder, copy, delete, publication и runtime sync работают через общие entity-контракты, а behavior registry подключает специализированные сценарии только там, где они действительно нужны для платформенных пресетов.
 
-Templates определяют, какие standard kinds доступны при создании метахаба. Каждый пресет может включаться/выключаться при создании. Когда пресет включён:
-1. Создаётся строка entity type для данного standard kind
-2. Создаётся экземпляр по умолчанию с локализованным именем
-3. Инициализируются child metadata structures (field definitions, fixed values и т.д.)
+### Resource Surfaces
 
-### Child Resources (Metadata)
+Рабочее пространство Resources больше не хардкодит названия вкладок метаданных. Типы сущностей описывают resource surfaces через `ui.resourceSurfaces`, где стабильный ключ и route segment связываются с одной совместимой capability:
 
-Entity instances могут владеть child metadata:
-- **Field definitions**: Поля схемы, определяющие структуру записей (ранее "attributes")
-- **Fixed values**: Предопределённые значения внутри набора (ранее "constants")
-- **Records**: Записи данных внутри каталога (ранее "elements")
-- **Option values**: Выбираемые значения внутри перечисления (ранее "enumeration values")
+- `dataSchema` для атрибутов
+- `fixedValues` для констант
+- `optionValues` для значений
 
-## Структура маршрутов
+Страница shared Resources отображает только те capabilities, которые реально где-то включены в метахабе, но название, стабильный ключ и route segment теперь берутся из контракта типа сущности, а не из page-level string mapping.
 
-Все операции с entity проходят через entity-owned routes:
-- `/entities/:kindKey/instance/:instanceId` — детали экземпляра
-- `/entities/:kindKey/instance/:instanceId/field-definitions` — вкладка field definitions
-- `/entities/:kindKey/instance/:instanceId/fixed-values` — вкладка fixed values
-- `/entities/:kindKey/instance/:instanceId/records` — вкладка records
+### Шаблоны и пресеты
 
-## Соответствие Standard Kind
+Встроенные шаблоны определяют, какие optional presets будут созданы при создании метахаба:
 
-| Kind Key | Display Name | Container | Child Metadata |
-|----------|-------------|-----------|----------------|
-| `hub` | Хаб (Hub) | — (top-level tree) | Каталоги |
-| `catalog` | Каталог (Catalog) | Хаб | Field definitions, Records |
-| `set` | Набор (Set) | — (standalone) | Fixed values |
-| `enumeration` | Перечисление (Enumeration) | — (standalone) | Option values |
+- `basic`: минимальное authoring-ready рабочее пространство
+- `basic-demo`: демонстрационный стартовый шаблон с seed-контентом
+- `empty`: без optional presets; пользователь начинает с рабочего пространства Entities и создаёт типы вручную
+
+Каждый пресет может создавать:
+
+- одно определение типа сущности
+- необязательные default instances
+- shared metadata defaults
+- layouts и widgets
+
+## Runtime и поведенческий слой
+
+Behavior registry по-прежнему важен, но это уже слой специализации, а не модель владения. Runtime- и design-time-маршруты сначала разрешают тип сущности, а затем делегируют специализированным обработчикам только те kind-ы, которым действительно нужно preset-specific поведение. Generic custom types остаются внутри общего entity CRUD и publication pipeline.
+
+## Форма маршрутов
+
+Ключевые design-time маршруты:
+
+- `/metahub/{metahubId}/entity-types`
+- `/metahub/{metahubId}/entity-type/{entityTypeId}`
+- `/metahub/{metahubId}/entities`
+- `/metahub/{metahubId}/entity/{entityId}`
+- `/metahub/{metahubId}/shared-containers`
+- `/metahub/{metahubId}/shared-entity-overrides`
+
+Рабочее пространство Resources использует shared containers для layouts, attributes, constants, values и shared scripts. Страницы экземпляров сущностей используют ту же capability-модель, но работают уже с одним конкретным объектом.
+
+## Правила безопасности
+
+- Ключи типов сущностей и codename-ы остаются уникальными в пределах одной схемы метахаба.
+- Resource surfaces должны иметь уникальные ключи и уникальные совместимые capabilities.
+- Resource surface отклоняется, если соответствующий компонент выключен.
+- Delete-потоки fail closed, если ещё существуют зависимые экземпляры.
+- Shared authoring хранит sparse override rows вместо разрушительного дублирования shared metadata.
 
 ## Что читать дальше
 

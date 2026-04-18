@@ -63,6 +63,15 @@ const presetManifest = {
             tabs: ['general', 'hubs', 'layout', 'scripts'],
             sidebarSection: 'objects' as const,
             sidebarOrder: 20,
+            resourceSurfaces: [
+                {
+                    key: 'fieldDefinitions',
+                    capability: 'dataSchema',
+                    routeSegment: 'field-definitions',
+                    titleKey: 'metahubs:fieldDefinitions.resourceTabTitle',
+                    fallbackTitle: 'Attributes'
+                }
+            ],
             nameKey: 'metahubs:catalogs.title',
             descriptionKey: 'Standard catalog preset'
         },
@@ -128,6 +137,15 @@ describe('entityTypePreset helpers', () => {
             customTabsInput: '',
             sidebarSection: 'objects',
             sidebarOrder: 20,
+            resourceSurfaces: [
+                {
+                    key: 'fieldDefinitions',
+                    capability: 'dataSchema',
+                    routeSegment: 'field-definitions',
+                    titleKey: 'metahubs:fieldDefinitions.resourceTabTitle',
+                    fallbackTitle: 'Attributes'
+                }
+            ],
             codenameTouched: false,
             published: true
         })

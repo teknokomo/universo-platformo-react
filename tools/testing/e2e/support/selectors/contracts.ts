@@ -58,7 +58,6 @@ export const metahubMigrationsSelectors = {
 } as const
 
 export const pageSpacingSelectors = {
-    metahubCommonTabs: 'metahub-common-tabs',
     metahubResourcesTabs: 'metahub-shared-resources-tabs',
     metahubResourcesContent: 'metahub-shared-resources-content',
     metahubSettingsTabs: 'metahub-settings-tabs',

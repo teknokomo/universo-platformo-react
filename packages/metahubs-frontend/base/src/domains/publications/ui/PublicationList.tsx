@@ -614,9 +614,7 @@ const PublicationList = () => {
                     const translate = baseContext.t
                     const confirmed = await confirm({
                         title: spec.titleKey ? translate(spec.titleKey, spec.interpolate) : spec.title,
-                        description: spec.descriptionKey
-                            ? translate(spec.descriptionKey, spec.interpolate)
-                            : spec.description,
+                        description: spec.descriptionKey ? translate(spec.descriptionKey, spec.interpolate) : spec.description,
                         confirmButtonName: spec.confirmKey
                             ? translate(spec.confirmKey)
                             : spec.confirmButtonName || translate('confirm.delete.confirm'),

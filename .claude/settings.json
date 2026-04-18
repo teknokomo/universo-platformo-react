@@ -15,6 +15,10 @@
       "Bash(pnpm test *)",
       "Bash(pnpm install *)",
       "Bash(pnpm playwright *)"
+    ],
+    "deny": [
+      "Read(.env*)",
+      "Bash(rm -rf:*)"
     ]
   },
   "plansDirectory": "./memory-bank/plan",

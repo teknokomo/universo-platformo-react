@@ -46,11 +46,11 @@ export const OptionListDeleteDialog = ({
             ),
             blockingWarning: t(
                 'enumerations.deleteDialog.hasBlockingReferences',
-                'Cannot delete enumeration. Remove these references from field definitions first:'
+                'Cannot delete enumeration. Remove these references from attributes first:'
             ),
             resolutionHint: t(
                 'enumerations.deleteDialog.resolutionHint',
-                'Open the source catalogs and update or remove the reference field definitions.'
+                'Open the source catalogs and update or remove the reference attributes.'
             ),
             fetchError: t('enumerations.deleteDialog.fetchBlockingError', 'Failed to check for blocking references'),
             cancelButton: t('common:actions.cancel', 'Cancel'),
@@ -78,7 +78,7 @@ export const OptionListDeleteDialog = ({
             },
             {
                 id: 'attribute',
-                label: t('enumerations.deleteDialog.blockingTable.attribute', 'Field definition'),
+                label: t('enumerations.deleteDialog.blockingTable.attribute', 'Attribute'),
                 render: (row) => (
                     <Typography sx={{ fontSize: 14, color: 'text.secondary', wordBreak: 'break-word' }}>
                         {row.attributeDisplayName}

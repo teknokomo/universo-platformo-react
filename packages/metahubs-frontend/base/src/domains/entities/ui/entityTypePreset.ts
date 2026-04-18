@@ -51,6 +51,7 @@ export const buildEntityTypePresetFormPatch = (
         customTabsInput: '',
         sidebarSection: manifest.entityType.ui.sidebarSection,
         sidebarOrder: manifest.entityType.ui.sidebarOrder ?? '',
+        resourceSurfaces: manifest.entityType.ui.resourceSurfaces ? [...manifest.entityType.ui.resourceSurfaces] : [],
         components: normalizePresetComponents(manifest.entityType.components),
         presentationText: stringifyJson(manifest.entityType.presentation ?? {}),
         configText: stringifyJson(manifest.entityType.config ?? {}),

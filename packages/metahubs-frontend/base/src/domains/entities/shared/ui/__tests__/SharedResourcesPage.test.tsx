@@ -13,7 +13,7 @@ const mockFixedValueListContent = vi.fn()
 const mockSelectableOptionListContent = vi.fn()
 const mockEntityScriptsTab = vi.fn()
 const mockUseSharedContainerIds = vi.fn()
-const mockUseEntityTypesQuery = vi.fn()
+const mockUseAllEntityTypesQuery = vi.fn()
 
 vi.mock('@universo/template-mui', () => ({
     TemplateMainCard: ({ children }: { children: ReactNode }) => <div data-testid='shared-resources-main-card'>{children}</div>,
@@ -65,7 +65,7 @@ vi.mock('../../../../shared/hooks/useSharedContainerIds', () => ({
 }))
 
 vi.mock('../../../hooks/queries', () => ({
-    useEntityTypesQuery: (metahubId: string | undefined, params?: Record<string, unknown>) => mockUseEntityTypesQuery(metahubId, params)
+    useAllEntityTypesQuery: (metahubId: string | undefined) => mockUseAllEntityTypesQuery(metahubId)
 }))
 
 import '../../../../../i18n'
@@ -95,7 +95,7 @@ describe('SharedResourcesPage', () => {
             isLoading: false,
             error: null
         })
-        mockUseEntityTypesQuery.mockReturnValue({
+        mockUseAllEntityTypesQuery.mockReturnValue({
             data: STANDARD_ENTITY_TYPES,
             isLoading: false,
             error: null
@@ -119,9 +119,9 @@ describe('SharedResourcesPage', () => {
         expect(screen.getByTestId('shared-resources-main-card')).toBeInTheDocument()
         expect(screen.getByRole('heading', { name: 'Ресурсы' })).toBeInTheDocument()
         expect(screen.getByRole('tab', { name: 'Макеты' })).toHaveAttribute('aria-selected', 'true')
-        expect(screen.getByRole('tab', { name: 'Определения полей' })).toBeInTheDocument()
-        expect(screen.getByRole('tab', { name: 'Фиксированные значения' })).toBeInTheDocument()
-        expect(screen.getByRole('tab', { name: 'Значения перечислений' })).toBeInTheDocument()
+        expect(screen.getByRole('tab', { name: 'Атрибуты' })).toBeInTheDocument()
+        expect(screen.getByRole('tab', { name: 'Константы' })).toBeInTheDocument()
+        expect(screen.getByRole('tab', { name: 'Значения' })).toBeInTheDocument()
         expect(screen.getByRole('tab', { name: 'Скрипты' })).toBeInTheDocument()
         expect(screen.getByTestId('metahub-shared-resources-content')).toBeInTheDocument()
         expect(screen.getByTestId('shared-resources-layouts-content')).toBeInTheDocument()
@@ -140,8 +140,9 @@ describe('SharedResourcesPage', () => {
         )
 
         expect(mockUseSharedContainerIds).toHaveBeenCalledWith('metahub-1')
+        expect(mockUseAllEntityTypesQuery).toHaveBeenCalledWith('metahub-1')
 
-        await user.click(screen.getByRole('tab', { name: 'Определения полей' }))
+        await user.click(screen.getByRole('tab', { name: 'Атрибуты' }))
 
         expect(screen.getByTestId('shared-resources-field-definitions-content')).toBeInTheDocument()
         expect(mockFieldDefinitionListContent).toHaveBeenCalledWith(
@@ -157,7 +158,7 @@ describe('SharedResourcesPage', () => {
             })
         )
 
-        await user.click(screen.getByRole('tab', { name: 'Фиксированные значения' }))
+        await user.click(screen.getByRole('tab', { name: 'Константы' }))
 
         expect(screen.getByTestId('shared-resources-fixed-values-content')).toBeInTheDocument()
         expect(mockFixedValueListContent).toHaveBeenCalledWith(
@@ -171,7 +172,7 @@ describe('SharedResourcesPage', () => {
             })
         )
 
-        await user.click(screen.getByRole('tab', { name: 'Значения перечислений' }))
+        await user.click(screen.getByRole('tab', { name: 'Значения' }))
 
         expect(screen.getByTestId('shared-resources-option-values-content')).toBeInTheDocument()
         expect(mockSelectableOptionListContent).toHaveBeenCalledWith(
@@ -201,7 +202,7 @@ describe('SharedResourcesPage', () => {
     })
 
     it('hides shared tabs when no entity types have the corresponding component enabled', async () => {
-        mockUseEntityTypesQuery.mockReturnValue({
+        mockUseAllEntityTypesQuery.mockReturnValue({
             data: {
                 items: [{ kindKey: 'hub', components: { dataSchema: false, fixedValues: false, optionValues: false } }],
                 pagination: { limit: 100, offset: 0, count: 1, total: 1, hasMore: false }
@@ -222,8 +223,100 @@ describe('SharedResourcesPage', () => {
 
         expect(screen.getByRole('tab', { name: 'Макеты' })).toBeInTheDocument()
         expect(screen.getByRole('tab', { name: 'Скрипты' })).toBeInTheDocument()
-        expect(screen.queryByRole('tab', { name: 'Определения полей' })).not.toBeInTheDocument()
-        expect(screen.queryByRole('tab', { name: 'Фиксированные значения' })).not.toBeInTheDocument()
-        expect(screen.queryByRole('tab', { name: 'Значения перечислений' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('tab', { name: 'Атрибуты' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('tab', { name: 'Константы' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('tab', { name: 'Значения' })).not.toBeInTheDocument()
+    })
+
+    it('resolves shared tab labels by capability even when entity types use custom resource-surface keys', async () => {
+        mockUseAllEntityTypesQuery.mockReturnValue({
+            data: {
+                items: [
+                    {
+                        kindKey: 'custom-knowledge',
+                        components: { dataSchema: { enabled: true }, fixedValues: false, optionValues: false },
+                        ui: {
+                            resourceSurfaces: [
+                                {
+                                    key: 'attributes',
+                                    capability: 'dataSchema',
+                                    routeSegment: 'attributes',
+                                    fallbackTitle: 'Свойства'
+                                }
+                            ]
+                        }
+                    }
+                ],
+                pagination: { limit: 100, offset: 0, count: 1, total: 1, hasMore: false }
+            },
+            isLoading: false,
+            error: null
+        })
+
+        render(
+            <I18nextProvider i18n={i18n}>
+                <MemoryRouter initialEntries={['/metahub/metahub-1/resources']}>
+                    <Routes>
+                        <Route path='/metahub/:metahubId/resources' element={<SharedResourcesPage />} />
+                    </Routes>
+                </MemoryRouter>
+            </I18nextProvider>
+        )
+
+        expect(screen.getByRole('tab', { name: 'Свойства' })).toBeInTheDocument()
+    })
+
+    it('falls back to the canonical shared label when compatible entity types disagree on the title', async () => {
+        mockUseAllEntityTypesQuery.mockReturnValue({
+            data: {
+                items: [
+                    {
+                        kindKey: 'custom-alpha',
+                        components: { dataSchema: { enabled: true }, fixedValues: false, optionValues: false },
+                        ui: {
+                            resourceSurfaces: [
+                                {
+                                    key: 'alpha-attributes',
+                                    capability: 'dataSchema',
+                                    routeSegment: 'alpha-attributes',
+                                    fallbackTitle: 'Свойства'
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        kindKey: 'custom-beta',
+                        components: { dataSchema: { enabled: true }, fixedValues: false, optionValues: false },
+                        ui: {
+                            resourceSurfaces: [
+                                {
+                                    key: 'beta-attributes',
+                                    capability: 'dataSchema',
+                                    routeSegment: 'beta-attributes',
+                                    fallbackTitle: 'Поля'
+                                }
+                            ]
+                        }
+                    }
+                ],
+                pagination: { limit: 1000, offset: 0, count: 2, total: 2, hasMore: false }
+            },
+            isLoading: false,
+            error: null
+        })
+
+        render(
+            <I18nextProvider i18n={i18n}>
+                <MemoryRouter initialEntries={['/metahub/metahub-1/resources']}>
+                    <Routes>
+                        <Route path='/metahub/:metahubId/resources' element={<SharedResourcesPage />} />
+                    </Routes>
+                </MemoryRouter>
+            </I18nextProvider>
+        )
+
+        expect(screen.getByRole('tab', { name: 'Атрибуты' })).toBeInTheDocument()
+        expect(screen.queryByRole('tab', { name: 'Свойства' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('tab', { name: 'Поля' })).not.toBeInTheDocument()
     })
 })

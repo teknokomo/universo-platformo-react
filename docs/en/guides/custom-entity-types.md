@@ -14,9 +14,9 @@ Custom entity types let a metahub define new authoring and runtime sections on t
 
 ## Typical Flow
 
-1. Open the Entities workspace below Common.
+1. Open the Entities workspace from the metahub sidebar.
 2. Start from a preset such as Hubs, Catalogs, Sets, Enumerations, or from an empty type.
-3. Fill the kind key, codename, name, and tab configuration.
+3. Fill the kind key, codename, name, tab configuration, and resource-tab titles when the type exposes shared Resources capabilities.
 4. Enable only the components that match the intended behavior.
 5. Save the type, open its instances page, and create the first instance before opening automation tabs.
 6. Use the edit dialog to configure Scripts, then Actions, then Events for the saved instance.
@@ -59,6 +59,9 @@ Custom entity types let a metahub define new authoring and runtime sections on t
 
 ![Create Entity Type dialog](../.gitbook/assets/entities/metahub-entities-create-dialog.png)
 The current browser proof and generated screenshots use the shared entity workspace and the create dialog shown above.
+
+![Resources workspace](../.gitbook/assets/entities/resources-workspace.png)
+Shared resource tabs now use entity-type configuration, so catalog-compatible presets expose Attributes, set-compatible presets expose Constants, and enumeration-compatible presets expose Values.
 
 ## Related References
 

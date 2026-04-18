@@ -7,10 +7,12 @@ description: Как использовать рабочее пространст
 Страница Resources является реальной точкой входа для настройки layout, reusable metadata resources и shared library scripts внутри metahub.
 Живая навигация теперь ведёт прямо на `/resources`, поэтому активный контракт больше не зависит от legacy Common или surface `/layouts`.
 
+![Рабочее пространство ресурсов](../.gitbook/assets/entities/resources-workspace.png)
+
 ## Что находится здесь
 
 - shared layouts, которые формируют reusable runtime-композицию;
-- общие пулы field definitions, fixed values и option values, которые могут наследоваться совместимыми entity types;
+- общие пулы атрибутов, констант и значений, которые могут наследоваться совместимыми entity types;
 - навигация к entity-specific layout и sparse overrides;
 - скрипты resources/library, которые отдают переиспользуемые helper-ы через `@shared/<codename>`;
 - общее view behavior, которое должно жить рядом с настройкой layout, а не в отдельных admin settings.
@@ -19,12 +21,12 @@ description: Как использовать рабочее пространст
 
 1. Откройте metahub.
 2. Используйте элемент боковой панели Resources.
-3. Переключайтесь между вкладками Layouts, Field Definitions, Fixed Values, Option Values и Scripts в зависимости от нужного общего asset.
+3. Переключайтесь между вкладками Layouts, Attributes, Constants, Values и Scripts в зависимости от нужного общего asset.
 4. Откройте target entity и перейдите на его собственный route, когда нужно проверить merged inherited rows или entity-specific layout behavior.
 
 ## Поток работы с общими ресурсами
 
-1. Создавайте общие field definitions, fixed values или option values на соответствующей вкладке Resources.
+1. Создавайте общие атрибуты, константы или значения на соответствующей вкладке Resources.
 2. Используйте вкладки Presentation и Exclusions в диалоге, когда нужны behavior locks или target-specific exclusions.
 3. Откройте target entity, чтобы проверить merged inherited rows и read-only action gating.
 4. Публикуйте и синхронизируйте linked application, когда runtime должен materialize общие rows.

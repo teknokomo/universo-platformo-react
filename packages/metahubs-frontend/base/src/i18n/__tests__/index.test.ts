@@ -15,6 +15,6 @@ describe('metahubs i18n consolidation', () => {
             fieldDefinitions?: { title?: string }
         }
 
-        expect(translations.fieldDefinitions?.title).toBe('Определения полей')
+        expect(translations.fieldDefinitions?.title).toBe('Атрибуты')
     })
 })

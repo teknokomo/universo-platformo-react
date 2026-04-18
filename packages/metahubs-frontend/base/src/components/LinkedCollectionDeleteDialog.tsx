@@ -53,7 +53,7 @@ export const LinkedCollectionDeleteDialog = ({
             ),
             resolutionHint: t(
                 'catalogs.deleteDialog.resolutionHint',
-                'Open the source catalogs from the table and remove or reconfigure reference field definitions.'
+                'Open the source catalogs from the table and remove or reconfigure reference attributes.'
             ),
             fetchError: t('catalogs.deleteDialog.fetchBlockingError', 'Failed to check for blocking references'),
             cancelButton: t('common:actions.cancel', 'Cancel'),
@@ -81,7 +81,7 @@ export const LinkedCollectionDeleteDialog = ({
             },
             {
                 id: 'attribute',
-                label: t('catalogs.deleteDialog.blockingTable.attribute', 'Field definition'),
+                label: t('catalogs.deleteDialog.blockingTable.attribute', 'Attribute'),
                 render: (row) => (
                     <Typography sx={{ fontSize: 14, color: 'text.secondary', wordBreak: 'break-word' }}>
                         {row.attributeDisplayName}

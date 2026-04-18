@@ -136,7 +136,7 @@ const mhbObjects: SystemTableDef = {
 
 const mhbAttributes: SystemTableDef = {
     name: '_mhb_attributes',
-    description: 'Field definitions for objects',
+    description: 'Attributes for objects',
     columns: [
         { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
         { name: 'object_id', type: 'uuid', nullable: false },
@@ -228,7 +228,7 @@ const mhbAttributesV2: SystemTableDef = {
 
 const mhbEnumerationValues: SystemTableDef = {
     name: '_mhb_values',
-    description: 'Option values for objects with kind=enumeration',
+    description: 'Values for objects with kind=enumeration',
     columns: [
         { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
         { name: 'object_id', type: 'uuid', nullable: false },

@@ -70,11 +70,10 @@ tags:
     description: Entity action definition and execution endpoints.
   - name: Event Bindings
     description: Entity event-binding endpoints for design-time automation wiring.
-  - name: Field Definitions
-    description: Field-definition CRUD, move, display, reorder, and child management
-      endpoints.
-  - name: Fixed Values
-    description: Fixed-value CRUD, reorder, move, and copy endpoints.
+  - name: Attributes
+    description: Attribute CRUD, move, display, reorder, and child management endpoints.
+  - name: Constants
+    description: Constant CRUD, reorder, move, and copy endpoints.
   - name: Records
     description: Record CRUD, reorder, move, and copy endpoints.
   - name: Layouts
@@ -5910,14 +5909,14 @@ paths:
   /metahub/{metahubId}/entities/{kindKey}/instance/{treeEntityId}/instance/{valueGroupId}/fixed-value-codenames:
     get:
       tags:
-        - Fixed Values
+        - Constants
       summary: GET
         /metahub/{metahubId}/entities/{kindKey}/instance/{treeEntityId}/instance/{valueGroupId}/fixed-value-codenames
       description: Auto-generated from
         packages/metahubs-backend/base/src/domains/entities/metadata/fixedValue/routes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
-      operationId: Fixed_Values_get_metahub_metahubId_entities_kindKey_instance_treeEntityId_instance_valueGroupId_fixed_value_codenames
+      operationId: Constants_get_metahub_metahubId_entities_kindKey_instance_treeEntityId_instance_valueGroupId_fixed_value_codenames
       parameters:
         - name: metahubId
           in: path
@@ -6121,14 +6120,14 @@ paths:
   /metahub/{metahubId}/entities/{kindKey}/instance/{valueGroupId}/fixed-value-codenames:
     get:
       tags:
-        - Fixed Values
+        - Constants
       summary: GET
         /metahub/{metahubId}/entities/{kindKey}/instance/{valueGroupId}/fixed-value-codenames
       description: Auto-generated from
         packages/metahubs-backend/base/src/domains/entities/metadata/fixedValue/routes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
-      operationId: Fixed_Values_get_metahub_metahubId_entities_kindKey_instance_valueGroupId_fixed_value_codenames
+      operationId: Constants_get_metahub_metahubId_entities_kindKey_instance_valueGroupId_fixed_value_codenames
       parameters:
         - name: metahubId
           in: path

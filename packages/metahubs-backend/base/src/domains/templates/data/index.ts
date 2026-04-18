@@ -1,6 +1,7 @@
 import type { EntityTypePresetManifest, MetahubTemplateManifest, TemplateDefinitionManifest, TemplateDefinitionType } from '@universo/types'
 import { basicTemplate } from './basic.template'
 import { basicDemoTemplate } from './basic-demo.template'
+import { emptyTemplate } from './empty.template'
 import { catalogEntityPreset } from './linked-collection.entity-preset'
 import { fixedValuesLibraryEntityPreset } from './fixed-values-library.entity-preset'
 import { enumerationEntityPreset } from './option-list.entity-preset'
@@ -11,7 +12,7 @@ import { setEntityPreset } from './value-group.entity-preset'
  * Registry of all built-in template manifests.
  * Add new templates here — the platform migration seeder will process them.
  */
-export const builtinTemplates: MetahubTemplateManifest[] = [basicTemplate, basicDemoTemplate]
+export const builtinTemplates: MetahubTemplateManifest[] = [basicTemplate, basicDemoTemplate, emptyTemplate]
 
 export const builtinEntityTypePresets: EntityTypePresetManifest[] = [
     hubEntityPreset,

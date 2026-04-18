@@ -203,7 +203,18 @@ const entityTypeUiSchema = z.object({
     sidebarSection: z.enum(['objects', 'admin']),
     sidebarOrder: z.number().int().min(0).optional(),
     nameKey: z.string().min(1),
-    descriptionKey: z.string().min(1).optional()
+    descriptionKey: z.string().min(1).optional(),
+    resourceSurfaces: z
+        .array(
+            z.object({
+                key: z.string().min(1).max(64),
+                capability: z.enum(['dataSchema', 'fixedValues', 'optionValues']),
+                routeSegment: z.string().min(1).max(64),
+                titleKey: z.string().min(1).optional(),
+                fallbackTitle: z.string().min(1)
+            })
+        )
+        .optional()
 })
 
 const baseTemplateManifestSchema = z.object({
@@ -526,6 +537,64 @@ export const entityTypePresetManifestSchema = entityTypePresetManifestSchemaBase
             path: ['entityType', 'components', index],
             message: error
         })
+    }
+
+    const resourceSurfaceKeyPattern = /^[a-z][a-zA-Z0-9._-]{0,63}$/
+    const resourceSurfaceRoutePattern = /^[a-z][a-z0-9-]{0,63}$/
+    const seenResourceSurfaceKeys = new Set<string>()
+    const seenResourceSurfaceCapabilities = new Set<string>()
+    const seenResourceSurfaceRouteSegments = new Set<string>()
+    for (const [index, surface] of (manifest.entityType.ui.resourceSurfaces ?? []).entries()) {
+        if (!resourceSurfaceKeyPattern.test(surface.key)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['entityType', 'ui', 'resourceSurfaces', index, 'key'],
+                message: `Resource surface key must start with a letter and use only letters, digits, dots, underscores, or hyphens: ${surface.key}`
+            })
+        }
+
+        if (seenResourceSurfaceKeys.has(surface.key)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['entityType', 'ui', 'resourceSurfaces', index, 'key'],
+                message: `Duplicate resource surface key: ${surface.key}`
+            })
+        }
+        seenResourceSurfaceKeys.add(surface.key)
+
+        if (seenResourceSurfaceCapabilities.has(surface.capability)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['entityType', 'ui', 'resourceSurfaces', index, 'capability'],
+                message: `Duplicate resource surface capability: ${surface.capability}`
+            })
+        }
+        seenResourceSurfaceCapabilities.add(surface.capability)
+
+        if (!resourceSurfaceRoutePattern.test(surface.routeSegment)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['entityType', 'ui', 'resourceSurfaces', index, 'routeSegment'],
+                message: `Resource surface routeSegment must be lowercase kebab-case: ${surface.routeSegment}`
+            })
+        }
+
+        if (seenResourceSurfaceRouteSegments.has(surface.routeSegment)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['entityType', 'ui', 'resourceSurfaces', index, 'routeSegment'],
+                message: `Duplicate resource surface routeSegment: ${surface.routeSegment}`
+            })
+        }
+        seenResourceSurfaceRouteSegments.add(surface.routeSegment)
+
+        if (manifest.entityType.components[surface.capability] === false) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['entityType', 'ui', 'resourceSurfaces', index, 'capability'],
+                message: `Resource surface capability ${surface.capability} requires the matching entity component to be enabled`
+            })
+        }
     }
 
     const defaultInstanceCodenameSet = new Set<string>()

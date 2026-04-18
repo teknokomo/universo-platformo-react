@@ -53,7 +53,7 @@
         "hubs": "Хабы",
         "catalogs": "Каталоги",
         "sets": "Наборы",
-        "fixedValues": "Фиксированные значения",
+        "fixedValues": "Константы",
         "enumerations": "Перечисления",
         "layouts": "Макеты",
         "menus": "Меню",

@@ -42,6 +42,8 @@ The cross-cutting authoring entrypoint now lives on the dedicated resources work
 Shared layouts stay centralized, reusable metadata pools stay reusable, and resources scripts keep the shared `@shared/<codename>` import contract.
 This keeps metahub authoring separate from admin dialogs and from application-control-panel dialogs.
 
+![Resources workspace](../.gitbook/assets/entities/resources-workspace.png)
+
 ## How Metahubs Feed Runtime
 
 1. Author the structure, shared layouts, reusable metadata resources, and scripts in the metahub.

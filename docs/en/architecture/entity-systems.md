@@ -1,58 +1,77 @@
 ---
-description: Architecture overview of the entity-first system.
+description: Architecture overview of the entity-first metahub system.
 ---
 
 # Entity Systems Architecture
 
-The entity system provides a unified model for all structured data within a metahub. Every piece of content—whether it is a hub, catalog, set, or enumeration—is represented as an **entity instance** that belongs to an **entity type**. The system is a fully generic entity constructor; Hubs, Catalogs, Sets, and Enumerations are **entity type presets** defined in metahub templates, not hardcoded types.
+Metahubs now use one entity-first constructor for both platform presets and user-defined metadata types. Hubs, Catalogs, Sets, and Enumerations are not hardcoded product modules anymore. They are built-in entity-type presets shipped by metahub templates and materialized into the same entity-type registry as custom types.
 
-## Core Concepts
+## Core Layers
 
 ### Entity Types
 
-Entity types define the shape and behavior of instances. There are two categories:
+An entity type defines:
 
-- **Standard presets**: Entity type presets seeded by metahub templates. These include `hub`, `catalog`, `set`, and `enumeration`. Each preset has specialized UI and backend behavior registered through the behavior service registry. They are not hardcoded—the entity system is a generic constructor that treats all kinds uniformly.
-- **Custom entity types**: User-defined types created through the Entity Types management UI (in the admin section). Custom types use the generic entity instance CRUD and can have custom component manifests.
+- its `kindKey`
+- localized presentation and codename metadata
+- the component manifest that enables schema, records, fixed values, option values, scripts, layouts, runtime behavior, and other capabilities
+- UI settings such as icon, sidebar placement, authoring tabs, and resource-surface metadata
 
-### Behavior Service Registry
+Platform presets and custom types use the same storage table and the same validation path.
 
-The behavior registry maps kind keys to specialized services and UI components. When an entity instance is loaded, the system looks up its kind key and delegates to the appropriate:
-- Backend controller handlers (CRUD, reorder, copy, delete with blocking references)
-- Frontend list components (HubList, CatalogList, SetList, EnumerationList)
-- Delete dialogs (TreeDeleteDialog, BlockingEntitiesDeleteDialog)
+### Entity Instances
 
-### Template Presets
+Every design-time object inside a metahub is an entity instance linked to one entity type. Instance CRUD, ordering, copy, delete, publication, and runtime sync all work through generic entity contracts, while the behavior registry can attach specialized flows for platform presets where needed.
 
-Templates define which standard kinds are available when creating a metahub. Each preset can be toggled on/off during creation. When a preset is enabled:
-1. An entity type row is created for that standard kind
-2. A default instance is seeded with a localized name
-3. Child metadata structures are initialized (field definitions, fixed values, etc.)
+### Resource Surfaces
 
-### Child Resources (Metadata)
+The Resources workspace no longer hardcodes the visible metadata tab titles. Entity types describe resource surfaces through `ui.resourceSurfaces`, which binds a stable key and route segment to one compatible capability:
 
-Entity instances can own child metadata:
-- **Field definitions**: Schema fields that define the structure of records (formerly "attributes")
-- **Fixed values**: Predefined values within a set (formerly "constants")
-- **Records**: Data entries within a catalog (formerly "elements")
-- **Option values**: Selectable values within an enumeration (formerly "enumeration values")
+- `dataSchema` for attributes
+- `fixedValues` for constants
+- `optionValues` for values
 
-## Route Structure
+The shared Resources page renders only capabilities that are actually enabled somewhere in the metahub, but the title, stable key, and route segment come from the entity-type contract instead of page-level string maps.
 
-All entity operations go through entity-owned routes:
-- `/entities/:kindKey/instance/:instanceId` — instance detail
-- `/entities/:kindKey/instance/:instanceId/field-definitions` — field definitions tab
-- `/entities/:kindKey/instance/:instanceId/fixed-values` — fixed values tab
-- `/entities/:kindKey/instance/:instanceId/records` — records tab
+### Templates And Presets
 
-## Standard Kind Mapping
+Built-in templates define which optional presets are seeded during metahub creation:
 
-| Kind Key | Display Name | Container | Child Metadata |
-|----------|-------------|-----------|----------------|
-| `hub` | Hub | — (top-level tree) | Catalogs |
-| `catalog` | Catalog | Hub | Field definitions, Records |
-| `set` | Set | — (standalone) | Fixed values |
-| `enumeration` | Enumeration | — (standalone) | Option values |
+- `basic`: minimal authoring-ready workspace
+- `basic-demo`: demo-heavy starter with sample seeded content
+- `empty`: no optional entity-type presets; the user starts from the Entities workspace and creates types manually
+
+Each preset can seed:
+
+- one entity-type definition
+- optional default instances
+- shared metadata defaults
+- layouts and widgets
+
+## Runtime And Behavior
+
+The behavior registry still matters, but it is a specialization layer, not the ownership model. Runtime and design-time routes first resolve the entity type and then delegate to specialized handlers only when that kind needs preset-specific behavior. Generic custom types stay inside the shared entity CRUD and publication pipeline.
+
+## Route Shape
+
+Important design-time routes include:
+
+- `/metahub/{metahubId}/entity-types`
+- `/metahub/{metahubId}/entity-type/{entityTypeId}`
+- `/metahub/{metahubId}/entities`
+- `/metahub/{metahubId}/entity/{entityId}`
+- `/metahub/{metahubId}/shared-containers`
+- `/metahub/{metahubId}/shared-entity-overrides`
+
+The Resources workspace uses shared containers for layouts, attributes, constants, values, and shared scripts. Entity-instance pages use the same capability model but operate on one concrete object.
+
+## Safety Rules
+
+- Entity-type keys and codenames stay unique inside one metahub schema.
+- Resource surfaces must use unique keys and unique compatible capabilities.
+- A resource surface is rejected when its matching component is disabled.
+- Delete flows fail closed when dependent instances still exist.
+- Shared authoring keeps sparse override rows instead of destructive duplication of shared metadata.
 
 ## Related Reading
 

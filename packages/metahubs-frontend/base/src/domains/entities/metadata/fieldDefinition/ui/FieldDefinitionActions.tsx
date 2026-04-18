@@ -349,7 +349,7 @@ const attributeActions: readonly ActionDescriptor<FieldDefinitionDisplay, FieldD
                 return {
                     open: true,
                     mode: 'edit' as const,
-                    title: ctx.t('fieldDefinitions.editDialog.title', 'Edit Attribute'),
+                    title: ctx.t('fieldDefinitions.editDialog.title', 'Edit Field Definition'),
                     nameLabel: ctx.t('common:fields.name'),
                     descriptionLabel: ctx.t('common:fields.description'),
                     saveButtonText: ctx.t('common:actions.save'),

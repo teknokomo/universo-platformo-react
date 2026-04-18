@@ -46,12 +46,9 @@ export const ValueGroupDeleteDialog = ({
             ),
             blockingWarning: t(
                 'sets.deleteDialog.hasBlockingReferences',
-                'Cannot delete set. Remove these references from catalog field definitions first:'
+                'Cannot delete set. Remove these references from catalog attributes first:'
             ),
-            resolutionHint: t(
-                'sets.deleteDialog.resolutionHint',
-                'Open source catalogs from the table and adjust the listed field definitions.'
-            ),
+            resolutionHint: t('sets.deleteDialog.resolutionHint', 'Open source catalogs from the table and adjust the listed attributes.'),
             fetchError: t('sets.deleteDialog.fetchBlockingError', 'Failed to check for blocking references'),
             cancelButton: t('common:actions.cancel', 'Cancel'),
             deleteButton: t('common:actions.delete', 'Delete'),
@@ -78,7 +75,7 @@ export const ValueGroupDeleteDialog = ({
             },
             {
                 id: 'attribute',
-                label: t('sets.deleteDialog.blockingTable.attribute', 'Field definition'),
+                label: t('sets.deleteDialog.blockingTable.attribute', 'Attribute'),
                 render: (row) => (
                     <Typography sx={{ fontSize: 14, color: 'text.secondary', wordBreak: 'break-word' }}>
                         {row.attributeDisplayName}

@@ -1,12 +1,41 @@
 import { useQuery } from '@tanstack/react-query'
 
-import { metahubsQueryKeys } from '../../shared'
+import { fetchAllPaginatedItems, metahubsQueryKeys } from '../../shared'
 import * as entitiesApi from '../api'
 
 export const useEntityTypesQuery = (metahubId?: string, params?: entitiesApi.EntityTypeListParams) => {
     return useQuery({
         queryKey: metahubId ? metahubsQueryKeys.entityTypesList(metahubId, params) : ['metahubs', 'entityTypes', 'empty'],
         queryFn: () => entitiesApi.listEntityTypes(metahubId!, params),
+        enabled: Boolean(metahubId),
+        staleTime: 60 * 1000
+    })
+}
+
+const allEntityTypesListParams = {
+    limit: 1000,
+    sortBy: 'codename' as const,
+    sortOrder: 'asc' as const
+}
+
+export const useAllEntityTypesQuery = (metahubId?: string) => {
+    return useQuery({
+        queryKey: metahubId
+            ? metahubsQueryKeys.entityTypesList(metahubId, {
+                  ...allEntityTypesListParams,
+                  offset: 0
+              })
+            : ['metahubs', 'entityTypes', 'all', 'empty'],
+        queryFn: async () => {
+            if (!metahubId) {
+                return {
+                    items: [],
+                    pagination: { limit: allEntityTypesListParams.limit, offset: 0, count: 0, total: 0, hasMore: false }
+                }
+            }
+
+            return fetchAllPaginatedItems((params) => entitiesApi.listEntityTypes(metahubId, params), allEntityTypesListParams)
+        },
         enabled: Boolean(metahubId),
         staleTime: 60 * 1000
     })

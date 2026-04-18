@@ -2,7 +2,7 @@
  * Public Metahubs Routes Tests
  *
  * Tests for the public API that exposes published metahubs without authentication.
- * Hierarchy: Metahub → Hub → Catalog → Field Definitions/Records
+ * Hierarchy: Metahub → Hub → Catalog → Attributes/Records
  */
 
 const mockFindPublicMetahubBySlug = jest.fn()

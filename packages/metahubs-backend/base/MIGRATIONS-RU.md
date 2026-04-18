@@ -89,6 +89,6 @@ Publication-driven application creation пересекает эту границ
 
 ## Реестр шаблонов и create options
 
-Встроенный template registry по-прежнему поставляет `basic` и `basic-demo`.
+Встроенный template registry поставляет `basic`, `basic-demo` и `empty`.
 При создании metahub `createOptions` всё ещё могут предварительно сидировать сущности hub, catalog, set и enumeration по умолчанию, тогда как создание branch и базового layout остаётся обязательным.
 Смотрите на этот файл как на локальную карту текущего гибридного состояния: fixed design-time system app, загружаемый из manual snapshot-equivalent baseline, и поверх него branch/runtime и application migration-control flows.

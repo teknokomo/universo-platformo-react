@@ -79,6 +79,7 @@ import { createEntityTypesRoutes } from '../../domains/entities/routes/entityTyp
 import { createActionsRoutes } from '../../domains/entities/routes/actionsRoutes'
 import { createEventBindingsRoutes } from '../../domains/entities/routes/eventBindingsRoutes'
 import { MetahubConflictError } from '../../domains/shared/domainErrors'
+import createError from 'http-errors'
 
 describe('Entity ECAE routes', () => {
     const ensureAuth = (_req: Request, _res: Response, next: NextFunction) => next()
@@ -218,6 +219,113 @@ describe('Entity ECAE routes', () => {
         expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
     })
 
+    it('returns 403 when a read-only metahub member attempts to create an entity type', async () => {
+        mockEnsureMetahubAccess.mockRejectedValueOnce(createError(403, 'Access denied to this metahub'))
+        const app = buildApp()
+
+        const response = await request(app)
+            .post('/metahub/metahub-1/entity-types')
+            .send({
+                kindKey: 'custom-order',
+                codename: 'custom-order',
+                components: { dataSchema: { enabled: true } },
+                ui: { iconName: 'IconBolt', tabs: ['general'], sidebarSection: 'objects', nameKey: 'Custom Order' }
+            })
+            .expect(403)
+
+        expect(response.body.error).toBe('Access denied to this metahub')
+        expect(mockEntityTypeService.createType).not.toHaveBeenCalled()
+    })
+
+    it('forwards custom resource surface metadata through the guarded create route', async () => {
+        const app = buildApp()
+
+        await request(app)
+            .post('/metahub/metahub-1/entity-types')
+            .send({
+                kindKey: 'custom-knowledge',
+                codename: 'custom-knowledge',
+                components: {
+                    dataSchema: { enabled: true },
+                    records: false,
+                    treeAssignment: false,
+                    optionValues: false,
+                    fixedValues: false,
+                    hierarchy: false,
+                    nestedCollections: false,
+                    relations: false,
+                    actions: { enabled: true },
+                    events: { enabled: true },
+                    scripting: false,
+                    layoutConfig: false,
+                    runtimeBehavior: false,
+                    physicalTable: false
+                },
+                ui: {
+                    iconName: 'IconBook',
+                    tabs: ['general'],
+                    sidebarSection: 'objects',
+                    nameKey: 'Knowledge',
+                    resourceSurfaces: [
+                        {
+                            key: 'attributes',
+                            capability: 'dataSchema',
+                            routeSegment: 'attributes',
+                            fallbackTitle: 'Attributes'
+                        }
+                    ]
+                }
+            })
+            .expect(201)
+
+        expect(mockEntityTypeService.createType).toHaveBeenCalledWith(
+            'metahub-1',
+            expect.objectContaining({
+                ui: expect.objectContaining({
+                    resourceSurfaces: [
+                        expect.objectContaining({
+                            key: 'attributes',
+                            capability: 'dataSchema',
+                            routeSegment: 'attributes',
+                            fallbackTitle: 'Attributes'
+                        })
+                    ]
+                })
+            }),
+            'user-1'
+        )
+    })
+
+    it('rejects malformed resource surface payloads before the service layer', async () => {
+        const app = buildApp()
+
+        const response = await request(app)
+            .post('/metahub/metahub-1/entity-types')
+            .send({
+                kindKey: 'custom-order',
+                codename: 'custom-order',
+                components: { dataSchema: { enabled: true } },
+                ui: {
+                    iconName: 'IconBolt',
+                    tabs: ['general'],
+                    sidebarSection: 'objects',
+                    nameKey: 'Custom Order',
+                    resourceSurfaces: [
+                        {
+                            key: '',
+                            capability: 'dataSchema',
+                            routeSegment: 'attributes',
+                            fallbackTitle: 'Attributes'
+                        }
+                    ]
+                }
+            })
+            .expect(400)
+
+        expect(response.body.error).toBe('Invalid input')
+        expect(mockEntityTypeService.createType).not.toHaveBeenCalled()
+    })
+
     it('returns 409 when creating a custom entity type with a duplicate codename', async () => {
         mockEntityTypeService.createType.mockRejectedValueOnce(
             new MetahubConflictError('Entity type codename already exists', {
@@ -256,6 +364,19 @@ describe('Entity ECAE routes', () => {
         )
     })
 
+    it('returns 403 when a read-only metahub member attempts to update an entity type', async () => {
+        mockEnsureMetahubAccess.mockRejectedValueOnce(createError(403, 'Access denied to this metahub'))
+        const app = buildApp()
+
+        const response = await request(app)
+            .patch('/metahub/metahub-1/entity-type/entity-type-1')
+            .send({ published: false, expectedVersion: 2 })
+            .expect(403)
+
+        expect(response.body.error).toBe('Access denied to this metahub')
+        expect(mockEntityTypeService.updateType).not.toHaveBeenCalled()
+    })
+
     it('returns 404 when a custom entity type is missing', async () => {
         const app = buildApp()
 
@@ -278,6 +399,16 @@ describe('Entity ECAE routes', () => {
 
         expect(response.body.error).toBe('Entity type cannot be deleted while dependent entity instances still exist')
         expect(response.body.dependentObjects).toBe(2)
+    })
+
+    it('returns 403 when a read-only metahub member attempts to delete an entity type', async () => {
+        mockEnsureMetahubAccess.mockRejectedValueOnce(createError(403, 'Access denied to this metahub'))
+        const app = buildApp()
+
+        const response = await request(app).delete('/metahub/metahub-1/entity-type/entity-type-1').expect(403)
+
+        expect(response.body.error).toBe('Access denied to this metahub')
+        expect(mockEntityTypeService.deleteType).not.toHaveBeenCalled()
     })
 
     it('lists actions for an object', async () => {

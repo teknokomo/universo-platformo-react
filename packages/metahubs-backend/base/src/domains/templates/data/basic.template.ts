@@ -44,7 +44,7 @@ export { T0 }
  * Build minimal seed zone widgets for the basic template.
  * Only essential widgets: menuWidget (left), appNavbar + header (top), detailsTitle + detailsTable (center).
  */
-function buildBasicMinimalSeedZoneWidgets(): TemplateSeedZoneWidget[] {
+export function buildBasicMinimalSeedZoneWidgets(): TemplateSeedZoneWidget[] {
     return [
         {
             zone: 'left',

@@ -121,6 +121,25 @@ const mockTemplatesList = [
         }
     },
     {
+        id: 'template-empty',
+        codename: 'empty',
+        definitionType: 'metahub_template',
+        name: createVlc('Empty template', 'Пустой шаблон'),
+        description: createVlc(
+            'Blank metahub template without predefined metadata entity types',
+            'Пустой шаблон метахаба без заранее созданных типов метаданных'
+        ),
+        icon: 'Dashboard',
+        isSystem: true,
+        sortOrder: 3,
+        activeVersion: {
+            id: 'template-empty-v1',
+            versionNumber: 1,
+            versionLabel: '0.1.0',
+            changelog: 'Blank starter template'
+        }
+    },
+    {
         id: 'template-entity-catalog',
         codename: 'catalog',
         definitionType: 'entity_type_preset',
@@ -128,7 +147,7 @@ const mockTemplatesList = [
         description: createVlc('Standard catalog preset', 'Стандартный пресет каталога'),
         icon: 'IconDatabase',
         isSystem: true,
-        sortOrder: 2,
+        sortOrder: 4,
         activeVersion: {
             id: 'template-entity-catalog-v1',
             versionNumber: 1,

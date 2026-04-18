@@ -23,7 +23,7 @@ They let one shared source stay central while selected targets opt out of inheri
 
 ## Related Reading
 
-- [Shared Field Definitions](shared-field-definitions.md)
-- [Shared Fixed Values](shared-fixed-values.md)
-- [Shared Option Values](shared-option-values.md)
+- [Shared Attributes](shared-field-definitions.md)
+- [Shared Constants](shared-fixed-values.md)
+- [Shared Values](shared-option-values.md)
 - [Shared Behavior Settings](shared-behavior-settings.md)

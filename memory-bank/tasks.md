@@ -6,6 +6,43 @@
 
 ## Current Task Ledger (Canonical)
 
+## Active: Metahub Final QA Debt Elimination (2026-04-18)
+
+> Goal: eliminate the remaining post-QA residual debt in the metahub rollout by aligning the last terminology artifacts, removing frontend test-only lint noise through package-scoped lint policy, and revalidating the shipped workspace.
+
+- [x] Remove the remaining legacy metadata terminology from rest-docs, shared comments, and shared menu labels that still surface the old wording
+- [x] Eliminate the metahubs-frontend test-only lint warning debt with a package-scoped ESLint override consistent with the neighboring frontend package pattern
+- [x] Re-run targeted lint/tests plus canonical root build and confirm the final state in memory-bank files
+
+## Active: Metahub Terminology And QA Closure Completion (2026-04-18)
+
+> Goal: remove the last user-facing terminology drift and validation gaps left after the final QA pass so the metahub entity/resources rollout is closed without residual scope debt in the touched surfaces.
+
+- [x] Normalize remaining user-facing metahub terminology from legacy "field definitions" wording to "attributes" where the shipped UI still exposes the old copy
+- [x] Align Playwright docs generators and browser assertions with the shipped attribute terminology
+- [x] Update supporting system descriptions and memory-bank status files to reflect the final terminology cleanup
+- [x] Re-run targeted validation for touched frontend/e2e paths and the canonical workspace build
+
+## Active: Metahub Resource Surfaces Final QA Closure (2026-04-18)
+
+> Goal: remove the last terminology, pagination, and browser-coverage debt after the QA follow-up so the metahub resource-surface rollout is actually complete.
+
+- [x] Replace the `Resources` entity-type label lookup hard limit with full pagination through the shared fetch-all helper
+- [x] Remove stale legacy `general.tabs` labels from EN/RU metahub i18n so no old resource terminology remains reusable
+- [x] Rewrite the remaining RU metahub resource docs pages that still mix Russian with English implementation jargon
+- [x] Add a browser-level ACL regression that proves read-only metahub members cannot create entity types from the Entities workspace
+- [x] Re-run targeted frontend/backend/e2e/lint validation and update memory-bank status files
+
+## Active: Metahub Resource Surfaces QA Closure (2026-04-18)
+
+> Goal: close the remaining QA gaps for entity-driven Resources, documentation, and test coverage without regressing the shipped metahub/application flows.
+
+- [x] Harden backend/template validation so `resourceSurfaces.routeSegment` stays unique and fail-closed outside the builder UI
+- [x] Make shared `Resources` tab label resolution deterministic across multiple compatible entity types and stable beyond the previous low list limit
+- [x] Add explicit permission-regression coverage for forbidden entity-type CRUD mutations plus the new backend route-segment validation
+- [x] Rewrite the remaining mixed-language RU entity-type guide so the docs phase is actually complete
+- [x] Re-run targeted backend/frontend/e2e validation, then update memory-bank status files
+
 ## Active: PR #767 Review Comment Triage (2026-04-18)
 
 > Goal: audit bot review comments in PR #767, implement only validated safe fixes, re-run targeted verification, and push the resulting changes to the same PR branch.

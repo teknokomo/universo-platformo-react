@@ -53,7 +53,7 @@
         "hubs": "Hubs",
         "catalogs": "Catalogs",
         "sets": "Sets",
-        "fixedValues": "Fixed Values",
+        "fixedValues": "Constants",
         "enumerations": "Enumerations",
         "layouts": "Layouts",
         "menus": "Menus",

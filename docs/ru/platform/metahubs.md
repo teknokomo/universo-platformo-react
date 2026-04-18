@@ -42,6 +42,8 @@ description: Объясняет, чем владеют metahubs, как устр
 Shared layouts остаются централизованными, reusable metadata pools остаются переиспользуемыми, а resources scripts сохраняют shared-контракт импортов `@shared/<codename>`.
 Это сохраняет разделение между настройкой в metahub, admin dialogs и dialogs панели управления application.
 
+![Рабочее пространство ресурсов](../.gitbook/assets/entities/resources-workspace.png)
+
 ## Как metahubs питают runtime
 
 1. Создайте структуру, shared layouts, reusable metadata resources и scripts в metahub.
