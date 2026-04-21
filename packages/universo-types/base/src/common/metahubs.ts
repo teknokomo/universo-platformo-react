@@ -789,6 +789,10 @@ export const DASHBOARD_LAYOUT_WIDGETS = [
     { key: 'detailsTable', allowedZones: ['center'] as const, multiInstance: false },
     { key: 'columnsContainer', allowedZones: ['center'] as const, multiInstance: true },
     { key: 'quizWidget', allowedZones: ['center', 'right'] as const, multiInstance: true },
+    // LMS widgets
+    { key: 'moduleViewerWidget', allowedZones: ['center'] as const, multiInstance: false },
+    { key: 'statsViewerWidget', allowedZones: ['center', 'right'] as const, multiInstance: false },
+    { key: 'qrCodeWidget', allowedZones: ['center', 'right'] as const, multiInstance: true },
     // Right zone widgets
     { key: 'detailsSidePanel', allowedZones: ['right'] as const, multiInstance: false },
     { key: 'productTree', allowedZones: ['center', 'right'] as const, multiInstance: false },
@@ -873,10 +877,37 @@ export interface QuizWidgetConfig {
     description?: string
     scriptCodename?: string | null
     attachedToKind?: ScriptAttachmentKind
+    quizId?: string | null
     mountMethodName?: string
     submitMethodName?: string
     emptyStateTitle?: string
     emptyStateDescription?: string
+    sharedBehavior?: SharedBehavior
+}
+
+export interface ModuleViewerWidgetConfig {
+    scriptCodename?: string | null
+    attachedToKind?: ScriptAttachmentKind
+    mountMethodName?: string
+    emptyStateTitle?: string
+    emptyStateDescription?: string
+    sharedBehavior?: SharedBehavior
+}
+
+export interface StatsViewerWidgetConfig {
+    scriptCodename?: string | null
+    attachedToKind?: ScriptAttachmentKind
+    mountMethodName?: string
+    emptyStateTitle?: string
+    emptyStateDescription?: string
+    sharedBehavior?: SharedBehavior
+}
+
+export interface QRCodeWidgetConfig {
+    url?: string
+    publicLinkSlug?: string
+    size?: number
+    title?: string
     sharedBehavior?: SharedBehavior
 }
 

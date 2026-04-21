@@ -599,6 +599,7 @@ export class SnapshotRestoreService {
                     .withSchema(this.schemaName)
                     .into('_mhb_values')
                     .insert({
+                        id: typeof value.id === 'string' && value.id.length > 0 ? value.id : undefined,
                         object_id: newEntityId,
                         codename: ensureCodenameValue(value.codename),
                         presentation: value.presentation ?? { name: {}, description: {} },
@@ -643,6 +644,7 @@ export class SnapshotRestoreService {
                     .withSchema(this.schemaName)
                     .into('_mhb_elements')
                     .insert({
+                        id: typeof element.id === 'string' && element.id.length > 0 ? element.id : undefined,
                         object_id: newEntityId,
                         data: element.data ?? {},
                         sort_order: element.sortOrder ?? 0,

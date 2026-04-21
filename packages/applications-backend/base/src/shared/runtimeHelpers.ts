@@ -6,6 +6,7 @@ import type { Request, Response } from 'express'
 import type { ApplicationRole, RolePermission } from '../routes/guards'
 import { ensureApplicationAccess, ROLE_PERMISSIONS } from '../routes/guards'
 import { findApplicationSchemaInfo } from '../persistence/applicationsStore'
+import type { RuntimeWorkspaceAccess } from '../services/applicationWorkspaces'
 import { resolveRuntimeWorkspaceAccess, setRuntimeWorkspaceContext } from '../services/applicationWorkspaces'
 import { getRequestDbExecutor, getRequestDbSession } from '../utils'
 
@@ -51,6 +52,24 @@ export const quoteUuidLiteral = (value: string): string => {
 export const normalizeLocale = (locale?: string): string => {
     if (!locale) return 'en'
     return locale.split('-')[0].split('_')[0].toLowerCase()
+}
+
+export const resolveRequestedRuntimeWorkspaceId = (
+    requestedWorkspaceId: string | null | undefined,
+    workspaceAccess: RuntimeWorkspaceAccess
+): string | null => {
+    const normalizedWorkspaceId =
+        typeof requestedWorkspaceId === 'string' && requestedWorkspaceId.trim().length > 0 ? requestedWorkspaceId.trim() : null
+
+    if (!normalizedWorkspaceId) {
+        return workspaceAccess.defaultWorkspaceId
+    }
+
+    if (!workspaceAccess.allowedWorkspaceIds.includes(normalizedWorkspaceId)) {
+        throw new UpdateFailure(403, { error: 'Requested workspace is not available for the current user' })
+    }
+
+    return normalizedWorkspaceId
 }
 
 // ---------------------------------------------------------------------------
@@ -793,16 +812,31 @@ export const resolveRuntimeSchema = async (
         return null
     }
 
+    const requestedWorkspaceId = typeof req.query.workspaceId === 'string' ? req.query.workspaceId : null
+    if (requestedWorkspaceId && !UUID_REGEX.test(requestedWorkspaceId)) {
+        res.status(400).json({ error: 'Invalid workspace ID format' })
+        return null
+    }
+
     let currentWorkspaceId: string | null = null
     if (application.workspacesEnabled) {
-        const workspaceAccess = await resolveRuntimeWorkspaceAccess(ds, {
-            schemaName,
-            workspacesEnabled: application.workspacesEnabled,
-            userId,
-            actorUserId: userId
-        })
+        try {
+            const workspaceAccess = await resolveRuntimeWorkspaceAccess(ds, {
+                schemaName,
+                workspacesEnabled: application.workspacesEnabled,
+                userId,
+                actorUserId: userId
+            })
 
-        currentWorkspaceId = workspaceAccess.defaultWorkspaceId
+            currentWorkspaceId = resolveRequestedRuntimeWorkspaceId(requestedWorkspaceId, workspaceAccess)
+        } catch (error) {
+            if (error instanceof UpdateFailure) {
+                res.status(error.statusCode).json(error.body)
+                return null
+            }
+            throw error
+        }
+
         if (!currentWorkspaceId) {
             res.status(403).json({ error: 'No active workspace is available for the current user' })
             return null

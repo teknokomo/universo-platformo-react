@@ -250,6 +250,8 @@ export const appDataResponseSchema = z.object({
             canCreate: z.boolean()
         })
         .optional(),
+    workspacesEnabled: z.boolean().optional().default(false),
+    currentWorkspaceId: z.string().nullable().optional(),
     // Added by backend for dashboard rendering; optional for backward compatibility.
     layoutConfig: dashboardLayoutConfigSchema,
     zoneWidgets: z

@@ -22,6 +22,24 @@ import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimis
 import { codenamePrimaryTextSql, ensureCodenameValue, getCodenameText } from '../../shared/codename'
 import { MetahubConflictError, MetahubNotFoundError, MetahubValidationError } from '../../shared/domainErrors'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
+import {
+    CATALOG_TYPE_COMPONENTS,
+    CATALOG_TYPE_UI,
+    ENUMERATION_TYPE_COMPONENTS,
+    ENUMERATION_TYPE_UI,
+    HUB_TYPE_COMPONENTS,
+    HUB_TYPE_UI,
+    SET_TYPE_COMPONENTS,
+    SET_TYPE_UI,
+    STANDARD_CATALOG_DESCRIPTION,
+    STANDARD_CATALOG_NAME,
+    STANDARD_ENUMERATION_DESCRIPTION,
+    STANDARD_ENUMERATION_NAME,
+    STANDARD_HUB_DESCRIPTION,
+    STANDARD_HUB_NAME,
+    STANDARD_SET_DESCRIPTION,
+    STANDARD_SET_NAME
+} from '../../templates/data/standardEntityTypeDefinitions'
 
 const TABLE = '_mhb_entity_type_definitions'
 const ACTIVE_CLAUSE = '_upl_deleted = false AND _mhb_deleted = false'
@@ -85,6 +103,67 @@ const ensureJsonRecord = (value: unknown): JsonRecord => {
     }
 
     return value as JsonRecord
+}
+
+const SYNTHETIC_BUILTIN_ENTITY_TYPES: Record<string, Omit<MetahubResolvedEntityType, 'updatedAt' | 'version' | 'published'>> = {
+    hub: {
+        kindKey: 'hub',
+        codename: ensureCodenameValue('Hub'),
+        presentation: {
+            name: STANDARD_HUB_NAME,
+            description: STANDARD_HUB_DESCRIPTION
+        },
+        components: HUB_TYPE_COMPONENTS,
+        ui: HUB_TYPE_UI,
+        config: {}
+    },
+    catalog: {
+        kindKey: 'catalog',
+        codename: ensureCodenameValue('Catalog'),
+        presentation: {
+            name: STANDARD_CATALOG_NAME,
+            description: STANDARD_CATALOG_DESCRIPTION
+        },
+        components: CATALOG_TYPE_COMPONENTS,
+        ui: CATALOG_TYPE_UI,
+        config: {}
+    },
+    set: {
+        kindKey: 'set',
+        codename: ensureCodenameValue('Set'),
+        presentation: {
+            name: STANDARD_SET_NAME,
+            description: STANDARD_SET_DESCRIPTION
+        },
+        components: SET_TYPE_COMPONENTS,
+        ui: SET_TYPE_UI,
+        config: {}
+    },
+    enumeration: {
+        kindKey: 'enumeration',
+        codename: ensureCodenameValue('Enumeration'),
+        presentation: {
+            name: STANDARD_ENUMERATION_NAME,
+            description: STANDARD_ENUMERATION_DESCRIPTION
+        },
+        components: ENUMERATION_TYPE_COMPONENTS,
+        ui: ENUMERATION_TYPE_UI,
+        config: {}
+    }
+}
+
+const getSyntheticBuiltinEntityType = (kindKey: string): MetahubResolvedEntityType | null => {
+    const synthetic = SYNTHETIC_BUILTIN_ENTITY_TYPES[kindKey]
+    if (!synthetic) {
+        return null
+    }
+
+    return {
+        ...synthetic,
+        published: true,
+        version: 1,
+        updatedAt: null
+    }
 }
 
 const normalizeEntityTypeKindKey = (value: string): string => {
@@ -343,7 +422,16 @@ export class EntityTypeService {
             `SELECT * FROM ${qt} WHERE ${ACTIVE_CLAUSE} ORDER BY kind_key ASC, _upl_created_at ASC, id ASC`
         )
 
-        return rows.map((row) => this.normalizeTypeRow(row))
+        const normalizedRows = rows.map((row) => this.normalizeTypeRow(row))
+        const kindsInRows = new Set(normalizedRows.map((row) => row.kindKey))
+
+        for (const builtinKind of Object.keys(SYNTHETIC_BUILTIN_ENTITY_TYPES)) {
+            if (!kindsInRows.has(builtinKind)) {
+                normalizedRows.push(getSyntheticBuiltinEntityType(builtinKind)!)
+            }
+        }
+
+        return normalizedRows
     }
 
     async listEditableTypes(metahubId: string, userId?: string): Promise<MetahubResolvedEntityType[]> {
@@ -368,7 +456,11 @@ export class EntityTypeService {
     ): Promise<MetahubResolvedEntityType | null> {
         const normalizedKindKey = String(kindKey).trim()
         const typeRow = await this.findTypeRowByKindKey(schemaName, normalizedKindKey, db)
-        return typeRow ? this.normalizeTypeRow(typeRow) : null
+        if (typeRow) {
+            return this.normalizeTypeRow(typeRow)
+        }
+
+        return isBuiltinEntityKind(normalizedKindKey) ? getSyntheticBuiltinEntityType(normalizedKindKey) : null
     }
 
     async createType(metahubId: string, input: CreateEntityTypeInput, userId?: string): Promise<MetahubResolvedEntityType> {

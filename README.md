@@ -6,7 +6,7 @@
 
 # Universo Platformo React
 
-[![Version](https://img.shields.io/badge/version-0.59.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
+[![Version](https://img.shields.io/badge/version-0.60.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
 [![License: Omsk Open License](https://img.shields.io/badge/license-Omsk%20Open%20License-green)](LICENSE.md)
 
 **Attention, please read this carefully.**
@@ -63,7 +63,7 @@ Website: [https://universo.pro](https://universo.pro)
 
 ## Current Status
 
-**Current version**: 0.59.0-alpha (April 2026). The project remains in alpha and is being prepared for a more stable beta phase.
+**Current version**: 0.60.0-alpha (April 2026). The project remains in alpha and is being prepared for a more stable beta phase.
 
 ## Tech Stack
 
@@ -88,6 +88,7 @@ Website: [https://universo.pro](https://universo.pro)
 -   **Modular business applications**: the platform is being assembled as a package-based environment where separate domains can be developed, migrated, and evolved without collapsing into one monolith.
 -   **ERP-class process kernel**: current work already covers identities, memberships, roles, metahubs, applications, admin flows, migrations, and request-scoped data access, with future expansion toward broader planning, accounting, logistics, and operational domains.
 -   **CMS-style information management**: the architecture is moving toward structured content, schema evolution, publication flows, versioned definitions, and reusable templates that can serve both websites and internal operational knowledge.
+-   **LMS MVP foundation**: the repository now includes an LMS metahub template, workspace-aware application collaboration, public guest-runtime links, QR-code distribution widgets, and learning-focused runtime components built on top of the generic application shell.
 -   **Cross-stack application descriptions**: applications created in the platform are intended to remain exportable between implementations, so business logic, structure, and data definitions are being separated from any single UI or engine.
 -   **Shared migration and schema runtime**: the monorepo already contains dedicated packages for migration orchestration, runtime schema DDL, catalog storage, and platform-wide definition export or diff workflows.
 -   **Operational shell for real deployments**: onboarding, authentication, profile management, admin tooling, API documentation, and package-based frontend modules are being developed as the practical shell for real installations.

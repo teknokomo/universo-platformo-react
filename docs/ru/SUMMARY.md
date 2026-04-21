@@ -50,6 +50,7 @@
 * [Архитектура фронтенда](architecture/frontend.md)
 * [Архитектура системы сущностей](architecture/entity-systems.md)
 * [Entity Component System](architecture/entity-component-system.md)
+* [Сущности LMS](architecture/lms-entities.md)
 * [Проектирование базы данных](architecture/database.md)
 * [Стандарт доступа к базе данных](architecture/database-access-standard.md)
 * [Аутентификация и авторизация](architecture/auth.md)
@@ -75,6 +76,10 @@
 ## Руководства
 
 * [Обзор](guides/README.md)
+* [Обзор LMS](guides/lms-overview.md)
+* [Настройка LMS](guides/lms-setup.md)
+* [Гостевой доступ LMS](guides/lms-guest-access.md)
+* [Управление рабочими пространствами](guides/workspace-management.md)
 * [Рабочее пространство ресурсов](guides/general-section.md)
 * [Пользовательские типы сущностей](guides/custom-entity-types.md)
 * [Макеты каталогов](guides/catalog-layouts.md)

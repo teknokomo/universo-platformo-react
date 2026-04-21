@@ -21,6 +21,8 @@ export interface DashboardDetailsSlot {
     linkedCollectionId?: string | null
     linkedCollectionCodename?: string | null
     apiBaseUrl?: string
+    currentWorkspaceId?: string | null
+    workspacesEnabled?: boolean
     banner?: React.ReactNode
     content?: React.ReactNode
     rows: Array<Record<string, unknown> & { id: string }>

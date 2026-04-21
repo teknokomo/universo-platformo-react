@@ -21,9 +21,13 @@ profile bootstrap, admin roles, metahub access, and request-scoped data access.
 Applications now use this scope directly:
 
 - workspace-enabled applications bootstrap personal workspaces for the owner and every member;
+- the shared MUI application shell exposes a visible workspace switcher in the app navbar;
+- users can create shared workspaces and manage workspace members without leaving the runtime surface;
 - workspace roles are stored separately from application membership so future sharing can be added without redesigning the schema;
 - runtime rows are isolated by workspace through backend predicates and runtime context;
 - join, leave, member add, and member remove flows all keep workspace lifecycle in sync.
 
 The exact domain vocabulary can still evolve, but the repository already
 implements the coordination and access patterns behind this scope.
+
+For the current user-facing contract, see [Workspace Management](../guides/workspace-management.md).

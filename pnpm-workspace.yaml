@@ -125,6 +125,7 @@ catalog:
     use-debounce: ^10.0.6
     framer-motion: ^10.16.4
     react-perfect-scrollbar: ^1.5.8
+    qrcode: ^1.5.4
     react-markdown: ^8.0.6
     react-syntax-highlighter: ^15.5.0
     react-datepicker: ^4.21.0

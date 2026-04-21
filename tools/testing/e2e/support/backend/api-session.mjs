@@ -996,6 +996,21 @@ export async function listRecords(api, metahubId, catalogId, params = {}) {
     return response.json()
 }
 
+export async function createRecord(api, metahubId, catalogId, payload) {
+    const response = await sendWithCsrf(
+        api,
+        'POST',
+        buildManagedEntityChildCollectionApiPath(metahubId, catalogId, 'catalog', 'records'),
+        payload
+    )
+
+    if (!response.ok) {
+        throw await buildError(response, `Creating record for catalog ${catalogId} in metahub ${metahubId}`)
+    }
+
+    return response.json()
+}
+
 export async function getRecord(api, metahubId, catalogId, elementId) {
     const response = await fetchFromApi(api, buildManagedEntityChildItemApiPath(metahubId, catalogId, 'catalog', 'record', elementId), { method: 'GET' })
     if (!response.ok) {
@@ -1397,6 +1412,24 @@ export async function updateApplicationWorkspaceLimits(api, applicationId, limit
 
     const body = await response.json()
     return body?.items ?? body?.data?.items ?? []
+}
+
+export async function listApplicationWorkspaces(api, applicationId) {
+    const response = await fetchFromApi(api, `/api/v1/applications/${applicationId}/runtime/workspaces`, { method: 'GET' })
+    if (!response.ok) {
+        throw await buildError(response, `Fetching application workspaces for ${applicationId}`)
+    }
+
+    return response.json()
+}
+
+export async function setApplicationDefaultWorkspace(api, applicationId, workspaceId) {
+    const response = await sendWithCsrf(api, 'PATCH', `/api/v1/applications/${applicationId}/runtime/workspaces/${workspaceId}/default`, {})
+    if (!response.ok) {
+        throw await buildError(response, `Setting default workspace ${workspaceId} for ${applicationId}`)
+    }
+
+    return response.json()
 }
 
 export async function getApplicationRuntime(api, applicationId, params = {}) {

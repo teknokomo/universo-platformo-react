@@ -9,18 +9,26 @@
       "Bash(pnpm build *)",
       "Bash(pnpm vitest *)",
       "Bash(grep *)",
+      "Bash(find *)",
       "Bash(tail *)",
       "Bash(python3 -c *)",
+      "Bash(python3 -c ' *)",
       "Bash(npx eslint *)",
       "Bash(pnpm test *)",
       "Bash(pnpm install *)",
-      "Bash(pnpm playwright *)"
+      "Bash(pnpm playwright *)",
+      "Bash(npm view *)",
+      "Bash(pnpm --version)",
+      "Bash(node -e ' *)",
+      "Bash(pnpm add *)",
+      "Read(*)",
+      "Bash(pnpm exec *)"
     ],
     "deny": [
       "Read(.env*)",
       "Bash(rm -rf:*)"
     ]
   },
-  "plansDirectory": "./memory-bank/plan",
-  "enableAllProjectMcpServers": true
+  "enableAllProjectMcpServers": true,
+  "plansDirectory": "./memory-bank/plan"
 }

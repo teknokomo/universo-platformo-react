@@ -1,6 +1,7 @@
 import { basicTemplate } from '../../domains/templates/data/basic.template'
 import { emptyTemplate } from '../../domains/templates/data/empty.template'
 import { catalogEntityPreset } from '../../domains/templates/data/linked-collection.entity-preset'
+import { lmsTemplate } from '../../domains/templates/data/lms.template'
 import { enumerationEntityPreset } from '../../domains/templates/data/option-list.entity-preset'
 import { hubEntityPreset } from '../../domains/templates/data/tree-entity.entity-preset'
 import { setEntityPreset } from '../../domains/templates/data/value-group.entity-preset'
@@ -15,6 +16,10 @@ describe('TemplateManifestValidator', () => {
 
     it('accepts the built-in empty template', () => {
         expect(() => validateTemplateManifest(cloneTemplate(emptyTemplate))).not.toThrow()
+    })
+
+    it('accepts the built-in lms template', () => {
+        expect(() => validateTemplateManifest(cloneTemplate(lmsTemplate))).not.toThrow()
     })
 
     it('accepts the built-in catalog entity preset', () => {
@@ -89,6 +94,35 @@ describe('TemplateManifestValidator', () => {
         ])
         expect(widgets.some((widget) => widget.widgetKey === 'columnsContainer')).toBe(false)
         expect(widgets.some((widget) => widget.widgetKey === 'productTree')).toBe(false)
+    })
+
+    it('keeps the lms template aligned with the dedicated learning widgets and canonical entities', () => {
+        const manifest = cloneTemplate(lmsTemplate)
+        const widgets = manifest.seed.layoutZoneWidgets.main ?? []
+        const entityCodenames = manifest.seed.entities.map((entity) => entity.codename)
+
+        expect(widgets).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ zone: 'center', widgetKey: 'moduleViewerWidget' }),
+                expect.objectContaining({ zone: 'right', widgetKey: 'statsViewerWidget' }),
+                expect.objectContaining({ zone: 'right', widgetKey: 'qrCodeWidget' })
+            ])
+        )
+        expect(entityCodenames).toEqual(
+            expect.arrayContaining([
+                'Learning',
+                'Classes',
+                'Students',
+                'Modules',
+                'Quizzes',
+                'QuizResponses',
+                'ModuleProgress',
+                'AccessLinks',
+                'ModuleStatus',
+                'QuestionType',
+                'ContentType'
+            ])
+        )
     })
 
     it('rejects layoutZoneWidgets references to unknown layouts', () => {

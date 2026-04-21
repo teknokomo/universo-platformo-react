@@ -1392,6 +1392,95 @@ describe('Metahubs Routes', () => {
             )
         })
 
+        it('selects the requested template by templateCodename when creating a metahub', async () => {
+            mockFindMetahubByCodename.mockResolvedValue(null)
+            mockFindTemplateByCodename.mockImplementation(async (_exec: unknown, codename: string) => {
+                if (codename === 'lms') {
+                    return {
+                        id: 'template-lms',
+                        codename: 'lms',
+                        isActive: true,
+                        activeVersionId: 'template-lms-v1'
+                    }
+                }
+
+                if (codename === 'basic') {
+                    return {
+                        id: 'template-basic',
+                        codename: 'basic',
+                        isActive: true,
+                        activeVersionId: 'template-basic-v1'
+                    }
+                }
+
+                return null
+            })
+
+            mockCreateMetahub.mockResolvedValue({
+                id: 'mock-id',
+                name: 'New Hub',
+                description: null,
+                codename: 'NewHub',
+                slug: null,
+                isPublic: false,
+                templateId: 'template-lms',
+                templateVersionId: 'template-lms-v1',
+                _uplVersion: 1,
+                _uplCreatedAt: new Date(),
+                _uplUpdatedAt: new Date()
+            })
+
+            mockExec.transaction.mockImplementation(async (cb: any) => {
+                const tx = { query: jest.fn(async () => []), transaction: jest.fn(), isReleased: () => false }
+                return cb(tx)
+            })
+
+            const app = buildApp()
+
+            await request(app)
+                .post('/metahubs')
+                .set('Authorization', 'Bearer test-access-token')
+                .send({
+                    name: 'New Hub',
+                    codename: testCodenameVlc('NewHub'),
+                    templateCodename: 'lms'
+                })
+                .expect(201)
+
+            expect(mockFindTemplateByCodename).toHaveBeenCalledWith(expect.anything(), 'lms')
+            expect(mockCreateMetahub).toHaveBeenCalledWith(
+                expect.anything(),
+                expect.objectContaining({
+                    templateId: 'template-lms',
+                    templateVersionId: 'template-lms-v1'
+                })
+            )
+        })
+
+        it('rejects metahub creation when templateId and templateCodename are both provided', async () => {
+            mockFindMetahubByCodename.mockResolvedValue(null)
+
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahubs')
+                .set('Authorization', 'Bearer test-access-token')
+                .send({
+                    name: 'New Hub',
+                    codename: testCodenameVlc('NewHub'),
+                    templateId: '11111111-1111-7111-8111-111111111111',
+                    templateCodename: 'lms'
+                })
+                .expect(400)
+
+            expect(response.body).toMatchObject({
+                error: 'Invalid input',
+                details: {
+                    template: ['Provide either templateId or templateCodename, not both']
+                }
+            })
+            expect(mockCreateMetahub).not.toHaveBeenCalled()
+        })
+
         it('rolls back metahub creation when initial branch bootstrap fails', async () => {
             mockFindMetahubByCodename.mockResolvedValue(null)
             mockCreateMetahub.mockResolvedValue({

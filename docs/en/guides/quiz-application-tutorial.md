@@ -7,6 +7,9 @@ description: Browser-authored tutorial for building a quiz application with meta
 This tutorial walks through the real browser-authored path used by the repository's Playwright coverage.
 By the end, you will have a metahub-hosted quiz widget script, a layout that renders the widget, a linked application, and a verified runtime quiz.
 
+The quiz application remains intentionally independent from the LMS template.
+In the LMS MVP, the same quiz widget can be embedded from a module content item, but the committed quiz fixture and tutorial still represent the standalone scripting-powered quiz path.
+
 ## Before You Start
 
 - Use an environment where metahubs, publications, and applications are already available.
@@ -84,6 +87,7 @@ The shipped starter expects a client `mount()` method and a server `submit()` me
 
 ## Related Reading
 
+- [LMS Overview](lms-overview.md)
 - [Metahub Scripting](metahub-scripting.md)
 - [Metahubs](../platform/metahubs.md)
 - [Applications](../platform/applications.md)

@@ -5,6 +5,7 @@ import { createRateLimiters } from '@universo/utils/rate-limiting'
 import { createApplicationsRoutes } from './applicationsRoutes'
 import { createApplicationSyncRoutes } from './applicationSyncRoutes'
 import { createConnectorsRoutes } from './connectorsRoutes'
+import { createPublicApplicationsRoutes } from './publicApplicationsRoutes'
 import { createLoadPublishedApplicationSyncContext, type LoadPublishedPublicationRuntimeSource } from '../services'
 
 let rateLimiters: Awaited<ReturnType<typeof createRateLimiters>> | null = null
@@ -47,6 +48,9 @@ export function createApplicationsServiceRoutes(
 
     // Core applications CRUD
     router.use('/applications', createApplicationsRoutes(ensureAuth, getDbExecutor, read, write))
+
+    // Public runtime access for guest/anonymous flows
+    router.use('/', createPublicApplicationsRoutes(getDbExecutor, read, write))
 
     // Application runtime schema sync and diff
     router.use('/', createApplicationSyncRoutes(ensureAuth, getDbExecutor, loadPublishedApplicationSyncContext, read, write))

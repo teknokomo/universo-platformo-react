@@ -46,6 +46,105 @@
 | 0.22.0-alpha | 2025-07-27 | 0.22.0 Alpha — 2025-07-27 (Global Impulse) ⚡️ | Memory Bank, MMOOMM improvements |
 | 0.21.0-alpha | 2025-07-20 | 0.21.0 Alpha — 2025-07-20 (Firm Resolve) 💪 | Handler refactoring, PlayCanvas stabilization |
 
+## 2026-04-21 PR #771 Bot Review Triage
+
+Completed a QA triage pass over the PR #771 bot comments, verified each recommendation against the live code and repository contracts, applied only the safe fixes, and rejected the false positives or risk-only suggestions.
+
+| Area | Resolution |
+| --- | --- |
+| Runtime workspace error handling | `runtimeWorkspaceService.ts` now throws typed `RuntimeWorkspaceError` instances with stable codes for the verified controller-facing cases, and `runtimeWorkspaceController.ts` maps those codes to HTTP statuses instead of relying on brittle `message.includes(...)` checks. |
+| Canonical build follow-up | The root build surfaced TypeScript `unknown` narrowing errors in the new controller catch blocks, so the controller now resolves response text through a shared `getRuntimeWorkspaceErrorMessage()` helper before returning JSON. |
+| Public guest CSRF isolation | `GuestApp.tsx` now stores public CSRF tokens under an application-scoped storage key instead of a single shared session key, preventing cross-application token reuse on the same browser session. |
+| Guest regression coverage | `GuestApp.test.tsx` now includes a regression that proves public CSRF tokens stay isolated per application id. |
+| QR widget type contract | `QRCodeWidgetConfig.url` is now optional in shared types, aligning the contract with the already-shipped LMS template and QR widget runtime/tests that support `publicLinkSlug`-only configuration. |
+| Rejected suggestions after QA review | Left `public.uuid_generate_v7()` unchanged because the repository defines it explicitly in the `public` schema as a platform contract; did not batch guest quiz inserts because the comment described an optimization rather than a proven bug; did not switch `GuestApp` to `useParams`-only lookup because the component must keep working in standalone/non-route-param contexts. |
+| Validation | Focused `runtimeWorkspaceController.test.ts` passed (`8/8`), focused `GuestApp.test.tsx` passed (`9/9`), `pnpm --filter @universo/types build` passed, touched-file diagnostics were clean, and canonical root `pnpm build` passed (`30/30 successful`). |
+
+## 2026-04-21 LMS Guest Runtime Localization And QA Closure
+
+Closed the last LMS guest-language regression by completing the missing RU completion copy, hardening the guest runtime locale resolution against stale parent props, and revalidating the real public browser path on a freshly rebuilt bundle.
+
+| Area | Resolution |
+| --- | --- |
+| Guest completion copy | Added the missing `guest.completeModule`, `guest.restartModule`, and `guest.moduleCompleted` locale keys to the EN/RU apps-template-mui resources so the final guest CTA/result state no longer falls back to English in RU flows. |
+| Defensive runtime locale resolution | `GuestApp.tsx` now resolves the effective locale from the explicit public URL query first, then persisted `i18nextLng`, before using the incoming prop, which keeps public runtime requests aligned with `...?locale=ru` even if an upstream shell passes stale locale state. |
+| Focused frontend regression coverage | `GuestApp.test.tsx` now covers the real RU completion path and explicitly proves that a public URL `?locale=ru` wins over a stale `locale='en'` prop for both access-link and runtime requests. |
+| Real root cause | Playwright trace inspection showed the red browser run was still loading a stale pre-fix frontend bundle and therefore calling `/public/.../links/...?...locale=en` and `/runtime?...locale=en` even though source-level tests were already green. The fix became effective in the real browser path immediately after a fresh workspace rebuild. |
+| Validation | Targeted `@universo/apps-template-mui` Vitest passed for `GuestApp.test.tsx` and `App.test.tsx` (`12/12`), canonical root `pnpm build` passed (`30/30 successful`), and the focused Playwright wrapper `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts` passed (`2/2`). |
+
+## 2026-04-21 LMS Final Closure And Canonical Fixture Regeneration
+
+Closed the last post-QA LMS residue by hardening guest-runtime credential transport, restoring shared-workspace-safe public access resolution on the controller path, removing external fixture media dependencies, and regenerating the canonical LMS snapshot through the official Playwright generator.
+
+| Area | Resolution |
+| --- | --- |
+| Guest runtime transport hardening | `runtimeGuestController.ts` now accepts guest session credentials only from `X-Guest-Student-Id` and `X-Guest-Session-Token` headers, and `GuestApp.tsx` now sends those headers instead of leaking `studentId` and `sessionToken` through runtime query params. |
+| Shared-workspace-safe public resolution | The public guest controller path now uses the shared-workspace-aware access-link resolver so runtime and guest-session reads stay pinned to the shared workspace instead of drifting through stale controller wiring. |
+| Regression coverage | Backend coverage in `publicApplicationsRoutes.test.ts` now proves header-based guest runtime auth stays bound to the token workspace, and `GuestApp.test.tsx` now asserts runtime URLs remain free from guest credential query params. |
+| Self-contained fixture assets | `lmsFixtureContract.ts` now embeds the LMS route-map imagery as inline SVG data URIs, removing the canonical fixture's dependency on external media URLs. |
+| Official canonical regeneration | The official generator `node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "canonical lms metahub and export snapshot fixture"` passed (`2/2`) and refreshed `tools/fixtures/metahubs-lms-app-snapshot.json` through the supported end-to-end export path. |
+| Validation | Focused backend Jest passed for `publicApplicationsRoutes.test.ts` (`16/16`), focused frontend Vitest passed for `GuestApp.test.tsx` (`6/6`), touched-file diagnostics were clean, and the official generator completed green after a clean full-reset cycle. |
+
+## 2026-04-21 LMS Snapshot Import Browser Proof Recovery Closure
+
+Closed the last residual red in the LMS snapshot-import wrapper by removing the final authenticated runtime read's dependency on mutable default-workspace state and revalidating the exact browser flow on the built runtime path.
+
+| Area | Resolution |
+| --- | --- |
+| Authenticated runtime workspace selection | `runtimeHelpers.ts` now accepts an explicit authenticated `workspaceId` query override, validates UUID format, checks membership against `allowedWorkspaceIds`, and then applies `app.current_workspace_id` from that deterministic workspace instead of always falling back to `defaultWorkspaceId`. |
+| Focused regression coverage | `runtimeRowsController.test.ts` now covers the explicit-runtime-workspace selector, including allowed override, default fallback, and forbidden workspace rejection, while the earlier `applicationWorkspaces.test.ts` regression remains green for personal-default takeover. |
+| E2E verification path | `waitForApplicationRuntimeRowCount` now forwards optional runtime query params, and `snapshot-import-lms-runtime.spec.ts` now polls the shared workspace directly for final Students, QuizResponses, and ModuleProgress counts instead of PATCHing default workspace state and hoping later reads observe it. |
+| Validation | Focused backend Jest passed for `runtimeRowsController.test.ts` and `applicationWorkspaces.test.ts` (`14/14`), `@universo/applications-backend` was rebuilt, and the exact Playwright wrapper `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts --project chromium` passed (`2/2`). |
+
+## 2026-04-20 LMS Post-QA Security And ACL Remediation Closure
+
+Closed the post-QA LMS follow-up slice by hardening workspace policy boundaries, owner-only workspace management, and standalone locale resolution, then revalidating the touched backend/frontend surfaces and the full workspace build.
+
+| Area | Resolution |
+| --- | --- |
+| Public runtime workspace isolation | `publicRuntimeAccess.ts` now limits public workspace discovery to active shared workspaces only, and public-route regression coverage proves personal workspaces do not resolve public access links. |
+| Personal workspace ACL hardening | `runtimeWorkspaceService.ts` and `runtimeWorkspaceController.ts` now fail closed for personal-workspace member-management operations, including explicit `403` handling for invite/remove flows and service-level guard coverage. |
+| Workspace management UI | `WorkspaceManagerDialog.tsx` now hides invite/remove controls unless the selected workspace is shared and the current member is an owner; component coverage now includes the restricted-state path. |
+| Standalone locale flow | `App.tsx` now resolves locale from document or browser language, synchronizes it through `i18n.changeLanguage`, and passes the resolved locale into guest/dashboard shells instead of hardcoding `ru`. |
+| Validation | Targeted backend Jest passed for `publicApplicationsRoutes.test.ts`, `runtimeWorkspaceController.test.ts`, and `runtimeWorkspaceService.test.ts` (`27/27`); targeted `@universo/apps-template-mui` Vitest passed for `WorkspaceManagerDialog.test.tsx` and `App.test.tsx` (`4/4`); canonical root `pnpm build` completed successfully. |
+
+## 2026-04-20 LMS Snapshot Import Runtime Remap Closure
+
+Closed the last LMS snapshot-import browser blocker by fixing the remaining workspace-seeded runtime id drift in module child rows.
+
+| Area | Resolution |
+| --- | --- |
+| Workspace seed remap | Extended `applicationWorkspaces.ts` so string-based child-table references such as `Modules.ContentItems[].QuizId` are remapped to workspace-scoped quiz row ids during personal-workspace seeding instead of keeping the original fixture seed id. |
+| Seed ordering | Added string-dependency ordering so `Modules` wait for `Quizzes` when child rows depend on quiz ids, ensuring the workspace quiz row id exists before module child rows are cloned. |
+| Regression coverage | Added a focused `applicationWorkspaces.test.ts` scenario that proves a seeded module content-item row stores the workspace-scoped quiz id rather than the stale source quiz id. |
+| Browser proof | The focused Playwright scenario `lms snapshot fixture imports through the browser UI and is immediately usable after linked app creation` is now green end-to-end, including module load, quiz open, quiz submit, and completion flow after linked app creation. |
+| Validation | Focused backend Jest passed for `applicationWorkspaces.test.ts` (`6/6`) and `publicApplicationsRoutes.test.ts` (`10/10`), `@universo/applications-backend` was rebuilt, and canonical root `pnpm build` passed (`30/30 successful`). |
+
+## 2026-04-20 LMS Plan Completion And QA Debt Elimination Closure
+
+Closed the last LMS blocker that remained after the QA pass and converted the final browser proof from partial to fully verified green.
+
+| Area | Resolution |
+| --- | --- |
+| Guest persistence contract | Aligned `runtimeGuestController` with the canonical workspace-aware runtime write path so guest-created Students, QuizResponses, and ModuleProgress rows now persist `workspace_id` explicitly instead of relying on a narrower direct-insert contract. |
+| Guest LMS UX hardening | Preserved quiz results until explicit return to the module, gated module completion on successful progress persistence, and kept the new progress-save failure path visible to the guest UI instead of masking backend errors as success. |
+| Validation drift cleanup | Removed stale WorkspaceSwitcher assertion drift and rebuilt the workspace before browser proof so Playwright exercised the fresh LMS guest bundle. |
+| Browser proof | The focused LMS Playwright wrapper is now green end-to-end: provisioning setup plus `lms-class-module-quiz` and `lms-qr-code`, with the class flow now proving ModuleProgress persistence as well as quiz score visibility and completion UX. |
+| Validation | Focused backend public-route Jest passed (`10/10`), canonical root `pnpm build` passed (`30/30 successful`), and the focused LMS Playwright wrapper passed (`3/3`). |
+
+## 2026-04-20 LMS MVP QA Remediation Finish
+
+Closed the remaining LMS MVP QA items that had been left open after the previous remediation pass, with the focus on transaction safety, public guest-runtime hardening, widget-runtime cleanup, and explicit completion/test coverage.
+
+| Area | Resolution |
+| --- | --- |
+| Workspace mutation integrity | `createSharedWorkspace` and `addWorkspaceMember` now execute multi-step writes inside transactions, eliminating partial workspace/member state when downstream role or membership writes fail. |
+| Guest session expiry | Guest sessions now store a server-side JSON envelope (`secret`, `expiresAt`) in the existing students token column, validate expiry from persisted state, and use UUID v7 for guest-created rows without forcing a schema-version bump. |
+| Public script delivery | Public client bundle responses now set `Content-Type: application/javascript`, `X-Content-Type-Options: nosniff`, a restrictive CSP, and explicit cache headers. |
+| LMS widget/runtime UX | `QRCodeWidget` now clears its timeout on unmount, `ModuleViewerWidget` and `StatsViewerWidget` share the runtime script/bundle hook, `GuestApp` shows a completion screen for the last module item, and embedded quiz references now pass concrete `quizId` context into `QuizWidget`. |
+| Test coverage | Added workspace-controller happy-path coverage, `StatsViewerWidget` and `runtimeWidgetHelpers` tests, a guest completion test, a quiz-scoping test, and negative Playwright coverage for wrong slug / expired link / exhausted max-uses public LMS links. |
+| Validation | Targeted backend Jest passed (`20/20`), targeted `@universo/apps-template-mui` Vitest passed (`17/17`), and canonical root `pnpm build` completed successfully. |
+
 ## 2026-04-18 Metahub Final QA Debt Elimination
 
 Closed the last repository-level cleanup items that remained after the metahub entity/resources rollout had already shipped functionally green.

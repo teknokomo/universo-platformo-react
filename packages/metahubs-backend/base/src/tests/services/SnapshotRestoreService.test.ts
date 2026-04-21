@@ -853,4 +853,76 @@ describe('SnapshotRestoreService', () => {
 
         expect(insertedRows['_mhb_objects']).toBeUndefined()
     })
+
+    it('preserves snapshot ids for restored enumeration values and elements', async () => {
+        const snapshot = makeMinimalSnapshot({
+            entities: {
+                'old-catalog-id': {
+                    id: 'old-catalog-id',
+                    kind: 'catalog',
+                    codename: 'products',
+                    presentation: { name: { en: 'Products' }, description: {} },
+                    config: {},
+                    fields: [
+                        {
+                            id: 'status-field-id',
+                            codename: 'status',
+                            dataType: 'REF',
+                            isRequired: true,
+                            isDisplayAttribute: false,
+                            targetEntityId: 'old-enum-id',
+                            targetEntityKind: 'enumeration',
+                            presentation: { name: { en: 'Status' }, description: {} },
+                            validationRules: {},
+                            uiConfig: {},
+                            sortOrder: 1
+                        }
+                    ]
+                },
+                'old-enum-id': {
+                    id: 'old-enum-id',
+                    kind: 'enumeration',
+                    codename: 'moduleStatus',
+                    presentation: { name: { en: 'Module status' }, description: {} },
+                    config: {},
+                    fields: []
+                }
+            },
+            optionValues: {
+                'old-enum-id': [
+                    {
+                        id: 'enum-value-id',
+                        objectId: 'old-enum-id',
+                        codename: 'Published',
+                        presentation: { name: { en: 'Published' } },
+                        sortOrder: 1,
+                        isDefault: true
+                    }
+                ]
+            },
+            elements: {
+                'old-catalog-id': [
+                    {
+                        id: 'element-id',
+                        objectId: 'old-catalog-id',
+                        data: { status: 'enum-value-id' },
+                        sortOrder: 1
+                    }
+                ]
+            }
+        } as unknown as MetahubSnapshot)
+
+        const { knex, insertedRows } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+
+        await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
+
+        expect(insertedRows['_mhb_values']?.[0]).toMatchObject({
+            id: 'enum-value-id'
+        })
+        expect(insertedRows['_mhb_elements']?.[0]).toMatchObject({
+            id: 'element-id',
+            data: { status: 'enum-value-id' }
+        })
+    })
 })

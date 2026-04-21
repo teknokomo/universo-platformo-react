@@ -1,5 +1,5 @@
 import { lazy } from 'react'
-import { Navigate, Outlet } from 'react-router-dom'
+import { Navigate, Outlet, useParams } from 'react-router-dom'
 
 import '@universo/admin-frontend/i18n'
 import '@universo/start-frontend/i18n'
@@ -19,9 +19,10 @@ import {
     StartLayoutMUI
 } from '@universo/template-mui'
 
-import { createAppRuntimeRoute } from '@universo/apps-template-mui'
+import { createAppRuntimeRoute, createPublicAppRuntimeRoute } from '@universo/apps-template-mui'
 import { AdminDialogSettingsProvider } from '@universo/admin-frontend'
 import { ApplicationDialogSettingsProvider } from '@universo/applications-frontend'
+import { resolvePublicGuestRuntimeLocale } from './publicGuestRuntimeLocale'
 
 const StartPage = Loadable(lazy(() => import('@universo/start-frontend/views/StartPage')))
 const TermsPage = Loadable(lazy(() => import('@universo/start-frontend/views/LegalPage').then((m) => ({ default: m.TermsPage }))))
@@ -39,6 +40,7 @@ const ApplicationsApplicationAdminGuard = Loadable(lazy(() => import('@universo/
 const ApplicationsConnectorList = Loadable(lazy(() => import('@universo/applications-frontend/pages/ConnectorList')))
 const ApplicationsConnectorBoard = Loadable(lazy(() => import('@universo/applications-frontend/pages/ConnectorBoard')))
 const ApplicationsMigrationGuard = Loadable(lazy(() => import('@universo/applications-frontend/components/ApplicationMigrationGuard')))
+const PublicGuestRuntimePage = Loadable(lazy(() => import('@universo/apps-template-mui').then((m) => ({ default: m.GuestApp }))))
 
 const MetahubList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubList }))))
 const MetahubBoard = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubBoard }))))
@@ -87,6 +89,12 @@ const GuardedApplicationRuntime = () => (
         </ApplicationsMigrationGuard>
     </ApplicationsApplicationGuard>
 )
+
+const PublicGuestRuntime = () => {
+    const { applicationId = '', slug = '' } = useParams<{ applicationId: string; slug: string }>()
+
+    return <PublicGuestRuntimePage applicationId={applicationId} slug={slug} locale={resolvePublicGuestRuntimeLocale()} apiBaseUrl='/api/v1' />
+}
 
 const AdminDialogScope = () => (
     <AdminDialogSettingsProvider>
@@ -170,6 +178,20 @@ const MinimalRoutes = {
     ]
 }
 
+const PublicRuntimeRoutes = {
+    path: '/',
+    element: (
+        <ErrorBoundary>
+            <Outlet />
+        </ErrorBoundary>
+    ),
+    children: [
+        createPublicAppRuntimeRoute({
+            component: PublicGuestRuntime
+        })
+    ]
+}
+
 const MainRoutes = {
     path: '/',
     element: (
@@ -239,7 +261,10 @@ const MainRoutes = {
                 { path: 'entities/:kindKey/instance/:linkedCollectionId/system', element: <FieldDefinitionList /> },
                 { path: 'entities/:kindKey/instance/:linkedCollectionId/records', element: <RecordList /> },
                 { path: 'entities/:kindKey/instance/:treeEntityId/instances', element: <StandardEntityChildCollectionPage /> },
-                { path: 'entities/:kindKey/instance/:treeEntityId/instance/:linkedCollectionId/field-definitions', element: <FieldDefinitionList /> },
+                {
+                    path: 'entities/:kindKey/instance/:treeEntityId/instance/:linkedCollectionId/field-definitions',
+                    element: <FieldDefinitionList />
+                },
                 { path: 'entities/:kindKey/instance/:treeEntityId/instance/:linkedCollectionId/system', element: <FieldDefinitionList /> },
                 { path: 'entities/:kindKey/instance/:treeEntityId/instance/:linkedCollectionId/records', element: <RecordList /> },
                 { path: 'entities/:kindKey/instance/:valueGroupId/fixed-values', element: <FixedValueList /> },
@@ -291,4 +316,4 @@ const MainRoutes = {
     ]
 }
 
-export default [HomeRoute, StartRoute, TermsRoute, PrivacyRoute, MainRoutes, MinimalRoutes]
+export default [HomeRoute, StartRoute, TermsRoute, PrivacyRoute, PublicRuntimeRoutes, MainRoutes, MinimalRoutes]
