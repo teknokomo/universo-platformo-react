@@ -9,7 +9,9 @@ import {
     addWorkspaceMember,
     removeWorkspaceMember,
     listWorkspaceMembers,
-    getWorkspaceMembership
+    getWorkspaceMembership,
+    RuntimeWorkspaceError,
+    RUNTIME_WORKSPACE_ERROR_CODES
 } from '../services/runtimeWorkspaceService'
 
 const createWorkspaceSchema = z.object({
@@ -24,6 +26,9 @@ const addMemberSchema = z.object({
 
 export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor) {
     const query = createQueryHelper(getDbExecutor)
+
+    const getRuntimeWorkspaceErrorCode = (error: unknown) => (error instanceof RuntimeWorkspaceError ? error.code : null)
+    const getRuntimeWorkspaceErrorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error))
 
     const requireWorkspaceMembership = async (
         ctx: Awaited<ReturnType<typeof resolveRuntimeSchema>>,
@@ -111,9 +116,8 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
                 actorUserId: ctx.userId
             })
         } catch (error) {
-            const message = error instanceof Error ? error.message : String(error)
-            if (message.includes('not a member')) {
-                return res.status(403).json({ error: message })
+            if (getRuntimeWorkspaceErrorCode(error) === RUNTIME_WORKSPACE_ERROR_CODES.userNotMember) {
+                return res.status(403).json({ error: getRuntimeWorkspaceErrorMessage(error) })
             }
             throw error
         }
@@ -149,12 +153,12 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
                 actorUserId: ctx.userId
             })
         } catch (error) {
-            const message = error instanceof Error ? error.message : String(error)
-            if (message.includes('not found')) {
-                return res.status(404).json({ error: message })
+            const code = getRuntimeWorkspaceErrorCode(error)
+            if (code === RUNTIME_WORKSPACE_ERROR_CODES.workspaceNotFound || code === RUNTIME_WORKSPACE_ERROR_CODES.roleNotFound) {
+                return res.status(404).json({ error: getRuntimeWorkspaceErrorMessage(error) })
             }
-            if (message.includes('do not support member management')) {
-                return res.status(403).json({ error: message })
+            if (code === RUNTIME_WORKSPACE_ERROR_CODES.personalMemberManagementUnsupported) {
+                return res.status(403).json({ error: getRuntimeWorkspaceErrorMessage(error) })
             }
             throw error
         }
@@ -184,15 +188,15 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
                 actorUserId: ctx.userId
             })
         } catch (error) {
-            const message = error instanceof Error ? error.message : String(error)
-            if (message.includes('not found')) {
-                return res.status(404).json({ error: message })
+            const code = getRuntimeWorkspaceErrorCode(error)
+            if (code === RUNTIME_WORKSPACE_ERROR_CODES.workspaceNotFound || code === RUNTIME_WORKSPACE_ERROR_CODES.memberNotFound) {
+                return res.status(404).json({ error: getRuntimeWorkspaceErrorMessage(error) })
             }
-            if (message.includes('do not support member management')) {
-                return res.status(403).json({ error: message })
+            if (code === RUNTIME_WORKSPACE_ERROR_CODES.personalMemberManagementUnsupported) {
+                return res.status(403).json({ error: getRuntimeWorkspaceErrorMessage(error) })
             }
-            if (message.includes('last workspace owner')) {
-                return res.status(409).json({ error: message })
+            if (code === RUNTIME_WORKSPACE_ERROR_CODES.lastOwnerRemovalBlocked) {
+                return res.status(409).json({ error: getRuntimeWorkspaceErrorMessage(error) })
             }
             throw error
         }

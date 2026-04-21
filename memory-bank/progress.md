@@ -46,6 +46,20 @@
 | 0.22.0-alpha | 2025-07-27 | 0.22.0 Alpha — 2025-07-27 (Global Impulse) ⚡️ | Memory Bank, MMOOMM improvements |
 | 0.21.0-alpha | 2025-07-20 | 0.21.0 Alpha — 2025-07-20 (Firm Resolve) 💪 | Handler refactoring, PlayCanvas stabilization |
 
+## 2026-04-21 PR #771 Bot Review Triage
+
+Completed a QA triage pass over the PR #771 bot comments, verified each recommendation against the live code and repository contracts, applied only the safe fixes, and rejected the false positives or risk-only suggestions.
+
+| Area | Resolution |
+| --- | --- |
+| Runtime workspace error handling | `runtimeWorkspaceService.ts` now throws typed `RuntimeWorkspaceError` instances with stable codes for the verified controller-facing cases, and `runtimeWorkspaceController.ts` maps those codes to HTTP statuses instead of relying on brittle `message.includes(...)` checks. |
+| Canonical build follow-up | The root build surfaced TypeScript `unknown` narrowing errors in the new controller catch blocks, so the controller now resolves response text through a shared `getRuntimeWorkspaceErrorMessage()` helper before returning JSON. |
+| Public guest CSRF isolation | `GuestApp.tsx` now stores public CSRF tokens under an application-scoped storage key instead of a single shared session key, preventing cross-application token reuse on the same browser session. |
+| Guest regression coverage | `GuestApp.test.tsx` now includes a regression that proves public CSRF tokens stay isolated per application id. |
+| QR widget type contract | `QRCodeWidgetConfig.url` is now optional in shared types, aligning the contract with the already-shipped LMS template and QR widget runtime/tests that support `publicLinkSlug`-only configuration. |
+| Rejected suggestions after QA review | Left `public.uuid_generate_v7()` unchanged because the repository defines it explicitly in the `public` schema as a platform contract; did not batch guest quiz inserts because the comment described an optimization rather than a proven bug; did not switch `GuestApp` to `useParams`-only lookup because the component must keep working in standalone/non-route-param contexts. |
+| Validation | Focused `runtimeWorkspaceController.test.ts` passed (`8/8`), focused `GuestApp.test.tsx` passed (`9/9`), `pnpm --filter @universo/types build` passed, touched-file diagnostics were clean, and canonical root `pnpm build` passed (`30/30 successful`). |
+
 ## 2026-04-21 LMS Guest Runtime Localization And QA Closure
 
 Closed the last LMS guest-language regression by completing the missing RU completion copy, hardening the guest runtime locale resolution against stale parent props, and revalidating the real public browser path on a freshly rebuilt bundle.

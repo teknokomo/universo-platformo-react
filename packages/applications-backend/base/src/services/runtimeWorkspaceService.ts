@@ -31,6 +31,27 @@ type WorkspaceMembershipRow = {
 
 const ACTIVE_ROW_SQL = '_upl_deleted = false AND _app_deleted = false'
 
+export const RUNTIME_WORKSPACE_ERROR_CODES = {
+    workspaceNotFound: 'WORKSPACE_NOT_FOUND',
+    personalMemberManagementUnsupported: 'PERSONAL_WORKSPACE_MEMBER_MANAGEMENT_UNSUPPORTED',
+    userNotMember: 'USER_NOT_MEMBER',
+    roleNotFound: 'WORKSPACE_ROLE_NOT_FOUND',
+    memberNotFound: 'WORKSPACE_MEMBER_NOT_FOUND',
+    lastOwnerRemovalBlocked: 'LAST_WORKSPACE_OWNER_REMOVAL_BLOCKED'
+} as const
+
+export type RuntimeWorkspaceErrorCode = (typeof RUNTIME_WORKSPACE_ERROR_CODES)[keyof typeof RUNTIME_WORKSPACE_ERROR_CODES]
+
+export class RuntimeWorkspaceError extends Error {
+    code: RuntimeWorkspaceErrorCode
+
+    constructor(code: RuntimeWorkspaceErrorCode, message: string) {
+        super(message)
+        this.name = 'RuntimeWorkspaceError'
+        this.code = code
+    }
+}
+
 export type RuntimeWorkspace = {
     id: string
     codename: string
@@ -79,11 +100,14 @@ async function assertWorkspaceAllowsMemberManagement(
 
     const workspace = rows[0]
     if (!workspace) {
-        throw new Error('Workspace not found')
+        throw new RuntimeWorkspaceError(RUNTIME_WORKSPACE_ERROR_CODES.workspaceNotFound, 'Workspace not found')
     }
 
     if (workspace.workspace_type === 'personal') {
-        throw new Error('Personal workspaces do not support member management')
+        throw new RuntimeWorkspaceError(
+            RUNTIME_WORKSPACE_ERROR_CODES.personalMemberManagementUnsupported,
+            'Personal workspaces do not support member management'
+        )
     }
 }
 
@@ -234,7 +258,7 @@ export async function setDefaultWorkspace(
     )
 
     if (existing.length === 0) {
-        throw new Error('User is not a member of this workspace')
+        throw new RuntimeWorkspaceError(RUNTIME_WORKSPACE_ERROR_CODES.userNotMember, 'User is not a member of this workspace')
     }
 
     await executor.query(
@@ -294,7 +318,7 @@ export async function addWorkspaceMember(
 
         const roleId = roleRows[0]?.id
         if (!roleId) {
-            throw new Error(`Role "${input.roleCodename}" not found`)
+            throw new RuntimeWorkspaceError(RUNTIME_WORKSPACE_ERROR_CODES.roleNotFound, `Role "${input.roleCodename}" not found`)
         }
 
         const existing = await tx.query<WorkspaceMembershipRow>(
@@ -405,7 +429,7 @@ export async function removeWorkspaceMember(
     )
 
     if (membershipRows.length === 0) {
-        throw new Error('Workspace member not found')
+        throw new RuntimeWorkspaceError(RUNTIME_WORKSPACE_ERROR_CODES.memberNotFound, 'Workspace member not found')
     }
 
     if (membershipRows.some((row) => row.role_codename === 'owner')) {
@@ -432,7 +456,10 @@ export async function removeWorkspaceMember(
                 : 0
 
         if (!Number.isFinite(remainingOwners) || remainingOwners < 1) {
-            throw new Error('Cannot remove the last workspace owner')
+            throw new RuntimeWorkspaceError(
+                RUNTIME_WORKSPACE_ERROR_CODES.lastOwnerRemovalBlocked,
+                'Cannot remove the last workspace owner'
+            )
         }
     }
 

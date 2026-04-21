@@ -6,6 +6,14 @@
 
 ## Current Focus: LMS Guest Runtime Localization And QA Closure — Complete ✅ (2026-04-21)
 
+## Current Focus: PR #771 Bot Review Triage — Complete ✅ (2026-04-21)
+
+- **Goal achieved**: audited the seven bot review comments on PR #771 against the live repository state, external docs where needed, and the current contracts, then applied only the fixes that were both correct and low-risk.
+- **Accepted fixes**: `runtimeWorkspaceService.ts` now exposes typed runtime-workspace errors plus stable error codes, `runtimeWorkspaceController.ts` maps those codes instead of brittle string matching, `GuestApp.tsx` isolates public CSRF tokens per application id, `GuestApp.test.tsx` proves the per-app token isolation, `QRCodeWidgetConfig.url` is now optional in shared types to match the already-shipped LMS template/runtime behavior, and the LMS workspace-management Playwright spec received the verified formatting cleanup.
+- **Rejected bot suggestions**: no change was made to `public.uuid_generate_v7()` because the repo intentionally defines and calls the public-schema function as a platform contract; no guest quiz batch-insert refactor was applied because the comment described an optimization rather than a verified defect; no `useParams`-only refactor was applied to `GuestApp` because the component must keep working outside matched route-param contexts.
+- **Follow-up fix from canonical validation**: the root `pnpm build` exposed TypeScript `unknown` narrowing gaps in the new controller catch-block paths, so `runtimeWorkspaceController.ts` now uses a shared `getRuntimeWorkspaceErrorMessage()` helper before returning error JSON.
+- **Validated**: focused `runtimeWorkspaceController.test.ts` passed (`8/8`), focused `GuestApp.test.tsx` passed (`9/9`), `pnpm --filter @universo/types build` passed, touched-file diagnostics were clean, and canonical root `pnpm build` completed successfully (`30/30 successful`).
+
 - **Goal achieved**: the last visible LMS guest-language regression is closed, and the RU public guest flow now stays localized through module content, quiz flow, completion CTA, and completion result state on the real built runtime path.
 - **Frontend/runtime outcome**: EN/RU apps-template-mui locale resources now include the missing guest completion keys, and `GuestApp.tsx` now resolves the guest runtime locale defensively from the explicit public URL query first, then persisted `i18nextLng`, before falling back to the incoming prop.
 - **Regression coverage**: `GuestApp.test.tsx` now stops masking missing translations behind English fallbacks, proves the RU completion path end to end, and includes a regression that forces `?locale=ru` in the public URL while a stale `locale='en'` prop is passed.

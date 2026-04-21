@@ -6,6 +6,23 @@
 
 ## Current Task Ledger (Canonical)
 
+## Active: PR #771 Bot Review Triage (2026-04-21)
+
+> Goal: audit the bot review comments on PR #771 against the current repository state and fix only the recommendations that are correct, safe, and consistent with the established contracts.
+
+### Final Action Plan — Current Implementation Pass (2026-04-21)
+
+- [x] Re-read the current touched files and verify each bot comment against the live code plus repository contracts
+- [x] Implement the verified safe fixes only: runtime workspace typed error mapping, guest CSRF storage isolation, QR widget config contract alignment, and the Playwright spec formatting cleanup
+- [x] Re-run targeted validation for the touched backend/frontend/test surfaces
+- [x] Update `memory-bank/activeContext.md` and `memory-bank/progress.md` with the PR triage outcome after validation is green
+
+- Final validation note:
+  - Focused `runtimeWorkspaceController.test.ts` passed (`8/8`).
+  - Focused `GuestApp.test.tsx` passed (`9/9`).
+  - `pnpm --filter @universo/types build` passed.
+  - Canonical root `pnpm build` passed after a follow-up TypeScript narrowing fix in `runtimeWorkspaceController.ts` (`30/30 successful`).
+
 ## Active: LMS Guest Runtime Localization And QA Closure (2026-04-21)
 
 > Goal: eliminate the remaining public LMS guest localization defect, strengthen the missing RU completion coverage, and leave the LMS plan genuinely complete without residual QA debt in the touched guest-runtime surfaces.

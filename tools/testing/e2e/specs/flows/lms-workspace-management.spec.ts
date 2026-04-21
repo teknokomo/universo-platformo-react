@@ -152,16 +152,16 @@ test('@flow lms workspace management isolates module runtime rows across persona
 
         const memberPage = memberSession.page
         await memberPage.goto(`/a/${lms.applicationId}?catalogId=${modulesCatalogId}`)
-    const memberPersonalWorkspaceName = (await memberPage.getByRole('combobox').first().textContent())?.trim() || 'Main'
+        const memberPersonalWorkspaceName = (await memberPage.getByRole('combobox').first().textContent())?.trim() || 'Main'
         await expect(memberPage.getByText(sharedModuleTitle, { exact: true })).toHaveCount(0)
 
         await switchWorkspace(memberPage, sharedWorkspaceName)
         await expect(memberPage.getByText(sharedModuleTitle, { exact: true })).toBeVisible({ timeout: 30_000 })
 
-    await switchWorkspace(memberPage, memberPersonalWorkspaceName)
+        await switchWorkspace(memberPage, memberPersonalWorkspaceName)
         await expect(memberPage.getByText(sharedModuleTitle, { exact: true })).toHaveCount(0)
 
-    await switchWorkspace(page, ownerPersonalWorkspaceName)
+        await switchWorkspace(page, ownerPersonalWorkspaceName)
         await expect(page.getByText(sharedModuleTitle, { exact: true })).toHaveCount(0)
 
         await switchWorkspace(page, sharedWorkspaceName)

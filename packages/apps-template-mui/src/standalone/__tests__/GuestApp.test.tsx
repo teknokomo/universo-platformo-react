@@ -699,4 +699,86 @@ describe('GuestApp', () => {
             expect(screen.getByText('Demo module')).toBeInTheDocument()
         })
     })
+
+    it('isolates public csrf tokens per application id', async () => {
+        const csrfHeaders: string[] = []
+        let csrfCounter = 0
+
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async (input: string | URL, init?: RequestInit) => {
+                const url = String(input)
+
+                if (url.endsWith('/api/v1/auth/csrf')) {
+                    csrfCounter += 1
+                    return {
+                        ok: true,
+                        json: async () => ({ csrfToken: `csrf-token-${csrfCounter}` })
+                    } as Response
+                }
+
+                if (url.includes('/public/a/app-1/links/demo-module?locale=en')) {
+                    return {
+                        ok: true,
+                        json: async () => ({ id: 'link-1', title: 'Demo module', targetType: 'module', targetId: 'module-1' })
+                    } as Response
+                }
+
+                if (url.includes('/public/a/app-2/links/demo-module?locale=en')) {
+                    return {
+                        ok: true,
+                        json: async () => ({ id: 'link-2', title: 'Second module', targetType: 'module', targetId: 'module-2' })
+                    } as Response
+                }
+
+                if (url.endsWith('/public/a/app-1/guest-session') || url.endsWith('/public/a/app-2/guest-session')) {
+                    csrfHeaders.push(new Headers(init?.headers).get('X-CSRF-Token') ?? '')
+                    return {
+                        ok: true,
+                        json: async () => ({ studentId: 'student-1', sessionToken: 'token-1' })
+                    } as Response
+                }
+
+                if (url.includes('/public/a/app-1/runtime?') || url.includes('/public/a/app-2/runtime?')) {
+                    return {
+                        ok: true,
+                        json: async () => ({ type: 'module', id: 'module-1', title: 'Module title', contentItems: [] })
+                    } as Response
+                }
+
+                throw new Error(`Unexpected fetch request: ${url} ${init?.method ?? 'GET'}`)
+            })
+        )
+
+        const firstClient = createQueryClient()
+        const firstRender = render(
+            <QueryClientProvider client={firstClient}>
+                <GuestApp applicationId='app-1' slug='demo-module' locale='en' apiBaseUrl='/api/v1' />
+            </QueryClientProvider>
+        )
+
+        expect(await screen.findByText('Demo module')).toBeInTheDocument()
+        fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Guest learner 1' } })
+        fireEvent.click(screen.getByRole('button', { name: 'Start learning' }))
+        await waitFor(() => {
+            expect(screen.getByText('Module title')).toBeInTheDocument()
+        })
+        firstRender.unmount()
+
+        const secondClient = createQueryClient()
+        render(
+            <QueryClientProvider client={secondClient}>
+                <GuestApp applicationId='app-2' slug='demo-module' locale='en' apiBaseUrl='/api/v1' />
+            </QueryClientProvider>
+        )
+
+        expect(await screen.findByText('Second module')).toBeInTheDocument()
+        fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Guest learner 2' } })
+        fireEvent.click(screen.getByRole('button', { name: 'Start learning' }))
+        await waitFor(() => {
+            expect(screen.getByText('Module title')).toBeInTheDocument()
+        })
+
+        expect(csrfHeaders).toEqual(['csrf-token-1', 'csrf-token-2'])
+    })
 })

@@ -17,9 +17,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import AppMainLayout from '../layouts/AppMainLayout'
 
-const PUBLIC_CSRF_STORAGE_KEY = 'apps-template-mui:public-csrf'
+const PUBLIC_CSRF_STORAGE_KEY_PREFIX = 'apps-template-mui:public-csrf'
 const GUEST_STUDENT_ID_HEADER = 'X-Guest-Student-Id'
 const GUEST_SESSION_TOKEN_HEADER = 'X-Guest-Session-Token'
+
+const getPublicCsrfStorageKey = (applicationId?: string) =>
+    applicationId ? `${PUBLIC_CSRF_STORAGE_KEY_PREFIX}:${applicationId}` : PUBLIC_CSRF_STORAGE_KEY_PREFIX
 
 const resolvePathParams = () => {
     if (typeof window === 'undefined') {
@@ -121,10 +124,11 @@ export default function GuestApp(props: GuestAppProps) {
     const [activeQuizId, setActiveQuizId] = useState<string | null>(null)
     const [answers, setAnswers] = useState<Record<string, string[]>>({})
     const [moduleCompleted, setModuleCompleted] = useState(false)
+    const publicCsrfStorageKey = getPublicCsrfStorageKey(applicationId)
 
     const resolveCsrfToken = async (forceRefresh = false) => {
         if (typeof window !== 'undefined' && !forceRefresh) {
-            const storedToken = window.sessionStorage.getItem(PUBLIC_CSRF_STORAGE_KEY)
+            const storedToken = window.sessionStorage.getItem(publicCsrfStorageKey)
             if (storedToken) {
                 return storedToken
             }
@@ -144,7 +148,7 @@ export default function GuestApp(props: GuestAppProps) {
         }
 
         if (typeof window !== 'undefined') {
-            window.sessionStorage.setItem(PUBLIC_CSRF_STORAGE_KEY, payload.csrfToken)
+            window.sessionStorage.setItem(publicCsrfStorageKey, payload.csrfToken)
         }
 
         return payload.csrfToken

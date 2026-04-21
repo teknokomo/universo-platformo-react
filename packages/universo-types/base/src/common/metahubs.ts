@@ -904,7 +904,7 @@ export interface StatsViewerWidgetConfig {
 }
 
 export interface QRCodeWidgetConfig {
-    url: string
+    url?: string
     publicLinkSlug?: string
     size?: number
     title?: string

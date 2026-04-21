@@ -18,6 +18,23 @@ jest.mock('../../shared/runtimeHelpers', () => ({
 
 jest.mock('../../services/runtimeWorkspaceService', () => ({
     __esModule: true,
+    RUNTIME_WORKSPACE_ERROR_CODES: {
+        workspaceNotFound: 'WORKSPACE_NOT_FOUND',
+        personalMemberManagementUnsupported: 'PERSONAL_WORKSPACE_MEMBER_MANAGEMENT_UNSUPPORTED',
+        userNotMember: 'USER_NOT_MEMBER',
+        roleNotFound: 'WORKSPACE_ROLE_NOT_FOUND',
+        memberNotFound: 'WORKSPACE_MEMBER_NOT_FOUND',
+        lastOwnerRemovalBlocked: 'LAST_WORKSPACE_OWNER_REMOVAL_BLOCKED'
+    },
+    RuntimeWorkspaceError: class RuntimeWorkspaceError extends Error {
+        code: string
+
+        constructor(code: string, message: string) {
+            super(message)
+            this.name = 'RuntimeWorkspaceError'
+            this.code = code
+        }
+    },
     listUserWorkspaces: (...args: unknown[]) => mockListUserWorkspaces(...args),
     createSharedWorkspace: (...args: unknown[]) => mockCreateSharedWorkspace(...args),
     setDefaultWorkspace: (...args: unknown[]) => mockSetDefaultWorkspace(...args),
@@ -28,6 +45,7 @@ jest.mock('../../services/runtimeWorkspaceService', () => ({
 }))
 
 import { createRuntimeWorkspaceController } from '../../controllers/runtimeWorkspaceController'
+import { RuntimeWorkspaceError, RUNTIME_WORKSPACE_ERROR_CODES } from '../../services/runtimeWorkspaceService'
 
 function createResponse() {
     const json = jest.fn()
@@ -228,7 +246,9 @@ describe('runtimeWorkspaceController', () => {
             roleCodename: 'owner',
             isDefault: true
         })
-        mockRemoveWorkspaceMember.mockRejectedValue(new Error('Cannot remove the last workspace owner'))
+        mockRemoveWorkspaceMember.mockRejectedValue(
+            new RuntimeWorkspaceError(RUNTIME_WORKSPACE_ERROR_CODES.lastOwnerRemovalBlocked, 'Cannot remove the last workspace owner')
+        )
 
         await controller.deleteMember(
             {
@@ -243,5 +263,33 @@ describe('runtimeWorkspaceController', () => {
 
         expect(res.status).toHaveBeenCalledWith(409)
         expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({ error: 'Cannot remove the last workspace owner' })
+    })
+
+    it('maps missing role failures for member invites to not found responses', async () => {
+        const controller = createRuntimeWorkspaceController(() => manager as never)
+        const res = createResponse()
+        mockGetWorkspaceMembership.mockResolvedValue({
+            id: 'membership-1',
+            userId: 'user-1',
+            workspaceId: 'workspace-1',
+            roleCodename: 'owner',
+            isDefault: true,
+            workspaceType: 'shared',
+            personalUserId: null
+        })
+        mockAddWorkspaceMember.mockRejectedValue(
+            new RuntimeWorkspaceError(RUNTIME_WORKSPACE_ERROR_CODES.roleNotFound, 'Role "member" not found')
+        )
+
+        await controller.inviteMember(
+            {
+                params: { applicationId: 'app-1', workspaceId: 'workspace-1' },
+                body: { userId: '2a15af4d-54ef-4b65-b5fd-8274d0d1de1b', roleCodename: 'member' }
+            } as unknown as Request,
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(404)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({ error: 'Role "member" not found' })
     })
 })
