@@ -1,4 +1,9 @@
-import { resolvePreferredLinkedCollectionIdFromGlobalMenu } from '../../controllers/runtimeRowsController'
+import { ApplicationMembershipState } from '@universo/types'
+import {
+    normalizeRuntimeTableChildInsertValue,
+    resolvePreferredLinkedCollectionIdFromGlobalMenu
+} from '../../controllers/runtimeRowsController'
+import { UpdateFailure, resolveRequestedRuntimeWorkspaceId } from '../../shared/runtimeHelpers'
 import { createMockDbExecutor } from '../utils/dbMocks'
 
 describe('runtimeRowsController startup catalog resolution', () => {
@@ -37,5 +42,54 @@ describe('runtimeRowsController startup catalog resolution', () => {
         ).resolves.toBe('catalog-1')
 
         expect(executor.query).toHaveBeenCalled()
+    })
+})
+
+describe('normalizeRuntimeTableChildInsertValue', () => {
+    it('stringifies JSON child values exactly once', () => {
+        expect(normalizeRuntimeTableChildInsertValue({ ok: true }, 'JSON')).toBe('{"ok":true}')
+        expect(normalizeRuntimeTableChildInsertValue('[1,2,3]', 'JSON')).toBe('[1,2,3]')
+    })
+
+    it('stringifies localized STRING child objects for json-backed VLC storage', () => {
+        expect(
+            normalizeRuntimeTableChildInsertValue(
+                { _primary: 'en', locales: { en: { content: 'Hello' } } },
+                'STRING',
+                { localized: true }
+            )
+        ).toBe('{"_primary":"en","locales":{"en":{"content":"Hello"}}}')
+    })
+})
+
+describe('resolveRequestedRuntimeWorkspaceId', () => {
+    it('prefers an allowed explicit workspace over the default workspace', () => {
+        expect(
+            resolveRequestedRuntimeWorkspaceId('workspace-shared', {
+                membershipState: ApplicationMembershipState.JOINED,
+                defaultWorkspaceId: 'workspace-personal',
+                allowedWorkspaceIds: ['workspace-personal', 'workspace-shared']
+            })
+        ).toBe('workspace-shared')
+    })
+
+    it('falls back to the default workspace when no explicit workspace is requested', () => {
+        expect(
+            resolveRequestedRuntimeWorkspaceId(null, {
+                membershipState: ApplicationMembershipState.JOINED,
+                defaultWorkspaceId: 'workspace-personal',
+                allowedWorkspaceIds: ['workspace-personal', 'workspace-shared']
+            })
+        ).toBe('workspace-personal')
+    })
+
+    it('rejects explicit workspaces that are not available to the current user', () => {
+        expect(() =>
+            resolveRequestedRuntimeWorkspaceId('workspace-foreign', {
+                membershipState: ApplicationMembershipState.JOINED,
+                defaultWorkspaceId: 'workspace-personal',
+                allowedWorkspaceIds: ['workspace-personal', 'workspace-shared']
+            })
+        ).toThrow(UpdateFailure)
     })
 })

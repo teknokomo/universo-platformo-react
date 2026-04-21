@@ -62,6 +62,8 @@ describe('applicationWorkspaces service', () => {
             SELECT 1
             FROM information_schema.tables`)
         expect(executedSql).toContain(`CREATE TABLE "${schemaName}"."_app_workspaces"`)
+        expect(executedSql).toContain(`INSERT INTO "${schemaName}"."_app_workspaces"`)
+        expect(executedSql).toContain(`'shared', 'active'`)
         expect(executedSql).toContain(`CREATE TABLE "${schemaName}"."_app_limits"`)
         expect(executedSql).not.toContain('DO $$')
         expect(executedSql).toContain('ADD COLUMN IF NOT EXISTS "_seed_source_key" TEXT NULL')
@@ -69,6 +71,141 @@ describe('applicationWorkspaces service', () => {
         expect(executedSql).toContain(`FOREIGN KEY ("workspace_id") REFERENCES "${schemaName}"."_app_workspaces"(id) ON DELETE RESTRICT`)
         expect(executedSql).toContain(`CREATE POLICY "workspace_select" ON "${schemaName}"."cat_018f8a787b8f7c1da111222233334442"`)
         expect(executedSql).toContain(`CREATE POLICY "workspace_insert" ON "${schemaName}"."tbl_018f8a787b8f7c1da111222233334443"`)
+    })
+
+    it('seeds predefined runtime rows into the shared workspace during workspace schema bootstrap', async () => {
+        const { executor } = createMockDbExecutor()
+        const schemaName = 'app_018f8a787b8f7c1da111222233334445'
+        const generatedIds = [
+            '018f8a78-7b8f-7c1d-a111-222233334446',
+            '018f8a78-7b8f-7c1d-a111-222233334447',
+            '018f8a78-7b8f-7c1d-a111-222233334448',
+            '018f8a78-7b8f-7c1d-a111-222233334449',
+            '018f8a78-7b8f-7c1d-a111-222233334450',
+            '018f8a78-7b8f-7c1d-a111-222233334451',
+            '018f8a78-7b8f-7c1d-a111-222233334452'
+        ]
+
+        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
+                const id = generatedIds.shift()
+                return id ? [{ id }] : []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_roles"`)) {
+                return []
+            }
+
+            if (sql.includes('FROM applications.rel_application_users')) {
+                return []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
+                return []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_user_roles"`)) {
+                return []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_settings"`)) {
+                return [
+                    {
+                        value: {
+                            version: 1,
+                            elements: {
+                                '018f8a78-7b8f-7c1d-a111-222233334470': [
+                                    {
+                                        id: 'shared-seed-row',
+                                        data: {
+                                            title: {
+                                                en: 'Shared starter',
+                                                ru: 'Общий старт'
+                                            }
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                ]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
+                return [
+                    {
+                        objectId: '018f8a78-7b8f-7c1d-a111-222233334470',
+                        codename: 'accesslinks',
+                        tableName: 'cat_018f8a787b8f7c1da111222233334470'
+                    }
+                ]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_attributes"`)) {
+                return [
+                    {
+                        objectId: '018f8a78-7b8f-7c1d-a111-222233334470',
+                        attributeId: '018f8a78-7b8f-7c1d-a111-222233334471',
+                        parentAttributeId: null,
+                        codename: 'title',
+                        columnName: 'col_018f8a787b8f7c1da111222233334471',
+                        dataType: 'STRING',
+                        uiConfig: {
+                            stringMode: 'vlc'
+                        },
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    }
+                ]
+            }
+
+            if (sql.includes('FROM information_schema.columns')) {
+                return [
+                    {
+                        tableName: 'cat_018f8a787b8f7c1da111222233334470',
+                        columnName: 'col_018f8a787b8f7c1da111222233334471',
+                        udtName: 'jsonb'
+                    }
+                ]
+            }
+
+            if (sql.includes('SELECT id, _seed_source_key AS "seedSourceKey"')) {
+                return []
+            }
+
+            return []
+        })
+
+        await ensureApplicationRuntimeWorkspaceSchema(executor, {
+            schemaName,
+            applicationId: '018f8a78-7b8f-7c1d-a111-222233334440',
+            actorUserId: '018f8a78-7b8f-7c1d-a111-222233334441',
+            entities: [
+                {
+                    id: '018f8a78-7b8f-7c1d-a111-222233334470',
+                    codename: 'accesslinks',
+                    kind: 'catalog',
+                    fields: []
+                } as never
+            ]
+        })
+
+        const runtimeSeedInsertCall = executor.query.mock.calls.find(([sql]) =>
+            String(sql).includes(`INSERT INTO "${schemaName}"."cat_018f8a787b8f7c1da111222233334470"`)
+        )
+
+        expect(runtimeSeedInsertCall).toBeDefined()
+        expect(runtimeSeedInsertCall?.[1]).toEqual(
+            expect.arrayContaining([
+                '018f8a78-7b8f-7c1d-a111-222233334452',
+                '018f8a78-7b8f-7c1d-a111-222233334448',
+                'shared-seed-row',
+                JSON.stringify({
+                    en: 'Shared starter',
+                    ru: 'Общий старт'
+                })
+            ])
+        )
     })
 
     it('archives workspace-scoped runtime rows before archiving the personal workspace itself', async () => {
@@ -228,5 +365,607 @@ describe('applicationWorkspaces service', () => {
                 })
             ])
         )
+    })
+
+    it('remaps workspace seed refs for catalog-like objects even when kind metadata is not literal catalog', async () => {
+        const { executor } = createMockDbExecutor()
+        const schemaName = 'app_018f8a787b8f7c1da111222233334750'
+        const generatedIds = [
+            '018f8a78-7b8f-7c1d-a111-222233334751',
+            '018f8a78-7b8f-7c1d-a111-222233334752',
+            '018f8a78-7b8f-7c1d-a111-222233334753',
+            '018f8a78-7b8f-7c1d-a111-222233334754'
+        ]
+
+        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
+                const id = generatedIds.shift()
+                return id ? [{ id }] : []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
+                return []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_roles"`)) {
+                if (params?.[0] === 'owner') {
+                    return [{ id: '018f8a78-7b8f-7c1d-a111-222233334760', codename: 'owner' }]
+                }
+                if (params?.[0] === 'member') {
+                    return [{ id: '018f8a78-7b8f-7c1d-a111-222233334761', codename: 'member' }]
+                }
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_user_roles"`)) {
+                return []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_settings"`)) {
+                return [
+                    {
+                        value: {
+                            version: 1,
+                            elements: {
+                                classObject: [
+                                    {
+                                        id: 'class-seed-row',
+                                        data: {
+                                            title: 'Starter class'
+                                        }
+                                    }
+                                ],
+                                accessObject: [
+                                    {
+                                        id: 'access-seed-row',
+                                        data: {
+                                            linkClassId: 'class-seed-row',
+                                            status: 'enum-option-1'
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                ]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
+                return [
+                    {
+                        objectId: 'accessObject',
+                        tableName: 'cat_access_object'
+                    },
+                    {
+                        objectId: 'classObject',
+                        tableName: 'cat_class_object'
+                    }
+                ]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_attributes"`)) {
+                return [
+                    {
+                        objectId: 'accessObject',
+                        attributeId: 'access-ref-attr',
+                        parentAttributeId: null,
+                        codename: 'linkClassId',
+                        columnName: 'col_link_class_id',
+                        dataType: 'REF',
+                        uiConfig: null,
+                        targetObjectId: 'classObject',
+                        targetObjectKind: 'linked_collection'
+                    },
+                    {
+                        objectId: 'accessObject',
+                        attributeId: 'access-status-attr',
+                        parentAttributeId: null,
+                        codename: 'status',
+                        columnName: 'col_status',
+                        dataType: 'REF',
+                        uiConfig: null,
+                        targetObjectId: 'enumObject',
+                        targetObjectKind: 'enumeration'
+                    },
+                    {
+                        objectId: 'classObject',
+                        attributeId: 'class-title-attr',
+                        parentAttributeId: null,
+                        codename: 'title',
+                        columnName: 'col_title',
+                        dataType: 'STRING',
+                        uiConfig: null,
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    }
+                ]
+            }
+
+            if (sql.includes('FROM information_schema.columns')) {
+                return [
+                    {
+                        tableName: 'cat_access_object',
+                        columnName: 'col_link_class_id',
+                        udtName: 'uuid'
+                    },
+                    {
+                        tableName: 'cat_access_object',
+                        columnName: 'col_status',
+                        udtName: 'uuid'
+                    },
+                    {
+                        tableName: 'cat_class_object',
+                        columnName: 'col_title',
+                        udtName: 'text'
+                    }
+                ]
+            }
+
+            if (sql.includes('SELECT id, _seed_source_key AS "seedSourceKey"')) {
+                return []
+            }
+
+            return []
+        })
+
+        await ensurePersonalWorkspaceForUser(executor, {
+            schemaName,
+            userId: '018f8a78-7b8f-7c1d-a111-222233334780',
+            actorUserId: '018f8a78-7b8f-7c1d-a111-222233334781',
+            defaultRoleCodename: 'owner'
+        })
+
+        const classInsertCall = executor.query.mock.calls.find(([sql]) =>
+            String(sql).includes(`INSERT INTO "${schemaName}"."cat_class_object"`)
+        )
+        const accessInsertCall = executor.query.mock.calls.find(([sql]) =>
+            String(sql).includes(`INSERT INTO "${schemaName}"."cat_access_object"`)
+        )
+
+        expect(classInsertCall).toBeDefined()
+        expect(accessInsertCall).toBeDefined()
+        expect(accessInsertCall?.[1]).toEqual(
+            expect.arrayContaining([
+                '018f8a78-7b8f-7c1d-a111-222233334753',
+                'access-seed-row',
+                '018f8a78-7b8f-7c1d-a111-222233334754',
+                'enum-option-1'
+            ])
+        )
+        expect(accessInsertCall?.[1]).not.toEqual(expect.arrayContaining(['class-seed-row']))
+    })
+
+    it('remaps public access-link target ids to workspace-scoped module rows', async () => {
+        const { executor } = createMockDbExecutor()
+        const schemaName = 'app_018f8a787b8f7c1da111222233334850'
+        const generatedIds = [
+            '018f8a78-7b8f-7c1d-a111-222233334851',
+            '018f8a78-7b8f-7c1d-a111-222233334852',
+            '018f8a78-7b8f-7c1d-a111-222233334853',
+            '018f8a78-7b8f-7c1d-a111-222233334854'
+        ]
+
+        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
+                const id = generatedIds.shift()
+                return id ? [{ id }] : []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
+                return []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_roles"`)) {
+                if (params?.[0] === 'owner') {
+                    return [{ id: '018f8a78-7b8f-7c1d-a111-222233334860', codename: 'owner' }]
+                }
+                if (params?.[0] === 'member') {
+                    return [{ id: '018f8a78-7b8f-7c1d-a111-222233334861', codename: 'member' }]
+                }
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_user_roles"`)) {
+                return []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_settings"`)) {
+                return [
+                    {
+                        value: {
+                            version: 1,
+                            elements: {
+                                moduleObject: [
+                                    {
+                                        id: 'module-seed-row',
+                                        data: {
+                                            Title: 'Orbital Navigation 101'
+                                        }
+                                    }
+                                ],
+                                accessObject: [
+                                    {
+                                        id: 'access-seed-row',
+                                        data: {
+                                            TargetType: 'module',
+                                            TargetId: 'module-seed-row'
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                ]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
+                return [
+                    {
+                        objectId: 'accessObject',
+                        codename: 'AccessLinks',
+                        tableName: 'cat_access_object'
+                    },
+                    {
+                        objectId: 'moduleObject',
+                        codename: 'Modules',
+                        tableName: 'cat_module_object'
+                    }
+                ]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_attributes"`)) {
+                return [
+                    {
+                        objectId: 'accessObject',
+                        attributeId: 'access-target-type-attr',
+                        parentAttributeId: null,
+                        codename: 'TargetType',
+                        columnName: 'col_target_type',
+                        dataType: 'STRING',
+                        uiConfig: null,
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    },
+                    {
+                        objectId: 'accessObject',
+                        attributeId: 'access-target-id-attr',
+                        parentAttributeId: null,
+                        codename: 'TargetId',
+                        columnName: 'col_target_id',
+                        dataType: 'STRING',
+                        uiConfig: null,
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    },
+                    {
+                        objectId: 'moduleObject',
+                        attributeId: 'module-title-attr',
+                        parentAttributeId: null,
+                        codename: 'Title',
+                        columnName: 'col_title',
+                        dataType: 'STRING',
+                        uiConfig: null,
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    }
+                ]
+            }
+
+            if (sql.includes('FROM information_schema.columns')) {
+                return [
+                    {
+                        tableName: 'cat_access_object',
+                        columnName: 'col_target_type',
+                        udtName: 'text'
+                    },
+                    {
+                        tableName: 'cat_access_object',
+                        columnName: 'col_target_id',
+                        udtName: 'text'
+                    },
+                    {
+                        tableName: 'cat_module_object',
+                        columnName: 'col_title',
+                        udtName: 'text'
+                    }
+                ]
+            }
+
+            if (sql.includes('SELECT id, _seed_source_key AS "seedSourceKey"')) {
+                return []
+            }
+
+            return []
+        })
+
+        await ensurePersonalWorkspaceForUser(executor, {
+            schemaName,
+            userId: '018f8a78-7b8f-7c1d-a111-222233334880',
+            actorUserId: '018f8a78-7b8f-7c1d-a111-222233334881',
+            defaultRoleCodename: 'owner'
+        })
+
+        const moduleInsertCall = executor.query.mock.calls.find(([sql]) =>
+            String(sql).includes(`INSERT INTO "${schemaName}"."cat_module_object"`)
+        )
+        const accessInsertCall = executor.query.mock.calls.find(([sql]) =>
+            String(sql).includes(`INSERT INTO "${schemaName}"."cat_access_object"`)
+        )
+
+        expect(moduleInsertCall).toBeDefined()
+        expect(accessInsertCall).toBeDefined()
+        expect(accessInsertCall?.[1]).toEqual(
+            expect.arrayContaining([
+                '018f8a78-7b8f-7c1d-a111-222233334854',
+                'access-seed-row',
+                'module',
+                '018f8a78-7b8f-7c1d-a111-222233334853'
+            ])
+        )
+        expect(accessInsertCall?.[1]).not.toEqual(expect.arrayContaining(['module-seed-row']))
+    })
+
+    it('does not re-promote the personal workspace to default when another workspace is already default', async () => {
+        const { executor } = createMockDbExecutor()
+        const schemaName = 'app_018f8a787b8f7c1da111222233334890'
+
+        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+            if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
+                return [{ id: 'personal-workspace-id' }]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_roles"`)) {
+                if (params?.[0] === 'owner') {
+                    return [{ id: 'owner-role-id', codename: 'owner' }]
+                }
+                if (params?.[0] === 'member') {
+                    return [{ id: 'member-role-id', codename: 'member' }]
+                }
+            }
+
+            if (
+                sql.includes(`FROM "${schemaName}"."_app_workspace_user_roles"`) &&
+                sql.includes('WHERE workspace_id = $1') &&
+                sql.includes('AND user_id = $2')
+            ) {
+                return [
+                    {
+                        workspaceId: 'personal-workspace-id',
+                        userId: 'user-id',
+                        isDefaultWorkspace: false
+                    }
+                ]
+            }
+
+            if (
+                sql.includes(`FROM "${schemaName}"."_app_workspace_user_roles"`) &&
+                sql.includes('WHERE user_id = $1') &&
+                sql.includes('is_default_workspace = true')
+            ) {
+                return [{ workspaceId: 'shared-workspace-id' }]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_settings"`)) {
+                return []
+            }
+
+            return []
+        })
+
+        const result = await ensurePersonalWorkspaceForUser(executor, {
+            schemaName,
+            userId: 'user-id',
+            actorUserId: 'actor-id',
+            defaultRoleCodename: 'owner'
+        })
+
+        expect(result.workspaceId).toBe('personal-workspace-id')
+
+        const promotedPersonalWorkspaceCall = executor.query.mock.calls.find(
+            ([sql]) =>
+                String(sql).includes(`UPDATE "${schemaName}"."_app_workspace_user_roles"`) &&
+                String(sql).includes('SET is_default_workspace = true')
+        )
+        expect(promotedPersonalWorkspaceCall).toBeUndefined()
+    })
+
+    it('remaps module content-item quiz ids to workspace-scoped quiz rows', async () => {
+        const { executor } = createMockDbExecutor()
+        const schemaName = 'app_018f8a787b8f7c1da111222233334950'
+        const generatedIds = [
+            '018f8a78-7b8f-7c1d-a111-222233334951',
+            '018f8a78-7b8f-7c1d-a111-222233334952',
+            '018f8a78-7b8f-7c1d-a111-222233334953',
+            '018f8a78-7b8f-7c1d-a111-222233334954',
+            '018f8a78-7b8f-7c1d-a111-222233334955'
+        ]
+
+        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
+                const id = generatedIds.shift()
+                return id ? [{ id }] : []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
+                return []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_roles"`)) {
+                if (params?.[0] === 'owner') {
+                    return [{ id: '018f8a78-7b8f-7c1d-a111-222233334960', codename: 'owner' }]
+                }
+                if (params?.[0] === 'member') {
+                    return [{ id: '018f8a78-7b8f-7c1d-a111-222233334961', codename: 'member' }]
+                }
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_user_roles"`)) {
+                return []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_settings"`)) {
+                return [
+                    {
+                        value: {
+                            version: 1,
+                            elements: {
+                                moduleObject: [
+                                    {
+                                        id: 'module-seed-row',
+                                        data: {
+                                            Title: 'Orbital Navigation 101',
+                                            ContentItems: [
+                                                {
+                                                    QuizId: 'quiz-seed-row',
+                                                    ItemTitle: 'Readiness check'
+                                                }
+                                            ]
+                                        }
+                                    }
+                                ],
+                                quizObject: [
+                                    {
+                                        id: 'quiz-seed-row',
+                                        data: {
+                                            Title: 'Transfer burn readiness'
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                ]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
+                return [
+                    {
+                        objectId: 'moduleObject',
+                        codename: 'Modules',
+                        tableName: 'cat_module_object'
+                    },
+                    {
+                        objectId: 'quizObject',
+                        codename: 'Quizzes',
+                        tableName: 'cat_quiz_object'
+                    }
+                ]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_attributes"`)) {
+                return [
+                    {
+                        objectId: 'moduleObject',
+                        attributeId: 'module-title-attr',
+                        parentAttributeId: null,
+                        codename: 'Title',
+                        columnName: 'col_title',
+                        dataType: 'STRING',
+                        uiConfig: null,
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    },
+                    {
+                        objectId: 'moduleObject',
+                        attributeId: 'module-content-items-attr',
+                        parentAttributeId: null,
+                        codename: 'ContentItems',
+                        columnName: 'col_content_items',
+                        dataType: 'TABLE',
+                        uiConfig: null,
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    },
+                    {
+                        objectId: 'moduleObject',
+                        attributeId: 'module-content-item-quiz-attr',
+                        parentAttributeId: 'module-content-items-attr',
+                        codename: 'QuizId',
+                        columnName: 'col_quiz_id',
+                        dataType: 'STRING',
+                        uiConfig: null,
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    },
+                    {
+                        objectId: 'moduleObject',
+                        attributeId: 'module-content-item-title-attr',
+                        parentAttributeId: 'module-content-items-attr',
+                        codename: 'ItemTitle',
+                        columnName: 'col_item_title',
+                        dataType: 'STRING',
+                        uiConfig: null,
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    },
+                    {
+                        objectId: 'quizObject',
+                        attributeId: 'quiz-title-attr',
+                        parentAttributeId: null,
+                        codename: 'Title',
+                        columnName: 'col_title',
+                        dataType: 'STRING',
+                        uiConfig: null,
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    }
+                ]
+            }
+
+            if (sql.includes('FROM information_schema.columns')) {
+                return [
+                    {
+                        tableName: 'cat_module_object',
+                        columnName: 'col_title',
+                        udtName: 'text'
+                    },
+                    {
+                        tableName: 'cat_quiz_object',
+                        columnName: 'col_title',
+                        udtName: 'text'
+                    },
+                    {
+                        tableName: 'tbl_modulecontentitemsattr',
+                        columnName: 'col_quiz_id',
+                        udtName: 'text'
+                    },
+                    {
+                        tableName: 'tbl_modulecontentitemsattr',
+                        columnName: 'col_item_title',
+                        udtName: 'text'
+                    }
+                ]
+            }
+
+            if (sql.includes('SELECT id, _seed_source_key AS "seedSourceKey"')) {
+                return []
+            }
+
+            return []
+        })
+
+        await ensurePersonalWorkspaceForUser(executor, {
+            schemaName,
+            userId: '018f8a78-7b8f-7c1d-a111-222233334980',
+            actorUserId: '018f8a78-7b8f-7c1d-a111-222233334981',
+            defaultRoleCodename: 'owner'
+        })
+
+        const quizInsertCall = executor.query.mock.calls.find(([sql]) =>
+            String(sql).includes(`INSERT INTO "${schemaName}"."cat_quiz_object"`)
+        )
+        const childInsertCall = executor.query.mock.calls.find(([sql]) =>
+            String(sql).includes(`INSERT INTO "${schemaName}"."tbl_modulecontentitemsattr"`)
+        )
+
+        expect(quizInsertCall).toBeDefined()
+        expect(childInsertCall).toBeDefined()
+        expect(childInsertCall?.[1]).toEqual(
+            expect.arrayContaining([
+                '018f8a78-7b8f-7c1d-a111-222233334955',
+                'module-seed-row:module-content-items-attr:0',
+                '018f8a78-7b8f-7c1d-a111-222233334953',
+                'Readiness check'
+            ])
+        )
+        expect(childInsertCall?.[1]).not.toEqual(expect.arrayContaining(['quiz-seed-row']))
     })
 })

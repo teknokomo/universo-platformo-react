@@ -14,6 +14,7 @@ import SideMenuMobileRight from './SideMenuMobileRight'
 import MenuButton from './MenuButton'
 import ColorModeIconDropdown from '../../shared-theme/ColorModeIconDropdown'
 import LanguageSwitcher from '../../components/LanguageSwitcher'
+import WorkspaceSwitcher from './WorkspaceSwitcher'
 import type { DashboardMenuSlot, DashboardMenusMap, ZoneWidgetItem } from '../Dashboard'
 
 const Toolbar = styled(MuiToolbar)({
@@ -84,6 +85,7 @@ export default function AppNavbar({ menu, menus, rightWidgets = [] }: AppNavbarP
                             {title}
                         </Typography>
                     </Stack>
+                    <WorkspaceSwitcher />
                     <LanguageSwitcher />
                     <ColorModeIconDropdown />
                     {hasRightWidgets && (

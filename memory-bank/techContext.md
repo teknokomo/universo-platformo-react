@@ -146,6 +146,14 @@
 - Runtime sync must fail closed when `_app_scripts` bootstrap or persistence fails.
 - `sdkApiVersion` is enforced as a real compatibility contract; current supported version is `1.0.0`.
 
+## LMS Public Runtime Contract
+
+- Public LMS access links resolve through `applications-backend` public routes and the standalone `GuestApp` surface in `@universo/apps-template-mui`.
+- Guest sessions currently reuse the existing students token string column by storing a JSON envelope with `secret` and `expiresAt`; this is the active compatibility-safe expiry contract until a future schema migration says otherwise.
+- Persisted guest-created rows in the public LMS flows now use UUID v7 generation through the database helper path, matching the wider repository direction for ordered ids.
+- Public client bundles for runtime widgets/scripts are served with explicit JavaScript MIME type plus defensive `nosniff` / CSP / cache headers because they execute outside the authenticated dashboard shell.
+- Embedded LMS `quiz_ref` rendering now depends on explicit `quizId` context passed into `QuizWidget`; ambient script selection alone is not a sufficient contract when module content can reference multiple quizzes.
+
 ## Quiz Snapshot Fixture Contract
 
 - Canonical source: `tools/testing/e2e/support/quizFixtureContract.ts`.

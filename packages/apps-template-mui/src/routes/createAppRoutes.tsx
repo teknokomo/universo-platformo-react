@@ -21,6 +21,11 @@ export interface AppRuntimeRouteConfig {
     guard?: ComponentType<{ children: ReactNode }>
 }
 
+export interface PublicAppRuntimeRouteConfig {
+    path?: string
+    component: ComponentType
+}
+
 /**
  * Creates a route configuration for the application runtime view.
  * The runtime route renders a full-screen CRUD dashboard (MinimalLayout, no main sidebar).
@@ -50,5 +55,14 @@ export function createAppRuntimeRoute(config: AppRuntimeRouteConfig): AppRouteOb
         ) : (
             <Component />
         )
+    }
+}
+
+export function createPublicAppRuntimeRoute(config: PublicAppRuntimeRouteConfig): AppRouteObject {
+    const { path = 'public/a/:applicationId/links/:slug', component: Component } = config
+
+    return {
+        path,
+        element: <Component />
     }
 }

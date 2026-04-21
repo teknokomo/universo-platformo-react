@@ -20,6 +20,8 @@ export { appsTranslations } from './i18n'
 // Standalone app
 export { default as DashboardApp } from './standalone/DashboardApp'
 export type { DashboardAppProps } from './standalone/DashboardApp'
+export { default as GuestApp } from './standalone/GuestApp'
+export type { GuestAppProps } from './standalone/GuestApp'
 
 // Dialogs
 export { FormDialog } from './components/dialogs/FormDialog'
@@ -71,8 +73,8 @@ export { appQueryKeys } from './api/mutations'
 export { runtimeKeys } from './api/mutations'
 
 // Route factory
-export { createAppRuntimeRoute } from './routes/createAppRoutes'
-export type { AppRouteObject, AppRuntimeRouteConfig } from './routes/createAppRoutes'
+export { createAppRuntimeRoute, createPublicAppRuntimeRoute } from './routes/createAppRoutes'
+export type { AppRouteObject, AppRuntimeRouteConfig, PublicAppRuntimeRouteConfig } from './routes/createAppRoutes'
 
 // --- Backward-compatible aliases (deprecated) ---
 // These re-exports keep existing consumers working without code changes.

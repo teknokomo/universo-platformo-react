@@ -104,6 +104,39 @@ const isRuntimeSetKind = (kind: unknown): kind is string => typeof kind === 'str
 
 const isRuntimeHubKind = (kind: unknown): kind is string => typeof kind === 'string' && resolveRuntimeStandardKind(kind) === 'hub'
 
+type RuntimeTableChildAttributeMeta = {
+    column_name: string
+    data_type?: string | null
+    validation_rules?: Record<string, unknown>
+}
+
+export const normalizeRuntimeTableChildInsertValue = (
+    value: unknown,
+    dataType: string | null | undefined,
+    validationRules?: Record<string, unknown>
+): unknown => {
+    if (value === undefined || value === null) {
+        return null
+    }
+
+    if (dataType === 'JSON') {
+        return typeof value === 'string' ? value : JSON.stringify(value)
+    }
+
+    if (dataType === 'STRING' && typeof value === 'object' && (validationRules?.localized === true || validationRules?.versioned === true)) {
+        return JSON.stringify(value)
+    }
+
+    return value
+}
+
+const normalizeRuntimeTableChildInsertValueByMeta = (
+    value: unknown,
+    childAttrMeta?: RuntimeTableChildAttributeMeta | null
+): unknown => {
+    return normalizeRuntimeTableChildInsertValue(value, childAttrMeta?.data_type, childAttrMeta?.validation_rules)
+}
+
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
@@ -1432,6 +1465,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 offset
             },
             ...(workspaceLimit ? { workspaceLimit } : {}),
+            workspacesEnabled: runtimeContext.workspacesEnabled,
+            currentWorkspaceId: runtimeContext.currentWorkspaceId,
             layoutConfig,
             zoneWidgets,
             menus,
@@ -1741,6 +1776,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         const tableDataEntries: Array<{
             tabTableName: string
             rows: Array<Record<string, unknown>>
+            childAttrsByColumn: Map<string, RuntimeTableChildAttributeMeta>
         }> = []
 
         for (const tAttr of tableAttrsForUpdate) {
@@ -1889,7 +1925,11 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                             )
                         }
 
-                        preparedRow[cAttr.column_name] = cCoerced
+                        preparedRow[cAttr.column_name] = normalizeRuntimeTableChildInsertValue(
+                            cCoerced,
+                            cAttr.data_type,
+                            cAttr.validation_rules
+                        )
                     } catch (err) {
                         return res.status(400).json({
                             error: `Invalid value for ${childFieldPath}: ${err instanceof Error ? err.message : String(err)}`
@@ -1900,7 +1940,20 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 preparedRows.push(preparedRow)
             }
 
-            tableDataEntries.push({ tabTableName, rows: preparedRows })
+            tableDataEntries.push({
+                tabTableName,
+                rows: preparedRows,
+                childAttrsByColumn: new Map(
+                    childAttrsResult.map((childAttr) => [
+                        childAttr.column_name,
+                        {
+                            column_name: childAttr.column_name,
+                            data_type: childAttr.data_type,
+                            validation_rules: childAttr.validation_rules
+                        }
+                    ])
+                )
+            })
         }
 
         if (setClauses.length === 0 && tableDataEntries.length === 0) {
@@ -1970,7 +2023,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             }
 
             // Replace child rows for each TABLE attribute using batch INSERT
-            for (const { tabTableName, rows: childRows } of tableDataEntries) {
+            for (const { tabTableName, rows: childRows, childAttrsByColumn } of tableDataEntries) {
                 const tabTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(tabTableName)}`
 
                 // Soft-delete existing child rows
@@ -2032,7 +2085,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                         }
                         for (const cn of dataColumns) {
                             ph.push(`$${pIdx++}`)
-                            allValues.push(rowData[cn] ?? null)
+                            allValues.push(normalizeRuntimeTableChildInsertValueByMeta(rowData[cn] ?? null, childAttrsByColumn.get(cn)))
                         }
                         valueTuples.push(`(${ph.join(', ')})`)
                     }
@@ -2263,6 +2316,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             attr: (typeof attrs)[number]
             rows: Array<Record<string, unknown>>
             tabTableName: string
+            childAttrsByColumn: Map<string, RuntimeTableChildAttributeMeta>
         }> = []
         for (const tAttr of tableAttrsForCreate) {
             const tableFieldPath = formatRuntimeFieldPath(tAttr.codename)
@@ -2398,7 +2452,11 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                                     cAttr.target_object_id
                                 )
                             }
-                            preparedRow[cAttr.column_name] = cCoerced
+                            preparedRow[cAttr.column_name] = normalizeRuntimeTableChildInsertValue(
+                                cCoerced,
+                                cAttr.data_type,
+                                cAttr.validation_rules
+                            )
                         } catch (err) {
                             return res.status(400).json({
                                 error: `Invalid value for ${childFieldPath}: ${err instanceof Error ? err.message : String(err)}`
@@ -2412,7 +2470,17 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 tableDataEntries.push({
                     attr: tAttr,
                     rows: preparedRows,
-                    tabTableName
+                    tabTableName,
+                    childAttrsByColumn: new Map(
+                        childAttrsResult.map((childAttr) => [
+                            childAttr.column_name,
+                            {
+                                column_name: childAttr.column_name,
+                                data_type: childAttr.data_type,
+                                validation_rules: childAttr.validation_rules
+                            }
+                        ])
+                    )
                 })
             }
         }
@@ -2456,7 +2524,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             const [inserted] = (await mgr.query(insertSql, insertValues)) as Array<{ id: string }>
             const parentId = inserted.id
 
-            for (const { rows: childRows, tabTableName } of tableDataEntries) {
+            for (const { rows: childRows, tabTableName, childAttrsByColumn } of tableDataEntries) {
                 if (childRows.length === 0) continue
                 const tabTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(tabTableName)}`
 
@@ -2494,7 +2562,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     }
                     for (const cn of dataColumns) {
                         ph.push(`$${pIdx++}`)
-                        allValues.push(rowData[cn] ?? null)
+                        allValues.push(normalizeRuntimeTableChildInsertValueByMeta(rowData[cn] ?? null, childAttrsByColumn.get(cn)))
                     }
                     valueTuples.push(`(${ph.join(', ')})`)
                 }
@@ -2693,9 +2761,11 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     )) as Array<{
                         codename: string
                         column_name: string
+                        data_type: string
                     }>
 
                     const validChildColumns = childAttrs.map((attr) => attr.column_name).filter((column) => IDENTIFIER_REGEX.test(column))
+                    const childColumnTypes = new Map(childAttrs.map((attr) => [attr.column_name, attr.data_type]))
                     const sourceChildRows = (await mgr.query(
                         `
               SELECT ${validChildColumns.length > 0 ? validChildColumns.map((column) => quoteIdentifier(column)).join(', ') + ',' : ''}
@@ -2743,7 +2813,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                         }
                         for (const column of validChildColumns) {
                             tuple.push(`$${copyParamIndex++}`)
-                            copyValues.push(sourceChild[column] ?? null)
+                            copyValues.push(normalizeRuntimeTableChildInsertValue(sourceChild[column] ?? null, childColumnTypes.get(column)))
                         }
                         valueTuples.push(`(${tuple.join(', ')})`)
                     }

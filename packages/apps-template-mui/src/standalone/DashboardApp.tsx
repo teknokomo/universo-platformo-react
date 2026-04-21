@@ -52,6 +52,10 @@ export default function DashboardApp(props: DashboardAppProps) {
     const details = useMemo<DashboardDetailsSlot>(
         () => ({
             title: detailsTitle,
+            applicationId: props.applicationId,
+            apiBaseUrl: props.apiBaseUrl,
+            currentWorkspaceId: state.appData?.currentWorkspaceId ?? null,
+            workspacesEnabled: state.appData?.workspacesEnabled ?? false,
             rows: state.rows,
             columns: state.columns,
             loading: state.isLoading,

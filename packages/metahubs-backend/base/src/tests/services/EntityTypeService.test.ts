@@ -94,6 +94,56 @@ describe('EntityTypeService', () => {
         expect(result.find((item) => item.kindKey === 'custom-order')?.published).toBe(true)
     })
 
+    it('synthesizes missing standard entity types when the schema table only contains custom definitions', async () => {
+        const queryMock = jest.fn(async (sql: string) => {
+            if (sql.includes('_mhb_entity_type_definitions')) {
+                return [
+                    {
+                        id: 'custom-type-1',
+                        kind_key: 'custom-order',
+                        codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-order' } } },
+                        presentation: { name: { en: 'Custom Order' } },
+                        components: {
+                            dataSchema: { enabled: true },
+                            records: false,
+                            treeAssignment: false,
+                            optionValues: false,
+                            fixedValues: false,
+                            hierarchy: false,
+                            nestedCollections: false,
+                            relations: false,
+                            actions: { enabled: true },
+                            events: { enabled: true },
+                            scripting: false,
+                            layoutConfig: false,
+                            runtimeBehavior: false,
+                            physicalTable: false
+                        },
+                        ui_config: {
+                            iconName: 'IconBolt',
+                            tabs: ['general'],
+                            sidebarSection: 'objects',
+                            nameKey: 'Custom Order'
+                        },
+                        config: {},
+                        _mhb_published: true,
+                        _upl_version: 1
+                    }
+                ]
+            }
+            return []
+        })
+
+        const service = new EntityTypeService(createExecutor(queryMock) as any, { ensureSchema: mockEnsureSchema } as any)
+        const result = await service.listTypes('metahub-1', 'user-1')
+
+        expect(result.some((item) => item.kindKey === BuiltinEntityKinds.HUB)).toBe(true)
+        expect(result.some((item) => item.kindKey === BuiltinEntityKinds.CATALOG)).toBe(true)
+        expect(result.some((item) => item.kindKey === BuiltinEntityKinds.SET)).toBe(true)
+        expect(result.some((item) => item.kindKey === BuiltinEntityKinds.ENUMERATION)).toBe(true)
+        expect(result.find((item) => item.kindKey === BuiltinEntityKinds.CATALOG)?.published).toBe(true)
+    })
+
     it('rejects attempts to redefine standard entity kinds as custom types', async () => {
         const service = new EntityTypeService(createExecutor(jest.fn(async () => [])) as any, { ensureSchema: mockEnsureSchema } as any)
 

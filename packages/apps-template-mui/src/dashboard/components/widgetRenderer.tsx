@@ -14,6 +14,9 @@ import CustomizedTreeView from './CustomizedTreeView'
 import ChartUserByCountry from './ChartUserByCountry'
 import CustomizedDataGrid from './CustomizedDataGrid'
 import QuizWidget from './QuizWidget'
+import ModuleViewerWidget from './ModuleViewerWidget'
+import StatsViewerWidget from './StatsViewerWidget'
+import QRCodeWidget from './QRCodeWidget'
 import type { DashboardMenuSlot, DashboardMenusMap, ZoneWidgetItem } from '../Dashboard'
 import { useDashboardDetails } from '../DashboardDetailsContext'
 
@@ -120,6 +123,12 @@ export function renderWidget(widget: ZoneWidgetItem, menus?: DashboardMenusMap, 
             return <DetailsTableWidget key={widget.id} />
         case 'quizWidget':
             return <QuizWidget key={widget.id} config={widget.config} />
+        case 'moduleViewerWidget':
+            return <ModuleViewerWidget key={widget.id} config={widget.config} />
+        case 'statsViewerWidget':
+            return <StatsViewerWidget key={widget.id} config={widget.config} />
+        case 'qrCodeWidget':
+            return <QRCodeWidget key={widget.id} config={widget.config} />
         case 'columnsContainer': {
             // Guard against infinite recursion if a columnsContainer nests another
             if (depth >= MAX_CONTAINER_DEPTH) return null

@@ -2,6 +2,34 @@
 
 > Reusable architectural patterns and best practices. Completed implementation history belongs in progress.md. Active work belongs in tasks.md.
 
+## Shared Runtime Widget Script Hook Pattern (IMPORTANT)
+
+**Rule**: dashboard runtime widgets that load client-capable scripts from application runtime metadata must reuse the shared script-selection + client-bundle hook instead of duplicating the catalog/metahub fetch logic per widget.
+
+**Required**:
+- `@universo/apps-template-mui` runtime widgets with the same script-discovery contract should use `useRuntimeWidgetClientScript(...)` from `runtimeWidgetHelpers.ts`.
+- Shared filtering/dedup must stay centralized through `filterRuntimeWidgetScripts(...)` and `selectRuntimeWidgetScript(...)` so widget-specific components only own their model query and render logic.
+- The hook must preserve the current dual-scope lookup contract: catalog-attached scripts when a linked collection is present, metahub-attached scripts otherwise, with `attachedToKind` still able to constrain either side.
+- Add focused component coverage when a new widget adopts the hook, because the shared hook is a runtime boundary between script metadata and widget rendering.
+
+**Detection**: `rg "fetchRuntimeScripts|fetchRuntimeClientBundle|useRuntimeWidgetClientScript" packages/apps-template-mui/src/dashboard/components`
+
+**Why**: the 2026-04-20 LMS QA remediation finish found that `ModuleViewerWidget` and `StatsViewerWidget` had drifted into copy-pasted script-loading logic. Centralizing the shared query path reduces widget drift and keeps future runtime widget fixes one-place.
+
+## Public Guest Session Envelope Pattern (IMPORTANT)
+
+**Rule**: public LMS guest sessions must validate against persisted server-side session state, including expiry, even when the transport token itself still fits inside the existing legacy string column.
+
+**Required**:
+- Persist a JSON envelope with at least `secret` and `expiresAt` in the guest-session token column instead of storing only the raw secret.
+- Validate guest-session tokens by loading the persisted row and checking both secret equality and expiry timestamp before accepting quiz/progress mutations.
+- Prefer compatibility-safe hardening that avoids schema-version churn when the existing column can safely hold the structured envelope.
+- Public runtime script bundles served without authenticated dashboard chrome must set explicit JavaScript MIME type and defensive browser headers (`nosniff`, CSP, cache policy).
+
+**Detection**: `rg "expiresAt|guest_session_token|X-Content-Type-Options|Content-Security-Policy" packages/applications-backend/base/src/controllers/runtimeGuestController.ts`
+
+**Why**: the 2026-04-20 LMS QA remediation finish closed the remaining public guest-runtime hardening gap without forcing a schema migration by serializing the server-side session envelope into the existing students token column.
+
 ## Controller-Owned Nested Standard Child Dispatch Pattern (IMPORTANT)
 
 **Rule**: if nested standard child endpoints still depend on the specialized tree/linked-collection/value-group/option-list controllers, move any remaining dispatch ownership out of `entityInstancesRoutes.ts` and into `entityInstancesController.ts` before attempting a deeper semantics rewrite.

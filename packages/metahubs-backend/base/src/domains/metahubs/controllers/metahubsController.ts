@@ -847,6 +847,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                 .optional(),
             isPublic: z.boolean().optional(),
             templateId: z.string().uuid().optional(),
+            templateCodename: z.string().trim().min(1).max(120).optional(),
             createOptions: z
                 .object({
                     presetToggles: z.record(z.boolean()).optional()
@@ -925,10 +926,29 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             return res.status(400).json({ error: 'Invalid input', details: { codename: ['Codename is required'] } })
         }
 
+        if (result.data.templateId && result.data.templateCodename) {
+            return res.status(400).json({
+                error: 'Invalid input',
+                details: {
+                    template: ['Provide either templateId or templateCodename, not both']
+                }
+            })
+        }
+
         let templateId: string | undefined
         let templateVersionId: string | undefined
         if (result.data.templateId) {
             const template = await findTemplateByIdNotDeleted(exec, result.data.templateId)
+            if (!template || !template.isActive) {
+                return res.status(404).json({ error: 'Template not found or inactive' })
+            }
+            if (!template.activeVersionId) {
+                return res.status(400).json({ error: 'Template has no active version' })
+            }
+            templateId = template.id
+            templateVersionId = template.activeVersionId
+        } else if (result.data.templateCodename) {
+            const template = await findTemplateByCodename(exec, result.data.templateCodename)
             if (!template || !template.isActive) {
                 return res.status(404).json({ error: 'Template not found or inactive' })
             }

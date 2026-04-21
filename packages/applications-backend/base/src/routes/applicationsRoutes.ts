@@ -6,6 +6,7 @@ import { createApplicationsController } from '../controllers/applicationsControl
 import { createRuntimeRowsController } from '../controllers/runtimeRowsController'
 import { createRuntimeChildRowsController } from '../controllers/runtimeChildRowsController'
 import { createRuntimeScriptsController } from '../controllers/runtimeScriptsController'
+import { createRuntimeWorkspaceController } from '../controllers/runtimeWorkspaceController'
 
 export function createApplicationsRoutes(
     ensureAuth: RequestHandler,
@@ -20,6 +21,7 @@ export function createApplicationsRoutes(
     const runtime = createRuntimeRowsController(getDbExecutor)
     const childRows = createRuntimeChildRowsController(getDbExecutor)
     const runtimeScripts = createRuntimeScriptsController(getDbExecutor)
+    const workspace = createRuntimeWorkspaceController(getDbExecutor)
 
     // ── Application CRUD ──
     router.get('/', readLimiter, asyncHandler(app.list))
@@ -55,6 +57,14 @@ export function createApplicationsRoutes(
     router.get('/:applicationId/runtime/scripts', readLimiter, asyncHandler(runtimeScripts.listScripts))
     router.get('/:applicationId/runtime/scripts/:scriptId/client', readLimiter, asyncHandler(runtimeScripts.getClientBundle))
     router.post('/:applicationId/runtime/scripts/:scriptId/call', writeLimiter, asyncHandler(runtimeScripts.callMethod))
+
+    // ── Runtime workspaces ──
+    router.get('/:applicationId/runtime/workspaces', readLimiter, asyncHandler(workspace.listWorkspaces))
+    router.post('/:applicationId/runtime/workspaces', writeLimiter, asyncHandler(workspace.createWorkspace))
+    router.patch('/:applicationId/runtime/workspaces/:workspaceId/default', writeLimiter, asyncHandler(workspace.updateDefaultWorkspace))
+    router.get('/:applicationId/runtime/workspaces/:workspaceId/members', readLimiter, asyncHandler(workspace.getMembers))
+    router.post('/:applicationId/runtime/workspaces/:workspaceId/members', writeLimiter, asyncHandler(workspace.inviteMember))
+    router.delete('/:applicationId/runtime/workspaces/:workspaceId/members/:userId', writeLimiter, asyncHandler(workspace.deleteMember))
 
     // ── Runtime child rows (tabular) ──
     router.get('/:applicationId/runtime/rows/:recordId/tabular/:attributeId', readLimiter, asyncHandler(childRows.listChildRows))

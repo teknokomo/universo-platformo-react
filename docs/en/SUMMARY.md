@@ -50,6 +50,7 @@
 * [Frontend Architecture](architecture/frontend.md)
 * [Entity Systems Architecture](architecture/entity-systems.md)
 * [Entity Component System](architecture/entity-component-system.md)
+* [LMS Entities](architecture/lms-entities.md)
 * [Database Design](architecture/database.md)
 * [Database Access Standard](architecture/database-access-standard.md)
 * [Authentication and Authorization](architecture/auth.md)
@@ -75,6 +76,10 @@
 ## Guides
 
 * [Overview](guides/README.md)
+* [LMS Overview](guides/lms-overview.md)
+* [LMS Setup](guides/lms-setup.md)
+* [LMS Guest Access](guides/lms-guest-access.md)
+* [Workspace Management](guides/workspace-management.md)
 * [Resources Workspace](guides/general-section.md)
 * [Custom Entity Types](guides/custom-entity-types.md)
 * [Catalog Layouts](guides/catalog-layouts.md)

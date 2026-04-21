@@ -270,6 +270,48 @@ describe('QuizWidget', () => {
         })
     })
 
+    it('passes quizId to mount and submit calls when the widget is scoped to a specific quiz reference', async () => {
+        const queryClient = createQueryClient()
+
+        render(
+            <QueryClientProvider client={queryClient}>
+                <DashboardDetailsProvider
+                    value={{
+                        applicationId: 'app-1',
+                        linkedCollectionId: 'catalog-1',
+                        apiBaseUrl: '/api/v1'
+                    } as never}
+                >
+                    <QuizWidget config={{ attachedToKind: 'catalog', scriptCodename: 'quiz-widget', quizId: 'quiz-42' }} />
+                </DashboardDetailsProvider>
+            </QueryClientProvider>
+        )
+
+        expect(await screen.findByText((content) => content.includes('Which planet is known as the Red Planet?'))).toBeInTheDocument()
+        fireEvent.click(screen.getByLabelText('Mars'))
+        fireEvent.click(screen.getByRole('button', { name: 'Check answer' }))
+
+        await waitFor(() => {
+            expect(mocks.executeClientScriptMethod).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    methodName: 'mount',
+                    args: [{ locale: 'en', quizId: 'quiz-42' }]
+                })
+            )
+        })
+
+        expect(mocks.executeClientScriptMethod).toHaveBeenCalledWith(
+            expect.objectContaining({
+                methodName: 'submit',
+                args: [
+                    expect.objectContaining({
+                        quizId: 'quiz-42'
+                    })
+                ]
+            })
+        )
+    })
+
     it('allows returning from the completion screen back to the answered questions', async () => {
         renderWidget({
             applicationId: 'app-1',

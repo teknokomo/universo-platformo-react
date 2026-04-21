@@ -6,6 +6,237 @@
 
 ## Current Task Ledger (Canonical)
 
+## Active: LMS Guest Runtime Localization And QA Closure (2026-04-21)
+
+> Goal: eliminate the remaining public LMS guest localization defect, strengthen the missing RU completion coverage, and leave the LMS plan genuinely complete without residual QA debt in the touched guest-runtime surfaces.
+
+### Final Action Plan — Current Implementation Pass (2026-04-21)
+
+- [x] Add the missing `guest.completeModule`, `guest.restartModule`, and `guest.moduleCompleted` translations to the EN/RU apps-template-mui locale resources
+- [x] Update `GuestApp.test.tsx` so guest runtime assertions stop locking in English fallbacks and cover the real RU completion path
+- [x] Update the focused LMS Playwright browser proof so the RU public guest flow completes the module and asserts the localized completion CTA/result state
+- [x] Run targeted frontend validation for the touched guest-runtime path and rerun the focused LMS snapshot-import browser proof
+- [x] Update `memory-bank/activeContext.md` and `memory-bank/progress.md` after the guest localization and browser validation are verified green
+
+- Final validation note:
+  - Targeted `@universo/apps-template-mui` Vitest passed for `GuestApp.test.tsx` and `App.test.tsx` (`12/12`).
+  - Canonical root `pnpm build` completed successfully (`30/30 successful`).
+  - Focused Playwright wrapper `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts` passed (`2/2`).
+  - The verified root cause was stale built frontend assets: the real browser flow kept serving a pre-fix bundle that still downgraded public guest requests to `locale=en` until the workspace was rebuilt.
+
+## Active: LMS Final Closure And Canonical Fixture Regeneration (2026-04-21)
+
+> Goal: close the last post-QA LMS runtime/security residue, regenerate the canonical LMS snapshot through the official generator path, and leave the memory-bank aligned with the verified final state.
+
+### Final Action Plan — Current Implementation Pass (2026-04-21)
+
+- [x] Move guest runtime session transport from query params to request headers so public runtime URLs stop leaking guest credentials
+- [x] Rebind public access-link lookup to the shared-workspace-aware resolver so guest runtime stays pinned to the correct shared workspace
+- [x] Add focused backend/frontend regression coverage for header-based guest runtime auth and clean runtime URLs
+- [x] Remove external LMS fixture media dependencies by replacing route-map assets with inline SVG data URIs in the canonical fixture contract
+- [x] Regenerate the canonical `tools/fixtures/metahubs-lms-app-snapshot.json` only through the official Playwright generator flow
+- [x] Reconcile `memory-bank/tasks.md`, `memory-bank/activeContext.md`, and `memory-bank/progress.md` with the verified green state
+
+- Final validation note:
+  - Focused backend Jest passed for `publicApplicationsRoutes.test.ts` (`16/16`).
+  - Focused frontend Vitest passed for `GuestApp.test.tsx` (`6/6`).
+  - Touched-file diagnostics were clean after the runtime/fixture changes.
+  - The official Playwright generator `node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "canonical lms metahub and export snapshot fixture"` passed (`2/2`) and refreshed the canonical LMS snapshot fixture.
+
+## Active: LMS Snapshot Import Browser Proof Recovery (2026-04-21)
+
+> Goal: finish the still-red linked-application browser proof by removing the remaining shared-vs-personal public runtime drift in the real guest router path, then rerun focused validation before touching closure status files.
+
+### Final Action Plan — Current Implementation Pass (2026-04-21)
+
+- [x] Reproduce the current focused Playwright failure and confirm the exact red state from artifacts and request/trace evidence
+- [x] Remove the brittle public guest route-param dependency on stale `window` parsing and cover it with focused component regression coverage
+- [x] Fix the remaining public guest locale drift in the main router path so EN public links stop resolving as RU after a previous RU dashboard render
+- [x] Restore a seeded shared workspace for workspace-enabled linked apps so public access links resolve after schema sync
+- [x] Make shared-workspace bootstrap seed runtime rows immediately at schema-bootstrap time instead of depending only on the later all-workspaces sync pass
+- [x] Pin workspace-aware public runtime requests to a single transaction-scoped executor so RLS sees `app.current_workspace_id` across the whole guest flow
+- [x] Trace the real publication-runtime-source to workspace-seed-template path and prove where `AccessLinks/demo-module` disappears in the linked-app sync flow
+- [x] Patch the production sync/materialization seam so workspace-enabled linked apps persist and expose the seeded `AccessLinks/demo-module` row to public runtime
+- [x] Patch public link/runtime resolution so workspace-enabled guest routes stay pinned to the shared workspace even after personal workspace seed rows appear
+- [x] Add backend regression coverage for shared-only public slug/runtime/guest-submit resolution when both shared and personal workspace clones exist
+- [x] Patch the remaining RU Playwright quiz-option locator drift in the wrapper proof so the real browser flow tolerates the currently shipped label fallback
+- [x] Add an explicit authenticated runtime workspace override so focused verification can read the shared workspace deterministically instead of relying on mutable default-workspace state
+- [x] Switch the final LMS wrapper verification helpers to poll the explicit shared workspace rows instead of default-workspace reads
+- [x] Re-run targeted validation plus the focused snapshot-import Playwright proof until green
+- [x] Update `memory-bank/activeContext.md` and `memory-bank/progress.md` only after the final focused browser proof is green
+
+- Current implementation note:
+  - The locale drift is fixed and the old `AccessLinks/demo-module` `404` path is gone in the real browser flow.
+  - Direct E2E-server reproduction now shows the remaining blocker is a workspace-selection split: `resolveLink` and `guest-session` can bind to the shared workspace, while later `runtime?slug=demo-module` resolves against the personal workspace clone and returns a different quiz id.
+  - The current concrete failure is therefore `POST /api/v1/public/a/:applicationId/runtime/guest-submit -> 403 {"error":"Quiz is not available for this guest session"}` because the guest session is bound to the shared link/module ids while the browser runtime payload can surface personal-workspace quiz ids after personal seed rows appear.
+  - After the shared-workspace/session-bound runtime fix landed and targeted tests went green, the final wrapper rerun exposed one remaining browser-only mismatch: the RU guest quiz rendered selectable labels in English, so the Playwright proof now checks the requested locale first and falls back to the shipped English label when needed.
+  - The latest residual wrapper failure was no longer in the guest flow itself: the final authenticated runtime row-count check depended on default workspace selection, so this pass added a validated explicit `workspaceId` runtime override and moved the focused verification to that deterministic path.
+  - Validation is now green again on the real built runtime path: focused backend Jest passed for `runtimeRowsController.test.ts` plus `applicationWorkspaces.test.ts`, `@universo/applications-backend` was rebuilt, and the exact wrapper `snapshot-import-lms-runtime.spec.ts --project chromium` passed `2/2`.
+
+## Active: LMS Post-QA Security And ACL Remediation (2026-04-20)
+
+> Goal: close the concrete post-QA policy gaps in public workspace resolution, personal/shared workspace ACLs, owner-only member management UI, and standalone locale handling without regressing the already-green LMS runtime/browser flows.
+
+### Final Action Plan — Current Implementation Pass (2026-04-20)
+
+- [x] Restrict public guest runtime workspace discovery to the safe shared-workspace surface and add regression coverage for personal-workspace non-resolution
+- [x] Enforce fail-closed personal-workspace member-management restrictions in runtime workspace controller/service paths and cover them with targeted backend tests
+- [x] Gate workspace member-management UI actions to owner-managed shared workspaces only and extend component coverage for the restricted states
+- [x] Remove the hardcoded standalone `ru` locale path and propagate resolved browser locale through the standalone app shell
+- [x] Run targeted backend/frontend validation plus canonical root `pnpm build`
+- [x] Update `memory-bank/activeContext.md` and `memory-bank/progress.md` after verified green validation
+
+- Verified remediation note:
+  - Backend targeted Jest passed for `publicApplicationsRoutes.test.ts`, `runtimeWorkspaceController.test.ts`, and `runtimeWorkspaceService.test.ts` (`27/27`).
+  - Frontend targeted Vitest passed for `WorkspaceManagerDialog.test.tsx` and `App.test.tsx` (`4/4`).
+  - Canonical root `pnpm build` completed successfully after the policy, UI, and locale fixes.
+
+## Active: LMS Demo Fixture Rebuild Implementation (2026-04-20)
+
+> Goal: implement the approved LMS demo rebuild end-to-end so the canonical snapshot imports into a clean database, creates a usable application immediately, exposes working bilingual space-themed widgets and public links, ships with stronger contracts/tests, and leaves no LMS-specific technical debt in the touched surfaces.
+
+### Final Action Plan — Current Implementation Pass (2026-04-20)
+
+- [x] Verify the active guest-runtime failure path in source and built backend output before applying any fix
+- [x] Patch the real backend/runtime defect or rebuild path so public LMS module runtime loads correctly after guest session creation
+- [x] Patch workspace-seeded child-table reference remapping so module `ContentItems[].QuizId` resolves to workspace-scoped quiz rows
+- [x] Add regression coverage for child-row quiz-id remapping during workspace seeding
+- [x] Run targeted backend validation, rebuild `@universo/applications-backend`, and rerun the focused LMS snapshot-import browser proof until green
+- [x] Run final targeted validation and canonical root `pnpm build`
+- [x] Update activeContext.md and progress.md only after the focused browser proof is green
+
+- Current implementation note:
+  - The current public guest runtime regression was a frontend race in `GuestApp`: the public runtime query started before `guest-session` existed, failed while hidden behind the name form, and then surfaced the stale cached error immediately after `Start learning` instead of refetching with the new guest session.
+  - Fresh Playwright trace for the remaining red proof now shows a backend `404 {"error":"Runtime target not found"}` on `GET /api/v1/public/a/:applicationId/runtime?slug=demo-module` after `guest-session` succeeds. The current root cause is in workspace-enabled runtime seeding: `AccessLinks.TargetId` is a string-based catalog id contract, but workspace cloning remaps only `REF` fields, so the access link keeps the original seed row id while `Modules` rows receive workspace-specific row ids.
+  - The remaining red proof is narrowed further: module runtime now resolves, but `Modules.ContentItems[].QuizId` in workspace-seeded child rows still keeps the original quiz seed id, so opening the quiz requests a stale `targetId` and fails with `404 Runtime target not found`.
+
+- Final validation note:
+  - `pnpm --filter @universo/applications-backend test -- src/tests/services/applicationWorkspaces.test.ts --runInBand` passed (`6/6`).
+  - `pnpm --filter @universo/applications-backend test -- src/tests/routes/publicApplicationsRoutes.test.ts --runInBand` passed (`10/10`).
+  - `pnpm --filter @universo/applications-backend build` completed and refreshed `dist`.
+  - Focused Playwright proof `lms snapshot fixture imports through the browser UI and is immediately usable after linked app creation` passed (`2/2`, including provisioning).
+  - Canonical root `pnpm build` passed (`30/30 successful`).
+
+## Active: LMS Demo Fixture Rebuild Planning (2026-04-20)
+
+> Goal: design a complete rebuild plan for the LMS demo template/snapshot so a clean metahub import plus application creation yields a self-contained bilingual space-themed demo with working widgets, real links, seeded data, updated Playwright product proof, and matching GitBook docs.
+
+- [x] Audit the current LMS template, fixture snapshot, runtime widgets, and focused Playwright/browser proof to identify why the imported demo is not self-contained
+- [x] Run a creative design pass for the imported LMS demo experience using the existing dashboard/widget patterns
+- [x] Write a new detailed implementation plan in `memory-bank/plan` for discussion before code changes
+
+### Final Action Plan — Current Implementation Pass (2026-04-20)
+
+- [x] Expand the LMS template and canonical fixture contract to ship a richer bilingual Orbital Academy dataset with multiple classes, modules, quizzes, and seeded access-link routes
+- [x] Enable localized LMS runtime record fields and make the public guest runtime resolve locale-aware module, quiz, and access-link copy without breaking the existing EN flow
+- [x] Rewrite the LMS generator and committed snapshot so the canonical export comes only from the supported end-to-end flow and matches the stronger multi-row contract
+- [ ] Repair the remaining guest browser proof drift, rerun the focused EN and RU snapshot-import runtime flow, and verify screenshot evidence from the fresh bundle
+- [x] Refresh EN/RU LMS setup and overview docs so they describe the shipped self-contained fixture/regeneration workflow instead of manual runtime seeding
+- [ ] Run final focused package validation, rerun the canonical root pnpm build, and then update memory-bank/activeContext.md and memory-bank/progress.md
+
+- Current implementation note:
+  - The remaining red proof is now narrowed to the standalone guest surface: the source GuestApp already requests locale-aware public links/runtime, but the failing browser run surfaced stale guest assets and left the access-link form in a false link-not-found state.
+  - This pass is therefore limited to refreshing the effective guest runtime path, revalidating the focused browser proof, and closing the memory-bank status drift after green validation.
+
+## Active: LMS Plan Completion And QA Debt Elimination (2026-04-20)
+
+> Goal: close the remaining LMS MVP QA findings for public workspace isolation and guest-session persistence, complete the missing LMS Playwright/browser proof promised by the plan, and leave docs/status files aligned with the shipped behavior.
+
+### Final Action Plan — Current Implementation Pass (2026-04-20)
+
+- [x] Restore guest quiz completion flow so public LMS users see score/result state before returning to the module
+- [x] Remove stale WorkspaceSwitcher assertion drift from targeted frontend validation
+- [x] Rebuild the frontend/runtime bundles before browser proof so Playwright does not validate a stale pre-fix guest bundle
+- [x] Re-run focused LMS Playwright wrapper flows after the rebuild and fix any remaining real browser drift
+- [x] Run final targeted LMS verification plus canonical root `pnpm build`
+- [x] Update `memory-bank/activeContext.md` and `memory-bank/progress.md` with the verified closure state
+
+- Current implementation note:
+  - Guest persistence writes are now aligned with the canonical runtime insert contract for workspace-enabled apps: `runtimeGuestController` explicitly writes `workspace_id` on guest-created Students, QuizResponses, and ModuleProgress rows instead of relying on a narrower direct-insert path.
+
+- [x] Restore guest quiz completion flow so public LMS users see score/result state before returning to the module
+- [x] Remove stale WorkspaceSwitcher assertion drift from targeted frontend validation
+- [x] Re-run targeted frontend validation, focused LMS Playwright wrapper flows, and canonical root `pnpm build`
+- [x] Update `memory-bank/activeContext.md` and `memory-bank/progress.md` with the verified closure state after green validation
+
+- [x] Resolve public LMS workspace isolation from the access-link workspace instead of the first active workspace fallback
+- [x] Bind guest-session transport/state to the resolved workspace and reduce shared-device persistence risk in `GuestApp`
+- [x] Expand backend/public-route coverage for workspace-aware guest runtime resolution
+- [x] Add the missing LMS Playwright flow specs promised by the plan (workspace management, full class-module-quiz flow, QR flow, statistics flow)
+- [x] Repair LMS browser-spec fixture payloads so required nested enum REF fields (`Questions.QuestionType`, `ContentItems.ItemType`) use real option-value ids
+- [x] Normalize TABLE child-row JSON fields in runtime row create/update/copy so LMS quiz-question `Options` payloads persist without PostgreSQL json syntax failures
+- [x] Repair LMS browser-spec module payloads so required `Modules.Status` uses the real `ModuleStatus` enumeration value
+- [x] Harden TABLE child-row batch INSERT normalization so JSON/VLC child values stay safe even if prepared rows carry non-primitive payloads into the final insert stage
+- [x] Fix public guest runtime row loading so TABLE attributes are not selected as parent-table columns during LMS module/quiz payload resolution
+- [x] Fix public guest runtime TABLE child-row loading so public module/quiz payload resolution uses canonical `_tp_parent_id` and `_tp_sort_order` child-table columns
+- [x] Harden public guest runtime enumeration codename normalization so `_app_values.codename` VLC objects do not crash module/quiz payload assembly
+- [x] Align LMS browser proof with the shipped guest-session storage contract (`sessionToken` in sessionStorage, not legacy `token`)
+- [x] Re-run the LMS Playwright/browser proof with the correct wrapper test pattern and fix any remaining browser drift
+- [x] Reconcile remaining LMS docs/README wording with the completed runtime and browser coverage
+- [ ] Run final targeted LMS verification plus canonical root `pnpm build`
+- [ ] Update `memory-bank/activeContext.md` and `memory-bank/progress.md` with the verified closure state
+
+- Current validation note:
+  - Focused backend public-route Jest is green (`10/10`).
+  - Canonical root `pnpm build` is green (`30/30 successful`).
+  - Focused LMS Playwright wrapper is green (`3/3`), including the class-module-quiz proof and the QR flow after the rebuilt workspace picked up the guest persistence fix.
+  - The final backend root-cause fix was aligning `runtimeGuestController` inserts with the canonical runtime workspace-aware write contract by explicitly persisting `workspace_id` for guest-created Students, QuizResponses, and ModuleProgress rows.
+
+## Active: LMS MVP QA Remediation Finish (2026-04-20)
+
+> Goal: close the remaining concrete QA gaps left after the LMS MVP implementation pass and revalidate the full touched surface instead of keeping the task falsely marked as complete.
+
+- [x] Wrap `createSharedWorkspace` and `addWorkspaceMember` multi-step mutations in transactions
+- [x] Add guest-session expiry enforcement in `runtimeGuestController` without introducing schema-version churn
+- [x] Harden `getPublicClientBundle` response headers for public script delivery
+- [x] Fix `QRCodeWidget` timeout cleanup on unmount
+- [x] Extract shared runtime widget script-loading hook/helper for `ModuleViewerWidget` and `StatsViewerWidget`
+- [x] Add a module completion screen to `GuestApp`
+- [x] Pass concrete quiz runtime context from `ModuleViewerWidget` for `quiz_ref` items
+- [x] Add missing targeted tests: `StatsViewerWidget`, `runtimeWidgetHelpers`, workspace controller happy-paths
+- [x] Add negative E2E coverage for public LMS guest runtime (expired link, max-uses, wrong slug)
+- [x] Run targeted tests plus canonical root `pnpm build` and update memory-bank status files with verified outcomes
+
+- Verification note:
+  - Targeted backend Jest passed (`20/20`).
+  - Targeted apps-template-mui Vitest passed (`17/17`).
+  - Canonical root `pnpm build` completed successfully after the remediation pass.
+
+## Active: LMS MVP QA Remediation Closure (2026-04-19)
+
+> Goal: eliminate the concrete security, ACL, data-integrity, and test-coverage gaps found in the LMS MVP QA review so the implementation is complete without residual debt in the touched surfaces.
+
+- [x] Fix RLS blocker: public guest queries now call `setPublicWorkspaceContext` to set `app.current_workspace_id` before querying catalog tables
+- [x] Wrap `submitGuestQuiz` question inserts in a transaction to prevent partial quiz submissions
+- [x] Add IDENTIFIER_REGEX validation for all dynamic column names in guest controller to prevent SQL injection via corrupted `_app_attributes`
+- [x] Fix ModuleViewerWidget `quiz_ref` rendering — pass `attachedToKind: 'catalog'` so QuizWidget finds scripts correctly
+- [x] Add `useEffect` to reset `currentIndex` in ModuleViewerWidget when model changes
+- [x] Fix WorkspaceManagerDialog duplicate "Workspaces" heading — inner heading now says "Manage workspaces"
+- [x] Fix WorkspaceSwitcher missing loading spinner — now shows `CircularProgress` while `isLoading`
+- [x] Remove deprecated `document.execCommand('copy')` fallback from QRCodeWidget
+- [x] Update E2E test to use `workspacesEnabled: true` to verify RLS-aware public access path
+- [x] Run full build (30/30), lint (0 errors), and existing tests (all passing)
+
+## Active: LMS MVP Implementation Execution (2026-04-19)
+
+> Goal: complete the approved LMS MVP plan end-to-end by shipping the missing generic workspace UI, LMS runtime widgets/template, guest-access plumbing, fixture/test updates, and documentation refresh without leaving residual implementation debt in the touched surfaces.
+
+- [x] Phase 0 slice: finalize generic workspace runtime API/UI wiring in the dashboard shell, connect the manager dialog to the switcher, and cover the new workspace controls with targeted component validation
+- [x] Phase 1 slice: complete the LMS metahub template/data contract for the shipped entity set, add the Learning hub seed, and register the LMS runtime widgets in the shared type/template pipeline
+- [x] Phase 2 slice: finish platform enhancements for LMS runtime widgets and QR code support in `apps-template-mui`, including widget renderer registration, i18n copy, and targeted widget tests
+- [x] Phase 2 remainder: implement guest/public runtime access routes plus standalone guest runtime surface and wire them into the application route factory
+- [x] Phase 3: Update quiz/LMS fixture contracts and regenerate or repair the affected LMS-related snapshot assets and supporting product specs
+- [x] Phase 4: Add or repair targeted unit/component coverage for the new workspace/LMS/guest functionality and run the required package-level validation
+- [x] Phase 5: Rewrite and extend EN/RU docs plus README/memory-bank status files so the shipped LMS/workspace functionality is accurately documented with current behavior
+
+### LMS MVP 2026-04-19 Follow-up Notes
+
+- [x] Add backend/unit contracts for `publicRuntimeAccess`, `runtimeWorkspaceService`, and `publicApplicationsRoutes`
+- [x] Add frontend/component coverage for `ModuleViewerWidget`
+- [x] Add LMS fixture contract and generator scaffolding (`lmsFixtureContract.ts`, `metahubs-lms-app-export.spec.ts`)
+- [x] Add EN/RU GitBook pages for LMS overview/setup/guest access/workspace management and LMS architecture
+- [x] Run the full E2E generator cycle and commit the produced `tools/fixtures/metahubs-lms-app-snapshot.json`
+
 ## Active: Metahub Final QA Debt Elimination (2026-04-18)
 
 > Goal: eliminate the remaining post-QA residual debt in the metahub rollout by aligning the last terminology artifacts, removing frontend test-only lint noise through package-scoped lint policy, and revalidating the shipped workspace.
