@@ -750,8 +750,8 @@ export function useSyncConnector() {
     const { t } = useTranslation('applications')
 
     return useMutation({
-        mutationFn: async ({ applicationId, confirmDestructive = false }: SyncConnectorParams) => {
-            return connectorsApi.syncApplication(applicationId, confirmDestructive)
+        mutationFn: async ({ applicationId, confirmDestructive = false, layoutResolutionPolicy }: SyncConnectorParams) => {
+            return connectorsApi.syncApplication(applicationId, confirmDestructive, layoutResolutionPolicy)
         },
         onSuccess: (data, variables) => {
             // Invalidate application-related queries

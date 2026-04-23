@@ -1,4 +1,4 @@
-import { IconBuildingStore, IconHierarchy, IconHistory, IconSettings, IconUsersGroup } from '@tabler/icons-react'
+import { IconBuildingStore, IconHierarchy, IconHistory, IconLayoutDashboard, IconSettings, IconUsersGroup } from '@tabler/icons-react'
 import { ComponentType } from 'react'
 
 export interface MenuItem {
@@ -11,7 +11,7 @@ export interface MenuItem {
     children?: MenuItem[]
 }
 
-const icons = { IconBuildingStore, IconHierarchy, IconHistory, IconSettings, IconUsersGroup }
+const icons = { IconBuildingStore, IconHierarchy, IconHistory, IconLayoutDashboard, IconSettings, IconUsersGroup }
 
 // ==============================|| APPLICATION DASHBOARD MENU ITEMS ||============================== //
 
@@ -42,6 +42,14 @@ const applicationDashboard: MenuItem = {
             type: 'item',
             url: '/access',
             icon: icons.IconUsersGroup,
+            breadcrumbs: true
+        },
+        {
+            id: 'layouts',
+            title: 'menu:layouts',
+            type: 'item',
+            url: '/layouts',
+            icon: icons.IconLayoutDashboard,
             breadcrumbs: true
         },
         {

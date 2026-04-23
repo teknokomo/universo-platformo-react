@@ -104,6 +104,12 @@ const renderMenu = (
 }
 
 describe('MenuContent', () => {
+    it('shows application layouts when runtime schema exists', () => {
+        renderMenu('/a/app-1/admin', { applicationDetail: { schemaName: 'app_runtime' } })
+
+        expect(screen.getByRole('link', { name: 'layouts' })).toHaveAttribute('href', '/a/app-1/admin/layouts')
+    })
+
     it('shows application settings only when runtime schema exists', () => {
         renderMenu('/a/app-1/admin', { applicationDetail: { schemaName: 'app_runtime' } })
 

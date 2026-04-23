@@ -422,7 +422,10 @@ export async function loadApplicationRuntimeLayouts(
     try {
         const layouts = await exec.query<RuntimeApplicationLayoutRow>(
             `
-                SELECT id, template_key, name, description, config, is_active, is_default, sort_order
+                SELECT
+                  id, template_key, name, description, config, is_active, is_default, sort_order,
+                  source_kind, source_layout_id, source_snapshot_hash, source_content_hash,
+                  local_content_hash, sync_state, is_source_excluded
                 FROM ${schemaIdent}._app_layouts
                 WHERE _upl_deleted = false
                   AND _app_deleted = false
@@ -438,12 +441,19 @@ export async function loadApplicationRuntimeLayouts(
             config: isRecord(row.config) ? row.config : {},
             isActive: row.is_active === true,
             isDefault: row.is_default === true,
-            sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0
+            sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0,
+            sourceKind: typeof row.source_kind === 'string' ? row.source_kind : 'metahub',
+            sourceLayoutId: typeof row.source_layout_id === 'string' ? row.source_layout_id : null,
+            sourceSnapshotHash: typeof row.source_snapshot_hash === 'string' ? row.source_snapshot_hash : null,
+            sourceContentHash: typeof row.source_content_hash === 'string' ? row.source_content_hash : null,
+            localContentHash: typeof row.local_content_hash === 'string' ? row.local_content_hash : null,
+            syncState: typeof row.sync_state === 'string' ? row.sync_state : 'clean',
+            isSourceExcluded: row.is_source_excluded === true
         }))
 
-        const defaultLayoutId = normalizedLayouts.find((layout) => layout.isDefault)?.id ?? null
+        const defaultLayoutId = normalizedLayouts.find((layout) => layout.isActive && layout.isDefault)?.id ?? null
         const layoutConfig =
-            normalizedLayouts.find((layout) => layout.isDefault)?.config ??
+            normalizedLayouts.find((layout) => layout.isActive && layout.isDefault)?.config ??
             normalizedLayouts.find((layout) => layout.isActive)?.config ??
             {}
 
@@ -451,7 +461,7 @@ export async function loadApplicationRuntimeLayouts(
         try {
             const widgets = await exec.query<RuntimeApplicationWidgetRow>(
                 `
-                    SELECT id, layout_id, zone, widget_key, sort_order, config
+                    SELECT id, layout_id, zone, widget_key, sort_order, config, is_active
                     FROM ${schemaIdent}._app_widgets
                     WHERE _upl_deleted = false
                       AND _app_deleted = false
@@ -466,7 +476,7 @@ export async function loadApplicationRuntimeLayouts(
                 widgetKey: typeof row.widget_key === 'string' ? row.widget_key : '',
                 sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0,
                 config: isRecord(row.config) ? row.config : {},
-                isActive: true
+                isActive: row.is_active !== false
             }))
         } catch {
             normalizedWidgets = []

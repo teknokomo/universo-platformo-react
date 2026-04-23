@@ -165,4 +165,45 @@ describe('sync layout materialization helpers', () => {
 
         expect(widgets.some((item) => item.layoutId === 'catalog-layout-1' && item.widgetKey === 'menuWidget')).toBe(false)
     })
+
+    it('preserves inactive widgets and normalizes invalid zones to center', () => {
+        const snapshot: PublishedApplicationSnapshot = {
+            layouts: [
+                {
+                    id: 'global-layout-1',
+                    templateKey: 'dashboard',
+                    name: { en: 'Global default' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            layoutZoneWidgets: [
+                {
+                    id: 'disabled-widget-1',
+                    layoutId: 'global-layout-1',
+                    zone: 'legacy-zone',
+                    widgetKey: 'header',
+                    sortOrder: 1,
+                    config: {},
+                    isActive: false
+                }
+            ],
+            catalogLayouts: [],
+            catalogLayoutWidgetOverrides: [],
+            defaultLayoutId: 'global-layout-1'
+        }
+
+        const widgets = normalizeSnapshotLayoutZoneWidgets(snapshot)
+
+        expect(widgets).toEqual([
+            expect.objectContaining({
+                id: 'disabled-widget-1',
+                zone: 'center',
+                isActive: false
+            })
+        ])
+    })
 })

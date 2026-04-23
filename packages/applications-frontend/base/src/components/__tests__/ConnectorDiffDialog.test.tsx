@@ -81,7 +81,7 @@ describe('ConnectorDiffDialog', () => {
 
         await userEvent.click(screen.getByRole('button', { name: 'Apply Changes' }))
 
-        expect(onSync).toHaveBeenCalledWith(false)
+        expect(onSync).toHaveBeenCalledWith(false, undefined)
     })
 
     it('offers safe-only and destructive apply actions when destructive changes exist', async () => {
@@ -127,7 +127,7 @@ describe('ConnectorDiffDialog', () => {
         )
 
         await userEvent.click(screen.getByRole('button', { name: 'Apply Safe Changes Only' }))
-        expect(safeSync).toHaveBeenCalledWith(false)
+        expect(safeSync).toHaveBeenCalledWith(false, undefined)
 
         rerender(
             <ConnectorDiffDialog
@@ -142,7 +142,61 @@ describe('ConnectorDiffDialog', () => {
         )
 
         await userEvent.click(screen.getByRole('button', { name: 'Apply Including Destructive' }))
-        expect(destructiveSync).toHaveBeenCalledWith(true)
+        expect(destructiveSync).toHaveBeenCalledWith(true, undefined)
+    })
+
+    it('requires an explicit layout conflict policy before enabling sync for structured layout conflicts', async () => {
+        const onSync = vi.fn().mockResolvedValue(undefined)
+        vi.mocked(useApplicationDiff).mockReturnValue(
+            createDiffQuery({
+                data: {
+                    schemaExists: true,
+                    diff: {
+                        hasChanges: true,
+                        additive: [],
+                        destructive: [],
+                        details: {
+                            layoutChanges: [
+                                {
+                                    type: 'LAYOUT_CONFLICT',
+                                    scope: 'global',
+                                    sourceLayoutId: 'layout-source-1',
+                                    applicationLayoutId: 'layout-app-1',
+                                    title: { en: 'Homepage' },
+                                    message: 'Conflict detected.'
+                                }
+                            ]
+                        }
+                    }
+                }
+            })
+        )
+
+        render(
+            <ConnectorDiffDialog
+                open
+                connector={baseConnector}
+                applicationId='app-1'
+                onClose={vi.fn()}
+                onSync={onSync}
+                isSyncing={false}
+                uiLocale='en'
+            />
+        )
+
+        const applyButton = screen.getByRole('button', { name: 'Apply Changes' })
+        expect(applyButton).toBeDisabled()
+
+        await userEvent.click(screen.getAllByRole('combobox')[0])
+        await userEvent.click(screen.getByRole('option', { name: 'Keep the application layout' }))
+
+        expect(applyButton).toBeEnabled()
+
+        await userEvent.click(applyButton)
+
+        expect(onSync).toHaveBeenCalledWith(false, {
+            default: 'keep_local'
+        })
     })
 
     it('disables sync actions while syncing is in progress', () => {

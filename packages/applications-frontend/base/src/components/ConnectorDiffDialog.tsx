@@ -5,7 +5,7 @@
  * Adapted from metahubs PublicationDiffDialog.
  */
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import {
     Accordion,
     AccordionDetails,
@@ -28,14 +28,23 @@ import {
     TableBody,
     TableCell,
     TableHead,
-    TableRow
+    TableRow,
+    FormControl,
+    InputLabel,
+    MenuItem,
+    Select
 } from '@mui/material'
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { useTranslation } from 'react-i18next'
-import type { VersionedLocalizedContent } from '@universo/types'
+import type {
+    ApplicationLayoutChange,
+    ApplicationLayoutSyncPolicy,
+    ApplicationLayoutSyncResolution,
+    VersionedLocalizedContent
+} from '@universo/types'
 import { useApplicationDiff } from '../hooks/useConnectorSync'
 import type { Connector, SchemaStatus } from '../types'
 import { getVLCString } from '../types'
@@ -118,7 +127,7 @@ export interface ConnectorDiffDialogProps {
     connector?: Connector | null
     applicationId: string
     onClose: () => void
-    onSync: (confirmDestructive: boolean) => Promise<void>
+    onSync: (confirmDestructive: boolean, layoutResolutionPolicy?: ApplicationLayoutSyncPolicy) => Promise<void>
     isSyncing: boolean
     uiLocale: string
     schemaStatus?: SchemaStatus
@@ -135,6 +144,17 @@ type StructuredDiffChange = {
     newValue?: unknown
 }
 
+const BULK_LAYOUT_RESOLUTION_OPTIONS: ApplicationLayoutSyncResolution[] = ['keep_local', 'copy_source_as_application', 'skip_source']
+const ITEM_LAYOUT_RESOLUTION_OPTIONS: ApplicationLayoutSyncResolution[] = [
+    'keep_local',
+    'copy_source_as_application',
+    'skip_source',
+    'overwrite_local'
+]
+
+const requiresExplicitLayoutResolution = (change: ApplicationLayoutChange): boolean =>
+    change.type === 'LAYOUT_CONFLICT' || change.type === 'LAYOUT_DEFAULT_COLLISION' || change.type === 'LAYOUT_SOURCE_REMOVED'
+
 // ============================================================================
 // Component
 // ============================================================================
@@ -150,6 +170,9 @@ export function ConnectorDiffDialog({
     schemaStatus
 }: ConnectorDiffDialogProps) {
     const { t } = useTranslation('applications')
+    const [bulkLayoutResolution, setBulkLayoutResolution] = useState<ApplicationLayoutSyncResolution | ''>('')
+    const [layoutOverrides, setLayoutOverrides] = useState<Record<string, ApplicationLayoutSyncResolution>>({})
+    const [syncErrorMessage, setSyncErrorMessage] = useState<string | null>(null)
     const formatChange = (change: string) => {
         if (change === 'ui.layout.update') {
             return t('connectors.diffDialog.uiLayoutUpdate', 'UI layout settings will be updated')
@@ -279,6 +302,75 @@ export function ConnectorDiffDialog({
 
     const isDiffPending = isDiffLoading || isDiffFetching
 
+    const layoutChanges = (diffData?.diff?.details?.layoutChanges ?? []) as ApplicationLayoutChange[]
+    const requiredLayoutChanges = layoutChanges.filter(requiresExplicitLayoutResolution)
+    const hasStructuredLayoutChanges = layoutChanges.length > 0
+
+    const getLayoutChangeTitle = (change: ApplicationLayoutChange) => {
+        const localizedTitle = change.title ?? {}
+        const localeValue = localizedTitle[uiLocale]
+        const englishValue = localizedTitle.en
+        if (typeof localeValue === 'string' && localeValue.length > 0) return localeValue
+        if (typeof englishValue === 'string' && englishValue.length > 0) return englishValue
+        return change.sourceLayoutId ?? change.applicationLayoutId ?? change.scope
+    }
+
+    const formatLayoutChangeType = (change: ApplicationLayoutChange) => {
+        if (change.type === 'LAYOUT_CONFLICT') {
+            return t('connectors.diffDialog.layoutChangeTypes.conflict', 'Local and source changes diverged')
+        }
+        if (change.type === 'LAYOUT_DEFAULT_COLLISION') {
+            return t('connectors.diffDialog.layoutChangeTypes.defaultCollision', 'Default layout collision')
+        }
+        if (change.type === 'LAYOUT_SOURCE_REMOVED') {
+            return t('connectors.diffDialog.layoutChangeTypes.sourceRemoved', 'Source layout was removed')
+        }
+        if (change.type === 'LAYOUT_WARNING') {
+            return t('connectors.diffDialog.layoutChangeTypes.warning', 'Layout requires review')
+        }
+        return t('connectors.diffDialog.layoutChangeTypes.sourceUpdated', 'Source layout changed')
+    }
+
+    const formatLayoutResolution = (resolution: ApplicationLayoutSyncResolution) => {
+        if (resolution === 'keep_local') {
+            return t('connectors.diffDialog.layoutResolution.keepLocal', 'Keep the application layout')
+        }
+        if (resolution === 'copy_source_as_application') {
+            return t('connectors.diffDialog.layoutResolution.copySourceAsApplication', 'Copy metahub source as a new application layout')
+        }
+        if (resolution === 'skip_source') {
+            return t('connectors.diffDialog.layoutResolution.skipSource', 'Skip this metahub layout update for now')
+        }
+        return t('connectors.diffDialog.layoutResolution.overwriteLocal', 'Replace the application layout with metahub source')
+    }
+
+    const groupedLayoutChanges = layoutChanges.reduce<Record<string, ApplicationLayoutChange[]>>((accumulator, change) => {
+        const scopeKey = change.scope || 'global'
+        accumulator[scopeKey] = accumulator[scopeKey] ?? []
+        accumulator[scopeKey].push(change)
+        return accumulator
+    }, {})
+
+    const hasUnresolvedRequiredLayoutChanges = requiredLayoutChanges.some((change) => {
+        const sourceLayoutId = change.sourceLayoutId ?? ''
+        return !layoutOverrides[sourceLayoutId] && !bulkLayoutResolution
+    })
+
+    const buildLayoutResolutionPolicy = (): ApplicationLayoutSyncPolicy | undefined => {
+        if (!hasStructuredLayoutChanges) {
+            return undefined
+        }
+
+        const policy: ApplicationLayoutSyncPolicy = {}
+        if (bulkLayoutResolution) {
+            policy.default = bulkLayoutResolution
+        }
+        if (Object.keys(layoutOverrides).length > 0) {
+            policy.bySourceLayoutId = layoutOverrides
+        }
+        return Object.keys(policy).length > 0 ? policy : undefined
+    }
+
     // Refetch diff when dialog opens
     useEffect(() => {
         if (open && applicationId) {
@@ -286,13 +378,47 @@ export function ConnectorDiffDialog({
         }
     }, [open, applicationId, refetchDiff])
 
+    useEffect(() => {
+        if (!open) {
+            setBulkLayoutResolution('')
+            setLayoutOverrides({})
+            setSyncErrorMessage(null)
+        }
+    }, [open])
+
     const hasDestructiveChanges = (diffData?.diff?.destructive?.length ?? 0) > 0
     const hasAdditiveChanges = (diffData?.diff?.additive?.length ?? 0) > 0
+    const hasLayoutChanges =
+        hasStructuredLayoutChanges ||
+        (diffData?.diff?.additive ?? []).some((change) =>
+            ['ui.layout.update', 'ui.layouts.update', 'ui.layout.zones.update'].includes(change)
+        )
     const needsCreate = diffData?.schemaExists === false || schemaStatus === 'draft'
     const hasChanges = needsCreate || diffData?.diff?.hasChanges || hasDestructiveChanges || hasAdditiveChanges
 
     const handleSync = async (confirmDestructive: boolean) => {
-        await onSync(confirmDestructive)
+        setSyncErrorMessage(null)
+        try {
+            await onSync(confirmDestructive, buildLayoutResolutionPolicy())
+        } catch (error) {
+            const responseData = (error as { response?: { data?: { error?: string; message?: string } } })?.response?.data
+            const errorCode = responseData?.error
+            if (errorCode === 'APPLICATION_LAYOUT_STALE_DIFF' || errorCode === 'APPLICATION_LAYOUT_RESOLUTION_REQUIRED') {
+                setBulkLayoutResolution('')
+                setLayoutOverrides({})
+                setSyncErrorMessage(
+                    responseData?.message ??
+                        t(
+                            'connectors.diffDialog.layoutResolution.stale',
+                            'The layout diff changed. Review the refreshed conflict list and choose resolutions again.'
+                        )
+                )
+                await refetchDiff()
+                return
+            }
+
+            setSyncErrorMessage(responseData?.message ?? t('errors.connectionFailed', 'Failed to load schema changes'))
+        }
     }
 
     const connectorName = connector ? getVLCString(connector.name, uiLocale) : ''
@@ -483,6 +609,180 @@ export function ConnectorDiffDialog({
                             </Alert>
                         )}
 
+                        {syncErrorMessage && (
+                            <Alert severity='warning' sx={{ mb: 2 }}>
+                                {syncErrorMessage}
+                            </Alert>
+                        )}
+
+                        {hasLayoutChanges && (
+                            <Alert severity={hasUnresolvedRequiredLayoutChanges ? 'warning' : 'info'} sx={{ mb: 2 }}>
+                                <Box sx={{ display: 'grid', gap: 2 }}>
+                                    <Box>
+                                        <Typography variant='body2' sx={{ fontWeight: 600, mb: 0.5 }}>
+                                            {t(
+                                                'connectors.diffDialog.layoutConflictWarning',
+                                                'Layout changes may conflict with application-side customizations. Choose how metahub layout updates should be handled during sync.'
+                                            )}
+                                        </Typography>
+                                        <Typography variant='body2' color='text.secondary'>
+                                            {hasUnresolvedRequiredLayoutChanges
+                                                ? t(
+                                                      'connectors.diffDialog.layoutResolution.required',
+                                                      'Choose a bulk policy or set explicit per-layout resolutions before sync is enabled.'
+                                                  )
+                                                : t(
+                                                      'connectors.diffDialog.layoutResolution.ready',
+                                                      'The current layout conflict policy is complete. Review optional overrides before syncing if needed.'
+                                                  )}
+                                        </Typography>
+                                    </Box>
+
+                                    {requiredLayoutChanges.length > 0 && (
+                                        <FormControl size='small' sx={{ maxWidth: 520 }}>
+                                            <InputLabel id='connector-layout-resolution-bulk-label'>
+                                                {t('connectors.diffDialog.layoutResolution.label', 'Layout update policy')}
+                                            </InputLabel>
+                                            <Select
+                                                id='connector-layout-resolution-bulk'
+                                                labelId='connector-layout-resolution-bulk-label'
+                                                label={t('connectors.diffDialog.layoutResolution.label', 'Layout update policy')}
+                                                value={bulkLayoutResolution}
+                                                inputProps={{ 'data-testid': 'connector-layout-resolution-bulk' }}
+                                                SelectDisplayProps={{ 'data-testid': 'connector-layout-resolution-bulk-trigger' }}
+                                                onChange={(event) =>
+                                                    setBulkLayoutResolution(event.target.value as ApplicationLayoutSyncResolution | '')
+                                                }
+                                            >
+                                                <MenuItem value=''>
+                                                    {t(
+                                                        'connectors.diffDialog.layoutResolution.choosePolicy',
+                                                        'Choose a bulk policy for required layout conflicts'
+                                                    )}
+                                                </MenuItem>
+                                                {BULK_LAYOUT_RESOLUTION_OPTIONS.map((resolution) => (
+                                                    <MenuItem key={resolution} value={resolution}>
+                                                        {formatLayoutResolution(resolution)}
+                                                    </MenuItem>
+                                                ))}
+                                            </Select>
+                                        </FormControl>
+                                    )}
+
+                                    <Box sx={{ display: 'grid', gap: 1.5 }}>
+                                        {Object.entries(groupedLayoutChanges).map(([scope, changes]) => (
+                                            <Box
+                                                key={scope}
+                                                sx={{
+                                                    border: '1px solid',
+                                                    borderColor: 'divider',
+                                                    borderRadius: 1.5,
+                                                    p: 1.5,
+                                                    backgroundColor: 'background.paper'
+                                                }}
+                                            >
+                                                <Typography variant='subtitle2' sx={{ mb: 1 }}>
+                                                    {t('connectors.diffDialog.layoutScope', 'Layout scope: {{scope}}', { scope })}
+                                                </Typography>
+                                                <Box sx={{ display: 'grid', gap: 1.5 }}>
+                                                    {changes.map((change, index) => {
+                                                        const sourceLayoutId = change.sourceLayoutId ?? ''
+                                                        const selectedResolution = layoutOverrides[sourceLayoutId] ?? ''
+                                                        const requiresResolution = requiresExplicitLayoutResolution(change)
+                                                        return (
+                                                            <Box
+                                                                key={`${scope}-${sourceLayoutId || index}`}
+                                                                sx={{
+                                                                    border: '1px solid',
+                                                                    borderColor: 'divider',
+                                                                    borderRadius: 1,
+                                                                    p: 1.25
+                                                                }}
+                                                            >
+                                                                <Typography variant='body2' sx={{ fontWeight: 600 }}>
+                                                                    {getLayoutChangeTitle(change)}
+                                                                </Typography>
+                                                                <Typography
+                                                                    variant='caption'
+                                                                    color='text.secondary'
+                                                                    sx={{ display: 'block', mb: 0.75 }}
+                                                                >
+                                                                    {formatLayoutChangeType(change)}
+                                                                </Typography>
+                                                                {change.message && (
+                                                                    <Typography variant='body2' sx={{ mb: 1 }}>
+                                                                        {change.message}
+                                                                    </Typography>
+                                                                )}
+                                                                {sourceLayoutId && (
+                                                                    <FormControl size='small' sx={{ minWidth: 320, maxWidth: 520 }}>
+                                                                        <InputLabel
+                                                                            id={`connector-layout-resolution-${sourceLayoutId}-label`}
+                                                                        >
+                                                                            {t(
+                                                                                'connectors.diffDialog.layoutResolution.perLayoutLabel',
+                                                                                'Resolution for this layout'
+                                                                            )}
+                                                                        </InputLabel>
+                                                                        <Select
+                                                                            id={`connector-layout-resolution-${sourceLayoutId}`}
+                                                                            labelId={`connector-layout-resolution-${sourceLayoutId}-label`}
+                                                                            label={t(
+                                                                                'connectors.diffDialog.layoutResolution.perLayoutLabel',
+                                                                                'Resolution for this layout'
+                                                                            )}
+                                                                            value={selectedResolution}
+                                                                            inputProps={{
+                                                                                'data-testid': `connector-layout-resolution-${sourceLayoutId}`
+                                                                            }}
+                                                                            SelectDisplayProps={{
+                                                                                'data-testid': `connector-layout-resolution-${sourceLayoutId}-trigger`
+                                                                            }}
+                                                                            onChange={(event) => {
+                                                                                const nextValue = event.target.value as
+                                                                                    | ApplicationLayoutSyncResolution
+                                                                                    | ''
+                                                                                setLayoutOverrides((current) => {
+                                                                                    const next = { ...current }
+                                                                                    if (!nextValue) {
+                                                                                        delete next[sourceLayoutId]
+                                                                                        return next
+                                                                                    }
+                                                                                    next[sourceLayoutId] = nextValue
+                                                                                    return next
+                                                                                })
+                                                                            }}
+                                                                        >
+                                                                            <MenuItem value=''>
+                                                                                {requiresResolution
+                                                                                    ? t(
+                                                                                          'connectors.diffDialog.layoutResolution.useBulkPolicy',
+                                                                                          'Use the selected bulk policy'
+                                                                                      )
+                                                                                    : t(
+                                                                                          'connectors.diffDialog.layoutResolution.noOverride',
+                                                                                          'No per-layout override'
+                                                                                      )}
+                                                                            </MenuItem>
+                                                                            {ITEM_LAYOUT_RESOLUTION_OPTIONS.map((resolution) => (
+                                                                                <MenuItem key={resolution} value={resolution}>
+                                                                                    {formatLayoutResolution(resolution)}
+                                                                                </MenuItem>
+                                                                            ))}
+                                                                        </Select>
+                                                                    </FormControl>
+                                                                )}
+                                                            </Box>
+                                                        )
+                                                    })}
+                                                </Box>
+                                            </Box>
+                                        ))}
+                                    </Box>
+                                </Box>
+                            </Alert>
+                        )}
+
                         {/* Additive Changes */}
                         {hasAdditiveChanges && (
                             <Box sx={{ mb: 3 }}>
@@ -665,7 +965,7 @@ export function ConnectorDiffDialog({
                         variant='contained'
                         color='primary'
                         onClick={() => handleSync(false)}
-                        disabled={isSyncing || isDiffLoading}
+                        disabled={isSyncing || isDiffLoading || hasUnresolvedRequiredLayoutChanges}
                         startIcon={isSyncing ? <CircularProgress size={16} /> : null}
                     >
                         {isSyncing
@@ -682,7 +982,7 @@ export function ConnectorDiffDialog({
                                 variant='outlined'
                                 color='primary'
                                 onClick={() => handleSync(false)}
-                                disabled={isSyncing || isDiffLoading}
+                                disabled={isSyncing || isDiffLoading || hasUnresolvedRequiredLayoutChanges}
                             >
                                 {t('connectors.diffDialog.applySafeChanges', 'Apply Safe Changes Only')}
                             </Button>
@@ -691,7 +991,7 @@ export function ConnectorDiffDialog({
                             variant='contained'
                             color='error'
                             onClick={() => handleSync(true)}
-                            disabled={isSyncing || isDiffLoading}
+                            disabled={isSyncing || isDiffLoading || hasUnresolvedRequiredLayoutChanges}
                             startIcon={isSyncing ? <CircularProgress size={16} color='inherit' /> : null}
                         >
                             {isSyncing

@@ -83,6 +83,7 @@
 * [Рабочее пространство ресурсов](guides/general-section.md)
 * [Пользовательские типы сущностей](guides/custom-entity-types.md)
 * [Макеты каталогов](guides/catalog-layouts.md)
+* [Макеты приложения](guides/application-layouts.md)
 * [Скрипты Metahub](guides/metahub-scripting.md)
 * [Туториал: приложение-квиз](guides/quiz-application-tutorial.md)
 * [Браузерное E2E-тестирование](guides/browser-e2e-testing.md)

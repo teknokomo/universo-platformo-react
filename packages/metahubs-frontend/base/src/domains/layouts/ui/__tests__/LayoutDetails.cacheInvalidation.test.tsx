@@ -30,6 +30,31 @@ vi.mock('@universo/template-mui', () => ({
             {children}
         </div>
     ),
+    LayoutAuthoringDetails: ({ beforeZonesContent, zones }: any) => (
+        <div>
+            {beforeZonesContent}
+            {zones.map((zone: any) => (
+                <section key={zone.zone} data-testid={`layout-zone-${zone.zone}`}>
+                    <button type='button' disabled={Boolean(zone.addDisabled)}>
+                        Add widget
+                    </button>
+                    {zone.items.map((item: any) => (
+                        <div key={item.id} data-testid={`layout-widget-${item.id}`}>
+                            {item.onToggleActive ? (
+                                <button
+                                    type='button'
+                                    data-testid={`layout-widget-toggle-${item.id}`}
+                                    onClick={() => item.onToggleActive(!item.isActive)}
+                                >
+                                    toggle
+                                </button>
+                            ) : null}
+                        </div>
+                    ))}
+                </section>
+            ))}
+        </div>
+    ),
     notifyError: vi.fn(),
     PAGE_CONTENT_GUTTER_MX: 0
 }))

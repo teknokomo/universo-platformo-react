@@ -1,5 +1,17 @@
 import apiClient from './apiClient'
-import type { ApplicationCopyOptions } from '@universo/types'
+import type {
+    ApplicationCopyOptions,
+    ApplicationLayout,
+    ApplicationLayoutCreate,
+    ApplicationLayoutDetailResponse,
+    ApplicationLayoutMutation,
+    ApplicationLayoutScope,
+    ApplicationLayoutWidget,
+    ApplicationLayoutWidgetConfigMutation,
+    ApplicationLayoutWidgetMoveMutation,
+    ApplicationLayoutWidgetMutation,
+    ApplicationLayoutWidgetToggleMutation
+} from '@universo/types'
 import {
     Application,
     ApplicationMember,
@@ -219,6 +231,144 @@ export const reorderApplicationRuntimeRows = async (params: {
     const body: Record<string, unknown> = { orderedRowIds }
     if (resolvedSectionId) body.linkedCollectionId = resolvedSectionId
     await apiClient.post(`/applications/${applicationId}/runtime/rows/reorder`, body)
+}
+
+// ============ APPLICATION LAYOUTS ============
+
+export const listApplicationLayoutScopes = async (applicationId: string, locale?: string): Promise<ApplicationLayoutScope[]> => {
+    const response = await apiClient.get<{ items: ApplicationLayoutScope[] }>(`/applications/${applicationId}/layout-scopes`, {
+        params: { locale }
+    })
+    return response.data.items ?? []
+}
+
+export const listApplicationLayouts = async (
+    applicationId: string,
+    params?: PaginationParams & { linkedCollectionId?: string | null }
+): Promise<PaginatedResponse<ApplicationLayout>> => {
+    const response = await apiClient.get<{ items: ApplicationLayout[]; total: number }>(`/applications/${applicationId}/layouts`, {
+        params: {
+            limit: params?.limit,
+            offset: params?.offset,
+            linkedCollectionId: params?.linkedCollectionId ?? undefined,
+            scope: params?.linkedCollectionId === null ? 'global' : undefined
+        }
+    })
+    const items = response.data.items ?? []
+    const total = response.data.total ?? items.length
+    const limit = params?.limit ?? 50
+    const offset = params?.offset ?? 0
+    return {
+        items,
+        pagination: {
+            total,
+            limit,
+            offset,
+            count: items.length,
+            hasMore: offset + items.length < total
+        }
+    }
+}
+
+export const getApplicationLayout = async (applicationId: string, layoutId: string): Promise<ApplicationLayoutDetailResponse> => {
+    const response = await apiClient.get<ApplicationLayoutDetailResponse>(`/applications/${applicationId}/layouts/${layoutId}`)
+    return response.data
+}
+
+export const createApplicationLayout = async (applicationId: string, data: ApplicationLayoutCreate): Promise<ApplicationLayout> => {
+    const response = await apiClient.post<{ item: ApplicationLayout }>(`/applications/${applicationId}/layouts`, data)
+    return response.data.item
+}
+
+export const updateApplicationLayout = async (
+    applicationId: string,
+    layoutId: string,
+    data: ApplicationLayoutMutation
+): Promise<ApplicationLayout> => {
+    const response = await apiClient.patch<{ item: ApplicationLayout }>(`/applications/${applicationId}/layouts/${layoutId}`, data)
+    return response.data.item
+}
+
+export const deleteApplicationLayout = async (applicationId: string, layoutId: string, expectedVersion?: number): Promise<void> => {
+    await apiClient.delete(`/applications/${applicationId}/layouts/${layoutId}`, {
+        params: expectedVersion ? { expectedVersion } : undefined
+    })
+}
+
+export const copyApplicationLayout = async (applicationId: string, layoutId: string): Promise<ApplicationLayout> => {
+    const response = await apiClient.post<{ item: ApplicationLayout }>(`/applications/${applicationId}/layouts/${layoutId}/copy`)
+    return response.data.item
+}
+
+export const listApplicationLayoutWidgets = async (applicationId: string, layoutId: string): Promise<ApplicationLayoutWidget[]> => {
+    const response = await apiClient.get<{ items: ApplicationLayoutWidget[] }>(
+        `/applications/${applicationId}/layouts/${layoutId}/zone-widgets`
+    )
+    return response.data.items ?? []
+}
+
+export const listApplicationLayoutWidgetCatalog = async (
+    applicationId: string,
+    layoutId: string
+): Promise<Array<{ key: string; allowedZones: readonly string[]; multiInstance: boolean }>> => {
+    const response = await apiClient.get<{ items: Array<{ key: string; allowedZones: readonly string[]; multiInstance: boolean }> }>(
+        `/applications/${applicationId}/layouts/${layoutId}/zone-widgets/catalog`
+    )
+    return response.data.items ?? []
+}
+
+export const upsertApplicationLayoutWidget = async (
+    applicationId: string,
+    layoutId: string,
+    data: ApplicationLayoutWidgetMutation
+): Promise<ApplicationLayoutWidget> => {
+    const response = await apiClient.put<{ item: ApplicationLayoutWidget }>(
+        `/applications/${applicationId}/layouts/${layoutId}/zone-widget`,
+        data
+    )
+    return response.data.item
+}
+
+export const updateApplicationLayoutWidgetConfig = async (
+    applicationId: string,
+    layoutId: string,
+    widgetId: string,
+    data: ApplicationLayoutWidgetConfigMutation
+): Promise<ApplicationLayoutWidget> => {
+    const response = await apiClient.patch<{ item: ApplicationLayoutWidget }>(
+        `/applications/${applicationId}/layouts/${layoutId}/zone-widget/${widgetId}/config`,
+        data
+    )
+    return response.data.item
+}
+
+export const moveApplicationLayoutWidget = async (
+    applicationId: string,
+    layoutId: string,
+    data: ApplicationLayoutWidgetMoveMutation
+): Promise<ApplicationLayoutWidget> => {
+    const response = await apiClient.patch<{ item: ApplicationLayoutWidget }>(
+        `/applications/${applicationId}/layouts/${layoutId}/zone-widgets/move`,
+        data
+    )
+    return response.data.item
+}
+
+export const toggleApplicationLayoutWidget = async (
+    applicationId: string,
+    layoutId: string,
+    widgetId: string,
+    data: ApplicationLayoutWidgetToggleMutation
+): Promise<ApplicationLayoutWidget> => {
+    const response = await apiClient.patch<{ item: ApplicationLayoutWidget }>(
+        `/applications/${applicationId}/layouts/${layoutId}/zone-widget/${widgetId}/toggle-active`,
+        data
+    )
+    return response.data.item
+}
+
+export const deleteApplicationLayoutWidget = async (applicationId: string, layoutId: string, widgetId: string): Promise<void> => {
+    await apiClient.delete(`/applications/${applicationId}/layouts/${layoutId}/zone-widget/${widgetId}`)
 }
 
 // ============ APPLICATION MEMBERS ============

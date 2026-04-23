@@ -28,6 +28,11 @@ Frontend application for managing applications and connectors in the Universo Pl
 - **Connectors**: Data containers that define the structure of your application
 - **Flexible Schema**: Each connector can have its own configuration
 
+### 🧩 Layouts
+- **Application Layouts**: Application admins can customize metahub-published layouts and create application-owned layouts.
+- **Source Awareness**: Layout cards show whether a layout came from a metahub publication or from the application.
+- **Runtime-Safe Toggles**: Inactive layouts and widgets remain editable but are excluded from runtime rendering.
+
 ### 🎨 User Interface
 - **Material-UI Integration**: Consistent UI components with modern design system
 - **Responsive Design**: Optimized for desktop and mobile experiences
@@ -74,6 +79,7 @@ import {
   ApplicationList, 
   ApplicationBoard, 
   ConnectorList,
+  ApplicationLayouts,
   ApplicationMembers
 } from '@universo/applications-frontend'
 
@@ -84,6 +90,7 @@ import '@universo/applications-frontend/i18n'
 <Route path="/applications" element={<ApplicationList />} />
 <Route path="/application/:applicationId/board" element={<ApplicationBoard />} />
 <Route path="/application/:applicationId/connectors" element={<ConnectorList />} />
+<Route path="/application/:applicationId/layouts" element={<ApplicationLayouts />} />
 <Route path="/application/:applicationId/access" element={<ApplicationMembers />} />
 ```
 
@@ -99,6 +106,7 @@ Application (top-level organizational unit)
 - **ApplicationList**: Main list view with search, pagination, and CRUD operations
 - **ApplicationBoard**: Dashboard with statistics and overview
 - **ConnectorList**: Manage connectors within an application
+- **ApplicationLayouts**: Manage application-side layouts, layout sources, defaults, activation, and widget zones
 - **ApplicationMembers**: Manage user access and roles
 
 ### Directory Structure
@@ -146,6 +154,16 @@ GET    /api/v1/applications/:id/members        # List members
 POST   /api/v1/applications/:id/members        # Invite member
 PUT    /api/v1/applications/:id/members/:mid   # Update member role
 DELETE /api/v1/applications/:id/members/:mid   # Remove member
+```
+
+### Layouts
+```
+GET    /api/v1/applications/:id/layout-scopes          # List allowed layout scopes
+GET    /api/v1/applications/:id/layouts                # List layouts
+POST   /api/v1/applications/:id/layouts                # Create application-owned layout
+PATCH  /api/v1/applications/:id/layouts/:layoutId      # Update layout metadata/default/active state
+DELETE /api/v1/applications/:id/layouts/:layoutId      # Exclude metahub layout or soft-delete application layout
+POST   /api/v1/applications/:id/layouts/:layoutId/copy # Copy layout into an application-owned layout
 ```
 
 ## Roles & Permissions

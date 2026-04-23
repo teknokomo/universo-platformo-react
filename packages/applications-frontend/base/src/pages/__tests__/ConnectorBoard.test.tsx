@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import type { ApplicationLayoutSyncPolicy } from '@universo/types'
 
 const mocks = vi.hoisted(() => ({
     useApplicationDetails: vi.fn(),
@@ -63,14 +64,14 @@ vi.mock('../../components', () => ({
     }: {
         open: boolean
         onClose: () => void
-        onSync: (confirmDestructive: boolean) => Promise<void>
+        onSync: (confirmDestructive: boolean, layoutResolutionPolicy?: ApplicationLayoutSyncPolicy) => Promise<void>
     }) =>
         open ? (
             <div data-testid='connector-diff-dialog'>
-                <button type='button' onClick={() => void onSync(false)}>
+                <button type='button' onClick={() => void onSync(false).catch(() => undefined)}>
                     Apply Safe Changes Only
                 </button>
-                <button type='button' onClick={() => void onSync(true)}>
+                <button type='button' onClick={() => void onSync(true).catch(() => undefined)}>
                     Apply Including Destructive
                 </button>
                 <button type='button' onClick={onClose}>
@@ -159,7 +160,8 @@ describe('ConnectorBoard', () => {
         await waitFor(() => {
             expect(mocks.mutateAsync).toHaveBeenCalledWith({
                 applicationId: 'app-1',
-                confirmDestructive: true
+                confirmDestructive: true,
+                layoutResolutionPolicy: undefined
             })
         })
 
@@ -182,7 +184,8 @@ describe('ConnectorBoard', () => {
         await waitFor(() => {
             expect(mocks.mutateAsync).toHaveBeenCalledWith({
                 applicationId: 'app-1',
-                confirmDestructive: false
+                confirmDestructive: false,
+                layoutResolutionPolicy: undefined
             })
         })
 

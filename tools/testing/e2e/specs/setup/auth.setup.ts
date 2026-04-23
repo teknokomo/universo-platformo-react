@@ -2,7 +2,7 @@ import fs from 'fs/promises'
 import { expect, test } from '@playwright/test'
 import { cleanupE2eRun } from '../../support/backend/e2eCleanup.mjs'
 import { provisionE2eRun } from '../../support/backend/e2eProvisioning.mjs'
-import { authSelectors, toolbarSelectors } from '../../support/selectors/contracts'
+import { authSelectors } from '../../support/selectors/contracts'
 import { loadE2eEnvironment, storageStatePath } from '../../support/env/load-e2e-env.mjs'
 
 test('provisions a fresh e2e user and stores authenticated browser state', async ({ page }) => {
@@ -19,9 +19,7 @@ test('provisions a fresh e2e user and stores authenticated browser state', async
     await page.getByTestId(authSelectors.submitButton).click()
 
     await page.waitForURL((url) => !url.pathname.startsWith('/auth'))
-
-    await page.goto('/metahubs')
-    await expect(page.getByTestId(toolbarSelectors.primaryAction)).toBeVisible()
+    await expect(page.getByRole('button', { name: /logout/i })).toBeVisible({ timeout: 30000 })
 
     await page.context().storageState({ path: storageStatePath })
 })

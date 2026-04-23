@@ -20,6 +20,7 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 - Manage applications, connectors, memberships, and publication links.
 - Enforce immutable application parameters for visibility and workspace mode.
 - Expose runtime sync, diff, and release-bundle routes for managed application schemas.
+- Manage application-side layouts, including metahub lineage, application-owned copies, defaults, activation, and widget activity.
 - Execute published runtime scripts through a fail-closed server bridge that only exposes non-lifecycle server methods from `rpc.client` scripts and reuses runtime row helpers, workspace context, and permission maps.
 - Persist schema sync state in `applications.cat_applications` through SQL-first stores.
 - Keep runtime release metadata in the same central sync-state surface.
@@ -47,6 +48,7 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 - Publication-driven sync and file-bundle install share the same schema sync engine.
 - Successful sync writes `schema_status`, `schema_snapshot`, and `installed_release_metadata` into `applications.cat_applications`.
 - Workspace-enabled applications also persist a workspace contract marker inside the canonical runtime snapshot lineage so incremental sync keeps workspace DDL intact.
+- Layout sync preserves application-owned layouts, marks locally modified metahub layouts as conflicts instead of overwriting them, and keeps excluded metahub layouts excluded on later syncs.
 - Active runtime script codenames are unique per `(attached_to_kind, attached_to_id, module_role, codename)` scope, and sync repairs the scoped index for existing schemas.
 - Advisory locking serializes sync work per application before schema changes begin.
 - Maintenance and error states are persisted through the same central store contract.
@@ -55,6 +57,7 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 
 - `createApplicationsRoutes(...)` mounts CRUD, connector, membership, and runtime-sync routes.
 - The route surface now includes public join/leave flows and settings endpoints for per-workspace catalog limits.
+- Application layout endpoints are mounted under `/applications/:applicationId/layouts` and `/applications/:applicationId/layout-scopes`.
 - `initializeRateLimiters()` prepares package-level rate limiting before route creation.
 - Persistence helpers in `src/services/` and `src/persistence/` form the SQL-first write/read seams.
 - Platform migration definitions stay in the package migration surface instead of route handlers.
@@ -66,6 +69,7 @@ Route files delegate to domain controllers that encapsulate handler logic:
 - **`applicationsController.ts`** — application CRUD, membership management, runtime row operations.
 - **`connectorsController.ts`** — connector CRUD and publication link management.
 - **`syncController.ts`** — runtime schema sync, diff, and release-bundle operations.
+- **`applicationLayoutsController.ts`** — application layout scopes, layout CRUD/copy, and layout widget mutations.
 
 ### `asyncHandler()`
 

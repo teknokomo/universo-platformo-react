@@ -26,6 +26,47 @@ vi.mock('@universo/template-mui', () => ({
             {children}
         </div>
     ),
+    LayoutAuthoringDetails: ({ beforeZonesContent, zones }: any) => (
+        <div>
+            {beforeZonesContent}
+            {zones.map((zone: any) => (
+                <section key={zone.zone} data-testid={`layout-zone-${zone.zone}`}>
+                    <button type='button' disabled={Boolean(zone.addDisabled)}>
+                        Add widget
+                    </button>
+                    {zone.items.map((item: any) => (
+                        <div key={item.id} data-testid={`layout-widget-${item.id}`}>
+                            <button type='button' data-testid={`layout-widget-drag-${item.id}`} disabled={item.draggable === false}>
+                                drag
+                            </button>
+                            {item.inheritedLabel ? (
+                                <span data-testid={`layout-widget-inherited-${item.id}`}>{item.inheritedLabel}</span>
+                            ) : null}
+                            {item.onEdit ? (
+                                <button type='button' data-testid={`layout-widget-edit-${item.id}`} onClick={item.onEdit}>
+                                    edit
+                                </button>
+                            ) : null}
+                            {item.onToggleActive ? (
+                                <button
+                                    type='button'
+                                    data-testid={`layout-widget-toggle-${item.id}`}
+                                    onClick={() => item.onToggleActive(!item.isActive)}
+                                >
+                                    toggle
+                                </button>
+                            ) : null}
+                            {item.onRemove ? (
+                                <button type='button' data-testid={`layout-widget-remove-${item.id}`} onClick={item.onRemove}>
+                                    remove
+                                </button>
+                            ) : null}
+                        </div>
+                    ))}
+                </section>
+            ))}
+        </div>
+    ),
     notifyError: vi.fn(),
     PAGE_CONTENT_GUTTER_MX: 0
 }))
