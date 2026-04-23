@@ -4,7 +4,58 @@
 
 ---
 
+## Current Focus: Application Layout Management UI Parity Rewrite — Complete ✅ (2026-04-22)
+
+## Current Focus: Application Layout Management Shared List And Parity Closure — Complete ✅ (2026-04-22)
+
+- **Goal achieved**: removed the last application/metahub layout-authoring divergence by converging the list surface, restoring the metahub embedded-header contract through the shared list shell, and proving parity on the real metahub `Resources` browser path.
+- **Shared list outcome**: both the application layout list and the metahub layout list now render through `LayoutAuthoringList` in `@universo/template-mui` instead of keeping separate card/list table implementations.
+- **Metahub parity outcome**: metahub list rows now normalize localized names/descriptions before rendering, the existing compact embedded `Resources` header behavior is preserved through shared passthrough props, and the earlier copy-flow regressions are covered again.
+- **Package-boundary outcome**: the `@universo/template-mui` package export contract now remains resolvable for Vite production builds after the shared-list extraction, so `@universo/core-frontend` still builds cleanly against the package root.
+- **Browser-proof outcome**: the parity Playwright flow now walks the real metahub `Resources` route, captures application/metahub list and detail screenshots, and checks width parity on the shared authoring surface with relative tolerances rather than brittle outer-shell pixels.
+- **Validated**: `@universo/template-mui` build passed, focused metahub Vitest passed for `LayoutList.copyFlow.test.tsx` plus the shared detail regressions (`12/12`), focused applications-frontend Vitest stayed green (`2/2`), `@universo/metahubs-frontend`, `@universo/applications-frontend`, and `@universo/core-frontend` builds passed, and the full `application-layout-management.spec.ts` Playwright suite is green (`3/3`).
+
+- **Goal achieved**: converged the Application Admin `Layouts` UI on the shared metahub-style authoring surface without regressing the existing layout lineage, sync, or ACL model.
+- **What is now shared**: both the application layout detail screen and the metahub layout detail screen now use the extracted `LayoutAuthoringDetails` surface from `@universo/template-mui`, preserving the established `layout-zone-*` and `layout-widget-*` selector/test-id contract and the same five-zone DnD-oriented widget composition model.
+- **Application-side outcome**: the application detail screen now exposes a real visible move control on each widget row through the shared authoring component, and the default editor path for the current structured widgets now uses dialogs instead of dropping straight into raw JSON.
+- **Metahub-side outcome**: `LayoutDetails.tsx` no longer keeps a second local DnD/zone-rendering implementation; it delegates zone rendering to the shared authoring surface while preserving the existing metahub behavior/config panels and dialog editors.
+- **Ownership/docs outcome**: the EN/RU GitBook application-layout guides and the `@universo/template-mui` README now describe the shared layout-authoring ownership explicitly instead of leaving it implicit.
+- **Coverage outcome**: focused `ApplicationLayouts` Vitest is green, focused `LayoutDetails` metahub Vitest is green (`5/5`), the rebuilt `@universo/metahubs-frontend`, `@universo/applications-frontend`, and `@universo/core-frontend` bundles are green, and the full `application-layout-management.spec.ts` Playwright suite is green (`3/3`).
+
+## Current Focus: Application Layout Management Sidebar Closure — Complete ✅ (2026-04-22)
+
+- **Goal achieved**: the last user-visible navigation defect for application layout management is closed, and the `Layouts` page is now reachable from the actual application sidebar after fresh rebuilds and clean databases.
+- **Root-cause note**: the route and page already existed, but the live shell sidebar did not consume `applications-frontend` menu definitions; it used `getApplicationMenuItems()` from `universo-template-mui`, and that canonical menu config simply omitted the `Layouts` entry.
+- **Navigation outcome**: `getApplicationMenuItems()` now includes `application-layouts` pointing to `/a/:applicationId/admin/layouts`, so the sidebar matches the shipped route surface instead of hiding a valid page.
+- **Coverage outcome**: focused navigation tests now prove `Layouts` is present both in the generated application menu config and in the rendered shell sidebar when the runtime schema exists.
+- **Validated**: focused `@universo/template-mui` Jest passed for `menuConfigs.test.ts` and `MenuContent.test.tsx` (`13/13`), focused `@universo/applications-frontend` Vitest passed for `ApplicationLayouts.test.tsx` (`2/2`), and targeted `eslint` for the touched navigation files passed.
+
+## Current Focus: Application Layout Management Final Closure — Complete ✅ (2026-04-22)
+
+- **Goal achieved**: the last application-layout QA residue is closed and the full layout-management plan now has green browser proof, aligned read-access behavior, and shared widget-config validation.
+- **Browser-proof outcome**: `ConnectorDiffDialog` now exposes stable select ids/test hooks for the bulk and per-layout resolution controls, and the conflict-resolution Playwright flow now completes reliably on the real browser path.
+- **Security and policy outcome**: application-layout reads still fail closed by default, but now honor explicit per-application policy via `settings.applicationLayouts.readRoles` for non-admin read access without widening mutation permissions.
+- **Shared-contract outcome**: application widget-config validation now goes through shared schema-driven parsers in `@universo/types` instead of diverging hand-rolled backend branches, reducing contract drift between runtime and persistence.
+- **Validated**: focused backend Jest, focused applications-frontend Vitest, `pnpm --filter @universo/types build`, `pnpm --filter @universo/applications-frontend lint`, canonical root `pnpm build`, and the targeted Playwright wrapper `application-layout-management.spec.ts` are green (`3/3`).
+
 ## Current Focus: LMS Guest Runtime Localization And QA Closure — Complete ✅ (2026-04-21)
+
+## Current Focus: Application Layout Management QA Remediation — Complete ✅ (2026-04-21)
+
+- **Goal achieved**: the concrete post-QA gaps in application-side layout management are closed.
+- **Security and API outcome**: the application layout widget catalog now goes through the same application ACL/schema guard as the other layout endpoints, and widget move/reorder is exposed through a guarded optimistic-concurrency mutation path.
+- **Sync outcome**: connector diff/sync now uses structured layout change data with explicit layout resolution policies instead of relying only on coarse marker strings.
+- **Frontend outcome**: the application layout detail page renders all five supported zones (`top`, `left`, `center`, `right`, `bottom`), includes complete EN/RU i18n for zone/action copy, and supports browser-driven widget moves across zones.
+- **Coverage outcome**: focused backend Jest, focused applications-frontend Vitest, root `pnpm build`, and the new targeted Playwright application-layout management flow are green.
+
+## Current Focus: Application Layout Management MVP — Complete ✅ (2026-04-21)
+
+- **Goal achieved**: application administrators can now manage metahub-published and application-owned layouts from the application control panel.
+- **Backend outcome**: application runtime DDL now stores layout lineage, sync state, source/content hashes, source exclusion, and widget activity; layout CRUD/widget APIs use request-scoped SQL-first access, schema-qualified SQL, optimistic version checks, advisory locks, and local content hash refresh after widget changes.
+- **Sync outcome**: connector sync preserves application-owned layouts, keeps locally modified metahub layouts conflict-safe by default, can explicitly overwrite local metahub-derived layouts when selected in the connector diff dialog, marks removed source layouts as source removed, respects source exclusions, and does not silently replace an application/local default with a metahub default in the same scope.
+- **Frontend outcome**: application admin now has a `Layouts` menu/route with a minimal MUI/template-based layout list/detail editor, source/sync chips, create/copy/delete/default/active controls, widget activation/add controls, TanStack Query integration, and EN/RU i18n.
+- **Docs and tests**: GitBook application-layout guides were added in EN/RU; focused applications-backend Jest covers layout materialization and stable hashing.
+- **Validated**: targeted builds passed for `@universo/types`, `@universo/utils`, `@universo/schema-ddl`, `@universo/applications-backend`, `@universo/applications-frontend`, and `@universo/core-frontend`; focused Jest passed (`5/5`).
 
 ## Current Focus: PR #771 Bot Review Triage — Complete ✅ (2026-04-21)
 

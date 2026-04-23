@@ -8,20 +8,17 @@ import {
     Box,
     ButtonBase,
     Checkbox,
-    Chip,
     Divider,
     FormControlLabel,
     IconButton,
     Menu,
     MenuItem,
-    Skeleton,
     Stack,
     Switch,
     TextField,
     Typography
 } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
-import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
@@ -33,18 +30,12 @@ import ToggleOffRoundedIcon from '@mui/icons-material/ToggleOffRounded'
 import { useCommonTranslations } from '@universo/i18n'
 import {
     TemplateMainCard as MainCard,
-    ItemCard,
-    ToolbarControls,
-    ViewHeaderMUI as ViewHeader,
-    EmptyListState,
-    SkeletonGrid,
-    APIEmptySVG,
     usePaginated,
     useDebouncedSearch,
     PaginationControls,
-    FlowListTable,
-    gridSpacing,
     LocalizedInlineField,
+    LayoutAuthoringList,
+    LayoutStateChips,
     notifyError,
     revealPendingEntityFeedback,
     useListDialogs
@@ -59,14 +50,8 @@ import { metahubsQueryKeys } from '../../shared'
 import { useMetahubDetails } from '../../metahubs/hooks'
 import * as layoutsApi from '../api'
 import { useCopyLayout, useCreateLayout, useDeleteLayout, useUpdateLayout } from '../hooks/mutations'
-import type {
-    Metahub,
-    MetahubCreateLayoutPayload,
-    MetahubLayout,
-    MetahubLayoutDisplay,
-    MetahubLayoutLocalizedPayload
-} from '../../../types'
-import { getVLCString, toMetahubLayoutDisplay } from '../../../types'
+import type { Metahub, MetahubCreateLayoutPayload, MetahubLayout, MetahubLayoutLocalizedPayload } from '../../../types'
+import { getVLCString } from '../../../types'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { normalizeLayoutCopyOptions } from '@universo/utils'
 import { isPendingEntity, getPendingAction } from '@universo/utils'
@@ -89,8 +74,6 @@ type LayoutDialogArgs = {
     isLoading: boolean
     errors?: Record<string, string>
 }
-type LayoutRowLike = { id?: string }
-
 type LayoutMenuState = {
     anchorEl: HTMLElement | null
     layout: MetahubLayout | null
@@ -178,7 +161,7 @@ export const LayoutListContent = ({
     emptyTitle,
     emptyDescription,
     embedded = false,
-    compactHeader,
+    compactHeader: _compactHeader,
     renderPageShell = false
 }: LayoutListContentProps = {}) => {
     const navigate = useNavigate()
@@ -198,7 +181,7 @@ export const LayoutListContent = ({
     const metahubDetailsQuery = useMetahubDetails(metahubId ?? '', { enabled: Boolean(metahubId) })
     const cachedMetahub = metahubId ? queryClient.getQueryData<Metahub>(metahubsQueryKeys.detail(metahubId)) : undefined
     const canManageLayouts = (metahubDetailsQuery.data?.permissions ?? cachedMetahub?.permissions)?.manageMetahub === true
-    const useCompactEmbeddedHeader = compactHeader ?? (embedded && Boolean(linkedCollectionId))
+    const useCompactEmbeddedHeader = _compactHeader ?? (embedded && Boolean(linkedCollectionId))
     const detailBasePath =
         detailBasePathProp ??
         (metahubId
@@ -263,14 +246,6 @@ export const LayoutListContent = ({
 
     const activeCount = useMemo(() => layouts.filter((l) => l.isActive).length, [layouts])
 
-    const images = useMemo(() => {
-        const imagesMap: Record<string, unknown[]> = {}
-        layouts.forEach((layout) => {
-            imagesMap[layout.id] = []
-        })
-        return imagesMap
-    }, [layouts])
-
     const openMenu = (event: MouseEvent<HTMLElement>, layout: MetahubLayout) => {
         event.stopPropagation()
         setMenuState({ anchorEl: event.currentTarget, layout })
@@ -286,11 +261,14 @@ export const LayoutListContent = ({
         [detailBasePath]
     )
 
-    const goToLayout = (layout: MetahubLayout) => {
-        const nextPath = buildLayoutPath(layout.id)
-        if (!nextPath) return
-        navigate(nextPath)
-    }
+    const goToLayout = useCallback(
+        (layout: MetahubLayout) => {
+            const nextPath = buildLayoutPath(layout.id)
+            if (!nextPath) return
+            navigate(nextPath)
+        },
+        [buildLayoutPath, navigate]
+    )
 
     const handleAddNew = () => {
         if (!canManageLayouts) return
@@ -309,8 +287,6 @@ export const LayoutListContent = ({
         setCopyDialogError(null)
         openCopy(layout)
     }
-
-    const getCardData = (layout: MetahubLayout): MetahubLayoutDisplay => toMetahubLayoutDisplay(layout, i18n.language)
 
     const localizedDefaults: LayoutFormValues = useMemo(() => {
         const uiLocale = normalizeLocale(i18n.language)
@@ -634,96 +610,6 @@ export const LayoutListContent = ({
         [i18n.language, tc]
     )
 
-    const layoutColumns = useMemo(
-        () => [
-            {
-                id: 'name',
-                label: tc('table.name', 'Name'),
-                width: '25%',
-                align: 'left' as const,
-                sortable: true,
-                sortAccessor: (row: MetahubLayoutDisplay) => row.name?.toLowerCase() ?? '',
-                render: (row: MetahubLayoutDisplay) =>
-                    isPendingEntity(row) ? (
-                        <ButtonBase
-                            onClick={() => handlePendingLayoutInteraction(row.id)}
-                            sx={{ alignItems: 'flex-start', display: 'inline-flex', justifyContent: 'flex-start', textAlign: 'left' }}
-                        >
-                            <Typography
-                                sx={{
-                                    fontSize: 14,
-                                    fontWeight: 500,
-                                    wordBreak: 'break-word',
-                                    '&:hover': { textDecoration: 'underline', color: 'primary.main' }
-                                }}
-                            >
-                                {row.name || '—'}
-                            </Typography>
-                        </ButtonBase>
-                    ) : (
-                        <Link to={buildLayoutPath(row.id)} style={{ textDecoration: 'none', color: 'inherit' }}>
-                            <Typography
-                                sx={{
-                                    fontSize: 14,
-                                    fontWeight: 500,
-                                    wordBreak: 'break-word',
-                                    '&:hover': { textDecoration: 'underline', color: 'primary.main' }
-                                }}
-                            >
-                                {row.name || '—'}
-                            </Typography>
-                        </Link>
-                    )
-            },
-            {
-                id: 'description',
-                label: tc('table.description', 'Description'),
-                width: '35%',
-                align: 'left' as const,
-                sortable: true,
-                sortAccessor: (row: MetahubLayoutDisplay) => row.description?.toLowerCase() ?? '',
-                render: (row: MetahubLayoutDisplay) => (
-                    <Typography sx={{ fontSize: 14, wordBreak: 'break-word' }}>{row.description || '—'}</Typography>
-                )
-            },
-            {
-                id: 'templateKey',
-                label: t('layouts.fields.template', 'Template'),
-                width: '15%',
-                align: 'left' as const,
-                render: (row: MetahubLayoutDisplay) => (
-                    <Typography sx={{ fontSize: 14, fontFamily: 'monospace' }}>{row.templateKey}</Typography>
-                )
-            },
-            {
-                id: 'flags',
-                label: t('layouts.fields.status', 'Status'),
-                width: '25%',
-                align: 'left' as const,
-                render: (row: MetahubLayoutDisplay) => (
-                    <Stack direction='row' spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-                        <Chip
-                            size='small'
-                            label={row.isActive ? t('layouts.status.active', 'Active') : t('layouts.status.inactive', 'Inactive')}
-                            color={row.isActive ? 'success' : 'default'}
-                            variant='outlined'
-                        />
-                        {row.isDefault ? (
-                            <Chip
-                                size='small'
-                                label={t('layouts.status.default', 'Default')}
-                                color='primary'
-                                variant='outlined'
-                                icon={<StarRoundedIcon fontSize='small' />}
-                            />
-                        ) : null}
-                    </Stack>
-                )
-            }
-        ],
-        [buildLayoutPath, handlePendingLayoutInteraction, t, tc]
-    )
-
     // Keep edit dialog state in sync if list updates (e.g., optimistic lock changes).
     useEffect(() => {
         if (!dialogs.edit.item) return
@@ -751,168 +637,162 @@ export const LayoutListContent = ({
     const disableSetDefault = !menuLayout?.isActive || Boolean(menuLayout?.isDefault)
     const contentOffsetSx = 0
     const resolvedTitle = title === undefined ? t('layouts.title', 'Layouts') : title ?? undefined
+    const layoutListItems = useMemo(
+        () =>
+            layouts.map((layout) => {
+                const layoutName = getVLCString(layout.name, i18n.language) || '—'
+                const layoutDescription = getVLCString(layout.description, i18n.language) || '—'
+
+                return {
+                    id: layout.id,
+                    title: layoutName,
+                    description: layoutDescription,
+                    meta: layout.templateKey,
+                    metaContent: <Typography sx={{ fontSize: 14, fontFamily: 'monospace' }}>{layout.templateKey}</Typography>,
+                    titleContent: isPendingEntity(layout) ? (
+                        <ButtonBase
+                            onClick={() => handlePendingLayoutInteraction(layout.id)}
+                            sx={{ alignItems: 'flex-start', display: 'inline-flex', justifyContent: 'flex-start', textAlign: 'left' }}
+                        >
+                            <Typography
+                                sx={{
+                                    fontSize: 14,
+                                    fontWeight: 500,
+                                    wordBreak: 'break-word',
+                                    '&:hover': { textDecoration: 'underline', color: 'primary.main' }
+                                }}
+                            >
+                                {layoutName}
+                            </Typography>
+                        </ButtonBase>
+                    ) : (
+                        <Link to={buildLayoutPath(layout.id)} style={{ textDecoration: 'none', color: 'inherit' }}>
+                            <Typography
+                                sx={{
+                                    fontSize: 14,
+                                    fontWeight: 500,
+                                    wordBreak: 'break-word',
+                                    '&:hover': { textDecoration: 'underline', color: 'primary.main' }
+                                }}
+                            >
+                                {layoutName}
+                            </Typography>
+                        </Link>
+                    ),
+                    descriptionContent: <Typography sx={{ fontSize: 14, wordBreak: 'break-word' }}>{layoutDescription}</Typography>,
+                    statusContent: (
+                        <LayoutStateChips
+                            isActive={layout.isActive}
+                            isDefault={layout.isDefault}
+                            labels={{
+                                active: t('layouts.status.active', 'Active'),
+                                inactive: t('layouts.status.inactive', 'Inactive'),
+                                default: t('layouts.status.default', 'Default')
+                            }}
+                        />
+                    ),
+                    onClick: () => goToLayout(layout),
+                    rowHref: isPendingEntity(layout) ? undefined : buildLayoutPath(layout.id),
+                    pending: isPendingEntity(layout),
+                    pendingAction: getPendingAction(layout),
+                    onPendingInteractionAttempt: () => handlePendingLayoutInteraction(layout.id),
+                    headerAction: (
+                        <Box onClick={(e) => e.stopPropagation()}>
+                            <IconButton
+                                size='small'
+                                sx={{ color: 'text.secondary', width: 28, height: 28, p: 0.25 }}
+                                onClick={(e) => openMenu(e, layout)}
+                            >
+                                <MoreVertRoundedIcon fontSize='small' />
+                            </IconButton>
+                        </Box>
+                    ),
+                    rowAction: (
+                        <IconButton size='small' onClick={(e) => openMenu(e, layout)}>
+                            <MoreVertRoundedIcon fontSize='small' />
+                        </IconButton>
+                    )
+                }
+            }),
+        [buildLayoutPath, goToLayout, handlePendingLayoutInteraction, i18n.language, layouts, t]
+    )
 
     const listContent = (
         <>
             {error ? (
-                <EmptyListState
-                    image={APIEmptySVG}
-                    imageAlt={t('errors.connectionFailed', 'Connection error')}
-                    title={t('errors.connectionFailed')}
-                    description={!hasHttpResponseStatus(error) ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
-                    action={{ label: t('actions.retry'), onClick: () => paginationResult.actions.goToPage(1) }}
+                <LayoutAuthoringList
+                    title={embedded ? undefined : resolvedTitle}
+                    searchPlaceholder={t('layouts.searchPlaceholder', 'Search layouts...')}
+                    onSearchChange={handleSearchChange}
+                    headerExtras={null}
+                    primaryAction={canManageLayouts ? { label: tc('create'), onClick: handleAddNew } : undefined}
+                    viewMode={view as 'card' | 'list'}
+                    onViewModeChange={(mode) => setView(mode)}
+                    cardViewTitle={tc('cardView')}
+                    listViewTitle={tc('listView')}
+                    loading={isLoading}
+                    items={[]}
+                    error
+                    errorTitle={t('errors.connectionFailed', 'Connection error')}
+                    errorDescription={!hasHttpResponseStatus(error) ? t('errors.checkConnection') : t('errors.pleaseTryLater')}
+                    retryLabel={t('actions.retry', 'Retry')}
+                    onRetry={() => paginationResult.actions.goToPage(1)}
+                    emptyTitle={emptyTitle || t('layouts.empty', 'No layouts')}
+                    emptyDescription={
+                        emptyDescription || t('layouts.emptyDescription', 'Create a layout to configure published applications UI')
+                    }
+                    metaColumnLabel={t('layouts.fields.template', 'Template')}
+                    statusColumnLabel={t('layouts.fields.status', 'Status')}
+                    listContentTestId='metahub-layouts-list-content'
                 />
             ) : (
-                <Stack flexDirection='column' sx={{ gap: 1 }}>
-                    <ViewHeader
-                        search
-                        searchPlaceholder={t('layouts.searchPlaceholder', 'Search layouts...')}
-                        onSearchChange={handleSearchChange}
-                        title={embedded ? undefined : resolvedTitle}
-                        adaptiveSearch={useCompactEmbeddedHeader}
-                        controlsAlign={embedded ? 'end' : 'start'}
-                    >
-                        <ToolbarControls
-                            viewToggleEnabled
-                            viewMode={view as 'card' | 'list'}
-                            onViewModeChange={(mode: string) => setView(mode === 'list' ? 'list' : 'card')}
-                            cardViewTitle={tc('cardView')}
-                            listViewTitle={tc('listView')}
-                            sx={
-                                useCompactEmbeddedHeader
-                                    ? {
-                                          height: 40,
-                                          minHeight: 40,
-                                          flexWrap: 'nowrap',
-                                          width: 'auto'
-                                      }
-                                    : undefined
-                            }
-                            primaryAction={
-                                canManageLayouts
-                                    ? {
-                                          label: tc('create'),
-                                          onClick: handleAddNew,
-                                          startIcon: <AddRoundedIcon />
-                                      }
-                                    : undefined
-                            }
-                        />
-                    </ViewHeader>
-
-                    {isLoading && layouts.length === 0 ? (
-                        view === 'card' ? (
-                            <SkeletonGrid insetMode='content' />
-                        ) : (
-                            <Skeleton variant='rectangular' height={120} />
-                        )
-                    ) : !isLoading && layouts.length === 0 ? (
-                        <EmptyListState
-                            image={APIEmptySVG}
-                            imageAlt={emptyTitle || t('layouts.empty', 'No layouts')}
-                            title={emptyTitle || t('layouts.empty', 'No layouts')}
-                            description={
-                                emptyDescription || t('layouts.emptyDescription', 'Create a layout to configure published applications UI')
-                            }
-                        />
-                    ) : (
-                        <>
-                            {view === 'card' ? (
-                                <Box
-                                    data-testid='metahub-layouts-list-content'
-                                    sx={{
-                                        display: 'grid',
-                                        gap: gridSpacing,
-                                        mx: contentOffsetSx,
-                                        gridTemplateColumns: {
-                                            xs: '1fr',
-                                            sm: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
-                                            lg: 'repeat(auto-fit, minmax(260px, 1fr))'
-                                        }
-                                    }}
-                                >
-                                    {layouts.map((layout) => (
-                                        <ItemCard
-                                            key={layout.id}
-                                            data={getCardData(layout)}
-                                            images={images[layout.id] || []}
-                                            onClick={() => goToLayout(layout)}
-                                            pending={isPendingEntity(layout)}
-                                            pendingAction={getPendingAction(layout)}
-                                            onPendingInteractionAttempt={() => handlePendingLayoutInteraction(layout.id)}
-                                            footerEndContent={
-                                                <Stack direction='row' spacing={1} sx={{ alignItems: 'center' }}>
-                                                    <Chip
-                                                        size='small'
-                                                        label={
-                                                            layout.isActive
-                                                                ? t('layouts.status.active', 'Active')
-                                                                : t('layouts.status.inactive', 'Inactive')
-                                                        }
-                                                        color={layout.isActive ? 'success' : 'default'}
-                                                        variant='outlined'
-                                                    />
-                                                    {layout.isDefault ? (
-                                                        <Chip
-                                                            size='small'
-                                                            label={t('layouts.status.default', 'Default')}
-                                                            color='primary'
-                                                            variant='outlined'
-                                                        />
-                                                    ) : null}
-                                                </Stack>
-                                            }
-                                            headerAction={
-                                                <Box onClick={(e) => e.stopPropagation()}>
-                                                    <IconButton
-                                                        size='small'
-                                                        sx={{ color: 'text.secondary', width: 28, height: 28, p: 0.25 }}
-                                                        onClick={(e) => openMenu(e, layout)}
-                                                    >
-                                                        <MoreVertRoundedIcon fontSize='small' />
-                                                    </IconButton>
-                                                </Box>
-                                            }
-                                        />
-                                    ))}
-                                </Box>
-                            ) : (
-                                <Box data-testid='metahub-layouts-list-content' sx={{ mx: contentOffsetSx }}>
-                                    <FlowListTable
-                                        data={layouts.map(getCardData)}
-                                        images={images}
-                                        isLoading={isLoading}
-                                        getRowLink={(row: LayoutRowLike) => (row?.id ? buildLayoutPath(row.id) : undefined)}
-                                        onPendingInteractionAttempt={(row: LayoutRowLike) => handlePendingLayoutInteraction(row.id)}
-                                        customColumns={layoutColumns}
-                                        i18nNamespace='flowList'
-                                        renderActions={(row: LayoutRowLike) => {
-                                            const original = layoutsById.get(row.id)
-                                            if (!original) return null
-                                            return (
-                                                <IconButton size='small' onClick={(e) => openMenu(e, original)}>
-                                                    <MoreVertRoundedIcon fontSize='small' />
-                                                </IconButton>
-                                            )
-                                        }}
-                                    />
-                                </Box>
-                            )}
-                        </>
-                    )}
-
-                    {!isLoading && layouts.length > 0 && (
-                        <Box sx={{ mx: contentOffsetSx, mt: 2 }}>
-                            <PaginationControls
-                                pagination={paginationResult.pagination}
-                                actions={paginationResult.actions}
-                                isLoading={paginationResult.isLoading}
-                                rowsPerPageOptions={[10, 20, 50, 100]}
-                                namespace='common'
-                            />
-                        </Box>
-                    )}
-                </Stack>
+                <LayoutAuthoringList
+                    title={embedded ? undefined : resolvedTitle}
+                    searchPlaceholder={t('layouts.searchPlaceholder', 'Search layouts...')}
+                    onSearchChange={handleSearchChange}
+                    adaptiveSearch={useCompactEmbeddedHeader}
+                    controlsAlign={embedded ? 'end' : 'start'}
+                    toolbarSx={
+                        useCompactEmbeddedHeader
+                            ? {
+                                  height: 40,
+                                  minHeight: 40,
+                                  flexWrap: 'nowrap',
+                                  width: 'auto'
+                              }
+                            : undefined
+                    }
+                    primaryAction={canManageLayouts ? { label: tc('create'), onClick: handleAddNew } : undefined}
+                    viewMode={view as 'card' | 'list'}
+                    onViewModeChange={(mode) => setView(mode)}
+                    cardViewTitle={tc('cardView')}
+                    listViewTitle={tc('listView')}
+                    loading={isLoading}
+                    items={layoutListItems}
+                    error={false}
+                    errorTitle={t('errors.connectionFailed', 'Connection error')}
+                    retryLabel={t('actions.retry', 'Retry')}
+                    emptyTitle={emptyTitle || t('layouts.empty', 'No layouts')}
+                    emptyDescription={
+                        emptyDescription || t('layouts.emptyDescription', 'Create a layout to configure published applications UI')
+                    }
+                    metaColumnLabel={t('layouts.fields.template', 'Template')}
+                    statusColumnLabel={t('layouts.fields.status', 'Status')}
+                    listContentTestId='metahub-layouts-list-content'
+                    footerContent={
+                        !isLoading && layouts.length > 0 ? (
+                            <Box sx={{ mx: contentOffsetSx, mt: 2 }}>
+                                <PaginationControls
+                                    pagination={paginationResult.pagination}
+                                    actions={paginationResult.actions}
+                                    isLoading={paginationResult.isLoading}
+                                    rowsPerPageOptions={[10, 20, 50, 100]}
+                                    namespace='common'
+                                />
+                            </Box>
+                        ) : null
+                    }
+                />
             )}
 
             <Menu

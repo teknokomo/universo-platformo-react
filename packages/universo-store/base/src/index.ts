@@ -3,7 +3,7 @@ export * from './actions.js'
 export * from './constant.js'
 
 // Store instance - re-export directly
-export { store, persister } from './index.jsx'
+export { store, persister } from './storeRuntime.jsx'
 
 // CASL Ability context
 export { default as AbilityContext } from './context/AbilityContext.jsx'

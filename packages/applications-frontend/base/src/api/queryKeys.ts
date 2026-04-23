@@ -55,6 +55,29 @@ export const applicationsQueryKeys = {
     connectorDetail: (applicationId: string, connectorId: string) =>
         [...applicationsQueryKeys.connectors(applicationId), 'detail', connectorId] as const,
 
+    layouts: (applicationId: string) => [...applicationsQueryKeys.detail(applicationId), 'layouts'] as const,
+
+    layoutsList: (applicationId: string, params?: PaginationParams & { linkedCollectionId?: string | null }) => {
+        const normalized = {
+            limit: params?.limit ?? 50,
+            offset: params?.offset ?? 0,
+            sortBy: params?.sortBy ?? 'sortOrder',
+            sortOrder: params?.sortOrder ?? 'asc',
+            search: params?.search?.trim() || undefined,
+            linkedCollectionId: params?.linkedCollectionId ?? undefined
+        }
+        return [...applicationsQueryKeys.layouts(applicationId), 'list', normalized] as const
+    },
+
+    layoutDetail: (applicationId: string, layoutId: string) =>
+        [...applicationsQueryKeys.layouts(applicationId), 'detail', layoutId] as const,
+
+    layoutScopes: (applicationId: string, locale = 'en') =>
+        [...applicationsQueryKeys.layouts(applicationId), 'scopes', normalizeLocaleForKey(locale)] as const,
+
+    layoutZoneWidgets: (applicationId: string, layoutId: string) =>
+        [...applicationsQueryKeys.layoutDetail(applicationId, layoutId), 'zoneWidgets'] as const,
+
     // Application schema diff (for sync dialog)
     applicationDiff: (applicationId: string) => [...applicationsQueryKeys.detail(applicationId), 'diff'] as const,
 
@@ -132,6 +155,17 @@ export const invalidateConnectorsQueries = {
 
     detail: (queryClient: QueryClient, applicationId: string, connectorId: string) =>
         queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.connectorDetail(applicationId, connectorId) })
+}
+
+export const invalidateApplicationLayoutsQueries = {
+    all: (queryClient: QueryClient, applicationId: string) =>
+        queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.layouts(applicationId) }),
+
+    lists: (queryClient: QueryClient, applicationId: string) =>
+        queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.layouts(applicationId) }),
+
+    detail: (queryClient: QueryClient, applicationId: string, layoutId: string) =>
+        queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.layoutDetail(applicationId, layoutId) })
 }
 
 export const invalidateMigrationsQueries = {

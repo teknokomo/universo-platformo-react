@@ -12,6 +12,7 @@ It is the shared presentation layer for the current React shell, not a standalon
 - `MainLayoutMUI` and `MainRoutesMUI` provide the shared layout and route shell.
 - Dashboard exports such as `Dashboard`, `StatCard`, and `HighlightedCard` provide common page composition primitives.
 - Dialog, table, selection, pagination, and card components are re-exported from the package root.
+- Layout presentation helpers such as `LayoutStateChips` and `LayoutAuthoringDetails` keep metahub and application layout screens aligned while leaving routing, labels, data loading, and widget-specific dialogs in consumer packages.
 - Factory helpers such as `createEntityActions()` and `createMemberActions()` reduce repeated CRUD-action wiring.
 - Hooks such as `usePaginated()`, `useDebouncedSearch()`, `useUserSettings()`, `useListDialogs()`, and optimistic CRUD helpers support common frontend flows.
 

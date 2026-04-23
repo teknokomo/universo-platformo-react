@@ -61,3 +61,16 @@ export { LocalizedFieldEditor } from './forms/LocalizedFieldEditor'
 // Layout components
 export { CollapsibleSection } from './layout'
 export type { CollapsibleSectionProps } from './layout'
+export { LayoutStateChips } from './layouts'
+export { LayoutAuthoringList } from './layouts'
+export { LayoutAuthoringDetails } from './layouts'
+export type {
+    LayoutStateChipsProps,
+    LayoutChipLabels,
+    LayoutAuthoringListProps,
+    LayoutAuthoringListItem,
+    LayoutAuthoringDetailsProps,
+    LayoutAuthoringZone,
+    LayoutAuthoringWidgetCatalogItem,
+    LayoutAuthoringWidgetRow
+} from './layouts'

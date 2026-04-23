@@ -3,6 +3,7 @@
  * Extracted from mutations.ts for maintainability.
  */
 import type { AssignableRole } from '@universo/template-mui'
+import type { ApplicationLayoutSyncPolicy } from '@universo/types'
 import type { ConnectorLocalizedPayload, SimpleLocalizedInput } from '../types'
 import type * as applicationsApi from '../api/applications'
 
@@ -79,4 +80,5 @@ export interface DeleteConnectorParams {
 export interface SyncConnectorParams {
     applicationId: string
     confirmDestructive?: boolean
+    layoutResolutionPolicy?: ApplicationLayoutSyncPolicy
 }

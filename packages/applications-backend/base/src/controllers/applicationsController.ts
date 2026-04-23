@@ -148,7 +148,13 @@ const applicationDialogSettingsSchema = z
         dialogSizePreset: z.enum(['small', 'medium', 'large']).optional(),
         dialogAllowFullscreen: z.boolean().optional(),
         dialogAllowResize: z.boolean().optional(),
-        dialogCloseBehavior: z.enum(['strict-modal', 'backdrop-close']).optional()
+        dialogCloseBehavior: z.enum(['strict-modal', 'backdrop-close']).optional(),
+        applicationLayouts: z
+            .object({
+                readRoles: z.array(z.enum(['owner', 'admin', 'editor', 'member'])).min(1).optional()
+            })
+            .strict()
+            .optional()
     })
     .strict()
 

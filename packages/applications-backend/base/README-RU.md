@@ -18,6 +18,7 @@
 ## Main Responsibilities
 
 - Управлять applications, connectors, memberships и publication links.
+- Управлять макетами на стороне приложения, включая lineage metahub, application-owned copies, defaults, activation и activity виджетов.
 - Выполнять опубликованные runtime scripts через fail-closed server bridge, который переиспользует runtime row helpers, workspace context и permission maps.
 - Экспортировать runtime sync, diff и release-bundle routes для managed application schemas.
 - Сохранять schema sync state в `applications.cat_applications` через SQL-first stores.
@@ -36,6 +37,7 @@
 
 - Publication-driven sync и file-bundle install разделяют один и тот же schema sync engine.
 - Успешный sync записывает `schema_status`, `schema_snapshot` и `installed_release_metadata` в `applications.cat_applications`.
+- Sync макетов сохраняет application-owned layouts, помечает локально изменённые metahub layouts как conflicts вместо перезаписи и сохраняет excluded metahub layouts исключёнными при следующих sync.
 - Активные runtime script codenames уникальны в scope `(attached_to_kind, attached_to_id, module_role, codename)`, а sync чинит scoped index для существующих схем.
 - Advisory locking сериализует sync work для каждого application до начала schema changes.
 - Состояния maintenance и error сохраняются через тот же центральный store contract.
@@ -44,6 +46,7 @@
 
 - `createApplicationsRoutes(...)` монтирует CRUD, connector, membership и runtime-sync routes.
 - Route surface теперь включает public join/leave flows и settings endpoints для per-workspace catalog limits.
+- Application layout endpoints монтируются под `/applications/:applicationId/layouts` и `/applications/:applicationId/layout-scopes`.
 - `initializeRateLimiters()` подготавливает package-level rate limiting до создания routes.
 - Persistence helpers в `src/services/` и `src/persistence/` образуют SQL-first write/read seams.
 - Platform migration definitions остаются в package migration surface, а не в route handlers.
@@ -55,6 +58,7 @@ Route files делегируют domain controllers, которые инкапс
 - **`applicationsController.ts`** — CRUD приложений, управление членством, операции с runtime rows.
 - **`connectorsController.ts`** — CRUD коннекторов и управление publication links.
 - **`syncController.ts`** — runtime schema sync, diff и release-bundle операции.
+- **`applicationLayoutsController.ts`** — scopes макетов приложения, layout CRUD/copy и mutations виджетов макета.
 
 ### `asyncHandler()`
 

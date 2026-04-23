@@ -15,6 +15,7 @@ import {
     ApplicationSchemaStatus,
     FieldDefinitionDataType,
     type ApplicationLifecycleContract,
+    type ApplicationLayoutWidget,
     type FieldDefinitionValidationRules,
     type VersionedLocalizedContent
 } from '@universo/types'
@@ -69,6 +70,10 @@ const buildDashboardWidgetVisibilityConfig = (items: Array<{ widgetKey: string; 
         showUsersByCountryChart: centerActive.has('usersByCountryChart'),
         showFooter: active.has('footer')
     }
+}
+
+const normalizeLayoutZone = (value: unknown): ApplicationLayoutWidget['zone'] => {
+    return value === 'left' || value === 'right' || value === 'top' || value === 'bottom' || value === 'center' ? value : 'center'
 }
 
 // --- Core utilities ---
@@ -457,7 +462,7 @@ const normalizeSnapshotWidgetEntries = (snapshot: PublishedApplicationSnapshot):
         .map((item) => ({
             id: String(item.id ?? ''),
             layoutId: String(item.layoutId ?? ''),
-            zone: typeof item.zone === 'string' ? item.zone : 'center',
+            zone: normalizeLayoutZone(item.zone),
             widgetKey: typeof item.widgetKey === 'string' ? item.widgetKey : '',
             sortOrder: typeof item.sortOrder === 'number' ? item.sortOrder : 0,
             config: isRecord(item.config) ? item.config : {},
@@ -517,8 +522,7 @@ const materializeSnapshotLayoutsAndWidgets = (
         const layouts = ensureScopedDefaultLayouts(globalLayouts)
         const allowedLayoutIds = new Set(layouts.map((layout) => layout.id))
         const widgets = rawWidgets
-            .filter((item) => item.isActive && allowedLayoutIds.has(item.layoutId))
-            .map(({ isActive: _isActive, ...item }) => item)
+            .filter((item) => allowedLayoutIds.has(item.layoutId))
             .sort((a, b) => {
                 if (a.layoutId !== b.layoutId) return a.layoutId.localeCompare(b.layoutId)
                 if (a.zone !== b.zone) return a.zone.localeCompare(b.zone)
@@ -568,7 +572,7 @@ const materializeSnapshotLayoutsAndWidgets = (
             materializedCatalogWidgets.push({
                 id: buildSyntheticUuid(CATALOG_LAYOUT_WIDGET_NAMESPACE, catalogLayout.id, baseWidget.id),
                 layoutId: catalogLayout.id,
-                zone: override?.zone ?? baseWidget.zone,
+                zone: normalizeLayoutZone(override?.zone ?? baseWidget.zone),
                 widgetKey: baseWidget.widgetKey,
                 sortOrder: override?.sortOrder ?? baseWidget.sortOrder,
                 config: baseWidget.config,
@@ -602,8 +606,7 @@ const materializeSnapshotLayoutsAndWidgets = (
     const layouts = ensureScopedDefaultLayouts(materializedLayouts)
     const allowedLayoutIds = new Set(layouts.map((layout) => layout.id))
     const widgets = materializedWidgets
-        .filter((item) => item.isActive && allowedLayoutIds.has(item.layoutId))
-        .map(({ isActive: _isActive, ...item }) => item)
+        .filter((item) => allowedLayoutIds.has(item.layoutId))
         .sort((a, b) => {
             if (a.layoutId !== b.layoutId) return a.layoutId.localeCompare(b.layoutId)
             if (a.zone !== b.zone) return a.zone.localeCompare(b.zone)

@@ -1348,6 +1348,90 @@ export async function getApplication(api, applicationId) {
     return response.json()
 }
 
+export async function listApplicationLayouts(api, applicationId, params = {}) {
+    const query = new URLSearchParams()
+
+    for (const [key, value] of Object.entries(params)) {
+        if (value === undefined || value === null || value === '') {
+            continue
+        }
+
+        query.set(key, String(value))
+    }
+
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+    const response = await fetchFromApi(api, `/api/v1/applications/${applicationId}/layouts${suffix}`, { method: 'GET' })
+    if (!response.ok) {
+        throw await buildError(response, `Listing layouts for application ${applicationId}`)
+    }
+
+    return response.json()
+}
+
+export async function getApplicationLayout(api, applicationId, layoutId) {
+    const response = await fetchFromApi(api, `/api/v1/applications/${applicationId}/layouts/${layoutId}`, { method: 'GET' })
+    if (!response.ok) {
+        throw await buildError(response, `Fetching layout ${layoutId} for application ${applicationId}`)
+    }
+
+    return response.json()
+}
+
+export async function updateApplicationLayout(api, applicationId, layoutId, payload) {
+    const response = await sendWithCsrf(api, 'PATCH', `/api/v1/applications/${applicationId}/layouts/${layoutId}`, payload)
+    if (!response.ok) {
+        throw await buildError(response, `Updating layout ${layoutId} for application ${applicationId}`)
+    }
+
+    return response.json()
+}
+
+export async function copyApplicationLayout(api, applicationId, layoutId) {
+    const response = await sendWithCsrf(api, 'POST', `/api/v1/applications/${applicationId}/layouts/${layoutId}/copy`, {})
+    if (!response.ok) {
+        throw await buildError(response, `Copying layout ${layoutId} for application ${applicationId}`)
+    }
+
+    return response.json()
+}
+
+export async function deleteApplicationLayout(api, applicationId, layoutId, expectedVersion) {
+    const query = new URLSearchParams()
+    if (expectedVersion !== undefined && expectedVersion !== null) {
+        query.set('expectedVersion', String(expectedVersion))
+    }
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+    const response = await fetchFromApi(api, `/api/v1/applications/${applicationId}/layouts/${layoutId}${suffix}`, {
+        method: 'DELETE',
+        headers: {
+            'x-csrf-token': await fetchCsrfToken(api)
+        }
+    })
+    if (!response.ok) {
+        throw await buildError(response, `Deleting layout ${layoutId} for application ${applicationId}`)
+    }
+}
+
+export async function listApplicationLayoutWidgetCatalog(api, applicationId, layoutId) {
+    const response = await fetchFromApi(api, `/api/v1/applications/${applicationId}/layouts/${layoutId}/zone-widgets/catalog`, {
+        method: 'GET'
+    })
+    if (!response.ok) {
+        throw await buildError(response, `Listing application layout widget catalog for layout ${layoutId}`)
+    }
+
+    return response.json()
+}
+
+export async function moveApplicationLayoutZoneWidget(api, applicationId, layoutId, payload) {
+    const response = await sendWithCsrf(api, 'PATCH', `/api/v1/applications/${applicationId}/layouts/${layoutId}/zone-widgets/move`, payload)
+    if (!response.ok) {
+        throw await buildError(response, `Moving application layout widget in layout ${layoutId}`)
+    }
+
+    return response.json()
+}
+
 export async function listApplicationMigrations(api, applicationId, params = {}) {
     const query = new URLSearchParams()
 

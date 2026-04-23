@@ -2,50 +2,61 @@
     "name": "@universo/template-mui",
     "version": "0.1.0",
     "description": "Material-UI template implementation for Universo Platformo React",
-    "main": "dist/index.js",
-    "module": "dist/index.mjs",
-    "types": "dist/index.d.ts",
+    "main": "./dist/index.js",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.ts",
     "exports": {
         ".": {
             "types": "./dist/index.d.ts",
             "import": "./dist/index.mjs",
-            "require": "./dist/index.js"
+            "require": "./dist/index.js",
+            "default": "./dist/index.mjs"
         },
         "./components/table/FlowListTable": {
-            "types": "./dist/index.d.ts",
+            "types": "./dist/components/table/FlowListTable.d.ts",
             "import": "./dist/index.mjs",
-            "require": "./dist/index.js"
+            "require": "./dist/index.js",
+            "default": "./dist/index.mjs"
         },
         "./components/dialogs": {
             "types": "./dist/components/dialogs/index.d.ts",
             "import": "./dist/index.mjs",
-            "require": "./dist/index.js"
+            "require": "./dist/index.js",
+            "default": "./dist/index.mjs"
         },
         "./components/dialogs/EntityFormDialog": {
             "types": "./dist/components/dialogs/EntityFormDialog.d.ts",
             "import": "./dist/index.mjs",
-            "require": "./dist/index.js"
+            "require": "./dist/index.js",
+            "default": "./dist/index.mjs"
         },
         "./navigation": {
             "types": "./dist/navigation/index.d.ts",
             "import": "./dist/navigation/index.mjs",
-            "require": "./dist/navigation/index.js"
+            "require": "./dist/navigation/index.js",
+            "default": "./dist/navigation/index.mjs"
         },
         "./themes": "./src/themes/legacy/index.js",
         "./layout/NavigationScroll": "./src/layout/NavigationScroll.jsx",
         "./hooks/optimisticCrud": {
             "types": "./dist/hooks/optimisticCrud.d.ts",
             "import": "./dist/index.mjs",
-            "require": "./dist/index.js"
+            "require": "./dist/index.js",
+            "default": "./dist/index.mjs"
         },
         "./styles/pendingAnimations": {
             "types": "./dist/styles/pendingAnimations.d.ts",
             "import": "./dist/index.mjs",
-            "require": "./dist/index.js"
+            "require": "./dist/index.js",
+            "default": "./dist/index.mjs"
         },
         "./assets/*": "./src/assets/*",
         "./package.json": "./package.json"
     },
+    "files": [
+        "dist",
+        "src"
+    ],
     "sideEffects": [
         "**/*.css",
         "**/*.scss",
@@ -121,9 +132,6 @@
             ]
         }
     },
-    "sideEffects": [
-        "*.css"
-    ],
     "peerDependencies": {
         "react": "^18.2.0",
         "react-dom": "^18.2.0",

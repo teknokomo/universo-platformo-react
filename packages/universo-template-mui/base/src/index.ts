@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react'
+
 // Minimal baseline exports for @universo/template-mui after reset
 // Intentionally exporting ONLY config to keep API surface tiny.
 // Raw MUI templates will be added under ./views (not yet exported here).
@@ -19,7 +21,7 @@ export { default as UnikLayout } from './layout/MainLayoutMUI'
 
 // Placeholder type to avoid consumer breakage if they expect a TemplateProvider symbol.
 // Will be replaced by real implementation in later integration phase.
-export const TemplateProvider = ({ children }: { children?: any }) => children as any
+export const TemplateProvider = ({ children }: { children?: ReactNode }) => children
 
 // Utilities
 export { isAccessDeniedError } from './utils/httpErrors'
@@ -51,10 +53,21 @@ export {
     ResourceGuard,
     TooltipWithParser,
     BaseEntityMenu,
-    CollapsibleSection
+    CollapsibleSection,
+    LayoutAuthoringList,
+    LayoutAuthoringDetails,
+    LayoutStateChips
 } from './components'
 export type {
     CollapsibleSectionProps,
+    LayoutAuthoringListProps,
+    LayoutAuthoringListItem,
+    LayoutAuthoringDetailsProps,
+    LayoutAuthoringZone,
+    LayoutAuthoringWidgetCatalogItem,
+    LayoutAuthoringWidgetRow,
+    LayoutStateChipsProps,
+    LayoutChipLabels,
     BaseEntityMenuProps,
     ActionDescriptor,
     ActionContext,

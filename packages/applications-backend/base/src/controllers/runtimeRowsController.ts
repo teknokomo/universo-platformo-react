@@ -263,7 +263,7 @@ const loadRuntimeSelectedLayout = async (params: {
       SELECT id, config
       FROM ${schemaIdent}._app_layouts
       WHERE (catalog_id = $1 OR catalog_id IS NULL)
-        AND (is_default = true OR is_active = true)
+        AND is_active = true
         AND _upl_deleted = false
         AND _app_deleted = false
       ORDER BY CASE WHEN catalog_id = $1 THEN 0 ELSE 1 END,
@@ -314,7 +314,7 @@ export const resolvePreferredLinkedCollectionIdFromGlobalMenu = async (params: {
         SELECT id
         FROM ${schemaIdent}._app_layouts
         WHERE catalog_id IS NULL
-          AND (is_default = true OR is_active = true)
+          AND is_active = true
           AND _upl_deleted = false
           AND _app_deleted = false
         ORDER BY is_default DESC,
@@ -337,6 +337,7 @@ export const resolvePreferredLinkedCollectionIdFromGlobalMenu = async (params: {
         WHERE layout_id = $1
           AND zone = 'left'
           AND widget_key = 'menuWidget'
+          AND is_active = true
           AND _upl_deleted = false
           AND _app_deleted = false
         ORDER BY sort_order ASC, _upl_created_at ASC
@@ -1002,6 +1003,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
               FROM ${schemaIdent}._app_widgets
               WHERE layout_id = $1
                 AND zone IN ('left', 'right', 'center')
+                AND is_active = true
                 AND _upl_deleted = false
                 AND _app_deleted = false
               ORDER BY sort_order ASC, _upl_created_at ASC

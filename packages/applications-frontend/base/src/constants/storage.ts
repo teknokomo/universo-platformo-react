@@ -8,7 +8,9 @@ export const STORAGE_KEYS = {
     /** Display style for Connectors list (card/table) */
     CONNECTOR_DISPLAY_STYLE: 'applicationsConnectorDisplayStyle',
     /** Display style for Members list (card/table) */
-    MEMBERS_DISPLAY_STYLE: 'applicationsMembersDisplayStyle'
+    MEMBERS_DISPLAY_STYLE: 'applicationsMembersDisplayStyle',
+    /** Display style for Application layouts list (card/table) */
+    LAYOUT_DISPLAY_STYLE: 'applicationsLayoutDisplayStyle'
 } as const
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS]

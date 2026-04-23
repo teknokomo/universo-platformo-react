@@ -33,6 +33,7 @@ const ApplicationsApplicationList = Loadable(lazy(() => import('@universo/applic
 const ApplicationsApplicationBoard = Loadable(lazy(() => import('@universo/applications-frontend/pages/ApplicationBoard')))
 const ApplicationsApplicationMembers = Loadable(lazy(() => import('@universo/applications-frontend/pages/ApplicationMembers')))
 const ApplicationsApplicationMigrations = Loadable(lazy(() => import('@universo/applications-frontend/pages/ApplicationMigrations')))
+const ApplicationsApplicationLayouts = Loadable(lazy(() => import('@universo/applications-frontend/pages/ApplicationLayouts')))
 const ApplicationsApplicationRuntime = Loadable(lazy(() => import('@universo/applications-frontend/pages/ApplicationRuntime')))
 const ApplicationsApplicationSettings = Loadable(lazy(() => import('@universo/applications-frontend/pages/ApplicationSettings')))
 const ApplicationsApplicationGuard = Loadable(lazy(() => import('@universo/applications-frontend/components/ApplicationGuard')))
@@ -229,6 +230,8 @@ const MainRoutes = {
                 { path: 'connectors', element: <ApplicationsConnectorList /> },
                 { path: 'connector/:connectorId', element: <ApplicationsConnectorBoard /> },
                 { path: 'migrations', element: <ApplicationsApplicationMigrations /> },
+                { path: 'layouts', element: <ApplicationsApplicationLayouts /> },
+                { path: 'layouts/:layoutId', element: <ApplicationsApplicationLayouts /> },
                 { path: 'access', element: <ApplicationsApplicationMembers /> },
                 { path: 'settings', element: <ApplicationsApplicationSettings /> }
             ]

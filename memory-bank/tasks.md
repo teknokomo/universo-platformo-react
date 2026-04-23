@@ -6,6 +6,132 @@
 
 ## Current Task Ledger (Canonical)
 
+## Active: Application Layout Management Shared List And Parity Closure (2026-04-22)
+
+> Goal: remove the last UI-parity drift after the detail-surface convergence by extracting the list shell, restoring metahub embedded-header behavior, fixing the template package boundary, and proving metahub/application parity on the real browser path.
+
+### Final Action Plan — Current Implementation Pass (2026-04-22)
+
+- [x] Extract the shared layout list shell into `@universo/template-mui` and migrate both metahub and application layout lists onto the same component instead of keeping parallel card/list renderers
+- [x] Restore metahub-specific embedded header behavior through shared-list passthrough props instead of regressing the existing compact resources-header UX
+- [x] Fix the template package export contract after the shared-list extraction so `@universo/core-frontend` can still resolve `@universo/template-mui` in production builds
+- [x] Expand parity browser proof to the real metahub `Resources` route, capture screenshots for both surfaces, and stabilize the parity assertion around the shared authoring zones instead of brittle outer-shell pixels
+- [x] Re-run focused template/metahub/application validation, `@universo/core-frontend` build, and the full `application-layout-management.spec.ts` Playwright suite before updating memory-bank status
+
+- Final validation note:
+  - `pnpm --filter @universo/template-mui build` passed.
+  - Focused `@universo/metahubs-frontend` Vitest passed for `LayoutList.copyFlow.test.tsx`, `LayoutDetails.inheritedWidgets.test.tsx`, and `LayoutDetails.cacheInvalidation.test.tsx` (`12/12`).
+  - Focused `@universo/applications-frontend` Vitest passed for `ApplicationLayouts.test.tsx` (`2/2`).
+  - `pnpm --filter @universo/metahubs-frontend build` passed.
+  - `pnpm --filter @universo/applications-frontend build` passed.
+  - `pnpm --filter @universo/core-frontend build` passed.
+  - Targeted Playwright wrapper `node tools/testing/e2e/run-playwright-suite.mjs specs/flows/application-layout-management.spec.ts` passed (`3/3`).
+
+## Active: Application Layout Management MVP (2026-04-21)
+
+> Goal: implement first-class application-side layout management with safe metahub lineage, merge-aware connector sync, reused layout UI patterns, tests, and docs.
+
+### Final Action Plan — Current Implementation Pass (2026-04-21)
+
+- [x] Add shared application layout contracts, schemas, and stable hash helpers
+- [x] Extend runtime layout/widget schema support and runtime loaders for active widget filtering
+- [x] Implement backend application layout store/service/routes with SQL-first access, validation, invariants, concurrency, and lineage handling
+- [x] Replace projection-style layout sync with merge-aware persistence, structured layout diff, conflict policies, stale-diff protection, and idempotent copy handling
+- [x] Add application layout frontend API/query keys/hooks and a minimal Application Admin `Layouts` UI reusing existing MUI/template patterns
+- [x] Wire the menu, core route, i18n resources, and connector diff conflict panel
+- [x] Update release bundle/runtime integration so app-owned/customized layouts survive sync/export/import
+- [x] Add focused backend/frontend tests and Playwright coverage notes for the new functionality
+- [x] Update package READMEs, GitBook docs, and Memory Bank status after validation
+
+- Final validation note:
+  - `pnpm --filter @universo/types build` passed.
+  - `pnpm --filter @universo/utils build` passed.
+  - `pnpm --filter @universo/schema-ddl build` passed.
+  - `pnpm --filter @universo/applications-backend build` passed.
+  - Focused applications-backend Jest passed for `syncLayoutMaterialization.test.ts` and `applicationLayoutHash.test.ts` (`5/5`).
+  - `pnpm --filter @universo/applications-frontend build` passed for the package i18n entry.
+  - `pnpm --filter @universo/core-frontend build` passed and produced the lazy `ApplicationLayouts` chunk.
+
+## Active: Application Layout Management QA Remediation (2026-04-21)
+
+> Goal: close the concrete QA findings from the application layout pass so the feature truly matches the plan, fails closed on access, exposes the full conflict-management flow, covers all layout zones, and ships with working automated coverage.
+
+### Final Action Plan — Current Implementation Pass (2026-04-21)
+
+- [x] Fail closed the application layout widget catalog endpoint and re-check route-level ACL/schema behavior
+- [x] Add the missing layout widget move/reorder API, optimistic concurrency path, and application-side UI wiring
+- [x] Replace coarse connector layout warnings with structured layout conflict data and full resolution-policy handling
+- [x] Expand application layout detail UI to all supported zones and expose source/conflict information without hiding valid widgets
+- [x] Strengthen validation and automated coverage: fix stale ConnectorDiffDialog tests, add ApplicationLayouts tests, and add application-side Playwright/browser proof for layout management and sync conflicts
+- [x] Run targeted package tests, root `pnpm build`, then update `memory-bank/activeContext.md` and `memory-bank/progress.md` with the verified final state
+
+- Final validation note:
+  - Focused applications-backend Jest passed for `syncLayoutMaterialization.test.ts` and `applicationLayoutHash.test.ts` (`5/5`).
+  - Focused applications-frontend Vitest passed for `ConnectorDiffDialog.test.tsx`, `ConnectorBoard.test.tsx`, and `ApplicationLayouts.test.tsx` (`9/9`).
+  - `pnpm build` completed successfully (`30/30 successful`).
+  - Targeted Playwright wrapper `node tools/testing/e2e/run-playwright-suite.mjs specs/flows/application-layout-management.spec.ts` passed (`2/2`) and produced application layout list/detail screenshots.
+
+## Active: Application Layout Management Final Closure (2026-04-22)
+
+> Goal: remove the last application-layout QA residue so the feature closes the full plan with stable browser proof, final RBAC alignment, shared widget-config validation, and updated status records.
+
+### Final Action Plan — Current Implementation Pass (2026-04-22)
+
+- [x] Stabilize the connector layout conflict dialog accessibility/selector contract so the full Playwright conflict-resolution flow is green
+- [x] Finish the application-layout read-access policy path so reads fail closed but can honor explicit application policy allowances for non-admin roles
+- [x] Replace the remaining hand-rolled application widget-config validation path with shared schema-driven validation aligned to runtime contracts
+- [x] Run targeted backend/frontend/unit/browser validation plus canonical root build for the final closure slice
+- [x] Update `memory-bank/activeContext.md` and `memory-bank/progress.md` only after the final verification is green
+
+- Final validation note:
+  - Focused applications-backend Jest passed for `applicationLayoutsController.test.ts`, `applicationLayoutsStore.test.ts`, and `syncLayoutPersistence.test.ts`.
+  - Focused applications-frontend Vitest passed for `ConnectorDiffDialog.test.tsx`, `ConnectorBoard.test.tsx`, and `ApplicationLayouts.test.tsx`.
+  - `pnpm --filter @universo/types build` passed.
+  - `pnpm --filter @universo/applications-frontend lint` passed.
+  - Canonical root `pnpm build` completed successfully (`30/30 successful`).
+  - Targeted Playwright wrapper `node tools/testing/e2e/run-playwright-suite.mjs specs/flows/application-layout-management.spec.ts` passed (`3/3`).
+
+## Active: Application Layout Management Sidebar Closure (2026-04-22)
+
+> Goal: close the last UX integration defect for application layout management by exposing the Layouts entry in the actual application sidebar used by the shell, then lock it with navigation-level tests.
+
+### Final Action Plan — Current Implementation Pass (2026-04-22)
+
+- [x] Add the missing `Layouts` item to the canonical application sidebar menu config in `universo-template-mui`
+- [x] Add focused navigation tests proving `Layouts` is present in both the generated application menu config and the rendered application sidebar when the runtime schema exists
+- [x] Run targeted template-mui/frontend validation for the touched navigation surface
+- [x] Update `memory-bank/activeContext.md` and `memory-bank/progress.md` after the navigation fix is verified green
+
+- Final validation note:
+  - Focused `@universo/template-mui` Jest passed for `menuConfigs.test.ts` and `MenuContent.test.tsx` (`13/13`).
+  - Focused `@universo/applications-frontend` Vitest passed for `ApplicationLayouts.test.tsx` (`2/2`).
+  - Targeted `eslint` for the touched `@universo/template-mui` navigation files passed.
+
+## Active: Application Layout Management UI Parity Rewrite (2026-04-22)
+
+> Goal: replace the bespoke Application Admin layouts UI with the same extracted authoring surface used by Metahubs, preserve the backend safety model, remove ownership drift, and lock the result with parity-focused automated coverage.
+
+### Final Action Plan — Current Implementation Pass (2026-04-22)
+
+- [x] Extract the shared application layout detail authoring surface into `@universo/template-mui` with preserved `layout-zone-*` / `layout-widget-*` selector contracts and a stable browser-safe move path
+- [x] Refactor `metahubs-frontend` to consume the extracted shared layout authoring components without UX regressions
+- [x] Replace the remaining bespoke `applications-frontend` layout surfaces with thin adapters over the shared authoring system, including replacing the temporary JSON widget editor with structured dialogs
+- [x] Remove remaining navigation/UI ownership drift and align shared strings/docs with the new ownership model
+- [x] Expand Vitest/Playwright coverage for the shared application-side parity surface, LMS-derived layout flows, and reorder/conflict browser proof, then update memory-bank status files after green validation
+
+- Current validation note:
+  - Focused `@universo/template-mui` eslint passed for `LayoutAuthoringDetails.tsx`.
+  - Focused `@universo/applications-frontend` eslint passed for `ApplicationLayouts.tsx`, `ApplicationLayouts.test.tsx`, and the touched EN/RU locale files.
+  - Focused `@universo/applications-frontend` Vitest passed for `ApplicationLayouts.test.tsx` (`2/2`).
+  - Focused `@universo/metahubs-frontend` eslint passed for `LayoutDetails.tsx`.
+  - Focused `@universo/metahubs-frontend` Vitest passed for `LayoutDetails.inheritedWidgets.test.tsx` and `LayoutDetails.cacheInvalidation.test.tsx` (`5/5`).
+  - `pnpm --filter @universo/template-mui build` passed.
+  - `pnpm --filter @universo/metahubs-frontend build` passed.
+  - `pnpm --filter @universo/applications-frontend build` passed.
+  - `pnpm --filter @universo/core-frontend build` passed and produced the updated `ApplicationLayouts` chunk.
+  - Focused Playwright wrapper `node tools/testing/e2e/run-playwright-suite.mjs specs/flows/application-layout-management.spec.ts --grep "browser widget reordering"` passed (`2/2` including setup).
+  - Full Playwright wrapper `node tools/testing/e2e/run-playwright-suite.mjs specs/flows/application-layout-management.spec.ts` passed (`3/3`).
+
 ## Active: PR #771 Bot Review Triage (2026-04-21)
 
 > Goal: audit the bot review comments on PR #771 against the current repository state and fix only the recommendations that are correct, safe, and consistent with the established contracts.

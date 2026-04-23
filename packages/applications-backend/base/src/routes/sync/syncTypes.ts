@@ -4,7 +4,7 @@
 
 import { z } from 'zod'
 import type { EntityDefinition, SchemaSnapshot, SchemaDiff } from '@universo/schema-ddl'
-import { FieldDefinitionDataType, type VersionedLocalizedContent } from '@universo/types'
+import { FieldDefinitionDataType, type ApplicationLayoutWidget, type VersionedLocalizedContent } from '@universo/types'
 import type { ApplicationRecord, ApplicationCopySourceRecord } from '../../persistence/applicationsStore'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
 import type {
@@ -150,6 +150,13 @@ export type RuntimeApplicationLayoutRow = {
     is_active: unknown
     is_default: unknown
     sort_order: unknown
+    source_kind?: unknown
+    source_layout_id?: unknown
+    source_snapshot_hash?: unknown
+    source_content_hash?: unknown
+    local_content_hash?: unknown
+    sync_state?: unknown
+    is_source_excluded?: unknown
 }
 
 export type RuntimeApplicationWidgetRow = {
@@ -159,6 +166,7 @@ export type RuntimeApplicationWidgetRow = {
     widget_key: unknown
     sort_order: unknown
     config: unknown
+    is_active: unknown
 }
 
 // --- Enumeration / layout snapshot types ---
@@ -250,10 +258,11 @@ export type PersistedAppLayout = {
 export type PersistedAppLayoutZoneWidget = {
     id: string
     layoutId: string
-    zone: string
+    zone: ApplicationLayoutWidget['zone']
     widgetKey: string
     sortOrder: number
     config: Record<string, unknown>
+    isActive: boolean
 }
 
 export type PersistedAppLayoutRowDb = {
@@ -275,6 +284,7 @@ export type PersistedAppWidgetRowDb = {
     widget_key: unknown
     sort_order: unknown
     config: unknown
+    is_active?: unknown
 }
 
 // --- Diff types ---

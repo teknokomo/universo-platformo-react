@@ -15,7 +15,7 @@ import {
     type SchemaSnapshot,
     type EntityDefinition
 } from '@universo/schema-ddl'
-import { ApplicationSchemaStatus, FieldDefinitionDataType } from '@universo/types'
+import { ApplicationSchemaStatus, FieldDefinitionDataType, type ApplicationLayoutSyncResolution } from '@universo/types'
 import type { DbExecutor } from '@universo/utils'
 import { updateApplicationSyncFields } from '../../persistence/applicationsStore'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
@@ -88,8 +88,9 @@ export async function syncApplicationSchemaFromSource(options: {
     confirmDestructive: boolean
     connectorId?: string | null
     source: ApplicationSchemaSyncSource
+    layoutResolutionPolicy?: { default?: ApplicationLayoutSyncResolution; bySourceLayoutId?: Record<string, ApplicationLayoutSyncResolution> }
 }): Promise<{ statusCode: number; body: Record<string, unknown> }> {
-    const { application, exec, userId, confirmDestructive, connectorId, source } = options
+    const { application, exec, userId, confirmDestructive, connectorId, source, layoutResolutionPolicy } = options
     const { generator, migrator, migrationManager } = getApplicationSyncDdlServices()
     const knex = getApplicationSyncKnex()
 
@@ -160,11 +161,13 @@ export async function syncApplicationSchemaFromSource(options: {
                     trx,
                     applicationId: application.id,
                     schemaName: application.schemaName!,
+                    snapshotHash: source.snapshotHash,
                     snapshot: source.snapshot,
                     entities: source.entities,
                     migrationManager,
                     userId,
-                    workspacesEnabled: application.workspacesEnabled
+                    workspacesEnabled: application.workspacesEnabled,
+                    layoutResolutionPolicy
                 })
 
                 await persistApplicationSchemaSyncState(createKnexExecutor(trx), {
@@ -237,12 +240,14 @@ export async function syncApplicationSchemaFromSource(options: {
                             trx,
                             applicationId: application.id,
                             schemaName: application.schemaName!,
+                            snapshotHash: source.snapshotHash,
                             snapshot: source.snapshot,
                             entities: source.entities,
                             migrationManager,
                             migrationId,
                             userId,
-                            workspacesEnabled: application.workspacesEnabled
+                            workspacesEnabled: application.workspacesEnabled,
+                            layoutResolutionPolicy
                         })
                     )
 
@@ -422,12 +427,14 @@ export async function syncApplicationSchemaFromSource(options: {
                     trx,
                     applicationId: application.id,
                     schemaName: application.schemaName!,
+                    snapshotHash: source.snapshotHash,
                     snapshot: source.snapshot,
                     entities: source.entities,
                     migrationManager,
                     migrationId,
                     userId,
-                    workspacesEnabled: application.workspacesEnabled
+                    workspacesEnabled: application.workspacesEnabled,
+                    layoutResolutionPolicy
                 })
 
                 await persistApplicationSchemaSyncState(createKnexExecutor(trx), {
@@ -526,12 +533,14 @@ export async function syncApplicationSchemaFromSource(options: {
                         trx,
                         applicationId: application.id,
                         schemaName: application.schemaName!,
+                        snapshotHash: source.snapshotHash,
                         snapshot: source.snapshot,
                         entities: source.entities,
                         migrationManager,
                         migrationId,
                         userId,
-                        workspacesEnabled: application.workspacesEnabled
+                        workspacesEnabled: application.workspacesEnabled,
+                        layoutResolutionPolicy
                     })
 
                     await persistApplicationSchemaSyncState(createKnexExecutor(trx), {
@@ -782,21 +791,26 @@ export async function runPublishedApplicationRuntimeSync(options: {
     trx: ApplicationSyncTransaction
     applicationId: string
     schemaName: string
+    snapshotHash?: string | null
     snapshot: PublishedApplicationSnapshot
     entities: EntityDefinition[]
     migrationManager: DDLServices['migrationManager']
     migrationId?: string
     userId?: string | null
     workspacesEnabled?: boolean
+    layoutResolutionPolicy?: { default?: ApplicationLayoutSyncResolution; bySourceLayoutId?: Record<string, ApplicationLayoutSyncResolution> }
 }): Promise<{ seedWarnings: string[] }> {
-    const { trx, applicationId, schemaName, snapshot, entities, migrationManager, migrationId, userId } = options
+    const { trx, applicationId, schemaName, snapshotHash, snapshot, entities, migrationManager, migrationId, userId, layoutResolutionPolicy } =
+        options
 
     await runSchemaSyncStep(`runtimeSync:${applicationId}:layouts`, async () =>
         persistPublishedLayouts({
             schemaName,
+            snapshotHash,
             snapshot,
             userId,
-            trx
+            trx,
+            layoutResolutionPolicy
         })
     )
     await runSchemaSyncStep(`runtimeSync:${applicationId}:scripts`, async () =>

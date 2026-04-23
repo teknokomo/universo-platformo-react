@@ -21,6 +21,7 @@ Runtime dashboard template for published applications in the Universo Platformo 
 - **Data-Driven Rendering**: Widgets rendered from `ZoneWidgets` configuration, not hardcoded JSX
 - **DashboardDetailsContext**: React Context providing table data (rows, columns, pagination) to nested widgets
 - **Layout Config**: Boolean-driven visibility flags (`showSideMenu`, `showHeader`, `showColumnsContainer`, etc.)
+- **Runtime Layout Selection**: Runtime consumes application-side materialized layouts and widgets, but renders only active layouts and active widgets
 
 ### 📊 ColumnsContainer Widget
 - **Multi-Column Grid**: Renders `ColumnsContainerConfig` as MUI Grid with configurable column widths (12-unit grid)

@@ -1,6 +1,18 @@
 import { getApplicationMenuItems, getMetahubMenuItems } from '../menuConfigs'
 
 describe('menuConfigs', () => {
+    it('includes layouts in the application admin menu', () => {
+        expect(getApplicationMenuItems('app-1')).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    id: 'application-layouts',
+                    titleKey: 'layouts',
+                    url: '/a/app-1/admin/layouts'
+                })
+            ])
+        )
+    })
+
     it('includes settings in the application admin menu', () => {
         expect(getApplicationMenuItems('app-1')).toEqual(
             expect.arrayContaining([

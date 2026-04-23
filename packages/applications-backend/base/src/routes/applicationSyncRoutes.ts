@@ -39,6 +39,7 @@ export {
 } from './sync/syncDataLoader'
 export { seedPredefinedElements, syncEnumerationValues } from './sync/syncSeeding'
 export {
+    buildApplicationLayoutChanges,
     persistPublishedLayouts,
     persistPublishedWidgets,
     hasDashboardLayoutConfigChanges,

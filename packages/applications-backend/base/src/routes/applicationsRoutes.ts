@@ -7,6 +7,7 @@ import { createRuntimeRowsController } from '../controllers/runtimeRowsControlle
 import { createRuntimeChildRowsController } from '../controllers/runtimeChildRowsController'
 import { createRuntimeScriptsController } from '../controllers/runtimeScriptsController'
 import { createRuntimeWorkspaceController } from '../controllers/runtimeWorkspaceController'
+import { createApplicationLayoutsController } from '../controllers/applicationLayoutsController'
 
 export function createApplicationsRoutes(
     ensureAuth: RequestHandler,
@@ -22,6 +23,7 @@ export function createApplicationsRoutes(
     const childRows = createRuntimeChildRowsController(getDbExecutor)
     const runtimeScripts = createRuntimeScriptsController(getDbExecutor)
     const workspace = createRuntimeWorkspaceController(getDbExecutor)
+    const layouts = createApplicationLayoutsController(getDbExecutor)
 
     // ── Application CRUD ──
     router.get('/', readLimiter, asyncHandler(app.list))
@@ -38,6 +40,22 @@ export function createApplicationsRoutes(
     // ── Settings ──
     router.get('/:applicationId/settings/limits', readLimiter, asyncHandler(app.getLimits))
     router.put('/:applicationId/settings/limits', writeLimiter, asyncHandler(app.updateLimits))
+
+    // ── Application layouts ──
+    router.get('/:applicationId/layout-scopes', readLimiter, asyncHandler(layouts.listScopes))
+    router.get('/:applicationId/layouts', readLimiter, asyncHandler(layouts.list))
+    router.post('/:applicationId/layouts', writeLimiter, asyncHandler(layouts.create))
+    router.get('/:applicationId/layouts/:layoutId', readLimiter, asyncHandler(layouts.detail))
+    router.patch('/:applicationId/layouts/:layoutId', writeLimiter, asyncHandler(layouts.update))
+    router.delete('/:applicationId/layouts/:layoutId', writeLimiter, asyncHandler(layouts.remove))
+    router.post('/:applicationId/layouts/:layoutId/copy', writeLimiter, asyncHandler(layouts.copy))
+    router.get('/:applicationId/layouts/:layoutId/zone-widgets', readLimiter, asyncHandler(layouts.listWidgets))
+    router.get('/:applicationId/layouts/:layoutId/zone-widgets/catalog', readLimiter, asyncHandler(layouts.listWidgetCatalog))
+    router.put('/:applicationId/layouts/:layoutId/zone-widget', writeLimiter, asyncHandler(layouts.upsertWidget))
+    router.patch('/:applicationId/layouts/:layoutId/zone-widgets/move', writeLimiter, asyncHandler(layouts.moveWidget))
+    router.patch('/:applicationId/layouts/:layoutId/zone-widget/:widgetId/config', writeLimiter, asyncHandler(layouts.updateWidgetConfig))
+    router.patch('/:applicationId/layouts/:layoutId/zone-widget/:widgetId/toggle-active', writeLimiter, asyncHandler(layouts.toggleWidget))
+    router.delete('/:applicationId/layouts/:layoutId/zone-widget/:widgetId', writeLimiter, asyncHandler(layouts.removeWidget))
 
     // ── Members ──
     router.get('/:applicationId/members', readLimiter, asyncHandler(app.listMembers))

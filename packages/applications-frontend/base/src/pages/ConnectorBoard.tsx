@@ -26,6 +26,7 @@ import { ConnectorDiffDialog } from '../components'
 import { useApplicationDetails } from '../api/useApplicationDetails'
 import { getVLCString } from '../types'
 import type { SchemaStatus } from '../types'
+import type { ApplicationLayoutSyncPolicy } from '@universo/types'
 
 // ============================================================================
 // Status Chip Component
@@ -158,19 +159,20 @@ const ConnectorBoard = () => {
         setDiffDialogOpen(true)
     }
 
-    const handleSyncConfirm = async (confirmDestructive: boolean) => {
+    const handleSyncConfirm = async (confirmDestructive: boolean, layoutResolutionPolicy?: ApplicationLayoutSyncPolicy) => {
         if (!applicationId) {
             return
         }
         try {
             await syncMutation.mutateAsync({
                 applicationId,
-                confirmDestructive
+                confirmDestructive,
+                layoutResolutionPolicy
             })
             setDiffDialogOpen(false)
         } catch (error) {
             console.error('[ConnectorBoard] Sync failed:', error)
-            // Error handled in mutation
+            throw error
         }
     }
 

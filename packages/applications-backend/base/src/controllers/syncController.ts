@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
 import { generateSchemaName, uuidToLockKey, type SchemaChange, type SchemaSnapshot } from '@universo/schema-ddl'
+import type { ApplicationLayoutChange, ApplicationLayoutSyncResolution } from '@universo/types'
 import type { DbExecutor } from '@universo/utils'
 import { ensureApplicationAccess, type ApplicationRole } from '../routes/guards'
 import { findApplicationCopySource } from '../persistence/applicationsStore'
@@ -11,6 +12,7 @@ import { acquireApplicationSyncAdvisoryLock, getApplicationSyncDdlServices, rele
 import { resolveUserId } from '../shared/runtimeHelpers'
 import {
     applicationReleaseBundleSchema,
+    buildApplicationLayoutChanges,
     buildApplicationSyncSourceFromBundle,
     buildApplicationSyncSourceFromPublication,
     buildCreateTableDetails,
@@ -29,6 +31,26 @@ import {
 } from '../routes/applicationSyncRoutes'
 
 const ADMIN_ROLES: ApplicationRole[] = ['owner', 'admin']
+const SAFE_BULK_LAYOUT_RESOLUTIONS = new Set<ApplicationLayoutSyncResolution>(['keep_local', 'copy_source_as_application', 'skip_source'])
+
+const requiresExplicitLayoutResolution = (change: ApplicationLayoutChange): boolean =>
+    change.type === 'LAYOUT_CONFLICT' || change.type === 'LAYOUT_DEFAULT_COLLISION' || change.type === 'LAYOUT_SOURCE_REMOVED'
+
+const buildLayoutResolutionResponse = (layoutChanges: ApplicationLayoutChange[]) => ({
+    error: 'APPLICATION_LAYOUT_RESOLUTION_REQUIRED',
+    message: 'Layout conflicts require explicit resolution before sync can continue.',
+    diff: {
+        layoutChanges
+    }
+})
+
+const buildStaleLayoutDiffResponse = (layoutChanges: ApplicationLayoutChange[]) => ({
+    error: 'APPLICATION_LAYOUT_STALE_DIFF',
+    message: 'The layout diff changed since it was last reviewed. Refresh and confirm the current resolutions before syncing.',
+    diff: {
+        layoutChanges
+    }
+})
 
 export function createSyncController(
     getDbExecutor: () => DbExecutor,
@@ -53,7 +75,13 @@ export function createSyncController(
             }
 
             const syncSchema = z.object({
-                confirmDestructive: z.boolean().optional().default(false)
+                confirmDestructive: z.boolean().optional().default(false),
+                layoutResolutionPolicy: z
+                    .object({
+                        default: z.enum(['overwrite_local', 'keep_local', 'copy_source_as_application', 'skip_source']).optional(),
+                        bySourceLayoutId: z.record(z.enum(['overwrite_local', 'keep_local', 'copy_source_as_application', 'skip_source'])).optional()
+                    })
+                    .optional()
             })
             const parsed = syncSchema.safeParse(req.body)
             if (!parsed.success) {
@@ -105,6 +133,55 @@ export function createSyncController(
                 if (!snapshot || typeof snapshot !== 'object' || !snapshot.entities || typeof snapshot.entities !== 'object') {
                     return res.status(400).json({ error: 'Invalid publication snapshot' })
                 }
+
+                if (application.schemaName) {
+                    const layoutChanges = await buildApplicationLayoutChanges({
+                        schemaName: application.schemaName,
+                        snapshot
+                    })
+                    const requiredLayoutChanges = layoutChanges.filter(requiresExplicitLayoutResolution)
+                    const defaultResolution = parsed.data.layoutResolutionPolicy?.default
+                    const perLayoutResolution = parsed.data.layoutResolutionPolicy?.bySourceLayoutId ?? {}
+
+                    if (requiredLayoutChanges.length > 0) {
+                        if (defaultResolution === 'overwrite_local') {
+                            return res.status(400).json({
+                                error: 'APPLICATION_LAYOUT_INVALID_DEFAULT_RESOLUTION',
+                                message: 'overwrite_local is allowed only as an explicit per-layout override.',
+                                diff: {
+                                    layoutChanges
+                                }
+                            })
+                        }
+
+                        const requiredSourceIds = new Set(
+                            requiredLayoutChanges.map((change) => change.sourceLayoutId).filter((value): value is string => Boolean(value))
+                        )
+                        const staleResolutionIds = Object.keys(perLayoutResolution).filter((sourceLayoutId) => !requiredSourceIds.has(sourceLayoutId))
+                        if (staleResolutionIds.length > 0) {
+                            return res.status(409).json(buildStaleLayoutDiffResponse(layoutChanges))
+                        }
+
+                        const missingResolutions = requiredLayoutChanges.filter((change) => {
+                            const sourceLayoutId = change.sourceLayoutId ?? ''
+                            return !perLayoutResolution[sourceLayoutId] && !defaultResolution
+                        })
+                        if (missingResolutions.length > 0) {
+                            return res.status(409).json(buildLayoutResolutionResponse(layoutChanges))
+                        }
+
+                        if (defaultResolution && !SAFE_BULK_LAYOUT_RESOLUTIONS.has(defaultResolution)) {
+                            return res.status(400).json({
+                                error: 'APPLICATION_LAYOUT_INVALID_DEFAULT_RESOLUTION',
+                                message: 'Only keep_local, copy_source_as_application, or skip_source can be used as bulk layout resolutions.',
+                                diff: {
+                                    layoutChanges
+                                }
+                            })
+                        }
+                    }
+                }
+
                 const source = buildApplicationSyncSourceFromPublication({
                     application,
                     syncContext: {
@@ -122,7 +199,8 @@ export function createSyncController(
                     userId,
                     confirmDestructive,
                     connectorId: connector.id,
-                    source
+                    source,
+                    layoutResolutionPolicy: parsed.data.layoutResolutionPolicy
                 })
 
                 return res.status(result.statusCode).json(result.body)
@@ -417,11 +495,12 @@ export function createSyncController(
 
             const latestMigration = await migrationManager.getLatestMigration(schemaName)
             const lastAppliedHash = latestMigration?.meta?.publicationSnapshotHash
+            const layoutChanges = await buildApplicationLayoutChanges({ schemaName, snapshot })
             if (lastAppliedHash && snapshotHash && lastAppliedHash === snapshotHash) {
                 const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName, snapshot })
                 const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName, snapshot })
                 const widgetsNeedUpdate = await hasPublishedWidgetsChanges({ schemaName, snapshot })
-                const hasUiChanges = uiNeedsUpdate || layoutsNeedUpdate || widgetsNeedUpdate
+                const hasUiChanges = uiNeedsUpdate || layoutsNeedUpdate || widgetsNeedUpdate || layoutChanges.length > 0
                 return res.json({
                     schemaExists: true,
                     schemaName,
@@ -435,7 +514,10 @@ export function createSyncController(
                         ],
                         destructive: [],
                         summaryKey: hasUiChanges ? 'ui.layout.changed' : 'schema.upToDate',
-                        summary: hasUiChanges ? 'UI layout settings have changed' : 'Schema is already up to date'
+                        summary: hasUiChanges ? 'UI layout settings have changed' : 'Schema is already up to date',
+                        details: {
+                            layoutChanges
+                        }
                     }
                 })
             }
@@ -509,7 +591,13 @@ export function createSyncController(
                 schemaExists: true,
                 schemaName,
                 diff: {
-                    hasChanges: diff.hasChanges || uiNeedsUpdate || layoutsNeedUpdate || widgetsNeedUpdate || systemMetadataNeedsUpdate,
+                    hasChanges:
+                        diff.hasChanges ||
+                        uiNeedsUpdate ||
+                        layoutsNeedUpdate ||
+                        widgetsNeedUpdate ||
+                        systemMetadataNeedsUpdate ||
+                        layoutChanges.length > 0,
                     hasDestructiveChanges,
                     additive,
                     destructive: diff.destructive.map((c: SchemaChange) => c.description),
@@ -527,6 +615,7 @@ export function createSyncController(
                         create: {
                             tables: createTables
                         },
+                        layoutChanges,
                         changes: {
                             additive: additiveStructured,
                             destructive: destructiveStructured

@@ -1,6 +1,6 @@
 import apiClient from './apiClient'
 import { Connector, ConnectorLocalizedPayload, PaginationParams, PaginatedResponse } from '../types'
-import type { ApplicationMigrationStatusResponse } from '@universo/types'
+import type { ApplicationLayoutChange, ApplicationLayoutSyncPolicy, ApplicationMigrationStatusResponse } from '@universo/types'
 
 /**
  * List connectors for a specific application
@@ -121,6 +121,7 @@ export interface SchemaDiffResponse {
                     newValue?: unknown
                 }>
             }
+            layoutChanges?: ApplicationLayoutChange[]
         }
     }
     message?: string
@@ -174,8 +175,15 @@ export const getApplicationDiff = async (applicationId: string): Promise<SchemaD
 /**
  * Sync application schema with linked Metahub configuration
  */
-export const syncApplication = async (applicationId: string, confirmDestructive = false): Promise<SchemaSyncResponse> => {
-    const response = await apiClient.post<SchemaSyncResponse>(`/application/${applicationId}/sync`, { confirmDestructive })
+export const syncApplication = async (
+    applicationId: string,
+    confirmDestructive = false,
+    layoutResolutionPolicy?: ApplicationLayoutSyncPolicy
+): Promise<SchemaSyncResponse> => {
+    const response = await apiClient.post<SchemaSyncResponse>(`/application/${applicationId}/sync`, {
+        confirmDestructive,
+        ...(layoutResolutionPolicy ? { layoutResolutionPolicy } : {})
+    })
     return response.data
 }
 

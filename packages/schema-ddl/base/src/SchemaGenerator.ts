@@ -2,6 +2,7 @@ import type { Knex } from 'knex'
 import type { SystemTableCapabilityOptions } from '@universo/migrations-core'
 import {
     FieldDefinitionDataType,
+    DASHBOARD_LAYOUT_WIDGETS,
     getPhysicalDataType,
     formatPhysicalType,
     type ApplicationLifecycleContract,
@@ -20,6 +21,10 @@ import { isStandardEnumerationKind, isStandardSetKind, isNonPhysicalStandardEnti
 
 const DEFAULT_DDL_STATEMENT_TIMEOUT_MS = 120_000
 const ENTITY_KIND_DB_LENGTH = 64
+const SINGLE_INSTANCE_DASHBOARD_WIDGET_KEYS = DASHBOARD_LAYOUT_WIDGETS.filter((widget) => widget.multiInstance === false).map(
+    (widget) => widget.key
+)
+const quoteSqlStringLiteral = (value: string): string => `'${value.replace(/'/g, "''")}'`
 
 const createCodenameVLC = (primaryLocale: string, codename: string): VersionedLocalizedContent<string> => {
     const timestamp = new Date(0).toISOString()
@@ -852,6 +857,15 @@ export class SchemaGenerator {
                 table.boolean('is_default').notNullable().defaultTo(false)
                 table.integer('sort_order').notNullable().defaultTo(0)
                 table.uuid('owner_id').nullable()
+                table.text('source_kind').notNullable().defaultTo('metahub')
+                table.uuid('source_layout_id').nullable()
+                table.text('source_snapshot_hash').nullable()
+                table.text('source_content_hash').nullable()
+                table.text('local_content_hash').nullable()
+                table.text('sync_state').notNullable().defaultTo('clean')
+                table.boolean('is_source_excluded').notNullable().defaultTo(false)
+                table.timestamp('source_deleted_at', { useTz: true }).nullable()
+                table.uuid('source_deleted_by').nullable()
 
                 // ═══════════════════════════════════════════════════════════════════════
                 // Platform-level system fields (_upl_*)
@@ -897,14 +911,68 @@ export class SchemaGenerator {
                 table.index(['is_active'], 'idx_app_layouts_is_active')
                 table.index(['is_default'], 'idx_app_layouts_is_default')
                 table.index(['sort_order'], 'idx_app_layouts_sort_order')
+                table.index(['source_kind', 'source_layout_id'], 'idx_app_layouts_source')
+                table.index(['sync_state'], 'idx_app_layouts_sync_state')
+                table.index(['catalog_id', 'source_kind'], 'idx_app_layouts_scope_source')
             })
 
             await knex.raw(`
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_app_layouts_default_active
                 ON "${schemaName}"._app_layouts (COALESCE(catalog_id, '00000000-0000-0000-0000-000000000000'::uuid))
-                WHERE is_default = true AND _upl_deleted = false AND _app_deleted = false
+                WHERE is_default = true AND is_active = true AND _upl_deleted = false AND _app_deleted = false
             `)
             console.log(`[SchemaGenerator] _app_layouts created`)
+        }
+
+        if (capabilities.includeLayouts) {
+            await knex.raw(`
+                ALTER TABLE "${schemaName}"."_app_layouts"
+                ADD COLUMN IF NOT EXISTS "source_kind" TEXT NOT NULL DEFAULT 'metahub',
+                ADD COLUMN IF NOT EXISTS "source_layout_id" UUID NULL,
+                ADD COLUMN IF NOT EXISTS "source_snapshot_hash" TEXT NULL,
+                ADD COLUMN IF NOT EXISTS "source_content_hash" TEXT NULL,
+                ADD COLUMN IF NOT EXISTS "local_content_hash" TEXT NULL,
+                ADD COLUMN IF NOT EXISTS "sync_state" TEXT NOT NULL DEFAULT 'clean',
+                ADD COLUMN IF NOT EXISTS "is_source_excluded" BOOLEAN NOT NULL DEFAULT false,
+                ADD COLUMN IF NOT EXISTS "source_deleted_at" TIMESTAMPTZ NULL,
+                ADD COLUMN IF NOT EXISTS "source_deleted_by" UUID NULL
+            `)
+            await knex.raw(`
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_constraint
+                        WHERE conname = 'chk_app_layouts_source_kind'
+                          AND conrelid = '"${schemaName}"."_app_layouts"'::regclass
+                    ) THEN
+                        ALTER TABLE "${schemaName}"."_app_layouts"
+                        ADD CONSTRAINT chk_app_layouts_source_kind
+                        CHECK (source_kind IN ('metahub', 'application'));
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_constraint
+                        WHERE conname = 'chk_app_layouts_sync_state'
+                          AND conrelid = '"${schemaName}"."_app_layouts"'::regclass
+                    ) THEN
+                        ALTER TABLE "${schemaName}"."_app_layouts"
+                        ADD CONSTRAINT chk_app_layouts_sync_state
+                        CHECK (sync_state IN ('clean', 'local_modified', 'source_updated', 'conflict', 'source_removed', 'source_excluded'));
+                    END IF;
+                END $$;
+            `)
+            await knex.raw(
+                `
+                CREATE INDEX IF NOT EXISTS idx_app_layouts_source
+                ON "${schemaName}"._app_layouts (source_kind, source_layout_id)
+            `
+            )
+            await knex.raw(`CREATE INDEX IF NOT EXISTS idx_app_layouts_sync_state ON "${schemaName}"._app_layouts (sync_state)`)
+            await knex.raw(
+                `
+                CREATE INDEX IF NOT EXISTS idx_app_layouts_scope_source
+                ON "${schemaName}"._app_layouts (catalog_id, source_kind)
+            `
+            )
         }
 
         const hasWidgets = capabilities.includeWidgets ? await knex.schema.withSchema(schemaName).hasTable('_app_widgets') : true
@@ -918,6 +986,10 @@ export class SchemaGenerator {
                 table.string('widget_key', 100).notNullable()
                 table.integer('sort_order').notNullable().defaultTo(1)
                 table.jsonb('config').notNullable().defaultTo('{}')
+                table.boolean('is_active').notNullable().defaultTo(true)
+                table.uuid('source_widget_id').nullable()
+                table.text('source_content_hash').nullable()
+                table.text('local_content_hash').nullable()
 
                 table.timestamp('_upl_created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
                 table.uuid('_upl_created_by').nullable()
@@ -948,8 +1020,34 @@ export class SchemaGenerator {
 
                 table.index(['layout_id'], 'idx_app_widgets_layout_id')
                 table.index(['layout_id', 'zone', 'sort_order'], 'idx_app_widgets_layout_zone_sort')
+                table.index(['layout_id', 'is_active'], 'idx_app_widgets_layout_active')
             })
             console.log(`[SchemaGenerator] _app_widgets created`)
+        }
+
+        if (capabilities.includeWidgets) {
+            await knex.raw(`
+                ALTER TABLE "${schemaName}"."_app_widgets"
+                ADD COLUMN IF NOT EXISTS "is_active" BOOLEAN NOT NULL DEFAULT true,
+                ADD COLUMN IF NOT EXISTS "source_widget_id" UUID NULL,
+                ADD COLUMN IF NOT EXISTS "source_content_hash" TEXT NULL,
+                ADD COLUMN IF NOT EXISTS "local_content_hash" TEXT NULL
+            `)
+            await knex.raw(`
+                CREATE INDEX IF NOT EXISTS idx_app_widgets_layout_active
+                ON "${schemaName}"._app_widgets (layout_id, is_active)
+            `)
+            if (SINGLE_INSTANCE_DASHBOARD_WIDGET_KEYS.length > 0) {
+                const singleInstanceWidgetKeysSql = `ARRAY[${SINGLE_INSTANCE_DASHBOARD_WIDGET_KEYS.map(quoteSqlStringLiteral).join(', ')}]::text[]`
+                await knex.raw(`
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_app_widgets_single_instance_active
+                    ON "${schemaName}"._app_widgets (layout_id, zone, widget_key)
+                    WHERE is_active = true
+                      AND _upl_deleted = false
+                      AND _app_deleted = false
+                      AND widget_key = ANY (${singleInstanceWidgetKeysSql})
+                `)
+            }
         }
 
         const hasEnumValues = capabilities.includeValues ? await knex.schema.withSchema(schemaName).hasTable('_app_values') : true

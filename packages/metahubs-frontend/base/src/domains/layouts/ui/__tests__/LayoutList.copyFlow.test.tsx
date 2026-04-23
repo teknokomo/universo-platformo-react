@@ -85,6 +85,51 @@ vi.mock('@universo/template-mui', async (importOriginal) => {
         useDebouncedSearch: () => ({ handleSearchChange: vi.fn() }),
         PaginationControls: () => null,
         FlowListTable: () => null,
+        LayoutAuthoringList: ({
+            items,
+            primaryAction,
+            title,
+            adaptiveSearch,
+            controlsAlign,
+            toolbarSx,
+            viewMode = 'card'
+        }: {
+            items?: Array<{
+                title?: ReactNode
+                titleContent?: ReactNode
+                description?: ReactNode
+                descriptionContent?: ReactNode
+                meta?: ReactNode
+                metaContent?: ReactNode
+                statusContent?: ReactNode
+                headerAction?: ReactNode
+                rowAction?: ReactNode
+            }>
+            title?: string
+            adaptiveSearch?: boolean
+            controlsAlign?: 'start' | 'end'
+            toolbarSx?: unknown
+            viewMode?: 'card' | 'list'
+            primaryAction?: { label: string; onClick: () => void }
+        }) => {
+            mockViewHeader({ adaptiveSearch, title, controlsAlign })
+            mockToolbarControls({ sx: toolbarSx, primaryAction, viewMode })
+            return (
+                <div>
+                    {primaryAction ? <button onClick={primaryAction.onClick}>{primaryAction.label}</button> : null}
+                    {(items ?? []).map((item, index) => (
+                        <div key={index}>
+                            {item.titleContent ?? item.title}
+                            {item.descriptionContent ?? item.description}
+                            {item.metaContent ?? item.meta}
+                            {item.statusContent}
+                            {viewMode === 'list' ? item.rowAction : item.headerAction}
+                        </div>
+                    ))}
+                </div>
+            )
+        },
+        LayoutStateChips: () => <div>status-chips</div>,
         gridSpacing: 2,
         ConfirmDialog: () => null,
         useConfirm: () => ({ confirm: vi.fn(async () => true) }),
@@ -118,6 +163,51 @@ vi.mock('@universo/template-mui/components/dialogs', () => ({
     useDebouncedSearch: () => ({ handleSearchChange: vi.fn() }),
     PaginationControls: () => null,
     FlowListTable: () => null,
+    LayoutAuthoringList: ({
+        items,
+        primaryAction,
+        title,
+        adaptiveSearch,
+        controlsAlign,
+        toolbarSx,
+        viewMode = 'card'
+    }: {
+        items?: Array<{
+            title?: ReactNode
+            titleContent?: ReactNode
+            description?: ReactNode
+            descriptionContent?: ReactNode
+            meta?: ReactNode
+            metaContent?: ReactNode
+            statusContent?: ReactNode
+            headerAction?: ReactNode
+            rowAction?: ReactNode
+        }>
+        title?: string
+        adaptiveSearch?: boolean
+        controlsAlign?: 'start' | 'end'
+        toolbarSx?: unknown
+        viewMode?: 'card' | 'list'
+        primaryAction?: { label: string; onClick: () => void }
+    }) => {
+        mockViewHeader({ adaptiveSearch, title, controlsAlign })
+        mockToolbarControls({ sx: toolbarSx, primaryAction, viewMode })
+        return (
+            <div>
+                {primaryAction ? <button onClick={primaryAction.onClick}>{primaryAction.label}</button> : null}
+                {(items ?? []).map((item, index) => (
+                    <div key={index}>
+                        {item.titleContent ?? item.title}
+                        {item.descriptionContent ?? item.description}
+                        {item.metaContent ?? item.meta}
+                        {item.statusContent}
+                        {viewMode === 'list' ? item.rowAction : item.headerAction}
+                    </div>
+                ))}
+            </div>
+        )
+    },
+    LayoutStateChips: () => <div>status-chips</div>,
     gridSpacing: 2,
     notifyError: vi.fn(),
     EntityFormDialog: ({

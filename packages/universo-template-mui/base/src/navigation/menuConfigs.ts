@@ -132,6 +132,12 @@ export const getApplicationMenuItems = (applicationId: string): TemplateMenuItem
         icon: IconUsers
     },
     {
+        id: 'application-layouts',
+        titleKey: 'layouts',
+        url: `/a/${applicationId}/admin/layouts`,
+        icon: IconLayoutDashboard
+    },
+    {
         id: 'application-settings',
         titleKey: 'settings',
         url: `/a/${applicationId}/admin/settings`,
