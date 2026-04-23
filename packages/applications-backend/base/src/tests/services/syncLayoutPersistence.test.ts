@@ -25,11 +25,7 @@ jest.mock('../../ddl', () => ({
     })
 }))
 
-import {
-    buildApplicationLayoutChanges,
-    persistPublishedLayouts,
-    persistPublishedWidgets
-} from '../../routes/sync/syncLayoutPersistence'
+import { buildApplicationLayoutChanges, persistPublishedLayouts, persistPublishedWidgets } from '../../routes/sync/syncLayoutPersistence'
 
 const createSnapshot = (): PublishedApplicationSnapshot => ({
     entities: {},
@@ -112,9 +108,9 @@ const createMockSyncKnex = (overrides?: { layoutRows?: StoredRow[]; widgetRows?:
                 return builder
             },
             async first(columns: string[]) {
-                const row = state[rowsRef].filter(matches).find((candidate) =>
-                    rawCatalogId === undefined ? true : candidate.catalog_id === rawCatalogId
-                )
+                const row = state[rowsRef]
+                    .filter(matches)
+                    .find((candidate) => (rawCatalogId === undefined ? true : candidate.catalog_id === rawCatalogId))
                 return row ? Object.fromEntries(columns.map((column) => [column, row[column]])) : undefined
             },
             async select(columns: string[]) {

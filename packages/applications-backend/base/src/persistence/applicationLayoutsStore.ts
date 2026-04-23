@@ -222,7 +222,11 @@ export async function applicationLayoutTablesExist(executor: DbExecutor, schemaN
     return rows[0]?.layouts === true && rows[0]?.widgets === true
 }
 
-export async function listApplicationLayoutScopes(executor: DbExecutor, schemaName: string, locale: string): Promise<ApplicationLayoutScope[]> {
+export async function listApplicationLayoutScopes(
+    executor: DbExecutor,
+    schemaName: string,
+    locale: string
+): Promise<ApplicationLayoutScope[]> {
     const objectsTable = qSchemaTable(schemaName, '_app_objects')
     const rows = await executor.query<{
         id: string
@@ -337,7 +341,7 @@ export async function createApplicationLayout(
             [scopeId]
         )
         const isDefault = data.isDefault ?? Number(activeRows[0]?.count ?? 0) === 0
-        const isActive = isDefault ? true : (data.isActive ?? true)
+        const isActive = isDefault ? true : data.isActive ?? true
         if (isDefault) {
             await tx.query(
                 `UPDATE ${layoutsTable} SET is_default = false, _upl_updated_at = NOW(), _upl_updated_by = $2 WHERE catalog_id IS NOT DISTINCT FROM $1 AND is_active = true AND _upl_deleted = false AND _app_deleted = false`,
@@ -393,7 +397,7 @@ export async function updateApplicationLayout(
         const next = {
             ...current.item,
             ...data,
-            isActive: data.isDefault === true ? true : (data.isActive ?? current.item.isActive)
+            isActive: data.isDefault === true ? true : data.isActive ?? current.item.isActive
         }
         if (data.isDefault === true) {
             await tx.query(
@@ -491,7 +495,9 @@ export async function deleteApplicationLayout(
             return true
         }
         await tx.query(
-            `UPDATE ${layoutsTable} SET ${softDeleteSetClause('$2')}, _upl_version = COALESCE(_upl_version, 1) + 1 WHERE id = $1 AND _upl_deleted = false AND _app_deleted = false`,
+            `UPDATE ${layoutsTable} SET ${softDeleteSetClause(
+                '$2'
+            )}, _upl_version = COALESCE(_upl_version, 1) + 1 WHERE id = $1 AND _upl_deleted = false AND _app_deleted = false`,
             [layoutId, userId]
         )
         if (current.item.isDefault) {
@@ -587,7 +593,8 @@ export const listApplicationLayoutWidgetCatalog = (): Array<{
     key: string
     allowedZones: readonly string[]
     multiInstance: boolean
-}> => DASHBOARD_LAYOUT_WIDGETS.map((widget) => ({ key: widget.key, allowedZones: widget.allowedZones, multiInstance: widget.multiInstance }))
+}> =>
+    DASHBOARD_LAYOUT_WIDGETS.map((widget) => ({ key: widget.key, allowedZones: widget.allowedZones, multiInstance: widget.multiInstance }))
 
 export async function upsertApplicationLayoutWidget(
     executor: DbExecutor,
@@ -599,7 +606,8 @@ export async function upsertApplicationLayoutWidget(
     const data = applicationLayoutWidgetMutationSchema.parse(input)
     const widgetsTable = qSchemaTable(schemaName, '_app_widgets')
     const definition = DASHBOARD_LAYOUT_WIDGETS.find((widget) => widget.key === data.widgetKey)
-    if (!definition || !(definition.allowedZones as readonly string[]).includes(data.zone)) throw new Error('APPLICATION_LAYOUT_WIDGET_INVALID')
+    if (!definition || !(definition.allowedZones as readonly string[]).includes(data.zone))
+        throw new Error('APPLICATION_LAYOUT_WIDGET_INVALID')
     const config = assertApplicationLayoutWidgetConfig(data.widgetKey, data.config ?? {})
     return executor.transaction(async (tx) => {
         await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${schemaName}:layout:${layoutId}:widgets`])
@@ -701,6 +709,7 @@ export async function moveApplicationLayoutWidget(
         buckets.set(data.targetZone, targetBucket)
 
         let movedResult: ApplicationLayoutWidget | null = null
+        const pendingUpdates: Array<Pick<ApplicationLayoutWidget, 'id' | 'zone' | 'sortOrder'>> = []
         for (const zone of ORDERED_LAYOUT_ZONES) {
             const zoneWidgets = buckets.get(zone) ?? []
             for (const [index, widget] of zoneWidgets.entries()) {
@@ -711,23 +720,50 @@ export async function moveApplicationLayoutWidget(
                     }
                     continue
                 }
-                const updatedRows = await tx.query<WidgetRow>(
-                    `
-                    UPDATE ${widgetsTable}
-                    SET zone = $2,
-                        sort_order = $3,
-                        _upl_updated_at = NOW(),
-                        _upl_updated_by = $4,
-                        _upl_version = COALESCE(_upl_version, 1) + 1
-                    WHERE id = $1 AND _upl_deleted = false AND _app_deleted = false
-                    RETURNING *, COALESCE(_upl_version, 1)::int AS version
-                    `,
-                    [widget.id, zone, nextSortOrder, userId]
+                pendingUpdates.push({
+                    id: widget.id,
+                    zone,
+                    sortOrder: nextSortOrder
+                })
+            }
+        }
+
+        if (pendingUpdates.length > 0) {
+            const updatedRows = await tx.query<WidgetRow>(
+                `
+                WITH updates AS (
+                    SELECT *
+                    FROM unnest($3::uuid[], $4::text[], $5::int[]) AS incoming(id, zone, sort_order)
                 )
-                const updated = updatedRows[0] ? mapWidget(updatedRows[0]) : { ...widget, zone, sortOrder: nextSortOrder }
-                if (widget.id === moved.id) {
-                    movedResult = updated
+                UPDATE ${widgetsTable} AS w
+                SET zone = updates.zone,
+                    sort_order = updates.sort_order,
+                    _upl_updated_at = NOW(),
+                    _upl_updated_by = $2,
+                    _upl_version = COALESCE(w._upl_version, 1) + 1
+                FROM updates
+                WHERE w.id = updates.id
+                  AND w.layout_id = $1
+                  AND w._upl_deleted = false
+                  AND w._app_deleted = false
+                RETURNING w.*, COALESCE(w._upl_version, 1)::int AS version
+                `,
+                [
+                    layoutId,
+                    userId,
+                    pendingUpdates.map((update) => update.id),
+                    pendingUpdates.map((update) => update.zone),
+                    pendingUpdates.map((update) => update.sortOrder)
+                ]
+            )
+            const updatedById = new Map(updatedRows.map((row) => [row.id, mapWidget(row)]))
+
+            for (const update of pendingUpdates) {
+                if (update.id !== moved.id) {
+                    continue
                 }
+                movedResult = updatedById.get(update.id) ?? { ...moved, zone: update.zone, sortOrder: update.sortOrder }
+                break
             }
         }
 
@@ -775,7 +811,9 @@ export async function deleteApplicationLayoutWidget(
     return executor.transaction(async (tx) => {
         await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${schemaName}:widget:${widgetId}`])
         const rows = await tx.query<{ id: string; layout_id: string }>(
-            `UPDATE ${widgetsTable} SET ${softDeleteSetClause('$2')}, _upl_version = COALESCE(_upl_version, 1) + 1 WHERE id = $1 AND _upl_deleted = false AND _app_deleted = false RETURNING id, layout_id`,
+            `UPDATE ${widgetsTable} SET ${softDeleteSetClause(
+                '$2'
+            )}, _upl_version = COALESCE(_upl_version, 1) + 1 WHERE id = $1 AND _upl_deleted = false AND _app_deleted = false RETURNING id, layout_id`,
             [widgetId, userId]
         )
         if (!rows[0]) return false

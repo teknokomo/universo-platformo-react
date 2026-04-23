@@ -8,6 +8,7 @@
 import stableStringify from 'json-stable-stringify'
 import type { DDLServices } from '@universo/schema-ddl'
 import type { ApplicationLayoutChange, ApplicationLayoutSyncResolution } from '@universo/types'
+import { generateUuidV7 } from '@universo/utils'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
 import { type ApplicationSyncTransaction, getApplicationSyncDdlServices, getApplicationSyncKnex } from '../../ddl'
 import { hashApplicationLayoutContent } from '../../utils/applicationLayoutHash'
@@ -31,11 +32,7 @@ const normalizeLayoutZone = (value: unknown): PersistedAppLayoutZoneWidget['zone
     return value === 'left' || value === 'right' || value === 'top' || value === 'bottom' || value === 'center' ? value : 'center'
 }
 
-const isLocallyModifiedLayout = (row: {
-    source_kind?: unknown
-    source_content_hash?: unknown
-    local_content_hash?: unknown
-}): boolean =>
+const isLocallyModifiedLayout = (row: { source_kind?: unknown; source_content_hash?: unknown; local_content_hash?: unknown }): boolean =>
     String(row.source_kind) === 'metahub' &&
     typeof row.source_content_hash === 'string' &&
     typeof row.local_content_hash === 'string' &&
@@ -44,15 +41,6 @@ const isLocallyModifiedLayout = (row: {
 const resolveLayoutScope = (linkedCollectionId: string | null | undefined): string => linkedCollectionId ?? 'global'
 
 const toLocalizedTitle = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {})
-
-const generateUuidV7InTransaction = async (trx: ApplicationSyncTransaction): Promise<string> => {
-    const result = (await trx.raw('SELECT public.uuid_generate_v7() AS id')) as { rows?: Array<{ id?: unknown }> }
-    const id = result.rows?.[0]?.id
-    if (typeof id !== 'string') {
-        throw new Error('APPLICATION_SYNC_UUID_GENERATION_FAILED')
-    }
-    return id
-}
 
 export async function buildApplicationLayoutChanges(options: {
     schemaName: string
@@ -224,7 +212,10 @@ export async function persistPublishedLayouts(options: {
     snapshotHash?: string | null
     userId?: string | null
     trx?: ApplicationSyncTransaction
-    layoutResolutionPolicy?: { default?: ApplicationLayoutSyncResolution; bySourceLayoutId?: Record<string, ApplicationLayoutSyncResolution> }
+    layoutResolutionPolicy?: {
+        default?: ApplicationLayoutSyncResolution
+        bySourceLayoutId?: Record<string, ApplicationLayoutSyncResolution>
+    }
 }): Promise<void> {
     const { schemaName, snapshot, snapshotHash, userId, trx, layoutResolutionPolicy } = options
     const knex = getApplicationSyncKnex()
@@ -358,50 +349,27 @@ export async function persistPublishedLayouts(options: {
                             .first(['id'])
 
                         if (!existingCopy) {
-                            const copiedLayoutId = await generateUuidV7InTransaction(activeTrx)
-                            await activeTrx.withSchema(schemaName).into('_app_layouts').insert({
-                                id: copiedLayoutId,
-                                catalog_id: row.linkedCollectionId,
-                                template_key: row.templateKey,
-                                name: row.name,
-                                description: row.description,
-                                config: row.config,
-                                is_active: row.isActive,
-                                is_default: false,
-                                sort_order: row.sortOrder,
-                                owner_id: null,
-                                source_kind: 'application',
-                                source_layout_id: row.id,
-                                source_content_hash: sourceContentHash,
-                                local_content_hash: sourceContentHash,
-                                sync_state: 'clean',
-                                is_source_excluded: false,
-                                _upl_created_at: now,
-                                _upl_created_by: userId ?? null,
-                                _upl_updated_at: now,
-                                _upl_updated_by: userId ?? null,
-                                _upl_version: 1,
-                                _upl_archived: false,
-                                _upl_deleted: false,
-                                _upl_locked: false,
-                                _app_published: true,
-                                _app_archived: false,
-                                _app_deleted: false
-                            })
-
-                            for (const widget of widgetsByLayoutId.get(row.id) ?? []) {
-                                const copiedWidgetId = await generateUuidV7InTransaction(activeTrx)
-                                await activeTrx.withSchema(schemaName).into('_app_widgets').insert({
-                                    id: copiedWidgetId,
-                                    layout_id: copiedLayoutId,
-                                    zone: widget.zone,
-                                    widget_key: widget.widgetKey,
-                                    sort_order: widget.sortOrder,
-                                    config: widget.config,
-                                    is_active: widget.isActive !== false,
-                                    source_widget_id: widget.id,
+                            const copiedLayoutId = generateUuidV7()
+                            await activeTrx
+                                .withSchema(schemaName)
+                                .into('_app_layouts')
+                                .insert({
+                                    id: copiedLayoutId,
+                                    catalog_id: row.linkedCollectionId,
+                                    template_key: row.templateKey,
+                                    name: row.name,
+                                    description: row.description,
+                                    config: row.config,
+                                    is_active: row.isActive,
+                                    is_default: false,
+                                    sort_order: row.sortOrder,
+                                    owner_id: null,
+                                    source_kind: 'application',
+                                    source_layout_id: row.id,
                                     source_content_hash: sourceContentHash,
                                     local_content_hash: sourceContentHash,
+                                    sync_state: 'clean',
+                                    is_source_excluded: false,
                                     _upl_created_at: now,
                                     _upl_created_by: userId ?? null,
                                     _upl_updated_at: now,
@@ -414,6 +382,35 @@ export async function persistPublishedLayouts(options: {
                                     _app_archived: false,
                                     _app_deleted: false
                                 })
+
+                            for (const widget of widgetsByLayoutId.get(row.id) ?? []) {
+                                const copiedWidgetId = generateUuidV7()
+                                await activeTrx
+                                    .withSchema(schemaName)
+                                    .into('_app_widgets')
+                                    .insert({
+                                        id: copiedWidgetId,
+                                        layout_id: copiedLayoutId,
+                                        zone: widget.zone,
+                                        widget_key: widget.widgetKey,
+                                        sort_order: widget.sortOrder,
+                                        config: widget.config,
+                                        is_active: widget.isActive !== false,
+                                        source_widget_id: widget.id,
+                                        source_content_hash: sourceContentHash,
+                                        local_content_hash: sourceContentHash,
+                                        _upl_created_at: now,
+                                        _upl_created_by: userId ?? null,
+                                        _upl_updated_at: now,
+                                        _upl_updated_by: userId ?? null,
+                                        _upl_version: 1,
+                                        _upl_archived: false,
+                                        _upl_deleted: false,
+                                        _upl_locked: false,
+                                        _app_published: true,
+                                        _app_archived: false,
+                                        _app_deleted: false
+                                    })
                             }
                         }
 
