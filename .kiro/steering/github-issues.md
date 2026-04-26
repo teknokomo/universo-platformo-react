@@ -1,3 +1,9 @@
+---
+inclusion: auto
+name: github-issues
+description: Use when creating, updating, analyzing, labeling, or closing GitHub issues.
+---
+
 # GitHub Issues Guidelines
 
 In our GitHub repository, we create Issues with the main text in English, and also use the spoiler functionality with the <details></details> markup to place the Russian version of the text there.

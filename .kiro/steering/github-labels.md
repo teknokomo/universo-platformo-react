@@ -1,3 +1,9 @@
+---
+inclusion: auto
+name: github-labels
+description: Use when creating, updating, normalizing, translating, or auditing GitHub issue labels.
+---
+
 # GitHub Labels Guidelines
 
 **CRITICAL**: Always fetch the current list of repository labels before creating Issues or Pull Requests. Use ONLY existing labels from the repository. Do not create new labels unless explicitly requested by the user.

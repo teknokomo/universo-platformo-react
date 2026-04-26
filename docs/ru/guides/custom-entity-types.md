@@ -28,6 +28,8 @@ description: Практическое руководство по создани
 - Каталоги переиспользуют authoring-поверхность атрибутов, записей, макетов и runtime-поведения.
 - Наборы переиспользуют authoring констант и общие automation hooks.
 - Перечисления переиспользуют authoring значений и hooks для действий и событий.
+- Standard preset definitions записываются в `_mhb_entity_type_definitions`; сервисы не создают synthetic standard definitions, если строка отсутствует.
+- Названия resource tabs для атрибутов каталогов, констант наборов и значений перечислений являются localized metadata на resource surface, а не frontend constants.
 
 ## Текущий набор компонентов
 
@@ -49,6 +51,7 @@ description: Практическое руководство по создани
 
 - Для сценариев, где важна полная паритетность поведения, лучше брать готовый пресет, а не собирать тот же manifest вручную.
 - Автоматизация на generic custom entity routes подчиняется permission-контракту `manageMetahub`.
+- Структура standard kinds защищена. Администраторы могут менять safe presentation fields и localized resource surface titles, но component/config/route changes отклоняются.
 - Стандартные metadata-пресеты продолжают использовать свои специализированные authoring surfaces внутри общего entity-owned route tree.
 - Публикация влияет на динамическое меню и runtime только после publication sync или application sync.
 - Runtime-секции материализуются из опубликованных entity metadata и текущих runtime adapters.
@@ -60,7 +63,7 @@ description: Практическое руководство по создани
 Текущий browser proof и автоматически генерируемые скриншоты используют общее рабочее пространство сущностей и актуальный диалог создания.
 
 ![Рабочее пространство ресурсов](../.gitbook/assets/entities/resources-workspace.png)
-Вкладки общих ресурсов теперь задаются конфигурацией типа сущности: catalog-compatible пресеты показывают `Атрибуты`, set-compatible пресеты показывают `Константы`, а enumeration-compatible пресеты показывают `Значения`.
+Вкладки общих ресурсов теперь задаются конфигурацией типа сущности. Названия, которые видит пользователь, разрешаются из persisted localized titles resource surface.
 
 ## Что посмотреть дальше
 

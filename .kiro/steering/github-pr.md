@@ -1,3 +1,9 @@
+---
+inclusion: auto
+name: github-pr
+description: Use when working with GitHub pull requests, PR review, PR creation, branch comparison, merge preparation, or pull request descriptions.
+---
+
 # GitHub Pull Request Guidelines
 
 When creating Pull Requests, follow these formatting and content guidelines to maintain consistency and provide comprehensive information about the changes.

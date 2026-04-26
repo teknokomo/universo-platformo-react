@@ -326,6 +326,42 @@ describe('Entity ECAE routes', () => {
         expect(mockEntityTypeService.createType).not.toHaveBeenCalled()
     })
 
+    it('rejects malformed localized resource surface titles before the service layer', async () => {
+        const app = buildApp()
+
+        const response = await request(app)
+            .post('/metahub/metahub-1/entity-types')
+            .send({
+                kindKey: 'custom-order',
+                codename: 'custom-order',
+                components: { dataSchema: { enabled: true } },
+                ui: {
+                    iconName: 'IconBolt',
+                    tabs: ['general'],
+                    sidebarSection: 'objects',
+                    nameKey: 'Custom Order',
+                    resourceSurfaces: [
+                        {
+                            key: 'attributes',
+                            capability: 'dataSchema',
+                            routeSegment: 'attributes',
+                            title: {
+                                _primary: 'en',
+                                locales: {
+                                    ru: { content: 'Атрибуты' }
+                                }
+                            },
+                            fallbackTitle: 'Attributes'
+                        }
+                    ]
+                }
+            })
+            .expect(400)
+
+        expect(response.body.error).toBe('Invalid input')
+        expect(mockEntityTypeService.createType).not.toHaveBeenCalled()
+    })
+
     it('returns 409 when creating a custom entity type with a duplicate codename', async () => {
         mockEntityTypeService.createType.mockRejectedValueOnce(
             new MetahubConflictError('Entity type codename already exists', {

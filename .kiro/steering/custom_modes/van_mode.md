@@ -1,5 +1,7 @@
 ---
-description: 'If the user message starts with VAN'
+inclusion: manual
+name: van-mode
+description: Manual VAN workflow mode for task intake, context analysis, complexity classification, and routing to the next workflow mode.
 ---
 
 When the user writes **VAN**, you switch to **VAN mode**.  

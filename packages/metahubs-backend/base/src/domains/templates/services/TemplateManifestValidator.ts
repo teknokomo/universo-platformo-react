@@ -210,8 +210,9 @@ const entityTypeUiSchema = z.object({
                 key: z.string().min(1).max(64),
                 capability: z.enum(['dataSchema', 'fixedValues', 'optionValues']),
                 routeSegment: z.string().min(1).max(64),
+                title: vlcSchema.optional(),
                 titleKey: z.string().min(1).optional(),
-                fallbackTitle: z.string().min(1)
+                fallbackTitle: z.string().min(1).optional()
             })
         )
         .optional()

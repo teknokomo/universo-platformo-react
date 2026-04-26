@@ -6,6 +6,101 @@
 
 ## Current Task Ledger (Canonical)
 
+## Active: Entity Resources Data-Driven Cleanup (2026-04-26)
+
+> Goal: remove hardcoded Resources tab labels and synthetic standard entity type fallbacks, make standard resource labels editable through Entities metadata, preserve metadata through publication/application paths, and validate the result with focused tests/docs.
+
+### Final Action Plan — Current Implementation Pass (2026-04-26)
+
+- [x] Add shared resource surface contracts/helpers in `@universo/types`
+- [x] Seed standard resource surface labels as localized entity metadata instead of runtime-only i18n keys
+- [x] Remove synthetic builtin entity type fallback and allow safe standard-kind presentation/UI updates
+- [x] Render Resources tabs from persisted resource surface metadata through a capability registry
+- [x] Reuse the existing entity type editor surface for localized resource titles without new UI primitives
+- [x] Preserve and test entity type resource metadata through snapshot/release bundle paths without DDL drift
+- [x] Add focused unit/backend/frontend tests and hardcoding audit coverage
+- [x] Update package READMEs/GitBook docs and memory-bank status after validation
+- [x] Run targeted package checks and document any validation that cannot run in this environment
+
+### Validation Notes
+
+- Root `pnpm build` passed across 30 packages.
+- Focused tests passed for `@universo/types`, `@universo/utils`, `@universo/metahubs-backend`, `@universo/metahubs-frontend`, and `@universo/applications-backend` target files touched by this implementation.
+- Package lint passed for `@universo/types`, `@universo/metahubs-frontend`, `@universo/metahubs-backend`, and `@universo/utils`; the utils and metahubs backend lint commands still report pre-existing warnings.
+- `node tools/lint-db-access.mjs` still reports 26 pre-existing DB-boundary violations outside the new entity-resource implementation.
+- Follow-up Playwright browser screenshots were added during QA remediation for EN/RU baseline resource labels and renamed standard resource labels.
+
+### QA Remediation Pass (2026-04-26)
+
+- [x] Strengthen resource surface VLC validation in shared contracts and route schemas
+- [x] Add negative tests for standard entity type structural guardrails
+- [x] Add admin-visible diagnostics for conflicting resource surface labels
+- [x] Add Playwright browser coverage and screenshots for entity resource labels
+- [x] Re-run focused tests, lint, and update memory-bank status honestly
+
+### QA Remediation Validation Notes
+
+- Shared VLC validation now rejects malformed resource surface titles without `_primary`, without the primary locale entry, or with non-string locale content.
+- Backend route schemas reject malformed resource surface localized titles before service execution.
+- Standard entity type negative tests now prove structural component and resource-surface mutations fail closed while localized title edits remain allowed.
+- The Resources page now shows an i18n warning when multiple persisted entity types define conflicting labels for the same shared resource capability; the conflict path is covered by focused frontend tests.
+- Targeted Playwright wrapper `node tools/testing/e2e/run-playwright-suite.mjs specs/flows/metahub-entity-resources.spec.ts --project chromium` passed and captured EN/RU baseline plus renamed-standard resource screenshots on a fresh e2e database.
+- Root `pnpm build` passed after the QA remediation changes.
+
+## Active: Steering Files Refactoring (2026-04-24)
+
+> Goal: refactor outdated `.kiro/steering/` files to match the current project architecture, removing obsolete information and adding accurate documentation.
+
+### Final Action Plan — Current Implementation Pass (2026-04-24)
+
+#### Phase 1: product.md — Complete Rewrite
+
+- [x] Remove outdated UPDL/AR/VR description as main functionality
+- [x] Add current description of Metahubs Platform with entity architecture
+- [x] Describe key domains: Metahubs, Applications, Publications, Scripting, LMS
+- [x] Update target use cases (LMS, enterprise systems, custom business applications)
+- [x] Add information about ECAE (Entity-Component-Action-Event) architecture
+
+#### Phase 2: structure.md — Update Package Structure
+
+- [x] Remove non-existent packages from the list (updl, uniks-*, publish-*, space-builder-*, metaverse-*, analytics-frontend)
+- [x] Add current packages (metahubs-*, applications-*, admin-*, auth-*, start-*, profile-*, scripting-engine, extension-sdk, schema-ddl, etc.)
+- [x] Fix directory structure diagram (remove duplicate `packages/`)
+- [x] Add package classification by roles (Core shell, Feature modules, Infrastructure, UI support)
+- [x] Update "Integration Points" section with current information
+
+#### Phase 3: tech.md — Update Technology Stack
+
+- [x] Update key library versions (check package.json)
+- [x] Add new key technologies (TanStack Query, Playwright, isolated-vm, UUID v7)
+- [x] Clarify database information (PostgreSQL only via Supabase)
+- [x] Add section about DDL/Migrations system (`@universo/schema-ddl`)
+- [x] Update Common Commands section with current commands
+
+#### Phase 4: recommendations.md — Expand Recommendations
+
+- [x] Add section about Three-Tier DB Access Pattern (Tier 1/2/3)
+- [x] Add section about Knex Boundary Rule
+- [x] Add section about SQL Safety Rule (schema-qualified, parameterized)
+- [x] Add section about Mutation Rule (RETURNING, fail-closed)
+- [x] Add section about Testing Rule for SQL-first stores
+- [x] Update Frontend Packages section with TanStack Query information
+
+#### Phase 5: Final Validation
+
+- [x] Verify all steering files are consistent with memory-bank files
+- [x] Ensure no duplicate information across files
+- [x] Run final review of all updated files
+
+- Final validation note:
+  - All 4 steering files (product.md, structure.md, tech.md, recommendations.md) have been completely rewritten.
+  - Removed outdated UPDL/AR/VR focus, replaced with Metahubs Platform description.
+  - Updated package list to match current 31 packages in the monorepo.
+  - Added current technology stack with actual versions from pnpm-workspace.yaml.
+  - Expanded recommendations with Three-Tier DB Access Pattern, SQL Safety Rules, and other critical patterns from techContext.md.
+
+---
+
 ## Active: Application Layout Management Shared List And Parity Closure (2026-04-22)
 
 > Goal: remove the last UI-parity drift after the detail-surface convergence by extracting the list shell, restoring metahub embedded-header behavior, fixing the template package boundary, and proving metahub/application parity on the real browser path.
@@ -1586,6 +1681,15 @@
 - [x] Record reusable implementation rules only in `systemPatterns.md`.
 
 ---
+
+## Active Session: 2026-04-26 Entity Resource QA Remediation
+
+- [x] Protect standard entity type publication state and structural UI controls while keeping resource labels editable.
+- [x] Move resource surface default metadata into shared `@universo/types` helpers and consume it from the frontend builder.
+- [x] Replace brittle standard-type structural equality with canonical JSON comparison.
+- [x] Add focused backend/frontend coverage for the QA gaps.
+- [x] Strengthen the browser spec with user-driven resource-label editing proof and screenshots.
+- [x] Re-run focused validation and record the implementation outcome in `progress.md`.
 
 ## Recent Completed Sessions
 

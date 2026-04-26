@@ -28,6 +28,8 @@ Custom entity types let a metahub define new authoring and runtime sections on t
 - Catalogs reuse the catalog authoring surface and remain the runtime-visible control case after publication sync.
 - Sets keep fixed-value authoring plus automation on the shared entity-owned routes.
 - Enumerations keep option-value authoring plus action/event automation on the shared entity-owned routes.
+- Standard preset definitions are seeded into `_mhb_entity_type_definitions`; services do not create synthetic standard definitions if a row is missing.
+- Resource tab titles such as catalog attributes, set constants, and enumeration values are localized metadata on the preset resource surface, not frontend constants.
 
 ## Current Component Set
 
@@ -49,6 +51,7 @@ Custom entity types let a metahub define new authoring and runtime sections on t
 
 - Prefer presets for parity-heavy flows instead of rebuilding the same manifest by hand.
 - Automation authoring on generic custom entity routes follows the manageMetahub contract; standard metadata presets reuse the matching list/detail surface instead of mounting a second generic CRUD shell.
+- Standard kind structure is protected. Admins may edit safe presentation fields and localized resource surface titles, but component/config/route changes are rejected.
 - Publishing affects the dynamic menu and runtime only after publication sync or application sync.
 - Standard metadata presets stay on direct kind keys and publish through the entity-owned route tree.
 - Runtime sections materialize from published entity metadata and the current runtime adapters after publication sync.
@@ -61,7 +64,7 @@ Custom entity types let a metahub define new authoring and runtime sections on t
 The current browser proof and generated screenshots use the shared entity workspace and the create dialog shown above.
 
 ![Resources workspace](../.gitbook/assets/entities/resources-workspace.png)
-Shared resource tabs now use entity-type configuration, so catalog-compatible presets expose Attributes, set-compatible presets expose Constants, and enumeration-compatible presets expose Values.
+Shared resource tabs now use entity-type configuration. The labels shown in the browser are resolved from persisted resource surface localized titles.
 
 ## Related References
 

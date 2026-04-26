@@ -19,6 +19,15 @@ The Entity-Component-Action-Event (ECAE) layer adds custom and standard metahub 
 3. Actions stay object-owned rows in `_mhb_actions` and represent executable lifecycle behavior.
 4. Event bindings stay object-owned rows in `_mhb_event_bindings` and connect events to actions.
 
+## Resource Surfaces
+
+- Shared Resources tabs are defined by `ui.resourceSurfaces` on persisted entity type rows.
+- The user-visible tab title comes from `ui.resourceSurfaces[].title` in VLC format.
+- `titleKey` is a compatibility fallback only; new standard presets store localized titles directly in entity metadata.
+- Standard rows are never synthesized by services when `_mhb_entity_type_definitions` is missing data. Missing metadata fails closed.
+- Publication snapshots preserve `entityTypeDefinitions`, and the canonical publication hash includes this metadata.
+- Application executable schema generation still uses structural `snapshot.entities`, so label-only resource surface edits do not create DDL changes.
+
 ## Current Boundaries
 
 - Generic entity instance routes still focus on true custom kinds.

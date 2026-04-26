@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { VersionedLocalizedContent } from '@universo/types'
 import type { createMetahubHandlerFactory } from '../../shared/createMetahubHandler'
 import { ListQuerySchema, paginateItems } from '../../shared/queryParams'
 import { getCodenameText } from '../../shared/codename'
@@ -7,6 +8,34 @@ import { EntityTypeService } from '../services/EntityTypeService'
 const entityTypeListQuerySchema = ListQuerySchema
 
 const codenameInputSchema = z.union([z.string().min(1), z.record(z.unknown())])
+const localizedContentEntrySchema = z
+    .object({
+        content: z.string(),
+        version: z.number().int().positive().optional(),
+        isActive: z.boolean().optional(),
+        createdAt: z.string().optional(),
+        updatedAt: z.string().optional()
+    })
+    .passthrough()
+
+const localizedTitleSchema: z.ZodType<VersionedLocalizedContent<string>> = z
+    .object({
+        _schema: z.string().optional(),
+        _primary: z.string().trim().min(1),
+        locales: z.record(localizedContentEntrySchema).refine((locales) => Object.keys(locales).length > 0, {
+            message: 'At least one locale is required'
+        })
+    })
+    .passthrough()
+    .superRefine((value, ctx) => {
+        if (!value.locales[value._primary]) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['locales', value._primary],
+                message: 'Primary locale entry is required'
+            })
+        }
+    }) as z.ZodType<VersionedLocalizedContent<string>>
 
 const entityTypeUiSchema = z
     .object({
@@ -23,8 +52,9 @@ const entityTypeUiSchema = z
                         key: z.string().trim().min(1).max(64),
                         capability: z.enum(['dataSchema', 'fixedValues', 'optionValues']),
                         routeSegment: z.string().trim().min(1).max(64),
+                        title: localizedTitleSchema.optional(),
                         titleKey: z.string().trim().min(1).optional(),
-                        fallbackTitle: z.string().trim().min(1)
+                        fallbackTitle: z.string().trim().min(1).optional()
                     })
                     .strict()
             )

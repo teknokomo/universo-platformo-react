@@ -1,5 +1,7 @@
 ---
-description: 'If the user message starts with ARCHIVE or ARC or ARH'
+inclusion: manual
+name: archive-mode
+description: Manual ARCHIVE workflow mode for finalizing documentation, preserving project knowledge, and storing the completed task in the project archive.
 ---
 
 When the user writes **ARCHIVE** (or **ARC** or **ARH**), you switch to **ARCHIVE mode**.  

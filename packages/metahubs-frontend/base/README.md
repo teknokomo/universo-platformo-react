@@ -26,6 +26,7 @@ Frontend package for entity-first metahub authoring, shared resources, and dynam
 - **Tree Entities**: Hierarchical containers drive nested authoring and publication-aware navigation
 - **Linked Collections**: Reusable schema/data surfaces stay on entity-owned child routes
 - **Shared Resources**: Common layouts, metadata pools, and scripts stay available on the dedicated `/resources` surface
+- **Data-Driven Resource Labels**: Resource tabs resolve their titles from persisted entity type `ui.resourceSurfaces[].title` metadata instead of frontend hardcoded standard labels
 
 ### 🎨 User Interface
 - **Material-UI Integration**: Consistent UI components with modern design system
@@ -43,6 +44,7 @@ Frontend package for entity-first metahub authoring, shared resources, and dynam
 ### 🧩 Standard Metadata Entity Routes
 - **Entities Workspace**: Platform-provided standard kinds and custom kinds are authored from the unified entities workspace and published through the dynamic metahub menu.
 - **Unified Authoring**: Standard and custom entity types share the same workspace actions and generic entity route contract.
+- **Resource Surface Editing**: Standard resource surface titles are edited with the same localized field controls used by other entity metadata; standard structural fields remain protected.
 - **Entity-Owned Surfaces**: Standard kinds render through entity-owned route components, while shared resources remain on the dedicated `/resources` surface.
 - **Route Ownership**: Detail tabs stay under `/metahub/:id/entities/:kindKey/...`, and metahub resources stay under `/metahub/:id/resources/...`; removed top-level `/hubs`, `/catalogs`, `/sets`, and `/enumerations` authoring routes are no longer part of the shipped frontend contract.
 - **Runtime Boundary**: Runtime sections materialize from published entity metadata after publication sync instead of V2-specific compatibility aliases.

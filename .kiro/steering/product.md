@@ -1,24 +1,91 @@
+---
+inclusion: always
+---
+
 # Product Overview
 
-Universo Platformo React is a platform for creating interactive 3D/AR/VR applications through a visual node-based interface. Built on an inherited upstream shell (v2.2.8), it extends the core framework with:
+Universo Platformo is a platform for creating metahubs — structured data management systems with entity architecture, publications, and scripting capabilities. Built on an inherited upstream shell, it extends the core framework with multi-user functionality through Supabase.
 
 ## Core Functionality
-- **UPDL (Universal Platform Description Language)**: Node system for describing 3D scenes and interactions
-- **Multi-platform Export**: Generate applications for AR.js, PlayCanvas, Babylon.js, Three.js, A-Frame
-- **Publication System**: Deploy and share created applications with shareable URLs
-- **Multi-user Support**: Supabase integration for authentication and workspace management
 
-## Key Applications
-- **Workspace Management (Uniks)**: Create and organize user workspaces
-- **Space Builder**: Convert natural language prompts into UPDL flow graphs
-- **Profile Management**: User authentication and profile handling
-- **Publication System**: Export UPDL spaces to various AR/VR platforms
+- **Metahubs**: Central hubs for managing structured data with entity-component-action-event (ECAE) architecture
+- **Entity System**: Flexible data modeling with catalogs, hubs, sets, and enumerations
+- **Publications**: Export and share metahub content as standalone applications
+- **Scripting**: Server-side and client-side scripting with isolated-vm for secure execution
+- **Applications**: Create and manage applications linked to metahubs
+- **LMS (Learning Management System)**: Complete learning platform with quizzes, modules, and progress tracking
+
+## Key Domains
+
+### Metahubs
+- Create and manage metahubs with hierarchical structure
+- Entity types: Hub, Catalog, Set, Enumeration
+- Attributes, constants, and values management
+- Layout system for UI customization
+- Snapshot import/export for portability
+
+### Applications
+- Link applications to metahubs
+- Runtime schema synchronization
+- Application-specific layouts and widgets
+- Public access links for sharing
+
+### Publications
+- Export metahubs as standalone applications
+- Template-based publication system
+- Version management and releases
+
+### Scripting
+- Embedded scripts with server/client execution
+- Extension SDK for custom functionality
+- Secure isolation with isolated-vm
+
+### LMS
+- Quiz creation and management
+- Learning modules with content items
+- Student progress tracking
+- Public guest access for courses
+
+## Architecture
+
+### Entity-Component-Action-Event (ECAE)
+The platform uses an ECAE architecture where:
+- **Entities** are data objects with typed attributes
+- **Components** define entity capabilities
+- **Actions** are executable behaviors
+- **Events** trigger actions based on conditions
+
+### Package Structure
+The monorepo is organized into:
+- **Core shell**: `universo-core-backend`, `universo-core-frontend`
+- **Feature modules**: `metahubs-*`, `applications-*`, `auth-*`, `profile-*`, `admin-*`, `start-*`
+- **Infrastructure**: `universo-database`, `schema-ddl`, `universo-types`, `universo-utils`
+- **UI support**: `universo-template-mui`, `apps-template-mui`, `universo-store`
 
 ## Target Use Cases
-- Creating metaverses and virtual worlds
-- Educational AR/VR experiences and quizzes
-- Industrial applications and digital twins
-- Game development with visual scripting
-- Cross-platform 3D application development
 
-The platform aims to democratize 3D/AR/VR development by providing a unified, visual interface that abstracts away the complexity of different rendering engines and platforms.
+- **Learning Management Systems**: Create courses, quizzes, and track student progress
+- **Enterprise Data Management**: Structured data with custom entity types
+- **Business Applications**: Custom workflows and data processing
+- **Content Publishing**: Export and share structured content
+- **Multi-tenant Platforms**: Workspace-based isolation with shared resources
+
+## Technical Foundation
+
+- **Node.js** (>=18.15.0 <19.0.0 || ^20)
+- **PNPM** (>=9) - Package manager
+- **TypeScript** (^5.8.3)
+- **React** (^18.2.0) with Material-UI
+- **Express** (^4.17.3)
+- **Supabase** for authentication and PostgreSQL database
+- **Knex** for SQL query building
+- **TanStack Query** for frontend data fetching
+- **Playwright** for E2E testing
+
+## Development Philosophy
+
+- Minimal changes to the inherited upstream shell
+- Backwards compatibility where possible
+- SQL-first data access with request-scoped executors
+- Fail-closed security model
+- Template-based UI components for consistency

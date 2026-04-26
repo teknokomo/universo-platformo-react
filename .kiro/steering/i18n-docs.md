@@ -1,3 +1,8 @@
+---
+inclusion: fileMatch
+fileMatchPattern: ["**/README.md", "**/*.md", "**/docs/**/*.md", "**/i18n/**/*", "**/locales/**/*"]
+---
+
 # Multilingual Documentation Guidelines
 
 1.  When updating documentation, such as `README.md`, check if there is a similar file nearby with a version of the documentation in another language, primarily a file with Russian documentation, for example, `README-RU.md`. If such a file exists, it must also be updated.

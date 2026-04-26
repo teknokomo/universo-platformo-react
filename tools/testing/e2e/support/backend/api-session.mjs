@@ -541,6 +541,15 @@ export async function createMetahubEntityType(api, metahubId, payload) {
     return response.json()
 }
 
+export async function updateMetahubEntityType(api, metahubId, entityTypeId, payload) {
+    const response = await sendWithCsrf(api, 'PATCH', `/api/v1/metahub/${metahubId}/entity-type/${entityTypeId}`, payload)
+    if (!response.ok) {
+        throw await buildError(response, `Updating entity type ${entityTypeId} in metahub ${metahubId}`)
+    }
+
+    return response.json()
+}
+
 export async function listTemplates(api, params = {}) {
     const query = new URLSearchParams()
 

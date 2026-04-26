@@ -7,6 +7,7 @@ export interface PublicationSnapshotHashInput {
     version?: unknown
     versionEnvelope?: MetahubSnapshotVersionEnvelope
     metahubId?: unknown
+    entityTypeDefinitions?: Record<string, unknown>
     entities?: Record<string, unknown>
     elements?: Record<string, unknown>
     optionValues?: Record<string, unknown>
@@ -38,6 +39,7 @@ export interface NormalizePublicationSnapshotForHashOptions {
 
 const asArray = <Value>(value: unknown): Value[] => (Array.isArray(value) ? (value as Value[]) : [])
 const asRecord = (value: unknown): SnapshotRecord => (value && typeof value === 'object' ? (value as SnapshotRecord) : {})
+const compareStrings = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0)
 
 const normalizeCodenameValue = (value: unknown): unknown => {
     if (typeof value === 'string') {
@@ -80,7 +82,7 @@ const normalizeScriptManifest = (manifestValue: unknown): Record<string, unknown
         sourceKind: typeof manifest.sourceKind === 'string' ? manifest.sourceKind : '',
         capabilities: asArray<unknown>(manifest.capabilities)
             .map((capability) => String(capability ?? ''))
-            .sort((left, right) => left.localeCompare(right)),
+            .sort(compareStrings),
         methods: asArray<unknown>(manifest.methods)
             .map((methodValue) => {
                 const method = asRecord(methodValue)
@@ -93,12 +95,12 @@ const normalizeScriptManifest = (manifestValue: unknown): Record<string, unknown
             })
             .sort((left, right) => {
                 if ((left.target as string) !== (right.target as string)) {
-                    return (left.target as string).localeCompare(right.target as string)
+                    return compareStrings(left.target as string, right.target as string)
                 }
                 if ((left.eventName as string | null) !== (right.eventName as string | null)) {
-                    return String(left.eventName ?? '').localeCompare(String(right.eventName ?? ''))
+                    return compareStrings(String(left.eventName ?? ''), String(right.eventName ?? ''))
                 }
-                return (left.name as string).localeCompare(right.name as string)
+                return compareStrings(left.name as string, right.name as string)
             }),
         checksum: typeof manifest.checksum === 'string' ? manifest.checksum : null
     }
@@ -156,9 +158,9 @@ const normalizeField = (fieldValue: unknown): Record<string, unknown> => {
                           return (left.sortOrder as number) - (right.sortOrder as number)
                       }
                       if (resolveCodenameSortText(left.codename) !== resolveCodenameSortText(right.codename)) {
-                          return resolveCodenameSortText(left.codename).localeCompare(resolveCodenameSortText(right.codename))
+                          return compareStrings(resolveCodenameSortText(left.codename), resolveCodenameSortText(right.codename))
                       }
-                      return (left.id as string).localeCompare(right.id as string)
+                      return compareStrings(left.id as string, right.id as string)
                   })
             : undefined
     }
@@ -191,14 +193,58 @@ const normalizeEnumerationValue = (valueValue: unknown): Record<string, unknown>
     }
 }
 
+const normalizeResourceSurface = (surfaceValue: unknown): Record<string, unknown> => {
+    const surface = asRecord(surfaceValue)
+
+    return {
+        key: typeof surface.key === 'string' ? surface.key : '',
+        capability: typeof surface.capability === 'string' ? surface.capability : '',
+        routeSegment: typeof surface.routeSegment === 'string' ? surface.routeSegment : '',
+        title: surface.title ?? null,
+        titleKey: typeof surface.titleKey === 'string' ? surface.titleKey : null,
+        fallbackTitle: typeof surface.fallbackTitle === 'string' ? surface.fallbackTitle : null
+    }
+}
+
+const normalizeEntityTypeDefinition = (kindKey: string, definitionValue: unknown): Record<string, unknown> => {
+    const definition = asRecord(definitionValue)
+    const ui = asRecord(definition.ui)
+
+    return {
+        id: typeof definition.id === 'string' ? definition.id : '',
+        kindKey: typeof definition.kindKey === 'string' ? definition.kindKey : kindKey,
+        codename: normalizeCodenameValue(definition.codename),
+        presentation: definition.presentation ?? {},
+        components: definition.components ?? {},
+        ui: {
+            iconName: typeof ui.iconName === 'string' ? ui.iconName : '',
+            tabs: asArray<string>(ui.tabs).sort(compareStrings),
+            sidebarSection: typeof ui.sidebarSection === 'string' ? ui.sidebarSection : 'objects',
+            sidebarOrder: typeof ui.sidebarOrder === 'number' ? ui.sidebarOrder : null,
+            nameKey: typeof ui.nameKey === 'string' ? ui.nameKey : '',
+            descriptionKey: typeof ui.descriptionKey === 'string' ? ui.descriptionKey : null,
+            resourceSurfaces: asArray<unknown>(ui.resourceSurfaces)
+                .map(normalizeResourceSurface)
+                .sort((left, right) => {
+                    if ((left.capability as string) !== (right.capability as string)) {
+                        return compareStrings(left.capability as string, right.capability as string)
+                    }
+                    return compareStrings(left.key as string, right.key as string)
+                })
+        },
+        config: definition.config ?? {},
+        published: definition.published === true
+    }
+}
+
 const compareBySortOrderCodenameAndId = (left: Record<string, unknown>, right: Record<string, unknown>): number => {
     if ((left.sortOrder as number) !== (right.sortOrder as number)) {
         return (left.sortOrder as number) - (right.sortOrder as number)
     }
     if (resolveCodenameSortText(left.codename) !== resolveCodenameSortText(right.codename)) {
-        return resolveCodenameSortText(left.codename).localeCompare(resolveCodenameSortText(right.codename))
+        return compareStrings(resolveCodenameSortText(left.codename), resolveCodenameSortText(right.codename))
     }
-    return String(left.id ?? '').localeCompare(String(right.id ?? ''))
+    return compareStrings(String(left.id ?? ''), String(right.id ?? ''))
 }
 
 export const normalizePublicationSnapshotForHash = (
@@ -209,6 +255,10 @@ export const normalizePublicationSnapshotForHash = (
         snapshot.systemFields && typeof snapshot.systemFields === 'object'
             ? (snapshot.systemFields as Record<string, CatalogSystemFieldsSnapshot | SnapshotRecord>)
             : null
+
+    const entityTypeDefinitions = Object.entries(snapshot.entityTypeDefinitions ?? {})
+        .map(([kindKey, definition]) => normalizeEntityTypeDefinition(kindKey, definition))
+        .sort((left, right) => compareStrings(String(left.kindKey ?? ''), String(right.kindKey ?? '')))
 
     const entities = Object.values(snapshot.entities ?? {})
         .map((entityValue) => {
@@ -228,7 +278,7 @@ export const normalizePublicationSnapshotForHash = (
                 presentation: entity.presentation ?? {},
                 config: entity.config ?? {},
                 systemFields: snapshotSystemFields?.[entityId] ?? null,
-                hubs: asArray<string>(entity.hubs).sort(),
+                hubs: asArray<string>(entity.hubs).sort(compareStrings),
                 fields: asArray<unknown>(entity.fields)
                     .map(normalizeField)
                     .sort((left, right) => {
@@ -236,18 +286,18 @@ export const normalizePublicationSnapshotForHash = (
                             return (left.sortOrder as number) - (right.sortOrder as number)
                         }
                         if (resolveCodenameSortText(left.codename) !== resolveCodenameSortText(right.codename)) {
-                            return resolveCodenameSortText(left.codename).localeCompare(resolveCodenameSortText(right.codename))
+                            return compareStrings(resolveCodenameSortText(left.codename), resolveCodenameSortText(right.codename))
                         }
-                        return (left.id as string).localeCompare(right.id as string)
+                        return compareStrings(left.id as string, right.id as string)
                     })
             }
         })
         .sort((left, right) => {
-            if (left.kind !== right.kind) return left.kind.localeCompare(right.kind)
+            if (left.kind !== right.kind) return compareStrings(left.kind, right.kind)
             if (resolveCodenameSortText(left.codename) !== resolveCodenameSortText(right.codename)) {
-                return resolveCodenameSortText(left.codename).localeCompare(resolveCodenameSortText(right.codename))
+                return compareStrings(resolveCodenameSortText(left.codename), resolveCodenameSortText(right.codename))
             }
-            return left.id.localeCompare(right.id)
+            return compareStrings(left.id, right.id)
         })
 
     const elements = Object.entries(snapshot.elements ?? {})
@@ -261,28 +311,32 @@ export const normalizePublicationSnapshotForHash = (
                 }))
                 .sort((left, right) => {
                     if (left.sortOrder !== right.sortOrder) return left.sortOrder - right.sortOrder
-                    return left.id.localeCompare(right.id)
+                    return compareStrings(left.id, right.id)
                 })
         }))
-        .sort((left, right) => left.objectId.localeCompare(right.objectId))
+        .sort((left, right) => compareStrings(left.objectId, right.objectId))
 
     const optionValues = Object.entries(snapshot.optionValues ?? {})
         .map(([objectId, list]) => ({
             objectId,
             values: asArray<SnapshotRecord>(list).map(normalizeEnumerationValue).sort(compareBySortOrderCodenameAndId)
         }))
-        .sort((left, right) => left.objectId.localeCompare(right.objectId))
+        .sort((left, right) => compareStrings(left.objectId, right.objectId))
 
     const fixedValues = Object.entries(snapshot.fixedValues ?? snapshot.constants ?? {})
         .map(([objectId, list]) => ({
             objectId,
             constants: asArray<SnapshotRecord>(list).map(normalizeConstant).sort(compareBySortOrderCodenameAndId)
         }))
-        .sort((left, right) => left.objectId.localeCompare(right.objectId))
+        .sort((left, right) => compareStrings(left.objectId, right.objectId))
 
-    const sharedAttributes = asArray<unknown>(snapshot.sharedFieldDefinitions ?? snapshot.sharedAttributes).map(normalizeField).sort(compareBySortOrderCodenameAndId)
+    const sharedAttributes = asArray<unknown>(snapshot.sharedFieldDefinitions ?? snapshot.sharedAttributes)
+        .map(normalizeField)
+        .sort(compareBySortOrderCodenameAndId)
 
-    const sharedConstants = asArray<unknown>(snapshot.sharedFixedValues ?? snapshot.sharedConstants).map(normalizeConstant).sort(compareBySortOrderCodenameAndId)
+    const sharedConstants = asArray<unknown>(snapshot.sharedFixedValues ?? snapshot.sharedConstants)
+        .map(normalizeConstant)
+        .sort(compareBySortOrderCodenameAndId)
 
     const sharedEnumerationValues = asArray<unknown>(snapshot.sharedOptionValues ?? snapshot.sharedEnumerationValues)
         .map(normalizeEnumerationValue)
@@ -300,36 +354,36 @@ export const normalizePublicationSnapshotForHash = (
         }))
         .sort((left, right) => {
             if ((left.entityKind as string) !== (right.entityKind as string)) {
-                return (left.entityKind as string).localeCompare(right.entityKind as string)
+                return compareStrings(left.entityKind as string, right.entityKind as string)
             }
             if ((left.targetObjectId as string) !== (right.targetObjectId as string)) {
-                return (left.targetObjectId as string).localeCompare(right.targetObjectId as string)
+                return compareStrings(left.targetObjectId as string, right.targetObjectId as string)
             }
             if ((left.sortOrder as number | null) !== (right.sortOrder as number | null)) {
                 return Number(left.sortOrder ?? Number.MAX_SAFE_INTEGER) - Number(right.sortOrder ?? Number.MAX_SAFE_INTEGER)
             }
             if ((left.sharedEntityId as string) !== (right.sharedEntityId as string)) {
-                return (left.sharedEntityId as string).localeCompare(right.sharedEntityId as string)
+                return compareStrings(left.sharedEntityId as string, right.sharedEntityId as string)
             }
-            return (left.id as string).localeCompare(right.id as string)
+            return compareStrings(left.id as string, right.id as string)
         })
 
     const scripts = asArray<unknown>(snapshot.scripts)
         .map(normalizeScript)
         .sort((left, right) => {
             if ((left.attachedToKind as string) !== (right.attachedToKind as string)) {
-                return (left.attachedToKind as string).localeCompare(right.attachedToKind as string)
+                return compareStrings(left.attachedToKind as string, right.attachedToKind as string)
             }
             if ((left.attachedToId as string | null) !== (right.attachedToId as string | null)) {
-                return String(left.attachedToId ?? '').localeCompare(String(right.attachedToId ?? ''))
+                return compareStrings(String(left.attachedToId ?? ''), String(right.attachedToId ?? ''))
             }
             if ((left.moduleRole as string) !== (right.moduleRole as string)) {
-                return (left.moduleRole as string).localeCompare(right.moduleRole as string)
+                return compareStrings(left.moduleRole as string, right.moduleRole as string)
             }
             if (resolveCodenameSortText(left.codename) !== resolveCodenameSortText(right.codename)) {
-                return resolveCodenameSortText(left.codename).localeCompare(resolveCodenameSortText(right.codename))
+                return compareStrings(resolveCodenameSortText(left.codename), resolveCodenameSortText(right.codename))
             }
-            return (left.id as string).localeCompare(right.id as string)
+            return compareStrings(left.id as string, right.id as string)
         })
 
     const layouts = asArray<unknown>(snapshot.layouts)
@@ -337,7 +391,7 @@ export const normalizePublicationSnapshotForHash = (
         .sort((left, right) => {
             if (left.sortOrder !== right.sortOrder) return left.sortOrder - right.sortOrder
             if (left.isDefault !== right.isDefault) return left.isDefault ? -1 : 1
-            return left.id.localeCompare(right.id)
+            return compareStrings(left.id, right.id)
         })
 
     const catalogLayouts = asArray<unknown>(snapshot.catalogLayouts)
@@ -352,7 +406,7 @@ export const normalizePublicationSnapshotForHash = (
         })
         .sort((left, right) => {
             if ((left.catalogId as string) !== (right.catalogId as string)) {
-                return (left.catalogId as string).localeCompare(right.catalogId as string)
+                return compareStrings(left.catalogId as string, right.catalogId as string)
             }
             if ((left.sortOrder as number) !== (right.sortOrder as number)) {
                 return (left.sortOrder as number) - (right.sortOrder as number)
@@ -360,7 +414,7 @@ export const normalizePublicationSnapshotForHash = (
             if ((left.isDefault as boolean) !== (right.isDefault as boolean)) {
                 return left.isDefault ? -1 : 1
             }
-            return (left.id as string).localeCompare(right.id as string)
+            return compareStrings(left.id as string, right.id as string)
         })
 
     const layoutZoneWidgets = asArray<SnapshotRecord>(snapshot.layoutZoneWidgets)
@@ -374,10 +428,10 @@ export const normalizePublicationSnapshotForHash = (
             isActive: Boolean(item.isActive)
         }))
         .sort((left, right) => {
-            if (left.layoutId !== right.layoutId) return left.layoutId.localeCompare(right.layoutId)
-            if (left.zone !== right.zone) return left.zone.localeCompare(right.zone)
+            if (left.layoutId !== right.layoutId) return compareStrings(left.layoutId, right.layoutId)
+            if (left.zone !== right.zone) return compareStrings(left.zone, right.zone)
             if (left.sortOrder !== right.sortOrder) return left.sortOrder - right.sortOrder
-            return left.id.localeCompare(right.id)
+            return compareStrings(left.id, right.id)
         })
 
     const catalogLayoutWidgetOverrides = asArray<unknown>(snapshot.catalogLayoutWidgetOverrides)
@@ -397,12 +451,12 @@ export const normalizePublicationSnapshotForHash = (
         })
         .sort((left, right) => {
             if ((left.catalogLayoutId as string) !== (right.catalogLayoutId as string)) {
-                return (left.catalogLayoutId as string).localeCompare(right.catalogLayoutId as string)
+                return compareStrings(left.catalogLayoutId as string, right.catalogLayoutId as string)
             }
             if ((left.baseWidgetId as string) !== (right.baseWidgetId as string)) {
-                return (left.baseWidgetId as string).localeCompare(right.baseWidgetId as string)
+                return compareStrings(left.baseWidgetId as string, right.baseWidgetId as string)
             }
-            return (left.id as string).localeCompare(right.id as string)
+            return compareStrings(left.id as string, right.id as string)
         })
 
     const systemFields = snapshotSystemFields
@@ -411,7 +465,7 @@ export const normalizePublicationSnapshotForHash = (
                   const record = asRecord(value)
                   const fields = asArray<SnapshotRecord>(record.fields)
                       .map((field) => ({ ...field }))
-                      .sort((left, right) => String(left.key ?? '').localeCompare(String(right.key ?? '')))
+                      .sort((left, right) => compareStrings(String(left.key ?? ''), String(right.key ?? '')))
 
                   return {
                       entityId,
@@ -419,13 +473,14 @@ export const normalizePublicationSnapshotForHash = (
                       lifecycleContract: record.lifecycleContract
                   }
               })
-              .sort((left, right) => left.entityId.localeCompare(right.entityId))
+              .sort((left, right) => compareStrings(left.entityId, right.entityId))
         : []
 
     return {
         version: snapshot.version,
         versionEnvelope: snapshot.versionEnvelope ?? options.defaultVersionEnvelope,
         metahubId: snapshot.metahubId,
+        entityTypeDefinitions,
         entities,
         elements,
         optionValues,

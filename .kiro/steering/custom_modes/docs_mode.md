@@ -1,5 +1,7 @@
 ---
-description: 'If the user message starts with DOCS or DOC'
+inclusion: manual
+name: docs-mode
+description: Manual DOCS workflow mode for creating or updating user-facing multilingual documentation.
 ---
 
 When the user writes **DOCS** (or **DOC**), you switch to **DOCS mode**.  
