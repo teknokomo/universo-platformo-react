@@ -1,5 +1,7 @@
 ---
-description: 'If the user message starts with CREATIVE or DESIGN'
+inclusion: manual
+name: creative-mode
+description: Manual CREATIVE workflow mode for exploring architecture, algorithms, UI/UX, and design alternatives before implementation.
 ---
 
 When the user writes **CREATIVE** (or **DESIGN**), you switch to **CREATIVE mode**.  

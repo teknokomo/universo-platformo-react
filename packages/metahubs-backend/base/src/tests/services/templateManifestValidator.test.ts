@@ -42,6 +42,7 @@ describe('TemplateManifestValidator', () => {
                 key: 'fieldDefinitions',
                 capability: 'dataSchema',
                 routeSegment: 'field-definitions',
+                title: expect.objectContaining({ _primary: 'en' }),
                 fallbackTitle: 'Attributes'
             })
         ])
@@ -50,6 +51,7 @@ describe('TemplateManifestValidator', () => {
                 key: 'fixedValues',
                 capability: 'fixedValues',
                 routeSegment: 'fixed-values',
+                title: expect.objectContaining({ _primary: 'en' }),
                 fallbackTitle: 'Constants'
             })
         ])
@@ -58,6 +60,7 @@ describe('TemplateManifestValidator', () => {
                 key: 'optionValues',
                 capability: 'optionValues',
                 routeSegment: 'values',
+                title: expect.objectContaining({ _primary: 'en' }),
                 fallbackTitle: 'Values'
             })
         ])

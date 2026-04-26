@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -8,6 +8,7 @@ const navigateSpy = vi.fn()
 const mockEntityTypesQuery = vi.fn()
 const mockUseMetahubDetails = vi.fn()
 const templateMainCardMock = vi.fn()
+const updateEntityTypeMutateAsyncMock = vi.fn()
 
 type MockListRow = {
     id: string
@@ -179,7 +180,8 @@ vi.mock('@universo/template-mui/components/dialogs', async () => {
             open,
             title,
             tabs,
-            initialExtraValues
+            initialExtraValues,
+            onSave
         }: {
             open: boolean
             title: string
@@ -190,6 +192,7 @@ vi.mock('@universo/template-mui/components/dialogs', async () => {
                 errors: Record<string, string>
             }) => Array<{ id: string; label: string; content: React.ReactNode }>
             initialExtraValues?: Record<string, unknown>
+            onSave?: (values: Record<string, unknown>) => void | Promise<void>
         }) => {
             const [values, setValues] = React.useState<Record<string, unknown>>(initialExtraValues ?? {})
 
@@ -214,6 +217,9 @@ vi.mock('@universo/template-mui/components/dialogs', async () => {
                 <div role='dialog' aria-label={title}>
                     <div data-testid='entity-dialog-kind-key'>{String(values.kindKey ?? '')}</div>
                     <div data-testid='entity-dialog-name'>{String((values.nameVlc as any)?.locales?.en?.content ?? '')}</div>
+                    <button type='button' onClick={() => onSave?.(values)}>
+                        Save
+                    </button>
                     {renderedTabs.map((tab) => (
                         <section key={tab.id} aria-label={tab.label}>
                             {tab.content}
@@ -267,7 +273,7 @@ vi.mock('../../hooks', () => ({
     useEntityTypesQuery: (...args: unknown[]) => mockEntityTypesQuery(...args),
     useCreateEntityType: () => ({ mutateAsync: vi.fn(), isPending: false }),
     useCopyEntityType: () => ({ mutateAsync: vi.fn(), isPending: false }),
-    useUpdateEntityType: () => ({ mutateAsync: vi.fn(), isPending: false }),
+    useUpdateEntityType: () => ({ mutateAsync: updateEntityTypeMutateAsyncMock, isPending: false }),
     useDeleteEntityType: () => ({ mutateAsync: vi.fn(), isPending: false })
 }))
 
@@ -275,6 +281,7 @@ describe('EntitiesWorkspace', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         templateMainCardMock.mockClear()
+        updateEntityTypeMutateAsyncMock.mockResolvedValue({})
 
         mockUseMetahubDetails.mockReturnValue({
             data: { permissions: { manageMetahub: true } },
@@ -405,6 +412,83 @@ describe('EntitiesWorkspace', () => {
         expect(screen.getByRole('checkbox', { name: 'Publish to dynamic menu' })).toBeChecked()
     })
 
+    it('locks structural controls when editing a standard entity type', async () => {
+        const user = userEvent.setup()
+        const { default: EntitiesWorkspace } = await import('../EntitiesWorkspace')
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities' element={<EntitiesWorkspace />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        await user.click(screen.getByTestId('entity-menu-trigger-entity-type-type-0'))
+        await user.click(screen.getByTestId('entity-menu-item-entity-type-edit-type-0'))
+
+        expect(screen.getByRole('dialog', { name: 'Edit Entity Type' })).toBeInTheDocument()
+        expect(screen.getByLabelText(/Kind key/)).toBeDisabled()
+        expect(screen.getByLabelText(/Icon name/)).toBeDisabled()
+        expect(screen.getByRole('checkbox', { name: 'Hubs' })).toBeDisabled()
+        expect(screen.getByRole('checkbox', { name: 'Data schema' })).toBeDisabled()
+        expect(screen.getByRole('checkbox', { name: 'Publish to dynamic menu' })).toBeDisabled()
+    })
+
+    it('preserves protected standard entity fields when saving editable resource labels', async () => {
+        const user = userEvent.setup()
+        const { default: EntitiesWorkspace } = await import('../EntitiesWorkspace')
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities' element={<EntitiesWorkspace />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        await user.click(screen.getByTestId('entity-menu-trigger-entity-type-type-0'))
+        await user.click(screen.getByTestId('entity-menu-item-entity-type-edit-type-0'))
+
+        await user.clear(screen.getByLabelText('Resource tab title'))
+        await user.type(screen.getByLabelText('Resource tab title'), 'Properties')
+        await user.click(screen.getByRole('button', { name: 'Save' }))
+
+        await waitFor(() => expect(updateEntityTypeMutateAsyncMock).toHaveBeenCalledTimes(1))
+
+        expect(updateEntityTypeMutateAsyncMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                metahubId: 'metahub-1',
+                entityTypeId: 'type-0',
+                data: expect.objectContaining({
+                    kindKey: 'hub',
+                    codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'TreeEntity' } } },
+                    components: {
+                        dataSchema: { enabled: true },
+                        hierarchy: { enabled: true }
+                    },
+                    config: undefined,
+                    published: true,
+                    ui: expect.objectContaining({
+                        iconName: 'IconHierarchy',
+                        tabs: ['general', 'treeEntities'],
+                        sidebarSection: 'objects',
+                        nameKey: 'Hubs',
+                        descriptionKey: 'Manage treeEntities',
+                        resourceSurfaces: [
+                            expect.objectContaining({
+                                capability: 'dataSchema',
+                                key: 'fieldDefinitions',
+                                routeSegment: 'field-definitions',
+                                fallbackTitle: 'Properties'
+                            })
+                        ]
+                    })
+                })
+            })
+        )
+    })
+
     it('opens the copy dialog with duplicated defaults for a custom entity type', async () => {
         const user = userEvent.setup()
         const { default: EntitiesWorkspace } = await import('../EntitiesWorkspace')
@@ -424,6 +508,58 @@ describe('EntitiesWorkspace', () => {
         expect(screen.getByTestId('entity-dialog-kind-key')).toHaveTextContent('custom.product-copy')
         expect(screen.getByTestId('entity-dialog-name')).toHaveTextContent('Products (copy)')
         expect(screen.getByRole('checkbox', { name: 'Publish to dynamic menu' })).toBeChecked()
+    })
+
+    it('skips occupied copy kind keys when opening the copy dialog', async () => {
+        mockEntityTypesQuery.mockImplementation(() => ({
+            data: {
+                items: [
+                    {
+                        id: 'type-1',
+                        kindKey: 'custom.product',
+                        codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'CustomProduct' } } },
+                        ui: {
+                            iconName: 'IconBox',
+                            tabs: ['general'],
+                            sidebarSection: 'objects',
+                            nameKey: 'Products'
+                        },
+                        components: { dataSchema: { enabled: true } },
+                        updatedAt: ''
+                    },
+                    {
+                        id: 'type-copy',
+                        kindKey: 'custom.product-copy',
+                        codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'CustomProductCopy' } } },
+                        ui: {
+                            iconName: 'IconBox',
+                            tabs: ['general'],
+                            sidebarSection: 'objects',
+                            nameKey: 'Products Copy'
+                        },
+                        components: { dataSchema: { enabled: true } },
+                        updatedAt: ''
+                    }
+                ]
+            },
+            error: null,
+            isLoading: false
+        }))
+        const user = userEvent.setup()
+        const { default: EntitiesWorkspace } = await import('../EntitiesWorkspace')
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities' element={<EntitiesWorkspace />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        await user.click(screen.getByTestId('entity-menu-trigger-entity-type-type-1'))
+        await user.click(screen.getByTestId('entity-menu-item-entity-type-copy-type-1'))
+
+        expect(screen.getByTestId('entity-dialog-kind-key')).toHaveTextContent('custom.product-copy-2')
     })
 
     it('keeps custom data-schema types authorable on the shared entities workspace', async () => {

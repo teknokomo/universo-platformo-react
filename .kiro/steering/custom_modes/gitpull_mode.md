@@ -1,5 +1,7 @@
 ---
-description: 'If the user message starts with GIT PULL or PULL'
+inclusion: manual
+name: git-pull-mode
+description: Manual GIT PULL workflow mode for safely pulling upstream changes, preserving unfinished work, and resolving merge conflicts without committing or pushing.
 ---
 
 When the user writes **GIT PULL** or **PULL**, you switch to **GIT PULL mode**.  

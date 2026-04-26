@@ -1,5 +1,3 @@
-import { createHash } from 'crypto'
-import stableStringify from 'json-stable-stringify'
 import {
     calculateCanonicalApplicationReleaseSnapshotHash,
     buildInstalledReleaseMetadataFromBundle,
@@ -125,6 +123,84 @@ describe('applicationReleaseBundle', () => {
         })
         expect(bundle.bootstrap.checksum).toHaveLength(64)
         expect(bundle.incrementalMigration.checksum).toHaveLength(64)
+    })
+
+    it('preserves entity type resource labels as metadata without changing executable schema payload', () => {
+        const snapshotWithResourceLabel = {
+            ...snapshot,
+            entityTypeDefinitions: {
+                catalog: {
+                    id: 'standard-type-catalog',
+                    kindKey: 'catalog',
+                    codename: createCodenameVlc('catalog'),
+                    presentation: {},
+                    components: { dataSchema: { enabled: true } },
+                    ui: {
+                        iconName: 'IconDatabase',
+                        tabs: ['general'],
+                        sidebarSection: 'objects',
+                        nameKey: 'metahubs:catalogs.title',
+                        resourceSurfaces: [
+                            {
+                                key: 'fieldDefinitions',
+                                capability: 'dataSchema',
+                                routeSegment: 'field-definitions',
+                                title: createCodenameVlc('Properties', 'Свойства'),
+                                fallbackTitle: 'Properties'
+                            }
+                        ]
+                    },
+                    config: {},
+                    published: true
+                }
+            }
+        }
+        const snapshotWithRenamedResourceLabel = {
+            ...snapshotWithResourceLabel,
+            entityTypeDefinitions: {
+                catalog: {
+                    ...snapshotWithResourceLabel.entityTypeDefinitions.catalog,
+                    ui: {
+                        ...snapshotWithResourceLabel.entityTypeDefinitions.catalog.ui,
+                        resourceSurfaces: [
+                            {
+                                ...snapshotWithResourceLabel.entityTypeDefinitions.catalog.ui.resourceSurfaces[0],
+                                title: createCodenameVlc('Attributes', 'Атрибуты'),
+                                fallbackTitle: 'Attributes'
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+
+        const firstHash = calculateCanonicalApplicationReleaseSnapshotHash(snapshotWithResourceLabel, 'publication')
+        const secondHash = calculateCanonicalApplicationReleaseSnapshotHash(snapshotWithRenamedResourceLabel, 'publication')
+        const firstBundle = createApplicationReleaseBundle({
+            applicationId: 'application-1',
+            applicationKey: 'products-app',
+            releaseVersion: 'publication-version-label-1',
+            sourceKind: 'publication',
+            snapshot: snapshotWithResourceLabel,
+            snapshotHash: firstHash,
+            generatedAt: '2026-03-13T10:00:00.000Z'
+        })
+        const secondBundle = createApplicationReleaseBundle({
+            applicationId: 'application-1',
+            applicationKey: 'products-app',
+            releaseVersion: 'publication-version-label-2',
+            sourceKind: 'publication',
+            snapshot: snapshotWithRenamedResourceLabel,
+            snapshotHash: secondHash,
+            generatedAt: '2026-03-13T10:00:00.000Z'
+        })
+
+        expect(firstHash).not.toBe(secondHash)
+        expect(firstBundle.snapshot.entityTypeDefinitions?.catalog?.ui?.resourceSurfaces?.[0]?.title).toEqual(
+            createCodenameVlc('Properties', 'Свойства')
+        )
+        expect(firstBundle.bootstrap.payload.entities).toEqual(secondBundle.bootstrap.payload.entities)
+        expect(firstBundle.bootstrap.payload.schemaSnapshot.entities).toEqual(secondBundle.bootstrap.payload.schemaSnapshot.entities)
     })
 
     it('validates executable release bundle artifacts against the embedded snapshot and checksums', () => {
@@ -358,66 +434,7 @@ describe('applicationReleaseBundle', () => {
             ]
         }
 
-        const serializerCompatibleHash = createHash('sha256')
-            .update(
-                stableStringify({
-                    version: 1,
-                    versionEnvelope: {
-                        structureVersion: '0.1.0',
-                        templateVersion: null,
-                        snapshotFormatVersion: 1
-                    },
-                    metahubId: 'metahub-1',
-                    entities: [
-                        {
-                            id: 'catalog-products',
-                            kind: 'catalog',
-                            codename: 'products',
-                            tableName: 'cat_products',
-                            presentation: {},
-                            config: {},
-                            systemFields: null,
-                            hubs: [],
-                            fields: []
-                        }
-                    ],
-                    elements: [],
-                    optionValues: [],
-                    constants: [],
-                    sharedFieldDefinitions: [],
-                    sharedFixedValues: [],
-                    sharedOptionValues: [],
-                    sharedEntityOverrides: [],
-                    systemFields: [],
-                    scripts: [],
-                    layouts: [
-                        {
-                            id: 'layout-1',
-                            name: { en: 'Default' },
-                            description: null,
-                            config: {},
-                            isDefault: true,
-                            isActive: true,
-                            sortOrder: 0
-                        }
-                    ],
-                    layoutZoneWidgets: [
-                        {
-                            id: 'widget-1',
-                            layoutId: 'layout-1',
-                            zone: 'main',
-                            sortOrder: 0,
-                            config: {},
-                            isActive: true
-                        }
-                    ],
-                    catalogLayouts: [],
-                    catalogLayoutWidgetOverrides: [],
-                    defaultLayoutId: null,
-                    layoutConfig: {}
-                }) ?? ''
-            )
-            .digest('hex')
+        const serializerCompatibleHash = calculateCanonicalApplicationReleaseSnapshotHash(snapshotWithOmittedLayoutKeys, 'publication')
 
         expect(resolveApplicationReleaseSnapshotHash(snapshotWithOmittedLayoutKeys, serializerCompatibleHash, 'publication')).toBe(
             serializerCompatibleHash

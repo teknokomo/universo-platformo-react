@@ -1,3 +1,8 @@
+---
+inclusion: fileMatch
+fileMatchPattern: ["package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "**/package.json"]
+---
+
 # PNPM... not npm/yarn
 
 We are using PNPM in our current project not npm/yarn.

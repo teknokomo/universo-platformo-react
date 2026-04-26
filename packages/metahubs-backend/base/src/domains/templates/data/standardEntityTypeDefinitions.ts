@@ -54,6 +54,7 @@ const FIELD_DEFINITIONS_RESOURCE_SURFACE: NonNullable<EntityTypeUIConfig['resour
     key: 'fieldDefinitions',
     capability: 'dataSchema',
     routeSegment: 'field-definitions',
+    title: vlc('Attributes', 'Атрибуты'),
     titleKey: 'metahubs:fieldDefinitions.resourceTabTitle',
     fallbackTitle: 'Attributes'
 }
@@ -112,6 +113,7 @@ export const SET_TYPE_UI: EntityTypeUIConfig = {
             key: 'fixedValues',
             capability: 'fixedValues',
             routeSegment: 'fixed-values',
+            title: vlc('Constants', 'Константы'),
             titleKey: 'metahubs:fixedValues.resourceTabTitle',
             fallbackTitle: 'Constants'
         }
@@ -146,6 +148,7 @@ export const ENUMERATION_TYPE_UI: EntityTypeUIConfig = {
             key: 'optionValues',
             capability: 'optionValues',
             routeSegment: 'values',
+            title: vlc('Values', 'Значения'),
             titleKey: 'metahubs:optionValues.resourceTabTitle',
             fallbackTitle: 'Values'
         }

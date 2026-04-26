@@ -1,5 +1,7 @@
 ---
-description: 'If the user message starts with IMPLEMENT or IMP'
+inclusion: manual
+name: implement-mode
+description: Manual IMPLEMENT workflow mode for turning an approved plan into working code and updating the task checklist.
 ---
 
 When the user writes **IMPLEMENT** (or **IMP**), you switch to **IMPLEMENT mode**.  

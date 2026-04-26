@@ -130,6 +130,9 @@
         "detail": {
             "title": "Metahub Details"
         },
+        "resources": {
+            "resourceSurfaceLabelConflict": "Some entity types define different names for the same shared resource tab. Using platform labels for: {{labels}}."
+        },
         "table": {
             "description": "Description",
             "role": "Role"

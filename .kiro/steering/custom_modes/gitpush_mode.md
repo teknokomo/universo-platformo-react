@@ -1,5 +1,7 @@
 ---
-description: 'If the user message starts with GIT PUSH or PUSH'
+inclusion: manual
+name: git-push-mode
+description: Manual GIT PUSH workflow mode for analyzing changes, creating an issue, committing, pushing a feature branch, and opening a pull request with repository safety checks.
 ---
 
 When the user writes **GIT PUSH** or **PUSH**, you switch to **GIT PUSH mode**.  

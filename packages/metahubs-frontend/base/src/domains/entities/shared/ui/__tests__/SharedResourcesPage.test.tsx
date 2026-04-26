@@ -316,6 +316,11 @@ describe('SharedResourcesPage', () => {
         )
 
         expect(screen.getByRole('tab', { name: 'Атрибуты' })).toBeInTheDocument()
+        expect(
+            screen.getByText(
+                'Некоторые типы сущностей задают разные названия для одной общей вкладки ресурсов. Используются платформенные названия: Атрибуты.'
+            )
+        ).toBeInTheDocument()
         expect(screen.queryByRole('tab', { name: 'Свойства' })).not.toBeInTheDocument()
         expect(screen.queryByRole('tab', { name: 'Поля' })).not.toBeInTheDocument()
     })

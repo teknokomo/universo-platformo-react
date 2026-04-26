@@ -11,6 +11,47 @@ describe('EntityTypeService', () => {
         isReleased: () => false
     })
 
+    const createStandardCatalogRow = () => ({
+        id: 'standard-type-catalog',
+        kind_key: BuiltinEntityKinds.CATALOG,
+        codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'catalog' } } },
+        presentation: { name: { en: 'Catalogs' } },
+        components: {
+            dataSchema: { enabled: true },
+            records: false,
+            treeAssignment: false,
+            optionValues: false,
+            fixedValues: false,
+            hierarchy: false,
+            nestedCollections: false,
+            relations: false,
+            actions: { enabled: true },
+            events: { enabled: true },
+            scripting: false,
+            layoutConfig: false,
+            runtimeBehavior: false,
+            physicalTable: false
+        },
+        ui_config: {
+            iconName: 'IconDatabase',
+            tabs: ['general'],
+            sidebarSection: 'objects',
+            nameKey: 'metahubs:catalogs.title',
+            resourceSurfaces: [
+                {
+                    key: 'fieldDefinitions',
+                    capability: 'dataSchema',
+                    routeSegment: 'field-definitions',
+                    title: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Attributes' } } },
+                    fallbackTitle: 'Attributes'
+                }
+            ]
+        },
+        config: {},
+        _mhb_published: true,
+        _upl_version: 1
+    })
+
     beforeEach(() => {
         jest.clearAllMocks()
     })
@@ -94,7 +135,7 @@ describe('EntityTypeService', () => {
         expect(result.find((item) => item.kindKey === 'custom-order')?.published).toBe(true)
     })
 
-    it('synthesizes missing standard entity types when the schema table only contains custom definitions', async () => {
+    it('does not synthesize missing standard entity types when the schema table only contains custom definitions', async () => {
         const queryMock = jest.fn(async (sql: string) => {
             if (sql.includes('_mhb_entity_type_definitions')) {
                 return [
@@ -137,11 +178,12 @@ describe('EntityTypeService', () => {
         const service = new EntityTypeService(createExecutor(queryMock) as any, { ensureSchema: mockEnsureSchema } as any)
         const result = await service.listTypes('metahub-1', 'user-1')
 
-        expect(result.some((item) => item.kindKey === BuiltinEntityKinds.HUB)).toBe(true)
-        expect(result.some((item) => item.kindKey === BuiltinEntityKinds.CATALOG)).toBe(true)
-        expect(result.some((item) => item.kindKey === BuiltinEntityKinds.SET)).toBe(true)
-        expect(result.some((item) => item.kindKey === BuiltinEntityKinds.ENUMERATION)).toBe(true)
-        expect(result.find((item) => item.kindKey === BuiltinEntityKinds.CATALOG)?.published).toBe(true)
+        expect(result).toHaveLength(1)
+        expect(result.some((item) => item.kindKey === BuiltinEntityKinds.HUB)).toBe(false)
+        expect(result.some((item) => item.kindKey === BuiltinEntityKinds.CATALOG)).toBe(false)
+        expect(result.some((item) => item.kindKey === BuiltinEntityKinds.SET)).toBe(false)
+        expect(result.some((item) => item.kindKey === BuiltinEntityKinds.ENUMERATION)).toBe(false)
+        expect(result.find((item) => item.kindKey === 'custom-order')?.published).toBe(true)
     })
 
     it('rejects attempts to redefine standard entity kinds as custom types', async () => {
@@ -175,6 +217,143 @@ describe('EntityTypeService', () => {
                 }
             })
         ).rejects.toThrow('Standard entity kinds are reserved for platform-provided entity types')
+    })
+
+    it('allows safe localized resource title updates for persisted standard entity types', async () => {
+        const standardCatalogRow = createStandardCatalogRow()
+        const nextUi = {
+            ...standardCatalogRow.ui_config,
+            resourceSurfaces: [
+                {
+                    ...standardCatalogRow.ui_config.resourceSurfaces[0],
+                    title: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Properties' }, ru: { content: 'Свойства' } } },
+                    fallbackTitle: 'Properties'
+                }
+            ]
+        }
+        const queryMock = jest.fn(async (sql: string) => {
+            if (sql.includes('WHERE id = $1 AND _upl_deleted = false AND _mhb_deleted = false')) {
+                return [standardCatalogRow]
+            }
+
+            if (sql.includes('WHERE kind_key =')) {
+                return [standardCatalogRow]
+            }
+
+            if (sql.includes("LOWER(COALESCE(codename->'locales'->(codename->>'_primary')->>'content'")) {
+                return [standardCatalogRow]
+            }
+
+            if (sql.includes('UPDATE') && sql.includes('_mhb_entity_type_definitions')) {
+                return [
+                    {
+                        ...standardCatalogRow,
+                        ui_config: nextUi,
+                        _upl_version: 2
+                    }
+                ]
+            }
+
+            return []
+        })
+
+        const service = new EntityTypeService(createExecutor(queryMock) as any, { ensureSchema: mockEnsureSchema } as any)
+        const result = await service.updateType(
+            'metahub-1',
+            'standard-type-catalog',
+            {
+                ui: nextUi
+            },
+            'user-1'
+        )
+
+        expect(result.ui.resourceSurfaces?.[0]?.title).toEqual(nextUi.resourceSurfaces[0].title)
+    })
+
+    it('rejects structural component changes for persisted standard entity types', async () => {
+        const standardCatalogRow = createStandardCatalogRow()
+        const queryMock = jest.fn(async (sql: string) => {
+            if (sql.includes('WHERE id = $1 AND _upl_deleted = false AND _mhb_deleted = false')) {
+                return [standardCatalogRow]
+            }
+
+            return []
+        })
+
+        const service = new EntityTypeService(createExecutor(queryMock) as any, { ensureSchema: mockEnsureSchema } as any)
+
+        await expect(
+            service.updateType(
+                'metahub-1',
+                'standard-type-catalog',
+                {
+                    components: {
+                        ...standardCatalogRow.components,
+                        records: { enabled: true }
+                    }
+                },
+                'user-1'
+            )
+        ).rejects.toThrow('Standard entity type components cannot be changed through the Entities constructor')
+    })
+
+    it('rejects structural resource surface changes for persisted standard entity types', async () => {
+        const standardCatalogRow = createStandardCatalogRow()
+        const nextUi = {
+            ...standardCatalogRow.ui_config,
+            resourceSurfaces: [
+                {
+                    ...standardCatalogRow.ui_config.resourceSurfaces[0],
+                    routeSegment: 'properties'
+                }
+            ]
+        }
+        const queryMock = jest.fn(async (sql: string) => {
+            if (sql.includes('WHERE id = $1 AND _upl_deleted = false AND _mhb_deleted = false')) {
+                return [standardCatalogRow]
+            }
+
+            return []
+        })
+
+        const service = new EntityTypeService(createExecutor(queryMock) as any, { ensureSchema: mockEnsureSchema } as any)
+
+        await expect(
+            service.updateType(
+                'metahub-1',
+                'standard-type-catalog',
+                {
+                    ui: nextUi
+                },
+                'user-1'
+            )
+        ).rejects.toThrow('Standard entity type UI structure cannot be changed through the Entities constructor')
+    })
+
+    it('rejects publication state changes for persisted standard entity types', async () => {
+        const standardCatalogRow = createStandardCatalogRow()
+        const queryMock = jest.fn(async (sql: string) => {
+            if (sql.includes('WHERE id = $1 AND _upl_deleted = false AND _mhb_deleted = false')) {
+                return [standardCatalogRow]
+            }
+
+            return []
+        })
+
+        const service = new EntityTypeService(createExecutor(queryMock) as any, { ensureSchema: mockEnsureSchema } as any)
+
+        await expect(
+            service.updateType(
+                'metahub-1',
+                'standard-type-catalog',
+                {
+                    published: false
+                },
+                'user-1'
+            )
+        ).rejects.toThrow('Standard entity type publication state cannot be changed through the Entities constructor')
+
+        expect(queryMock).not.toHaveBeenCalledWith(expect.stringContaining('UPDATE'), expect.anything())
     })
 
     it('creates a custom entity type when the kindKey is free and dependencies are valid', async () => {

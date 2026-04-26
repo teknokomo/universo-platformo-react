@@ -28,9 +28,14 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import {
     COMPONENT_DEPENDENCIES,
     ENTITY_COMPONENT_KEYS,
+    ENTITY_RESOURCE_SURFACE_KEY_PATTERN,
+    ENTITY_RESOURCE_SURFACE_CAPABILITIES,
+    ENTITY_RESOURCE_SURFACE_ROUTE_PATTERN,
+    getDefaultEntityResourceSurfaceDefinition,
     getEnabledComponentKeys,
     isBuiltinEntityKind,
     isEnabledComponentConfig,
+    isEntityResourceSurfaceCapability,
     validateComponentDependencies,
     type ComponentManifest,
     type EntityComponentKey,
@@ -48,6 +53,7 @@ import {
     EmptyListState,
     FlowListTable,
     ItemCard,
+    LocalizedInlineField,
     SkeletonGrid,
     TemplateMainCard as MainCard,
     ToolbarControls,
@@ -86,30 +92,7 @@ const STRUCTURED_ENTITY_TAB_LABELS: Record<SupportedEntityTab, string> = {
     scripts: 'Scripts'
 }
 
-const RESOURCE_SURFACE_METADATA: Record<
-    EntityResourceSurfaceCapability,
-    Pick<EntityResourceSurfaceDefinition, 'key' | 'routeSegment' | 'fallbackTitle'>
-> = {
-    dataSchema: {
-        key: 'fieldDefinitions',
-        routeSegment: 'field-definitions',
-        fallbackTitle: 'Attributes'
-    },
-    fixedValues: {
-        key: 'fixedValues',
-        routeSegment: 'fixed-values',
-        fallbackTitle: 'Constants'
-    },
-    optionValues: {
-        key: 'optionValues',
-        routeSegment: 'values',
-        fallbackTitle: 'Values'
-    }
-}
-
-const RESOURCE_SURFACE_CAPABILITY_ORDER: readonly EntityResourceSurfaceCapability[] = ['dataSchema', 'fixedValues', 'optionValues']
-const RESOURCE_SURFACE_KEY_PATTERN = /^[a-z][a-zA-Z0-9._-]{0,63}$/
-const RESOURCE_SURFACE_ROUTE_PATTERN = /^[a-z][a-z0-9-]{0,63}$/
+const RESOURCE_SURFACE_CAPABILITY_ORDER = ENTITY_RESOURCE_SURFACE_CAPABILITIES
 
 const EMPTY_ENTITY_TYPES: MetahubEntityType[] = []
 
@@ -211,15 +194,21 @@ const appendLocalizedCopySuffix = (
     }
 }
 
-const buildCopyEntityTypeKindKey = (kindKey: string): string => {
+const buildCopyEntityTypeKindKey = (kindKey: string, existingKindKeys: readonly string[] = []): string => {
     const normalizedKindKey = kindKey.trim().toLowerCase()
+    const reservedKindKeys = new Set(existingKindKeys.map((item) => item.trim().toLowerCase()).filter(Boolean))
     const existingCopyMatch = normalizedKindKey.match(/^(.*?)-copy(?:-(\d+))?$/)
-    if (existingCopyMatch) {
-        const nextIndex = existingCopyMatch[2] ? Number.parseInt(existingCopyMatch[2], 10) + 1 : 2
-        return `${existingCopyMatch[1]}-copy-${nextIndex}`
+    const baseKindKey = existingCopyMatch ? existingCopyMatch[1] : normalizedKindKey
+    const startIndex = existingCopyMatch ? (existingCopyMatch[2] ? Number.parseInt(existingCopyMatch[2], 10) + 1 : 2) : 1
+
+    for (let index = startIndex; index < startIndex + 1000; index += 1) {
+        const candidate = index === 1 ? `${baseKindKey}-copy` : `${baseKindKey}-copy-${index}`
+        if (!reservedKindKeys.has(candidate)) {
+            return candidate
+        }
     }
 
-    return `${normalizedKindKey}-copy`
+    return `${baseKindKey}-copy-${startIndex + 1000}`
 }
 
 const parseSidebarOrderValue = (value: unknown): number | undefined => {
@@ -244,6 +233,14 @@ const stringifyJson = (value: unknown): string => JSON.stringify(value ?? {}, nu
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 
+const preferredResourceSurfaceLocale = (title: unknown, fallbackTitle: string): string => {
+    if (isRecord(title) && typeof title._primary === 'string' && title._primary.trim().length > 0) {
+        return title._primary
+    }
+
+    return fallbackTitle.trim().length > 0 ? 'en' : 'en'
+}
+
 const parseTabsInput = (value: unknown): string[] => {
     if (typeof value !== 'string') return []
     return Array.from(
@@ -256,15 +253,13 @@ const parseTabsInput = (value: unknown): string[] => {
     )
 }
 
-const isResourceSurfaceCapability = (value: unknown): value is EntityResourceSurfaceCapability =>
-    value === 'dataSchema' || value === 'fixedValues' || value === 'optionValues'
-
-const buildDefaultResourceSurface = (capability: EntityResourceSurfaceCapability): EntityResourceSurfaceDefinition => ({
-    key: RESOURCE_SURFACE_METADATA[capability].key,
-    capability,
-    routeSegment: RESOURCE_SURFACE_METADATA[capability].routeSegment,
-    fallbackTitle: RESOURCE_SURFACE_METADATA[capability].fallbackTitle
-})
+const buildDefaultResourceSurface = (capability: EntityResourceSurfaceCapability): EntityResourceSurfaceDefinition => {
+    const surface = getDefaultEntityResourceSurfaceDefinition(capability)
+    return {
+        ...surface,
+        title: ensureLocalizedContent(null, 'en', surface.fallbackTitle ?? capability)
+    }
+}
 
 const normalizeResourceSurfaceDefinitions = (value: unknown, components?: ComponentManifest): EntityResourceSurfaceDefinition[] => {
     const source = Array.isArray(value) ? value : []
@@ -276,7 +271,7 @@ const normalizeResourceSurfaceDefinitions = (value: unknown, components?: Compon
         }
 
         const capability = typeof item.capability === 'string' ? item.capability.trim() : ''
-        if (!isResourceSurfaceCapability(capability)) {
+        if (!isEntityResourceSurfaceCapability(capability)) {
             continue
         }
 
@@ -285,8 +280,13 @@ const normalizeResourceSurfaceDefinitions = (value: unknown, components?: Compon
         const routeSegment = String(item.routeSegment ?? '').trim() || base.routeSegment
         const fallbackTitle = String(item.fallbackTitle ?? '').trim() || base.fallbackTitle
         const titleKey = typeof item.titleKey === 'string' && item.titleKey.trim().length > 0 ? item.titleKey.trim() : undefined
+        const title = ensureLocalizedContent(
+            isRecord(item.title) ? item.title : null,
+            preferredResourceSurfaceLocale(item.title, fallbackTitle),
+            fallbackTitle
+        )
 
-        if (!RESOURCE_SURFACE_KEY_PATTERN.test(key) || !RESOURCE_SURFACE_ROUTE_PATTERN.test(routeSegment)) {
+        if (!ENTITY_RESOURCE_SURFACE_KEY_PATTERN.test(key) || !ENTITY_RESOURCE_SURFACE_ROUTE_PATTERN.test(routeSegment)) {
             continue
         }
 
@@ -294,6 +294,7 @@ const normalizeResourceSurfaceDefinitions = (value: unknown, components?: Compon
             key,
             capability,
             routeSegment,
+            title,
             fallbackTitle,
             titleKey
         })
@@ -704,7 +705,11 @@ const buildInitialFormValues = (uiLocale: string, entityType?: MetahubEntityType
     }
 }
 
-const buildCopyInitialFormValues = (uiLocale: string, entityType: MetahubEntityType): EntityTypeFormValues => {
+const buildCopyInitialFormValues = (
+    uiLocale: string,
+    entityType: MetahubEntityType,
+    existingKindKeys: readonly string[] = []
+): EntityTypeFormValues => {
     const initialValues = buildInitialFormValues(uiLocale, entityType)
     const fallbackName =
         getLocalizedContentText(
@@ -722,7 +727,7 @@ const buildCopyInitialFormValues = (uiLocale: string, entityType: MetahubEntityT
         ),
         codename: null,
         codenameTouched: false,
-        kindKey: buildCopyEntityTypeKindKey(entityType.kindKey)
+        kindKey: buildCopyEntityTypeKindKey(entityType.kindKey, existingKindKeys)
     }
 }
 
@@ -810,11 +815,15 @@ const EntitiesWorkspace = () => {
         }
 
         if (editorState.mode === 'copy' && editorState.entity) {
-            return buildCopyInitialFormValues(preferredVlcLocale, editorState.entity)
+            return buildCopyInitialFormValues(
+                preferredVlcLocale,
+                editorState.entity,
+                entityTypes.map((entityType) => entityType.kindKey)
+            )
         }
 
         return buildInitialFormValues(preferredVlcLocale, null)
-    }, [editorState.entity, editorState.mode, preferredVlcLocale])
+    }, [editorState.entity, editorState.mode, entityTypes, preferredVlcLocale])
 
     const handleSearchChange = useCallback((event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setSearchValue(event.target.value)
@@ -950,6 +959,10 @@ const EntitiesWorkspace = () => {
 
     const parseEntityTypePayload = useCallback(
         (values: EntityTypeFormValues): EntityTypePayload => {
+            const lockedStandardEntity =
+                editorState.mode === 'edit' && editorState.entity && isBuiltinEntityKind(editorState.entity.kindKey)
+                    ? editorState.entity
+                    : null
             const kindKey = String(values.kindKey ?? '')
                 .trim()
                 .toLowerCase()
@@ -957,10 +970,13 @@ const EntitiesWorkspace = () => {
             const sidebarSection = values.sidebarSection === 'admin' ? 'admin' : 'objects'
             const sidebarOrder = parseSidebarOrderValue(values.sidebarOrder)
             const tabs = normalizeEntityTypeTabs(values.tabs, values.customTabsInput)
-            const components = normalizeComponentManifestForBuilder(values.components)
+            const normalizedComponents = normalizeComponentManifestForBuilder(lockedStandardEntity?.components ?? values.components)
+            const components = lockedStandardEntity?.components ?? normalizedComponents
             const resourceSurfaces = normalizeResourceSurfaceDefinitions(values.resourceSurfaces, components)
             const presentation = parseJsonRecordField(values.presentationText, DEFAULT_PRESENTATION_TEMPLATE)
-            const config = parseJsonRecordField(values.configText, DEFAULT_CONFIG_TEMPLATE)
+            const config = lockedStandardEntity
+                ? lockedStandardEntity.config
+                : parseJsonRecordField(values.configText, DEFAULT_CONFIG_TEMPLATE)
             const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
             const descriptionVlc = (values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
             const codenameValue = (values.codename as VersionedLocalizedContent<string> | null | undefined) ?? null
@@ -981,27 +997,47 @@ const EntitiesWorkspace = () => {
             if (!descriptionVlc && 'description' in nextPresentation) {
                 delete nextPresentation.description
             }
-            const ui: EntityTypeUIConfig = {
-                iconName,
-                tabs,
-                sidebarSection,
-                ...(sidebarOrder !== undefined ? { sidebarOrder } : {}),
-                nameKey: getLocalizedContentText(nameVlc, namePrimaryLocale ?? preferredVlcLocale, kindKey),
-                descriptionKey: getLocalizedContentText(descriptionVlc, descriptionLocale, '').trim() || undefined,
-                resourceSurfaces: resourceSurfaces.length > 0 ? resourceSurfaces : undefined
-            }
+            const ui: EntityTypeUIConfig = lockedStandardEntity
+                ? {
+                      ...lockedStandardEntity.ui,
+                      resourceSurfaces:
+                          resourceSurfaces.length > 0
+                              ? normalizeResourceSurfaceDefinitions(lockedStandardEntity.ui.resourceSurfaces, components).map((surface) => {
+                                    const editedSurface = resourceSurfaces.find((candidate) => candidate.capability === surface.capability)
+                                    if (!editedSurface) {
+                                        return surface
+                                    }
+
+                                    return {
+                                        ...surface,
+                                        title: editedSurface.title,
+                                        fallbackTitle: editedSurface.fallbackTitle,
+                                        titleKey: editedSurface.titleKey ?? surface.titleKey
+                                    }
+                                })
+                              : lockedStandardEntity.ui.resourceSurfaces
+                  }
+                : {
+                      iconName,
+                      tabs,
+                      sidebarSection,
+                      ...(sidebarOrder !== undefined ? { sidebarOrder } : {}),
+                      nameKey: getLocalizedContentText(nameVlc, namePrimaryLocale ?? preferredVlcLocale, kindKey),
+                      descriptionKey: getLocalizedContentText(descriptionVlc, descriptionLocale, '').trim() || undefined,
+                      resourceSurfaces: resourceSurfaces.length > 0 ? resourceSurfaces : undefined
+                  }
 
             return {
-                kindKey,
-                codename,
+                kindKey: lockedStandardEntity?.kindKey ?? kindKey,
+                codename: lockedStandardEntity?.codename ?? codename,
                 presentation: nextPresentation,
                 components,
                 ui,
                 config,
-                published: values.published !== false
+                published: lockedStandardEntity?.published ?? values.published !== false
             }
         },
-        [codenameConfig.alphabet, codenameConfig.style, preferredVlcLocale]
+        [codenameConfig.alphabet, codenameConfig.style, editorState.entity, editorState.mode, preferredVlcLocale]
     )
 
     const validateEntityTypeForm = useCallback(
@@ -1081,7 +1117,7 @@ const EntitiesWorkspace = () => {
                 const resourceSurfaceRoutes = new Set<string>()
 
                 for (const surface of resourceSurfaces) {
-                    if (!RESOURCE_SURFACE_KEY_PATTERN.test(surface.key)) {
+                    if (!ENTITY_RESOURCE_SURFACE_KEY_PATTERN.test(surface.key)) {
                         errors.resourceSurfaces = t(
                             'entities.validation.resourceSurfaceKeyInvalid',
                             'Resource tab key must start with a letter and use only letters, digits, dots, underscores, or hyphens'
@@ -1089,7 +1125,7 @@ const EntitiesWorkspace = () => {
                         break
                     }
 
-                    if (!RESOURCE_SURFACE_ROUTE_PATTERN.test(surface.routeSegment)) {
+                    if (!ENTITY_RESOURCE_SURFACE_ROUTE_PATTERN.test(surface.routeSegment)) {
                         errors.resourceSurfaces = t(
                             'entities.validation.resourceSurfaceRouteInvalid',
                             'Resource tab route segment must use lowercase kebab-case'
@@ -1097,7 +1133,7 @@ const EntitiesWorkspace = () => {
                         break
                     }
 
-                    if (!surface.fallbackTitle.trim()) {
+                    if (!getLocalizedContentText(surface.title, preferredVlcLocale, surface.fallbackTitle ?? '').trim()) {
                         errors.resourceSurfaces = t('entities.validation.resourceSurfaceTitleRequired', 'Resource tab title is required')
                         break
                     }
@@ -1258,6 +1294,8 @@ const EntitiesWorkspace = () => {
             const structuredTabs = normalizeStructuredEntityTabs(values.tabs)
             const components = normalizeComponentManifestForBuilder(values.components)
             const resourceSurfaces = normalizeResourceSurfaceDefinitions(values.resourceSurfaces, components)
+            const isStandardEntityTypeEdit = editorState.mode === 'edit' && isBuiltinEntityKind(String(values.kindKey ?? ''))
+            const isStructureLocked = isStandardEntityTypeEdit
 
             const toggleAuthoringTab = (tab: Exclude<SupportedEntityTab, 'general'>, checked: boolean) => {
                 const nextTabs = checked ? [...structuredTabs, tab] : structuredTabs.filter((currentTab) => currentTab !== tab)
@@ -1269,10 +1307,16 @@ const EntitiesWorkspace = () => {
             }
 
             const setComponentEnabled = (key: EntityComponentKey, enabled: boolean) => {
+                if (isStructureLocked) {
+                    return
+                }
                 setValue('components', setComponentEnabledState(values.components, key, enabled))
             }
 
             const updateComponentConfig = (key: EntityComponentKey, patch: Record<string, unknown>) => {
+                if (isStructureLocked) {
+                    return
+                }
                 setValue('components', patchEnabledComponentConfig(values.components, key, patch))
             }
 
@@ -1312,13 +1356,14 @@ const EntitiesWorkspace = () => {
                                     'entities.fields.codenameHelper',
                                     'Stable codename used for generic entity routes and references'
                                 )}
+                                codenameDisabled={isStructureLocked}
                                 editingEntityId={editorState.entity?.id ?? null}
                             />
                             <TextField
                                 label={t('entities.fields.kindKey', 'Kind key')}
                                 value={String(values.kindKey ?? '')}
                                 onChange={(event) => setValue('kindKey', event.target.value)}
-                                disabled={isLoading}
+                                disabled={isLoading || isStandardEntityTypeEdit}
                                 error={Boolean(errors.kindKey)}
                                 helperText={
                                     errors.kindKey || t('entities.fields.kindKeyHelper', 'Lowercase identifier used in generic entity APIs')
@@ -1330,7 +1375,7 @@ const EntitiesWorkspace = () => {
                                 label={t('entities.fields.iconName', 'Icon name')}
                                 value={String(values.iconName ?? '')}
                                 onChange={(event) => setValue('iconName', event.target.value)}
-                                disabled={isLoading}
+                                disabled={isLoading || isStructureLocked}
                                 error={Boolean(errors.iconName)}
                                 helperText={
                                     errors.iconName ||
@@ -1356,7 +1401,7 @@ const EntitiesWorkspace = () => {
                                                     <Checkbox
                                                         checked={structuredTabs.includes(tab)}
                                                         onChange={(event) => toggleAuthoringTab(tab, event.target.checked)}
-                                                        disabled={isLoading}
+                                                        disabled={isLoading || isStructureLocked}
                                                     />
                                                 }
                                                 label={t(`entities.tabOptions.${tab}`, STRUCTURED_ENTITY_TAB_LABELS[tab])}
@@ -1367,7 +1412,7 @@ const EntitiesWorkspace = () => {
                                         label={t('entities.fields.customTabs', 'Additional tabs')}
                                         value={String(values.customTabsInput ?? '')}
                                         onChange={(event) => setValue('customTabsInput', event.target.value)}
-                                        disabled={isLoading}
+                                        disabled={isLoading || isStructureLocked}
                                         error={Boolean(errors.tabs)}
                                         helperText={
                                             errors.tabs ||
@@ -1415,7 +1460,7 @@ const EntitiesWorkspace = () => {
                                                         onChange={(event) =>
                                                             updateResourceSurface(surface.capability, { key: event.target.value })
                                                         }
-                                                        disabled={isLoading}
+                                                        disabled={isLoading || isStandardEntityTypeEdit}
                                                         helperText={t(
                                                             'entities.fields.resourceSurfaceKeyHelper',
                                                             'Stable identifier stored in the entity-type contract.'
@@ -1431,24 +1476,31 @@ const EntitiesWorkspace = () => {
                                                         onChange={(event) =>
                                                             updateResourceSurface(surface.capability, { routeSegment: event.target.value })
                                                         }
-                                                        disabled={isLoading}
+                                                        disabled={isLoading || isStandardEntityTypeEdit}
                                                         helperText={t(
                                                             'entities.fields.resourceSurfaceRouteSegmentHelper',
                                                             'Lowercase kebab-case segment reserved for compatible authoring routes.'
                                                         )}
                                                         fullWidth
                                                     />
-                                                    <TextField
+                                                    <LocalizedInlineField
+                                                        mode='localized'
                                                         label={t('entities.fields.resourceSurfaceTitle', 'Resource tab title')}
-                                                        value={surface.fallbackTitle}
-                                                        onChange={(event) =>
+                                                        value={surface.title ?? null}
+                                                        onChange={(next: VersionedLocalizedContent<string> | null) =>
                                                             updateResourceSurface(surface.capability, {
-                                                                fallbackTitle: event.target.value,
+                                                                title: next ?? undefined,
+                                                                fallbackTitle: getLocalizedContentText(
+                                                                    next,
+                                                                    preferredVlcLocale,
+                                                                    surface.fallbackTitle ?? surface.key
+                                                                ),
                                                                 titleKey: undefined
                                                             })
                                                         }
                                                         disabled={isLoading}
-                                                        fullWidth
+                                                        autoInitialize={!isLoading}
+                                                        uiLocale={preferredVlcLocale}
                                                     />
                                                 </Stack>
                                             </Box>
@@ -1456,7 +1508,7 @@ const EntitiesWorkspace = () => {
                                     </Stack>
                                 </Box>
                             ) : null}
-                            <FormControl fullWidth error={Boolean(errors.sidebarSection)} disabled={isLoading}>
+                            <FormControl fullWidth error={Boolean(errors.sidebarSection)} disabled={isLoading || isStructureLocked}>
                                 <InputLabel id='entity-type-sidebar-section-label'>
                                     {t('entities.fields.sidebarSection', 'Sidebar section')}
                                 </InputLabel>
@@ -1478,7 +1530,7 @@ const EntitiesWorkspace = () => {
                                 label={t('entities.fields.sidebarOrder', 'Sidebar order')}
                                 value={String(values.sidebarOrder ?? '')}
                                 onChange={(event) => setValue('sidebarOrder', event.target.value)}
-                                disabled={isLoading}
+                                disabled={isLoading || isStructureLocked}
                                 error={Boolean(errors.sidebarOrder)}
                                 helperText={
                                     errors.sidebarOrder ||
@@ -1498,7 +1550,7 @@ const EntitiesWorkspace = () => {
                                             <Checkbox
                                                 checked={values.published !== false}
                                                 onChange={(event) => setValue('published', event.target.checked)}
-                                                disabled={isLoading}
+                                                disabled={isLoading || isStructureLocked}
                                             />
                                         }
                                         label={t('entities.fields.published', 'Publish to dynamic menu')}
@@ -1550,7 +1602,7 @@ const EntitiesWorkspace = () => {
                                                 <Checkbox
                                                     checked={isEnabledComponentConfig(components.dataSchema)}
                                                     onChange={(event) => setComponentEnabled('dataSchema', event.target.checked)}
-                                                    disabled={isLoading}
+                                                    disabled={isLoading || isStructureLocked}
                                                 />
                                             }
                                             label={t('entities.components.dataSchema', 'Data schema')}
@@ -1563,7 +1615,7 @@ const EntitiesWorkspace = () => {
                                                 onChange={(event) =>
                                                     updateComponentConfig('dataSchema', { maxAttributes: event.target.value })
                                                 }
-                                                disabled={isLoading}
+                                                disabled={isLoading || isStructureLocked}
                                                 inputProps={{ min: 1 }}
                                                 fullWidth
                                             />
@@ -1586,7 +1638,7 @@ const EntitiesWorkspace = () => {
                                                 <Checkbox
                                                     checked={isEnabledComponentConfig(components.records)}
                                                     onChange={(event) => setComponentEnabled('records', event.target.checked)}
-                                                    disabled={isLoading}
+                                                    disabled={isLoading || isStructureLocked}
                                                 />
                                             }
                                             label={t('entities.components.records', 'Predefined records')}
@@ -1597,7 +1649,7 @@ const EntitiesWorkspace = () => {
                                                 type='number'
                                                 value={components.records.maxElements ?? ''}
                                                 onChange={(event) => updateComponentConfig('records', { maxElements: event.target.value })}
-                                                disabled={isLoading}
+                                                disabled={isLoading || isStructureLocked}
                                                 inputProps={{ min: 1 }}
                                                 fullWidth
                                             />
@@ -1620,7 +1672,7 @@ const EntitiesWorkspace = () => {
                                                 <Checkbox
                                                     checked={isEnabledComponentConfig(components.treeAssignment)}
                                                     onChange={(event) => setComponentEnabled('treeAssignment', event.target.checked)}
-                                                    disabled={isLoading}
+                                                    disabled={isLoading || isStructureLocked}
                                                 />
                                             }
                                             label={t('entities.components.treeAssignment', 'TreeEntity assignment')}
@@ -1636,7 +1688,7 @@ const EntitiesWorkspace = () => {
                                                                     isSingleHub: event.target.checked
                                                                 })
                                                             }
-                                                            disabled={isLoading}
+                                                            disabled={isLoading || isStructureLocked}
                                                         />
                                                     }
                                                     label={t('entities.components.singleHub', 'Single hub only')}
@@ -1650,7 +1702,7 @@ const EntitiesWorkspace = () => {
                                                                     isRequiredHub: event.target.checked
                                                                 })
                                                             }
-                                                            disabled={isLoading}
+                                                            disabled={isLoading || isStructureLocked}
                                                         />
                                                     }
                                                     label={t('entities.components.requiredHub', 'Require at least one hub')}
@@ -1673,7 +1725,7 @@ const EntitiesWorkspace = () => {
                                                 <Checkbox
                                                     checked={isEnabledComponentConfig(components.hierarchy)}
                                                     onChange={(event) => setComponentEnabled('hierarchy', event.target.checked)}
-                                                    disabled={isLoading}
+                                                    disabled={isLoading || isStructureLocked}
                                                 />
                                             }
                                             label={t('entities.components.hierarchy', 'Hierarchy')}
@@ -1686,7 +1738,7 @@ const EntitiesWorkspace = () => {
                                                         onChange={(event) =>
                                                             updateComponentConfig('hierarchy', { supportsFolders: event.target.checked })
                                                         }
-                                                        disabled={isLoading}
+                                                        disabled={isLoading || isStructureLocked}
                                                     />
                                                 }
                                                 label={t('entities.components.supportsFolders', 'Allow folders')}
@@ -1710,7 +1762,7 @@ const EntitiesWorkspace = () => {
                                                 <Checkbox
                                                     checked={isEnabledComponentConfig(components.nestedCollections)}
                                                     onChange={(event) => setComponentEnabled('nestedCollections', event.target.checked)}
-                                                    disabled={isLoading}
+                                                    disabled={isLoading || isStructureLocked}
                                                 />
                                             }
                                             label={t('entities.components.nestedCollections', 'Nested collections')}
@@ -1723,7 +1775,7 @@ const EntitiesWorkspace = () => {
                                                 onChange={(event) =>
                                                     updateComponentConfig('nestedCollections', { maxCollections: event.target.value })
                                                 }
-                                                disabled={isLoading}
+                                                disabled={isLoading || isStructureLocked}
                                                 inputProps={{ min: 1 }}
                                                 fullWidth
                                             />
@@ -1744,7 +1796,7 @@ const EntitiesWorkspace = () => {
                                                 <Checkbox
                                                     checked={isEnabledComponentConfig(components.relations)}
                                                     onChange={(event) => setComponentEnabled('relations', event.target.checked)}
-                                                    disabled={isLoading}
+                                                    disabled={isLoading || isStructureLocked}
                                                 />
                                             }
                                             label={t('entities.components.relations', 'Relations')}
@@ -1756,7 +1808,7 @@ const EntitiesWorkspace = () => {
                                                 onChange={(event) =>
                                                     updateComponentConfig('relations', { allowedRelationTypes: event.target.value })
                                                 }
-                                                disabled={isLoading}
+                                                disabled={isLoading || isStructureLocked}
                                                 helperText={t(
                                                     'entities.components.allowedRelationTypesHelper',
                                                     'Comma-separated relation kinds, for example manyToOne.'
@@ -1794,7 +1846,7 @@ const EntitiesWorkspace = () => {
                                                 <Checkbox
                                                     checked={isEnabledComponentConfig(components.optionValues)}
                                                     onChange={(event) => setComponentEnabled('optionValues', event.target.checked)}
-                                                    disabled={isLoading}
+                                                    disabled={isLoading || isStructureLocked}
                                                 />
                                             }
                                             label={t('entities.components.optionValues', 'OptionListEntity values')}
@@ -1815,7 +1867,7 @@ const EntitiesWorkspace = () => {
                                                 <Checkbox
                                                     checked={isEnabledComponentConfig(components.fixedValues)}
                                                     onChange={(event) => setComponentEnabled('fixedValues', event.target.checked)}
-                                                    disabled={isLoading}
+                                                    disabled={isLoading || isStructureLocked}
                                                 />
                                             }
                                             label={t('entities.components.fixedValues', 'Constants')}
@@ -1836,7 +1888,7 @@ const EntitiesWorkspace = () => {
                                                 <Checkbox
                                                     checked={isEnabledComponentConfig(components.actions)}
                                                     onChange={(event) => setComponentEnabled('actions', event.target.checked)}
-                                                    disabled={isLoading}
+                                                    disabled={isLoading || isStructureLocked}
                                                 />
                                             }
                                             label={t('entities.components.actions', 'Actions')}
@@ -1857,7 +1909,7 @@ const EntitiesWorkspace = () => {
                                                 <Checkbox
                                                     checked={isEnabledComponentConfig(components.events)}
                                                     onChange={(event) => setComponentEnabled('events', event.target.checked)}
-                                                    disabled={isLoading}
+                                                    disabled={isLoading || isStructureLocked}
                                                 />
                                             }
                                             label={t('entities.components.events', 'Events')}
@@ -1878,7 +1930,7 @@ const EntitiesWorkspace = () => {
                                                 <Checkbox
                                                     checked={isEnabledComponentConfig(components.scripting)}
                                                     onChange={(event) => setComponentEnabled('scripting', event.target.checked)}
-                                                    disabled={isLoading}
+                                                    disabled={isLoading || isStructureLocked}
                                                 />
                                             }
                                             label={t('entities.components.scripting', 'Scripting')}
@@ -1901,7 +1953,7 @@ const EntitiesWorkspace = () => {
                                                 <Checkbox
                                                     checked={isEnabledComponentConfig(components.layoutConfig)}
                                                     onChange={(event) => setComponentEnabled('layoutConfig', event.target.checked)}
-                                                    disabled={isLoading}
+                                                    disabled={isLoading || isStructureLocked}
                                                 />
                                             }
                                             label={t('entities.components.layoutConfig', 'Layout config')}
@@ -1924,7 +1976,7 @@ const EntitiesWorkspace = () => {
                                                 <Checkbox
                                                     checked={isEnabledComponentConfig(components.runtimeBehavior)}
                                                     onChange={(event) => setComponentEnabled('runtimeBehavior', event.target.checked)}
-                                                    disabled={isLoading}
+                                                    disabled={isLoading || isStructureLocked}
                                                 />
                                             }
                                             label={t('entities.components.runtimeBehavior', 'Runtime behavior')}
@@ -1947,7 +1999,7 @@ const EntitiesWorkspace = () => {
                                                 <Checkbox
                                                     checked={isEnabledComponentConfig(components.physicalTable)}
                                                     onChange={(event) => setComponentEnabled('physicalTable', event.target.checked)}
-                                                    disabled={isLoading}
+                                                    disabled={isLoading || isStructureLocked}
                                                 />
                                             }
                                             label={t('entities.components.physicalTable', 'Physical table')}
@@ -1957,7 +2009,7 @@ const EntitiesWorkspace = () => {
                                                 label={t('entities.components.tablePrefix', 'Table prefix')}
                                                 value={components.physicalTable.prefix ?? ''}
                                                 onChange={(event) => updateComponentConfig('physicalTable', { prefix: event.target.value })}
-                                                disabled={isLoading}
+                                                disabled={isLoading || isStructureLocked}
                                                 helperText={t(
                                                     'entities.components.tablePrefixHelper',
                                                     'Prefix used when the runtime DDL pipeline generates a physical table name.'
@@ -1995,7 +2047,7 @@ const EntitiesWorkspace = () => {
                                 label={t('entities.fields.config', 'Config JSON')}
                                 value={String(values.configText ?? '')}
                                 onChange={(event) => setValue('configText', event.target.value)}
-                                disabled={isLoading}
+                                disabled={isLoading || isStructureLocked}
                                 error={Boolean(errors.configText)}
                                 helperText={
                                     errors.configText ||

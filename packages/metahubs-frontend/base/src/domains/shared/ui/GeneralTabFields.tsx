@@ -20,6 +20,7 @@ export type GeneralTabFieldsProps = {
     descriptionLabel: string
     codenameLabel: string
     codenameHelper: string
+    codenameDisabled?: boolean
     editingEntityId?: string | null
     onCodenameConfigResolved?: (config: CodenameConfig) => void
 }
@@ -34,6 +35,7 @@ const GeneralTabFields = ({
     descriptionLabel,
     codenameLabel,
     codenameHelper,
+    codenameDisabled = false,
     editingEntityId,
     onCodenameConfigResolved
 }: GeneralTabFieldsProps) => {
@@ -61,7 +63,9 @@ const GeneralTabFields = ({
                 codenameConfig.allowMixed,
                 codenameConfig.autoConvertMixedAlphabets
             ),
-        setValue: setValue as (field: 'codename' | 'codenameTouched', value: VersionedLocalizedContent<string> | null | boolean) => void
+        setValue: codenameDisabled
+            ? () => undefined
+            : (setValue as (field: 'codename' | 'codenameTouched', value: VersionedLocalizedContent<string> | null | boolean) => void)
     })
 
     return (
@@ -103,7 +107,7 @@ const GeneralTabFields = ({
                 label={codenameLabel}
                 helperText={codenameHelper}
                 error={fieldErrors.codename}
-                disabled={isLoading}
+                disabled={isLoading || codenameDisabled}
                 required
                 editingEntityId={editingEntityId}
             />

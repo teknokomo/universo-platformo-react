@@ -7,6 +7,7 @@
 **The table below MUST remain at the top of this file. All new progress entries should be added BELOW this table.**
 | Release | Date | Codename | Highlights |
 | ------------ | ---------- | -------------- | ------------------------------ |
+| 0.60.0-alpha | 2026-04-24 | 0.60.0 Alpha — 2026-04-24 (Clear Vision) 👓 | Steering files refactoring, documentation alignment with current architecture |
 | 0.58.0-alpha | 2026-04-08 | 0.58.0 Alpha — 2026-04-08 (Ancient Manuscripts) 📜 | Metahub snapshot import/export, self-hosted parity, scripting, shared/common layout flow |
 | 0.57.0-alpha | 2026-04-03 | 0.57.0 Alpha — 2026-04-03 (Good Eyesight) 🧐 | QA remediation, controller extraction, domain-error cleanup, Playwright CLI hardening |
 | 0.56.0-alpha | 2026-03-27 | 0.56.0 Alpha — 2026-03-27 (Cured Disease) 🤒 | Entity-display fixes, codename JSONB/VLC convergence, security hardening, csurf replacement |
@@ -45,6 +46,64 @@
 | 0.23.0-alpha | 2025-08-05 | 0.23.0 Alpha — 2025-08-05 (Vanishing Asteroid) ☄️ | Russian docs, UPDL node params |
 | 0.22.0-alpha | 2025-07-27 | 0.22.0 Alpha — 2025-07-27 (Global Impulse) ⚡️ | Memory Bank, MMOOMM improvements |
 | 0.21.0-alpha | 2025-07-20 | 0.21.0 Alpha — 2025-07-20 (Firm Resolve) 💪 | Handler refactoring, PlayCanvas stabilization |
+
+## 2026-04-26 Entity Resource Surface Data-Driven Cleanup
+
+Completed the entity-resource refactoring pass that removes runtime-only hardcoded Resources tab labels and synthetic standard entity type fallback behavior.
+
+| Area | Resolution |
+| --- | --- |
+| Shared contracts | Added normalized resource surface capabilities, route/key validation, component compatibility checks, and localized title resolution in `@universo/types`. |
+| Standard templates | Seeded standard Catalog/Set/Enumeration resource surface labels as VLC metadata on persisted entity type definitions. |
+| Backend behavior | Removed synthetic missing standard entity type generation. Persisted standard rows can now receive guarded presentation/localized resource label updates while structural mutations fail closed. |
+| Frontend behavior | Resources tabs now resolve labels from persisted entity resource surface metadata through a capability registry and the entity type editor reuses the existing localized inline field for label editing. |
+| Publication path | Canonical publication hashes include entity type metadata, release bundles preserve resource labels, and executable schema payloads remain unchanged for label-only edits. |
+| Documentation | Updated package READMEs and EN/RU GitBook architecture/guides for data-driven resource surfaces and standard kind guardrails. |
+| Validation | Root `pnpm build` passed. Focused tests and package lint passed for the touched areas; DB-boundary audit still reports unrelated pre-existing violations. |
+
+## 2026-04-26 Entity Resource Surface QA Remediation
+
+Closed the follow-up QA findings for the entity-resource implementation.
+
+| Area | Resolution |
+| --- | --- |
+| Validation hardening | Tightened resource surface VLC validation in shared contracts and backend route schemas so malformed localized titles fail before persistence. |
+| Guardrail tests | Added negative service tests proving standard entity type component and UI-structure mutations fail closed while localized presentation/resource label edits remain allowed. |
+| Conflict diagnostics | Added an i18n admin warning on the Resources page when persisted entity types define conflicting labels for one shared resource capability. |
+| Browser proof | Added and passed a targeted Playwright flow that creates a fresh Basic metahub, verifies EN/RU resource labels, edits the standard Catalog resource label through persisted metadata, verifies the renamed EN/RU UI, and captures screenshots. |
+| Validation | Focused type/backend/frontend tests passed, metahubs frontend lint/build passed, targeted Playwright wrapper passed against the e2e database, and root `pnpm build` passed. |
+
+## 2026-04-26 Entity Resource Surface QA Remediation Hardening
+
+Closed the remaining QA implementation gaps discovered after the initial remediation pass.
+
+| Area | Resolution |
+| --- | --- |
+| Standard type publication | Backend standard-kind updates now reject publication state changes, and the frontend disables the dynamic-menu publication toggle for standard entity types. |
+| Shared defaults | Resource surface default metadata now comes from `@universo/types`, removing the duplicate frontend default map. |
+| Structural comparison | Standard entity type guardrails now compare canonical JSON with sorted object keys instead of insertion-order-sensitive `JSON.stringify`. |
+| Copy safety | Entity type copy dialogs now skip occupied `kindKey` values and propose the next available `-copy-N` suffix. |
+| Frontend payload safety | Standard entity type saves preserve protected `kindKey`, codename, components, config, UI structure, and publication state while allowing resource-surface labels to change. |
+| Browser coverage | The Playwright flow now drives the real edit dialog, verifies locked structural controls, submits localized resource labels, verifies the renamed EN/RU Resources tabs, and captures screenshots. The final rerun passed against a fresh e2e database after the standard-type payload preservation fix. |
+| Validation | Focused frontend tests passed with 15 tests, metahubs frontend lint/build passed, root `pnpm build` passed across 30 packages, and `node tools/testing/e2e/run-playwright-suite.mjs specs/flows/metahub-entity-resources.spec.ts --project chromium` passed with 2 tests. |
+
+## 2026-04-24 Steering Files Refactoring
+
+Completed a comprehensive refactoring of `.kiro/steering/` files to align documentation with the current project architecture.
+
+| Area | Resolution |
+| --- | --- |
+| product.md | Completely rewritten to describe Metahubs Platform instead of outdated UPDL/AR/VR focus. Added ECAE architecture description, key domains (Metahubs, Applications, Publications, Scripting, LMS), and current target use cases. |
+| structure.md | Updated package list from 6 outdated packages to current 31 packages. Added package classification by roles (Core shell, Feature modules, Infrastructure, UI support, Scripting & Extensions, Documentation). Fixed directory structure diagram. |
+| tech.md | Updated technology stack with current versions from pnpm-workspace.yaml. Added TanStack Query, Playwright, isolated-vm, UUID v7. Added DDL & Migrations system section. Updated Common Commands with migration commands. |
+| recommendations.md | Expanded with Three-Tier DB Access Pattern, Knex Boundary Rule, SQL Safety Rule, Mutation Rule, Testing Rule. Added TanStack Query recommendation for frontend packages. Added Security section. |
+
+- Validation note:
+  - All 4 steering files have been completely rewritten.
+  - Removed outdated UPDL/AR/VR focus, replaced with Metahubs Platform description.
+  - Package list now matches current monorepo structure (31 packages).
+  - Technology versions match pnpm-workspace.yaml catalog.
+  - Recommendations now include critical patterns from techContext.md.
 
 ## 2026-04-22 Application Layout Management Shared List And Parity Closure
 

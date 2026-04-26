@@ -55,7 +55,7 @@ const buildSetConstantLookups = (
 } => {
     const byValueGroupId = new Map<string, Map<string, SnapshotFixedValueRecord>>()
     const byFixedValueId = new Map<string, SnapshotFixedValueRecord>()
-    const constants = snapshot.fixedValues
+    const constants = snapshot.fixedValues ?? snapshot.constants
 
     if (!constants || typeof constants !== 'object') {
         return { byValueGroupId, byFixedValueId }

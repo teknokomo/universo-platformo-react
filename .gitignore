@@ -3,6 +3,7 @@
 .vscode
 .gigaide
 .cursorrules
+.codex
 
 # dependencies
 **/node_modules

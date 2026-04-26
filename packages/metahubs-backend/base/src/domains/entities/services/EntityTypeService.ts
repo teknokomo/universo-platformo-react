@@ -1,11 +1,11 @@
 import { qSchemaTable } from '@universo/database'
 import {
-    isEnabledComponentConfig,
     isBuiltinEntityKind,
+    normalizeEntityResourceSurfaceDefinitions,
+    validateEntityResourceSurfacesAgainstComponents,
     validateComponentDependencies,
     type ComponentManifest,
     type EntityKind,
-    type EntityResourceSurfaceDefinition,
     type EntityTypeUIConfig,
     type ResolvedEntityType
 } from '@universo/types'
@@ -22,30 +22,10 @@ import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimis
 import { codenamePrimaryTextSql, ensureCodenameValue, getCodenameText } from '../../shared/codename'
 import { MetahubConflictError, MetahubNotFoundError, MetahubValidationError } from '../../shared/domainErrors'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
-import {
-    CATALOG_TYPE_COMPONENTS,
-    CATALOG_TYPE_UI,
-    ENUMERATION_TYPE_COMPONENTS,
-    ENUMERATION_TYPE_UI,
-    HUB_TYPE_COMPONENTS,
-    HUB_TYPE_UI,
-    SET_TYPE_COMPONENTS,
-    SET_TYPE_UI,
-    STANDARD_CATALOG_DESCRIPTION,
-    STANDARD_CATALOG_NAME,
-    STANDARD_ENUMERATION_DESCRIPTION,
-    STANDARD_ENUMERATION_NAME,
-    STANDARD_HUB_DESCRIPTION,
-    STANDARD_HUB_NAME,
-    STANDARD_SET_DESCRIPTION,
-    STANDARD_SET_NAME
-} from '../../templates/data/standardEntityTypeDefinitions'
 
 const TABLE = '_mhb_entity_type_definitions'
 const ACTIVE_CLAUSE = '_upl_deleted = false AND _mhb_deleted = false'
 const KIND_KEY_PATTERN = /^[a-z][a-z0-9._-]{0,63}$/
-const RESOURCE_SURFACE_KEY_PATTERN = /^[a-z][a-zA-Z0-9._-]{0,63}$/
-const RESOURCE_SURFACE_ROUTE_PATTERN = /^[a-z][a-z0-9-]{0,63}$/
 const ENTITY_TYPE_KIND_KEY_ACTIVE_CONSTRAINT = 'idx_mhb_entity_type_definitions_kind_key_active'
 const ENTITY_TYPE_CODENAME_ACTIVE_CONSTRAINT = 'idx_mhb_entity_type_definitions_codename_active'
 
@@ -105,67 +85,6 @@ const ensureJsonRecord = (value: unknown): JsonRecord => {
     return value as JsonRecord
 }
 
-const SYNTHETIC_BUILTIN_ENTITY_TYPES: Record<string, Omit<MetahubResolvedEntityType, 'updatedAt' | 'version' | 'published'>> = {
-    hub: {
-        kindKey: 'hub',
-        codename: ensureCodenameValue('Hub'),
-        presentation: {
-            name: STANDARD_HUB_NAME,
-            description: STANDARD_HUB_DESCRIPTION
-        },
-        components: HUB_TYPE_COMPONENTS,
-        ui: HUB_TYPE_UI,
-        config: {}
-    },
-    catalog: {
-        kindKey: 'catalog',
-        codename: ensureCodenameValue('Catalog'),
-        presentation: {
-            name: STANDARD_CATALOG_NAME,
-            description: STANDARD_CATALOG_DESCRIPTION
-        },
-        components: CATALOG_TYPE_COMPONENTS,
-        ui: CATALOG_TYPE_UI,
-        config: {}
-    },
-    set: {
-        kindKey: 'set',
-        codename: ensureCodenameValue('Set'),
-        presentation: {
-            name: STANDARD_SET_NAME,
-            description: STANDARD_SET_DESCRIPTION
-        },
-        components: SET_TYPE_COMPONENTS,
-        ui: SET_TYPE_UI,
-        config: {}
-    },
-    enumeration: {
-        kindKey: 'enumeration',
-        codename: ensureCodenameValue('Enumeration'),
-        presentation: {
-            name: STANDARD_ENUMERATION_NAME,
-            description: STANDARD_ENUMERATION_DESCRIPTION
-        },
-        components: ENUMERATION_TYPE_COMPONENTS,
-        ui: ENUMERATION_TYPE_UI,
-        config: {}
-    }
-}
-
-const getSyntheticBuiltinEntityType = (kindKey: string): MetahubResolvedEntityType | null => {
-    const synthetic = SYNTHETIC_BUILTIN_ENTITY_TYPES[kindKey]
-    if (!synthetic) {
-        return null
-    }
-
-    return {
-        ...synthetic,
-        published: true,
-        version: 1,
-        updatedAt: null
-    }
-}
-
 const normalizeEntityTypeKindKey = (value: string): string => {
     const normalized = value.trim().toLowerCase()
     if (!KIND_KEY_PATTERN.test(normalized)) {
@@ -204,74 +123,11 @@ const normalizeUiConfig = (value: EntityTypeUIConfig): EntityTypeUIConfig => {
         throw new MetahubValidationError('Entity type UI config sidebarOrder must be a non-negative integer')
     }
 
-    const resourceSurfaces = Array.isArray(value.resourceSurfaces)
-        ? value.resourceSurfaces
-              .map((surface): EntityResourceSurfaceDefinition | null => {
-                  const key = String(surface?.key ?? '').trim()
-                  const capability = String(surface?.capability ?? '').trim()
-                  const routeSegment = String(surface?.routeSegment ?? '').trim()
-                  const titleKey = typeof surface?.titleKey === 'string' ? surface.titleKey.trim() : ''
-                  const fallbackTitle = String(surface?.fallbackTitle ?? '').trim()
-
-                  if (!RESOURCE_SURFACE_KEY_PATTERN.test(key)) {
-                      throw new MetahubValidationError(
-                          `Entity resource surface key must start with a letter and use only letters, digits, dots, underscores, or hyphens: ${
-                              key || 'empty'
-                          }`
-                      )
-                  }
-
-                  if (capability !== 'dataSchema' && capability !== 'fixedValues' && capability !== 'optionValues') {
-                      throw new MetahubValidationError(`Unsupported entity resource surface capability: ${capability || 'empty'}`)
-                  }
-
-                  if (!routeSegment) {
-                      throw new MetahubValidationError(`Entity resource surface ${key} must contain a routeSegment`)
-                  }
-
-                  if (!RESOURCE_SURFACE_ROUTE_PATTERN.test(routeSegment)) {
-                      throw new MetahubValidationError(`Entity resource surface ${key} must use a lowercase kebab-case routeSegment`)
-                  }
-
-                  if (!fallbackTitle) {
-                      throw new MetahubValidationError(`Entity resource surface ${key} must contain a fallbackTitle`)
-                  }
-
-                  return {
-                      key,
-                      capability,
-                      routeSegment,
-                      titleKey: titleKey || undefined,
-                      fallbackTitle
-                  }
-              })
-              .filter((surface): surface is EntityResourceSurfaceDefinition => Boolean(surface))
-        : undefined
-
-    if (resourceSurfaces) {
-        const uniqueKeys = new Set<string>()
-        const uniqueCapabilities = new Set<string>()
-        const uniqueRouteSegments = new Set<string>()
-        for (const surface of resourceSurfaces) {
-            if (uniqueKeys.has(surface.key)) {
-                throw new MetahubValidationError(`Entity type UI config resourceSurfaces must not contain duplicate key ${surface.key}`)
-            }
-            uniqueKeys.add(surface.key)
-
-            if (uniqueCapabilities.has(surface.capability)) {
-                throw new MetahubValidationError(
-                    `Entity type UI config resourceSurfaces must not contain duplicate capability ${surface.capability}`
-                )
-            }
-            uniqueCapabilities.add(surface.capability)
-
-            if (uniqueRouteSegments.has(surface.routeSegment)) {
-                throw new MetahubValidationError(
-                    `Entity type UI config resourceSurfaces must not contain duplicate routeSegment ${surface.routeSegment}`
-                )
-            }
-            uniqueRouteSegments.add(surface.routeSegment)
-        }
+    let resourceSurfaces: EntityTypeUIConfig['resourceSurfaces']
+    try {
+        resourceSurfaces = normalizeEntityResourceSurfaceDefinitions(value.resourceSurfaces, { requireFallbackTitle: false })
+    } catch (error) {
+        throw new MetahubValidationError(error instanceof Error ? error.message : 'Invalid entity resource surface definition')
     }
 
     return {
@@ -287,13 +143,10 @@ const normalizeUiConfig = (value: EntityTypeUIConfig): EntityTypeUIConfig => {
 }
 
 const validateResourceSurfacesAgainstComponents = (ui: EntityTypeUIConfig, components: ComponentManifest): void => {
-    for (const surface of ui.resourceSurfaces ?? []) {
-        if (!isEnabledComponentConfig(components[surface.capability])) {
-            throw new MetahubValidationError(`Entity resource surface ${surface.key} requires enabled component ${surface.capability}`, {
-                key: surface.key,
-                capability: surface.capability
-            })
-        }
+    try {
+        validateEntityResourceSurfacesAgainstComponents(ui.resourceSurfaces, components)
+    } catch (error) {
+        throw new MetahubValidationError(error instanceof Error ? error.message : 'Invalid entity resource surface component binding')
     }
 }
 
@@ -312,6 +165,83 @@ const parseStoredComponentManifest = (value: unknown): ComponentManifest => {
 
 const parseStoredUiConfig = (value: unknown): EntityTypeUIConfig => {
     return normalizeUiConfig(ensureJsonRecord(value) as unknown as EntityTypeUIConfig)
+}
+
+const canonicalizeJsonValue = (value: unknown): unknown => {
+    if (Array.isArray(value)) {
+        return value.map(canonicalizeJsonValue)
+    }
+
+    if (value && typeof value === 'object') {
+        return Object.fromEntries(
+            Object.entries(value as Record<string, unknown>)
+                .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+                .map(([key, item]) => [key, canonicalizeJsonValue(item)])
+        )
+    }
+
+    return value ?? null
+}
+
+const stableStringify = (value: unknown): string => JSON.stringify(canonicalizeJsonValue(value))
+
+const stripEditableResourceSurfaceLabels = (ui: EntityTypeUIConfig): EntityTypeUIConfig => ({
+    ...ui,
+    resourceSurfaces: ui.resourceSurfaces?.map((surface) => {
+        const { title: _title, titleKey: _titleKey, fallbackTitle: _fallbackTitle, ...structuralSurface } = surface
+        return structuralSurface
+    })
+})
+
+const assertStandardEntityTypeUpdateAllowed = (
+    existing: StoredEntityTypeRow,
+    next: {
+        kindKey: string
+        codename: JsonRecord
+        components: ComponentManifest
+        ui: EntityTypeUIConfig
+        config: JsonRecord
+        published: boolean
+    }
+): void => {
+    if (!isBuiltinEntityKind(existing.kind_key)) {
+        return
+    }
+
+    if (next.kindKey !== existing.kind_key) {
+        throw new MetahubValidationError('Standard entity kind keys cannot be changed', { kindKey: existing.kind_key })
+    }
+
+    if (stableStringify(next.codename) !== stableStringify(normalizeEntityTypeCodename(existing.codename))) {
+        throw new MetahubValidationError('Standard entity type codenames cannot be changed', { kindKey: existing.kind_key })
+    }
+
+    if (stableStringify(next.components) !== stableStringify(parseStoredComponentManifest(existing.components))) {
+        throw new MetahubValidationError('Standard entity type components cannot be changed through the Entities constructor', {
+            kindKey: existing.kind_key
+        })
+    }
+
+    if (stableStringify(next.config) !== stableStringify(ensureJsonRecord(existing.config))) {
+        throw new MetahubValidationError('Standard entity type config cannot be changed through the Entities constructor', {
+            kindKey: existing.kind_key
+        })
+    }
+
+    if (next.published !== (existing._mhb_published === true)) {
+        throw new MetahubValidationError('Standard entity type publication state cannot be changed through the Entities constructor', {
+            kindKey: existing.kind_key
+        })
+    }
+
+    const nextUiStructure = stripEditableResourceSurfaceLabels(next.ui)
+    const existingUiStructure = stripEditableResourceSurfaceLabels(parseStoredUiConfig(existing.ui_config))
+
+    if (stableStringify(nextUiStructure) !== stableStringify(existingUiStructure)) {
+        throw new MetahubValidationError('Standard entity type UI structure cannot be changed through the Entities constructor', {
+            kindKey: existing.kind_key
+        })
+    }
 }
 
 export class EntityTypeService {
@@ -412,7 +342,7 @@ export class EntityTypeService {
             `SELECT * FROM ${qt} WHERE ${ACTIVE_CLAUSE} ORDER BY kind_key ASC, _upl_created_at ASC, id ASC`
         )
 
-        return rows.map((row) => this.normalizeTypeRow(row)).filter((row) => !isBuiltinEntityKind(row.kindKey))
+        return rows.map((row) => this.normalizeTypeRow(row))
     }
 
     async listTypesInSchema(schemaName: string, db: SqlQueryable = this.exec): Promise<MetahubResolvedEntityType[]> {
@@ -422,16 +352,7 @@ export class EntityTypeService {
             `SELECT * FROM ${qt} WHERE ${ACTIVE_CLAUSE} ORDER BY kind_key ASC, _upl_created_at ASC, id ASC`
         )
 
-        const normalizedRows = rows.map((row) => this.normalizeTypeRow(row))
-        const kindsInRows = new Set(normalizedRows.map((row) => row.kindKey))
-
-        for (const builtinKind of Object.keys(SYNTHETIC_BUILTIN_ENTITY_TYPES)) {
-            if (!kindsInRows.has(builtinKind)) {
-                normalizedRows.push(getSyntheticBuiltinEntityType(builtinKind)!)
-            }
-        }
-
-        return normalizedRows
+        return rows.map((row) => this.normalizeTypeRow(row))
     }
 
     async listEditableTypes(metahubId: string, userId?: string): Promise<MetahubResolvedEntityType[]> {
@@ -456,11 +377,7 @@ export class EntityTypeService {
     ): Promise<MetahubResolvedEntityType | null> {
         const normalizedKindKey = String(kindKey).trim()
         const typeRow = await this.findTypeRowByKindKey(schemaName, normalizedKindKey, db)
-        if (typeRow) {
-            return this.normalizeTypeRow(typeRow)
-        }
-
-        return isBuiltinEntityKind(normalizedKindKey) ? getSyntheticBuiltinEntityType(normalizedKindKey) : null
+        return typeRow ? this.normalizeTypeRow(typeRow) : null
     }
 
     async createType(metahubId: string, input: CreateEntityTypeInput, userId?: string): Promise<MetahubResolvedEntityType> {
@@ -555,7 +472,7 @@ export class EntityTypeService {
         }
 
         const nextKindKey = input.kindKey !== undefined ? normalizeEntityTypeKindKey(input.kindKey) : existing.kind_key
-        if (isBuiltinEntityKind(nextKindKey)) {
+        if (!isBuiltinEntityKind(existing.kind_key) && isBuiltinEntityKind(nextKindKey)) {
             throw new MetahubValidationError('Standard entity kinds are reserved for platform-provided entity types', {
                 kindKey: nextKindKey
             })
@@ -573,6 +490,14 @@ export class EntityTypeService {
             input.presentation !== undefined ? ensureJsonRecord(input.presentation) : ensureJsonRecord(existing.presentation)
         const nextConfig = input.config !== undefined ? ensureJsonRecord(input.config) : ensureJsonRecord(existing.config)
         const nextPublished = input.published !== undefined ? input.published : existing._mhb_published === true
+        assertStandardEntityTypeUpdateAllowed(existing, {
+            kindKey: nextKindKey,
+            codename: nextCodename,
+            components: nextComponents,
+            ui: nextUi,
+            config: nextConfig,
+            published: nextPublished
+        })
 
         return this.exec.transaction(async (tx) => {
             const conflictByKindKey = await this.findTypeRowByKindKey(schemaName, nextKindKey, tx)

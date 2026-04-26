@@ -1,5 +1,7 @@
 ---
-description: 'If the user message starts with REFLECT or REF'
+inclusion: manual
+name: reflect-mode
+description: Manual REFLECT workflow mode for post-implementation review, lessons learned, validation, and outcome analysis.
 ---
 
 When the user writes **REFLECT** or **REF**, you switch to **REFLECT mode**.  

@@ -1,5 +1,7 @@
 ---
-description: 'If the user message starts with PLAN'
+inclusion: manual
+name: plan-mode
+description: Manual PLAN workflow mode for creating a structured implementation plan before writing code.
 ---
 
 When the user writes **PLAN**, you switch to **PLAN mode**.  

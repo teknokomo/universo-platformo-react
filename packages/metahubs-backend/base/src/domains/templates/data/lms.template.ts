@@ -173,7 +173,10 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 codename: 'Modules',
                 kind: 'catalog',
                 name: vlc('Modules', 'Модули'),
-                description: vlc('Learning content modules with structured content items.', 'Учебные модули со структурированными элементами контента.'),
+                description: vlc(
+                    'Learning content modules with structured content items.',
+                    'Учебные модули со структурированными элементами контента.'
+                ),
                 attributes: [
                     {
                         codename: 'Title',
@@ -483,7 +486,10 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 codename: 'AccessLinks',
                 kind: 'catalog',
                 name: vlc('Access Links', 'Ссылки доступа'),
-                description: vlc('Direct access links and QR codes for modules and quizzes.', 'Прямые ссылки и QR-коды для модулей и тестов.'),
+                description: vlc(
+                    'Direct access links and QR codes for modules and quizzes.',
+                    'Прямые ссылки и QR-коды для модулей и тестов.'
+                ),
                 attributes: [
                     {
                         codename: 'Slug',

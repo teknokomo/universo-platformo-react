@@ -18,9 +18,19 @@ It combines SQL-first domain services with isolated DDL boundaries, template see
 ## Direct Standard Kind Contract
 
 - Standard metadata entity types use direct kind keys: `catalog`, `hub`, `set`, and `enumeration`.
+- Standard entity type definitions are stored rows in each metahub schema. Runtime services do not synthesize missing standard definitions from code.
+- Template presets are the only bootstrap source for standard type components, UI config, and resource surface metadata.
+- Standard rows cannot be created or deleted through the generic entity type API. Safe updates are limited to presentation and resource surface localized titles; structural component/config/route changes fail closed.
 - Platform-provided standard metadata requests enter through the entity-owned top-level routes and reuse entity-owned child controllers under `domains/entities/**`.
 - Template presets and default instances stay on direct standard kind keys instead of `custom.*-v2` aliases.
 - Publication, runtime, and schema seams classify standard metadata from stored entity definitions instead of V2-specific compatibility aliases.
+
+## Entity Resource Surface Labels
+
+- Shared Resources tab labels are owned by entity type metadata: `ui.resourceSurfaces[].title` stores VLC content for EN/RU and other locales.
+- `titleKey` is accepted only as a compatibility fallback. New standard presets store user-visible labels as localized entity metadata.
+- Publication snapshots include `entityTypeDefinitions`, so resource surface labels survive export/import and release bundle creation.
+- Application executable schema generation uses structural `snapshot.entities`; label-only resource surface edits affect metadata hashes but must not create DDL changes.
 
 ## Main Responsibilities
 

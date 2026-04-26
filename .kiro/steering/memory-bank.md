@@ -1,3 +1,9 @@
+---
+inclusion: auto
+name: memory-bank
+description: Use when the user asks to read, update, maintain, summarize, or use Memory Bank files, project memory, active context, progress, or system patterns.
+---
+
 # Rules for Memory Bank
 
 * **Always Use All Core Files:** Update and utilize all memory bank files appropriately (e.g. `projectbrief.md`, `productContext.md`, `activeContext.md`, `systemPatterns.md`, `techContext.md`, `progress.md`, `tasks.md`, `currentResearch.md`). Do not ignore any core file.

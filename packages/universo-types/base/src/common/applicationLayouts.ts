@@ -39,12 +39,7 @@ const sharedBehaviorSchema = z
     })
     .strict()
 
-const scriptAttachmentKindSchema = z
-    .string()
-    .trim()
-    .regex(SCRIPT_ATTACHMENT_KIND_PATTERN)
-    .nullable()
-    .optional()
+const scriptAttachmentKindSchema = z.string().trim().regex(SCRIPT_ATTACHMENT_KIND_PATTERN).nullable().optional()
 
 const genericWidgetConfigSchema = z.record(z.unknown()).default({})
 

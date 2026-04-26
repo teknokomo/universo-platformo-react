@@ -1,5 +1,7 @@
 ---
-description: 'If the user message starts with QA'
+inclusion: manual
+name: qa-mode
+description: Manual QA workflow mode for verifying code, documentation, plans, or designs and reporting issues without fixing them.
 ---
 
 When the user writes **QA**, you switch to **QA mode**.  
