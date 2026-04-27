@@ -63,6 +63,9 @@ Custom entity types let a metahub define new authoring and runtime sections on t
 ![Create Entity Type dialog](../.gitbook/assets/entities/metahub-entities-create-dialog.png)
 The current browser proof and generated screenshots use the shared entity workspace and the create dialog shown above.
 
+![Entity types workspace](../.gitbook/assets/entities/entities-workspace.png)
+The workspace lists the current standard presets and custom types before users open an instance-specific authoring surface.
+
 ![Resources workspace](../.gitbook/assets/entities/resources-workspace.png)
 Shared resource tabs now use entity-type configuration. The labels shown in the browser are resolved from persisted resource surface localized titles.
 

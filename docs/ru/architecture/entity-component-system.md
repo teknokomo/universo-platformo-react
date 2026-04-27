@@ -1,57 +1,57 @@
 ---
-description: Архитектура Entity-Component-Action-Event для пользовательских типов сущностей в metahub.
+description: Архитектура Entity-Component-Action-Event для пользовательских типов сущностей в метахабе.
 ---
 
-# Entity Component System
+# Система Entity Component
 
-Слой Entity-Component-Action-Event (ECAE) добавляет пользовательские и standard типы сущностей metahub через одну entity-owned route model, опирающуюся на shared authoring surfaces.
+Слой Entity-Component-Action-Event (ECAE) добавляет пользовательские и стандартные типы сущностей метахаба через одну модель маршрутов, принадлежащих сущностям, с опорой на общие поверхности проектирования.
 
-## Purpose
+## Назначение
 
 - Удерживать новое доменное моделирование внутри одного универсального пайплайна сущностей.
-- Переиспользовать существующие сервисы authoring metahub и поток runtime publication.
-- Публиковать entity-based разделы, такие как Hubs, Catalogs, Sets и Enumerations, через metadata, а не через хардкод меню.
+- Переиспользовать существующие сервисы проектирования метахаба и поток рантайм-публикации.
+- Публиковать разделы на основе сущностей, такие как Hubs, Catalogs, Sets и Enumerations, через метаданные, а не через хардкод меню.
 
-## Core Model
+## Основная модель
 
-1. Определения типов сущностей описывают kind key, presentation, component manifest и UI metadata.
-2. Components включают возможности вроде data schema, hierarchy, relations, actions, events, layout и scripting.
-3. Actions остаются object-owned строками в `_mhb_actions` и представляют исполняемое lifecycle behavior.
-4. Event bindings остаются object-owned строками в `_mhb_event_bindings` и связывают события с actions.
+1. Определения типов сущностей описывают kind key, представление, манифест компонентов и UI-метаданные.
+2. Компоненты включают возможности вроде схемы данных, иерархии, связей, действий, событий, макетов и скриптов.
+3. Actions остаются строками `_mhb_actions`, принадлежащими объекту, и представляют исполняемое поведение жизненного цикла.
+4. Event bindings остаются строками `_mhb_event_bindings`, принадлежащими объекту, и связывают события с действиями.
 
-## Resource Surfaces
+## Ресурсные поверхности
 
-- Вкладки раздела `Ресурсы` задаются persisted metadata `ui.resourceSurfaces` в строках типов сущностей.
+- Вкладки раздела `Ресурсы` задаются сохранёнными метаданными `ui.resourceSurfaces` в строках типов сущностей.
 - Видимое название вкладки берётся из `ui.resourceSurfaces[].title` в VLC-формате.
-- `titleKey` остаётся только fallback-ом совместимости; новые standard presets хранят локализованные названия прямо в metadata сущности.
-- Сервисы больше не синтезируют standard definitions из кода, если в `_mhb_entity_type_definitions` нет строки. Отсутствующая metadata должна fail closed.
-- Publication snapshots сохраняют `entityTypeDefinitions`, а canonical publication hash учитывает эту metadata.
-- Application executable schema по-прежнему строится из structural `snapshot.entities`, поэтому изменение только названия resource surface не создаёт DDL changes.
+- `titleKey` остаётся только fallback-ом совместимости; новые стандартные пресеты хранят локализованные названия прямо в метаданных сущности.
+- Сервисы больше не синтезируют стандартные определения из кода, если в `_mhb_entity_type_definitions` нет строки. Отсутствующие метаданные должны завершаться закрыто.
+- Снимки публикаций сохраняют `entityTypeDefinitions`, а канонический хеш публикации учитывает эти метаданные.
+- Исполняемая схема приложения по-прежнему строится из структурных `snapshot.entities`, поэтому изменение только названия ресурсной поверхности не создаёт DDL-изменений.
 
-## Current Boundaries
+## Текущие границы
 
-- Generic entity instance routes по-прежнему сфокусированы на настоящих custom kinds.
-- Standard metadata kinds входят через entity-owned routes и переиспользуют соответствующие authoring surfaces underneath.
-- Shared services и adapters позволяют custom kinds переиспользовать существующие seams для attributes, layouts и publication.
-- Runtime consumers разрешают section-oriented aliases из published entity metadata до отката к более старым naming aliases.
+- Общие маршруты экземпляров сущностей по-прежнему сфокусированы на настоящих пользовательских видах.
+- Стандартные виды метаданных входят через маршруты, принадлежащие сущностям, и переиспользуют соответствующие поверхности проектирования.
+- Общие сервисы и адаптеры позволяют пользовательским видам переиспользовать существующие точки расширения для атрибутов, макетов и публикации.
+- Рантайм-потребители разрешают ориентированные на разделы aliases из опубликованных метаданных сущностей до отката к более старым naming aliases.
 
-## Builder Flow
+## Поток конструктора
 
-1. Создайте тип из workspace Entities или из reusable preset.
-2. Включайте только те components, которые уже genericized или adapter-backed.
-3. Сохраните тип и редактируйте экземпляры из сгенерированной entity-owned поверхности.
-4. Отметьте тип как published, когда он должен появиться в dynamic menu zone.
-5. Опубликуйте metahub и выполните sync связанного application перед проверкой runtime.
+1. Создайте тип из рабочего пространства Entities или из переиспользуемого пресета.
+2. Включайте только те компоненты, которые уже обобщены или поддержаны адаптером.
+3. Сохраните тип и редактируйте экземпляры из сгенерированной поверхности, принадлежащей сущности.
+4. Отметьте тип как опубликованный, когда он должен появиться в динамической зоне меню.
+5. Опубликуйте метахаб и выполните синхронизацию связанного приложения перед проверкой рантайма.
 
-## Route Ownership Rules
+## Правила владения маршрутами
 
-- Standard Hubs, Catalogs, Sets и Enumerations публикуются через прямые standard kind keys.
-- Entity-owned routes переиспользуют соответствующие authoring primitives вместо введения второго CRUD shell.
-- Browser validation должна покрывать design-time workspace flows, entity-owned standard routes и publication/runtime path.
-- Runtime navigation материализует разделы, описанные published entity metadata и текущими runtime adapters.
+- Стандартные Hubs, Catalogs, Sets и Enumerations публикуются через прямые стандартные kind keys.
+- Маршруты, принадлежащие сущностям, переиспользуют соответствующие примитивы проектирования вместо введения второго CRUD shell.
+- Браузерная валидация должна покрывать потоки проектных рабочих пространств, стандартные маршруты сущностей и путь публикации/рантайма.
+- Рантайм-навигация материализует разделы, описанные опубликованными метаданными сущностей и текущими рантайм-адаптерами.
 
 ## Related Packages
 
-- `@universo/metahubs-backend` владеет entity definitions, actions, event bindings и publication metadata.
-- `@universo/metahubs-frontend` владеет workspace Entities и authoring экземпляров custom entity.
-- `@universo/applications-backend` и `@universo/applications-frontend` потребляют published sections в runtime.
+- `@universo/metahubs-backend` владеет определениями сущностей, действиями, привязками событий и метаданными публикаций.
+- `@universo/metahubs-frontend` владеет рабочим пространством Entities и проектированием экземпляров пользовательских сущностей.
+- `@universo/applications-backend` и `@universo/applications-frontend` потребляют опубликованные разделы в рантайме.

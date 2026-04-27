@@ -7,6 +7,8 @@ description: Platform reference for shared library scripts authored from the Res
 Shared scripts are the Resources-workspace library modules that publish reusable helpers for other metahub scripts.
 They are import-only design assets and are not exposed as direct runtime entrypoints.
 
+![Shared script authoring surface in the metahub scripts dialog](../../.gitbook/assets/quiz-tutorial/metahub-scripts.png)
+
 ## Authoring Rules
 
 - Create shared scripts only from the Scripts tab in the Resources workspace.

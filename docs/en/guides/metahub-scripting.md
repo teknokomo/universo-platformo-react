@@ -30,6 +30,8 @@ Scripts currently cover four product needs:
 
 ## Authoring Workflow
 
+![Metahub scripts dialog](../.gitbook/assets/quiz-tutorial/metahub-scripts.png)
+
 1. Open the Scripts tab in the Resources workspace for shared libraries, or on the metahub / specific attached entity for consumers.
 2. Create a new script and choose the module role before editing code.
 3. Keep the source kind as Embedded and declare only the capabilities the script really needs.

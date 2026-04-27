@@ -1,14 +1,16 @@
 ---
-description: Introduce UPDL as an evolving description system for shared platform structures.
+description: Introduce UPDL as a description system for shared platform structures.
 ---
 
 # UPDL
 
-UPDL is the repository's evolving description language for shared structures,
-portable definitions, and future cross-stack modeling workflows.
+UPDL is the repository's description language for shared structures and
+portable definitions.
 
 In the current platform direction, it is best treated as a broader language
 layer for describing entities, relations, behaviors, and exportable structures.
+
+![Entity workspace as structured modeling surface](../../.gitbook/assets/entities/entities-workspace.png)
 
 ## Node Families
 

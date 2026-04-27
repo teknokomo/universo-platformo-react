@@ -4,8 +4,8 @@ description: How to think about export across multiple technology stacks.
 
 # Multi-Platform Export
 
-Multi-platform export in Universo Platformo is a strategic property of the
-platform. Not every current feature is expected to ship everywhere today.
+Multi-platform export in Universo Platformo is handled through portable
+definitions and controlled adaptation between implementations.
 
 ## Recommended Approach
 
@@ -13,6 +13,6 @@ platform. Not every current feature is expected to ship everywhere today.
 2. Separate design-time structures from stack-specific runtime details.
 3. Identify what can stay shared across implementations and what needs adaptation.
 4. Validate exports against the target stack and document any adaptation gaps.
-5. Treat the React repository as the main public reference, not the only future client.
+5. Treat the React repository as the main public reference implementation.
 
 This keeps export discussions grounded in current architecture and delivery reality.

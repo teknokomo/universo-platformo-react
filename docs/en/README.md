@@ -13,16 +13,15 @@ reference implementation of Universo Platformo.
 | Area | Purpose |
 | --- | --- |
 | Getting Started | Install, configure, build, and run the repository safely. |
-| Platform | Explain the current platform scope, domain modules, and planned layers. |
+| Platform | Explain the current platform scope and domain modules. |
 | Architecture | Describe the monorepo, backend, frontend, database, and auth patterns. |
 | API Reference | Explain the public REST surface and where OpenAPI docs come from. |
 | Contributing | Document local workflow, coding rules, and package creation patterns. |
 
 ## Current Product Position
 
-Universo Platformo is being shaped as an ERP-class and CMS-capable platform for
-organizations, digital services, operational processes, knowledge spaces, and
-future robot-assisted production flows.
+Universo Platformo is an ERP-class and CMS-capable platform direction for
+organizations, digital services, operational processes, and knowledge spaces.
 
 The repository in this workspace is the most complete public implementation for
 platform bootstrap, package boundaries, migrations, authentication, onboarding,

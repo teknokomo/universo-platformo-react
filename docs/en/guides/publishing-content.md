@@ -9,6 +9,8 @@ runtime surfaces.
 
 ## Recommended Approach
 
+![Publications list](../.gitbook/assets/platform/publications-list.png)
+
 1. Prepare the metahub or source structure you want to release.
 2. Decide what must be versioned and what can remain editable.
 3. Create or update the publication entity and its versions explicitly.
@@ -16,3 +18,5 @@ runtime surfaces.
 5. Validate the final result through the relevant UI, API, or tests.
 
 The key idea is controlled release and traceability, not one-click sharing.
+
+![Publication versions](../.gitbook/assets/platform/publication-versions.png)

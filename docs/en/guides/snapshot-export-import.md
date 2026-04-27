@@ -8,6 +8,8 @@ Snapshot export/import enables you to capture the full state of a metahub
 (or a specific publication version) as a portable JSON envelope and restore it
 in the same or a different Universo Platformo instance.
 
+![Metahub create and import menu](../.gitbook/assets/entities/metahub-create-dialog.png)
+
 ## Overview
 
 A **snapshot envelope** is a self-contained JSON file that includes:

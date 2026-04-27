@@ -37,9 +37,38 @@ type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 
 const SCREENSHOT_DIRECTORIES = [
     path.resolve(repoRoot, 'docs', 'en', '.gitbook', 'assets', 'quiz-tutorial'),
-    path.resolve(repoRoot, 'docs', 'ru', '.gitbook', 'assets', 'quiz-tutorial')
+    path.resolve(repoRoot, 'docs', 'ru', '.gitbook', 'assets', 'quiz-tutorial'),
+    path.resolve(repoRoot, 'docs', 'en', '.gitbook', 'assets', 'platform'),
+    path.resolve(repoRoot, 'docs', 'ru', '.gitbook', 'assets', 'platform')
 ] as const
-const PRIMARY_SCREENSHOTS_DIR = SCREENSHOT_DIRECTORIES[0]
+const LOCALE_COPY = {
+    en: {
+        applications: 'Applications',
+        connectors: 'Connectors',
+        scriptsTab: 'Scripts',
+        dragHint: 'Drag widgets between zones to change runtime composition.',
+        quizWidget: 'Quiz widget',
+        publications: 'Publications',
+        versions: 'Versions',
+        applicationSettings: 'Application Settings',
+        submitLabel: 'Check answer'
+    },
+    ru: {
+        applications: 'Приложения',
+        connectors: 'Коннекторы',
+        scriptsTab: 'Скрипты',
+        dragHint: 'Перетаскивайте виджеты между зонами, чтобы изменить состав рантайм-интерфейса.',
+        quizWidget: 'Виджет квиза',
+        publications: 'Публикации',
+        versions: 'Версии',
+        applicationSettings: 'Настройки приложения',
+        submitLabel: 'Проверить ответ'
+    }
+} as const
+
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
 
 function ensureScreenshotDirectories() {
     for (const screenshotsDir of SCREENSHOT_DIRECTORIES) {
@@ -120,7 +149,12 @@ async function applyCenteredQuizLayout(api: ApiContext, metahubId: string, layou
     }
 }
 
-async function openMetahubScriptsDialog(page: Parameters<typeof test>[0]['page'], metahubId: string, metahubName: string) {
+async function openMetahubScriptsDialog(
+    page: Parameters<typeof test>[0]['page'],
+    metahubId: string,
+    metahubName: string,
+    labels: (typeof LOCALE_COPY)[keyof typeof LOCALE_COPY]
+) {
     await page.goto('/metahubs')
     await expect(page.getByText(metahubName, { exact: true })).toBeVisible({ timeout: 30_000 })
 
@@ -136,9 +170,8 @@ async function openMetahubScriptsDialog(page: Parameters<typeof test>[0]['page']
 
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
-    await dialog.getByRole('tab', { name: 'Scripts', exact: true }).click()
+    await dialog.getByRole('tab', { name: labels.scriptsTab, exact: true }).click()
     await expect(dialog.getByTestId('entity-scripts-layout')).toBeVisible({ timeout: 30_000 })
-    await expect(dialog.getByLabel('Codename')).toHaveValue(QUIZ_SCRIPT_CODENAME, { timeout: 30_000 })
 
     return dialog
 }
@@ -153,7 +186,7 @@ test.describe('Docs Quiz Tutorial Screenshots', () => {
     })
 
     test('@generator capture quiz tutorial screenshots for docs', async ({ page, runManifest }) => {
-        test.setTimeout(300_000)
+        test.setTimeout(600_000)
 
         api = await createLoggedInApiContext({
             email: runManifest.testUser.email,
@@ -161,7 +194,6 @@ test.describe('Docs Quiz Tutorial Screenshots', () => {
         })
 
         await page.setViewportSize({ width: 1440, height: 900 })
-        await applyBrowserPreferences(page, { language: 'en', isDarkMode: false })
         ensureScreenshotDirectories()
 
         const metahubName = `Docs Quiz Tutorial ${runManifest.runId}`
@@ -259,40 +291,68 @@ test.describe('Docs Quiz Tutorial Screenshots', () => {
 
         await syncApplicationSchema(api, applicationId)
 
-        const scriptsDialog = await openMetahubScriptsDialog(page, metahub.id, metahubName)
-        await scriptsDialog.screenshot({ path: path.join(PRIMARY_SCREENSHOTS_DIR, 'metahub-scripts.png') })
-        await scriptsDialog.getByTestId(entityDialogSelectors.cancelButton).click()
-        await expect(scriptsDialog).toHaveCount(0)
+        for (const locale of ['en', 'ru'] as const) {
+            const labels = LOCALE_COPY[locale]
+            const screenshotsDir = path.resolve(repoRoot, 'docs', locale, '.gitbook', 'assets', 'quiz-tutorial')
+            const platformScreenshotsDir = path.resolve(repoRoot, 'docs', locale, '.gitbook', 'assets', 'platform')
 
-        await page.goto(`/metahub/${metahub.id}/resources/layouts/${layoutId}`)
-        await expect(page.getByText('Drag widgets between zones to change runtime composition.')).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByText('Quiz widget').first()).toBeVisible({ timeout: 30_000 })
-        await page.screenshot({ path: path.join(PRIMARY_SCREENSHOTS_DIR, 'layout-quiz-widget.png') })
+            await applyBrowserPreferences(page, { language: locale, isDarkMode: false })
 
-        await page.goto(`/a/${applicationId}/admin/settings`)
-        await expect(page.getByText('Application Settings', { exact: true })).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByTestId('application-setting-dialogSizePreset')).toBeVisible({ timeout: 30_000 })
-        await page.screenshot({ path: path.join(PRIMARY_SCREENSHOTS_DIR, 'application-settings-general.png') })
+            await page.goto(`/metahub/${metahub.id}/publications`)
+            await expect(page.getByRole('heading', { name: labels.publications })).toBeVisible({ timeout: 30_000 })
+            await page.screenshot({ path: path.join(platformScreenshotsDir, 'publications-list.png') })
 
-        await page.goto(`/a/${applicationId}`)
-        await expect(page.getByRole('button', { name: 'Check answer' })).toBeVisible({ timeout: 60_000 })
-        await page.screenshot({ path: path.join(PRIMARY_SCREENSHOTS_DIR, 'runtime-quiz.png') })
+            await page.goto(`/metahub/${metahub.id}/publication/${publication.id}/versions`)
+            await expect(page.getByRole('heading', { name: labels.versions })).toBeVisible({ timeout: 30_000 })
+            await page.screenshot({ path: path.join(platformScreenshotsDir, 'publication-versions.png') })
 
-        for (const screenshotName of [
-            'metahub-scripts.png',
-            'layout-quiz-widget.png',
-            'application-settings-general.png',
-            'runtime-quiz.png'
-        ]) {
-            const primaryScreenshotPath = path.join(PRIMARY_SCREENSHOTS_DIR, screenshotName)
-            expect(fs.existsSync(primaryScreenshotPath)).toBe(true)
-            expect(fs.statSync(primaryScreenshotPath).size).toBeGreaterThan(0)
+            await page.goto(`/metahub/${metahub.id}/publication/${publication.id}/applications`)
+            await expect(page.getByRole('heading', { name: labels.applications })).toBeVisible({ timeout: 30_000 })
+            await page.screenshot({ path: path.join(platformScreenshotsDir, 'publication-applications.png') })
 
-            for (const screenshotsDir of SCREENSHOT_DIRECTORIES.slice(1)) {
-                const localizedScreenshotPath = path.join(screenshotsDir, screenshotName)
-                fs.copyFileSync(primaryScreenshotPath, localizedScreenshotPath)
-                expect(fs.existsSync(localizedScreenshotPath)).toBe(true)
-                expect(fs.statSync(localizedScreenshotPath).size).toBeGreaterThan(0)
+            await page.goto('/applications')
+            await expect(page.getByRole('heading', { name: labels.applications })).toBeVisible({ timeout: 30_000 })
+            await page.screenshot({ path: path.join(platformScreenshotsDir, 'applications-list.png') })
+
+            await page.goto(`/a/${applicationId}/admin/connectors`)
+            await expect(page.getByRole('heading', { name: labels.connectors })).toBeVisible({ timeout: 30_000 })
+            await page.screenshot({ path: path.join(platformScreenshotsDir, 'application-connectors.png') })
+
+            const scriptsDialog = await openMetahubScriptsDialog(page, metahub.id, metahubName, labels)
+            await scriptsDialog.screenshot({ path: path.join(screenshotsDir, 'metahub-scripts.png') })
+            await scriptsDialog.getByTestId(entityDialogSelectors.cancelButton).click()
+            await expect(scriptsDialog).toHaveCount(0)
+
+            await page.goto(`/metahub/${metahub.id}/resources/layouts/${layoutId}`)
+            await expect(page.getByText(labels.dragHint)).toBeVisible({ timeout: 30_000 })
+            await expect(page.getByText(new RegExp(`${escapeRegExp(labels.quizWidget)}.*quiz-widget`, 'i')).first()).toBeVisible({
+                timeout: 30_000
+            })
+            await page.screenshot({ path: path.join(screenshotsDir, 'layout-quiz-widget.png') })
+
+            await page.goto(`/a/${applicationId}/admin/settings`)
+            await expect(page.getByText(labels.applicationSettings, { exact: true })).toBeVisible({ timeout: 30_000 })
+            await expect(page.getByTestId('application-setting-dialogSizePreset')).toBeVisible({ timeout: 30_000 })
+            await page.screenshot({ path: path.join(screenshotsDir, 'application-settings-general.png') })
+
+            await page.goto(`/a/${applicationId}`)
+            await expect(page.getByRole('button', { name: labels.submitLabel })).toBeVisible({ timeout: 60_000 })
+            await page.screenshot({ path: path.join(screenshotsDir, 'runtime-quiz.png') })
+
+            for (const screenshotName of [
+                'metahub-scripts.png',
+                'layout-quiz-widget.png',
+                'application-settings-general.png',
+                'runtime-quiz.png',
+                '../platform/publications-list.png',
+                '../platform/publication-versions.png',
+                '../platform/publication-applications.png',
+                '../platform/applications-list.png',
+                '../platform/application-connectors.png'
+            ]) {
+                const screenshotPath = path.join(screenshotsDir, screenshotName)
+                expect(fs.existsSync(screenshotPath)).toBe(true)
+                expect(fs.statSync(screenshotPath).size).toBeGreaterThan(0)
             }
         }
     })

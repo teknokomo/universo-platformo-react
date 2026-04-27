@@ -1,20 +1,21 @@
 ---
-description: Describe builder flows, templates, and future generation assistance.
+description: Describe current builder flows and template authoring.
 ---
 
 # Builder Flows
 
-Builder tooling in Universo Platformo should be understood as structured authoring
-assistance, template assembly, and future generation workflows around platform
-entities.
+Builder tooling in Universo Platformo is documented as structured authoring,
+template assembly, and controlled handoff from design-time work to publication.
 
-## Current Direction
+## Current Scope
+
+![Layout builder surface](../.gitbook/assets/quiz-tutorial/layout-quiz-widget.png)
 
 The public repository already contains reusable templates, structured domain
 entities, migration-aware definitions, and documentation of shared package
-boundaries that future builder experiences can rely on.
+boundaries used by the current authoring surfaces.
 
-## Planned Expansion
+## Practical Use
 
 - Guided creation of platform structures and applications.
 - Better template-driven composition across domains.
@@ -22,3 +23,5 @@ boundaries that future builder experiences can rely on.
 - Safer handoff from design-time editing to publication or runtime execution.
 
 The important point is repeatable structure and governance, not novelty alone.
+
+![Publication application handoff](../.gitbook/assets/platform/publication-applications.png)

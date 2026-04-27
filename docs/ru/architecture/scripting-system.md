@@ -1,34 +1,34 @@
 ---
-description: Архитектура перехода от design-time к runtime для системы scripting в метахабах.
+description: Архитектура перехода от проектирования к рантайму для системы скриптов в метахабах.
 ---
 
 # Система скриптов
 
-Система скриптов разделена на слои design-time authoring, publication и runtime execution.
-Каждый слой нормализует один и тот же shared manifest contract, чтобы роль, source kind и capabilities оставались согласованными.
+Система скриптов разделена на слои проектирования, публикации и рантайм-выполнения.
+Каждый слой нормализует один и тот же общий контракт манифеста, чтобы роль, тип источника и возможности оставались согласованными.
 
 ## Поток
 
-1. В authoring-слое metahub сохраняются source code, scope привязки, роль модуля, source kind, объявленные capabilities и метаданные привязки Common/library.
-2. Scripting engine валидирует чистые shared libraries, разрешает импорты `@shared/<codename>`, компилирует исходник в server и client bundles и формирует нормализованный manifest.
-3. Publication sync копирует активные consumer scripts в runtime-таблицы приложения с уникальностью codename в рамках scope, а shared-library logic остаётся доступной через скомпилированные consumer-ы.
-4. Runtime list endpoints отдают только metadata, а client bundle загружается через отдельный endpoint с ETag.
-5. Server execution использует isolated-vm с пулом isolate-ов, health monitoring и capability-gated context bridge.
+1. В проектном слое метахаба сохраняются исходный код, область привязки, роль модуля, тип источника, объявленные возможности и метаданные привязки Common/library.
+2. Движок скриптов валидирует чистые общие библиотеки, разрешает импорты `@shared/<codename>`, компилирует исходник в серверные и клиентские бандлы и формирует нормализованный манифест.
+3. Синхронизация публикации копирует активные потребляющие скрипты в рантайм-таблицы приложения с уникальностью `codename` в рамках области, а логика общих библиотек остаётся доступной через скомпилированных потребителей.
+4. Конечные точки списка рантайма отдают только метаданные, а клиентский бандл загружается через отдельную конечную точку с ETag.
+5. Серверное выполнение использует isolated-vm с пулом isolate-ов, мониторингом здоровья и context bridge под контролем возможностей.
 
 ## Границы безопасности
 
 - Во v1 поддерживается только embedded-authoring.
-- Embedded-скрипты могут импортировать `@universo/extension-sdk`, а consumer scripts могут дополнительно импортировать библиотеки рабочего пространства ресурсов через `@shared/<codename>`; остальные static imports, `require()`, dynamic `import()` и `import.meta` завершают compilation с ошибкой.
-- Scope привязки `general` зарезервирован для `library`, а новый authoring `library` вне рабочей области Resources отклоняется до сохранения bundles.
-- Shared libraries должны оставаться чистыми: decorators, runtime ctx access и исполняемые runtime entrypoints отклоняются на этапе validation.
-- Dependency-sensitive удаление shared-library, смена codename и циклы `@shared/*` завершаются fail-closed до того, как publication sync сможет произвести runtime state.
-- Capabilities работают по deny-by-default модели, а недоступные API выбрасывают явные runtime errors.
-- Клиентское выполнение требует browser runtime с Worker вместо fallback на main thread.
-- Browser worker runtime отключает ambient network, nested-worker и dynamic-code globals до загрузки client bundle.
+- Embedded-скрипты могут импортировать `@universo/extension-sdk`, а потребляющие скрипты могут дополнительно импортировать библиотеки рабочего пространства ресурсов через `@shared/<codename>`; остальные static imports, `require()`, dynamic `import()` и `import.meta` завершают компиляцию с ошибкой.
+- Область привязки `general` зарезервирована для `library`, а новый `library` вне рабочей области Resources отклоняется до сохранения бандлов.
+- Общие библиотеки должны оставаться чистыми: decorators, доступ к runtime ctx и исполняемые рантайм-точки входа отклоняются на этапе валидации.
+- Чувствительное к зависимостям удаление общей библиотеки, смена `codename` и циклы `@shared/*` завершаются закрыто до того, как синхронизация публикации сможет произвести рантайм-состояние.
+- Возможности работают по модели deny-by-default, а недоступные API выбрасывают явные рантайм-ошибки.
+- Клиентское выполнение требует браузерный рантайм с Worker вместо fallback на main thread.
+- Браузерный worker-рантайм отключает ambient network, nested-worker и dynamic-code globals до загрузки клиентского бандла.
 - Lifecycle dispatch пропускает скрипты, которые не объявляют capability lifecycle.
 
 ## Связанные поверхности
 
-- `@universo/extension-sdk` задаёт author-facing base class и decorators.
-- `@universo/scripting-engine` отвечает за compilation, bundle splitting, isolate pooling и health monitoring.
-- Runtime routes applications отдают list, client bundle и server call endpoints для опубликованных скриптов.
+- `@universo/extension-sdk` задаёт базовый класс для автора и decorators.
+- `@universo/scripting-engine` отвечает за компиляцию, разделение бандлов, пул isolate-ов и мониторинг здоровья.
+- Рантайм-маршруты приложений отдают список, клиентский бандл и конечные точки серверного вызова для опубликованных скриптов.

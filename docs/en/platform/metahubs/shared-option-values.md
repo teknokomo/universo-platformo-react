@@ -9,6 +9,10 @@ They let one value definition stay reusable while multiple enumeration-compatibl
 
 ![Shared values](../../.gitbook/assets/entities/shared-values.png)
 
+Target enumeration instances show inherited and local values in the focused option-values view.
+
+![Enumeration values](../../.gitbook/assets/entities/enumeration-option-values.png)
+
 ## Design-Time Rules
 
 - Create the value from the Values tab when the same meaning must appear in more than one enumeration or compatible entity type.

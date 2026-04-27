@@ -28,8 +28,9 @@ package:
 | metahubs       | `packages/metahubs-backend/base/src/platform/systemAppDefinition.ts`   |
 | applications   | `packages/applications-backend/base/src/platform/systemAppDefinition.ts` |
 
-The manifest declares business tables, fields, data types, and capabilities.
-It is the single source of truth for the schema shape of each system app.
+The manifest declares business tables, fields, data types, and
+capabilities. It is the single source of truth for the schema shape of
+each system app.
 
 ## Step-by-Step: Adding a New Field
 
@@ -155,7 +156,8 @@ pnpm migration system-app-schema-apply
 # Bootstrap structure metadata (_app_objects, _app_attributes)
 pnpm migration system-app-schema-bootstrap
 
-# Run full platform health check including system app validation
+# Run full platform health check
+# including system app validation
 pnpm migration doctor
 ```
 

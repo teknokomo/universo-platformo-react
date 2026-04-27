@@ -8,6 +8,8 @@ In the current repository, creating an application usually involves application
 metadata, memberships, publication links,
 controlled schema behavior, and frontend or backend package integration.
 
+![Application settings](../.gitbook/assets/quiz-tutorial/application-settings-general.png)
+
 ## Recommended Approach
 
 1. Decide the immutable application parameters first:

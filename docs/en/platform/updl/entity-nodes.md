@@ -7,6 +7,8 @@ description: Explain the role of entity nodes in UPDL.
 Entity nodes describe the main objects of a domain: people, records, assets,
 documents, templates, devices, or other meaningful units.
 
+![Entity workspace for domain object modeling](../../.gitbook/assets/entities/entities-workspace.png)
+
 ## Typical Responsibilities
 
 - Define the identity of a domain object.

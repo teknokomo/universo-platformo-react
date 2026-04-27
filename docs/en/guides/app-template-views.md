@@ -8,11 +8,12 @@ The apps-template-mui dashboard supports configurable view modes that allow
 end users to switch between table and card layouts, filter data with a search
 bar, and customize row display settings.
 
-Layout authoring now lives under Common -> Layouts inside the metahub.
-Legacy `/layouts` links still redirect there,
-but this guide uses the new navigation path.
+Layout authoring lives under Resources -> Layouts inside the metahub.
+This guide uses that canonical navigation path.
 
 ## View Settings Overview
+
+![Layout view settings](../.gitbook/assets/quiz-tutorial/layout-quiz-widget.png)
 
 View settings are stored in the metahub layout `config` JSONB field and are
 applied at runtime by the application dashboard. All settings are optional —
@@ -33,7 +34,7 @@ are configured.
 
 ### Via Layout Details UI
 
-1. Navigate to the metahub → Common → Layouts.
+1. Navigate to the metahub -> Resources -> Layouts.
 2. Select a layout to open its detail page.
 3. Scroll to the **Application View Settings** section.
 4. Toggle switches and select values for each setting.

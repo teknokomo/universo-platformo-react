@@ -72,6 +72,7 @@
 * [Development Setup](contributing/development-setup.md)
 * [Coding Guidelines](contributing/coding-guidelines.md)
 * [Creating Packages](contributing/creating-packages.md)
+* [Database Code Review Checklist](contributing/database-code-review-checklist.md)
 
 ## Guides
 
@@ -85,6 +86,10 @@
 * [Catalog Layouts](guides/catalog-layouts.md)
 * [Application Layouts](guides/application-layouts.md)
 * [Metahub Scripting](guides/metahub-scripting.md)
+* [Creating Applications](guides/creating-application.md)
+* [Publishing Content](guides/publishing-content.md)
+* [Working with UPDL](guides/working-with-updl.md)
+* [Multi-Platform Export](guides/multi-platform-export.md)
 * [Quiz Application Tutorial](guides/quiz-application-tutorial.md)
 * [Browser E2E Testing](guides/browser-e2e-testing.md)
 * [Updating System App Schemas](guides/updating-system-app-schemas.md)

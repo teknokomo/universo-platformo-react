@@ -1,30 +1,32 @@
 ---
-description: Справочная страница о точной разнице между библиотеками рабочего пространства ресурсов, metahub scripts и object-attached scripts.
+description: Справочная страница о точной разнице между библиотеками рабочего пространства ресурсов, скриптами метахаба и скриптами, привязанными к объектам.
 ---
 
-# Script Scopes
+# Области скриптов
 
-Metahub scripting использует один manifest contract, но scope привязки определяет, где script может жить и как он применяется.
-Сначала выбирайте scope, а затем совместимую module role и runtime behavior.
+Скрипты метахаба используют единый контракт манифеста, но область привязки определяет, где может находиться скрипт и как он применяется.
+Сначала выбирайте область, а затем совместимую роль модуля и поведение в рантайме.
 
-## Матрица scope
+![Диалог скриптов метахаба с поверхностью настройки областей](../../.gitbook/assets/quiz-tutorial/metahub-scripts.png)
 
-| Scope | Allowed roles | Direct runtime entrypoint | Typical use |
+## Матрица областей
+
+| Область | Разрешённые роли | Прямой рантайм-вход | Типичное использование |
 | --- | --- | --- | --- |
-| `general` | `library` only | No | Shared helper-ы рабочего пространства ресурсов, импортируемые через `@shared/<codename>`. |
-| `metahub` | `module`, `lifecycle`, `widget` | Yes | Runtime logic и widgets на уровне metahub. |
-| `hub` / `catalog` / `set` / `enumeration` / `attribute` | `module`, `lifecycle`, `widget` | Yes | Object-attached consumer-ы рядом с одной design surface. |
+| `general` | только `library` | Нет | Общие вспомогательные модули рабочего пространства ресурсов, импортируемые через `@shared/<codename>`. |
+| `metahub` | `module`, `lifecycle`, `widget` | Да | Рантайм-логика и виджеты на уровне метахаба. |
+| `hub` / `catalog` / `set` / `enumeration` / `attribute` | `module`, `lifecycle`, `widget` | Да | Потребительские скрипты, привязанные к одному объекту проектирования. |
 
 ## Правила выбора
 
-- Выбирайте `general/library`, когда code должен переиспользоваться и импортироваться другими scripts.
-- Выбирайте executable scopes, когда script должен прикрепляться к metahub или одному object и участвовать в runtime delivery.
-- Не используйте decorators и runtime ctx access внутри `library` code.
-- Публикуйте и синхронизируйте приложение перед проверкой поведения выбранного consumer-а в linked application.
+- Выбирайте `general/library`, когда код должен переиспользоваться и импортироваться другими скриптами.
+- Выбирайте исполняемые области, когда скрипт должен прикрепляться к метахабу или одному объекту и участвовать в рантайм-доставке.
+- Не используйте декораторы и доступ к рантайм-контексту внутри кода `library`.
+- Публикуйте и синхронизируйте приложение перед проверкой поведения выбранного потребительского скрипта в связанном приложении.
 
 ## Что читать дальше
 
-- [Shared Scripts](shared-scripts.md)
-- [Metahub Scripts](scripts.md)
-- [Metahub Scripting Guide](../../guides/metahub-scripting.md)
-- [Scripting System](../../architecture/scripting-system.md)
+- [Общие скрипты](shared-scripts.md)
+- [Скрипты метахаба](scripts.md)
+- [Руководство по скриптам метахаба](../../guides/metahub-scripting.md)
+- [Система скриптов](../../architecture/scripting-system.md)

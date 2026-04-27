@@ -47,6 +47,76 @@
 | 0.22.0-alpha | 2025-07-27 | 0.22.0 Alpha — 2025-07-27 (Global Impulse) ⚡️ | Memory Bank, MMOOMM improvements |
 | 0.21.0-alpha | 2025-07-20 | 0.21.0 Alpha — 2025-07-20 (Firm Resolve) 💪 | Handler refactoring, PlayCanvas stabilization |
 
+## 2026-04-27 GitBook Documentation Final QA Remediation
+
+Closed the final QA findings from the GitBook refresh implementation.
+
+| Area | Resolution |
+| --- | --- |
+| Roadmap wording | Removed the remaining planned-layer wording from `docs/README.md`; public documentation now keeps to current behavior and operational boundaries. |
+| Screenshot coverage | Increased screenshot-backed coverage from 20 to 33 pages per locale by placing stable Playwright-generated current UI images on LMS, workspace, publishing, UPDL, builder, analytics, simulation, and platform overview pages. |
+| Validation gate | Expanded `requiredScreenshotPages` so the additional workflow/platform pages cannot silently lose all screenshots. |
+| RU cleanup | Translated remaining avoidable English headings and prose in touched RU navigation, API, platform, and guide pages while keeping code/API identifiers intact. |
+| Plan alignment | Updated the refresh plan to include the admin generator and removed the unstable LMS docs-generator line after current LMS E2E helpers proved tied to obsolete catalog-kind lookup. |
+| Final inventory | Each locale now has 23 PNG GitBook assets, 60 Markdown image references, 33 pages with screenshots, and no unreferenced PNG assets. |
+| Validation | `pnpm docs:i18n:check`, `I18N_SCOPE=all pnpm docs:i18n:check`, `pnpm run build:e2e`, stale-term scans, asset inventory, and `git diff --check` passed. |
+
+## 2026-04-27 GitBook Documentation QA Findings Closure
+
+Closed the follow-up QA findings about remaining roadmap-like wording, screenshot coverage interpretation, and stale plan status.
+
+| Area | Resolution |
+| --- | --- |
+| Roadmap wording | Removed the remaining roadmap-like phrasing from `platform/spaces.md`, UPDL guide wording, and mirrored RU pages so public docs describe current implementation boundaries only. |
+| Screenshot coverage | Added current Playwright-generated screenshots to spaces, UPDL node-family pages, and metahub scripting/shared-behavior reference pages where images add useful product context. |
+| Screenshot policy | `tools/docs/check-i18n-docs.mjs` now enforces screenshots on every non-exempt product/workflow page and keeps API, architecture, contributing, setup, and index pages explicitly exempt. |
+| Plan alignment | Updated the GitBook refresh plan to record closure status, resolved decisions, and current inventory instead of stale pre-implementation findings. |
+| Final inventory | Each locale now has 23 PNG GitBook assets, 72 Markdown image references, 45 pages with screenshots, and no unreferenced PNG assets. |
+| Validation | `pnpm docs:i18n:check`, `I18N_SCOPE=all pnpm docs:i18n:check`, combined Playwright documentation generator grep, `pnpm run build:e2e`, stale scans, asset inventory, and `git diff --check` passed. |
+
+## 2026-04-27 GitBook Documentation Screenshot Coverage Completion
+
+Closed the remaining screenshot coverage debt from the GitBook documentation refresh without forcing non-informative images into API/reference pages.
+
+| Area | Resolution |
+| --- | --- |
+| Coverage policy | Defined a required screenshot set for workflow, operator, and product-surface pages while keeping reference-only pages text/table focused. |
+| Platform screenshots | Extended the quiz tutorial generator to capture current publications, publication versions, publication applications, application list, and application connector pages for both EN and RU. |
+| Admin screenshots | Added a dedicated Playwright generator for admin roles and admin settings screenshots in both locale roots. |
+| Documentation placement | Added mirrored EN/RU screenshots to quick start, admin, applications, publications, app-template views, and metahub scripting pages, with Russian prose cleaned up around the inserted images. |
+| Regression gate | Added required-page screenshot checks to `tools/docs/check-i18n-docs.mjs` so selected workflow pages cannot silently lose all images. |
+| Final inventory | Each locale now has 23 PNG GitBook assets, 38 Markdown image references, 20 pages with screenshots, and no unreferenced PNG assets. |
+| Validation | `pnpm run build:e2e`, admin and quiz Playwright generator greps, `pnpm docs:i18n:check`, `I18N_SCOPE=all pnpm docs:i18n:check`, stale-term scans, asset inventory, and `git diff --check` passed. |
+
+## 2026-04-27 GitBook Documentation Refresh QA Closure
+
+Closed the QA findings from the GitBook documentation refresh and validated the screenshot/documentation pipeline against the current UI.
+
+| Area | Resolution |
+| --- | --- |
+| Roadmap checks | Removed the temporary roadmap/plans banned-term rules from `tools/docs/check-i18n-docs.mjs` while preserving stale legacy/product terminology checks. |
+| Screenshot coverage | Referenced all current generated GitBook PNG assets from EN/RU pages where screenshots explain actual workflows; intentionally left API/reference-only pages image-free to avoid filler. |
+| Asset validation | Added checker coverage so every committed GitBook PNG asset under a locale root must be referenced by at least one Markdown page. |
+| Entity screenshots | Updated the entity documentation generator to capture the current create-entity dialog for EN/RU and to use stable current UI roles/labels. |
+| Quiz screenshots | Updated the quiz tutorial generator to capture EN and RU screenshots separately instead of copying English images into RU docs, and hardened localized widget checks. |
+| RU prose drift | Removed avoidable English prose fragments from the high-priority Russian GitBook pages and added drift-term coverage for the QA-found phrases. |
+| Validation | `pnpm run build:e2e`, both Playwright generator greps, `pnpm docs:i18n:check`, `I18N_SCOPE=all pnpm docs:i18n:check`, stale-term scans, asset inventory, and `git diff --check` passed. |
+
+## 2026-04-27 GitBook Documentation Refresh Implementation
+
+Implemented the GitBook documentation refresh pass for the current entity-first metahub and application architecture.
+
+| Area | Resolution |
+| --- | --- |
+| GitBook locale roots | Kept the existing externally configured locale-root setup with separate `docs/en/SUMMARY.md` and `docs/ru/SUMMARY.md`; no repo-local `.gitbook.yaml` was added. |
+| Public navigation | Linked previously unlisted public pages in both EN and RU summaries and validated coverage for all public GitBook pages. |
+| Current architecture content | Updated stale platform, architecture, guide, UPDL, metahub, application, and API pages to describe current entity-owned metahub surfaces, applications, publications, runtime, and builder boundaries. |
+| Removed stale planning text | Removed old public roadmap/future/planned wording and legacy Flowise/catalog-compatible references from GitBook docs. |
+| RU parity | Mirrored the EN structure in RU with matching line counts, heading/list/table/image structure, and translated stale English fragments where the Russian docs had drifted. |
+| Screenshot assets | Removed unused stale `catalog-compatible` GitBook assets and orphaned visual snapshots from a removed spec while keeping the current documentation screenshot generators. |
+| Validation tooling | Replaced the README-only i18n checker with GitBook-scoped validation for EN/RU pairs, front matter, local links/images, summary coverage, structural parity, and stale public-doc terms. |
+| Validation | `pnpm docs:i18n:check` and `I18N_SCOPE=all pnpm docs:i18n:check` both passed for 78 EN/RU GitBook page pairs. |
+
 ## 2026-04-26 Entity Resource Surface Data-Driven Cleanup
 
 Completed the entity-resource refactoring pass that removes runtime-only hardcoded Resources tab labels and synthetic standard entity type fallback behavior.

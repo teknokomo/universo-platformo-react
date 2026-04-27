@@ -19,11 +19,11 @@
   * [Общие атрибуты](platform/metahubs/shared-field-definitions.md)
   * [Общие константы](platform/metahubs/shared-fixed-values.md)
   * [Общие значения](platform/metahubs/shared-option-values.md)
-  * [Скрипты metahub](platform/metahubs/scripts.md)
+  * [Скрипты метахаба](platform/metahubs/scripts.md)
   * [Общие скрипты](platform/metahubs/shared-scripts.md)
   * [Области скриптов](platform/metahubs/script-scopes.md)
   * [Исключения](platform/metahubs/exclusions.md)
-  * [Настройки shared behavior](platform/metahubs/shared-behavior-settings.md)
+  * [Настройки общего поведения](platform/metahubs/shared-behavior-settings.md)
 * [Приложения](platform/applications.md)
 * [Администрирование](platform/admin.md)
 * [Публикации](platform/publications.md)
@@ -60,9 +60,9 @@
 
 * [Обзор](api-reference/README.md)
 * [REST API](api-reference/rest-api.md)
-* [Overrides общих сущностей](api-reference/shared-entity-overrides.md)
+* [Переопределения общих сущностей](api-reference/shared-entity-overrides.md)
 * [API скриптов](api-reference/scripts.md)
-* [Interactive OpenAPI Docs](api-reference/interactive-openapi-docs.md)
+* [Интерактивная OpenAPI-документация](api-reference/interactive-openapi-docs.md)
 * [Аутентификация](api-reference/authentication.md)
 * [Вебхуки](api-reference/webhooks.md)
 
@@ -72,6 +72,7 @@
 * [Настройка окружения](contributing/development-setup.md)
 * [Стандарты кода](contributing/coding-guidelines.md)
 * [Создание пакетов](contributing/creating-packages.md)
+* [Чеклист ревью кода базы данных](contributing/database-code-review-checklist.md)
 
 ## Руководства
 
@@ -84,7 +85,11 @@
 * [Пользовательские типы сущностей](guides/custom-entity-types.md)
 * [Макеты каталогов](guides/catalog-layouts.md)
 * [Макеты приложения](guides/application-layouts.md)
-* [Скрипты Metahub](guides/metahub-scripting.md)
+* [Скрипты метахаба](guides/metahub-scripting.md)
+* [Создание приложений](guides/creating-application.md)
+* [Публикация контента](guides/publishing-content.md)
+* [Работа с UPDL](guides/working-with-updl.md)
+* [Мультиплатформенный экспорт](guides/multi-platform-export.md)
 * [Туториал: приложение-квиз](guides/quiz-application-tutorial.md)
 * [Браузерное E2E-тестирование](guides/browser-e2e-testing.md)
 * [Обновление схем системных приложений](guides/updating-system-app-schemas.md)

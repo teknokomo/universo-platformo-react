@@ -8,6 +8,8 @@ Workspace-enabled applications now expose the runtime workspace model directly i
 
 ## What Users Can Do
 
+![Workspace manager dialog](../.gitbook/assets/platform/applications-list.png)
+
 - switch between available workspaces from the app navbar;
 - create a shared workspace;
 - invite members by user id and assign a runtime workspace role;

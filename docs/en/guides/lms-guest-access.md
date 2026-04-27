@@ -8,6 +8,8 @@ The LMS MVP supports guest access without platform registration.
 
 ## How It Works
 
+![LMS guest entry screen](../.gitbook/assets/quiz-tutorial/runtime-quiz.png)
+
 1. An operator creates an `AccessLinks` runtime row.
 2. The row points to a module or quiz target.
 3. The guest opens `/public/a/:applicationId/links/:slug`.
@@ -32,6 +34,8 @@ The `qrCodeWidget` in the shared MUI app template renders an SVG QR code entirel
 Use it when you want to distribute a guest module or quiz URL to a classroom or printed handout.
 
 ## Retention Model
+
+![Completed LMS guest result](../.gitbook/assets/quiz-tutorial/runtime-quiz.png)
 
 Guest learners are stored in the same application schema as registered learners.
 This keeps statistics, progress, and quiz-response tracking inside one runtime boundary instead of introducing a separate platform-wide guest-account system.

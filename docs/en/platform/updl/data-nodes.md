@@ -7,6 +7,8 @@ description: Explain the role of data nodes in UPDL.
 Data nodes carry values, mappings, references, and typed payloads that other
 nodes consume.
 
+![Shared values as structured reusable data](../../.gitbook/assets/entities/shared-values.png)
+
 ## Typical Responsibilities
 
 - Hold structured values or parameters.

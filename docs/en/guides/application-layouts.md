@@ -8,6 +8,8 @@ Application layouts are runtime copies of layouts published from a metahub plus 
 They are managed from the application control panel in Applications -> Layouts.
 The control panel now reuses the same shared layout authoring surface as metahub layout details, so widget zones, row actions, and list/card affordances stay aligned between design-time and application-side customization.
 
+![Layout details with widget](../.gitbook/assets/quiz-tutorial/layout-quiz-widget.png)
+
 ## Sources
 
 Each layout has a source:

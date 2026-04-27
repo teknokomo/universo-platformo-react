@@ -12,8 +12,8 @@ https://your-instance.example.com/api/v1
 
 ## Current API Shape
 
-The current repository organizes API routes by platform module rather than by
-the removed legacy workspace taxonomy.
+The current repository organizes API routes by platform module and entity-owned
+metahub surfaces.
 
 Typical route groups include system health, auth, locales, profile, onboarding,
 applications, connectors, admin, public metahub, and metahub design-time APIs.

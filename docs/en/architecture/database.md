@@ -17,6 +17,6 @@ shared Knex-based runtime.
 ## Design Goals
 
 The database layer is built for controlled schema evolution, soft-delete-aware
-business domains, migration visibility, and future exportable definitions.
+business domains, migration visibility, and exportable definitions.
 
 That makes the data layer part of the platform kernel and its operational model.

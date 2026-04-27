@@ -8,7 +8,7 @@ The documentation is organized around the current repository reality: a React / 
 
 - Keep landing pages short and navigation-driven.
 - Separate product scope, architecture, API reference, and contribution guidance.
-- Distinguish clearly between current implementation and planned layers.
+- Document current implementation, current alpha constraints, and operational boundaries only.
 - Keep GitBook pages aligned with the repository instead of marketing promises.
 - Maintain English as the canonical version and Russian as a synchronized translation.
 

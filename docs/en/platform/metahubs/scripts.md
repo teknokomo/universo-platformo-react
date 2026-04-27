@@ -7,6 +7,8 @@ description: Platform-reference overview of metahub scripting surfaces, scopes, 
 Metahub scripts are the design-time scripting surface owned by a metahub before publication turns consumer scripts into runtime entries.
 The same scripting contract spans Resources workspace libraries, metahub-level logic, and object-attached consumers.
 
+![Metahub scripts dialog with current scripting tabs](../../.gitbook/assets/quiz-tutorial/metahub-scripts.png)
+
 ## Surfaces
 
 - The Scripts tab in the Resources workspace authors import-only `general/library` helpers.

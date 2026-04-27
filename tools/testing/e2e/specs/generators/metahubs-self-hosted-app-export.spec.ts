@@ -364,7 +364,7 @@ test.describe('Metahubs Self-Hosted App Export', () => {
             codename: SELF_HOSTED_APP_CANONICAL_METAHUB.codename.en
         })
 
-        /* ── 2. Create the planned self-hosted sections ── */
+        /* ── 2. Create the self-hosted sections ── */
         const sectionMap: Record<string, string> = {}
         let hubSectionId: string | undefined
         let enumerationSectionId: string | undefined

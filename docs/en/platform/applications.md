@@ -17,6 +17,8 @@ A metahub authors the source model, a publication freezes a release candidate, a
 
 ## Main Surfaces
 
+![Applications list](../.gitbook/assets/platform/applications-list.png)
+
 | Surface | Purpose |
 | --- | --- |
 | Overview | Status cards and high-level health for the linked runtime. |
@@ -27,8 +29,12 @@ A metahub authors the source model, a publication freezes a release candidate, a
 
 ## Control-Panel Settings
 
+![Application connectors](../.gitbook/assets/platform/application-connectors.png)
+
 The application settings page now contains a real General settings contract instead of placeholder copy.
 Those settings are stored in `applications.cat_applications.settings` and are returned by application list, detail, and update flows.
+
+![Application settings](../.gitbook/assets/quiz-tutorial/application-settings-general.png)
 
 | Setting | Meaning |
 | --- | --- |
@@ -59,6 +65,8 @@ This keeps applications aligned with the broader platform goal of collaborative 
 5. Open the final runtime route to verify the published user experience.
 
 ## Quiz Example
+
+![Published runtime quiz](../.gitbook/assets/quiz-tutorial/runtime-quiz.png)
 
 In the quiz tutorial flow, the metahub owns the widget script and layout placement, while the application owns runtime delivery and control-panel ergonomics.
 That means the quiz questions and widget placement come from the publication, but the size and close behavior of connector dialogs come from the application settings record.

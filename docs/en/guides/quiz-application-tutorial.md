@@ -19,7 +19,7 @@ In the LMS MVP, the same quiz widget can be embedded from a module content item,
 ## Step 1: Open Or Create The Metahub
 
 1. Open the target metahub from the main list.
-2. Verify that you can reach General and Publications, then use the Layouts tab inside General when needed.
+2. Verify that you can reach Resources and Publications, then use the Layouts tab inside Resources when needed.
 3. If you are starting from scratch, create the metahub first and keep its default branch active.
 
 ## Step 2: Create The Quiz Widget Script
@@ -36,7 +36,7 @@ The browser-authored Playwright flow uses this step to prove that the quiz scrip
 
 ## Step 3: Attach The Widget To A Layout
 
-1. Open Common -> Layouts and select the layout that should host the quiz.
+1. Open Resources -> Layouts and select the layout that should host the quiz.
 2. Add or edit a `quizWidget` widget in the center zone.
 3. Set `scriptCodename` to `quiz-widget`.
 4. Save the layout and verify that the widget stays in the layout details view.

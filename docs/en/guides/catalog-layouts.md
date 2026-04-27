@@ -16,6 +16,8 @@ Each catalog layout points to a global base layout and then adds only the catalo
 
 ## Creating The First Catalog Layout
 
+![Layout editor with quiz widget](../.gitbook/assets/quiz-tutorial/layout-quiz-widget.png)
+
 1. Open the target metahub.
 2. Go to Common -> Layouts for the global context, or open the catalog route that leads to its layout list.
 3. Create a catalog layout and choose the base global layout.
@@ -30,6 +32,8 @@ The selected catalog layout owns catalog runtime behavior such as:
 Until the first catalog layout exists, runtime keeps using the selected global layout behavior as the default baseline.
 
 ## Publication And Runtime
+
+![Published application connectors](../.gitbook/assets/platform/application-connectors.png)
 
 Publication flattens the effective catalog layout into ordinary runtime layout and widget rows.
 Applications do not resolve overlay logic on the fly; they consume the already materialized runtime state.
