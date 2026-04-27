@@ -167,7 +167,9 @@ function walk(dir) {
 }
 
 function markdownFiles(locale) {
-  return walk(localeRoots[locale]).filter((file) => file.endsWith('.md'))
+  return walk(localeRoots[locale]).filter(
+    (file) => file.endsWith('.md') && !path.relative(localeRoots[locale], file).split(path.sep).includes('.gitbook')
+  )
 }
 
 function countByRegex(lines, re) {
@@ -207,13 +209,28 @@ function checkFrontMatter(file, lines) {
   return errors
 }
 
+function extractLinkDestination(target) {
+  const trimmed = target.trim()
+  if (!trimmed) return ''
+
+  if (trimmed.startsWith('<')) {
+    const closingIndex = trimmed.indexOf('>')
+    return closingIndex >= 0 ? trimmed.slice(1, closingIndex) : trimmed.slice(1)
+  }
+
+  const titleMatch = trimmed.match(/^(\S+)(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?$/)
+  return titleMatch ? titleMatch[1] : trimmed.split(/\s+/)[0]
+}
+
 function resolveLocalTarget(file, target) {
-  const cleanTarget = target.split('#')[0].split('?')[0]
+  const cleanTarget = extractLinkDestination(target).split('#')[0].split('?')[0]
   if (!cleanTarget || cleanTarget.startsWith('#')) return null
   if (/^[a-z]+:/i.test(cleanTarget)) return null
 
   const decoded = decodeURIComponent(cleanTarget)
-  const resolved = path.resolve(path.dirname(file), decoded)
+  const resolved = decoded.startsWith('/')
+    ? path.join(repoRoot, decoded)
+    : path.resolve(path.dirname(file), decoded)
 
   if (fs.existsSync(resolved)) return resolved
   if (!path.extname(resolved) && fs.existsSync(`${resolved}.md`)) return `${resolved}.md`
@@ -308,7 +325,7 @@ function collectSummaryLinks(locale) {
   const summaryPath = path.join(localeRoots[locale], 'SUMMARY.md')
   const content = fs.readFileSync(summaryPath, 'utf8')
   const links = new Map()
-  const linkPattern = /\[[^\]]+]\(([^)]+\.md)(?:#[^)]+)?\)/g
+  const linkPattern = /\[[^\]]+]\(([^)\s#?]+\.md)(?:#[^)\s]+)?(?:\s+[^)]+)?\)/g
   let match
 
   while ((match = linkPattern.exec(content)) !== null) {
@@ -351,8 +368,8 @@ function collectReferencedImages(locale) {
     const content = fs.readFileSync(file, 'utf8')
     let match
     while ((match = linkPattern.exec(content)) !== null) {
-      const target = match[1].split('#')[0].split('?')[0]
-      if (target) referenced.add(path.basename(target))
+      const resolved = resolveLocalTarget(file, match[1])
+      if (resolved) referenced.add(resolved)
     }
   }
 
@@ -366,8 +383,7 @@ function checkAssetCoverage(locale) {
   const imageFiles = walk(assetsRoot).filter((file) => /\.(png|jpe?g|webp|gif)$/i.test(file))
 
   for (const file of imageFiles) {
-    const basename = path.basename(file)
-    if (!referenced.has(basename)) {
+    if (!referenced.has(file)) {
       errors.push(`Unreferenced image asset: ${path.relative(localeRoots[locale], file)}`)
     }
   }
