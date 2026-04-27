@@ -4,9 +4,9 @@ description: How fixed system application schemas are generated, upgraded, and t
 
 # System App Migration Lifecycle
 
-This page documents the runtime lifecycle that generates, upgrades, and tracks
-database schemas for the four fixed system applications: admin, profiles,
-metahubs, and applications.
+This page documents the runtime lifecycle that generates, upgrades, and
+tracks database schemas for the four fixed system applications: admin,
+profiles, metahubs, and applications.
 
 ## Overview
 
@@ -35,13 +35,16 @@ A `SystemAppDefinition` contains:
 - **`key`** — unique identifier (e.g. `admin`).
 - **`schemaTarget`** — fixed schema name (e.g. `{ kind: 'fixed', schemaName: 'admin' }`).
 - **`currentStorageModel` / `targetStorageModel`** — `'application_like'` for converged apps.
-- **`currentBusinessTables` / `targetBusinessTables`** — arrays of table definitions with fields, data types, FK references, and defaults.
-- **`currentStructureCapabilities` / `targetStructureCapabilities`** — flags for system tables (`_app_objects`, `_app_attributes`, `_app_migrations`, etc.).
+- **`currentBusinessTables` / `targetBusinessTables`** — arrays of table
+  definitions with fields, data types, FK references, and defaults.
+- **`currentStructureCapabilities` / `targetStructureCapabilities`** — flags
+  for system tables (`_app_objects`, `_app_attributes`, `_app_migrations`, etc.).
 - **`migrations`** — SQL migration entries with `bootstrapPhase` markers.
 
 ## Bootstrap Sequence
 
-The full bootstrap runs inside `initDatabase()` in `@universo/core-backend`:
+The full bootstrap runs inside `initDatabase()` in
+`@universo/core-backend`:
 
 ```
 1. validateRegisteredPlatformMigrations()
@@ -106,7 +109,8 @@ concrete list of `changes`.
 ## Synthetic Entity Generation
 
 The manifest `targetBusinessTables` are converted to `EntityDefinition[]`
-by `buildSystemAppBusinessEntities()` in the schema compiler. This function:
+by `buildSystemAppBusinessEntities()` in the schema compiler. This
+function:
 
 1. Generates **deterministic UUIDs** for entities and fields using SHA-256
    hashes of `namespace:definitionKey:stage:kind:codename:tableName`.

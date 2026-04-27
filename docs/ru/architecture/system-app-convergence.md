@@ -43,4 +43,4 @@ description: Fixed system-app convergence model for application-like schemas.
 - Fresh bootstrap должен создавать canonical fixed schemas без rename-style reconciliation в active manifest path.
 - Publication-created application bootstrap должен идти через publication runtime source seam в application-owned sync.
 - Manifest validation rules не должны разрешать значения длиннее backing PostgreSQL columns.
-- Cross-package regression coverage должна существовать и для fixed bootstrap shape, и для publication-to-application sync path.
+- Кросс-пакетное регрессионное покрытие должно существовать и для формы фиксированного bootstrap, и для пути синхронизации от публикации к приложению.

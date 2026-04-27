@@ -6,6 +6,8 @@ description: Architecture overview of the entity-first metahub system.
 
 Metahubs now use one entity-first constructor for both platform presets and user-defined metadata types. Hubs, Catalogs, Sets, and Enumerations are not hardcoded product modules anymore. They are built-in entity-type presets shipped by metahub templates and materialized into the same entity-type registry as custom types.
 
+![Entity types workspace](../.gitbook/assets/entities/entities-workspace.png)
+
 ## Core Layers
 
 ### Entity Types
@@ -32,6 +34,8 @@ The Resources workspace no longer hardcodes the visible metadata tab titles. Ent
 - `optionValues` for values
 
 The shared Resources page renders only capabilities that are actually enabled somewhere in the metahub, but the title, stable key, and route segment come from the entity-type contract instead of page-level string maps.
+
+![Resources workspace](../.gitbook/assets/entities/resources-workspace.png)
 
 ### Templates And Presets
 

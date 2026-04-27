@@ -7,6 +7,8 @@ description: Guide to the sparse exclusion and override mechanism used by shared
 Exclusions are sparse target-specific overrides, not cloned copies of shared rows.
 They let one shared source stay central while selected targets opt out of inheriting it.
 
+![Shared attributes list where inherited behavior is configured](../../.gitbook/assets/entities/shared-attributes.png)
+
 ## How It Works
 
 - The shared source row stays in the shared pool inside the Resources workspace.

@@ -5,7 +5,7 @@ description: How to use the metahub resources workspace as the real entrypoint f
 # Resources Workspace
 
 The Resources page is the real authoring entrypoint for layouts, reusable metadata resources, and shared library scripts in a metahub.
-The live navigation now points directly to `/resources`, so the active contract no longer depends on legacy Common or `/layouts` surfaces.
+The live navigation points directly to `/resources`, and this guide documents that canonical route.
 
 ![Resources workspace](../.gitbook/assets/entities/resources-workspace.png)
 
@@ -48,7 +48,7 @@ The live navigation now points directly to `/resources`, so the active contract 
 ## Why Resources Keeps Growing
 
 The platform now keeps cross-cutting metahub authoring behind one dedicated Resources surface.
-This avoids splitting layout, shared-resource, and shared-library work across separate menu items and keeps future resource-level tabs expandable without another navigation refactor.
+This keeps layout, shared-resource, and shared-library work behind one predictable entrypoint.
 
 ## Related Reading
 

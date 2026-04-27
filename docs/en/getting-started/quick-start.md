@@ -22,5 +22,7 @@ should be used only when you explicitly need live development servers.
 
 ## After Startup
 
+![Metahub creation dialog](../.gitbook/assets/entities/metahub-create-dialog.png)
+
 Once the app is running, continue with the Platform section for domain context
 or with the Architecture section for implementation details.

@@ -47,6 +47,10 @@ async function captureScreenshot(page: import('@playwright/test').Page, locale: 
     await page.screenshot({ path: path.join(dir, `${name}.png`), fullPage: false })
 }
 
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 const ENTITY_UI_COPY = {
     en: {
         entityTypes: 'Entities',
@@ -57,7 +61,10 @@ const ENTITY_UI_COPY = {
         fieldDefinitions: 'Attributes',
         records: 'Records',
         constants: 'Constants',
-        values: 'Values'
+        values: 'Values',
+        createEntityType: 'Create Entity',
+        selectTemplate: 'Select template',
+        catalogs: 'Catalogs'
     },
     ru: {
         entityTypes: 'Сущности',
@@ -68,7 +75,10 @@ const ENTITY_UI_COPY = {
         fieldDefinitions: 'Атрибуты',
         records: 'Записи',
         constants: 'Константы',
-        values: 'Значения'
+        values: 'Значения',
+        createEntityType: 'Создать сущность',
+        selectTemplate: 'Выберите шаблон',
+        catalogs: 'Каталоги'
     }
 } as const
 
@@ -108,6 +118,21 @@ test('@generator capture entity documentation screenshots for EN and RU locales'
             await page.goto(`/metahub/${metahubId}/entities`)
             await expect(page.getByRole('heading', { name: uiCopy.entityTypes })).toBeVisible({ timeout: 30_000 })
             await captureScreenshot(page, locale, 'entities-workspace')
+
+            const entityCreateButton = page.getByTestId(toolbarSelectors.primaryAction)
+            await expect(entityCreateButton).toBeVisible({ timeout: 30_000 })
+            await entityCreateButton.click()
+            const entityDialog = page.getByRole('dialog').filter({ hasText: uiCopy.createEntityType }).first()
+            await expect(entityDialog).toBeVisible({ timeout: 30_000 })
+            const templateSelector = entityDialog.getByRole('combobox', { name: uiCopy.selectTemplate })
+            await expect(templateSelector).toBeVisible({ timeout: 30_000 })
+            await templateSelector.click()
+            await page.getByRole('option', { name: new RegExp(`^${escapeRegExp(uiCopy.catalogs)}`, 'i') }).click()
+            await expect(entityDialog.getByRole('progressbar')).toHaveCount(0)
+            await entityDialog.screenshot({
+                path: path.join(repoRoot, `docs/${locale}/.gitbook/assets/entities/metahub-entities-create-dialog.png`)
+            })
+            await page.keyboard.press('Escape')
 
             // 2. Metahub create dialog (open and capture)
             await page.goto('/metahubs')

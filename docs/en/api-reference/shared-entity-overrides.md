@@ -7,6 +7,8 @@ description: REST reference for the sparse shared-entity override endpoints.
 The shared-entity override endpoints manage sparse per-target state for shared attributes, constants, and enumeration values.
 They require metahub management permission and do not clone the shared source row.
 
+![Shared attributes](../.gitbook/assets/entities/shared-attributes.png)
+
 ## List Endpoints
 
 - `GET /metahub/{metahubId}/shared-entity-overrides?entityKind=attribute&sharedEntityId={id}` lists all target overrides for one shared row.

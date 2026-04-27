@@ -7,6 +7,8 @@ description: Explain what metahubs own, how the resources workspace and settings
 Metahubs are the design-time source of truth for structures, resources-workspace assets, scripts, and publication-ready content.
 They are not just folders: each metahub owns the authoring model that later becomes publication data and application runtime state.
 
+![Entities workspace](../.gitbook/assets/entities/entities-workspace.png)
+
 ## What A Metahub Owns
 
 - branches for design-time evolution;
@@ -24,6 +26,10 @@ They are not just folders: each metahub owns the authoring model that later beco
 | Branches | Separate design-time timelines and controlled activation. |
 | Publications | Freeze a version that can be delivered to applications. |
 | Members | Control who can author and manage the metahub. |
+
+The standard Hubs surface remains available through the entity-owned route tree when the template seeds the Hub preset.
+
+![Hubs workspace](../.gitbook/assets/entities/hub-tree-view.png)
 
 ## Settings Layers Around Metahubs
 
@@ -43,6 +49,10 @@ Shared layouts stay centralized, reusable metadata pools stay reusable, and reso
 This keeps metahub authoring separate from admin dialogs and from application-control-panel dialogs.
 
 ![Resources workspace](../.gitbook/assets/entities/resources-workspace.png)
+
+Catalog records use the same entity-owned pattern: the preset provides a focused authoring view, while the object still participates in the shared entity model.
+
+![Catalog records](../.gitbook/assets/entities/catalog-records.png)
 
 ## How Metahubs Feed Runtime
 

@@ -1,13 +1,17 @@
 ---
-description: Platform reference for shared attributes authored from the Resources workspace for catalog-compatible entity types.
+description: Platform reference for shared attributes authored from the Resources workspace for entity types with dataSchema.
 ---
 
 # Shared Attributes
 
 Shared attributes live in the Attributes tab of the Resources workspace and belong to the virtual shared catalog pool instead of one catalog row.
-They let one attribute definition fan out to multiple catalog-compatible entity types without copying the authoring source.
+They let one attribute definition fan out to multiple entity types with `dataSchema` without copying the authoring source.
 
 ![Shared attributes](../../.gitbook/assets/entities/shared-attributes.png)
+
+Target catalog instances show the inherited attribute list through the same entity-owned route model.
+
+![Catalog attribute list](../../.gitbook/assets/entities/field-definition-list.png)
 
 ## Design-Time Rules
 

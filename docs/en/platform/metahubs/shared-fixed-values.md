@@ -9,6 +9,10 @@ They let one constant definition stay central while multiple set-compatible enti
 
 ![Shared constants](../../.gitbook/assets/entities/shared-constants.png)
 
+Target set instances show inherited and local constants in the focused fixed-values view.
+
+![Set fixed values](../../.gitbook/assets/entities/set-fixed-values.png)
+
 ## Design-Time Rules
 
 - Create the constant from the Constants tab when more than one set or compatible entity type should reuse it.

@@ -7,6 +7,8 @@ description: Reference for canDeactivate, canExclude, and positionLocked on shar
 Shared behavior settings define which sparse per-target changes are allowed after a row becomes shared.
 They keep the base shared design reusable while still letting targets opt into controlled divergence.
 
+![Shared constants list using shared behavior settings](../../.gitbook/assets/entities/shared-constants.png)
+
 ## Settings
 
 | Setting | Meaning | Effect |

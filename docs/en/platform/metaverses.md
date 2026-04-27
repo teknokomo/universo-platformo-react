@@ -1,23 +1,26 @@
 ---
-description: Describe the planned simulation and virtual-world layer above the platform core.
+description: Describe the current simulation and virtual-world context.
 ---
 
-# Simulation and Virtual Worlds
+# Simulation Context
 
-Simulation and virtual worlds are a planned layer above the current platform
-core. They extend the ERP/CMS and operational foundation already visible in the
-codebase.
+This page records only the current repository boundary for simulation-related
+work. The public GitBook documents only the current virtual-world boundary.
 
-## Planned Role
+## Current Role
 
-The long-term goal is to support large-scale simulated or virtual environments
-such as Universo MMOOMM on top of the shared platform abstractions.
+![Application runtime surface](../.gitbook/assets/quiz-tutorial/runtime-quiz.png)
+
+Simulation-facing work currently depends on the same platform contracts as other
+applications: identity, metahubs, publications, application sync, and runtime UI.
 
 ## What The Current Repository Already Contributes
 
 - Shared identities, memberships, and organizational boundaries.
 - Design-time structures through metahubs and publications.
 - Portable application descriptions and cross-stack thinking.
-- A modular runtime that can support future specialized clients.
+- Application runtime surfaces that can consume published structures.
 
-The simulation layer is therefore a downstream expansion of the platform core.
+Use the current metahub and application documentation when validating this path.
+
+![Publication application boundary](../.gitbook/assets/platform/publication-applications.png)

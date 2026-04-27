@@ -2,22 +2,20 @@
 description: Describe knowledge spaces, structured content, and reusable layouts.
 ---
 
-# Knowledge Spaces
+# Spaces
 
-Knowledge spaces are structured areas where content, definitions, templates,
-and operational context can be organized.
+Spaces are structured platform areas used to group content, definitions, templates,
+and operational context around one domain.
 
-## Why This Matters
+![Resources workspace for structured metahub content](../.gitbook/assets/entities/resources-workspace.png)
 
-Universo Platformo is moving toward a CMS-capable architecture, so spaces serve
-as containers for content structures, knowledge layouts, publication assets,
-and reusable definitions.
+## Current Role
 
-## Current Direction
+- Metahubs provide design-time structure for entity types, resources, and publications.
+- Applications provide runtime execution surfaces synced from publications.
+- Shared schema and migration tooling keep structured content reproducible across environments.
 
-- Metahubs and publications already provide design-time structure.
-- Applications provide run-time execution surfaces.
-- Shared schema and migration tooling supports structured evolution over time.
+## Operating Boundary
 
-Some specialized editors and builders are still evolving, but the repository is
-already organized around structured information and reusable content patterns.
+Use metahubs and application resources as the current authoring and runtime boundary.
+Do not model spaces as a separate published object unless a package explicitly exposes that contract.

@@ -9,6 +9,8 @@ It is where operators manage platform-wide roles, users, locales, instances, and
 
 ## What Admin Controls
 
+![Admin roles](../.gitbook/assets/platform/admin-roles.png)
+
 - global roles and permissions;
 - global users and locale configuration;
 - instance-level management surfaces;
@@ -16,6 +18,8 @@ It is where operators manage platform-wide roles, users, locales, instances, and
 - admin-only dialog presentation defaults for the `/admin` area.
 
 ## Settings Categories
+
+![Admin settings](../.gitbook/assets/platform/admin-settings.png)
 
 The admin settings area is organized by category so global policies stay separate from scoped product settings.
 

@@ -14,6 +14,8 @@ This guide describes the supported workflow for the built-in LMS template and it
 
 ## 2. Review The Shipped Seeded Surface
 
+![Seeded LMS runtime dashboard](../.gitbook/assets/quiz-tutorial/runtime-quiz.png)
+
 The canonical fixture ships a bilingual Orbital Academy dataset with these entities:
 
 - `Classes`
@@ -55,6 +57,8 @@ The shipped fixture already contains the classes, modules, quizzes, access links
 If the dataset must change, update the generator and fixture contract first instead of reseeding runtime tables by hand.
 
 ## 7. Verify Both Runtime Surfaces
+
+![LMS guest result screen](../.gitbook/assets/quiz-tutorial/runtime-quiz.png)
 
 1. Open `/a/:applicationId` and verify the authenticated EN and RU dashboard widgets.
 2. Open `/public/a/:applicationId/links/:slug` and verify the EN and RU guest-learning flows.

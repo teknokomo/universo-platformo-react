@@ -25,12 +25,16 @@ It is not a hardcoded vertical inside `packages/apps-template-mui`, and the ship
 
 ## Core Building Blocks
 
+![LMS application dashboard](../.gitbook/assets/quiz-tutorial/runtime-quiz.png)
+
 1. The `lms` built-in metahub template defines the canonical entity structure: classes, students, modules, quizzes, access links, progress, enrollments, and supporting enumerations.
 2. The applications backend exposes workspace management and a public runtime surface for guest access.
 3. The shared MUI template provides workspace switching, QR-code rendering, module viewing, and statistics widgets.
 4. The committed generator plus snapshot contract ship a richer EN/RU Orbital Academy dataset with multiple classes, modules, quizzes, seeded progress, and two guest-access routes.
 
 ## Runtime Model
+
+![LMS guest module runtime](../.gitbook/assets/quiz-tutorial/runtime-quiz.png)
 
 Authenticated users work in the normal application runtime at `/a/:applicationId`.
 Guests use the public route `/public/a/:applicationId/links/:slug`, enter a display name, receive a guest session token, and continue without platform login.

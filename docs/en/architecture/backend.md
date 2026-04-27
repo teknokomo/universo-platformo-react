@@ -52,26 +52,23 @@ schemas/          — Zod validation schemas (optional)
 
 | Domain | Handlers | Description |
 |--------|----------|-------------|
-| metahubs | 14 | Core CRUD, membership, copy |
-| catalogs | 16 | Catalog lifecycle with hub scoping |
-| attributes | 14 | Attribute management, child attributes, system fields |
-| enumerations | 24 | Enum types and values with ordering |
-| elements | 8 | Row-level CRUD with dynamic schemas |
-| hubs | — | Hub grouping and ordering |
-| sets | — | Set/constant grouping |
-| constants | — | Constant value management |
-| branches | 9 | Branch lifecycle and activation |
-| layouts | 13 | Dashboard/widget layout persistence |
-| publications | 15 | Publication workflows, sync, versioning |
-| settings | 4 | Per-metahub settings |
-| migrations | 8 | Runtime DDL migration management |
+| metahubs | — | Metahub CRUD, membership, copy, and board summary flows |
+| entities | — | Entity type definitions, entity instances, metadata resources, actions, and event bindings |
+| shared | — | Resources workspace containers, shared overrides, and shared helpers |
+| branches | — | Branch lifecycle and activation |
+| layouts | — | Shared layouts, widgets, and view behavior persistence |
+| publications | — | Publication workflows, sync, versioning, export, and import |
+| scripts | — | Design-time scripts, shared libraries, and bundle validation |
+| settings | — | Per-metahub settings |
+| templates | — | Built-in template and preset registry |
+| ddl | — | Package-local runtime DDL boundaries |
 
 ### Active Domains (applications-backend)
 
 | Domain | Handlers | Description |
 |--------|----------|-------------|
-| applications | 20+ | Application CRUD, templates, workspaces |
-| connectors | 18 | Connector lifecycle, sync engine |
+| applications | — | Application CRUD, members, settings, layouts, and workspaces |
+| connectors | — | Connector lifecycle, publication links, and schema sync |
 
 ## Current Domain Surface
 

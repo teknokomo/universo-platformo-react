@@ -2,7 +2,7 @@
 description: Как запускать и использовать интерактивную OpenAPI- и Swagger-документацию.
 ---
 
-# Interactive OpenAPI Docs
+# Интерактивная OpenAPI-документация
 
 ## Пакет
 
@@ -17,7 +17,7 @@ pnpm --filter @universo/rest-docs build
 pnpm --filter @universo/rest-docs start
 ```
 
-По умолчанию docs server доступен по адресу `http://localhost:6655/api-docs`.
+По умолчанию сервер документации доступен по адресу `http://localhost:6655/api-docs`.
 
 ## Как использовать
 

@@ -7,6 +7,8 @@ description: Reference for the exact difference between Resources workspace libr
 Metahub scripting uses one manifest contract, but attachment scope decides where a script can live and how it is used.
 Choose scope first, then choose the compatible module role and runtime behavior.
 
+![Metahub scripts dialog showing the authoring surface for scopes](../../.gitbook/assets/quiz-tutorial/metahub-scripts.png)
+
 ## Scope Matrix
 
 | Scope | Allowed roles | Direct runtime entrypoint | Typical use |

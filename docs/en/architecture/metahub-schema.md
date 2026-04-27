@@ -7,6 +7,8 @@ description: Architecture reference for metahub design-time storage, shared virt
 Metahub authoring uses a split model: central platform metadata, metahub-scoped design tables, and flattened application runtime output.
 The shared-entity feature adds virtual container objects and sparse override rows without introducing cloned target data.
 
+![Shared attributes in Resources](../.gitbook/assets/entities/shared-attributes.png)
+
 ## Design-Time Layers
 
 - Central metahub records live in platform schemas for discovery, membership, and publication management.

@@ -1,35 +1,37 @@
 ---
-description: Справочник REST API для sparse endpoint-ов override-ов общих сущностей.
+description: Справочник REST API для разреженных переопределений общих сущностей.
 ---
 
-# Shared Entity Overrides
+# Переопределения общих сущностей
 
-Endpoint-ы shared-entity overrides управляют sparse per-target state для общих атрибутов, констант и значений перечислений.
-Они требуют permission на управление metahub и не клонируют shared source row.
+Конечные точки переопределений общих сущностей управляют разреженным состоянием целевых объектов для общих атрибутов, констант и значений перечислений.
+Они требуют права на управление метахабом и не клонируют исходную общую строку.
 
-## Endpoint-ы чтения
+![Общие атрибуты](../.gitbook/assets/entities/shared-attributes.png)
 
-- `GET /metahub/{metahubId}/shared-entity-overrides?entityKind=attribute&sharedEntityId={id}` перечисляет все target overrides для одной shared row.
-- `GET /metahub/{metahubId}/shared-entity-overrides?entityKind=attribute&targetObjectId={id}` перечисляет все shared overrides, влияющие на один target object.
+## Конечные точки чтения
+
+- `GET /metahub/{metahubId}/shared-entity-overrides?entityKind=attribute&sharedEntityId={id}` перечисляет все переопределения целевых объектов для одной общей строки.
+- `GET /metahub/{metahubId}/shared-entity-overrides?entityKind=attribute&targetObjectId={id}` перечисляет все общие переопределения, влияющие на один целевой объект.
 - Должен присутствовать ровно один из параметров: `sharedEntityId` или `targetObjectId`.
 - `entityKind` принимает значения `attribute`, `constant` или `value`.
 
-## Endpoint upsert
+## Конечная точка upsert
 
 - `PATCH /metahub/{metahubId}/shared-entity-overrides`
-- Поля body: `entityKind`, `sharedEntityId`, `targetObjectId` и как минимум одно из `isExcluded`, `isActive` или `sortOrder`.
-- Backend отклоняет exclusion, деактивацию или reorder, когда shared row блокирует такое поведение.
-- Возврат к состоянию по умолчанию удаляет sparse override row.
+- Поля тела запроса: `entityKind`, `sharedEntityId`, `targetObjectId` и как минимум одно из `isExcluded`, `isActive` или `sortOrder`.
+- Бэкенд отклоняет исключение, деактивацию или перестановку, когда общая строка блокирует такое поведение.
+- Возврат к состоянию по умолчанию удаляет разреженную строку переопределения.
 
-## Endpoint очистки
+## Конечная точка очистки
 
 - `DELETE /metahub/{metahubId}/shared-entity-overrides?entityKind=attribute&sharedEntityId={id}&targetObjectId={targetId}`
-- Используйте его, когда target должен вернуться к inherited default behavior.
-- Endpoint возвращает `204 No Content` при успешном выполнении.
-- Удаление override никогда не удаляет shared source row.
+- Используйте её, когда целевой объект должен вернуться к унаследованному поведению по умолчанию.
+- Конечная точка возвращает `204 No Content` при успешном выполнении.
+- Удаление переопределения никогда не удаляет исходную общую строку.
 
 ## Что читать дальше
 
 - [REST API](rest-api.md)
-- [Shared Behavior Settings](../platform/metahubs/shared-behavior-settings.md)
-- [Exclusions](../platform/metahubs/exclusions.md)
+- [Настройки общего поведения](../platform/metahubs/shared-behavior-settings.md)
+- [Исключения](../platform/metahubs/exclusions.md)
