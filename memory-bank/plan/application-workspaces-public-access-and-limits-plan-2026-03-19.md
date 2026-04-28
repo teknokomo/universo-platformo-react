@@ -1222,7 +1222,7 @@ A workspace tombstone gives the required user-facing semantics with safer runtim
 
 1. Should V1 workspace roles be only `owner` + `member`, or do we want `manager` immediately?
 2. Should public apps auto-force workspaces in the UI, or only validate at submit time?
-3. Should the first personal workspace codename be fixed as `main`, with localized name `Main` / `Основное`?
+3. Should the first personal workspace name be fixed as `Main` / `Основное`, or derived from the user profile?
 4. Should leaving a public app always soft-delete the application membership row, or should the membership remain archived with a dedicated status?
 5. Do we want limit values stored only at the app-wide catalog level in V1, or do we already need per-workspace overrides?
 6. Do we want admin member removal to hard-revoke all workspace-role rows immediately, or is archiving the personal workspace plus membership enough for V1?

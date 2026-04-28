@@ -383,6 +383,8 @@ type NormalizedCatalogWidgetOverride = {
 }
 
 const CATALOG_LAYOUT_WIDGET_NAMESPACE = 'catalog-layout-widget'
+const WORKSPACE_SWITCHER_WIDGET_NAMESPACE = 'workspace-switcher-widget'
+const WORKSPACE_SWITCHER_DIVIDER_NAMESPACE = 'workspace-switcher-divider-widget'
 
 const buildSyntheticUuid = (namespace: string, left: string, right: string): string => {
     const digest = createHash('sha1').update(`${namespace}:${left}:${right}`).digest('hex').slice(0, 32).split('')
@@ -469,6 +471,62 @@ const normalizeSnapshotWidgetEntries = (snapshot: PublishedApplicationSnapshot):
             isActive: item.isActive !== false
         }))
         .filter((item) => item.id.length > 0 && item.layoutId.length > 0 && item.widgetKey.length > 0)
+}
+
+export const withWorkspaceRuntimeLayoutWidgets = (
+    snapshot: PublishedApplicationSnapshot,
+    workspacesEnabled: boolean
+): PublishedApplicationSnapshot => {
+    if (!workspacesEnabled || !Array.isArray(snapshot.layouts)) {
+        return snapshot
+    }
+
+    const widgets = normalizeSnapshotWidgetEntries(snapshot)
+    const nextWidgets: PersistedAppLayoutZoneWidget[] = [...widgets]
+
+    for (const rawLayout of snapshot.layouts) {
+        const layout = (rawLayout ?? {}) as SnapshotLayoutRow
+        const layoutId = typeof layout.id === 'string' && layout.id.length > 0 ? layout.id : ''
+        const linkedCollectionId =
+            typeof layout.linkedCollectionId === 'string' && layout.linkedCollectionId.length > 0 ? layout.linkedCollectionId : null
+
+        if (!layoutId || linkedCollectionId) {
+            continue
+        }
+
+        const layoutLeftWidgets = nextWidgets.filter((widget) => widget.layoutId === layoutId && widget.zone === 'left')
+        const hasWorkspaceSwitcher = layoutLeftWidgets.some((widget) => widget.widgetKey === 'workspaceSwitcher')
+        if (hasWorkspaceSwitcher) {
+            continue
+        }
+
+        const firstSortOrder = layoutLeftWidgets.reduce((minimum, widget) => Math.min(minimum, widget.sortOrder), 0)
+        nextWidgets.push(
+            {
+                id: buildSyntheticUuid(WORKSPACE_SWITCHER_WIDGET_NAMESPACE, layoutId, 'workspaceSwitcher'),
+                layoutId,
+                zone: 'left',
+                widgetKey: 'workspaceSwitcher',
+                sortOrder: firstSortOrder - 200,
+                config: {},
+                isActive: true
+            },
+            {
+                id: buildSyntheticUuid(WORKSPACE_SWITCHER_DIVIDER_NAMESPACE, layoutId, 'workspaceSwitcher-divider'),
+                layoutId,
+                zone: 'left',
+                widgetKey: 'divider',
+                sortOrder: firstSortOrder - 199,
+                config: {},
+                isActive: true
+            }
+        )
+    }
+
+    return {
+        ...snapshot,
+        layoutZoneWidgets: nextWidgets
+    }
 }
 
 const normalizeSnapshotCatalogLayouts = (snapshot: PublishedApplicationSnapshot): NormalizedCatalogLayout[] => {

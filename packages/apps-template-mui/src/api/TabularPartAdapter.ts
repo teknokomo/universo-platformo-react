@@ -166,6 +166,7 @@ export function createTabularPartAdapter(params: TabularPartAdapterParams): Crud
                 pagination: { total: json.total, limit, offset },
                 workspacesEnabled: false,
                 currentWorkspaceId: null,
+                settings: {},
                 layoutConfig: {},
                 zoneWidgets: {
                     left: [],

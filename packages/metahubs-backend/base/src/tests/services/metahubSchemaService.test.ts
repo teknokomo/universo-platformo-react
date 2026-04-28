@@ -146,6 +146,7 @@ import { MetahubSchemaService } from '../../domains/metahubs/services/MetahubSch
 import { SystemTableMigrator } from '../../domains/metahubs/services/SystemTableMigrator'
 import { CURRENT_STRUCTURE_VERSION } from '../../domains/metahubs/services/structureVersions'
 import { MetahubMigrationRequiredError } from '../../domains/shared/domainErrors'
+import { lmsTemplate } from '../../domains/templates/data/lms.template'
 
 describe('MetahubSchemaService (read_only mode)', () => {
     const metahubId = '019c5a80-94a8-7ea4-a2eb-cf1522e0d123'
@@ -334,6 +335,20 @@ describe('MetahubSchemaService create options', () => {
             catalog: true,
             set: false
         })
+    })
+
+    it('loads entity type definitions for direct seed entities without adding preset default instances', async () => {
+        const exec = createSchemaServiceExec()
+        const service = new MetahubSchemaService(exec)
+
+        const bundle = await (service as any).buildTemplateBootstrapBundle(lmsTemplate)
+        const kindKeys = bundle.entityTypePresets.map((preset: { entityType: { kindKey: string } }) => preset.entityType.kindKey)
+        const entityCodenames = bundle.seed.entities.map((entity: { codename: string }) => entity.codename)
+
+        expect(kindKeys).toEqual(expect.arrayContaining(['hub', 'catalog', 'enumeration']))
+        expect(entityCodenames).toEqual(expect.arrayContaining(['Learning', 'Modules', 'ModuleStatus', 'QuestionType']))
+        expect(entityCodenames).not.toContain('MainCatalog')
+        expect(entityCodenames).not.toContain('MainHub')
     })
 
     it('resolves the public structure version from the baseline migration row', async () => {

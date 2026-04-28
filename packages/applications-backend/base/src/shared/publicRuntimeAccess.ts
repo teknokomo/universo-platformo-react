@@ -37,11 +37,7 @@ export const listActivePublicWorkspaceIds = async (executor: DbExecutor, schemaN
  * Public runtime must therefore bind itself to a specific resolved workspace
  * instead of using a global first-workspace fallback.
  */
-export const setPublicWorkspaceContext = async (
-    executor: DbExecutor,
-    schemaName: string,
-    workspaceId: string | null
-): Promise<boolean> => {
+export const setPublicWorkspaceContext = async (executor: DbExecutor, schemaName: string, workspaceId: string | null): Promise<boolean> => {
     if (!workspaceId) {
         await executor.query(`SELECT set_config('app.current_workspace_id', $1::text, true)`, [''])
         return true

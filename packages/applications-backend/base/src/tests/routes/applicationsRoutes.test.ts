@@ -1428,7 +1428,86 @@ describe('Applications Routes', () => {
             })
         })
 
-        it('should reject visibility updates after creation', async () => {
+        it('should update visibility for owner', async () => {
+            const { dataSource, applicationUserRepo } = buildDataSource()
+            applicationUserRepo.findOne.mockResolvedValue({
+                user_id: 'test-user-id',
+                role: 'owner'
+            })
+            ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM applications.rel_application_users')) {
+                    return [
+                        {
+                            id: 'membership-id',
+                            userId: 'test-user-id',
+                            applicationId: 'application-1',
+                            role: 'owner',
+                            _uplCreatedAt: new Date()
+                        }
+                    ]
+                }
+
+                if (sql.includes('UPDATE applications.cat_applications')) {
+                    expect(sql).toContain('is_public')
+                    return [
+                        {
+                            id: 'application-1',
+                            name: {
+                                _schema: 'v1',
+                                _primary: 'en',
+                                locales: { en: { content: 'Existing App' } }
+                            },
+                            description: null,
+                            slug: 'test-app',
+                            isPublic: true,
+                            workspacesEnabled: false,
+                            schemaName: 'app_123',
+                            schemaStatus: 'draft',
+                            schemaSyncedAt: null,
+                            schemaError: null,
+                            version: 2,
+                            createdAt: new Date(),
+                            updatedAt: new Date(),
+                            updatedBy: 'test-user-id'
+                        }
+                    ]
+                }
+
+                return [
+                    {
+                        id: 'application-1',
+                        name: {
+                            _schema: '1',
+                            _primary: 'en',
+                            locales: { en: { content: 'Existing App' } }
+                        },
+                        isPublic: false,
+                        slug: 'test-app',
+                        description: null,
+                        version: 1,
+                        updatedAt: new Date(),
+                        updatedBy: 'test-user-id',
+                        workspacesEnabled: false
+                    }
+                ]
+            })
+
+            const app = buildApp(dataSource)
+
+            const response = await request(app)
+                .patch('/applications/application-1')
+                .send({ isPublic: true, expectedVersion: 1 })
+                .expect(200)
+
+            expect(response.body).toMatchObject({
+                id: 'application-1',
+                isPublic: true,
+                workspacesEnabled: false,
+                version: 2
+            })
+        })
+
+        it('should reject workspace mode updates after creation', async () => {
             const { dataSource, applicationUserRepo } = buildDataSource()
             applicationUserRepo.findOne.mockResolvedValue({
                 user_id: 'test-user-id',
@@ -1463,9 +1542,10 @@ describe('Applications Routes', () => {
 
             const app = buildApp(dataSource)
 
-            const response = await request(app).patch('/applications/application-1').send({ isPublic: true }).expect(400)
+            const response = await request(app).patch('/applications/application-1').send({ workspacesEnabled: true }).expect(400)
 
             expect(response.body.error).toContain('Immutable application parameters')
+            expect(response.body.details).toHaveProperty('workspacesEnabled')
         })
     })
 

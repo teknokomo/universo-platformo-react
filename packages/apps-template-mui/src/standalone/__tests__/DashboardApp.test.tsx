@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import DashboardApp from '../DashboardApp'
+import { createStandaloneAdapter } from '../../api/adapters'
 
 const dashboardMocks = vi.hoisted(() => ({
     dashboardStateOverrides: {} as Record<string, unknown>,
@@ -27,10 +28,39 @@ vi.mock('../../api/adapters', () => ({
 }))
 
 vi.mock('../../dashboard/Dashboard', () => ({
-    default: ({ details }: { details?: { title?: string; actions?: ReactNode } }) => (
+    default: ({
+        details,
+        layoutConfig,
+        menu
+    }: {
+        details?: { title?: string; actions?: ReactNode; content?: ReactNode }
+        layoutConfig?: Record<string, unknown>
+        menu?: { items?: Array<{ label: string; selected?: boolean; href?: string | null }> }
+    }) => (
         <div data-testid='dashboard-app'>
+            <div data-testid='dashboard-layout'>{JSON.stringify(layoutConfig ?? {})}</div>
+            <div data-testid='dashboard-menu'>
+                {menu?.items?.map((item) => `${item.label}:${Boolean(item.selected)}:${item.href ?? ''}`).join('|')}
+            </div>
             <div data-testid='dashboard-title'>{details?.title}</div>
             <div data-testid='dashboard-actions'>{details?.actions}</div>
+            <div data-testid='dashboard-content'>{details?.content}</div>
+        </div>
+    )
+}))
+
+vi.mock('../../workspaces/RuntimeWorkspacesPage', () => ({
+    RuntimeWorkspacesPage: ({
+        applicationId,
+        routeWorkspaceId,
+        routeSection
+    }: {
+        applicationId: string
+        routeWorkspaceId?: string | null
+        routeSection?: string
+    }) => (
+        <div data-testid='runtime-workspaces-page'>
+            workspaces:{applicationId}:{routeWorkspaceId ?? 'list'}:{routeSection ?? 'dashboard'}
         </div>
     )
 }))
@@ -49,6 +79,8 @@ vi.mock('../../hooks/useCrudDashboard', () => ({
             zoneWidgets: { left: [], right: [], center: [] },
             menus: [],
             activeMenuId: null,
+            settings: { sectionLinksEnabled: true },
+            workspacesEnabled: true,
             linkedCollection: {
                 name: 'Standalone details'
             }
@@ -86,7 +118,12 @@ vi.mock('../../hooks/useCrudDashboard', () => ({
         activeMenu: null,
         menuAnchorEl: null,
         menuRowId: null,
-        menuSlot: undefined,
+        menuSlot: {
+            title: null,
+            showTitle: false,
+            items: [{ id: 'modules', label: 'Modules', kind: 'catalog', linkedCollectionId: 'catalog-1', selected: true }]
+        },
+        menusMap: {},
         activeLinkedCollectionId: 'catalog-1',
         selectedLinkedCollectionId: 'catalog-1',
         handleOpenCreate: dashboardMocks.handleOpenCreate,
@@ -100,6 +137,7 @@ describe('DashboardApp', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         dashboardMocks.dashboardStateOverrides = {}
+        window.history.pushState({}, '', '/')
     })
 
     it('keeps dialog surface by default when no page runtime surface is configured', () => {
@@ -201,5 +239,37 @@ describe('DashboardApp', () => {
         render(<DashboardApp applicationId='app-1' locale='en' apiBaseUrl='http://localhost:3000' />)
 
         expect(screen.queryByRole('button', { name: 'Create' })).not.toBeInTheDocument()
+    })
+
+    it('renders the Workspaces route with runtime navigation and no demo dashboard layout', () => {
+        const applicationId = '00000000-0000-7000-8000-000000000001'
+        window.history.pushState({}, '', `/a/${applicationId}/workspaces`)
+
+        render(<DashboardApp applicationId={applicationId} locale='en' apiBaseUrl='http://localhost:3000' />)
+
+        expect(createStandaloneAdapter).toHaveBeenCalledWith({ apiBaseUrl: 'http://localhost:3000', applicationId })
+        expect(screen.getByTestId('dashboard-title')).toHaveTextContent('Workspaces')
+        expect(screen.getByTestId('dashboard-content')).toHaveTextContent(`workspaces:${applicationId}`)
+        expect(screen.getByTestId('dashboard-menu')).toHaveTextContent(
+            `Modules:false:/a/${applicationId}/catalog-1|Workspaces:true:/a/${applicationId}/workspaces`
+        )
+        expect(screen.getByTestId('dashboard-layout')).toHaveTextContent('"showOverviewTitle":false')
+        expect(screen.getByTestId('dashboard-layout')).toHaveTextContent('"showOverviewCards":false')
+        expect(screen.getByTestId('dashboard-layout')).toHaveTextContent('"showSessionsChart":false')
+        expect(screen.getByTestId('dashboard-layout')).toHaveTextContent('"showPageViewsChart":false')
+        expect(screen.getByTestId('dashboard-layout')).toHaveTextContent('"showDetailsTable":false')
+    })
+
+    it('renders workspace detail navigation in standalone published apps', () => {
+        const applicationId = '00000000-0000-7000-8000-000000000001'
+        const workspaceId = '00000000-0000-7000-8000-000000000111'
+        window.history.pushState({}, '', `/a/${applicationId}/workspaces/${workspaceId}/access`)
+
+        render(<DashboardApp applicationId={applicationId} locale='en' apiBaseUrl='http://localhost:3000' />)
+
+        expect(screen.getByTestId('dashboard-content')).toHaveTextContent(`workspaces:${applicationId}:${workspaceId}:access`)
+        expect(screen.getByTestId('dashboard-menu')).toHaveTextContent(
+            `Modules:false:/a/${applicationId}/catalog-1|Workspaces:true:/a/${applicationId}/workspaces|Dashboard:false:/a/${applicationId}/workspaces/${workspaceId}|Access:true:/a/${applicationId}/workspaces/${workspaceId}/access`
+        )
     })
 })

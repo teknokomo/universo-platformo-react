@@ -33,6 +33,7 @@ export interface ApplicationDialogSettings {
     dialogAllowFullscreen: boolean
     dialogAllowResize: boolean
     dialogCloseBehavior: DialogCloseBehavior
+    sectionLinksEnabled: boolean
 }
 
 export interface ApplicationMember {

@@ -109,10 +109,34 @@ describe('Public Applications Routes', () => {
 
                     if (sql.includes(`FROM "${schemaName}"."_app_attributes"`)) {
                         return [
-                            { id: 'attr-1', codename: codenameVlc('Slug'), column_name: 'slug', data_type: 'STRING', parent_attribute_id: null },
-                            { id: 'attr-2', codename: codenameVlc('TargetType'), column_name: 'target_type', data_type: 'STRING', parent_attribute_id: null },
-                            { id: 'attr-3', codename: codenameVlc('TargetId'), column_name: 'target_id', data_type: 'STRING', parent_attribute_id: null },
-                            { id: 'attr-4', codename: codenameVlc('IsActive'), column_name: 'is_active', data_type: 'BOOLEAN', parent_attribute_id: null }
+                            {
+                                id: 'attr-1',
+                                codename: codenameVlc('Slug'),
+                                column_name: 'slug',
+                                data_type: 'STRING',
+                                parent_attribute_id: null
+                            },
+                            {
+                                id: 'attr-2',
+                                codename: codenameVlc('TargetType'),
+                                column_name: 'target_type',
+                                data_type: 'STRING',
+                                parent_attribute_id: null
+                            },
+                            {
+                                id: 'attr-3',
+                                codename: codenameVlc('TargetId'),
+                                column_name: 'target_id',
+                                data_type: 'STRING',
+                                parent_attribute_id: null
+                            },
+                            {
+                                id: 'attr-4',
+                                codename: codenameVlc('IsActive'),
+                                column_name: 'is_active',
+                                data_type: 'BOOLEAN',
+                                parent_attribute_id: null
+                            }
                         ]
                     }
 
@@ -161,10 +185,34 @@ describe('Public Applications Routes', () => {
 
                     if (sql.includes(`FROM "${schemaName}"."_app_attributes"`)) {
                         return [
-                            { id: 'attr-1', codename: codenameVlc('Slug'), column_name: 'slug', data_type: 'STRING', parent_attribute_id: null },
-                            { id: 'attr-2', codename: codenameVlc('TargetType'), column_name: 'target_type', data_type: 'STRING', parent_attribute_id: null },
-                            { id: 'attr-3', codename: codenameVlc('TargetId'), column_name: 'target_id', data_type: 'STRING', parent_attribute_id: null },
-                            { id: 'attr-4', codename: codenameVlc('IsActive'), column_name: 'is_active', data_type: 'BOOLEAN', parent_attribute_id: null }
+                            {
+                                id: 'attr-1',
+                                codename: codenameVlc('Slug'),
+                                column_name: 'slug',
+                                data_type: 'STRING',
+                                parent_attribute_id: null
+                            },
+                            {
+                                id: 'attr-2',
+                                codename: codenameVlc('TargetType'),
+                                column_name: 'target_type',
+                                data_type: 'STRING',
+                                parent_attribute_id: null
+                            },
+                            {
+                                id: 'attr-3',
+                                codename: codenameVlc('TargetId'),
+                                column_name: 'target_id',
+                                data_type: 'STRING',
+                                parent_attribute_id: null
+                            },
+                            {
+                                id: 'attr-4',
+                                codename: codenameVlc('IsActive'),
+                                column_name: 'is_active',
+                                data_type: 'BOOLEAN',
+                                parent_attribute_id: null
+                            }
                         ]
                     }
 
@@ -209,10 +257,34 @@ describe('Public Applications Routes', () => {
 
                     if (sql.includes(`FROM "${schemaName}"."_app_attributes"`)) {
                         return [
-                            { id: 'attr-1', codename: codenameVlc('Slug'), column_name: 'slug', data_type: 'STRING', parent_attribute_id: null },
-                            { id: 'attr-2', codename: codenameVlc('TargetType'), column_name: 'target_type', data_type: 'STRING', parent_attribute_id: null },
-                            { id: 'attr-3', codename: codenameVlc('TargetId'), column_name: 'target_id', data_type: 'STRING', parent_attribute_id: null },
-                            { id: 'attr-4', codename: codenameVlc('IsActive'), column_name: 'is_active', data_type: 'BOOLEAN', parent_attribute_id: null }
+                            {
+                                id: 'attr-1',
+                                codename: codenameVlc('Slug'),
+                                column_name: 'slug',
+                                data_type: 'STRING',
+                                parent_attribute_id: null
+                            },
+                            {
+                                id: 'attr-2',
+                                codename: codenameVlc('TargetType'),
+                                column_name: 'target_type',
+                                data_type: 'STRING',
+                                parent_attribute_id: null
+                            },
+                            {
+                                id: 'attr-3',
+                                codename: codenameVlc('TargetId'),
+                                column_name: 'target_id',
+                                data_type: 'STRING',
+                                parent_attribute_id: null
+                            },
+                            {
+                                id: 'attr-4',
+                                codename: codenameVlc('IsActive'),
+                                column_name: 'is_active',
+                                data_type: 'BOOLEAN',
+                                parent_attribute_id: null
+                            }
                         ]
                     }
 
@@ -334,11 +406,41 @@ describe('Public Applications Routes', () => {
 
                 if (sql.includes(`FROM "${schemaName}"."_app_attributes"`)) {
                     return [
-                        { id: 'attr-1', codename: codenameVlc('Slug'), column_name: 'slug', data_type: 'STRING', parent_attribute_id: null },
-                        { id: 'attr-2', codename: codenameVlc('TargetType'), column_name: 'target_type', data_type: 'STRING', parent_attribute_id: null },
-                        { id: 'attr-3', codename: codenameVlc('TargetId'), column_name: 'target_id', data_type: 'STRING', parent_attribute_id: null },
-                        { id: 'attr-4', codename: codenameVlc('IsActive'), column_name: 'is_active', data_type: 'BOOLEAN', parent_attribute_id: null },
-                        { id: 'attr-5', codename: codenameVlc('LinkTitle'), column_name: 'title', data_type: 'STRING', parent_attribute_id: null }
+                        {
+                            id: 'attr-1',
+                            codename: codenameVlc('Slug'),
+                            column_name: 'slug',
+                            data_type: 'STRING',
+                            parent_attribute_id: null
+                        },
+                        {
+                            id: 'attr-2',
+                            codename: codenameVlc('TargetType'),
+                            column_name: 'target_type',
+                            data_type: 'STRING',
+                            parent_attribute_id: null
+                        },
+                        {
+                            id: 'attr-3',
+                            codename: codenameVlc('TargetId'),
+                            column_name: 'target_id',
+                            data_type: 'STRING',
+                            parent_attribute_id: null
+                        },
+                        {
+                            id: 'attr-4',
+                            codename: codenameVlc('IsActive'),
+                            column_name: 'is_active',
+                            data_type: 'BOOLEAN',
+                            parent_attribute_id: null
+                        },
+                        {
+                            id: 'attr-5',
+                            codename: codenameVlc('LinkTitle'),
+                            column_name: 'title',
+                            data_type: 'STRING',
+                            parent_attribute_id: null
+                        }
                     ]
                 }
 
@@ -544,24 +646,76 @@ describe('Public Applications Routes', () => {
                         if (params[0] === 'object-links') {
                             return [
                                 { id: 'attr-1', codename: 'Slug', column_name: 'slug', data_type: 'STRING', parent_attribute_id: null },
-                                { id: 'attr-2', codename: 'TargetType', column_name: 'target_type', data_type: 'STRING', parent_attribute_id: null },
-                                { id: 'attr-3', codename: 'TargetId', column_name: 'target_id', data_type: 'STRING', parent_attribute_id: null },
-                                { id: 'attr-4', codename: 'IsActive', column_name: 'is_active', data_type: 'BOOLEAN', parent_attribute_id: null },
-                                { id: 'attr-5', codename: 'UseCount', column_name: 'use_count', data_type: 'NUMBER', parent_attribute_id: null },
-                                { id: 'attr-6', codename: 'MaxUses', column_name: 'max_uses', data_type: 'NUMBER', parent_attribute_id: null }
+                                {
+                                    id: 'attr-2',
+                                    codename: 'TargetType',
+                                    column_name: 'target_type',
+                                    data_type: 'STRING',
+                                    parent_attribute_id: null
+                                },
+                                {
+                                    id: 'attr-3',
+                                    codename: 'TargetId',
+                                    column_name: 'target_id',
+                                    data_type: 'STRING',
+                                    parent_attribute_id: null
+                                },
+                                {
+                                    id: 'attr-4',
+                                    codename: 'IsActive',
+                                    column_name: 'is_active',
+                                    data_type: 'BOOLEAN',
+                                    parent_attribute_id: null
+                                },
+                                {
+                                    id: 'attr-5',
+                                    codename: 'UseCount',
+                                    column_name: 'use_count',
+                                    data_type: 'NUMBER',
+                                    parent_attribute_id: null
+                                },
+                                {
+                                    id: 'attr-6',
+                                    codename: 'MaxUses',
+                                    column_name: 'max_uses',
+                                    data_type: 'NUMBER',
+                                    parent_attribute_id: null
+                                }
                             ]
                         }
 
                         return [
-                            { id: 'attr-1', codename: 'DisplayName', column_name: 'display_name', data_type: 'STRING', parent_attribute_id: null },
+                            {
+                                id: 'attr-1',
+                                codename: 'DisplayName',
+                                column_name: 'display_name',
+                                data_type: 'STRING',
+                                parent_attribute_id: null
+                            },
                             { id: 'attr-2', codename: 'IsGuest', column_name: 'is_guest', data_type: 'BOOLEAN', parent_attribute_id: null },
-                            { id: 'attr-3', codename: 'GuestSessionToken', column_name: 'guest_session_token', data_type: 'STRING', parent_attribute_id: null }
+                            {
+                                id: 'attr-3',
+                                codename: 'GuestSessionToken',
+                                column_name: 'guest_session_token',
+                                data_type: 'STRING',
+                                parent_attribute_id: null
+                            }
                         ]
                     }
 
                     if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
                         return currentWorkspaceId === workspaceId2
-                            ? [{ id: accessLinkId, slug: 'demo-module', target_type: 'module', target_id: moduleId, is_active: true, max_uses: 5, use_count: 0 }]
+                            ? [
+                                  {
+                                      id: accessLinkId,
+                                      slug: 'demo-module',
+                                      target_type: 'module',
+                                      target_id: moduleId,
+                                      is_active: true,
+                                      max_uses: 5,
+                                      use_count: 0
+                                  }
+                              ]
                             : []
                     }
 
@@ -615,11 +769,20 @@ describe('Public Applications Routes', () => {
 
                     if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
                         if (params[0] === 'AccessLinks') {
-                            return [{ id: 'object-links', codename: codenameVlc('AccessLinks'), kind: 'catalog', table_name: 'access_links_table' }]
+                            return [
+                                {
+                                    id: 'object-links',
+                                    codename: codenameVlc('AccessLinks'),
+                                    kind: 'catalog',
+                                    table_name: 'access_links_table'
+                                }
+                            ]
                         }
 
                         if (params[0] === 'Students') {
-                            return [{ id: 'object-students', codename: codenameVlc('Students'), kind: 'catalog', table_name: 'students_table' }]
+                            return [
+                                { id: 'object-students', codename: codenameVlc('Students'), kind: 'catalog', table_name: 'students_table' }
+                            ]
                         }
 
                         return [{ id: 'object-modules', codename: codenameVlc('Modules'), kind: 'catalog', table_name: 'modules_table' }]
@@ -628,28 +791,108 @@ describe('Public Applications Routes', () => {
                     if (sql.includes(`FROM "${schemaName}"."_app_attributes"`)) {
                         if (params[0] === 'object-links') {
                             return [
-                                { id: 'attr-1', codename: codenameVlc('Slug'), column_name: 'slug', data_type: 'STRING', parent_attribute_id: null },
-                                { id: 'attr-2', codename: codenameVlc('TargetType'), column_name: 'target_type', data_type: 'STRING', parent_attribute_id: null },
-                                { id: 'attr-3', codename: codenameVlc('TargetId'), column_name: 'target_id', data_type: 'STRING', parent_attribute_id: null },
-                                { id: 'attr-4', codename: codenameVlc('IsActive'), column_name: 'is_active', data_type: 'BOOLEAN', parent_attribute_id: null }
+                                {
+                                    id: 'attr-1',
+                                    codename: codenameVlc('Slug'),
+                                    column_name: 'slug',
+                                    data_type: 'STRING',
+                                    parent_attribute_id: null
+                                },
+                                {
+                                    id: 'attr-2',
+                                    codename: codenameVlc('TargetType'),
+                                    column_name: 'target_type',
+                                    data_type: 'STRING',
+                                    parent_attribute_id: null
+                                },
+                                {
+                                    id: 'attr-3',
+                                    codename: codenameVlc('TargetId'),
+                                    column_name: 'target_id',
+                                    data_type: 'STRING',
+                                    parent_attribute_id: null
+                                },
+                                {
+                                    id: 'attr-4',
+                                    codename: codenameVlc('IsActive'),
+                                    column_name: 'is_active',
+                                    data_type: 'BOOLEAN',
+                                    parent_attribute_id: null
+                                }
                             ]
                         }
 
                         if (params[0] === 'object-students') {
                             return [
-                                { id: 'attr-1', codename: codenameVlc('GuestSessionToken'), column_name: 'guest_session_token', data_type: 'STRING', parent_attribute_id: null },
-                                { id: 'attr-2', codename: codenameVlc('IsGuest'), column_name: 'is_guest', data_type: 'BOOLEAN', parent_attribute_id: null }
+                                {
+                                    id: 'attr-1',
+                                    codename: codenameVlc('GuestSessionToken'),
+                                    column_name: 'guest_session_token',
+                                    data_type: 'STRING',
+                                    parent_attribute_id: null
+                                },
+                                {
+                                    id: 'attr-2',
+                                    codename: codenameVlc('IsGuest'),
+                                    column_name: 'is_guest',
+                                    data_type: 'BOOLEAN',
+                                    parent_attribute_id: null
+                                }
                             ]
                         }
 
                         return [
-                            { id: 'attr-title', codename: codenameVlc('Title'), column_name: 'title', data_type: 'STRING', parent_attribute_id: null },
-                            { id: 'attr-description', codename: codenameVlc('Description'), column_name: 'description', data_type: 'STRING', parent_attribute_id: null },
-                            { id: 'attr-content', codename: codenameVlc('ContentItems'), column_name: 'content_items', data_type: 'TABLE', parent_attribute_id: null },
-                            { id: 'child-type', codename: codenameVlc('ItemType'), column_name: 'item_type', data_type: 'REF', parent_attribute_id: 'attr-content', target_object_id: 'enum-content-type', target_object_kind: 'enumeration' },
-                            { id: 'child-title', codename: codenameVlc('ItemTitle'), column_name: 'item_title', data_type: 'STRING', parent_attribute_id: 'attr-content' },
-                            { id: 'child-content', codename: codenameVlc('ItemContent'), column_name: 'item_content', data_type: 'STRING', parent_attribute_id: 'attr-content' },
-                            { id: 'child-sort', codename: codenameVlc('SortOrder'), column_name: 'sort_order', data_type: 'NUMBER', parent_attribute_id: 'attr-content' }
+                            {
+                                id: 'attr-title',
+                                codename: codenameVlc('Title'),
+                                column_name: 'title',
+                                data_type: 'STRING',
+                                parent_attribute_id: null
+                            },
+                            {
+                                id: 'attr-description',
+                                codename: codenameVlc('Description'),
+                                column_name: 'description',
+                                data_type: 'STRING',
+                                parent_attribute_id: null
+                            },
+                            {
+                                id: 'attr-content',
+                                codename: codenameVlc('ContentItems'),
+                                column_name: 'content_items',
+                                data_type: 'TABLE',
+                                parent_attribute_id: null
+                            },
+                            {
+                                id: 'child-type',
+                                codename: codenameVlc('ItemType'),
+                                column_name: 'item_type',
+                                data_type: 'REF',
+                                parent_attribute_id: 'attr-content',
+                                target_object_id: 'enum-content-type',
+                                target_object_kind: 'enumeration'
+                            },
+                            {
+                                id: 'child-title',
+                                codename: codenameVlc('ItemTitle'),
+                                column_name: 'item_title',
+                                data_type: 'STRING',
+                                parent_attribute_id: 'attr-content'
+                            },
+                            {
+                                id: 'child-content',
+                                codename: codenameVlc('ItemContent'),
+                                column_name: 'item_content',
+                                data_type: 'STRING',
+                                parent_attribute_id: 'attr-content'
+                            },
+                            {
+                                id: 'child-sort',
+                                codename: codenameVlc('SortOrder'),
+                                column_name: 'sort_order',
+                                data_type: 'NUMBER',
+                                parent_attribute_id: 'attr-content'
+                            }
                         ]
                     }
 
@@ -685,7 +928,16 @@ describe('Public Applications Routes', () => {
 
                     if (sql.includes(`FROM "${schemaName}"."content_items"`)) {
                         return currentWorkspaceId === workspaceId2
-                            ? [{ id: 'row-1', _tp_parent_id: moduleId, _tp_sort_order: 1, item_type: 'value-text', item_title: 'Header-auth item', item_content: 'Workspace-safe content' }]
+                            ? [
+                                  {
+                                      id: 'row-1',
+                                      _tp_parent_id: moduleId,
+                                      _tp_sort_order: 1,
+                                      item_type: 'value-text',
+                                      item_title: 'Header-auth item',
+                                      item_content: 'Workspace-safe content'
+                                  }
+                              ]
                             : []
                     }
 
@@ -880,16 +1132,46 @@ describe('Public Applications Routes', () => {
                         if (params[0] === 'object-links') {
                             return [
                                 { id: 'attr-1', codename: 'Slug', column_name: 'slug', data_type: 'STRING', parent_attribute_id: null },
-                                { id: 'attr-2', codename: 'TargetType', column_name: 'target_type', data_type: 'STRING', parent_attribute_id: null },
-                                { id: 'attr-3', codename: 'TargetId', column_name: 'target_id', data_type: 'STRING', parent_attribute_id: null },
-                                { id: 'attr-4', codename: 'IsActive', column_name: 'is_active', data_type: 'BOOLEAN', parent_attribute_id: null }
+                                {
+                                    id: 'attr-2',
+                                    codename: 'TargetType',
+                                    column_name: 'target_type',
+                                    data_type: 'STRING',
+                                    parent_attribute_id: null
+                                },
+                                {
+                                    id: 'attr-3',
+                                    codename: 'TargetId',
+                                    column_name: 'target_id',
+                                    data_type: 'STRING',
+                                    parent_attribute_id: null
+                                },
+                                {
+                                    id: 'attr-4',
+                                    codename: 'IsActive',
+                                    column_name: 'is_active',
+                                    data_type: 'BOOLEAN',
+                                    parent_attribute_id: null
+                                }
                             ]
                         }
 
                         return [
                             { id: 'attr-title', codename: 'Title', column_name: 'title', data_type: 'STRING', parent_attribute_id: null },
-                            { id: 'attr-description', codename: 'Description', column_name: 'description', data_type: 'STRING', parent_attribute_id: null },
-                            { id: 'attr-content', codename: 'ContentItems', column_name: 'content_items', data_type: 'TABLE', parent_attribute_id: null },
+                            {
+                                id: 'attr-description',
+                                codename: 'Description',
+                                column_name: 'description',
+                                data_type: 'STRING',
+                                parent_attribute_id: null
+                            },
+                            {
+                                id: 'attr-content',
+                                codename: 'ContentItems',
+                                column_name: 'content_items',
+                                data_type: 'TABLE',
+                                parent_attribute_id: null
+                            },
                             {
                                 id: 'child-type',
                                 codename: 'ItemType',
@@ -899,9 +1181,27 @@ describe('Public Applications Routes', () => {
                                 target_object_id: 'enum-content-type',
                                 target_object_kind: 'enumeration'
                             },
-                            { id: 'child-title', codename: 'ItemTitle', column_name: 'item_title', data_type: 'STRING', parent_attribute_id: 'attr-content' },
-                            { id: 'child-content', codename: 'ItemContent', column_name: 'item_content', data_type: 'STRING', parent_attribute_id: 'attr-content' },
-                            { id: 'child-sort', codename: 'SortOrder', column_name: 'sort_order', data_type: 'NUMBER', parent_attribute_id: 'attr-content' }
+                            {
+                                id: 'child-title',
+                                codename: 'ItemTitle',
+                                column_name: 'item_title',
+                                data_type: 'STRING',
+                                parent_attribute_id: 'attr-content'
+                            },
+                            {
+                                id: 'child-content',
+                                codename: 'ItemContent',
+                                column_name: 'item_content',
+                                data_type: 'STRING',
+                                parent_attribute_id: 'attr-content'
+                            },
+                            {
+                                id: 'child-sort',
+                                codename: 'SortOrder',
+                                column_name: 'sort_order',
+                                data_type: 'NUMBER',
+                                parent_attribute_id: 'attr-content'
+                            }
                         ]
                     }
 
@@ -912,7 +1212,9 @@ describe('Public Applications Routes', () => {
                     }
 
                     if (sql.includes(`FROM "${schemaName}"."modules_table"`)) {
-                        return currentWorkspaceId === workspaceId2 ? [{ id: moduleId, title: 'Scoped module', description: 'Scoped lesson' }] : []
+                        return currentWorkspaceId === workspaceId2
+                            ? [{ id: moduleId, title: 'Scoped module', description: 'Scoped lesson' }]
+                            : []
                     }
 
                     if (sql.includes(`FROM "${schemaName}"."_app_values"`)) {
@@ -921,7 +1223,17 @@ describe('Public Applications Routes', () => {
 
                     if (sql.includes(`FROM "${schemaName}"."content_items"`)) {
                         return currentWorkspaceId === workspaceId2
-                            ? [{ id: 'row-1', _tp_parent_id: moduleId, _tp_sort_order: 1, item_type: 'value-text', item_title: 'Scoped item', item_content: 'Workspace-bound content', quiz_id: null }]
+                            ? [
+                                  {
+                                      id: 'row-1',
+                                      _tp_parent_id: moduleId,
+                                      _tp_sort_order: 1,
+                                      item_type: 'value-text',
+                                      item_title: 'Scoped item',
+                                      item_content: 'Workspace-bound content',
+                                      quiz_id: null
+                                  }
+                              ]
                             : []
                     }
 
@@ -976,16 +1288,46 @@ describe('Public Applications Routes', () => {
                         if (params[0] === 'object-links') {
                             return [
                                 { id: 'attr-1', codename: 'Slug', column_name: 'slug', data_type: 'STRING', parent_attribute_id: null },
-                                { id: 'attr-2', codename: 'TargetType', column_name: 'target_type', data_type: 'STRING', parent_attribute_id: null },
-                                { id: 'attr-3', codename: 'TargetId', column_name: 'target_id', data_type: 'STRING', parent_attribute_id: null },
-                                { id: 'attr-4', codename: 'IsActive', column_name: 'is_active', data_type: 'BOOLEAN', parent_attribute_id: null }
+                                {
+                                    id: 'attr-2',
+                                    codename: 'TargetType',
+                                    column_name: 'target_type',
+                                    data_type: 'STRING',
+                                    parent_attribute_id: null
+                                },
+                                {
+                                    id: 'attr-3',
+                                    codename: 'TargetId',
+                                    column_name: 'target_id',
+                                    data_type: 'STRING',
+                                    parent_attribute_id: null
+                                },
+                                {
+                                    id: 'attr-4',
+                                    codename: 'IsActive',
+                                    column_name: 'is_active',
+                                    data_type: 'BOOLEAN',
+                                    parent_attribute_id: null
+                                }
                             ]
                         }
 
                         return [
                             { id: 'attr-title', codename: 'Title', column_name: 'title', data_type: 'STRING', parent_attribute_id: null },
-                            { id: 'attr-description', codename: 'Description', column_name: 'description', data_type: 'STRING', parent_attribute_id: null },
-                            { id: 'attr-content', codename: 'ContentItems', column_name: 'content_items', data_type: 'TABLE', parent_attribute_id: null },
+                            {
+                                id: 'attr-description',
+                                codename: 'Description',
+                                column_name: 'description',
+                                data_type: 'STRING',
+                                parent_attribute_id: null
+                            },
+                            {
+                                id: 'attr-content',
+                                codename: 'ContentItems',
+                                column_name: 'content_items',
+                                data_type: 'TABLE',
+                                parent_attribute_id: null
+                            },
                             {
                                 id: 'child-type',
                                 codename: 'ItemType',
@@ -995,10 +1337,34 @@ describe('Public Applications Routes', () => {
                                 target_object_id: 'enum-content-type',
                                 target_object_kind: 'enumeration'
                             },
-                            { id: 'child-title', codename: 'ItemTitle', column_name: 'item_title', data_type: 'STRING', parent_attribute_id: 'attr-content' },
-                            { id: 'child-content', codename: 'ItemContent', column_name: 'item_content', data_type: 'STRING', parent_attribute_id: 'attr-content' },
-                            { id: 'child-quiz', codename: 'QuizId', column_name: 'quiz_id', data_type: 'STRING', parent_attribute_id: 'attr-content' },
-                            { id: 'child-sort', codename: 'SortOrder', column_name: 'sort_order', data_type: 'NUMBER', parent_attribute_id: 'attr-content' }
+                            {
+                                id: 'child-title',
+                                codename: 'ItemTitle',
+                                column_name: 'item_title',
+                                data_type: 'STRING',
+                                parent_attribute_id: 'attr-content'
+                            },
+                            {
+                                id: 'child-content',
+                                codename: 'ItemContent',
+                                column_name: 'item_content',
+                                data_type: 'STRING',
+                                parent_attribute_id: 'attr-content'
+                            },
+                            {
+                                id: 'child-quiz',
+                                codename: 'QuizId',
+                                column_name: 'quiz_id',
+                                data_type: 'STRING',
+                                parent_attribute_id: 'attr-content'
+                            },
+                            {
+                                id: 'child-sort',
+                                codename: 'SortOrder',
+                                column_name: 'sort_order',
+                                data_type: 'NUMBER',
+                                parent_attribute_id: 'attr-content'
+                            }
                         ]
                     }
 
@@ -1009,7 +1375,15 @@ describe('Public Applications Routes', () => {
                         }
 
                         if (currentWorkspaceId === workspaceId1) {
-                            return [{ id: 'personal-link', slug: 'demo-module', target_type: 'module', target_id: personalModuleId, is_active: true }]
+                            return [
+                                {
+                                    id: 'personal-link',
+                                    slug: 'demo-module',
+                                    target_type: 'module',
+                                    target_id: personalModuleId,
+                                    is_active: true
+                                }
+                            ]
                         }
 
                         return []
@@ -1080,7 +1454,9 @@ describe('Public Applications Routes', () => {
             withPublicApplication((sql, params) => {
                 if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
                     if (params[0] === 'AccessLinks') {
-                        return [{ id: 'object-links', codename: codenameVlc('AccessLinks'), kind: 'catalog', table_name: 'access_links_table' }]
+                        return [
+                            { id: 'object-links', codename: codenameVlc('AccessLinks'), kind: 'catalog', table_name: 'access_links_table' }
+                        ]
                     }
                     return [{ id: 'object-modules', codename: codenameVlc('Modules'), kind: 'catalog', table_name: 'modules_table' }]
                 }
@@ -1088,17 +1464,59 @@ describe('Public Applications Routes', () => {
                 if (sql.includes(`FROM "${schemaName}"."_app_attributes"`)) {
                     if (params[0] === 'object-links') {
                         return [
-                            { id: 'attr-1', codename: codenameVlc('Slug'), column_name: 'slug', data_type: 'STRING', parent_attribute_id: null },
-                            { id: 'attr-2', codename: codenameVlc('TargetType'), column_name: 'target_type', data_type: 'STRING', parent_attribute_id: null },
-                            { id: 'attr-3', codename: codenameVlc('TargetId'), column_name: 'target_id', data_type: 'STRING', parent_attribute_id: null },
-                            { id: 'attr-4', codename: codenameVlc('IsActive'), column_name: 'is_active', data_type: 'BOOLEAN', parent_attribute_id: null }
+                            {
+                                id: 'attr-1',
+                                codename: codenameVlc('Slug'),
+                                column_name: 'slug',
+                                data_type: 'STRING',
+                                parent_attribute_id: null
+                            },
+                            {
+                                id: 'attr-2',
+                                codename: codenameVlc('TargetType'),
+                                column_name: 'target_type',
+                                data_type: 'STRING',
+                                parent_attribute_id: null
+                            },
+                            {
+                                id: 'attr-3',
+                                codename: codenameVlc('TargetId'),
+                                column_name: 'target_id',
+                                data_type: 'STRING',
+                                parent_attribute_id: null
+                            },
+                            {
+                                id: 'attr-4',
+                                codename: codenameVlc('IsActive'),
+                                column_name: 'is_active',
+                                data_type: 'BOOLEAN',
+                                parent_attribute_id: null
+                            }
                         ]
                     }
 
                     return [
-                        { id: 'attr-title', codename: codenameVlc('Title'), column_name: 'title', data_type: 'STRING', parent_attribute_id: null },
-                        { id: 'attr-description', codename: codenameVlc('Description'), column_name: 'description', data_type: 'STRING', parent_attribute_id: null },
-                        { id: 'attr-content', codename: codenameVlc('ContentItems'), column_name: 'content_items', data_type: 'TABLE', parent_attribute_id: null },
+                        {
+                            id: 'attr-title',
+                            codename: codenameVlc('Title'),
+                            column_name: 'title',
+                            data_type: 'STRING',
+                            parent_attribute_id: null
+                        },
+                        {
+                            id: 'attr-description',
+                            codename: codenameVlc('Description'),
+                            column_name: 'description',
+                            data_type: 'STRING',
+                            parent_attribute_id: null
+                        },
+                        {
+                            id: 'attr-content',
+                            codename: codenameVlc('ContentItems'),
+                            column_name: 'content_items',
+                            data_type: 'TABLE',
+                            parent_attribute_id: null
+                        },
                         {
                             id: 'child-type',
                             codename: codenameVlc('ItemType'),
@@ -1108,10 +1526,34 @@ describe('Public Applications Routes', () => {
                             target_object_id: 'enum-content-type',
                             target_object_kind: 'enumeration'
                         },
-                        { id: 'child-title', codename: codenameVlc('ItemTitle'), column_name: 'item_title', data_type: 'STRING', parent_attribute_id: 'attr-content' },
-                        { id: 'child-quiz', codename: codenameVlc('QuizId'), column_name: 'quiz_id', data_type: 'STRING', parent_attribute_id: 'attr-content' },
-                        { id: 'child-content', codename: codenameVlc('ItemContent'), column_name: 'item_content', data_type: 'STRING', parent_attribute_id: 'attr-content' },
-                        { id: 'child-sort', codename: codenameVlc('SortOrder'), column_name: 'sort_order', data_type: 'NUMBER', parent_attribute_id: 'attr-content' }
+                        {
+                            id: 'child-title',
+                            codename: codenameVlc('ItemTitle'),
+                            column_name: 'item_title',
+                            data_type: 'STRING',
+                            parent_attribute_id: 'attr-content'
+                        },
+                        {
+                            id: 'child-quiz',
+                            codename: codenameVlc('QuizId'),
+                            column_name: 'quiz_id',
+                            data_type: 'STRING',
+                            parent_attribute_id: 'attr-content'
+                        },
+                        {
+                            id: 'child-content',
+                            codename: codenameVlc('ItemContent'),
+                            column_name: 'item_content',
+                            data_type: 'STRING',
+                            parent_attribute_id: 'attr-content'
+                        },
+                        {
+                            id: 'child-sort',
+                            codename: codenameVlc('SortOrder'),
+                            column_name: 'sort_order',
+                            data_type: 'NUMBER',
+                            parent_attribute_id: 'attr-content'
+                        }
                     ]
                 }
 
@@ -1166,7 +1608,9 @@ describe('Public Applications Routes', () => {
             withPublicApplication((sql, params) => {
                 if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
                     if (params[0] === 'AccessLinks') {
-                        return [{ id: 'object-links', codename: codenameVlc('AccessLinks'), kind: 'catalog', table_name: 'access_links_table' }]
+                        return [
+                            { id: 'object-links', codename: codenameVlc('AccessLinks'), kind: 'catalog', table_name: 'access_links_table' }
+                        ]
                     }
                     return [{ id: 'object-modules', codename: codenameVlc('Modules'), kind: 'catalog', table_name: 'modules_table' }]
                 }
@@ -1174,17 +1618,59 @@ describe('Public Applications Routes', () => {
                 if (sql.includes(`FROM "${schemaName}"."_app_attributes"`)) {
                     if (params[0] === 'object-links') {
                         return [
-                            { id: 'attr-1', codename: codenameVlc('Slug'), column_name: 'slug', data_type: 'STRING', parent_attribute_id: null },
-                            { id: 'attr-2', codename: codenameVlc('TargetType'), column_name: 'target_type', data_type: 'STRING', parent_attribute_id: null },
-                            { id: 'attr-3', codename: codenameVlc('TargetId'), column_name: 'target_id', data_type: 'STRING', parent_attribute_id: null },
-                            { id: 'attr-4', codename: codenameVlc('IsActive'), column_name: 'is_active', data_type: 'BOOLEAN', parent_attribute_id: null }
+                            {
+                                id: 'attr-1',
+                                codename: codenameVlc('Slug'),
+                                column_name: 'slug',
+                                data_type: 'STRING',
+                                parent_attribute_id: null
+                            },
+                            {
+                                id: 'attr-2',
+                                codename: codenameVlc('TargetType'),
+                                column_name: 'target_type',
+                                data_type: 'STRING',
+                                parent_attribute_id: null
+                            },
+                            {
+                                id: 'attr-3',
+                                codename: codenameVlc('TargetId'),
+                                column_name: 'target_id',
+                                data_type: 'STRING',
+                                parent_attribute_id: null
+                            },
+                            {
+                                id: 'attr-4',
+                                codename: codenameVlc('IsActive'),
+                                column_name: 'is_active',
+                                data_type: 'BOOLEAN',
+                                parent_attribute_id: null
+                            }
                         ]
                     }
 
                     return [
-                        { id: 'attr-title', codename: codenameVlc('Title'), column_name: 'title', data_type: 'STRING', parent_attribute_id: null },
-                        { id: 'attr-description', codename: codenameVlc('Description'), column_name: 'description', data_type: 'STRING', parent_attribute_id: null },
-                        { id: 'attr-content', codename: codenameVlc('ContentItems'), column_name: 'content_items', data_type: 'TABLE', parent_attribute_id: null },
+                        {
+                            id: 'attr-title',
+                            codename: codenameVlc('Title'),
+                            column_name: 'title',
+                            data_type: 'STRING',
+                            parent_attribute_id: null
+                        },
+                        {
+                            id: 'attr-description',
+                            codename: codenameVlc('Description'),
+                            column_name: 'description',
+                            data_type: 'STRING',
+                            parent_attribute_id: null
+                        },
+                        {
+                            id: 'attr-content',
+                            codename: codenameVlc('ContentItems'),
+                            column_name: 'content_items',
+                            data_type: 'TABLE',
+                            parent_attribute_id: null
+                        },
                         {
                             id: 'child-type',
                             codename: codenameVlc('ItemType'),
@@ -1194,10 +1680,34 @@ describe('Public Applications Routes', () => {
                             target_object_id: 'enum-content-type',
                             target_object_kind: 'enumeration'
                         },
-                        { id: 'child-title', codename: codenameVlc('ItemTitle'), column_name: 'item_title', data_type: 'STRING', parent_attribute_id: 'attr-content' },
-                        { id: 'child-quiz', codename: codenameVlc('QuizId'), column_name: 'quiz_id', data_type: 'STRING', parent_attribute_id: 'attr-content' },
-                        { id: 'child-content', codename: codenameVlc('ItemContent'), column_name: 'item_content', data_type: 'STRING', parent_attribute_id: 'attr-content' },
-                        { id: 'child-sort', codename: codenameVlc('SortOrder'), column_name: 'sort_order', data_type: 'NUMBER', parent_attribute_id: 'attr-content' }
+                        {
+                            id: 'child-title',
+                            codename: codenameVlc('ItemTitle'),
+                            column_name: 'item_title',
+                            data_type: 'STRING',
+                            parent_attribute_id: 'attr-content'
+                        },
+                        {
+                            id: 'child-quiz',
+                            codename: codenameVlc('QuizId'),
+                            column_name: 'quiz_id',
+                            data_type: 'STRING',
+                            parent_attribute_id: 'attr-content'
+                        },
+                        {
+                            id: 'child-content',
+                            codename: codenameVlc('ItemContent'),
+                            column_name: 'item_content',
+                            data_type: 'STRING',
+                            parent_attribute_id: 'attr-content'
+                        },
+                        {
+                            id: 'child-sort',
+                            codename: codenameVlc('SortOrder'),
+                            column_name: 'sort_order',
+                            data_type: 'NUMBER',
+                            parent_attribute_id: 'attr-content'
+                        }
                     ]
                 }
 

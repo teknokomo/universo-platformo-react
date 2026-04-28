@@ -20,6 +20,7 @@ Frontend application for managing applications and connectors in the Universo Pl
 - **Complete Data Isolation**: Data from different applications is completely separated
 - **Role-Based Access**: User roles and permissions for application access control
 - **Context-Aware Navigation**: Application-aware routing with breadcrumbs and sidebar preservation
+- **Mutable Visibility**: Application owners/admins can switch applications between closed and public after creation
 - **Public Discovery + Join**: Public applications are visible to regular users and support explicit join / leave flows
 - **Workspace Isolation**: Workspace-enabled applications isolate runtime catalog rows per user workspace
 - **Workspace Limits**: Admin settings expose per-catalog row limits at the workspace boundary
@@ -177,7 +178,8 @@ POST   /api/v1/applications/:id/layouts/:layoutId/copy # Copy layout into an app
 
 ## Workspace-Aware Behavior
 
-- `Public` visibility is immutable after creation.
+- `Public` / `Closed` visibility is editable from Application Settings with optimistic locking.
+- `workspacesEnabled` remains read-only after creation because it is tied to runtime schema structure.
 - The create UI auto-enables workspaces for public apps, but still allows opting out with a warning when a shared data surface is intentional.
 - `Add workspaces` is also immutable after creation.
 - On first runtime schema creation, the owner and all current members receive a personal `Main` workspace in the database.

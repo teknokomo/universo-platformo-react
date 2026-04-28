@@ -130,8 +130,8 @@ export function createApplicationLayoutsController(getDbExecutor: () => DbExecut
                 typeof req.query.linkedCollectionId === 'string'
                     ? req.query.linkedCollectionId || null
                     : req.query.scope === 'global'
-                      ? null
-                      : undefined
+                    ? null
+                    : undefined
             const result = await listApplicationLayouts(ctx.executor, ctx.schemaName, {
                 limit: parseLimit(req.query.limit),
                 offset: parseOffset(req.query.offset),
@@ -182,7 +182,13 @@ export function createApplicationLayoutsController(getDbExecutor: () => DbExecut
             if (!ctx) return
             try {
                 const expectedVersion = typeof req.query.expectedVersion === 'string' ? Number(req.query.expectedVersion) : undefined
-                const deleted = await deleteApplicationLayout(ctx.executor, ctx.schemaName, req.params.layoutId, ctx.userId, expectedVersion)
+                const deleted = await deleteApplicationLayout(
+                    ctx.executor,
+                    ctx.schemaName,
+                    req.params.layoutId,
+                    ctx.userId,
+                    expectedVersion
+                )
                 res.status(deleted ? 204 : 404).send()
             } catch (error) {
                 if (!handleKnownError(res, error)) throw error
@@ -229,7 +235,13 @@ export function createApplicationLayoutsController(getDbExecutor: () => DbExecut
             const ctx = await ensureSchema(req, res)
             if (!ctx) return
             try {
-                const item = await updateApplicationLayoutWidgetConfig(ctx.executor, ctx.schemaName, req.params.widgetId, req.body, ctx.userId)
+                const item = await updateApplicationLayoutWidgetConfig(
+                    ctx.executor,
+                    ctx.schemaName,
+                    req.params.widgetId,
+                    req.body,
+                    ctx.userId
+                )
                 if (!item) {
                     res.status(404).json({ error: 'Widget not found or stale version' })
                     return

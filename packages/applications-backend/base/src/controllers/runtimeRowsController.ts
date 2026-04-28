@@ -123,17 +123,18 @@ export const normalizeRuntimeTableChildInsertValue = (
         return typeof value === 'string' ? value : JSON.stringify(value)
     }
 
-    if (dataType === 'STRING' && typeof value === 'object' && (validationRules?.localized === true || validationRules?.versioned === true)) {
+    if (
+        dataType === 'STRING' &&
+        typeof value === 'object' &&
+        (validationRules?.localized === true || validationRules?.versioned === true)
+    ) {
         return JSON.stringify(value)
     }
 
     return value
 }
 
-const normalizeRuntimeTableChildInsertValueByMeta = (
-    value: unknown,
-    childAttrMeta?: RuntimeTableChildAttributeMeta | null
-): unknown => {
+const normalizeRuntimeTableChildInsertValueByMeta = (value: unknown, childAttrMeta?: RuntimeTableChildAttributeMeta | null): unknown => {
     return normalizeRuntimeTableChildInsertValue(value, childAttrMeta?.data_type, childAttrMeta?.validation_rules)
 }
 
@@ -1467,6 +1468,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 offset
             },
             ...(workspaceLimit ? { workspaceLimit } : {}),
+            settings: runtimeContext.applicationSettings,
             workspacesEnabled: runtimeContext.workspacesEnabled,
             currentWorkspaceId: runtimeContext.currentWorkspaceId,
             layoutConfig,
@@ -2815,7 +2817,9 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                         }
                         for (const column of validChildColumns) {
                             tuple.push(`$${copyParamIndex++}`)
-                            copyValues.push(normalizeRuntimeTableChildInsertValue(sourceChild[column] ?? null, childColumnTypes.get(column)))
+                            copyValues.push(
+                                normalizeRuntimeTableChildInsertValue(sourceChild[column] ?? null, childColumnTypes.get(column))
+                            )
                         }
                         valueTuples.push(`(${tuple.join(', ')})`)
                     }

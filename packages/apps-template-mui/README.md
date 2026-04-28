@@ -41,6 +41,11 @@ Runtime dashboard template for published applications in the Universo Platformo 
 - **RowActionsMenu**: Per-row action menu with edit/delete options
 - **useCrudDashboard**: Headless controller hook managing CRUD state and API calls
 
+### 🧑‍🤝‍🧑 Runtime Workspaces
+- **WorkspaceSwitcher**: Header/mobile quick switch for the user's current workspace.
+- **RuntimeWorkspacesPage**: Full workspace management section rendered inside the existing dashboard details content slot.
+- **Workspace APIs**: Typed helpers and query keys for paginated workspace lists, member lists, default switching, shared workspace creation, email-based member invitation, and member removal.
+
 ### 🔌 Route Factory
 - **createAppRuntimeRoute()**: Creates a react-router-dom v6 route for application runtime view
 - **Guard support**: Optional wrapper component (e.g., AuthGuard) for route protection

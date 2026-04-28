@@ -1,11 +1,27 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createAppRow, deleteAppRow, fetchAppRow, updateAppRow } from './api'
+import type { RuntimeWorkspaceListParams, RuntimeWorkspaceMemberListParams } from './workspaces'
 
 /** Query key factory for application data. */
 export const appQueryKeys = {
     all: ['application-data'] as const,
     list: (applicationId: string, linkedCollectionId?: string) => [...appQueryKeys.all, applicationId, linkedCollectionId] as const,
     row: (applicationId: string, rowId: string) => [...appQueryKeys.all, 'row', applicationId, rowId] as const
+}
+
+const normalizeWorkspaceParams = (params?: RuntimeWorkspaceListParams | RuntimeWorkspaceMemberListParams) => ({
+    limit: params?.limit ?? 100,
+    offset: params?.offset ?? 0,
+    search: params?.search?.trim() || undefined
+})
+
+export const workspaceQueryKeys = {
+    all: (applicationId: string) => ['runtime-workspaces', applicationId] as const,
+    list: (applicationId: string, params?: RuntimeWorkspaceListParams) =>
+        [...workspaceQueryKeys.all(applicationId), 'list', normalizeWorkspaceParams(params)] as const,
+    detail: (applicationId: string, workspaceId: string) => [...workspaceQueryKeys.all(applicationId), 'detail', workspaceId] as const,
+    members: (applicationId: string, workspaceId: string, params?: RuntimeWorkspaceMemberListParams) =>
+        [...workspaceQueryKeys.detail(applicationId, workspaceId), 'members', normalizeWorkspaceParams(params)] as const
 }
 
 /** @deprecated Use appQueryKeys instead */

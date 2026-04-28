@@ -91,7 +91,10 @@ describe('GuestApp', () => {
                     } as Response
                 }
 
-                if (url.includes('/public/a/app-1/links/demo-module?locale=en') || url.includes('/public/a/app-1/links/demo-module?locale=ru')) {
+                if (
+                    url.includes('/public/a/app-1/links/demo-module?locale=en') ||
+                    url.includes('/public/a/app-1/links/demo-module?locale=ru')
+                ) {
                     return {
                         ok: true,
                         json: async () => ({
@@ -140,7 +143,11 @@ describe('GuestApp', () => {
                     } as Response
                 }
 
-                if (url.includes('/public/a/app-1/runtime?') && url.includes('slug=demo-module') && (url.includes('locale=en') || url.includes('locale=ru'))) {
+                if (
+                    url.includes('/public/a/app-1/runtime?') &&
+                    url.includes('slug=demo-module') &&
+                    (url.includes('locale=en') || url.includes('locale=ru'))
+                ) {
                     return {
                         ok: true,
                         json: async () => ({
@@ -567,7 +574,9 @@ describe('GuestApp', () => {
         expect(await screen.findByText('RU module')).toBeInTheDocument()
         expect(fetchMock).toHaveBeenCalledWith('/api/v1/public/a/app-1/links/demo-module?locale=ru')
         expect(
-            fetchMock.mock.calls.some(([input]) => String(input).includes('/public/a/app-1/runtime?') && String(input).includes('locale=ru'))
+            fetchMock.mock.calls.some(
+                ([input]) => String(input).includes('/public/a/app-1/runtime?') && String(input).includes('locale=ru')
+            )
         ).toBe(true)
     })
 

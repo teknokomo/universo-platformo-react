@@ -45,6 +45,7 @@ import {
     applyApplicationSyncState,
     toWorkspaceAwareSnapshot,
     toWorkspaceAwareSchemaSnapshot,
+    withWorkspaceRuntimeLayoutWidgets,
     toStructuralSchemaSnapshot,
     normalizeReferenceId,
     resolveLocalizedPreviewText,
@@ -88,7 +89,10 @@ export async function syncApplicationSchemaFromSource(options: {
     confirmDestructive: boolean
     connectorId?: string | null
     source: ApplicationSchemaSyncSource
-    layoutResolutionPolicy?: { default?: ApplicationLayoutSyncResolution; bySourceLayoutId?: Record<string, ApplicationLayoutSyncResolution> }
+    layoutResolutionPolicy?: {
+        default?: ApplicationLayoutSyncResolution
+        bySourceLayoutId?: Record<string, ApplicationLayoutSyncResolution>
+    }
 }): Promise<{ statusCode: number; body: Record<string, unknown> }> {
     const { application, exec, userId, confirmDestructive, connectorId, source, layoutResolutionPolicy } = options
     const { generator, migrator, migrationManager } = getApplicationSyncDdlServices()
@@ -126,11 +130,12 @@ export async function syncApplicationSchemaFromSource(options: {
         const latestMigration = await migrationManager.getLatestMigration(application.schemaName)
         const lastAppliedHash = latestMigration?.meta?.publicationSnapshotHash
         if (lastAppliedHash && lastAppliedHash === source.snapshotHash && releaseSchemaSnapshotMatchesTrackedState) {
-            const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName: application.schemaName, snapshot: source.snapshot })
-            const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName: application.schemaName, snapshot: source.snapshot })
+            const runtimeSnapshot = withWorkspaceRuntimeLayoutWidgets(source.snapshot, application.workspacesEnabled)
+            const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName: application.schemaName, snapshot: runtimeSnapshot })
+            const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName: application.schemaName, snapshot: runtimeSnapshot })
             const widgetsNeedUpdate = await hasPublishedWidgetsChanges({
                 schemaName: application.schemaName,
-                snapshot: source.snapshot
+                snapshot: runtimeSnapshot
             })
             const scriptsNeedUpdate = await hasPublishedScriptsChanges({
                 schemaName: application.schemaName,
@@ -368,11 +373,12 @@ export async function syncApplicationSchemaFromSource(options: {
         const hasDestructiveChanges = diff.destructive.length > 0
 
         if (!diff.hasChanges) {
-            const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName: application.schemaName!, snapshot: source.snapshot })
-            const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName: application.schemaName!, snapshot: source.snapshot })
+            const runtimeSnapshot = withWorkspaceRuntimeLayoutWidgets(source.snapshot, application.workspacesEnabled)
+            const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName: application.schemaName!, snapshot: runtimeSnapshot })
+            const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName: application.schemaName!, snapshot: runtimeSnapshot })
             const widgetsNeedUpdate = await hasPublishedWidgetsChanges({
                 schemaName: application.schemaName!,
-                snapshot: source.snapshot
+                snapshot: runtimeSnapshot
             })
             const scriptsNeedUpdate = await hasPublishedScriptsChanges({
                 schemaName: application.schemaName!,
@@ -798,16 +804,30 @@ export async function runPublishedApplicationRuntimeSync(options: {
     migrationId?: string
     userId?: string | null
     workspacesEnabled?: boolean
-    layoutResolutionPolicy?: { default?: ApplicationLayoutSyncResolution; bySourceLayoutId?: Record<string, ApplicationLayoutSyncResolution> }
+    layoutResolutionPolicy?: {
+        default?: ApplicationLayoutSyncResolution
+        bySourceLayoutId?: Record<string, ApplicationLayoutSyncResolution>
+    }
 }): Promise<{ seedWarnings: string[] }> {
-    const { trx, applicationId, schemaName, snapshotHash, snapshot, entities, migrationManager, migrationId, userId, layoutResolutionPolicy } =
-        options
+    const {
+        trx,
+        applicationId,
+        schemaName,
+        snapshotHash,
+        snapshot,
+        entities,
+        migrationManager,
+        migrationId,
+        userId,
+        layoutResolutionPolicy
+    } = options
+    const runtimeSnapshot = withWorkspaceRuntimeLayoutWidgets(snapshot, options.workspacesEnabled === true)
 
     await runSchemaSyncStep(`runtimeSync:${applicationId}:layouts`, async () =>
         persistPublishedLayouts({
             schemaName,
             snapshotHash,
-            snapshot,
+            snapshot: runtimeSnapshot,
             userId,
             trx,
             layoutResolutionPolicy
@@ -816,7 +836,7 @@ export async function runPublishedApplicationRuntimeSync(options: {
     await runSchemaSyncStep(`runtimeSync:${applicationId}:scripts`, async () =>
         persistPublishedScripts({
             schemaName,
-            snapshot,
+            snapshot: runtimeSnapshot,
             userId,
             trx
         })
@@ -824,20 +844,20 @@ export async function runPublishedApplicationRuntimeSync(options: {
     await runSchemaSyncStep(`runtimeSync:${applicationId}:widgets`, async () =>
         persistPublishedWidgets({
             schemaName,
-            snapshot,
+            snapshot: runtimeSnapshot,
             userId,
             trx
         })
     )
     await runSchemaSyncStep(`runtimeSync:${applicationId}:enumerations`, async () =>
-        syncEnumerationValues(schemaName, snapshot, userId, trx)
+        syncEnumerationValues(schemaName, runtimeSnapshot, userId, trx)
     )
 
     if (options.workspacesEnabled) {
         await runSchemaSyncStep(`runtimeSync:${applicationId}:workspaceTemplate`, async () =>
             persistWorkspaceSeedTemplate(createKnexExecutor(trx), {
                 schemaName,
-                elements: snapshot.elements ?? {},
+                elements: runtimeSnapshot.elements ?? {},
                 actorUserId: userId
             })
         )
@@ -861,7 +881,7 @@ export async function runPublishedApplicationRuntimeSync(options: {
     const seedWarnings = options.workspacesEnabled
         ? []
         : await runSchemaSyncStep(`runtimeSync:${applicationId}:seedElements`, async () =>
-              seedPredefinedElements(schemaName, snapshot, entities, userId, trx)
+              seedPredefinedElements(schemaName, runtimeSnapshot, entities, userId, trx)
           )
     await runSchemaSyncStep(`runtimeSync:${applicationId}:seedWarnings`, async () =>
         persistSeedWarnings(schemaName, migrationManager, seedWarnings, {

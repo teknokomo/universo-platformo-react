@@ -4,9 +4,11 @@ import { act, render, waitFor, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import ApplicationRuntime from '../ApplicationRuntime'
+import { createRuntimeAdapter } from '../../api/runtimeAdapter'
 
 const runtimeMocks = vi.hoisted(() => ({
     capturedCellRenderers: null as any,
+    capturedCrudOptions: null as any,
     mutate: vi.fn(),
     handlePendingInteractionAttempt: vi.fn(() => false),
     handleOpenCreate: vi.fn(),
@@ -47,8 +49,20 @@ vi.mock('@universo/apps-template-mui', async () => {
 
     return {
         ...actual,
-        AppsDashboard: ({ details }: { details?: { title?: string; actions?: ReactNode; banner?: ReactNode; content?: ReactNode } }) => (
+        AppsDashboard: ({
+            details,
+            layoutConfig,
+            menu
+        }: {
+            details?: { title?: string; actions?: ReactNode; banner?: ReactNode; content?: ReactNode }
+            layoutConfig?: Record<string, unknown>
+            menu?: { items?: Array<{ label: string; selected?: boolean; href?: string | null }> }
+        }) => (
             <div data-testid='apps-dashboard'>
+                <div data-testid='apps-dashboard-layout'>{JSON.stringify(layoutConfig ?? {})}</div>
+                <div data-testid='apps-dashboard-menu'>
+                    {menu?.items?.map((item) => `${item.label}:${Boolean(item.selected)}:${item.href ?? ''}`).join('|')}
+                </div>
                 <div data-testid='apps-dashboard-banner'>{details?.banner}</div>
                 <div data-testid='apps-dashboard-title'>{details?.title}</div>
                 <div data-testid='apps-dashboard-actions'>{details?.actions}</div>
@@ -79,13 +93,29 @@ vi.mock('@universo/apps-template-mui', async () => {
             </>
         ),
         RowActionsMenu: () => null,
+        RuntimeWorkspacesPage: ({
+            applicationId,
+            routeWorkspaceId,
+            routeSection
+        }: {
+            applicationId: string
+            routeWorkspaceId?: string | null
+            routeSection?: string
+        }) => (
+            <div data-testid='runtime-workspaces-page'>
+                workspaces:{applicationId}:{routeWorkspaceId ?? 'list'}:{routeSection ?? 'dashboard'}
+            </div>
+        ),
         useCrudDashboard: (options: any) => {
+            runtimeMocks.capturedCrudOptions = options
             runtimeMocks.capturedCellRenderers = options.cellRenderers
             return {
                 appData: {
                     zoneWidgets: { left: [], right: [], center: [] },
                     menus: [],
                     activeMenuId: null,
+                    settings: { sectionLinksEnabled: true },
+                    workspacesEnabled: true,
                     section: { name: 'Details', codename: 'details' },
                     linkedCollection: { name: 'Details' }
                 },
@@ -110,7 +140,11 @@ vi.mock('@universo/apps-template-mui', async () => {
                 onSelectLinkedCollection: vi.fn(),
                 activeMenu: null,
                 dashboardMenuItems: [],
-                menuSlot: undefined,
+                menuSlot: {
+                    title: null,
+                    showTitle: false,
+                    items: [{ id: 'modules', label: 'Modules', kind: 'catalog', linkedCollectionId: 'catalog-1', selected: true }]
+                },
                 menusMap: {},
                 formOpen: false,
                 editRowId: null,
@@ -166,7 +200,7 @@ function renderRuntimePageAt(route: string) {
     return render(
         <MemoryRouter initialEntries={[route]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <Routes>
-                <Route path='/applications/:applicationId/runtime' element={<RuntimeRouteElement />} />
+                <Route path='/applications/:applicationId/runtime/*' element={<RuntimeRouteElement />} />
             </Routes>
         </MemoryRouter>
     )
@@ -182,7 +216,7 @@ function RuntimeHarness({ route }: { route: string }) {
     return (
         <MemoryRouter initialEntries={[route]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <Routes>
-                <Route path='/applications/:applicationId/runtime' element={<RuntimeRouteElement />} />
+                <Route path='/applications/:applicationId/runtime/*' element={<RuntimeRouteElement />} />
             </Routes>
         </MemoryRouter>
     )
@@ -220,6 +254,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         runtimeMocks.capturedCellRenderers = null
+        runtimeMocks.capturedCrudOptions = null
         runtimeMocks.handlePendingInteractionAttempt.mockReturnValue(false)
         runtimeMocks.handleCloseForm.mockReset()
         runtimeMocks.dashboardStateOverrides = {}
@@ -258,6 +293,60 @@ describe('ApplicationRuntime pending interaction safety', () => {
         await user.click(screen.getByRole('button', { name: 'Create' }))
 
         expect(runtimeMocks.handleOpenCreate).toHaveBeenCalledTimes(1)
+    })
+
+    it('renders the workspaces route with runtime navigation and no demo dashboard layout', () => {
+        renderRuntimePageAt('/applications/app-1/runtime/workspaces')
+
+        expect(createRuntimeAdapter).toHaveBeenCalledWith('app-1')
+        expect(screen.getByTestId('apps-dashboard-title')).toHaveTextContent('Workspaces')
+        expect(screen.getByTestId('runtime-workspaces-page')).toHaveTextContent('workspaces:app-1')
+        expect(screen.getByTestId('apps-dashboard-menu')).toHaveTextContent(
+            'Modules:false:/a/app-1/catalog-1|Workspaces:true:/a/app-1/workspaces'
+        )
+        expect(screen.getByTestId('apps-dashboard-layout')).toHaveTextContent('"showOverviewTitle":false')
+        expect(screen.getByTestId('apps-dashboard-layout')).toHaveTextContent('"showOverviewCards":false')
+        expect(screen.getByTestId('apps-dashboard-layout')).toHaveTextContent('"showSessionsChart":false')
+        expect(screen.getByTestId('apps-dashboard-layout')).toHaveTextContent('"showPageViewsChart":false')
+        expect(screen.getByTestId('apps-dashboard-layout')).toHaveTextContent('"showDetailsTable":false')
+        expect(screen.queryByTestId('crud-dialogs-surface')).not.toBeInTheDocument()
+    })
+
+    it('passes workspace detail route parameters and renders workspace nested navigation', () => {
+        const workspaceId = '00000000-0000-7000-8000-000000000111'
+
+        renderRuntimePageAt(`/applications/app-1/runtime/workspaces/${workspaceId}/access`)
+
+        expect(screen.getByTestId('runtime-workspaces-page')).toHaveTextContent(`workspaces:app-1:${workspaceId}:access`)
+        expect(screen.getByTestId('apps-dashboard-menu')).toHaveTextContent(
+            `Modules:false:/a/app-1/catalog-1|Workspaces:true:/a/app-1/workspaces|Dashboard:false:/a/app-1/workspaces/${workspaceId}|Access:true:/a/app-1/workspaces/${workspaceId}/access`
+        )
+    })
+
+    it('uses the base runtime URL for section links when section-specific links are disabled', () => {
+        runtimeMocks.dashboardStateOverrides = {
+            appData: {
+                zoneWidgets: { left: [], right: [], center: [] },
+                menus: [],
+                activeMenuId: null,
+                settings: { sectionLinksEnabled: false },
+                workspacesEnabled: true,
+                section: { name: 'Details', codename: 'details' },
+                linkedCollection: { name: 'Details' }
+            }
+        }
+
+        renderRuntimePageAt('/applications/app-1/runtime/workspaces')
+
+        expect(screen.getByTestId('apps-dashboard-menu')).toHaveTextContent('Modules:false:/a/app-1|Workspaces:true:/a/app-1/workspaces')
+    })
+
+    it('uses a route UUID as the initially selected runtime section', () => {
+        const sectionId = '00000000-0000-7000-8000-00000000abcd'
+
+        renderRuntimePageAt(`/applications/app-1/runtime/${sectionId}`)
+
+        expect(runtimeMocks.capturedCrudOptions.initialSectionId).toBe(sectionId)
     })
 
     it('renders the workspace limit banner inside dashboard details area', () => {
@@ -439,7 +528,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
                 future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
             >
                 <Routes>
-                    <Route path='/applications/:applicationId/runtime' element={<ApplicationRuntime />} />
+                    <Route path='/applications/:applicationId/runtime/*' element={<ApplicationRuntime />} />
                 </Routes>
             </MemoryRouter>
         )
@@ -456,7 +545,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
                 future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
             >
                 <Routes>
-                    <Route path='/applications/:applicationId/runtime' element={<ApplicationRuntime />} />
+                    <Route path='/applications/:applicationId/runtime/*' element={<ApplicationRuntime />} />
                 </Routes>
             </MemoryRouter>
         )

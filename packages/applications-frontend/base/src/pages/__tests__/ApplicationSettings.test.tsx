@@ -25,7 +25,7 @@ vi.mock('../../api/applications', () => ({
 }))
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -261,6 +261,78 @@ describe('ApplicationSettings', () => {
             screen.queryByText('Limits are available only for applications created with workspace mode enabled.')
         ).not.toBeInTheDocument()
         expect(mockedGetApplicationWorkspaceLimits).not.toHaveBeenCalled()
+    })
+
+    it('saves mutable application visibility through the shared general save button and keeps workspace mode read-only', async () => {
+        mockedUpdateApplication.mockResolvedValueOnce({
+            data: {
+                id: 'app-1',
+                name: {
+                    _schema: 'v1',
+                    _primary: 'en',
+                    locales: {
+                        en: { content: 'Workspace Demo' }
+                    }
+                },
+                description: null,
+                slug: 'workspace-demo',
+                isPublic: true,
+                workspacesEnabled: true,
+                schemaName: 'app_workspace_demo',
+                schemaStatus: 'synced',
+                schemaSyncedAt: null,
+                schemaError: null,
+                connectorsCount: 0,
+                membersCount: 1,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                version: 2
+            }
+        } as never)
+
+        const queryClient = new QueryClient({
+            defaultOptions: {
+                queries: { retry: false },
+                mutations: { retry: false }
+            }
+        })
+        const i18n = getI18nInstance()
+
+        render(
+            <I18nextProvider i18n={i18n}>
+                <SnackbarProvider>
+                    <QueryClientProvider client={queryClient}>
+                        <MemoryRouter initialEntries={['/applications/app-1/settings']}>
+                            <Routes>
+                                <Route path='/applications/:applicationId/settings' element={<ApplicationSettings />} />
+                            </Routes>
+                        </MemoryRouter>
+                    </QueryClientProvider>
+                </SnackbarProvider>
+            </I18nextProvider>
+        )
+
+        expect(screen.getByTestId('application-setting-visibility')).toHaveTextContent('Workspace mode')
+        expect(screen.getByTestId('application-setting-visibility')).toHaveTextContent('Enabled')
+
+        const visibilitySwitch = within(screen.getByTestId('application-setting-visibility')).getByRole('switch') as HTMLInputElement
+        await userEvent.click(visibilitySwitch)
+
+        expect(screen.queryByTestId('application-settings-visibility-save')).not.toBeInTheDocument()
+        await userEvent.click(screen.getByTestId('application-settings-general-save'))
+
+        await waitFor(() => {
+            expect(mockedUpdateApplication).toHaveBeenCalledWith(
+                'app-1',
+                expect.objectContaining({
+                    isPublic: true,
+                    expectedVersion: 1,
+                    settings: expect.objectContaining({
+                        dialogSizePreset: expect.any(String)
+                    })
+                })
+            )
+        })
     })
 
     it('does not load limits while schema provisioning is still pending', async () => {

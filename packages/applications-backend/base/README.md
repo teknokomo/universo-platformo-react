@@ -18,7 +18,7 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 ## Main Responsibilities
 
 - Manage applications, connectors, memberships, and publication links.
-- Enforce immutable application parameters for visibility and workspace mode.
+- Allow owner/admin visibility changes after creation while keeping workspace mode structural.
 - Expose runtime sync, diff, and release-bundle routes for managed application schemas.
 - Manage application-side layouts, including metahub lineage, application-owned copies, defaults, activation, and widget activity.
 - Execute published runtime scripts through a fail-closed server bridge that only exposes non-lifecycle server methods from `rpc.client` scripts and reuses runtime row helpers, workspace context, and permission maps.
@@ -28,11 +28,13 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 
 ## Workspaces, Public Access, and Limits
 
-- Applications can now be created as `closed` or `public`. Visibility is immutable after creation.
+- Applications can be created as `closed` or `public`, and owners/admins can later change visibility from Application Settings.
+- Switching a public application back to closed blocks new direct joins and public runtime link resolution while preserving existing members.
 - Public applications default to `workspacesEnabled = true` in the UI, but owners may turn workspace mode off during creation when they intentionally want a shared data surface.
 - Runtime schema bootstrap creates workspace support tables, seeds `owner` and `member` workspace roles, and provisions a personal `Main` workspace for the owner and every current member.
 - Adding a new member to an application with initialized workspace runtime support provisions a personal workspace automatically.
 - Leaving an application or removing a member archives the personal workspace instead of hard-deleting business rows.
+- Published runtime workspace endpoints expose paginated workspace/member lists, email-based shared-workspace member invitation for active application members, default workspace switching, and owner-only member removal.
 - Catalog tables and TABLE child tables become workspace-scoped in runtime schemas, and backend routes enforce per-workspace row limits before inserts and copies.
 
 ## Database Access Rules

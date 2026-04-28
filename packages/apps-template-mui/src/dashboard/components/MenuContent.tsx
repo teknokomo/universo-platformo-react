@@ -1,3 +1,5 @@
+import { Fragment } from 'react'
+import Divider from '@mui/material/Divider'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemButton from '@mui/material/ListItemButton'
@@ -47,6 +49,9 @@ interface MenuContentProps {
 
 export default function MenuContent({ menu }: MenuContentProps) {
     const items = menu?.items ?? []
+    const isWorkspaceRootItem = (item: DashboardMenuSlot['items'][number]) =>
+        item.id === 'runtime-workspaces' || item.id === 'workspaces' || /\/workspaces(?:$|\?)/.test(item.href ?? '')
+    const firstWorkspaceRootIndex = items.findIndex(isWorkspaceRootItem)
 
     return (
         <List dense sx={{ p: 1 }}>
@@ -58,40 +63,44 @@ export default function MenuContent({ menu }: MenuContentProps) {
                     {menu.title}
                 </Typography>
             ) : null}
-            {items.map((item) => {
+            {items.map((item, index) => {
                 const isHubLabel = item.kind === 'hub'
+                const needsWorkspaceDivider = index === firstWorkspaceRootIndex
                 return (
-                    <ListItem key={item.id} disablePadding sx={{ display: 'block' }}>
-                        <ListItemButton
-                            disabled={isHubLabel}
-                            selected={Boolean(item.selected)}
-                            {...(item.kind === 'link' && item.href
-                                ? { component: 'a' as const, href: item.href, target: '_self', rel: 'noreferrer' }
-                                : {})}
-                            onClick={() => {
-                                if (item.kind !== 'catalog' && item.kind !== 'section') {
-                                    return
-                                }
+                    <Fragment key={item.id}>
+                        {needsWorkspaceDivider ? <Divider sx={{ my: 0.5 }} /> : null}
+                        <ListItem disablePadding sx={{ display: 'block' }}>
+                            <ListItemButton
+                                disabled={isHubLabel}
+                                selected={Boolean(item.selected)}
+                                {...(item.kind === 'link' && item.href
+                                    ? { component: 'a' as const, href: item.href, target: '_self', rel: 'noreferrer' }
+                                    : {})}
+                                onClick={() => {
+                                    if (item.kind !== 'catalog' && item.kind !== 'section') {
+                                        return
+                                    }
 
-                                const targetSectionId = item.sectionId ?? item.linkedCollectionId
-                                if (!targetSectionId) {
-                                    return
-                                }
+                                    const targetSectionId = item.sectionId ?? item.linkedCollectionId
+                                    if (!targetSectionId) {
+                                        return
+                                    }
 
-                                if (menu?.onSelectSection) {
-                                    menu.onSelectSection(targetSectionId)
-                                    return
-                                }
+                                    if (menu?.onSelectSection) {
+                                        menu.onSelectSection(targetSectionId)
+                                        return
+                                    }
 
-                                if (menu?.onSelectLinkedCollection) {
-                                    menu.onSelectLinkedCollection(targetSectionId)
-                                }
-                            }}
-                        >
-                            <ListItemIcon>{resolveIcon(item.icon)}</ListItemIcon>
-                            <ListItemText primary={item.label} />
-                        </ListItemButton>
-                    </ListItem>
+                                    if (menu?.onSelectLinkedCollection) {
+                                        menu.onSelectLinkedCollection(targetSectionId)
+                                    }
+                                }}
+                            >
+                                <ListItemIcon>{resolveIcon(item.icon)}</ListItemIcon>
+                                <ListItemText primary={item.label} />
+                            </ListItemButton>
+                        </ListItem>
+                    </Fragment>
                 )
             })}
         </List>

@@ -18,10 +18,15 @@ import {
 } from '@mui/material'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { type ApplicationScriptDefinition, type QuizWidgetConfig } from '@universo/types'
+import { type QuizWidgetConfig } from '@universo/types'
 import { useDashboardDetails } from '../DashboardDetailsContext'
 import { executeClientScriptMethod } from '../runtime/browserScriptRuntime'
-import { createClientScriptContext, fetchRuntimeClientBundle, fetchRuntimeScripts, isClientScriptMethodTarget } from './runtimeWidgetHelpers'
+import {
+    createClientScriptContext,
+    fetchRuntimeClientBundle,
+    fetchRuntimeScripts,
+    isClientScriptMethodTarget
+} from './runtimeWidgetHelpers'
 
 type QuizOption = {
     id: string

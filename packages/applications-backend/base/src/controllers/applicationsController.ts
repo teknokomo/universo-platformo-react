@@ -149,9 +149,13 @@ const applicationDialogSettingsSchema = z
         dialogAllowFullscreen: z.boolean().optional(),
         dialogAllowResize: z.boolean().optional(),
         dialogCloseBehavior: z.enum(['strict-modal', 'backdrop-close']).optional(),
+        sectionLinksEnabled: z.boolean().optional(),
         applicationLayouts: z
             .object({
-                readRoles: z.array(z.enum(['owner', 'admin', 'editor', 'member'])).min(1).optional()
+                readRoles: z
+                    .array(z.enum(['owner', 'admin', 'editor', 'member']))
+                    .min(1)
+                    .optional()
             })
             .strict()
             .optional()
@@ -654,11 +658,10 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
             expectedVersion
         } = result.data
 
-        if (isPublic !== undefined || workspacesEnabled !== undefined) {
+        if (workspacesEnabled !== undefined) {
             return res.status(400).json({
                 error: 'Immutable application parameters',
                 details: {
-                    isPublic: ['Application visibility cannot be changed after creation'],
                     workspacesEnabled: ['Workspace mode cannot be changed after creation']
                 }
             })
@@ -734,6 +737,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
                 description: description !== undefined ? nextDescription : undefined,
                 settings: settings !== undefined ? nextSettings : undefined,
                 slug: slug !== undefined ? nextSlug : undefined,
+                isPublic,
                 userId,
                 expectedVersion
             }

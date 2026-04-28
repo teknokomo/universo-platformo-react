@@ -32,6 +32,15 @@ import { getDataGridLocaleText } from '../utils/getDataGridLocale'
 
 const EMPTY_KEY_PREFIX: readonly unknown[] = []
 
+const readInitialLinkedCollectionId = (): string | undefined => {
+    if (typeof window === 'undefined') return undefined
+    try {
+        return new URLSearchParams(window.location.search).get('linkedCollectionId') ?? undefined
+    } catch {
+        return undefined
+    }
+}
+
 const normalizeLocale = (locale: string) => locale.split(/[-_]/)[0]?.toLowerCase() || 'en'
 
 const getCopySuffix = (locale: string) => (normalizeLocale(locale) === 'ru' ? ' (копия)' : ' (copy)')
@@ -258,6 +267,8 @@ export interface UseCrudDashboardOptions {
     pageSizeOptions?: number[]
     /** React Query staleTime (ms). @default 0 */
     staleTime?: number
+    /** Initial runtime section id resolved from route params. */
+    initialSectionId?: string
     /**
      * Per-dataType cell renderer overrides.
      * Allows consumers to inject custom rendering (e.g. inline checkbox editing).
@@ -355,6 +366,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         defaultPageSize = 20,
         pageSizeOptions = [10, 20, 50],
         staleTime = 0,
+        initialSectionId,
         cellRenderers
     } = options
 
@@ -367,7 +379,9 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         page: 0,
         pageSize: defaultPageSize
     })
-    const [selectedLinkedCollectionId, setSelectedLinkedCollectionId] = useState<string | undefined>(undefined)
+    const [selectedLinkedCollectionId, setSelectedLinkedCollectionId] = useState<string | undefined>(
+        () => initialSectionId ?? readInitialLinkedCollectionId()
+    )
 
     // ----- CRUD dialog state -----
     const [formOpen, setFormOpen] = useState(false)
@@ -400,6 +414,11 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         () => [...queryKeyPrefix, 'list', selectedLinkedCollectionId, { limit, offset, locale }] as const,
         [queryKeyPrefix, selectedLinkedCollectionId, limit, offset, locale]
     )
+
+    useEffect(() => {
+        if (!initialSectionId) return
+        setSelectedLinkedCollectionId((current) => (current === initialSectionId ? current : initialSectionId))
+    }, [initialSectionId])
     const sourceRowId = copyRowId ?? editRowId
     const rowKey = useMemo(() => [...queryKeyPrefix, 'row', sourceRowId] as const, [queryKeyPrefix, sourceRowId])
 

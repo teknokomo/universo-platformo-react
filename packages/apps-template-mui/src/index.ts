@@ -69,8 +69,18 @@ export type { TabularPartEditorProps } from './components/TabularPartEditor'
 
 // API — query keys & low-level hooks (still useful for custom scenarios)
 export { appQueryKeys } from './api/mutations'
+export { workspaceQueryKeys } from './api/mutations'
 /** @deprecated Use appQueryKeys instead */
 export { runtimeKeys } from './api/mutations'
+export { RuntimeWorkspacesPage } from './workspaces/RuntimeWorkspacesPage'
+export type {
+    RuntimeWorkspace,
+    RuntimeWorkspaceListParams,
+    RuntimeWorkspaceListResponse,
+    RuntimeWorkspaceMember,
+    RuntimeWorkspaceMemberListParams,
+    RuntimeWorkspaceMembersResponse
+} from './api/workspaces'
 
 // Route factory
 export { createAppRuntimeRoute, createPublicAppRuntimeRoute } from './routes/createAppRoutes'

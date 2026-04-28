@@ -1,4 +1,9 @@
-import { loadPublicRuntimeRecord, loadPublicTableRows, resolvePublicRuntimeObject, resolvePublicRuntimeSchema } from '../../shared/publicRuntimeAccess'
+import {
+    loadPublicRuntimeRecord,
+    loadPublicTableRows,
+    resolvePublicRuntimeObject,
+    resolvePublicRuntimeSchema
+} from '../../shared/publicRuntimeAccess'
 import { createMockDbExecutor } from '../utils/dbMocks'
 
 describe('publicRuntimeAccess helpers', () => {
@@ -29,7 +34,9 @@ describe('publicRuntimeAccess helpers', () => {
         const { executor } = createMockDbExecutor()
         executor.query.mockImplementation(async (sql: string) => {
             if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
-                return [{ id: 'object-1', codename: { locales: { en: { content: 'Modules' } } }, kind: 'catalog', table_name: 'modules_table' }]
+                return [
+                    { id: 'object-1', codename: { locales: { en: { content: 'Modules' } } }, kind: 'catalog', table_name: 'modules_table' }
+                ]
             }
 
             if (sql.includes(`FROM "${schemaName}"."_app_attributes"`)) {
@@ -111,7 +118,13 @@ describe('publicRuntimeAccess helpers', () => {
                 tableName: 'modules_table',
                 attrs: [
                     { id: 'attr-title', codename: 'Title', column_name: 'title', data_type: 'STRING', parent_attribute_id: null },
-                    { id: 'attr-description', codename: 'Description', column_name: 'description', data_type: 'STRING', parent_attribute_id: null }
+                    {
+                        id: 'attr-description',
+                        codename: 'Description',
+                        column_name: 'description',
+                        data_type: 'STRING',
+                        parent_attribute_id: null
+                    }
                 ]
             },
             '8f1c1880-2b67-4d79-b02b-a53db0a85453'
@@ -128,8 +141,20 @@ describe('publicRuntimeAccess helpers', () => {
                 parent_attribute_id: null
             },
             [
-                { id: 'child-type', codename: 'ItemType', column_name: 'item_type', data_type: 'STRING', parent_attribute_id: 'attr-content' },
-                { id: 'child-title', codename: 'ItemTitle', column_name: 'item_title', data_type: 'STRING', parent_attribute_id: 'attr-content' },
+                {
+                    id: 'child-type',
+                    codename: 'ItemType',
+                    column_name: 'item_type',
+                    data_type: 'STRING',
+                    parent_attribute_id: 'attr-content'
+                },
+                {
+                    id: 'child-title',
+                    codename: 'ItemTitle',
+                    column_name: 'item_title',
+                    data_type: 'STRING',
+                    parent_attribute_id: 'attr-content'
+                },
                 {
                     id: 'child-content',
                     codename: 'ItemContent',
@@ -188,8 +213,20 @@ describe('publicRuntimeAccess helpers', () => {
                 parent_attribute_id: null
             },
             [
-                { id: 'child-type', codename: 'ItemType', column_name: 'item_type', data_type: 'STRING', parent_attribute_id: 'attr-content' },
-                { id: 'child-title', codename: 'ItemTitle', column_name: 'item_title', data_type: 'STRING', parent_attribute_id: 'attr-content' }
+                {
+                    id: 'child-type',
+                    codename: 'ItemType',
+                    column_name: 'item_type',
+                    data_type: 'STRING',
+                    parent_attribute_id: 'attr-content'
+                },
+                {
+                    id: 'child-title',
+                    codename: 'ItemTitle',
+                    column_name: 'item_title',
+                    data_type: 'STRING',
+                    parent_attribute_id: 'attr-content'
+                }
             ],
             '8f1c1880-2b67-4d79-b02b-a53db0a85453'
         )

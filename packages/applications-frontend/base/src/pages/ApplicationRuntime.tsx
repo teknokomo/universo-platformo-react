@@ -12,8 +12,13 @@ import {
     useCrudDashboard,
     CrudDialogs,
     RowActionsMenu,
+    RuntimeWorkspacesPage,
     type CellRendererOverrides,
-    type DashboardDetailsSlot
+    type DashboardDetailsSlot,
+    type DashboardLayoutConfig,
+    type DashboardMenuItem,
+    type DashboardMenuSlot,
+    type DashboardMenusMap
 } from '@universo/apps-template-mui'
 import { createRuntimeAdapter } from '../api/runtimeAdapter'
 import {
@@ -24,11 +29,61 @@ import {
 } from '../api/mutations'
 
 const DEFAULT_PAGE_SIZE = 50
+const WORKSPACE_ROUTE_LAYOUT_OVERRIDES: Partial<DashboardLayoutConfig> = {
+    showOverviewTitle: false,
+    showOverviewCards: false,
+    showSessionsChart: false,
+    showPageViewsChart: false,
+    showDetailsTitle: false,
+    showDetailsTable: false,
+    showFooter: false
+}
+
+const UUID_PATH_SEGMENT_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
+
+const buildRuntimeSectionHref = (applicationId: string, collectionId: string, sectionLinksEnabled: boolean): string =>
+    sectionLinksEnabled ? `/a/${applicationId}/${encodeURIComponent(collectionId)}` : `/a/${applicationId}`
+
+const toRuntimeSectionLinkMenuItem = (
+    item: DashboardMenuItem,
+    applicationId: string,
+    sectionLinksEnabled: boolean,
+    forceLink: boolean
+): DashboardMenuItem => {
+    if (item.kind !== 'catalog' && item.kind !== 'section') {
+        return { ...item, selected: false }
+    }
+
+    const targetCollectionId = item.sectionId ?? item.linkedCollectionId
+    if (!targetCollectionId) {
+        return { ...item, selected: false }
+    }
+
+    if (!forceLink && !sectionLinksEnabled) {
+        return { ...item, selected: false }
+    }
+
+    return {
+        ...item,
+        kind: 'link',
+        href: sectionLinksEnabled ? buildRuntimeSectionHref(applicationId, targetCollectionId, true) : `/a/${applicationId}`,
+        selected: false
+    }
+}
 
 const ApplicationRuntime = () => {
-    const { applicationId } = useParams<{ applicationId: string }>()
+    const routeParams = useParams<{ applicationId: string; '*': string }>()
+    const applicationId = routeParams.applicationId
+    const runtimeSubRoute = routeParams['*'] ?? ''
+    const runtimeRouteSegments = runtimeSubRoute.split('/').filter(Boolean)
     const [searchParams, setSearchParams] = useSearchParams()
     const { t, i18n } = useTranslation('applications')
+    const isWorkspacesRoute = runtimeRouteSegments[0] === 'workspaces'
+    const routeSectionId =
+        !isWorkspacesRoute && UUID_PATH_SEGMENT_REGEX.test(runtimeRouteSegments[0] ?? '') ? runtimeRouteSegments[0] : undefined
+    const routeWorkspaceId =
+        isWorkspacesRoute && UUID_PATH_SEGMENT_REGEX.test(runtimeRouteSegments[1] ?? '') ? runtimeRouteSegments[1] : null
+    const workspaceRouteSection = isWorkspacesRoute && runtimeRouteSegments[2] === 'access' ? 'access' : 'dashboard'
 
     const adapter = useMemo(() => (applicationId ? createRuntimeAdapter(applicationId) : null), [applicationId])
 
@@ -88,6 +143,7 @@ const ApplicationRuntime = () => {
         defaultPageSize: DEFAULT_PAGE_SIZE,
         pageSizeOptions: [10, 25, 50, 100],
         staleTime: 30_000,
+        initialSectionId: routeSectionId,
         cellRenderers
     })
 
@@ -302,7 +358,11 @@ const ApplicationRuntime = () => {
     sectionIdRef.current = currentSectionId
     pendingInteractionRef.current = runtimeState.handlePendingInteractionAttempt
 
-    const detailsTitle = activeRuntimeSection?.name ?? 'Details'
+    const detailsTitle = isWorkspacesRoute ? t('workspace.title', 'Workspaces') : activeRuntimeSection?.name ?? 'Details'
+    const runtimeLayoutConfig = useMemo(
+        () => (isWorkspacesRoute ? { ...state.layoutConfig, ...WORKSPACE_ROUTE_LAYOUT_OVERRIDES } : state.layoutConfig),
+        [isWorkspacesRoute, state.layoutConfig]
+    )
 
     const createActions = useMemo(
         () =>
@@ -335,9 +395,24 @@ const ApplicationRuntime = () => {
         [state.appData?.workspaceLimit, t]
     )
 
+    const workspacePageContent = useMemo(
+        () =>
+            isWorkspacesRoute && applicationId ? (
+                <RuntimeWorkspacesPage
+                    applicationId={applicationId}
+                    apiBaseUrl='/api/v1'
+                    locale={i18n.language}
+                    routeWorkspaceId={routeWorkspaceId}
+                    routeSection={workspaceRouteSection}
+                />
+            ) : null,
+        [applicationId, i18n.language, isWorkspacesRoute, routeWorkspaceId, workspaceRouteSection]
+    )
+
     const pageSurfaceContent = useMemo(
         () =>
-            activeFormSurface === 'page' && (runtimeState.formOpen || runtimeState.isSubmitting) ? (
+            workspacePageContent ??
+            (activeFormSurface === 'page' && (runtimeState.formOpen || runtimeState.isSubmitting) ? (
                 <CrudDialogs
                     state={runtimeState}
                     locale={i18n.language}
@@ -367,8 +442,8 @@ const ApplicationRuntime = () => {
                         copyingText: t('app.copying', 'Copying...')
                     }}
                 />
-            ) : null,
-        [activeFormSurface, applicationId, currentSectionId, i18n.language, runtimeState, t]
+            ) : null),
+        [activeFormSurface, applicationId, currentSectionId, i18n.language, runtimeState, t, workspacePageContent]
     )
 
     const details = useMemo<DashboardDetailsSlot>(
@@ -380,6 +455,9 @@ const ApplicationRuntime = () => {
             linkedCollectionId: currentSectionId ?? null,
             linkedCollectionCodename: activeRuntimeSection?.codename ?? null,
             apiBaseUrl: '/api/v1',
+            currentWorkspaceId: state.appData?.currentWorkspaceId ?? null,
+            runtimeQueryKeyPrefix: adapter?.queryKeyPrefix,
+            workspacesEnabled: state.appData?.workspacesEnabled ?? false,
             banner: workspaceLimitBanner,
             content: pageSurfaceContent,
             rows: state.rows,
@@ -418,6 +496,9 @@ const ApplicationRuntime = () => {
             state.localeText,
             createActions,
             pageSurfaceContent,
+            adapter?.queryKeyPrefix,
+            state.appData?.currentWorkspaceId,
+            state.appData?.workspacesEnabled,
             workspaceLimitBanner
         ]
     )
@@ -438,54 +519,122 @@ const ApplicationRuntime = () => {
         return <Alert severity='error'>{t('app.errors.loadFailed', 'Failed to load runtime data')}</Alert>
     }
 
+    const workspaceMenuItem: DashboardMenuItem | null =
+        state.appData.workspacesEnabled && applicationId
+            ? {
+                  id: 'runtime-workspaces',
+                  label: t('workspace.title', 'Workspaces'),
+                  icon: 'folder',
+                  kind: 'link',
+                  href: `/a/${applicationId}/workspaces`,
+                  selected: isWorkspacesRoute
+              }
+            : null
+    const workspaceDashboardMenuItem: DashboardMenuItem | null =
+        workspaceMenuItem && routeWorkspaceId
+            ? {
+                  id: 'runtime-workspace-dashboard',
+                  label: t('workspace.dashboard', 'Dashboard'),
+                  icon: 'dashboard',
+                  kind: 'link',
+                  href: `/a/${applicationId}/workspaces/${routeWorkspaceId}`,
+                  selected: isWorkspacesRoute && workspaceRouteSection === 'dashboard'
+              }
+            : null
+    const workspaceAccessMenuItem: DashboardMenuItem | null =
+        workspaceMenuItem && routeWorkspaceId
+            ? {
+                  id: 'runtime-workspace-access',
+                  label: t('workspace.access', 'Access'),
+                  icon: 'users',
+                  kind: 'link',
+                  href: `/a/${applicationId}/workspaces/${routeWorkspaceId}/access`,
+                  selected: isWorkspacesRoute && workspaceRouteSection === 'access'
+              }
+            : null
+    const sectionLinksEnabled = state.appData.settings?.sectionLinksEnabled !== false
+
+    const appendWorkspaceMenuItem = (slot?: DashboardMenuSlot): DashboardMenuSlot | undefined => {
+        if (!workspaceMenuItem) return slot
+        const baseItems = slot?.items ?? []
+        const items = [
+            ...baseItems.map((item) =>
+                isWorkspacesRoute || sectionLinksEnabled
+                    ? toRuntimeSectionLinkMenuItem(item, applicationId, sectionLinksEnabled, isWorkspacesRoute)
+                    : item
+            ),
+            workspaceMenuItem,
+            ...(workspaceDashboardMenuItem ? [workspaceDashboardMenuItem] : []),
+            ...(workspaceAccessMenuItem ? [workspaceAccessMenuItem] : [])
+        ]
+        return {
+            ...slot,
+            title: slot?.title ?? null,
+            showTitle: slot?.showTitle ?? false,
+            items
+        }
+    }
+
+    const runtimeMenuSlot = appendWorkspaceMenuItem(state.menuSlot)
+    const runtimeMenusMap: DashboardMenusMap | undefined =
+        Object.keys(state.menusMap).length > 0
+            ? Object.fromEntries(
+                  Object.entries(state.menusMap).map(([key, slot]) => [key, appendWorkspaceMenuItem(slot) as DashboardMenuSlot])
+              )
+            : undefined
+
     return (
         <>
             <AppsDashboard
-                layoutConfig={state.layoutConfig}
+                layoutConfig={runtimeLayoutConfig}
                 zoneWidgets={state.appData.zoneWidgets}
-                menus={Object.keys(state.menusMap).length > 0 ? state.menusMap : undefined}
-                menu={state.menuSlot}
+                menus={runtimeMenusMap}
+                menu={runtimeMenuSlot}
                 details={details}
             />
 
-            <CrudDialogs
-                state={runtimeState}
-                locale={i18n.language}
-                apiBaseUrl='/api/v1'
-                applicationId={applicationId}
-                linkedCollectionId={currentSectionId}
-                surface={activeFormSurface}
-                renderForm={activeFormSurface !== 'page'}
-                labels={{
-                    editTitle: t('app.editRow', 'Edit element'),
-                    createTitle: t('app.createRecordTitle', 'Create element'),
-                    saveText: t('app.save', 'Save'),
-                    createText: t('app.create', 'Create'),
-                    savingText: t('app.saving', 'Saving...'),
-                    creatingText: t('app.creating', 'Creating...'),
-                    cancelText: t('app.cancel', 'Cancel'),
-                    noFieldsText: t('app.noFields', 'No fields configured for this section.'),
-                    deleteTitle: t('app.deleteConfirmTitle', 'Delete element?'),
-                    deleteDescription: t(
-                        'app.deleteConfirmDescription',
-                        'This element will be permanently deleted. This action cannot be undone.'
-                    ),
-                    deleteText: t('app.delete', 'Delete'),
-                    deletingText: t('app.deleting', 'Deleting...'),
-                    copyTitle: t('app.copyTitle', 'Copy element'),
-                    copyText: t('app.copy', 'Copy'),
-                    copyingText: t('app.copying', 'Copying...')
-                }}
-            />
+            {!isWorkspacesRoute ? (
+                <>
+                    <CrudDialogs
+                        state={runtimeState}
+                        locale={i18n.language}
+                        apiBaseUrl='/api/v1'
+                        applicationId={applicationId}
+                        linkedCollectionId={currentSectionId}
+                        surface={activeFormSurface}
+                        renderForm={activeFormSurface !== 'page'}
+                        labels={{
+                            editTitle: t('app.editRow', 'Edit element'),
+                            createTitle: t('app.createRecordTitle', 'Create element'),
+                            saveText: t('app.save', 'Save'),
+                            createText: t('app.create', 'Create'),
+                            savingText: t('app.saving', 'Saving...'),
+                            creatingText: t('app.creating', 'Creating...'),
+                            cancelText: t('app.cancel', 'Cancel'),
+                            noFieldsText: t('app.noFields', 'No fields configured for this section.'),
+                            deleteTitle: t('app.deleteConfirmTitle', 'Delete element?'),
+                            deleteDescription: t(
+                                'app.deleteConfirmDescription',
+                                'This element will be permanently deleted. This action cannot be undone.'
+                            ),
+                            deleteText: t('app.delete', 'Delete'),
+                            deletingText: t('app.deleting', 'Deleting...'),
+                            copyTitle: t('app.copyTitle', 'Copy element'),
+                            copyText: t('app.copy', 'Copy'),
+                            copyingText: t('app.copying', 'Copying...')
+                        }}
+                    />
 
-            <RowActionsMenu
-                state={runtimeState}
-                labels={{
-                    editText: t('app.edit', 'Edit'),
-                    copyText: t('app.copy', 'Copy'),
-                    deleteText: t('app.delete', 'Delete')
-                }}
-            />
+                    <RowActionsMenu
+                        state={runtimeState}
+                        labels={{
+                            editText: t('app.edit', 'Edit'),
+                            copyText: t('app.copy', 'Copy'),
+                            deleteText: t('app.delete', 'Delete')
+                        }}
+                    />
+                </>
+            ) : null}
         </>
     )
 }

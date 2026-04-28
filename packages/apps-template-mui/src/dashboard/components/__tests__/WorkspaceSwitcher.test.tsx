@@ -9,8 +9,13 @@ const mocks = vi.hoisted(() => ({
     fetchWithCsrf: vi.fn()
 }))
 
+const i18nState = vi.hoisted(() => ({
+    language: 'en'
+}))
+
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
+        i18n: { language: i18nState.language },
         t: (_key: string, fallbackOrOptions?: string | Record<string, unknown>) =>
             typeof fallbackOrOptions === 'string'
                 ? fallbackOrOptions
@@ -28,15 +33,29 @@ vi.mock('@mui/material/Select', () => ({
     default: ({
         children,
         value,
-        onChange
+        onChange,
+        inputProps,
+        renderValue,
+        'data-testid': dataTestId
     }: {
         children: ReactNode
         value: string
+        inputProps?: { 'aria-label'?: string }
+        'data-testid'?: string
+        renderValue?: () => ReactNode
         onChange: (event: { target: { value: string } }) => void
     }) => (
-        <select aria-label='workspace-select' value={value} onChange={(event) => onChange({ target: { value: event.target.value } })}>
-            {children}
-        </select>
+        <>
+            <div data-testid={`${dataTestId}-value`}>{renderValue?.()}</div>
+            <select
+                aria-label={inputProps?.['aria-label'] ?? 'workspace-select'}
+                data-testid={dataTestId}
+                value={value}
+                onChange={(event) => onChange({ target: { value: event.target.value } })}
+            >
+                {children}
+            </select>
+        </>
     ),
     selectClasses: { select: 'MuiSelect-select' }
 }))
@@ -46,11 +65,36 @@ vi.mock('@mui/material/MenuItem', () => ({
 }))
 
 vi.mock('@mui/material/ListItemText', () => ({
-    default: ({ primary }: { primary?: ReactNode }) => <>{primary}</>
+    default: ({ primary, secondary }: { primary?: ReactNode; secondary?: ReactNode }) => (
+        <>
+            {primary}
+            {secondary ? ` ${secondary}` : null}
+        </>
+    )
 }))
 
-vi.mock('@mui/material/Chip', () => ({
-    default: ({ label }: { label?: ReactNode }) => <>{label}</>
+vi.mock('@mui/material/ListItemAvatar', () => ({
+    default: () => null
+}))
+
+vi.mock('@mui/material/ListItemIcon', () => ({
+    default: () => null
+}))
+
+vi.mock('@mui/material/ListSubheader', () => ({
+    default: ({ children }: { children?: ReactNode }) => (
+        <option value='__subheader__' disabled>
+            {children}
+        </option>
+    )
+}))
+
+vi.mock('@mui/material/Divider', () => ({
+    default: () => null
+}))
+
+vi.mock('@mui/material/Avatar', () => ({
+    default: () => null
 }))
 
 vi.mock('@mui/icons-material/FolderRounded', () => ({
@@ -73,10 +117,6 @@ vi.mock('../../../api/api', async () => {
     }
 })
 
-vi.mock('../WorkspaceManagerDialog', () => ({
-    default: ({ open }: { open: boolean }) => (open ? <div data-testid='workspace-manager-dialog'>manager</div> : null)
-}))
-
 const createQueryClient = () =>
     new QueryClient({
         defaultOptions: {
@@ -88,6 +128,7 @@ const createQueryClient = () =>
 describe('WorkspaceSwitcher', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        i18nState.language = 'en'
 
         vi.stubGlobal(
             'fetch',
@@ -100,8 +141,22 @@ describe('WorkspaceSwitcher', () => {
                             items: [
                                 {
                                     id: 'ws-1',
-                                    codename: 'main',
-                                    name: 'Main',
+                                    name: {
+                                        _schema: '1',
+                                        _primary: 'en',
+                                        locales: {
+                                            en: { content: 'Main' },
+                                            ru: { content: 'Основное' }
+                                        }
+                                    },
+                                    description: {
+                                        _schema: '1',
+                                        _primary: 'en',
+                                        locales: {
+                                            en: { content: 'Main workspace' },
+                                            ru: { content: 'Основное рабочее пространство' }
+                                        }
+                                    },
                                     workspaceType: 'personal',
                                     status: 'active',
                                     isDefault: true,
@@ -109,8 +164,22 @@ describe('WorkspaceSwitcher', () => {
                                 },
                                 {
                                     id: 'ws-2',
-                                    codename: 'class-a',
-                                    name: 'Class A',
+                                    name: {
+                                        _schema: '1',
+                                        _primary: 'en',
+                                        locales: {
+                                            en: { content: 'Class A' },
+                                            ru: { content: 'Класс А' }
+                                        }
+                                    },
+                                    description: {
+                                        _schema: '1',
+                                        _primary: 'en',
+                                        locales: {
+                                            en: { content: 'Class workspace' },
+                                            ru: { content: 'Рабочее пространство класса' }
+                                        }
+                                    },
                                     workspaceType: 'shared',
                                     status: 'active',
                                     isDefault: false,
@@ -154,18 +223,52 @@ describe('WorkspaceSwitcher', () => {
             </QueryClientProvider>
         )
 
-        const workspaceSelect = await screen.findByLabelText('workspace-select')
+        const workspaceSelect = await screen.findByTestId('runtime-workspace-switcher')
         expect(workspaceSelect).toHaveValue('ws-1')
         expect(screen.getByRole('option', { name: /Main/ })).toBeInTheDocument()
+        expect(screen.getByRole('option', { name: /Manage workspaces/ })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /Manage workspaces/ })).not.toBeInTheDocument()
 
         fireEvent.change(workspaceSelect, { target: { value: 'ws-2' } })
 
         await waitFor(() => {
             expect(mocks.fetchWithCsrf).toHaveBeenCalledWith(
                 '/api/v1',
-                '/api/v1/applications/app-1/runtime/workspaces/ws-2/default',
+                expect.stringContaining('/api/v1/applications/app-1/runtime/workspaces/ws-2/default'),
                 expect.objectContaining({ method: 'PATCH' })
             )
         })
+    })
+
+    it('uses the active UI locale when rendering localized workspace names', async () => {
+        i18nState.language = 'ru'
+        const queryClient = createQueryClient()
+
+        render(
+            <QueryClientProvider client={queryClient}>
+                <DashboardDetailsProvider
+                    value={
+                        {
+                            applicationId: 'app-1',
+                            apiBaseUrl: '/api/v1',
+                            currentWorkspaceId: 'ws-1',
+                            workspacesEnabled: true,
+                            rows: [],
+                            columns: [],
+                            title: 'Runtime'
+                        } as never
+                    }
+                >
+                    <WorkspaceSwitcher />
+                </DashboardDetailsProvider>
+            </QueryClientProvider>
+        )
+
+        const workspaceSelect = await screen.findByTestId('runtime-workspace-switcher')
+        expect(workspaceSelect).toHaveValue('ws-1')
+        expect(screen.getByTestId('runtime-workspace-switcher-value')).toHaveTextContent('Основное')
+        expect(screen.getByRole('option', { name: /Основное/ })).toBeInTheDocument()
+        expect(screen.getByRole('option', { name: /Класс А/ })).toBeInTheDocument()
+        expect(screen.queryByRole('option', { name: /Main/ })).not.toBeInTheDocument()
     })
 })
