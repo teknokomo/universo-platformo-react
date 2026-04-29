@@ -161,8 +161,10 @@
             "userNotWorkspaceMember": "User is not a member of this workspace",
             "memberNotFound": "Workspace member not found",
             "workspaceNotFound": "Workspace not found",
+            "roleNotFound": "Workspace role not found",
             "workspacesDisabled": "Workspaces are not enabled for this application",
             "invalidRequestBody": "Invalid request body",
+            "personalMutationBlocked": "Personal workspace cannot be changed",
             "personalDeleteBlocked": "Personal workspace cannot be deleted"
         },
         "fields": {

@@ -40,6 +40,18 @@ export type RuntimeWorkspaceMember = z.infer<typeof workspaceMemberSchema>
 export type RuntimeWorkspaceListResponse = z.infer<typeof workspaceListResponseSchema>
 export type RuntimeWorkspaceMembersResponse = z.infer<typeof workspaceMembersResponseSchema>
 
+export class RuntimeWorkspaceApiError extends Error {
+    code?: string
+
+    constructor(message: string, code?: string) {
+        super(message)
+        this.name = 'RuntimeWorkspaceApiError'
+        if (code) {
+            this.code = code
+        }
+    }
+}
+
 export interface RuntimeWorkspaceListParams {
     limit?: number
     offset?: number
@@ -62,16 +74,26 @@ const applyListParams = (url: URL, params?: RuntimeWorkspaceListParams): void =>
     }
 }
 
-const extractErrorMessage = async (response: Response, fallback: string): Promise<string> => {
+const extractErrorDetails = async (response: Response, fallback: string): Promise<{ message: string; code?: string }> => {
     const text = await response.text().catch(() => '')
-    if (!text) return `${fallback} (${response.status})`
+    if (!text) return { message: `${fallback} (${response.status})` }
     try {
         const parsed = JSON.parse(text)
         const message = parsed?.error ?? parsed?.message
-        return typeof message === 'string' && message.trim() ? message : `${fallback} (${response.status})`
+        const normalizedMessage = typeof message === 'string' && message.trim() ? message : `${fallback} (${response.status})`
+        const code = typeof parsed?.code === 'string' && parsed.code.trim() ? parsed.code : ''
+        return {
+            message: normalizedMessage,
+            ...(code ? { code } : {})
+        }
     } catch {
-        return text
+        return { message: text }
     }
+}
+
+const throwRuntimeWorkspaceApiError = async (response: Response, fallback: string): Promise<never> => {
+    const { message, code } = await extractErrorDetails(response, fallback)
+    throw new RuntimeWorkspaceApiError(message, code)
 }
 
 export async function fetchRuntimeWorkspaces(options: {
@@ -84,7 +106,7 @@ export async function fetchRuntimeWorkspaces(options: {
 
     const response = await fetch(url.toString(), { credentials: 'include' })
     if (!response.ok) {
-        throw new Error(await extractErrorMessage(response, 'Failed to load workspaces'))
+        await throwRuntimeWorkspaceApiError(response, 'Failed to load workspaces')
     }
 
     const parsed = workspaceListResponseSchema.safeParse(await response.json())
@@ -103,7 +125,7 @@ export async function fetchRuntimeWorkspace(options: {
 
     const response = await fetch(url.toString(), { credentials: 'include' })
     if (!response.ok) {
-        throw new Error(await extractErrorMessage(response, 'Failed to load workspace'))
+        await throwRuntimeWorkspaceApiError(response, 'Failed to load workspace')
     }
 
     const parsed = workspaceSchema.safeParse(await response.json())
@@ -126,7 +148,7 @@ export async function createRuntimeWorkspace(options: {
         body: JSON.stringify({ name: options.name, description: options.description })
     })
     if (!response.ok) {
-        throw new Error(await extractErrorMessage(response, 'Failed to create workspace'))
+        await throwRuntimeWorkspaceApiError(response, 'Failed to create workspace')
     }
     return response.json()
 }
@@ -148,7 +170,7 @@ export async function updateRuntimeWorkspace(options: {
         body: JSON.stringify(body)
     })
     if (!response.ok) {
-        throw new Error(await extractErrorMessage(response, 'Failed to update workspace'))
+        await throwRuntimeWorkspaceApiError(response, 'Failed to update workspace')
     }
 }
 
@@ -166,7 +188,7 @@ export async function copyRuntimeWorkspace(options: {
         body: JSON.stringify({ name: options.name, description: options.description })
     })
     if (!response.ok) {
-        throw new Error(await extractErrorMessage(response, 'Failed to copy workspace'))
+        await throwRuntimeWorkspaceApiError(response, 'Failed to copy workspace')
     }
     return response.json()
 }
@@ -175,7 +197,7 @@ export async function deleteRuntimeWorkspace(options: { apiBaseUrl: string; appl
     const url = buildRuntimeUrl(options.apiBaseUrl, options.applicationId, `/workspaces/${options.workspaceId}`)
     const response = await fetchWithCsrf(options.apiBaseUrl, url.toString(), { method: 'DELETE' })
     if (!response.ok) {
-        throw new Error(await extractErrorMessage(response, 'Failed to delete workspace'))
+        await throwRuntimeWorkspaceApiError(response, 'Failed to delete workspace')
     }
 }
 
@@ -190,7 +212,7 @@ export async function updateDefaultRuntimeWorkspace(options: {
         headers: { 'Content-Type': 'application/json' }
     })
     if (!response.ok) {
-        throw new Error(await extractErrorMessage(response, 'Failed to switch workspace'))
+        await throwRuntimeWorkspaceApiError(response, 'Failed to switch workspace')
     }
 }
 
@@ -205,7 +227,7 @@ export async function fetchRuntimeWorkspaceMembers(options: {
 
     const response = await fetch(url.toString(), { credentials: 'include' })
     if (!response.ok) {
-        throw new Error(await extractErrorMessage(response, 'Failed to load workspace members'))
+        await throwRuntimeWorkspaceApiError(response, 'Failed to load workspace members')
     }
 
     const parsed = workspaceMembersResponseSchema.safeParse(await response.json())
@@ -229,7 +251,7 @@ export async function inviteRuntimeWorkspaceMember(options: {
         body: JSON.stringify({ email: options.email, roleCodename: options.roleCodename })
     })
     if (!response.ok) {
-        throw new Error(await extractErrorMessage(response, 'Failed to add workspace member'))
+        await throwRuntimeWorkspaceApiError(response, 'Failed to add workspace member')
     }
 }
 
@@ -242,6 +264,6 @@ export async function removeRuntimeWorkspaceMember(options: {
     const url = buildRuntimeUrl(options.apiBaseUrl, options.applicationId, `/workspaces/${options.workspaceId}/members/${options.userId}`)
     const response = await fetchWithCsrf(options.apiBaseUrl, url.toString(), { method: 'DELETE' })
     if (!response.ok) {
-        throw new Error(await extractErrorMessage(response, 'Failed to remove workspace member'))
+        await throwRuntimeWorkspaceApiError(response, 'Failed to remove workspace member')
     }
 }

@@ -137,7 +137,12 @@ export default function WorkspaceSwitcher({ variant = 'inline' }: WorkspaceSwitc
         const value = readSelectValue(event)
         if (value === MANAGE_WORKSPACES_VALUE) {
             setOpen(false)
-            window.location.assign(`/a/${applicationId}/workspaces`)
+            const href = `/a/${applicationId}/workspaces`
+            if (details?.navigate) {
+                details.navigate(href)
+            } else {
+                window.history.pushState(null, '', href)
+            }
             return
         }
         if (value && value !== currentWorkspaceId) {

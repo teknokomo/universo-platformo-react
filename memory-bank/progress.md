@@ -47,6 +47,17 @@
 | 0.22.0-alpha | 2025-07-27 | 0.22.0 Alpha — 2025-07-27 (Global Impulse) ⚡️ | Memory Bank, MMOOMM improvements |
 | 0.21.0-alpha | 2025-07-20 | 0.21.0 Alpha — 2025-07-20 (Firm Resolve) 💪 | Handler refactoring, PlayCanvas stabilization |
 
+## 2026-04-29 Runtime Workspace PR Review Hardening
+
+Closed the actionable review findings on PR #779.
+
+| Area | Resolution |
+| --- | --- |
+| Workspace copy metadata | Workspace row copy now excludes runtime system columns from source data and resets metadata explicitly with fresh timestamps, version `1`, active delete flags, unlocked state, and the acting user id for creator/updater fields. |
+| Workspace API errors | Runtime workspace endpoints now return stable error `code` values alongside messages. The isolated apps-template API preserves those codes on `RuntimeWorkspaceApiError`, and UI localization prefers codes before falling back to legacy message matching. |
+| SPA navigation | Runtime workspace navigation now uses host-provided SPA navigation callbacks in the React Router host and stateful history navigation in standalone template mode, removing direct `window.location.assign` calls from workspace UI paths. |
+| Validation | Focused backend Jest passed (`28/28`), focused apps-template Vitest passed (`14/14`), applications-backend lint/build passed, applications-frontend lint/build passed, apps-template lint/build passed with only unrelated pre-existing warnings, and `git diff --check` passed. |
+
 ## 2026-04-29 Runtime Workspace I18n And Switcher Locale Closure
 
 Closed the final localization gaps in the published-application runtime workspace UI.

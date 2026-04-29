@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import Button from '@mui/material/Button'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
@@ -40,6 +40,11 @@ const UUID_PATH_SEGMENT_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[
 const buildStandaloneSectionHref = (applicationId: string, collectionId: string, sectionLinksEnabled: boolean): string =>
     sectionLinksEnabled ? `/a/${applicationId}/${encodeURIComponent(collectionId)}` : `/a/${applicationId}`
 
+const readCurrentRouteSource = (): string => {
+    if (typeof window === 'undefined') return ''
+    return `${window.location.pathname}${window.location.hash}`
+}
+
 const toStandaloneSectionLinkMenuItem = (
     item: DashboardMenuItem,
     applicationId: string,
@@ -69,17 +74,21 @@ const toStandaloneSectionLinkMenuItem = (
 
 export default function DashboardApp(props: DashboardAppProps) {
     const { t } = useTranslation('apps')
+    const [routeSource, setRouteSource] = useState(readCurrentRouteSource)
+    const navigate = useCallback((href: string) => {
+        if (typeof window === 'undefined') return
+        window.history.pushState(null, '', href)
+        setRouteSource(readCurrentRouteSource())
+    }, [])
 
     const isWorkspacesRoute = useMemo(() => {
-        if (typeof window === 'undefined') return false
-        return /\/a\/[0-9a-fA-F-]{16,}\/workspaces/.test(`${window.location.pathname}${window.location.hash}`)
-    }, [])
+        return /\/a\/[0-9a-fA-F-]{16,}\/workspaces/.test(routeSource)
+    }, [routeSource])
     const runtimeRouteSegments = useMemo(() => {
-        if (typeof window === 'undefined') return []
         const marker = `/a/${props.applicationId}`
-        const suffix = window.location.pathname.startsWith(marker) ? window.location.pathname.slice(marker.length) : ''
+        const suffix = routeSource.startsWith(marker) ? routeSource.slice(marker.length) : ''
         return suffix.split('/').filter(Boolean)
-    }, [props.applicationId])
+    }, [props.applicationId, routeSource])
     const routeSectionId =
         !isWorkspacesRoute && UUID_PATH_SEGMENT_REGEX.test(runtimeRouteSegments[0] ?? '') ? runtimeRouteSegments[0] : undefined
     const routeWorkspaceId =
@@ -124,9 +133,10 @@ export default function DashboardApp(props: DashboardAppProps) {
                     locale={props.locale}
                     routeWorkspaceId={routeWorkspaceId}
                     routeSection={workspaceRouteSection}
+                    onNavigate={navigate}
                 />
             ) : null,
-        [isWorkspacesRoute, props.apiBaseUrl, props.applicationId, props.locale, routeWorkspaceId, workspaceRouteSection]
+        [isWorkspacesRoute, navigate, props.apiBaseUrl, props.applicationId, props.locale, routeWorkspaceId, workspaceRouteSection]
     )
 
     const details = useMemo<DashboardDetailsSlot>(
@@ -147,6 +157,7 @@ export default function DashboardApp(props: DashboardAppProps) {
             pageSizeOptions: state.pageSizeOptions,
             localeText: state.localeText,
             actions: createActions,
+            navigate,
             searchMode: state.appData?.linkedCollection.runtimeConfig?.searchMode ?? 'page-local',
             rowReorder: state.canPersistRowReorder
                 ? {
@@ -173,6 +184,7 @@ export default function DashboardApp(props: DashboardAppProps) {
             state.localeText,
             createActions,
             adapter?.queryKeyPrefix,
+            navigate,
             props.apiBaseUrl,
             props.applicationId,
             workspacePageContent

@@ -62,6 +62,7 @@ interface RuntimeWorkspacesPageProps {
     locale: string
     routeWorkspaceId?: string | null
     routeSection?: 'dashboard' | 'access'
+    onNavigate?: (href: string) => void
 }
 
 type WorkspaceViewRow = FlowListTableData &
@@ -74,6 +75,46 @@ type WorkspaceViewRow = FlowListTableData &
 type MemberViewRow = FlowListTableData & RuntimeWorkspaceMember & { name: string; description: string }
 type ViewMode = 'card' | 'list'
 type WorkspaceFormPayload = { name: unknown; description: unknown }
+type WorkspaceErrorTranslation = { key: string; fallback: string }
+
+const WORKSPACE_ERROR_TRANSLATIONS: Record<string, WorkspaceErrorTranslation> = {
+    USER_NOT_FOUND: { key: 'workspace.errors.userNotFound', fallback: 'User not found' },
+    APPLICATION_MEMBER_REQUIRED: {
+        key: 'workspace.errors.applicationMemberRequired',
+        fallback: 'User must be an active application member before being added to a workspace'
+    },
+    LAST_WORKSPACE_OWNER_REMOVAL_BLOCKED: {
+        key: 'workspace.errors.lastOwnerRemovalBlocked',
+        fallback: 'Cannot remove the last workspace owner'
+    },
+    WORKSPACE_OWNER_REQUIRED: { key: 'workspace.errors.ownerRequired', fallback: 'Only workspace owners can manage members' },
+    WORKSPACE_ACCESS_DENIED: { key: 'workspace.errors.accessDenied', fallback: 'You do not have access to this workspace' },
+    USER_NOT_MEMBER: { key: 'workspace.errors.userNotWorkspaceMember', fallback: 'User is not a member of this workspace' },
+    WORKSPACE_MEMBER_NOT_FOUND: { key: 'workspace.errors.memberNotFound', fallback: 'Workspace member not found' },
+    WORKSPACE_NOT_FOUND: { key: 'workspace.errors.workspaceNotFound', fallback: 'Workspace not found' },
+    WORKSPACES_DISABLED: { key: 'workspace.errors.workspacesDisabled', fallback: 'Workspaces are not enabled for this application' },
+    INVALID_REQUEST_BODY: { key: 'workspace.errors.invalidRequestBody', fallback: 'Invalid request body' },
+    INVALID_ROUTE_PARAMETERS: { key: 'workspace.errors.invalidRequestBody', fallback: 'Invalid request body' },
+    WORKSPACE_ROLE_NOT_FOUND: { key: 'workspace.errors.roleNotFound', fallback: 'Workspace role not found' },
+    PERSONAL_WORKSPACE_MUTATION_BLOCKED: {
+        key: 'workspace.errors.personalMutationBlocked',
+        fallback: 'Personal workspace cannot be changed'
+    }
+}
+
+const LEGACY_WORKSPACE_ERROR_TRANSLATIONS: Array<[string, WorkspaceErrorTranslation]> = [
+    ['User not found', WORKSPACE_ERROR_TRANSLATIONS.USER_NOT_FOUND],
+    ['User must be an active application member', WORKSPACE_ERROR_TRANSLATIONS.APPLICATION_MEMBER_REQUIRED],
+    ['Cannot remove the last workspace owner', WORKSPACE_ERROR_TRANSLATIONS.LAST_WORKSPACE_OWNER_REMOVAL_BLOCKED],
+    ['Only workspace owners can manage members', WORKSPACE_ERROR_TRANSLATIONS.WORKSPACE_OWNER_REQUIRED],
+    ['You do not have access to this workspace', WORKSPACE_ERROR_TRANSLATIONS.WORKSPACE_ACCESS_DENIED],
+    ['User is not a member of this workspace', WORKSPACE_ERROR_TRANSLATIONS.USER_NOT_MEMBER],
+    ['Workspace member not found', WORKSPACE_ERROR_TRANSLATIONS.WORKSPACE_MEMBER_NOT_FOUND],
+    ['Workspace not found', WORKSPACE_ERROR_TRANSLATIONS.WORKSPACE_NOT_FOUND],
+    ['Workspaces are not enabled for this application', WORKSPACE_ERROR_TRANSLATIONS.WORKSPACES_DISABLED],
+    ['Invalid request body', WORKSPACE_ERROR_TRANSLATIONS.INVALID_REQUEST_BODY],
+    ['Personal workspace cannot be deleted', WORKSPACE_ERROR_TRANSLATIONS.PERSONAL_WORKSPACE_MUTATION_BLOCKED]
+]
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 
@@ -186,7 +227,8 @@ export function RuntimeWorkspacesPage({
     apiBaseUrl,
     locale,
     routeWorkspaceId = null,
-    routeSection = 'dashboard'
+    routeSection = 'dashboard',
+    onNavigate
 }: RuntimeWorkspacesPageProps) {
     const { t } = useTranslation('apps')
     const queryClient = useQueryClient()
@@ -261,43 +303,25 @@ export function RuntimeWorkspacesPage({
             queryClient.invalidateQueries({ queryKey: ['runtime', applicationId] })
         ])
     }
+    const navigateTo = (href: string) => {
+        if (onNavigate) {
+            onNavigate(href)
+            return
+        }
+        window.history.pushState(null, '', href)
+    }
 
-    const translateWorkspaceError = (message: string): string => {
-        if (message.includes('User not found')) {
-            return t('workspace.errors.userNotFound', 'User not found')
+    const translateWorkspaceError = (error: unknown): string => {
+        const message = error instanceof Error ? error.message : String(error)
+        const code = typeof (error as { code?: unknown })?.code === 'string' ? (error as { code: string }).code : ''
+        const codedTranslation = WORKSPACE_ERROR_TRANSLATIONS[code]
+        if (codedTranslation) {
+            return t(codedTranslation.key, codedTranslation.fallback)
         }
-        if (message.includes('User must be an active application member')) {
-            return t(
-                'workspace.errors.applicationMemberRequired',
-                'User must be an active application member before being added to a workspace'
-            )
-        }
-        if (message.includes('Cannot remove the last workspace owner')) {
-            return t('workspace.errors.lastOwnerRemovalBlocked', 'Cannot remove the last workspace owner')
-        }
-        if (message.includes('Only workspace owners can manage members')) {
-            return t('workspace.errors.ownerRequired', 'Only workspace owners can manage members')
-        }
-        if (message.includes('You do not have access to this workspace')) {
-            return t('workspace.errors.accessDenied', 'You do not have access to this workspace')
-        }
-        if (message.includes('User is not a member of this workspace')) {
-            return t('workspace.errors.userNotWorkspaceMember', 'User is not a member of this workspace')
-        }
-        if (message.includes('Workspace member not found')) {
-            return t('workspace.errors.memberNotFound', 'Workspace member not found')
-        }
-        if (message.includes('Workspace not found')) {
-            return t('workspace.errors.workspaceNotFound', 'Workspace not found')
-        }
-        if (message.includes('Workspaces are not enabled for this application')) {
-            return t('workspace.errors.workspacesDisabled', 'Workspaces are not enabled for this application')
-        }
-        if (message.includes('Invalid request body')) {
-            return t('workspace.errors.invalidRequestBody', 'Invalid request body')
-        }
-        if (message.includes('Personal workspace cannot be deleted')) {
-            return t('workspace.errors.personalDeleteBlocked', 'Personal workspace cannot be deleted')
+        for (const [needle, translation] of LEGACY_WORKSPACE_ERROR_TRANSLATIONS) {
+            if (message.includes(needle)) {
+                return t(translation.key, translation.fallback)
+            }
         }
         return message
     }
@@ -308,9 +332,9 @@ export function RuntimeWorkspacesPage({
             setCreateOpen(false)
             setFormError(null)
             await invalidateWorkspaceData()
-            window.location.assign(buildWorkspaceHref(applicationId, result.id))
+            navigateTo(buildWorkspaceHref(applicationId, result.id))
         },
-        onError: (error: Error) => setFormError(translateWorkspaceError(error.message))
+        onError: (error: Error) => setFormError(translateWorkspaceError(error))
     })
 
     const updateMutation = useMutation({
@@ -321,7 +345,7 @@ export function RuntimeWorkspacesPage({
             setFormError(null)
             await invalidateWorkspaceData()
         },
-        onError: (error: Error) => setFormError(translateWorkspaceError(error.message))
+        onError: (error: Error) => setFormError(translateWorkspaceError(error))
     })
 
     const copyMutation = useMutation({
@@ -330,9 +354,9 @@ export function RuntimeWorkspacesPage({
             setCopyTarget(null)
             setFormError(null)
             await invalidateWorkspaceData()
-            window.location.assign(buildWorkspaceHref(applicationId, result.id))
+            navigateTo(buildWorkspaceHref(applicationId, result.id))
         },
-        onError: (error: Error) => setFormError(translateWorkspaceError(error.message))
+        onError: (error: Error) => setFormError(translateWorkspaceError(error))
     })
 
     const deleteMutation = useMutation({
@@ -342,7 +366,7 @@ export function RuntimeWorkspacesPage({
             setFormError(null)
             await invalidateWorkspaceData()
         },
-        onError: (error: Error) => setFormError(translateWorkspaceError(error.message))
+        onError: (error: Error) => setFormError(translateWorkspaceError(error))
     })
 
     const defaultMutation = useMutation({
@@ -364,7 +388,7 @@ export function RuntimeWorkspacesPage({
             setFormError(null)
             await invalidateWorkspaceData()
         },
-        onError: (error: Error) => setFormError(translateWorkspaceError(error.message))
+        onError: (error: Error) => setFormError(translateWorkspaceError(error))
     })
 
     const removeMutation = useMutation({
@@ -375,7 +399,7 @@ export function RuntimeWorkspacesPage({
             setFormError(null)
             await invalidateWorkspaceData()
         },
-        onError: (error: Error) => setFormError(translateWorkspaceError(error.message))
+        onError: (error: Error) => setFormError(translateWorkspaceError(error))
     })
 
     const workspaceRows = useMemo<WorkspaceViewRow[]>(
@@ -574,7 +598,7 @@ export function RuntimeWorkspacesPage({
                                         <ItemCard
                                             data={workspace}
                                             allowStretch
-                                            onClick={() => window.location.assign(buildWorkspaceHref(applicationId, workspace.id))}
+                                            onClick={() => navigateTo(buildWorkspaceHref(applicationId, workspace.id))}
                                             headerAction={renderWorkspaceActions(workspace)}
                                             footerStartContent={
                                                 <Chip
@@ -809,7 +833,7 @@ export function RuntimeWorkspacesPage({
                 <MenuItem
                     onClick={() => {
                         if (workspaceMenuTarget) {
-                            window.location.assign(buildWorkspaceHref(applicationId, workspaceMenuTarget.id))
+                            navigateTo(buildWorkspaceHref(applicationId, workspaceMenuTarget.id))
                         }
                         closeWorkspaceMenu()
                     }}

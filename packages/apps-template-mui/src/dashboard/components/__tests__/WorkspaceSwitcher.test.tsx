@@ -271,4 +271,35 @@ describe('WorkspaceSwitcher', () => {
         expect(screen.getByRole('option', { name: /Класс А/ })).toBeInTheDocument()
         expect(screen.queryByRole('option', { name: /Main/ })).not.toBeInTheDocument()
     })
+
+    it('uses the host navigation callback for the manage workspaces menu item', async () => {
+        const queryClient = createQueryClient()
+        const navigate = vi.fn()
+
+        render(
+            <QueryClientProvider client={queryClient}>
+                <DashboardDetailsProvider
+                    value={
+                        {
+                            applicationId: 'app-1',
+                            apiBaseUrl: '/api/v1',
+                            currentWorkspaceId: 'ws-1',
+                            workspacesEnabled: true,
+                            navigate,
+                            rows: [],
+                            columns: [],
+                            title: 'Runtime'
+                        } as never
+                    }
+                >
+                    <WorkspaceSwitcher />
+                </DashboardDetailsProvider>
+            </QueryClientProvider>
+        )
+
+        const workspaceSelect = await screen.findByTestId('runtime-workspace-switcher')
+        fireEvent.change(workspaceSelect, { target: { value: '__manage_workspaces__' } })
+
+        expect(navigate).toHaveBeenCalledWith('/a/app-1/workspaces')
+    })
 })

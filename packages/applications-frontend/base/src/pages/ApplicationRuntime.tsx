@@ -5,7 +5,7 @@ import CircularProgress from '@mui/material/CircularProgress'
 import Alert from '@mui/material/Alert'
 import Checkbox from '@mui/material/Checkbox'
 import AddIcon from '@mui/icons-material/Add'
-import { useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
     AppsDashboard,
@@ -73,6 +73,7 @@ const toRuntimeSectionLinkMenuItem = (
 
 const ApplicationRuntime = () => {
     const routeParams = useParams<{ applicationId: string; '*': string }>()
+    const navigate = useNavigate()
     const applicationId = routeParams.applicationId
     const runtimeSubRoute = routeParams['*'] ?? ''
     const runtimeRouteSegments = runtimeSubRoute.split('/').filter(Boolean)
@@ -404,9 +405,10 @@ const ApplicationRuntime = () => {
                     locale={i18n.language}
                     routeWorkspaceId={routeWorkspaceId}
                     routeSection={workspaceRouteSection}
+                    onNavigate={navigate}
                 />
             ) : null,
-        [applicationId, i18n.language, isWorkspacesRoute, routeWorkspaceId, workspaceRouteSection]
+        [applicationId, i18n.language, isWorkspacesRoute, navigate, routeWorkspaceId, workspaceRouteSection]
     )
 
     const pageSurfaceContent = useMemo(
@@ -469,6 +471,7 @@ const ApplicationRuntime = () => {
             pageSizeOptions: state.pageSizeOptions,
             localeText: state.localeText,
             actions: createActions,
+            navigate,
             searchMode: activeRuntimeConfig?.searchMode ?? 'page-local',
             rowReorder: state.canPersistRowReorder
                 ? {
@@ -495,6 +498,7 @@ const ApplicationRuntime = () => {
             state.pageSizeOptions,
             state.localeText,
             createActions,
+            navigate,
             pageSurfaceContent,
             adapter?.queryKeyPrefix,
             state.appData?.currentWorkspaceId,

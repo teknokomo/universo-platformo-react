@@ -235,7 +235,22 @@ describe('runtimeWorkspaceService', () => {
             }
 
             if (sql.includes('information_schema.columns') && sql.includes("column_name NOT IN ('id', 'workspace_id')")) {
-                return [{ column_name: 'title' }, { column_name: 'module_id' }]
+                return [
+                    { column_name: 'title' },
+                    { column_name: 'module_id' },
+                    { column_name: '_upl_created_at' },
+                    { column_name: '_upl_updated_at' },
+                    { column_name: '_upl_version' },
+                    { column_name: '_upl_created_by' },
+                    { column_name: '_upl_updated_by' },
+                    { column_name: '_upl_deleted' },
+                    { column_name: '_upl_deleted_at' },
+                    { column_name: '_upl_deleted_by' },
+                    { column_name: '_app_deleted' },
+                    { column_name: '_app_deleted_at' },
+                    { column_name: '_app_deleted_by' },
+                    { column_name: '_upl_locked' }
+                ]
             }
 
             if (sql.includes('information_schema.columns') && sql.includes("udt_name = 'uuid'")) {
@@ -258,8 +273,16 @@ describe('runtimeWorkspaceService', () => {
         expect(txExecutor.query).toHaveBeenCalledWith(expect.stringContaining('CREATE TEMP TABLE workspace_copy_id_map'))
         expect(txExecutor.query).toHaveBeenCalledWith(expect.stringContaining('INNER JOIN workspace_copy_id_map'), [
             'workspace-source',
-            'workspace-copy'
+            'workspace-copy',
+            'user-1'
         ])
+        const insertCall = txExecutor.query.mock.calls.find(([sql]) => String(sql).includes(`INSERT INTO "${schemaName}"."cat_lessons"`))
+        expect(insertCall?.[0]).toEqual(expect.not.stringContaining('source."_upl_created_at"'))
+        expect(insertCall?.[0]).toEqual(expect.not.stringContaining('source."_upl_created_by"'))
+        expect(insertCall?.[0]).toEqual(expect.not.stringContaining('source."_upl_version"'))
+        expect(insertCall?.[0]).toEqual(expect.stringContaining('NOW()'))
+        expect(insertCall?.[0]).toEqual(expect.stringContaining('$3::uuid'))
+        expect(insertCall?.[0]).toEqual(expect.stringContaining('false'))
         expect(txExecutor.query).toHaveBeenCalledWith(expect.stringContaining('target."module_id" = id_map.old_id'), ['workspace-copy'])
     })
 

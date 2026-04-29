@@ -36,6 +36,21 @@ type WorkspaceMembershipRow = {
 }
 
 const ACTIVE_ROW_SQL = '_upl_deleted = false AND _app_deleted = false'
+const SYSTEM_COPY_COLUMN_EXPRESSIONS: Record<string, string> = {
+    _upl_created_at: 'NOW()',
+    _upl_updated_at: 'NOW()',
+    _upl_version: '1',
+    _upl_created_by: '$3::uuid',
+    _upl_updated_by: '$3::uuid',
+    _upl_deleted: 'false',
+    _upl_deleted_at: 'NULL',
+    _upl_deleted_by: 'NULL',
+    _app_deleted: 'false',
+    _app_deleted_at: 'NULL',
+    _app_deleted_by: 'NULL',
+    _upl_locked: 'false'
+}
+const SYSTEM_COPY_COLUMNS = new Set(Object.keys(SYSTEM_COPY_COLUMN_EXPRESSIONS))
 
 const toJsonbParam = (value: unknown): string => JSON.stringify(value ?? null)
 
@@ -542,21 +557,25 @@ export async function copyWorkspace(
             `,
                 [input.schemaName, table.table_name]
             )
-            const columnNames = columns.map((column) => column.column_name)
-            const quotedColumns = columnNames.map((column) => qColumn(column))
+            const userColumnNames = columns.map((column) => column.column_name).filter((column) => !SYSTEM_COPY_COLUMNS.has(column))
+            const systemColumnNames = columns.map((column) => column.column_name).filter((column) => SYSTEM_COPY_COLUMNS.has(column))
+            const insertColumnNames = [...userColumnNames, ...systemColumnNames]
+            const quotedColumns = insertColumnNames.map((column) => qColumn(column))
+            const selectExpressions = [
+                ...userColumnNames.map((column) => `source.${qColumn(column)}`),
+                ...systemColumnNames.map((column) => SYSTEM_COPY_COLUMN_EXPRESSIONS[column])
+            ]
             await tx.query(
                 `
                 INSERT INTO ${tableIdent} (id, ${qColumn('workspace_id')}${quotedColumns.length > 0 ? `, ${quotedColumns.join(', ')}` : ''})
-                SELECT id_map.new_id, $2::uuid${
-                    quotedColumns.length > 0 ? `, ${quotedColumns.map((column) => `source.${column}`).join(', ')}` : ''
-                }
+                SELECT id_map.new_id, $2::uuid${selectExpressions.length > 0 ? `, ${selectExpressions.join(', ')}` : ''}
                 FROM ${tableIdent} source
                 INNER JOIN workspace_copy_id_map id_map ON id_map.old_id = source.id
                 WHERE source.${qColumn('workspace_id')} = $1
                   AND source.${qColumn('_upl_deleted')} = false
                   AND source.${qColumn('_app_deleted')} = false
             `,
-                [input.sourceWorkspaceId, created.id]
+                [input.sourceWorkspaceId, created.id, input.actorUserId ?? null]
             )
         }
 

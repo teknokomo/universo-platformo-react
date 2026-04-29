@@ -217,7 +217,9 @@ describe('runtimeWorkspaceController', () => {
         )
 
         expect(res.status).toHaveBeenCalledWith(404)
-        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({ error: 'Workspace not found' })
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith(
+            expect.objectContaining({ error: 'Workspace not found', code: 'WORKSPACE_NOT_FOUND' })
+        )
     })
 
     it('rejects missing workspace names before resolving runtime schema', async () => {
@@ -329,7 +331,9 @@ describe('runtimeWorkspaceController', () => {
         )
 
         expect(res.status).toHaveBeenCalledWith(403)
-        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({ error: 'Only workspace owners can manage members' })
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith(
+            expect.objectContaining({ error: 'Only workspace owners can manage members', code: 'WORKSPACE_OWNER_REQUIRED' })
+        )
         expect(mockAddWorkspaceMember).not.toHaveBeenCalled()
     })
 
@@ -447,7 +451,9 @@ describe('runtimeWorkspaceController', () => {
         )
 
         expect(res.status).toHaveBeenCalledWith(403)
-        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({ error: 'You do not have access to this workspace' })
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith(
+            expect.objectContaining({ error: 'You do not have access to this workspace', code: 'WORKSPACE_ACCESS_DENIED' })
+        )
         expect(mockListWorkspaceMembers).not.toHaveBeenCalled()
     })
 
@@ -477,7 +483,12 @@ describe('runtimeWorkspaceController', () => {
         )
 
         expect(res.status).toHaveBeenCalledWith(409)
-        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({ error: 'Cannot remove the last workspace owner' })
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith(
+            expect.objectContaining({
+                error: 'Cannot remove the last workspace owner',
+                code: 'LAST_WORKSPACE_OWNER_REMOVAL_BLOCKED'
+            })
+        )
     })
 
     it('rejects invalid member removal route ids before service access', async () => {
@@ -547,6 +558,8 @@ describe('runtimeWorkspaceController', () => {
         )
 
         expect(res.status).toHaveBeenCalledWith(404)
-        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({ error: 'Role "member" not found' })
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith(
+            expect.objectContaining({ error: 'Role "member" not found', code: 'WORKSPACE_ROLE_NOT_FOUND' })
+        )
     })
 })

@@ -36,6 +36,8 @@ export interface DashboardDetailsSlot {
     pageSizeOptions?: number[]
     /** Optional toolbar actions (e.g. Create button) rendered next to the title. */
     actions?: React.ReactNode
+    /** Optional host-provided SPA navigation handler for runtime widgets. */
+    navigate?: (href: string) => void
     /** MUI DataGrid locale text overrides (e.g. from @mui/x-data-grid/locales) */
     localeText?: Partial<GridLocaleText>
     /** Search scope contract for the current catalog runtime. */

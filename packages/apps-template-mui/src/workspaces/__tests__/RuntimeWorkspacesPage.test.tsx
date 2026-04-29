@@ -551,7 +551,9 @@ describe('RuntimeWorkspacesPage', () => {
 
     it('localizes known backend workspace errors in Russian runtime UI', async () => {
         i18nState.language = 'ru'
-        apiMocks.inviteRuntimeWorkspaceMember.mockRejectedValueOnce(new Error('User not found'))
+        apiMocks.inviteRuntimeWorkspaceMember.mockRejectedValueOnce(
+            Object.assign(new Error('Backend text changed'), { code: 'USER_NOT_FOUND' })
+        )
 
         renderPage({ locale: 'ru', routeWorkspaceId: 'ws-shared', routeSection: 'access' })
 
@@ -563,6 +565,16 @@ describe('RuntimeWorkspacesPage', () => {
 
         expect(await within(dialog).findByRole('alert')).toHaveTextContent('Пользователь не найден')
         expect(within(dialog).queryByText('User not found')).not.toBeInTheDocument()
+    })
+
+    it('uses host SPA navigation callback for workspace detail navigation', async () => {
+        const onNavigate = vi.fn()
+        renderPage({ onNavigate })
+
+        const [personalWorkspaceCard] = await screen.findAllByTestId('runtime-workspace-card')
+        fireEvent.click(within(personalWorkspaceCard).getByText('Personal'))
+
+        expect(onNavigate).toHaveBeenCalledWith('/a/app-1/workspaces/ws-personal')
     })
 
     it('switches workspace members between card and list views', async () => {

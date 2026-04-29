@@ -22,6 +22,17 @@ import {
     RUNTIME_WORKSPACE_ERROR_CODES
 } from '../services/runtimeWorkspaceService'
 
+const RUNTIME_WORKSPACE_API_ERROR_CODES = {
+    invalidRouteParameters: 'INVALID_ROUTE_PARAMETERS',
+    invalidQuery: 'INVALID_QUERY',
+    invalidRequestBody: 'INVALID_REQUEST_BODY',
+    workspacesDisabled: 'WORKSPACES_DISABLED',
+    workspaceAccessDenied: 'WORKSPACE_ACCESS_DENIED',
+    workspaceOwnerRequired: 'WORKSPACE_OWNER_REQUIRED',
+    userNotFound: 'USER_NOT_FOUND',
+    applicationMemberRequired: 'APPLICATION_MEMBER_REQUIRED'
+} as const
+
 const workspaceParamSchema = z.object({
     workspaceId: z.string().uuid()
 })
@@ -80,21 +91,34 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
 
     const getRuntimeWorkspaceErrorCode = (error: unknown) => (error instanceof RuntimeWorkspaceError ? error.code : null)
     const getRuntimeWorkspaceErrorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error))
+    const sendError = (res: Response, status: number, message: string, code: string, details?: unknown) =>
+        res.status(status).json({
+            error: message,
+            code,
+            ...(details === undefined ? {} : { details })
+        })
+    const sendRuntimeWorkspaceError = (res: Response, status: number, error: unknown, code: string) =>
+        sendError(res, status, getRuntimeWorkspaceErrorMessage(error), code)
     const sendInvalidParams = (res: Response, error: z.ZodError) =>
-        res.status(400).json({ error: 'Invalid route parameters', details: error.flatten() })
+        sendError(res, 400, 'Invalid route parameters', RUNTIME_WORKSPACE_API_ERROR_CODES.invalidRouteParameters, error.flatten())
+    const sendWorkspacesDisabled = (res: Response) =>
+        sendError(res, 400, 'Workspaces are not enabled for this application', RUNTIME_WORKSPACE_API_ERROR_CODES.workspacesDisabled)
 
     const sendWorkspaceMutationError = (res: Response, error: unknown): boolean => {
         const code = getRuntimeWorkspaceErrorCode(error)
         if (code === RUNTIME_WORKSPACE_ERROR_CODES.workspaceNotFound) {
-            res.status(404).json({ error: getRuntimeWorkspaceErrorMessage(error) })
+            sendRuntimeWorkspaceError(res, 404, error, code)
             return true
         }
         if (code === RUNTIME_WORKSPACE_ERROR_CODES.personalWorkspaceMutationBlocked) {
-            res.status(409).json({ error: getRuntimeWorkspaceErrorMessage(error) })
+            sendRuntimeWorkspaceError(res, 409, error, code)
             return true
         }
         return false
     }
+
+    const sendMembershipStateError = (res: Response, error: { status: number; message: string; code: string }) =>
+        sendError(res, error.status, error.message, error.code)
 
     const requireWorkspaceMembership = async (
         ctx: Awaited<ReturnType<typeof resolveRuntimeSchema>>,
@@ -110,10 +134,22 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
         })
 
         if (!membership) {
-            return { error: { status: 403, message: 'You do not have access to this workspace' } }
+            return {
+                error: {
+                    status: 403,
+                    message: 'You do not have access to this workspace',
+                    code: RUNTIME_WORKSPACE_API_ERROR_CODES.workspaceAccessDenied
+                }
+            }
         }
         if (options.requireOwner && membership.roleCodename !== 'owner') {
-            return { error: { status: 403, message: 'Only workspace owners can manage members' } }
+            return {
+                error: {
+                    status: 403,
+                    message: 'Only workspace owners can manage members',
+                    code: RUNTIME_WORKSPACE_API_ERROR_CODES.workspaceOwnerRequired
+                }
+            }
         }
 
         return { membership }
@@ -125,7 +161,7 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
         if (!ctx) return
 
         if (!ctx.workspacesEnabled) {
-            return res.status(400).json({ error: 'Workspaces are not enabled for this application' })
+            return sendWorkspacesDisabled(res)
         }
 
         let validatedQuery
@@ -133,7 +169,7 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
             validatedQuery = validateListQuery(req.query)
         } catch (error) {
             if (error instanceof z.ZodError) {
-                return res.status(400).json({ error: 'Invalid query', details: error.flatten() })
+                return sendError(res, 400, 'Invalid query', RUNTIME_WORKSPACE_API_ERROR_CODES.invalidQuery, error.flatten())
             }
             throw error
         }
@@ -160,14 +196,14 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
         const { applicationId } = req.params
         const parsed = createWorkspaceSchema.safeParse(req.body)
         if (!parsed.success) {
-            return res.status(400).json({ error: 'Invalid request body', details: parsed.error.flatten() })
+            return sendError(res, 400, 'Invalid request body', RUNTIME_WORKSPACE_API_ERROR_CODES.invalidRequestBody, parsed.error.flatten())
         }
 
         const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
         if (!ctx) return
 
         if (!ctx.workspacesEnabled) {
-            return res.status(400).json({ error: 'Workspaces are not enabled for this application' })
+            return sendWorkspacesDisabled(res)
         }
 
         const workspace = await createSharedWorkspace(ctx.manager, {
@@ -192,7 +228,7 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
         if (!ctx) return
 
         if (!ctx.workspacesEnabled) {
-            return res.status(400).json({ error: 'Workspaces are not enabled for this application' })
+            return sendWorkspacesDisabled(res)
         }
 
         const workspace = await getUserWorkspace(ctx.manager, {
@@ -202,7 +238,7 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
         })
 
         if (!workspace) {
-            return res.status(404).json({ error: 'Workspace not found' })
+            return sendError(res, 404, 'Workspace not found', RUNTIME_WORKSPACE_ERROR_CODES.workspaceNotFound)
         }
 
         return res.json(workspace)
@@ -217,19 +253,19 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
         const { workspaceId } = params.data
         const parsed = updateWorkspaceSchema.safeParse(req.body)
         if (!parsed.success) {
-            return res.status(400).json({ error: 'Invalid request body', details: parsed.error.flatten() })
+            return sendError(res, 400, 'Invalid request body', RUNTIME_WORKSPACE_API_ERROR_CODES.invalidRequestBody, parsed.error.flatten())
         }
 
         const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
         if (!ctx) return
 
         if (!ctx.workspacesEnabled) {
-            return res.status(400).json({ error: 'Workspaces are not enabled for this application' })
+            return sendWorkspacesDisabled(res)
         }
 
         const membershipState = await requireWorkspaceMembership(ctx, workspaceId, { requireOwner: true })
         if (membershipState?.error) {
-            return res.status(membershipState.error.status).json({ error: membershipState.error.message })
+            return sendMembershipStateError(res, membershipState.error)
         }
 
         try {
@@ -257,19 +293,19 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
         const { workspaceId } = params.data
         const parsed = copyWorkspaceSchema.safeParse(req.body)
         if (!parsed.success) {
-            return res.status(400).json({ error: 'Invalid request body', details: parsed.error.flatten() })
+            return sendError(res, 400, 'Invalid request body', RUNTIME_WORKSPACE_API_ERROR_CODES.invalidRequestBody, parsed.error.flatten())
         }
 
         const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
         if (!ctx) return
 
         if (!ctx.workspacesEnabled) {
-            return res.status(400).json({ error: 'Workspaces are not enabled for this application' })
+            return sendWorkspacesDisabled(res)
         }
 
         const membershipState = await requireWorkspaceMembership(ctx, workspaceId, { requireOwner: true })
         if (membershipState?.error) {
-            return res.status(membershipState.error.status).json({ error: membershipState.error.message })
+            return sendMembershipStateError(res, membershipState.error)
         }
 
         let workspace
@@ -301,12 +337,12 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
         if (!ctx) return
 
         if (!ctx.workspacesEnabled) {
-            return res.status(400).json({ error: 'Workspaces are not enabled for this application' })
+            return sendWorkspacesDisabled(res)
         }
 
         const membershipState = await requireWorkspaceMembership(ctx, workspaceId, { requireOwner: true })
         if (membershipState?.error) {
-            return res.status(membershipState.error.status).json({ error: membershipState.error.message })
+            return sendMembershipStateError(res, membershipState.error)
         }
 
         try {
@@ -334,7 +370,7 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
         if (!ctx) return
 
         if (!ctx.workspacesEnabled) {
-            return res.status(400).json({ error: 'Workspaces are not enabled for this application' })
+            return sendWorkspacesDisabled(res)
         }
 
         try {
@@ -346,7 +382,7 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
             })
         } catch (error) {
             if (getRuntimeWorkspaceErrorCode(error) === RUNTIME_WORKSPACE_ERROR_CODES.userNotMember) {
-                return res.status(403).json({ error: getRuntimeWorkspaceErrorMessage(error) })
+                return sendRuntimeWorkspaceError(res, 403, error, RUNTIME_WORKSPACE_ERROR_CODES.userNotMember)
             }
             throw error
         }
@@ -363,19 +399,19 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
         const { workspaceId } = params.data
         const parsed = addMemberSchema.safeParse(req.body)
         if (!parsed.success) {
-            return res.status(400).json({ error: 'Invalid request body', details: parsed.error.flatten() })
+            return sendError(res, 400, 'Invalid request body', RUNTIME_WORKSPACE_API_ERROR_CODES.invalidRequestBody, parsed.error.flatten())
         }
 
         const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
         if (!ctx) return
 
         if (!ctx.workspacesEnabled) {
-            return res.status(400).json({ error: 'Workspaces are not enabled for this application' })
+            return sendWorkspacesDisabled(res)
         }
 
         const membershipState = await requireWorkspaceMembership(ctx, workspaceId, { requireOwner: true })
         if (membershipState?.error) {
-            return res.status(membershipState.error.status).json({ error: membershipState.error.message })
+            return sendMembershipStateError(res, membershipState.error)
         }
 
         const executor = {
@@ -386,7 +422,7 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
             : parsed.data.userId ?? null
 
         if (!targetUserId) {
-            return res.status(404).json({ error: 'User not found' })
+            return sendError(res, 404, 'User not found', RUNTIME_WORKSPACE_API_ERROR_CODES.userNotFound)
         }
 
         const applicationMember = await findApplicationMemberByUserId(executor, {
@@ -394,7 +430,12 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
             userId: targetUserId
         })
         if (!applicationMember) {
-            return res.status(403).json({ error: 'User must be an active application member before being added to a workspace' })
+            return sendError(
+                res,
+                403,
+                'User must be an active application member before being added to a workspace',
+                RUNTIME_WORKSPACE_API_ERROR_CODES.applicationMemberRequired
+            )
         }
 
         try {
@@ -408,7 +449,7 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
         } catch (error) {
             const code = getRuntimeWorkspaceErrorCode(error)
             if (code === RUNTIME_WORKSPACE_ERROR_CODES.workspaceNotFound || code === RUNTIME_WORKSPACE_ERROR_CODES.roleNotFound) {
-                return res.status(404).json({ error: getRuntimeWorkspaceErrorMessage(error) })
+                return sendRuntimeWorkspaceError(res, 404, error, code)
             }
             throw error
         }
@@ -427,12 +468,12 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
         if (!ctx) return
 
         if (!ctx.workspacesEnabled) {
-            return res.status(400).json({ error: 'Workspaces are not enabled for this application' })
+            return sendWorkspacesDisabled(res)
         }
 
         const membershipState = await requireWorkspaceMembership(ctx, workspaceId, { requireOwner: true })
         if (membershipState?.error) {
-            return res.status(membershipState.error.status).json({ error: membershipState.error.message })
+            return sendMembershipStateError(res, membershipState.error)
         }
 
         try {
@@ -445,10 +486,10 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
         } catch (error) {
             const code = getRuntimeWorkspaceErrorCode(error)
             if (code === RUNTIME_WORKSPACE_ERROR_CODES.workspaceNotFound || code === RUNTIME_WORKSPACE_ERROR_CODES.memberNotFound) {
-                return res.status(404).json({ error: getRuntimeWorkspaceErrorMessage(error) })
+                return sendRuntimeWorkspaceError(res, 404, error, code)
             }
             if (code === RUNTIME_WORKSPACE_ERROR_CODES.lastOwnerRemovalBlocked) {
-                return res.status(409).json({ error: getRuntimeWorkspaceErrorMessage(error) })
+                return sendRuntimeWorkspaceError(res, 409, error, code)
             }
             throw error
         }
@@ -467,12 +508,12 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
         if (!ctx) return
 
         if (!ctx.workspacesEnabled) {
-            return res.status(400).json({ error: 'Workspaces are not enabled for this application' })
+            return sendWorkspacesDisabled(res)
         }
 
         const membershipState = await requireWorkspaceMembership(ctx, workspaceId)
         if (membershipState?.error) {
-            return res.status(membershipState.error.status).json({ error: membershipState.error.message })
+            return sendMembershipStateError(res, membershipState.error)
         }
 
         let validatedQuery
@@ -480,7 +521,7 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
             validatedQuery = validateListQuery(req.query)
         } catch (error) {
             if (error instanceof z.ZodError) {
-                return res.status(400).json({ error: 'Invalid query', details: error.flatten() })
+                return sendError(res, 400, 'Invalid query', RUNTIME_WORKSPACE_API_ERROR_CODES.invalidQuery, error.flatten())
             }
             throw error
         }

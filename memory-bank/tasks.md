@@ -6,6 +6,26 @@
 
 ## Current Task Ledger (Canonical)
 
+## Completed: Runtime Workspace PR Review Hardening (2026-04-29)
+
+> Goal: address the actionable PR #779 review comments without widening the feature surface or regressing standalone template behavior.
+
+### Final Action Plan — PR Review Pass (2026-04-29)
+
+- [x] Reset runtime system metadata instead of copying it from source rows during workspace copy
+- [x] Return and consume stable runtime workspace API error codes for localized UI errors
+- [x] Replace workspace UI hard reload navigation with host-provided SPA navigation while preserving standalone template navigation
+- [x] Re-run focused tests, lint, builds, and whitespace validation
+
+### Validation Notes
+
+- Focused backend Jest passed for `runtimeWorkspaceService.test.ts` and `runtimeWorkspaceController.test.ts` (`28/28`).
+- Focused apps-template Vitest passed for `RuntimeWorkspacesPage.test.tsx` and `WorkspaceSwitcher.test.tsx` (`14/14`).
+- `@universo/applications-backend` lint/build passed.
+- `@universo/applications-frontend` lint/build passed.
+- `@universo/apps-template-mui` lint/build passed with only unrelated pre-existing warnings.
+- `git diff --check` passed.
+
 ## Completed: Runtime Workspace I18n And Switcher Locale Closure (2026-04-29)
 
 > Goal: close QA findings around runtime workspace localization without changing the workspace architecture or adding duplicate UI patterns.
