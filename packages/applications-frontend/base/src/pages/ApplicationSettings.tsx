@@ -59,6 +59,7 @@ const ApplicationSettings = () => {
     const queryClient = useQueryClient()
     const [activeTab, setActiveTab] = useState<SettingsTab>('general')
     const [generalChanges, setGeneralChanges] = useState<Partial<ApplicationDialogSettings>>({})
+    const [visibilityChange, setVisibilityChange] = useState<boolean | undefined>(undefined)
     const [localLimits, setLocalLimits] = useState<Record<string, string>>({})
 
     const applicationQuery = useApplicationDetails(applicationId || '', {
@@ -110,12 +111,15 @@ const ApplicationSettings = () => {
         }),
         [applicationQuery.data?.settings, generalChanges]
     )
+    const effectiveVisibility = visibilityChange ?? applicationQuery.data?.isPublic ?? false
+    const hasVisibilityChange = visibilityChange !== undefined && visibilityChange !== applicationQuery.data?.isPublic
 
     const saveGeneralMutation = useMutation({
         mutationKey: ['applications', 'settings', 'general', 'update'],
-        mutationFn: async (settings: ApplicationDialogSettings) => {
+        mutationFn: async (input: { settings: ApplicationDialogSettings; isPublic?: boolean }) => {
             const response = await updateApplication(applicationId!, {
-                settings,
+                settings: input.settings,
+                ...(input.isPublic !== undefined ? { isPublic: input.isPublic } : {}),
                 expectedVersion: applicationQuery.data?.version ?? 1
             })
             return response.data
@@ -123,12 +127,17 @@ const ApplicationSettings = () => {
         onSuccess: async (saved) => {
             if (!applicationId) return
             queryClient.setQueryData(applicationsQueryKeys.detail(applicationId), saved)
-            await queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.detail(applicationId) })
-            enqueueSnackbar(t('settings.generalSaved', 'Popup settings saved'), { variant: 'success' })
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.detail(applicationId) }),
+                queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.lists() }),
+                queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.runtimeAll(applicationId) })
+            ])
+            enqueueSnackbar(t('settings.generalSaved', 'Application settings saved'), { variant: 'success' })
             setGeneralChanges({})
+            setVisibilityChange(undefined)
         },
         onError: (error: Error) => {
-            enqueueSnackbar(error.message || t('settings.generalSaveError', 'Failed to save popup settings'), {
+            enqueueSnackbar(error.message || t('settings.generalSaveError', 'Failed to save application settings'), {
                 variant: 'error'
             })
         }
@@ -159,7 +168,7 @@ const ApplicationSettings = () => {
         return <Alert severity='error'>{t('settings.loadError', 'Failed to load application settings')}</Alert>
     }
 
-    const hasGeneralChanges = Object.keys(generalChanges).length > 0
+    const hasGeneralChanges = Object.keys(generalChanges).length > 0 || hasVisibilityChange
 
     return (
         <MainCard disableHeader border={false} shadow={false} contentSX={{ px: 0, py: 0 }} disableContentPadding>
@@ -176,6 +185,64 @@ const ApplicationSettings = () => {
                 {activeTab === 'general' ? (
                     <>
                         <Stack spacing={0} divider={<Divider />}>
+                            <Box
+                                data-testid='application-setting-visibility'
+                                sx={{
+                                    py: 2,
+                                    display: 'grid',
+                                    gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) auto' },
+                                    gap: 3,
+                                    alignItems: 'center'
+                                }}
+                            >
+                                <Box sx={{ minWidth: 0 }}>
+                                    <Typography variant='subtitle2'>{t('settings.visibilityTitle', 'Application visibility')}</Typography>
+                                    <Typography variant='body2' color='text.secondary'>
+                                        {effectiveVisibility
+                                            ? t(
+                                                  'settings.visibilityPublicDescription',
+                                                  'Public applications can be discovered and joined directly by authenticated users.'
+                                              )
+                                            : t(
+                                                  'settings.visibilityClosedDescription',
+                                                  'Closed applications are visible only to current members and users with global application access.'
+                                              )}
+                                    </Typography>
+                                    <Typography variant='body2' color='text.secondary' sx={{ mt: 1 }}>
+                                        {t('settings.workspaceModeLabel', 'Workspace mode')}:{' '}
+                                        <Box component='span' sx={{ fontWeight: 600 }}>
+                                            {applicationQuery.data?.workspacesEnabled
+                                                ? t('settings.workspaceModeEnabled', 'Enabled')
+                                                : t('settings.workspaceModeDisabled', 'Disabled')}
+                                        </Box>
+                                    </Typography>
+                                    <Typography variant='caption' color='text.secondary'>
+                                        {t(
+                                            'settings.workspaceModeReadOnly',
+                                            'Workspace mode is selected during application creation and cannot be changed after the runtime structure is defined.'
+                                        )}
+                                    </Typography>
+                                </Box>
+                                <FormControlLabel
+                                    data-testid='application-settings-visibility-toggle'
+                                    control={
+                                        <Switch
+                                            checked={effectiveVisibility}
+                                            onChange={(event) => {
+                                                const nextValue = event.target.checked
+                                                setVisibilityChange(nextValue === applicationQuery.data?.isPublic ? undefined : nextValue)
+                                            }}
+                                            inputProps={{ 'data-testid': 'application-settings-visibility-switch' }}
+                                        />
+                                    }
+                                    label={
+                                        effectiveVisibility
+                                            ? t('settings.visibilityPublic', 'Public')
+                                            : t('settings.visibilityClosed', 'Closed')
+                                    }
+                                />
+                            </Box>
+
                             <Box
                                 data-testid='application-setting-dialogSizePreset'
                                 sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
@@ -271,6 +338,38 @@ const ApplicationSettings = () => {
                             </Box>
 
                             <Box
+                                data-testid='application-setting-sectionLinksEnabled'
+                                sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
+                            >
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    <Typography variant='subtitle2'>
+                                        {t('settings.sectionLinksEnabled', 'Section-specific links')}
+                                    </Typography>
+                                    <Typography variant='body2' color='text.secondary'>
+                                        {t(
+                                            'settings.sectionLinksEnabledDescription',
+                                            'Give every application menu section its own browser URL based on the section identifier.'
+                                        )}
+                                    </Typography>
+                                </Box>
+                                <FormControlLabel
+                                    control={
+                                        <Switch
+                                            checked={effectiveGeneralSettings.sectionLinksEnabled}
+                                            onChange={(event) =>
+                                                setGeneralChanges((prev) => ({
+                                                    ...prev,
+                                                    sectionLinksEnabled: event.target.checked
+                                                }))
+                                            }
+                                            inputProps={{ 'data-testid': 'application-settings-section-links-switch' }}
+                                        />
+                                    }
+                                    label=''
+                                />
+                            </Box>
+
+                            <Box
                                 data-testid='application-setting-dialogCloseBehavior'
                                 sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
                             >
@@ -312,7 +411,12 @@ const ApplicationSettings = () => {
                                     data-testid='application-settings-general-save'
                                     variant='contained'
                                     startIcon={<SaveIcon />}
-                                    onClick={() => saveGeneralMutation.mutate(effectiveGeneralSettings)}
+                                    onClick={() =>
+                                        saveGeneralMutation.mutate({
+                                            settings: effectiveGeneralSettings,
+                                            ...(hasVisibilityChange ? { isPublic: effectiveVisibility } : {})
+                                        })
+                                    }
                                     disabled={saveGeneralMutation.isPending}
                                 >
                                     {t('settings.save', 'Save')}

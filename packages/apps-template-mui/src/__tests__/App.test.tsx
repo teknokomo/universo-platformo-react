@@ -16,7 +16,11 @@ vi.mock('react-i18next', () => ({
 }))
 
 vi.mock('../standalone/DashboardApp', () => ({
-    default: ({ applicationId, locale }: { applicationId: string; locale: string }) => <div>dashboard:{applicationId}:{locale}</div>
+    default: ({ applicationId, locale }: { applicationId: string; locale: string }) => (
+        <div>
+            dashboard:{applicationId}:{locale}
+        </div>
+    )
 }))
 
 vi.mock('../standalone/GuestApp', () => ({

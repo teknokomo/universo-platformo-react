@@ -1,7 +1,62 @@
-import { normalizeSnapshotLayoutZoneWidgets, normalizeSnapshotLayouts } from '../../routes/sync/syncHelpers'
+import {
+    normalizeSnapshotLayoutZoneWidgets,
+    normalizeSnapshotLayouts,
+    withWorkspaceRuntimeLayoutWidgets
+} from '../../routes/sync/syncHelpers'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
 
 describe('sync layout materialization helpers', () => {
+    it('injects workspace switcher widgets into global layouts when runtime workspaces are enabled', () => {
+        const snapshot: PublishedApplicationSnapshot = {
+            layouts: [
+                {
+                    id: 'global-layout-1',
+                    templateKey: 'dashboard',
+                    name: { en: 'Global default' },
+                    description: null,
+                    config: { showSideMenu: true },
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            layoutZoneWidgets: [
+                {
+                    id: 'global-menu-widget',
+                    layoutId: 'global-layout-1',
+                    zone: 'left',
+                    widgetKey: 'menuWidget',
+                    sortOrder: 0,
+                    config: {},
+                    isActive: true
+                }
+            ],
+            defaultLayoutId: 'global-layout-1'
+        }
+
+        const workspaceSnapshot = withWorkspaceRuntimeLayoutWidgets(snapshot, true)
+        const widgets = normalizeSnapshotLayoutZoneWidgets(workspaceSnapshot)
+        const workspaceSwitcher = widgets.find((item) => item.layoutId === 'global-layout-1' && item.widgetKey === 'workspaceSwitcher')
+        const divider = widgets.find((item) => item.layoutId === 'global-layout-1' && item.widgetKey === 'divider')
+        const menu = widgets.find((item) => item.id === 'global-menu-widget')
+
+        expect(workspaceSwitcher).toEqual(
+            expect.objectContaining({
+                zone: 'left',
+                sortOrder: -200,
+                isActive: true
+            })
+        )
+        expect(divider).toEqual(
+            expect.objectContaining({
+                zone: 'left',
+                sortOrder: -199,
+                isActive: true
+            })
+        )
+        expect(menu).toEqual(expect.objectContaining({ sortOrder: 0 }))
+    })
+
     it('materializes catalog layouts from global layouts, sparse overrides, and catalog-owned widgets', () => {
         const snapshot: PublishedApplicationSnapshot = {
             layouts: [

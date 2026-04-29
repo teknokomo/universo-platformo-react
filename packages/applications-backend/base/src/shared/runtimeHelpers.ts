@@ -554,6 +554,7 @@ export interface RuntimeSchemaContext {
     permissions: Record<RolePermission, boolean>
     currentWorkspaceId: string | null
     workspacesEnabled: boolean
+    applicationSettings: Record<string, unknown>
 }
 
 // ---------------------------------------------------------------------------
@@ -853,7 +854,8 @@ export const resolveRuntimeSchema = async (
         role,
         permissions,
         currentWorkspaceId,
-        workspacesEnabled: application.workspacesEnabled
+        workspacesEnabled: application.workspacesEnabled,
+        applicationSettings: application.settings ?? {}
     }
 }
 

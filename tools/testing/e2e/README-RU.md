@@ -231,6 +231,8 @@ E2E_FULL_RESET_MODE=off E2E_ALLOW_REUSE_SERVER=true pnpm run test:e2e:generators
 | Генератор | Output | Описание |
 | --- | --- | --- |
 | `metahubs-self-hosted-app-export` | `tools/fixtures/metahubs-self-hosted-app-snapshot.json` | Создаёт локализованный fixture Metahubs Self-Hosted App, сажает baseline runtime settings, публикует его и экспортирует snapshot для self-hosted parity flows. |
+| `metahubs-quiz-app-export` | `tools/fixtures/metahubs-quiz-app-snapshot.json` | Создаёт локализованный fixture quiz-приложения и экспортирует snapshot для quiz runtime import flows. |
+| `metahubs-lms-app-export` | `tools/fixtures/metahubs-lms-app-snapshot.json` | Создаёт локализованный fixture LMS-приложения и экспортирует snapshot для LMS runtime import flows. |
 
 ### Создание новых генераторов
 

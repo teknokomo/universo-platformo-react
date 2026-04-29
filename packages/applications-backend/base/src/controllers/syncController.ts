@@ -79,7 +79,9 @@ export function createSyncController(
                 layoutResolutionPolicy: z
                     .object({
                         default: z.enum(['overwrite_local', 'keep_local', 'copy_source_as_application', 'skip_source']).optional(),
-                        bySourceLayoutId: z.record(z.enum(['overwrite_local', 'keep_local', 'copy_source_as_application', 'skip_source'])).optional()
+                        bySourceLayoutId: z
+                            .record(z.enum(['overwrite_local', 'keep_local', 'copy_source_as_application', 'skip_source']))
+                            .optional()
                     })
                     .optional()
             })
@@ -157,7 +159,9 @@ export function createSyncController(
                         const requiredSourceIds = new Set(
                             requiredLayoutChanges.map((change) => change.sourceLayoutId).filter((value): value is string => Boolean(value))
                         )
-                        const staleResolutionIds = Object.keys(perLayoutResolution).filter((sourceLayoutId) => !requiredSourceIds.has(sourceLayoutId))
+                        const staleResolutionIds = Object.keys(perLayoutResolution).filter(
+                            (sourceLayoutId) => !requiredSourceIds.has(sourceLayoutId)
+                        )
                         if (staleResolutionIds.length > 0) {
                             return res.status(409).json(buildStaleLayoutDiffResponse(layoutChanges))
                         }
@@ -173,7 +177,8 @@ export function createSyncController(
                         if (defaultResolution && !SAFE_BULK_LAYOUT_RESOLUTIONS.has(defaultResolution)) {
                             return res.status(400).json({
                                 error: 'APPLICATION_LAYOUT_INVALID_DEFAULT_RESOLUTION',
-                                message: 'Only keep_local, copy_source_as_application, or skip_source can be used as bulk layout resolutions.',
+                                message:
+                                    'Only keep_local, copy_source_as_application, or skip_source can be used as bulk layout resolutions.',
                                 diff: {
                                     layoutChanges
                                 }

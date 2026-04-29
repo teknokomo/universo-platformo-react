@@ -3,6 +3,7 @@ import type {} from '@mui/material/themeCssVarsAugmentation'
 import { alpha } from '@mui/material/styles'
 import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
+import { useMemo } from 'react'
 import { defaultDashboardLayoutConfig, type DashboardLayoutConfig } from '@universo/types'
 import AppNavbar from './components/AppNavbar'
 import Header from './components/Header'
@@ -22,6 +23,7 @@ export interface DashboardDetailsSlot {
     linkedCollectionCodename?: string | null
     apiBaseUrl?: string
     currentWorkspaceId?: string | null
+    runtimeQueryKeyPrefix?: readonly unknown[]
     workspacesEnabled?: boolean
     banner?: React.ReactNode
     content?: React.ReactNode
@@ -34,6 +36,8 @@ export interface DashboardDetailsSlot {
     pageSizeOptions?: number[]
     /** Optional toolbar actions (e.g. Create button) rendered next to the title. */
     actions?: React.ReactNode
+    /** Optional host-provided SPA navigation handler for runtime widgets. */
+    navigate?: (href: string) => void
     /** MUI DataGrid locale text overrides (e.g. from @mui/x-data-grid/locales) */
     localeText?: Partial<GridLocaleText>
     /** Search scope contract for the current catalog runtime. */
@@ -98,18 +102,67 @@ const DEFAULT_LAYOUT: DashboardLayoutConfig = defaultDashboardLayoutConfig
 
 const EMPTY_RIGHT_WIDGETS: ZoneWidgetItem[] = []
 const EMPTY_CENTER_WIDGETS: ZoneWidgetItem[] = []
+const WORKSPACE_SWITCHER_WIDGET_ID = 'runtime-workspace-switcher-widget'
+const WORKSPACE_SWITCHER_DIVIDER_WIDGET_ID = 'runtime-workspace-switcher-divider-widget'
+const FALLBACK_MENU_WIDGET_ID = 'runtime-workspace-menu-widget'
+
+const withRuntimeWorkspaceSwitcher = (zoneWidgets: ZoneWidgets | undefined, workspacesEnabled?: boolean): ZoneWidgets | undefined => {
+    if (!workspacesEnabled) return zoneWidgets
+
+    const baseLeft = zoneWidgets?.left ?? []
+    const hasWorkspaceSwitcher = baseLeft.some((widget) => widget.widgetKey === 'workspaceSwitcher')
+    const nextLeft = hasWorkspaceSwitcher
+        ? baseLeft
+        : [
+              {
+                  id: WORKSPACE_SWITCHER_WIDGET_ID,
+                  widgetKey: 'workspaceSwitcher',
+                  sortOrder: -1000,
+                  config: {}
+              },
+              {
+                  id: WORKSPACE_SWITCHER_DIVIDER_WIDGET_ID,
+                  widgetKey: 'divider',
+                  sortOrder: -999,
+                  config: {}
+              },
+              ...(baseLeft.length > 0
+                  ? baseLeft
+                  : [
+                        {
+                            id: FALLBACK_MENU_WIDGET_ID,
+                            widgetKey: 'menuWidget',
+                            sortOrder: 0,
+                            config: {}
+                        }
+                    ])
+          ]
+
+    return {
+        ...(zoneWidgets ?? {}),
+        left: nextLeft,
+        right: zoneWidgets?.right,
+        center: zoneWidgets?.center
+    }
+}
 
 export default function Dashboard(props: DashboardProps) {
     const layout = { ...DEFAULT_LAYOUT, ...(props.layoutConfig ?? {}) }
-    const rightWidgets = props.zoneWidgets?.right ?? EMPTY_RIGHT_WIDGETS
-    const centerWidgets = props.zoneWidgets?.center ?? EMPTY_CENTER_WIDGETS
+    const zoneWidgets = useMemo(
+        () => withRuntimeWorkspaceSwitcher(props.zoneWidgets, props.details?.workspacesEnabled),
+        [props.details?.workspacesEnabled, props.zoneWidgets]
+    )
+    const rightWidgets = zoneWidgets?.right ?? EMPTY_RIGHT_WIDGETS
+    const centerWidgets = zoneWidgets?.center ?? EMPTY_CENTER_WIDGETS
     const showRightSideMenu = (layout.showRightSideMenu ?? true) && rightWidgets.length > 0
 
     return (
         <DashboardDetailsProvider value={props.details}>
             <Box sx={{ display: 'flex' }}>
-                {layout.showSideMenu && <SideMenu menu={props.menu} menus={props.menus} zoneWidgets={props.zoneWidgets} />}
-                {layout.showAppNavbar && <AppNavbar menu={props.menu} menus={props.menus} rightWidgets={rightWidgets} />}
+                {layout.showSideMenu && <SideMenu menu={props.menu} menus={props.menus} zoneWidgets={zoneWidgets} />}
+                {layout.showAppNavbar && (
+                    <AppNavbar menu={props.menu} menus={props.menus} rightWidgets={rightWidgets} zoneWidgets={zoneWidgets} />
+                )}
                 {/* Main content */}
                 <Box
                     component='main'

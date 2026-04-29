@@ -188,8 +188,17 @@ describe('Action descriptors (coverage)', () => {
         expect(editProps.canSave({ nameVlc: null })).toBe(false)
         expect(editProps.canSave({ nameVlc: makeVlc('X') })).toBe(true)
 
-        await expect(editProps.onSave({ nameVlc: makeVlc('My App'), descriptionVlc: makeVlc('Desc') })).resolves.toBeUndefined()
-        expect(updateEntity).toHaveBeenCalledWith('app-1', expect.objectContaining({ namePrimaryLocale: 'en' }))
+        await expect(
+            editProps.onSave({ nameVlc: makeVlc('My App'), descriptionVlc: makeVlc('Desc'), isPublic: true, workspacesEnabled: true })
+        ).resolves.toBeUndefined()
+        expect(updateEntity).toHaveBeenCalledWith(
+            'app-1',
+            expect.objectContaining({
+                namePrimaryLocale: 'en',
+                isPublic: true
+            })
+        )
+        expect(updateEntity.mock.calls[0]?.[1]).not.toHaveProperty('workspacesEnabled')
 
         const copyProps = copy.dialog.buildProps(ctx)
         expect(copyProps.validate({ nameVlc: null })).toMatchObject({ nameVlc: 'Name is required' })

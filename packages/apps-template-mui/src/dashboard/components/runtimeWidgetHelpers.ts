@@ -1,5 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { hasScriptCapability, isClientScriptMethodTarget, type ApplicationScriptDefinition, type ScriptAttachmentKind } from '@universo/types'
+import {
+    hasScriptCapability,
+    isClientScriptMethodTarget,
+    type ApplicationScriptDefinition,
+    type ScriptAttachmentKind
+} from '@universo/types'
 import { fetchWithCsrf } from '../../api/api'
 
 export { isClientScriptMethodTarget }

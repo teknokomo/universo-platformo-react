@@ -132,10 +132,10 @@ const renderParametersTab = (
 ) => {
     const isPublic = values.isPublic === true
     const workspacesEnabled = values.workspacesEnabled === true
-    const parametersLocked = mode === 'edit'
+    const isEditMode = mode === 'edit'
     const handleVisibilityChange = (nextIsPublic: boolean) => {
         setValue('isPublic', nextIsPublic)
-        if (nextIsPublic && !workspacesEnabled) {
+        if (!isEditMode && nextIsPublic && !workspacesEnabled) {
             setValue('workspacesEnabled', true)
         }
     }
@@ -146,25 +146,15 @@ const renderParametersTab = (
                 value={isPublic ? 'public' : 'closed'}
                 onChange={(event) => handleVisibilityChange(event.target.value === 'public')}
             >
-                <FormControlLabel
-                    value='closed'
-                    control={<Radio />}
-                    label={ctx.t('visibility.closed', 'Closed')}
-                    disabled={isLoading || parametersLocked}
-                />
-                <FormControlLabel
-                    value='public'
-                    control={<Radio />}
-                    label={ctx.t('visibility.public', 'Public')}
-                    disabled={isLoading || parametersLocked}
-                />
+                <FormControlLabel value='closed' control={<Radio />} label={ctx.t('visibility.closed', 'Closed')} disabled={isLoading} />
+                <FormControlLabel value='public' control={<Radio />} label={ctx.t('visibility.public', 'Public')} disabled={isLoading} />
             </RadioGroup>
             <Alert severity='info'>
                 {ctx.t(
-                    parametersLocked ? 'parameters.visibilityLocked' : 'parameters.visibilityHint',
-                    parametersLocked
-                        ? 'Application visibility is fixed after creation and cannot be changed.'
-                        : 'Application visibility cannot be changed after creation.'
+                    isEditMode ? 'parameters.visibilityMutableHint' : 'parameters.visibilityHint',
+                    isEditMode
+                        ? 'Application visibility can be changed after creation. Workspace mode remains fixed.'
+                        : 'Application visibility can be changed after creation.'
                 )}
             </Alert>
 
@@ -173,15 +163,15 @@ const renderParametersTab = (
                     <Checkbox
                         checked={workspacesEnabled}
                         onChange={(event) => setValue('workspacesEnabled', event.target.checked)}
-                        disabled={isLoading || parametersLocked}
+                        disabled={isLoading || isEditMode}
                     />
                 }
                 label={ctx.t('parameters.workspacesEnabled', 'Add workspaces')}
             />
             <Alert severity='info'>
                 {ctx.t(
-                    parametersLocked ? 'parameters.workspacesLocked' : 'parameters.workspacesHint',
-                    parametersLocked
+                    isEditMode ? 'parameters.workspacesLocked' : 'parameters.workspacesHint',
+                    isEditMode
                         ? 'Workspace mode is fixed after creation and cannot be changed.'
                         : 'Workspace mode cannot be disabled after the application is created.'
                 )}
@@ -216,7 +206,10 @@ const toPayload = (values: ApplicationDialogValues): ApplicationLocalizedPayload
 }
 
 const toUpdatePayload = (values: ApplicationDialogValues): ApplicationLocalizedPayload => {
-    const { isPublic: _isPublic, workspacesEnabled: _workspacesEnabled, ...payload } = toPayload(values)
+    const { workspacesEnabled: _workspacesEnabled, ...payload } = toPayload(values)
+    if (values.isPublic === undefined) {
+        delete payload.isPublic
+    }
     return payload
 }
 

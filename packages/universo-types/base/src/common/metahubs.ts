@@ -767,6 +767,7 @@ export type DashboardLayoutZone = (typeof DASHBOARD_LAYOUT_ZONES)[number]
 export const DASHBOARD_LAYOUT_WIDGETS = [
     // Left zone widgets (decomposed from former monolithic sideMenu)
     { key: 'brandSelector', allowedZones: ['left'] as const, multiInstance: false },
+    { key: 'workspaceSwitcher', allowedZones: ['left'] as const, multiInstance: false },
     { key: 'divider', allowedZones: ['left', 'top', 'bottom', 'right'] as const, multiInstance: true },
     { key: 'menuWidget', allowedZones: ['left'] as const, multiInstance: true },
     { key: 'spacer', allowedZones: ['left', 'right'] as const, multiInstance: true },

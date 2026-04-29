@@ -5,8 +5,8 @@ import type { ApplicationLayout, ApplicationLayoutWidget } from '@universo/types
 export interface ApplicationLayoutHashInput {
     layout: Pick<ApplicationLayout, 'templateKey' | 'name'> &
         Partial<Pick<ApplicationLayout, 'description' | 'config' | 'isActive' | 'isDefault' | 'sortOrder'>> & {
-        linkedCollectionId?: string | null
-    }
+            linkedCollectionId?: string | null
+        }
     widgets?: Array<
         Partial<Pick<ApplicationLayoutWidget, 'id' | 'layoutId' | 'version'>> &
             Pick<ApplicationLayoutWidget, 'zone' | 'widgetKey' | 'sortOrder' | 'config' | 'isActive'>

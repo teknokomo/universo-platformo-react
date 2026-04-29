@@ -48,6 +48,10 @@ const createStaticVlc = (values: { en: string; ru: string }): VersionedLocalized
 }
 
 const MAIN_WORKSPACE_NAME = createStaticVlc({ en: 'Main', ru: 'Основное' })
+const MAIN_WORKSPACE_DESCRIPTION = createStaticVlc({
+    en: 'Personal workspace for the current user',
+    ru: 'Личное рабочее пространство текущего пользователя'
+})
 const OWNER_ROLE_NAME = createStaticVlc({ en: 'Owner', ru: 'Владелец' })
 const MEMBER_ROLE_NAME = createStaticVlc({ en: 'Member', ru: 'Участник' })
 
@@ -298,8 +302,8 @@ async function ensureWorkspaceSupportTables(executor: DbExecutor, schemaName: st
         `
         CREATE TABLE __TABLE__ (
             id UUID PRIMARY KEY,
-            codename TEXT NOT NULL,
             name JSONB NOT NULL,
+            description JSONB NOT NULL,
             workspace_type TEXT NOT NULL DEFAULT 'personal',
             personal_user_id UUID NULL,
             status TEXT NOT NULL DEFAULT 'active',
@@ -572,11 +576,6 @@ export async function ensureApplicationRuntimeWorkspaceSchema(
 ): Promise<void> {
     await ensureWorkspaceSupportTables(executor, input.schemaName)
     await ensureWorkspaceRoleSeeds(executor, input.schemaName, input.actorUserId)
-    const { workspaceId: sharedWorkspaceId } = await ensureSharedWorkspace(executor, {
-        schemaName: input.schemaName,
-        userId: input.actorUserId ?? null,
-        actorUserId: input.actorUserId
-    })
 
     const scopedTableNames = new Set<string>()
     for (const entity of input.entities) {
@@ -600,12 +599,6 @@ export async function ensureApplicationRuntimeWorkspaceSchema(
     await ensurePersonalWorkspacesForApplicationMembers(executor, {
         schemaName: input.schemaName,
         applicationId: input.applicationId,
-        actorUserId: input.actorUserId
-    })
-
-    await syncWorkspaceSeededElements(executor, {
-        schemaName: input.schemaName,
-        workspaceId: sharedWorkspaceId,
         actorUserId: input.actorUserId
     })
 }
@@ -667,89 +660,6 @@ export async function ensureWorkspaceRoleSeeds(
 
     return { ownerRoleId, memberRoleId }
 }
-
-    async function ensureSharedWorkspace(
-        executor: DbExecutor,
-        input: {
-            schemaName: string
-            userId?: string | null
-            actorUserId?: string | null
-        }
-    ): Promise<{ workspaceId: string }> {
-        const workspacesQt = qSchemaTable(input.schemaName, WORKSPACES_TABLE)
-        const workspaceUserRolesQt = qSchemaTable(input.schemaName, WORKSPACE_USER_ROLES_TABLE)
-
-        const existingWorkspaceRows = await executor.query<{ id: string }>(
-            `
-            SELECT id
-            FROM ${workspacesQt}
-            WHERE workspace_type = 'shared'
-              AND COALESCE(status, 'active') = 'active'
-              AND ${ACTIVE_ROW_SQL}
-            ORDER BY _upl_created_at ASC, id ASC
-            LIMIT 1
-            `
-        )
-
-        if (existingWorkspaceRows[0]?.id) {
-            return { workspaceId: existingWorkspaceRows[0].id }
-        }
-
-        const [{ id: workspaceId }] = await executor.query<{ id: string }>('SELECT public.uuid_generate_v7() AS id')
-        await executor.query(
-            `
-            INSERT INTO ${workspacesQt} (
-                id,
-                codename,
-                name,
-                workspace_type,
-                status,
-                _upl_created_by,
-                _upl_updated_by
-            )
-            VALUES ($1, 'main', $2::jsonb, 'shared', 'active', $3, $4)
-            `,
-            [workspaceId, JSON.stringify(MAIN_WORKSPACE_NAME), input.actorUserId ?? null, input.actorUserId ?? null]
-        )
-
-        if (input.userId) {
-            const seededRoles = await ensureWorkspaceRoleSeeds(executor, input.schemaName, input.actorUserId)
-            const existingUserRoleRows = await executor.query<WorkspaceUserRoleRow>(
-                `
-                SELECT
-                    workspace_id AS "workspaceId",
-                    user_id AS "userId",
-                    is_default_workspace AS "isDefaultWorkspace"
-                FROM ${workspaceUserRolesQt}
-                WHERE workspace_id = $1
-                  AND user_id = $2
-                  AND ${ACTIVE_ROW_SQL}
-                `,
-                [workspaceId, input.userId]
-            )
-
-            if (existingUserRoleRows.length === 0) {
-                const [{ id: relationId }] = await executor.query<{ id: string }>('SELECT public.uuid_generate_v7() AS id')
-                await executor.query(
-                    `
-                    INSERT INTO ${workspaceUserRolesQt} (
-                        id,
-                        workspace_id,
-                        user_id,
-                        role_id,
-                        is_default_workspace,
-                        _upl_created_by,
-                        _upl_updated_by
-                    )
-                    VALUES ($1, $2, $3, $4, false, $5, $6)
-                    `,
-                    [relationId, workspaceId, input.userId, seededRoles.ownerRoleId, input.actorUserId ?? null, input.actorUserId ?? null]
-                )
-            }
-        }
-
-        return { workspaceId }
-    }
 
 export async function persistWorkspaceSeedTemplate(
     executor: DbExecutor,
@@ -1465,17 +1375,24 @@ export async function ensurePersonalWorkspaceForUser(
             `
             INSERT INTO ${workspacesQt} (
                 id,
-                codename,
                 name,
+                description,
                 workspace_type,
                 personal_user_id,
                 status,
                 _upl_created_by,
                 _upl_updated_by
             )
-            VALUES ($1, 'main', $2::jsonb, 'personal', $3, 'active', $4, $5)
+            VALUES ($1, $2::jsonb, $3::jsonb, 'personal', $4, 'active', $5, $6)
             `,
-            [workspaceId, JSON.stringify(MAIN_WORKSPACE_NAME), userId, actorUserId ?? null, actorUserId ?? null]
+            [
+                workspaceId,
+                JSON.stringify(MAIN_WORKSPACE_NAME),
+                JSON.stringify(MAIN_WORKSPACE_DESCRIPTION),
+                userId,
+                actorUserId ?? null,
+                actorUserId ?? null
+            ]
         )
     }
 

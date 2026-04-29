@@ -29,20 +29,22 @@ const createGuestSessionSchema = z.object({
     accessLinkId: z.string().uuid()
 })
 
-const publicRuntimeQuerySchema = z.object({
-    slug: z.string().trim().min(1).max(255),
-    targetType: z.enum(['module', 'quiz']).optional(),
-    targetId: z.string().uuid().optional(),
-    locale: z.string().trim().min(2).max(32).optional()
-}).superRefine((value, ctx) => {
-    if (value.targetType && !value.targetId) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['targetId'],
-            message: 'targetId is required when targetType is provided'
-        })
-    }
-})
+const publicRuntimeQuerySchema = z
+    .object({
+        slug: z.string().trim().min(1).max(255),
+        targetType: z.enum(['module', 'quiz']).optional(),
+        targetId: z.string().uuid().optional(),
+        locale: z.string().trim().min(2).max(32).optional()
+    })
+    .superRefine((value, ctx) => {
+        if (value.targetType && !value.targetId) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['targetId'],
+                message: 'targetId is required when targetType is provided'
+            })
+        }
+    })
 
 const guestSubmitSchema = z.object({
     studentId: z.string().uuid(),
@@ -104,11 +106,17 @@ const readAttrValue = (row: Record<string, unknown> | null, columnName: string):
 
 const normalizeEnumCodename = (value: unknown): string => {
     const codename = resolveRuntimeCodenameText(value)
-    return codename.replace(/([a-z0-9])([A-Z])/g, '$1_$2').replace(/[\s-]+/g, '_').toLowerCase()
+    return codename
+        .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+        .replace(/[\s-]+/g, '_')
+        .toLowerCase()
 }
 
-const isEnumerationRefAttribute = (attribute: { data_type?: string; target_object_kind?: string | null; target_object_id?: string | null }) =>
-    attribute.data_type === 'REF' && attribute.target_object_kind === 'enumeration' && typeof attribute.target_object_id === 'string'
+const isEnumerationRefAttribute = (attribute: {
+    data_type?: string
+    target_object_kind?: string | null
+    target_object_id?: string | null
+}) => attribute.data_type === 'REF' && attribute.target_object_kind === 'enumeration' && typeof attribute.target_object_id === 'string'
 
 const loadEnumerationValueCodeMaps = async (
     executor: DbExecutor,
@@ -240,12 +248,7 @@ const decodeGuestSessionToken = (token: string): GuestSessionPayload | null => {
     }
 }
 
-const readGuestRuntimeSessionRequest = (
-    req: Request
-):
-    | { studentId: string; sessionToken: string }
-    | { error: string }
-    | null => {
+const readGuestRuntimeSessionRequest = (req: Request): { studentId: string; sessionToken: string } | { error: string } | null => {
     const studentIdHeader = req.get(GUEST_STUDENT_ID_HEADER)
     const sessionTokenHeader = req.get(GUEST_SESSION_TOKEN_HEADER)
 
@@ -281,8 +284,10 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         resolvePublicRuntimeObject(executor, schemaName, 'AccessLinks')
     const resolveStudentsBinding = async (executor: DbExecutor, schemaName: string) =>
         resolvePublicRuntimeObject(executor, schemaName, 'Students')
-    const resolveQuizBinding = async (executor: DbExecutor, schemaName: string) => resolvePublicRuntimeObject(executor, schemaName, 'Quizzes')
-    const resolveModuleBinding = async (executor: DbExecutor, schemaName: string) => resolvePublicRuntimeObject(executor, schemaName, 'Modules')
+    const resolveQuizBinding = async (executor: DbExecutor, schemaName: string) =>
+        resolvePublicRuntimeObject(executor, schemaName, 'Quizzes')
+    const resolveModuleBinding = async (executor: DbExecutor, schemaName: string) =>
+        resolvePublicRuntimeObject(executor, schemaName, 'Modules')
     const resolveQuizResponsesBinding = async (executor: DbExecutor, schemaName: string) =>
         resolvePublicRuntimeObject(executor, schemaName, 'QuizResponses')
     const resolveModuleProgressBinding = async (executor: DbExecutor, schemaName: string) =>
@@ -411,16 +416,14 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         schemaName: string,
         workspacesEnabled: boolean,
         slug: string
-    ): Promise<AccessLinkRecord | null> =>
-        resolveAccessLinkRecordBy(executor, schemaName, workspacesEnabled, { type: 'slug', value: slug })
+    ): Promise<AccessLinkRecord | null> => resolveAccessLinkRecordBy(executor, schemaName, workspacesEnabled, { type: 'slug', value: slug })
 
     const loadAccessLinkRecordById = async (
         executor: DbExecutor,
         schemaName: string,
         workspacesEnabled: boolean,
         linkId: string
-    ): Promise<AccessLinkRecord | null> =>
-        resolveAccessLinkRecordBy(executor, schemaName, workspacesEnabled, { type: 'id', value: linkId })
+    ): Promise<AccessLinkRecord | null> => resolveAccessLinkRecordBy(executor, schemaName, workspacesEnabled, { type: 'id', value: linkId })
 
     const assertAccessLinkAvailable = (
         link: AccessLinkRecord,
@@ -560,20 +563,10 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         const contentTable = attrByCodename.ContentItems
         const contentAttrs = resolveChildAttributes(binding, contentTable?.id ?? '')
         const contentAttrByCodename = indexByCodename(contentAttrs)
-        const childRows = contentTable
-            ? await loadPublicTableRows(
-                  executor,
-                  schemaName,
-                  contentTable,
-                  contentAttrs,
-                  moduleId
-              )
-            : []
+        const childRows = contentTable ? await loadPublicTableRows(executor, schemaName, contentTable, contentAttrs, moduleId) : []
         const enumValueCodeMaps = await loadEnumerationValueCodeMaps(executor, schemaName, contentAttrs)
 
-        const columns = Object.fromEntries(
-            contentAttrs.map((attr) => [resolveRuntimeCodenameText(attr.codename), attr.column_name])
-        )
+        const columns = Object.fromEntries(contentAttrs.map((attr) => [resolveRuntimeCodenameText(attr.codename), attr.column_name]))
 
         return {
             type: 'module' as const,
@@ -603,23 +596,25 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         const questionsTable = attrByCodename.Questions
         const questionAttrs = questionsTable ? resolveChildAttributes(binding, questionsTable.id) : []
         const questionAttrByCodename = indexByCodename(questionAttrs)
-        const questionRows = questionsTable
-            ? await loadPublicTableRows(executor, schemaName, questionsTable, questionAttrs, quizId)
-            : []
+        const questionRows = questionsTable ? await loadPublicTableRows(executor, schemaName, questionsTable, questionAttrs, quizId) : []
         const enumValueCodeMaps = await loadEnumerationValueCodeMaps(executor, schemaName, questionAttrs)
         const columns = Object.fromEntries(questionAttrs.map((attr) => [resolveRuntimeCodenameText(attr.codename), attr.column_name]))
-        const questions = normalizeQuestionRows(questionRows, {
-            prompt: columns.Prompt,
-            description: columns.QuestionDescription,
-            questionType: columns.QuestionType,
-            explanation: columns.Explanation,
-            sortOrder: columns.SortOrder,
-            options: columns.Options
-        }, {
-            locale,
-            questionTypeAttribute: questionAttrByCodename.QuestionType,
-            enumValueCodeMaps
-        }).map((question) => ({
+        const questions = normalizeQuestionRows(
+            questionRows,
+            {
+                prompt: columns.Prompt,
+                description: columns.QuestionDescription,
+                questionType: columns.QuestionType,
+                explanation: columns.Explanation,
+                sortOrder: columns.SortOrder,
+                options: columns.Options
+            },
+            {
+                locale,
+                questionTypeAttribute: questionAttrByCodename.QuestionType,
+                enumValueCodeMaps
+            }
+        ).map((question) => ({
             ...question,
             options: includeAnswers ? question.options : question.options.map((option) => ({ id: option.id, label: option.label }))
         }))
@@ -798,13 +793,12 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                     const studentId = await createUuidV7(tx)
                     const sessionSecret = crypto.randomBytes(32).toString('hex')
                     const expiresAt = new Date(Date.now() + GUEST_SESSION_TTL_MS).toISOString()
-                    const insertColumns = [
-                        'id',
-                        qColumn(displayNameColumn),
-                        qColumn(isGuestColumn),
-                        qColumn(tokenColumn)
+                    const insertColumns = ['id', qColumn(displayNameColumn), qColumn(isGuestColumn), qColumn(tokenColumn)]
+                    const insertValues = [
+                        studentId,
+                        parsed.data.displayName,
+                        encodeStoredGuestSessionState({ secret: sessionSecret, expiresAt })
                     ]
-                    const insertValues = [studentId, parsed.data.displayName, encodeStoredGuestSessionState({ secret: sessionSecret, expiresAt })]
                     const insertPlaceholders = ['$1', '$2', 'true', '$3']
 
                     if (ctx.workspacesEnabled && link.workspaceId) {
@@ -878,7 +872,12 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                     }
                 }
 
-                link = await loadAccessLinkRecordBy(ctx.manager, ctx.schemaName, { type: 'id', value: session.accessLinkId }, session.workspaceId)
+                link = await loadAccessLinkRecordBy(
+                    ctx.manager,
+                    ctx.schemaName,
+                    { type: 'id', value: session.accessLinkId },
+                    session.workspaceId
+                )
                 if (!link) {
                     res.status(403).json({ error: 'Guest session is invalid or expired' })
                     return
@@ -939,7 +938,13 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         }
 
         await withPublicRuntimeContext(applicationId, res, async (ctx) => {
-            const session = await validateGuestSession(ctx.manager, ctx.schemaName, ctx.workspacesEnabled, parsed.data.studentId, parsed.data.sessionToken)
+            const session = await validateGuestSession(
+                ctx.manager,
+                ctx.schemaName,
+                ctx.workspacesEnabled,
+                parsed.data.studentId,
+                parsed.data.sessionToken
+            )
             if (!session.isValid || !session.accessLinkId) {
                 res.status(403).json({ error: 'Guest session is invalid or expired' })
                 return
@@ -953,7 +958,12 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                 }
             }
 
-            const link = await loadAccessLinkRecordBy(ctx.manager, ctx.schemaName, { type: 'id', value: session.accessLinkId }, session.workspaceId)
+            const link = await loadAccessLinkRecordBy(
+                ctx.manager,
+                ctx.schemaName,
+                { type: 'id', value: session.accessLinkId },
+                session.workspaceId
+            )
             if (!link) {
                 res.status(403).json({ error: 'Guest session is invalid or expired' })
                 return
@@ -1103,7 +1113,13 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         }
 
         await withPublicRuntimeContext(applicationId, res, async (ctx) => {
-            const session = await validateGuestSession(ctx.manager, ctx.schemaName, ctx.workspacesEnabled, parsed.data.studentId, parsed.data.sessionToken)
+            const session = await validateGuestSession(
+                ctx.manager,
+                ctx.schemaName,
+                ctx.workspacesEnabled,
+                parsed.data.studentId,
+                parsed.data.sessionToken
+            )
             if (!session.isValid || !session.accessLinkId) {
                 res.status(403).json({ error: 'Guest session is invalid or expired' })
                 return
@@ -1117,7 +1133,12 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                 }
             }
 
-            const link = await loadAccessLinkRecordBy(ctx.manager, ctx.schemaName, { type: 'id', value: session.accessLinkId }, session.workspaceId)
+            const link = await loadAccessLinkRecordBy(
+                ctx.manager,
+                ctx.schemaName,
+                { type: 'id', value: session.accessLinkId },
+                session.workspaceId
+            )
             if (!link) {
                 res.status(403).json({ error: 'Guest session is invalid or expired' })
                 return

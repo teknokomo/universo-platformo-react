@@ -7,6 +7,7 @@ import {
     createPublicationLinkedApplication,
     createPublicationVersion,
     disposeApiContext,
+    getApplication,
     listApplications,
     syncPublication,
     waitForPublicationReady
@@ -93,6 +94,20 @@ test('@flow application list shows linked applications and navigates through exi
         await page.goto('/applications')
         await expect(page.getByRole('heading', { name: 'Applications' })).toBeVisible()
         await expect(page.getByText(applicationName, { exact: true })).toBeVisible()
+
+        await page.getByTestId(buildEntityMenuTriggerSelector('application', applicationId)).click()
+        await page.getByTestId(buildEntityMenuItemSelector('application', 'edit', applicationId)).click()
+        const editDialog = page.getByRole('dialog', { name: 'Edit Application' })
+        await expect(editDialog).toBeVisible({ timeout: 30_000 })
+        await editDialog.getByRole('tab', { name: 'Parameters' }).click()
+        await editDialog.getByLabel('Public').check()
+        await editDialog.getByRole('button', { name: 'Save' }).click()
+        await expect
+            .poll(async () => {
+                const saved = await getApplication(api, applicationId)
+                return saved?.isPublic === true && saved?.workspacesEnabled === false
+            })
+            .toBe(true)
 
         await page.getByTestId(buildEntityMenuTriggerSelector('application', applicationId)).click()
         await page.getByTestId(buildEntityMenuItemSelector('application', 'control-panel', applicationId)).click()

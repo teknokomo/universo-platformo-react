@@ -276,11 +276,13 @@ describe('QuizWidget', () => {
         render(
             <QueryClientProvider client={queryClient}>
                 <DashboardDetailsProvider
-                    value={{
-                        applicationId: 'app-1',
-                        linkedCollectionId: 'catalog-1',
-                        apiBaseUrl: '/api/v1'
-                    } as never}
+                    value={
+                        {
+                            applicationId: 'app-1',
+                            linkedCollectionId: 'catalog-1',
+                            apiBaseUrl: '/api/v1'
+                        } as never
+                    }
                 >
                     <QuizWidget config={{ attachedToKind: 'catalog', scriptCodename: 'quiz-widget', quizId: 'quiz-42' }} />
                 </DashboardDetailsProvider>

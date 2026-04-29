@@ -5,7 +5,6 @@ import NavbarBreadcrumbs from './NavbarBreadcrumbs'
 import MenuButton from './MenuButton'
 import ColorModeIconDropdown from '../../shared-theme/ColorModeIconDropdown'
 import LanguageSwitcher from '../../components/LanguageSwitcher'
-import WorkspaceSwitcher from './WorkspaceSwitcher'
 
 import Search from './Search'
 
@@ -41,7 +40,6 @@ export default function Header({ layoutConfig }: { layoutConfig?: HeaderLayoutCo
             <Stack direction='row' sx={{ gap: 1 }}>
                 {showSearch && <Search />}
                 {showDatePicker && <CustomDatePicker />}
-                <WorkspaceSwitcher />
                 {showLanguageSwitcher && <LanguageSwitcher />}
                 {showOptionsMenu && (
                     <>

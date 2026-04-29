@@ -17,6 +17,7 @@ import QuizWidget from './QuizWidget'
 import ModuleViewerWidget from './ModuleViewerWidget'
 import StatsViewerWidget from './StatsViewerWidget'
 import QRCodeWidget from './QRCodeWidget'
+import WorkspaceSwitcher from './WorkspaceSwitcher'
 import type { DashboardMenuSlot, DashboardMenusMap, ZoneWidgetItem } from '../Dashboard'
 import { useDashboardDetails } from '../DashboardDetailsContext'
 
@@ -86,6 +87,12 @@ export function renderWidget(widget: ZoneWidgetItem, menus?: DashboardMenusMap, 
             const resolved = resolveMenuForWidget(widget, menus, fallbackMenu)
             return <MenuContent key={widget.id} menu={resolved} />
         }
+        case 'workspaceSwitcher':
+            return (
+                <Box key={widget.id} sx={{ p: 1.5, pb: 0.75 }}>
+                    <WorkspaceSwitcher variant='sidebar' />
+                </Box>
+            )
         case 'spacer':
             return <Box key={widget.id} sx={{ flexGrow: 1 }} />
         case 'infoCard':

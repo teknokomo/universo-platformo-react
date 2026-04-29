@@ -4,6 +4,24 @@
 
 ---
 
+## Current Focus: Runtime Workspace UI QA Remediation — Complete (2026-04-28)
+
+- **Goal achieved**: the published application Workspaces route now renders the real workspace management interface as the primary content, without the MUI demo overview/stat/chart surface above it.
+- **Runtime route outcome**: `/a/:applicationId/workspaces` keeps the normal runtime application adapter/menu data, appends the selected Workspaces link, and applies a route-specific dashboard layout override that hides demo overview content, the normal details table, and the footer.
+- **Template cleanup outcome**: fallback desktop/mobile side menus no longer render demo `Sitemark`, `Riley Carter`, logout, notification, or discount-card content when an app has no widget-driven side menu.
+- **Workspace isolation outcome**: the Workspaces route no longer mounts generic runtime CRUD dialogs or row-actions menus outside the isolated `RuntimeWorkspacesPage`.
+- **Name-only workspace outcome**: runtime workspace create/edit/copy/list/detail contracts no longer include a separate workspace machine-name field; workspace identity is the UUID and the UI only edits the display name.
+- **Browser proof outcome**: after a root rebuild, the LMS workspace-management Playwright wrapper passed (`2/2`) and now asserts absence of demo overview/sidebar content, visible runtime menu parity, card/list mode, workspace search, pagination controls, owner/member UI permission behavior, screenshots, and personal/shared runtime-row isolation.
+
+## Current Focus: Mutable Application Visibility And Runtime Workspace Management — Complete (2026-04-27)
+
+- **Goal achieved**: mutable public/closed application visibility and the published-application workspace management section are implemented across backend, admin settings UI, isolated `@universo/apps-template-mui` APIs/components, routing, i18n, docs, and focused tests.
+- **Backend outcome**: `isPublic` is now mutable through the application update path, while `workspacesEnabled` stays immutable after creation. Runtime workspace/member endpoints now support paginated/searchable responses, profile fields, email-based invites, transaction-scoped default switching/member removal, fail-closed `RETURNING` checks, and name-only shared workspace creation.
+- **Frontend outcome**: application settings expose a saveable visibility switch and read-only workspace mode, and published workspace management now renders as a full dashboard section using existing card/list/pagination primitives instead of the old dialog. The `/workspaces` route bypasses normal runtime CRUD section loading in both the integrated frontend and standalone template entry.
+- **Validation outcome**: focused Jest/Vitest, touched-file ESLint, `git diff --check`, and package builds passed for the implementation plus QA-remediation slice.
+- **Browser proof outcome**: the full LMS workspace-management Playwright flow passed on the real browser path. It opens `/a/:applicationId/workspaces`, rejects invalid workspace creation, rejects last-owner removal, rejects missing-user invite, creates a shared workspace, invites an application member, captures `runtime-workspaces-page.png` and `runtime-workspace-members.png`, switches owner/member defaults by workspace UUID, creates a `Modules` row in the shared workspace, and verifies that the row is visible only in the shared workspace and hidden in both personal workspaces.
+- **QA closure note**: the previous linked-collection blocker was fixed by honoring `linkedCollectionId` from the runtime URL, and the previous workspace-switcher ambiguity was fixed by showing workspace type chips and selecting workspaces by UUID in browser coverage. The final QA remediation also added UUID route-param validation, removed the separate workspace machine-name field from runtime workspaces, and kept visible member-removal error handling. Full `@universo/apps-template-mui` package lint still reports unrelated pre-existing Prettier/noise outside the changed files; touched files are clean.
+
 ## Current Focus: Application Layout Management UI Parity Rewrite — Complete ✅ (2026-04-22)
 
 ## Current Focus: Application Layout Management Shared List And Parity Closure — Complete ✅ (2026-04-22)
@@ -1074,6 +1092,9 @@
 
 ## Current Guardrails
 
+- The 2026-04-28 runtime workspace QA gap closure is now validated: keep application visibility mutable through edit/settings, keep workspace mode immutable, preserve `/a/:applicationId/workspaces` catalog exits through published runtime URLs, and keep runtime workspace/member management on the isolated `apps-template-mui` card/list patterns.
+- Runtime workspace member UI now has card/list parity, Russian `Рабочие пространства` browser proof, and focused Playwright coverage through `lms-workspace-management.spec.ts`.
+- The committed LMS, quiz, and self-hosted snapshot fixtures now match the current snapshot hash normalizer; future fixture changes must be regenerated through the documented Playwright generator specs and revalidated with the import flows.
 - Do not reintroduce `includeBuiltins`, `isBuiltin`, `source`, `custom.*-v2`, old top-level managed route families, or the deleted frontend `domains/catalogs|hubs|sets|enumerations` folder names into production `src` code or test/documentation truth surfaces.
 - Do not regress the direct standard-kind persistence model now that the remaining compatibility helper naming has been removed from schema-ddl/runtime.
 - Prefer collapsing transitional contracts entirely over adding new adapter layers or new parallel abstractions.

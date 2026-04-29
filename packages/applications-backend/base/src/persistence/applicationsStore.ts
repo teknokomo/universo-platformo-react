@@ -47,6 +47,7 @@ export interface ApplicationSchemaInfoRecord {
     id: string
     schemaName: string | null
     workspacesEnabled: boolean
+    settings: Record<string, unknown> | null
 }
 
 export interface ApplicationCopySourceRecord extends ApplicationRecord {
@@ -272,7 +273,7 @@ export async function findApplicationSchemaInfo(
 ): Promise<ApplicationSchemaInfoRecord | null> {
     const rows = await executor.query<ApplicationSchemaInfoRecord>(
         `
-        SELECT id, schema_name AS "schemaName", workspaces_enabled AS "workspacesEnabled"
+        SELECT id, schema_name AS "schemaName", workspaces_enabled AS "workspacesEnabled", settings
         FROM applications.cat_applications
         WHERE id = $1
                     AND ${activeRowPredicate()}
@@ -849,6 +850,7 @@ export async function updateApplication(
         description?: VersionedLocalizedContent<string> | null
         settings?: Record<string, unknown> | null
         slug?: string | null
+        isPublic?: boolean
         userId: string
         expectedVersion?: number
     }
@@ -874,6 +876,11 @@ export async function updateApplication(
     if (input.slug !== undefined) {
         parameters.push(input.slug)
         assignments.push(`slug = $${parameters.length}`)
+    }
+
+    if (input.isPublic !== undefined) {
+        parameters.push(input.isPublic)
+        assignments.push(`is_public = $${parameters.length}`)
     }
 
     parameters.push(input.userId)

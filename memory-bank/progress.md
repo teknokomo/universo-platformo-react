@@ -47,6 +47,108 @@
 | 0.22.0-alpha | 2025-07-27 | 0.22.0 Alpha — 2025-07-27 (Global Impulse) ⚡️ | Memory Bank, MMOOMM improvements |
 | 0.21.0-alpha | 2025-07-20 | 0.21.0 Alpha — 2025-07-20 (Firm Resolve) 💪 | Handler refactoring, PlayCanvas stabilization |
 
+## 2026-04-29 Runtime Workspace PR Review Hardening
+
+Closed the actionable review findings on PR #779.
+
+| Area | Resolution |
+| --- | --- |
+| Workspace copy metadata | Workspace row copy now excludes runtime system columns from source data and resets metadata explicitly with fresh timestamps, version `1`, active delete flags, unlocked state, and the acting user id for creator/updater fields. |
+| Workspace API errors | Runtime workspace endpoints now return stable error `code` values alongside messages. The isolated apps-template API preserves those codes on `RuntimeWorkspaceApiError`, and UI localization prefers codes before falling back to legacy message matching. |
+| SPA navigation | Runtime workspace navigation now uses host-provided SPA navigation callbacks in the React Router host and stateful history navigation in standalone template mode, removing direct `window.location.assign` calls from workspace UI paths. |
+| Validation | Focused backend Jest passed (`28/28`), focused apps-template Vitest passed (`14/14`), applications-backend lint/build passed, applications-frontend lint/build passed, apps-template lint/build passed with only unrelated pre-existing warnings, and `git diff --check` passed. |
+
+## 2026-04-29 Runtime Workspace I18n And Switcher Locale Closure
+
+Closed the final localization gaps in the published-application runtime workspace UI.
+
+| Area | Resolution |
+| --- | --- |
+| Workspace switcher locale | The sidebar workspace switcher now reads VLC names with the active `i18n.language` before falling back to the primary/English locale, so Russian workspaces render as `Основное` instead of `Main`. |
+| Error localization | Known runtime workspace backend errors are mapped through EN/RU i18n keys, including missing user, workspace access denial, owner-only mutation, disabled workspaces, missing member/workspace, and last-owner removal. |
+| Error handling | The add-member dialog catches rejected submit promises and lets TanStack Query `onError` render the localized dialog alert instead of producing an unhandled rejection. |
+| Test coverage | Focused apps-template Vitest now covers the Russian switcher selected value/options and Russian missing-user error rendering. |
+| Validation | `@universo/apps-template-mui` focused tests passed (`12/12`), package build passed, package lint passed with only unrelated pre-existing warnings, canonical root `pnpm build` passed (`30/30` tasks), targeted Playwright wrapper passed for `lms-workspace-management.spec.ts --project chromium` (`2/2`) after the rebuild, and `git diff --check` passed. |
+
+## 2026-04-28 Runtime Workspace Name-Only Contract Closure
+
+Removed the runtime workspace machine-name field from the workspace domain contract.
+
+| Area | Resolution |
+| --- | --- |
+| Backend schema | `_app_workspaces` no longer creates or indexes a separate machine-name column; workspace roles keep their role codenames because they are access-control constants. |
+| Runtime API | Workspace create, edit, and copy endpoints now accept only `name`; list/detail responses expose UUID identity plus display metadata, status, default flag, and role. |
+| Published app UI | Workspace create/edit/copy dialogs and the sidebar switcher no longer read, display, fill, normalize, or submit a workspace machine name. Fallback labels use the workspace UUID if no display name is available. |
+| Tests and browser proof | Backend Jest, apps-template Vitest, and the LMS Playwright flow were updated to verify name-only workspace creation/copy/edit/delete and UUID-based lookup. |
+| Validation | Focused backend Jest passed (`36/36`), focused apps-template Vitest passed (`10/10`), backend lint/build passed, apps-template lint/build passed with only unrelated pre-existing warnings, `git diff --check` passed, `pnpm run build:e2e` passed (`30/30`), and the targeted Chromium Playwright wrapper passed (`2/2`). |
+
+## 2026-04-28 Runtime Workspace Layout And CRUD QA Closure
+
+Closed the QA findings around workspace-enabled published application layouts and workspace CRUD.
+
+| Area | Resolution |
+| --- | --- |
+| Layout materialization | Workspace-enabled application sync now materializes a real `workspaceSwitcher` widget plus divider in the left layout zone before the runtime menu, so the widget is visible and manageable in layout authoring instead of being runtime-only. |
+| Runtime menu UX | The published app menu renders a divider before the Workspaces section, and the switcher keeps the existing MUI template pattern with the manage action inside the dropdown. |
+| Workspace CRUD | Runtime workspaces now support safe create, edit, copy, and delete actions from card and table views. Copy creates new UUID v7 rows, remaps copied workspace-scoped UUID references, and deletion blocks personal workspace removal while archiving workspace-scoped business rows. |
+| Access safety | Workspace member access keeps owner-only mutations, hides member-add/remove controls for non-owners, and still prevents removal of the last owner. |
+| Localization | Runtime workspace validation and add-member messages now map backend failures through EN/RU i18n, and dialog actions use the standard spacing. |
+| Test coverage | Backend service/controller tests cover update/copy/delete and layout widget materialization. `apps-template-mui` Vitest covers normalized create plus edit/copy/delete actions. The LMS Playwright flow covers create, copy, edit, delete, member add, member permissions, workspace switching, screenshots, and personal/shared runtime-row isolation. |
+| Validation | `@universo/applications-backend` tests/lint/build passed, `@universo/apps-template-mui` tests/lint/build passed with only pre-existing unrelated warnings, `pnpm run build:e2e` passed, `git diff --check` passed, and the targeted Playwright wrapper for `lms-workspace-management.spec.ts --project chromium` passed (`2/2`) on a clean database. |
+
+## 2026-04-28 Runtime Workspace Direct Route QA Closure
+
+Closed the remaining QA findings for runtime workspace detail routes and screenshot-backed browser validation.
+
+| Area | Resolution |
+| --- | --- |
+| Direct workspace route | Added a user-scoped `GET /applications/:applicationId/runtime/workspaces/:workspaceId` endpoint so route workspace pages can load their target workspace directly. The SQL service returns only active workspaces where the current runtime user has an active membership. |
+| Published app UI | `RuntimeWorkspacesPage` now resolves `/workspaces/:workspaceId` and `/workspaces/:workspaceId/access` through a detail query, with the paginated list as a fallback, so direct links no longer depend on the first workspace page or current search state. |
+| Test coverage | Backend service/controller tests cover accessible and inaccessible direct workspace lookups. The apps-template workspace test covers a detail route whose workspace is absent from the current list page. |
+| Browser proof | The LMS workspace Playwright flow now waits for rendered Russian workspace cards before screenshot capture, and the targeted Chromium run passed on a clean database (`2/2`). |
+| Validation | Focused backend Jest passed (`27` tests), focused apps-template Vitest passed (`7` tests), `@universo/applications-backend` lint/build passed, and `@universo/apps-template-mui` lint/build passed with only pre-existing unrelated warnings. |
+
+## 2026-04-28 Runtime Workspace UI QA Remediation Closure
+
+Closed the remaining QA findings for the published application workspace-management route.
+
+| Area | Resolution |
+| --- | --- |
+| Workspaces route layout | `/a/:applicationId/workspaces` now reuses the normal runtime application adapter/menu data while overriding the dashboard layout to hide demo overview title, stat cards, demo charts, details table, and footer. The workspace management section is the primary content. |
+| Runtime navigation | The Workspaces route keeps the published application menu entries visible and appends the selected Workspaces link instead of replacing the menu with a one-item shell. |
+| Demo sidebar cleanup | The fallback dashboard side menu and mobile side menu no longer render demo `Sitemark`, `Riley Carter`, logout, notifications, or discount-card content when no widget-driven side menu is configured. |
+| CRUD shell isolation | Workspace management routes no longer mount the generic runtime CRUD dialogs or row-actions menu outside the workspace page. |
+| Browser proof | The LMS workspace-management Playwright flow now asserts absence of demo overview/sidebar content, validates the real runtime menu, exercises card/list mode, workspace search, pagination controls, owner/member UI permissions, screenshots, and personal/shared runtime-row isolation. |
+| Validation | Focused frontend/apps-template Vitest passed (`15` + `9` tests), touched-file ESLint passed, `applications-frontend`, `apps-template-mui`, and root `pnpm build` passed (`30/30` tasks), `git diff --check` passed, and the targeted Playwright wrapper for `lms-workspace-management.spec.ts --project chromium` passed (`2/2`) after the root rebuild. |
+
+## 2026-04-27 Runtime Workspace QA Remediation Closure
+
+Closed the post-QA implementation gaps for runtime workspace management after the mutable visibility and published-app workspace management pass.
+
+| Area | Resolution |
+| --- | --- |
+| Route hardening | Runtime workspace member/list/default routes now validate `workspaceId` and `userId` as UUIDs before schema resolution or service execution, keeping malformed path parameters fail-closed. |
+| Workspace identity | Shared workspace creation is now name-only; the runtime UUID is the only workspace identity used by API, UI, and browser coverage. |
+| UI error handling | The published-app member removal dialog now surfaces backend failures, including protected last-owner removal, and clears the error state only on success/cancel/new action. |
+| Test coverage | Backend controller tests now cover malformed route IDs and invalid workspace create payloads. The isolated `apps-template-mui` page test now covers removal-error rendering in the confirmation dialog. |
+| Browser proof | The LMS workspace-management Playwright flow now performs real negative UI actions for invalid workspace creation, blocked last-owner removal, and missing-user invite before completing the successful shared-workspace/member/runtime-row isolation flow. |
+| Validation | Focused backend Jest passed (`92` tests), focused apps-template Vitest passed (`3` tests), touched-file ESLint passed, targeted backend/apps-template builds passed, `pnpm run build:e2e` passed (`30/30` tasks), and the targeted Playwright wrapper for `lms-workspace-management.spec.ts` passed (`2/2`). |
+
+## 2026-04-27 Mutable Application Visibility And Runtime Workspace Management
+
+Closed the implementation pass for mutable application visibility and first-class runtime workspace management in published applications.
+
+| Area | Resolution |
+| --- | --- |
+| Mutable visibility | Application owners can now change public/closed visibility after creation through the existing settings page, while workspace mode remains a structural read-only setting. |
+| Backend workspace API | Runtime workspace listing and member listing now support pagination/search and return profile fields; member invitation accepts email or user id and requires the target user to already be an active application member. |
+| Published app UI | `@universo/apps-template-mui` now owns a full runtime workspace section in the dashboard shell with card/list views, pagination, search, create, default-workspace selection, invite, and remove flows using isolated template APIs and existing shared primitives. |
+| Runtime navigation | The core runtime route and standalone dashboard append a Workspaces menu item for workspace-enabled apps and render `RuntimeWorkspacesPage` in the existing details content slot instead of reusing the old dialog. The workspace route now bypasses the normal CRUD runtime adapter so it can render even when an application has no linked data sections, and normal runtime routes honor the URL `linkedCollectionId` query parameter for deterministic catalog selection. |
+| QA remediation | Default-workspace switching and member removal now run through transaction-scoped checks with `RETURNING` confirmation, workspace create/edit/copy mutations are name-only, ambiguous SQL was removed from member invitation, member-list ordering casts UUIDs safely, and the invite dialog uses the accessible existing MUI `TextField select` pattern. |
+| Workspace switcher UX | The published-app workspace switcher now shows workspace type chips so the built-in shared `Main` workspace and each user's personal `Main` workspace are distinguishable, while tests and browser flows select workspaces by UUID rather than non-unique display names. |
+| Documentation | Package READMEs and EN/RU GitBook application/workspace pages now describe mutable visibility, structural workspace mode, email invitation, and the published-app workspace management section. |
+| Validation | Focused backend Jest, frontend Vitest, touched-file ESLint, `git diff --check`, and builds for applications-backend, applications-frontend, apps-template-mui, and core-frontend passed. Full apps-template lint still has unrelated pre-existing Prettier errors outside this slice. The full LMS workspace-management Playwright flow passed (`2/2`), including screenshots, shared workspace creation, member invite, runtime row creation in `Modules`, owner/member switching, and personal/shared isolation assertions. |
+
 ## 2026-04-27 GitBook Documentation Final QA Remediation
 
 Closed the final QA findings from the GitBook refresh implementation.
@@ -1522,3 +1624,32 @@ The 2026-04-09 wave completed the first large end-to-end ECAE delivery set. This
 
 - Alpha-era platform work established the current APP architecture, template-first publication model, schema-ddl runtime engine, VLC/i18n convergence, application modules, publications, and the three-level system-fields model.
 - Release milestones `0.21.0-alpha` through `0.52.0-alpha` in the table above remain the canonical high-level timeline for those earlier waves.
+
+## 2026-04-28 Runtime Workspace QA Gap Closure
+
+| Entry | Durable outcome |
+| --- | --- |
+| Mutable application visibility | Existing applications can now switch Closed/Public in the regular edit dialog; update payloads send `isPublic` while keeping `workspacesEnabled` immutable. |
+| Unified settings save | Application visibility now participates in the General settings dirty state and uses the shared bottom Save button instead of an inline save action. |
+| Runtime workspace navigation and locale | Published runtime Workspaces labels are available in the applications namespace, and catalog clicks from `/a/:applicationId/workspaces` navigate back to `/a/:applicationId?linkedCollectionId=...`. |
+| Fixture integrity | LMS, quiz, and self-hosted committed fixture hashes were refreshed against the current snapshot normalizer, with generator documentation updated for all three fixture producers. |
+| Validation | Focused Vitest, targeted lint, root `pnpm build`, workspace-management Playwright, settings/edit-dialog Playwright, and all snapshot import/export Playwright flows passed. |
+
+## 2026-04-28 Runtime Workspace Final QA Closure
+
+| Entry | Durable outcome |
+| --- | --- |
+| Backend lint closure | The remaining applications-backend lint warning in `applicationWorkspaces.test.ts` was removed after the prior Prettier drift was auto-fixed. |
+| Runtime member view parity | Published application workspace members now reuse the isolated `apps-template-mui` card/list toolbar pattern, render members as cards by default, and can switch to the existing table view without new shared UI primitives. |
+| Locale and browser proof | Runtime workspace Russian labeling is covered by a focused Vitest assertion and by the real `lms-workspace-management` Playwright flow, including a screenshot of `Рабочие пространства`. |
+| Validation | `@universo/apps-template-mui` RuntimeWorkspacesPage Vitest, `@universo/applications-backend` lint and applicationWorkspaces Jest, `@universo/apps-template-mui` lint/build, root `build:e2e`, and the focused Chromium Playwright workspace-management flow passed. |
+
+## 2026-04-28 Runtime Workspace UX QA Closure
+
+| Entry | Durable outcome |
+| --- | --- |
+| Workspace switcher parity | The published runtime workspace selector now follows the isolated MUI `SelectContent` pattern: card-like selected state, grouped dropdown, and the Manage workspaces action as the final dropdown item instead of a separate icon button. |
+| Sidebar separation | Applications with runtime workspaces auto-inject the workspace selector followed by the existing divider widget before runtime menu links. |
+| Safe member actions | Workspace member list responses include backend-owned `canRemove` metadata, and the UI hides removal actions for members that cannot be safely removed, including the sole owner. |
+| Runtime labels | Workspace creation and member access actions now use Create/Add wording, with the member dialog titled Add member and localized Russian equivalents. |
+| Validation | Focused apps-template Vitest, applications-backend Jest, both touched package builds, backend lint, apps-template lint, root `build:e2e`, and the focused Chromium Playwright workspace-management flow passed with screenshots for the workspace list, member access, Russian page, and switcher dropdown. |

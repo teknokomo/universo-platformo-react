@@ -62,8 +62,8 @@ describe('applicationWorkspaces service', () => {
             SELECT 1
             FROM information_schema.tables`)
         expect(executedSql).toContain(`CREATE TABLE "${schemaName}"."_app_workspaces"`)
-        expect(executedSql).toContain(`INSERT INTO "${schemaName}"."_app_workspaces"`)
-        expect(executedSql).toContain(`'shared', 'active'`)
+        expect(executedSql).not.toContain(`INSERT INTO "${schemaName}"."_app_workspaces"`)
+        expect(executedSql).not.toContain(`'shared', 'active'`)
         expect(executedSql).toContain(`CREATE TABLE "${schemaName}"."_app_limits"`)
         expect(executedSql).not.toContain('DO $$')
         expect(executedSql).toContain('ADD COLUMN IF NOT EXISTS "_seed_source_key" TEXT NULL')
@@ -73,7 +73,7 @@ describe('applicationWorkspaces service', () => {
         expect(executedSql).toContain(`CREATE POLICY "workspace_insert" ON "${schemaName}"."tbl_018f8a787b8f7c1da111222233334443"`)
     })
 
-    it('seeds predefined runtime rows into the shared workspace during workspace schema bootstrap', async () => {
+    it('seeds predefined runtime rows into the application member personal workspace during workspace schema bootstrap', async () => {
         const { executor } = createMockDbExecutor()
         const schemaName = 'app_018f8a787b8f7c1da111222233334445'
         const generatedIds = [
@@ -86,7 +86,7 @@ describe('applicationWorkspaces service', () => {
             '018f8a78-7b8f-7c1d-a111-222233334452'
         ]
 
-        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+        executor.query.mockImplementation(async (sql: string, _params?: unknown[]) => {
             if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
                 const id = generatedIds.shift()
                 return id ? [{ id }] : []
@@ -97,7 +97,7 @@ describe('applicationWorkspaces service', () => {
             }
 
             if (sql.includes('FROM applications.rel_application_users')) {
-                return []
+                return [{ userId: '018f8a78-7b8f-7c1d-a111-222233334441' }]
             }
 
             if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {

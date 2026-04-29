@@ -14,8 +14,7 @@ import SideMenuMobileRight from './SideMenuMobileRight'
 import MenuButton from './MenuButton'
 import ColorModeIconDropdown from '../../shared-theme/ColorModeIconDropdown'
 import LanguageSwitcher from '../../components/LanguageSwitcher'
-import WorkspaceSwitcher from './WorkspaceSwitcher'
-import type { DashboardMenuSlot, DashboardMenusMap, ZoneWidgetItem } from '../Dashboard'
+import type { DashboardMenuSlot, DashboardMenusMap, ZoneWidgetItem, ZoneWidgets } from '../Dashboard'
 
 const Toolbar = styled(MuiToolbar)({
     width: '100%',
@@ -37,9 +36,10 @@ interface AppNavbarProps {
     menu?: DashboardMenuSlot
     menus?: DashboardMenusMap
     rightWidgets?: ZoneWidgetItem[]
+    zoneWidgets?: ZoneWidgets
 }
 
-export default function AppNavbar({ menu, menus, rightWidgets = [] }: AppNavbarProps) {
+export default function AppNavbar({ menu, menus, rightWidgets = [], zoneWidgets }: AppNavbarProps) {
     const [leftOpen, setLeftOpen] = React.useState(false)
     const [rightOpen, setRightOpen] = React.useState(false)
 
@@ -85,7 +85,6 @@ export default function AppNavbar({ menu, menus, rightWidgets = [] }: AppNavbarP
                             {title}
                         </Typography>
                     </Stack>
-                    <WorkspaceSwitcher />
                     <LanguageSwitcher />
                     <ColorModeIconDropdown />
                     {hasRightWidgets && (
@@ -96,7 +95,7 @@ export default function AppNavbar({ menu, menus, rightWidgets = [] }: AppNavbarP
                     <MenuButton aria-label='menu' onClick={toggleLeftDrawer(true)}>
                         <MenuRoundedIcon />
                     </MenuButton>
-                    <SideMenuMobile open={leftOpen} toggleDrawer={toggleLeftDrawer} menu={menu} menus={menus} />
+                    <SideMenuMobile open={leftOpen} toggleDrawer={toggleLeftDrawer} menu={menu} menus={menus} zoneWidgets={zoneWidgets} />
                     {hasRightWidgets && (
                         <SideMenuMobileRight
                             open={rightOpen}

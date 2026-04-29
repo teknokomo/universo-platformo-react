@@ -29,8 +29,8 @@
         },
         "parameters": {
             "tab": "Parameters",
-            "visibilityHint": "Application visibility cannot be changed after creation.",
-            "visibilityLocked": "Application visibility is fixed after creation and cannot be changed.",
+            "visibilityHint": "Application visibility can be changed after creation.",
+            "visibilityMutableHint": "Application visibility can be changed after creation. Workspace mode remains fixed.",
             "workspacesEnabled": "Add workspaces",
             "workspacesHint": "Workspace mode cannot be disabled after the application is created.",
             "workspacesLocked": "Workspace mode is fixed after creation and cannot be changed.",
@@ -55,6 +55,11 @@
             "use": "Use",
             "leave": "Leave"
         },
+        "workspace": {
+            "title": "Workspaces",
+            "dashboard": "Dashboard",
+            "access": "Access"
+        },
         "settings": {
             "title": "Application Settings",
             "tabs": {
@@ -78,14 +83,27 @@
                 "strict-modal": "Modal windows",
                 "backdrop-close": "Non-modal windows"
             },
+            "visibilityTitle": "Application visibility",
+            "visibilityClosed": "Closed",
+            "visibilityPublic": "Public",
+            "visibilityClosedDescription": "Closed applications are visible only to current members and users with global application access.",
+            "visibilityPublicDescription": "Public applications can be discovered and joined directly by authenticated users.",
+            "visibilitySaved": "Visibility saved",
+            "visibilitySaveError": "Failed to save visibility",
+            "workspaceModeLabel": "Workspace mode",
+            "workspaceModeEnabled": "Enabled",
+            "workspaceModeDisabled": "Disabled",
+            "workspaceModeReadOnly": "Workspace mode is selected during application creation and cannot be changed after the runtime structure is defined.",
+            "sectionLinksEnabled": "Section-specific links",
+            "sectionLinksEnabledDescription": "Give every application menu section its own browser URL based on the section identifier.",
             "dialogActionTooltips": {
                 "resetSize": "Reset dialog size",
                 "expand": "Expand dialog",
                 "restoreSize": "Restore dialog size",
                 "resizeHandle": "Resize dialog"
             },
-            "generalSaved": "Popup settings saved",
-            "generalSaveError": "Failed to save popup settings",
+            "generalSaved": "Application settings saved",
+            "generalSaveError": "Failed to save application settings",
             "limitsHint": "Set row limits per catalog for every workspace. When the limit is reached, users will not be able to create more records in that catalog.",
             "limitsRequiresSchema": "Limits settings will become available after the application schema is created.",
             "limitsRequiresWorkspaces": "Limits are available only for applications created with workspace mode enabled.",
@@ -224,6 +242,7 @@
             },
             "widgets": {
                 "brandSelector": "Brand selector",
+                "workspaceSwitcher": "Workspace switcher",
                 "divider": "Divider",
                 "menuWidget": "Menu",
                 "spacer": "Spacer",

@@ -39,6 +39,8 @@ export const profileSelectors = {
 } as const
 
 export const applicationSelectors = {
+    settingsGeneralSaveButton: 'application-settings-general-save',
+    settingsVisibilityToggle: 'application-settings-visibility-toggle',
     limitsSaveButton: 'application-settings-limits-save',
     runtimeCreateButton: 'application-runtime-create-row',
     runtimeWorkspaceLimitBanner: 'application-runtime-workspace-limit-banner',

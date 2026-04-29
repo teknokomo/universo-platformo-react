@@ -4,15 +4,16 @@ description: Workspace switching, shared workspace creation, and member manageme
 
 # Workspace Management
 
-Workspace-enabled applications now expose the runtime workspace model directly in the shared MUI shell.
+Workspace-enabled applications expose the runtime workspace model directly in the published application MUI shell.
 
 ## What Users Can Do
 
-![Workspace manager dialog](../.gitbook/assets/platform/applications-list.png)
+![Workspace management section](../.gitbook/assets/platform/applications-list.png)
 
 - switch between available workspaces from the app navbar;
-- create a shared workspace;
-- invite members by user id and assign a runtime workspace role;
+- open the full workspace management section from the application menu or workspace switcher;
+- create a shared workspace with server-side pagination and search;
+- invite active application members by email and assign a runtime workspace role;
 - remove members from a shared workspace;
 - mark a workspace as the current default workspace.
 
@@ -33,6 +34,7 @@ These roles are stored in the application schema and are separate from global pl
 The current implementation uses:
 
 - `WorkspaceSwitcher`
-- `WorkspaceManagerDialog`
+- `RuntimeWorkspacesPage`
+- shared card/list primitives from `@universo/template-mui`
 
-Both components live in `packages/apps-template-mui` and are generic for any workspace-enabled application.
+These components live in `packages/apps-template-mui`. The workspace page is rendered through the existing dashboard details content slot, so published applications keep the same header, mobile navbar, side menu, and data-view styling as other runtime sections.

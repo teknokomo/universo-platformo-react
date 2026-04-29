@@ -6,6 +6,132 @@
 
 ## Current Task Ledger (Canonical)
 
+## Completed: Runtime Workspace PR Review Hardening (2026-04-29)
+
+> Goal: address the actionable PR #779 review comments without widening the feature surface or regressing standalone template behavior.
+
+### Final Action Plan — PR Review Pass (2026-04-29)
+
+- [x] Reset runtime system metadata instead of copying it from source rows during workspace copy
+- [x] Return and consume stable runtime workspace API error codes for localized UI errors
+- [x] Replace workspace UI hard reload navigation with host-provided SPA navigation while preserving standalone template navigation
+- [x] Re-run focused tests, lint, builds, and whitespace validation
+
+### Validation Notes
+
+- Focused backend Jest passed for `runtimeWorkspaceService.test.ts` and `runtimeWorkspaceController.test.ts` (`28/28`).
+- Focused apps-template Vitest passed for `RuntimeWorkspacesPage.test.tsx` and `WorkspaceSwitcher.test.tsx` (`14/14`).
+- `@universo/applications-backend` lint/build passed.
+- `@universo/applications-frontend` lint/build passed.
+- `@universo/apps-template-mui` lint/build passed with only unrelated pre-existing warnings.
+- `git diff --check` passed.
+
+## Completed: Runtime Workspace I18n And Switcher Locale Closure (2026-04-29)
+
+> Goal: close QA findings around runtime workspace localization without changing the workspace architecture or adding duplicate UI patterns.
+
+### Final Action Plan — Current Implementation Pass (2026-04-29)
+
+- [x] Render workspace switcher VLC names using the active UI locale instead of always falling back to the primary/English locale
+- [x] Localize remaining runtime workspace backend error messages in the published-app UI
+- [x] Add focused component tests for Russian switcher labels and Russian workspace error messages
+- [x] Re-run focused lint/build/test validation and update memory-bank progress
+
+### Validation Notes
+
+- `WorkspaceSwitcher` now reads localized workspace names using `i18n.language` before falling back to the primary/English VLC locale.
+- Runtime workspace UI now translates known backend workspace errors, including missing users, owner-only actions, missing workspaces, disabled workspace mode, and last-owner removal.
+- `InviteMemberDialog` catches rejected submit promises so expected mutation failures render as dialog errors instead of unhandled browser/test rejections.
+- Focused `@universo/apps-template-mui` Vitest passed for `RuntimeWorkspacesPage.test.tsx` and `WorkspaceSwitcher.test.tsx` (`12/12`).
+- `@universo/apps-template-mui` build passed, package lint passed with only pre-existing unrelated warnings, canonical root `pnpm build` passed (`30/30` tasks), targeted Playwright wrapper passed for `lms-workspace-management.spec.ts --project chromium` (`2/2`) after the rebuild, and `git diff --check` passed.
+
+## Completed: Runtime Workspace Direct Route QA Closure (2026-04-28)
+
+> Goal: close the remaining QA findings from the runtime workspace route/detail implementation without widening the feature surface.
+
+### Final Action Plan — Current Implementation Pass (2026-04-28)
+
+- [x] Add a backend direct workspace detail contract that returns only workspaces accessible to the current runtime user
+- [x] Add typed `apps-template-mui` API/query usage for route workspace detail pages
+- [x] Update runtime workspace UI to resolve `/workspaces/:workspaceId` independently of current list pagination/search
+- [x] Strengthen focused backend/frontend tests for direct workspace route access and out-of-page workspace details
+- [x] Stabilize the Playwright RU screenshot wait so it captures rendered workspace cards instead of a loading state
+- [x] Re-run focused lint/build/test/Playwright validation and update memory-bank progress
+
+### Validation Notes
+
+- Added `GET /applications/:applicationId/runtime/workspaces/:workspaceId`, backed by a user-scoped SQL service lookup that returns only active workspaces where the current runtime user has an active membership.
+- `RuntimeWorkspacesPage` now uses a route workspace detail query, so `/workspaces/:workspaceId` and `/workspaces/:workspaceId/access` no longer depend on the current list page, search, or pagination window.
+- Focused backend Jest passed for runtime workspace service/controller tests (`27` tests).
+- Focused apps-template Vitest passed for `RuntimeWorkspacesPage.test.tsx` (`7` tests), including route details outside the first list page.
+- `@universo/applications-backend` lint/build passed. `@universo/apps-template-mui` lint/build passed with only pre-existing warnings in unrelated files.
+- Targeted Playwright wrapper passed for `lms-workspace-management.spec.ts --project chromium` (`2/2`) on a clean database, and the Russian workspace screenshot now captures rendered cards instead of a loading spinner.
+
+## Completed: Runtime Workspace Final QA Closure (2026-04-28)
+
+> Goal: close the remaining QA findings from the runtime workspace implementation without changing the approved architecture.
+
+### Final Action Plan — Current Implementation Pass (2026-04-28)
+
+- [x] Fix backend package lint failures caused by Prettier drift
+- [x] Add card/list view parity for runtime workspace members in `apps-template-mui`
+- [x] Add focused tests for member card/list parity and Russian workspace label coverage
+- [x] Re-run focused lint/build/test/Playwright validation
+- [x] Update memory-bank progress after validation
+
+## Completed: Runtime Workspace QA Remediation Closure (2026-04-27)
+
+> Goal: close the concrete QA findings after the mutable visibility/runtime workspace implementation without widening scope or adding duplicate architecture.
+
+### Final Action Plan — Current Remediation Pass (2026-04-27)
+
+- [x] Add fail-closed UUID validation for runtime workspace route params
+- [x] Remove the shared workspace machine-name contract and keep workspace mutations name-only
+- [x] Surface workspace member removal failures in the published-app UI
+- [x] Expand focused backend/frontend tests for the new negative paths
+- [x] Expand Playwright browser coverage for negative/error workspace paths
+- [x] Run targeted lint/build/test validation and update memory-bank progress
+
+### Validation Notes
+
+- Runtime workspace controller now rejects malformed workspace and user route IDs before schema resolution or service access.
+- Shared workspace create/edit/copy now accepts only the display name; workspace identity is the generated UUID, and list/detail responses no longer expose a separate workspace machine-name field.
+- Published-app member removal failures now stay visible in the confirmation dialog instead of being swallowed after failed mutations.
+- Focused backend Jest passed for `runtimeWorkspaceController.test.ts`, `runtimeWorkspaceService.test.ts`, and `applicationWorkspaces.test.ts` (`36` tests).
+- Focused `@universo/apps-template-mui` Vitest passed for `RuntimeWorkspacesPage.test.tsx` and `WorkspaceSwitcher.test.tsx` (`10` tests).
+- Backend lint/build passed. Apps-template lint/build passed with only unrelated pre-existing warnings.
+- `pnpm run build:e2e` passed across the full workspace (`30/30` tasks), and the targeted Playwright wrapper passed for `lms-workspace-management.spec.ts --project chromium` (`2/2`) with create/copy/edit/delete, member invite, workspace switching, screenshots, and data-isolation checks.
+
+## Completed: Mutable Application Visibility And Runtime Workspace Management (2026-04-27)
+
+> Goal: make application visibility mutable after creation and ship first-class published-application workspace management with safe backend contracts, isolated `apps-template-mui` UI, tests, screenshots, and GitBook documentation.
+
+### Final Action Plan — Current Implementation Pass (2026-04-27)
+
+- [x] Implement backend visibility mutation with optimistic locking, RLS-compatible SQL, and fail-closed public runtime behavior
+- [x] Extend runtime workspace APIs with pagination, search, profile fields, and email-based member invitation while preserving owner/personal-workspace guards
+- [x] Add application settings UI for mutable public/closed visibility and read-only workspace mode
+- [x] Replace ad hoc published-app workspace fetches with typed `apps-template-mui` API helpers and query keys
+- [x] Build the first-class published-app workspace section inside the existing dashboard shell using shared UI primitives
+- [x] Add EN/RU i18n keys across touched frontend packages
+- [x] Add focused backend Jest and frontend Vitest coverage for the new contracts and UI
+- [x] Add Playwright/browser coverage and screenshots for visibility and workspace management flows
+- [x] Update package READMEs and GitBook docs in `docs/`
+- [x] Run targeted lint/build/test validation and update memory-bank progress
+
+### Validation Notes
+
+- Focused backend Jest passed: `applicationsRoutes.test.ts`, `runtimeWorkspaceController.test.ts`, and `publicRuntimeAccess.test.ts` (`4` suites / `83` tests).
+- Follow-up QA remediation Jest passed: `runtimeWorkspaceService.test.ts` and `runtimeWorkspaceController.test.ts` (`2` suites / `20` tests).
+- Focused frontend Vitest passed: `ApplicationRuntime.test.tsx` and `ApplicationSettings.test.tsx` (`19` tests), plus `RuntimeWorkspacesPage.test.tsx` and `WorkspaceSwitcher.test.tsx` (`2` tests).
+- Touched-file ESLint passed for the changed backend, applications-frontend, and apps-template-mui source/test files.
+- Package builds passed for `@universo/applications-backend`, `@universo/applications-frontend`, `@universo/apps-template-mui`, and `@universo/core-frontend`.
+- Full package lint for `@universo/applications-backend` and `@universo/apps-template-mui` still reports pre-existing Prettier/noise in unrelated files outside this slice; the changed files are clean.
+- QA remediation removed the runtime workspace route dependency on linked collections in both `applications-frontend` and standalone `apps-template-mui`; the previous `No linkedCollections available` blocker no longer prevents the workspace page from rendering.
+- Playwright opened the real `/a/:applicationId/workspaces` UI, created a shared workspace, invited an application member, and produced `runtime-workspaces-page.png` plus `runtime-workspace-members.png`.
+- The full LMS workspace-management Playwright flow now passes end to end (`2/2`), including `linkedCollectionId=Modules`, shared-workspace row creation, owner/member workspace switching by UUID, and personal/shared data-isolation assertions.
+- The previous linked-collection runtime blocker was fixed by initializing the CRUD dashboard from the URL `linkedCollectionId` query parameter. The previous duplicate `Main` switcher ambiguity was fixed by rendering workspace type chips and making browser coverage select workspaces by UUID.
+
 ## Active: Entity Resources Data-Driven Cleanup (2026-04-26)
 
 > Goal: remove hardcoded Resources tab labels and synthetic standard entity type fallbacks, make standard resource labels editable through Entities metadata, preserve metadata through publication/application paths, and validate the result with focused tests/docs.
@@ -1884,6 +2010,60 @@ Validation notes:
   - Note: do not reopen the 2026-04-13 QA remediation wave unless fresh failing evidence appears on shipped product, documentation, or canonical validation surfaces.
 - [x] When one open active item closes, record the durable outcome in `progress.md` first and then update this ledger.
   - Note: `tasks.md` should remain the operational checklist, not a second full progress log.
+
+## Completed Session: 2026-04-28 Runtime Workspace Layout And CRUD QA Closure
+
+- [x] Materialize the runtime workspace switcher as a real left-zone layout widget for workspace-enabled applications.
+  - Target: generated application layouts expose a manageable `workspaceSwitcher` widget before the menu widget instead of relying on runtime-only injection.
+- [x] Add a persistent divider before the Workspaces menu section.
+  - Target: the left runtime menu shows a horizontal divider immediately above the Workspaces item/submenu group.
+- [x] Localize workspace form/action errors and fix dialog action spacing.
+  - Target: create/add-member backend validation messages render in Russian through i18n, and dialog actions use standard padding.
+- [x] Add workspace card/table actions for edit, copy, and delete.
+  - Target: every workspace row/card has a three-dot menu matching existing application/list patterns, with safe edit/delete and copy behavior.
+- [x] Fix runtime workspace creation and cover it in tests.
+  - Target: create requests send the backend contract, creation succeeds in E2E, and unit/Playwright tests assert the full flow.
+- [x] Re-run focused package tests, lint/build, Playwright, and record the closure.
+  - Target: touched backend and apps-template surfaces validate cleanly before completion.
+
+## Completed Session: 2026-04-28 Runtime Workspace UX QA Closure
+
+- [x] Add backend-owned workspace member action metadata.
+  - Target: workspace member list returns whether each visible member can be removed, preventing the UI from offering removal of the last owner.
+- [x] Rebuild the runtime workspace switcher on the existing MUI SelectContent pattern.
+  - Target: no separate manage icon button; the manage action appears as the bottom dropdown item after a divider.
+- [x] Separate the workspace switcher from the runtime menu with the existing divider widget.
+  - Target: applications with workspaces show a horizontal divider between the top workspace selector and menu items.
+- [x] Align runtime workspace action labels and dialog titles.
+  - Target: workspace list action uses Create, access action uses Add, and the member dialog title is Add member.
+- [x] Update unit and Playwright coverage to assert the corrected UX.
+  - Target: tests fail if the old remove-owner button, old labels, or separate manage button return.
+- [x] Re-run focused tests, lint, builds, whitespace checks, and update progress.
+  - Target: touched packages validate cleanly before closing the task.
+
+## Completed Session: 2026-04-28 Runtime Workspace QA Gap Closure
+
+- [x] Restore mutable application visibility in the edit dialog while keeping workspace mode immutable.
+  - Target: existing applications can switch Closed/Public from the normal edit dialog and PATCH sends `isPublic` without sending `workspacesEnabled`.
+- [x] Fold application visibility into the existing Settings general save flow.
+  - Target: the visibility switch uses the same bottom Save button as other general settings, with no inline save button.
+- [x] Localize the published runtime Workspaces label and make runtime menu navigation leave `/workspaces` correctly.
+  - Target: Russian runtime shows `Рабочие пространства`, and clicking a catalog from `/a/:applicationId/workspaces` opens that catalog.
+- [x] Refresh canonical snapshot fixture integrity and document the generator validation path.
+  - Target: committed fixtures pass the current snapshot hash validator and remain tied to the existing Playwright generator specs.
+- [x] Re-run focused unit, build, and browser validation for the touched surface.
+  - Target: package tests/builds plus relevant Playwright slices cover the fixed regressions.
+
+## Active Session: 2026-04-28 Runtime Workspace QA Remediation
+
+- [x] Remove demo dashboard overview content from the published application Workspaces route.
+  - Target: `/a/:applicationId/workspaces` renders the real workspace management section as the primary content without `Overview`, demo stat cards, or demo charts.
+- [x] Preserve published application runtime navigation on the Workspaces route.
+  - Target: the Workspaces route uses the same runtime application menu data and app layout as other published sections, with the Workspaces item appended and selected.
+- [x] Harden browser coverage for the actual workspace management UI.
+  - Target: Playwright asserts absence of demo dashboard content, validates runtime menu parity, and exercises card/list view, search, and pagination controls.
+- [x] Re-run focused validation for the touched packages and record the closure.
+  - Target: targeted tests, lint, and package builds pass for the changed implementation.
 
 ## Active Session: 2026-04-17 Entity-First Final Refactoring Closure
 

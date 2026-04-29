@@ -9,6 +9,7 @@ import {
     createPublicationVersion,
     createRuntimeRow,
     disposeApiContext,
+    getApplication,
     getApplicationRuntime,
     getApplicationWorkspaceLimits,
     syncApplicationSchema,
@@ -142,6 +143,15 @@ test('@flow @combined application settings persist workspace limits and runtime 
 
         await page.goto(`/a/${applicationId}/admin/settings`)
         await expect(page.getByRole('heading', { name: 'Application Settings' })).toBeVisible()
+        await expect(page.getByTestId('application-settings-visibility-save')).toHaveCount(0)
+        await page.getByTestId(applicationSelectors.settingsVisibilityToggle).click()
+        await page.getByTestId(applicationSelectors.settingsGeneralSaveButton).click()
+        await expect
+            .poll(async () => {
+                const saved = await getApplication(api, applicationId)
+                return saved?.isPublic === true
+            })
+            .toBe(true)
         await expectHorizontalEdgesAligned(
             page.getByTestId(pageSpacingSelectors.applicationSettingsTabs),
             page.getByTestId(pageSpacingSelectors.applicationSettingsContent)

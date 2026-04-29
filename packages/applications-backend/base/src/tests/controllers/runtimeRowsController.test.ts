@@ -53,11 +53,7 @@ describe('normalizeRuntimeTableChildInsertValue', () => {
 
     it('stringifies localized STRING child objects for json-backed VLC storage', () => {
         expect(
-            normalizeRuntimeTableChildInsertValue(
-                { _primary: 'en', locales: { en: { content: 'Hello' } } },
-                'STRING',
-                { localized: true }
-            )
+            normalizeRuntimeTableChildInsertValue({ _primary: 'en', locales: { en: { content: 'Hello' } } }, 'STRING', { localized: true })
         ).toBe('{"_primary":"en","locales":{"en":{"content":"Hello"}}}')
     })
 })

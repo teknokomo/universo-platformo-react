@@ -724,6 +724,26 @@ export class MetahubSchemaService {
         }
     }
 
+    private static collectSeedEntityKinds(seed: MetahubTemplateSeed): string[] {
+        const kinds = new Set<string>()
+        for (const entity of seed.entities ?? []) {
+            if (typeof entity.kind === 'string' && entity.kind.trim().length > 0) {
+                kinds.add(entity.kind.trim())
+            }
+        }
+        return [...kinds].sort()
+    }
+
+    private static mergeEntityTypePresetManifests(presets: EntityTypePresetManifest[]): EntityTypePresetManifest[] {
+        const byKind = new Map<string, EntityTypePresetManifest>()
+        for (const preset of presets) {
+            if (!byKind.has(preset.entityType.kindKey)) {
+                byKind.set(preset.entityType.kindKey, preset)
+            }
+        }
+        return [...byKind.values()]
+    }
+
     private static mergePresetSeedIntoTemplateSeed(
         seed: MetahubTemplateSeed,
         presetSeed: MetahubTemplateSeed,
@@ -793,24 +813,34 @@ export class MetahubSchemaService {
         options?: { schemaName?: string; createOptions?: MetahubCreateOptions }
     ): Promise<TemplateBootstrapBundle> {
         const presetRefs = manifest.presets ?? []
-        if (presetRefs.length === 0) {
-            return {
-                seed: cloneSeed(manifest.seed),
-                entityTypePresets: [],
-                effectivePresetToggles: {}
-            }
-        }
-
-        const persistedToggles = options?.schemaName ? await this.readPersistedPresetToggles(options.schemaName) : undefined
-        const effectivePresetToggles = MetahubSchemaService.buildEffectivePresetToggles(manifest, options?.createOptions, persistedToggles)
+        const persistedToggles =
+            presetRefs.length > 0 && options?.schemaName ? await this.readPersistedPresetToggles(options.schemaName) : undefined
+        const effectivePresetToggles =
+            presetRefs.length > 0
+                ? MetahubSchemaService.buildEffectivePresetToggles(manifest, options?.createOptions, persistedToggles)
+                : {}
 
         const enabledPresets = presetRefs.filter((preset) => effectivePresetToggles[preset.presetCodename] !== false)
-        const entityTypePresets = await Promise.all(
+        const presetDefaultManifests = await Promise.all(
             enabledPresets.map((preset) => this.loadEntityTypePresetManifest(preset.presetCodename))
         )
+        const presetDefaultKindKeys = new Set(presetDefaultManifests.map((preset) => preset.entityType.kindKey))
+        const seedEntityKinds = MetahubSchemaService.collectSeedEntityKinds(manifest.seed)
+        const seedEntityTypeManifests = await Promise.all(
+            seedEntityKinds.filter((kind) => !presetDefaultKindKeys.has(kind)).map((kind) => this.loadEntityTypePresetManifest(kind))
+        )
+        const entityTypePresets = MetahubSchemaService.mergeEntityTypePresetManifests([
+            ...presetDefaultManifests,
+            ...seedEntityTypeManifests
+        ])
 
-        const presetSeed = MetahubSchemaService.buildSeedFromPresetDefaults(entityTypePresets)
-        const seed = MetahubSchemaService.mergePresetSeedIntoTemplateSeed(manifest.seed, presetSeed, effectivePresetToggles, true)
+        const presetSeed = MetahubSchemaService.buildSeedFromPresetDefaults(presetDefaultManifests)
+        const seed = MetahubSchemaService.mergePresetSeedIntoTemplateSeed(
+            manifest.seed,
+            presetSeed,
+            effectivePresetToggles,
+            presetRefs.length > 0
+        )
 
         return {
             seed,

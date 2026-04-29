@@ -42,6 +42,8 @@ Those settings are stored in `applications.cat_applications.settings` and are re
 | Allow fullscreen | Whether dialogs can expand to fullscreen. |
 | Allow resize | Whether the resize handle is available. |
 | Close behavior | Whether dialogs stay strict-modal or allow outside-click close. |
+| Visibility | Whether the application is closed or public. Changing public to closed blocks new direct joins and public runtime link resolution. |
+| Workspace mode | Read-only after creation because it controls runtime schema structure. |
 | Workspace limits | Per-workspace row limits for supported catalogs. |
 
 ## Scope Boundary
@@ -52,8 +54,9 @@ They also do not replace metahub authoring settings or the global `/admin` dialo
 
 ## Workspace-Aware Runtime Model
 
-When `workspacesEnabled` is on, runtime working data is scoped to the personal workspace.
-Owners and members receive a workspace during bootstrap or access grant, runtime rows are resolved inside that workspace, and supported catalog limits are enforced per workspace rather than globally.
+When `workspacesEnabled` is on, runtime working data is scoped to the user's current workspace.
+Owners and members receive a personal workspace during bootstrap or access grant, can create shared workspaces, and owners of a shared workspace can add active application members by email.
+Runtime rows are resolved inside the selected workspace, and supported catalog limits are enforced per workspace rather than globally.
 This keeps applications aligned with the broader platform goal of collaborative ERP and CMS style runtime data management.
 
 ## Delivery Flow
