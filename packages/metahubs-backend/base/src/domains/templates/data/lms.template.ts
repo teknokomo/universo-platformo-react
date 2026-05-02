@@ -17,43 +17,106 @@ function buildLmsSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                         ru: { content: 'Обучение', version: 1, isActive: true }
                     }
                 },
-                autoShowAllCatalogs: true,
+                autoShowAllCatalogs: false,
                 bindToHub: false,
                 boundTreeEntityId: null,
-                items: []
+                maxPrimaryItems: 6,
+                overflowLabelKey: 'runtime.menu.more',
+                startPage: 'Modules',
+                workspacePlacement: 'primary',
+                items: [
+                    {
+                        id: 'lms-nav-learning',
+                        kind: 'hub',
+                        title: {
+                            _schema: '1',
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Learning', version: 1, isActive: true },
+                                ru: { content: 'Обучение', version: 1, isActive: true }
+                            }
+                        },
+                        icon: 'school',
+                        href: null,
+                        hubId: 'Learning',
+                        sortOrder: 1,
+                        isActive: true
+                    },
+                    {
+                        id: 'lms-nav-catalog',
+                        kind: 'catalog',
+                        title: {
+                            _schema: '1',
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Catalog', version: 1, isActive: true },
+                                ru: { content: 'Каталог', version: 1, isActive: true }
+                            }
+                        },
+                        icon: 'catalog',
+                        href: null,
+                        catalogId: 'Modules',
+                        sortOrder: 2,
+                        isActive: true
+                    },
+                    {
+                        id: 'lms-nav-knowledge',
+                        kind: 'catalog',
+                        title: {
+                            _schema: '1',
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Knowledge', version: 1, isActive: true },
+                                ru: { content: 'Знания', version: 1, isActive: true }
+                            }
+                        },
+                        icon: 'folder',
+                        href: null,
+                        catalogId: 'Quizzes',
+                        sortOrder: 3,
+                        isActive: true
+                    },
+                    {
+                        id: 'lms-nav-development',
+                        kind: 'catalog',
+                        title: {
+                            _schema: '1',
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Development', version: 1, isActive: true },
+                                ru: { content: 'Развитие', version: 1, isActive: true }
+                            }
+                        },
+                        icon: 'tasks',
+                        href: null,
+                        catalogId: 'Classes',
+                        sortOrder: 4,
+                        isActive: true
+                    },
+                    {
+                        id: 'lms-nav-reports',
+                        kind: 'catalog',
+                        title: {
+                            _schema: '1',
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Reports', version: 1, isActive: true },
+                                ru: { content: 'Отчеты', version: 1, isActive: true }
+                            }
+                        },
+                        icon: 'analytics',
+                        href: null,
+                        catalogId: 'ModuleProgress',
+                        sortOrder: 5,
+                        isActive: true
+                    }
+                ]
             })
         },
         { zone: 'top' as const, widgetKey: 'appNavbar', sortOrder: 1 },
         { zone: 'top' as const, widgetKey: 'header', sortOrder: 2 },
         { zone: 'center' as const, widgetKey: 'detailsTitle', sortOrder: 5 },
-        {
-            zone: 'center' as const,
-            widgetKey: 'moduleViewerWidget',
-            sortOrder: 6,
-            config: {
-                attachedToKind: 'metahub',
-                scriptCodename: 'lms-module-viewer'
-            }
-        },
-        { zone: 'center' as const, widgetKey: 'detailsTable', sortOrder: 7 },
-        {
-            zone: 'right' as const,
-            widgetKey: 'statsViewerWidget',
-            sortOrder: 1,
-            config: {
-                attachedToKind: 'metahub',
-                scriptCodename: 'lms-stats-viewer'
-            }
-        },
-        {
-            zone: 'right' as const,
-            widgetKey: 'qrCodeWidget',
-            sortOrder: 2,
-            config: {
-                publicLinkSlug: 'demo-module',
-                title: 'Module access QR'
-            }
-        }
+        { zone: 'center' as const, widgetKey: 'detailsTable', sortOrder: 7 }
     ]
 }
 

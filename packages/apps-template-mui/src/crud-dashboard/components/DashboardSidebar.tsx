@@ -53,8 +53,6 @@ export default function DashboardSidebar({
         }
 
         setIsFullyExpanded(false)
-
-        return () => {}
     }, [expanded, theme.transitions.duration.enteringScreen])
 
     React.useEffect(() => {
@@ -67,8 +65,6 @@ export default function DashboardSidebar({
         }
 
         setIsFullyCollapsed(false)
-
-        return () => {}
     }, [expanded, theme.transitions.duration.leavingScreen])
 
     const mini = !disableCollapsibleSidebar && !expanded

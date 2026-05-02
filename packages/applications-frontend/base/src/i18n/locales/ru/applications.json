@@ -183,6 +183,18 @@
                 "showTitle": "Показывать заголовок",
                 "titleField": "Заголовок",
                 "autoShowAllCatalogs": "Показывать все каталоги автоматически",
+                "maxPrimaryItems": "Лимит основных пунктов меню",
+                "maxPrimaryItemsHint": "Дополнительные активные пункты будут перенесены в меню «Ещё».",
+                "overflowLabelKey": "i18n-ключ пункта «Ещё»",
+                "startPage": "Код стартовой страницы",
+                "startPageHint": "Используйте id или codename хаба/каталога, который должен открываться первым.",
+                "workspacePlacement": "Размещение рабочих пространств",
+                "workspacePlacementHint": "Навигация по рабочим пространствам может остаться в основном меню, перейти в «Ещё» или быть скрыта.",
+                "workspacePlacements": {
+                    "primary": "Основное меню",
+                    "overflow": "Меню «Ещё»",
+                    "hidden": "Скрыто"
+                },
                 "itemsTitle": "Пункты меню",
                 "addItem": "Добавить пункт",
                 "editItem": "Редактировать пункт",
@@ -201,7 +213,8 @@
                 "validation": {
                     "titleRequired": "Название обязательно.",
                     "catalogRequired": "Выберите каталог для этого пункта меню.",
-                    "hrefRequired": "Для пункта типа «Ссылка» требуется URL."
+                    "hrefRequired": "Для пункта типа «Ссылка» требуется URL.",
+                    "hrefUnsafeScheme": "Этот тип ссылки запрещён. Используйте https, mailto, tel, # или внутренний путь."
                 }
             },
             "catalogBehaviorTitleGlobal": "Поведение общего каталожного рантайма по умолчанию",
@@ -263,9 +276,6 @@
                 "detailsTable": "Таблица деталей",
                 "columnsContainer": "Контейнер колонок",
                 "quizWidget": "Виджет квиза",
-                "moduleViewerWidget": "Просмотрщик модулей",
-                "statsViewerWidget": "Просмотрщик статистики",
-                "qrCodeWidget": "QR-код",
                 "detailsSidePanel": "Боковая панель деталей",
                 "productTree": "Дерево продуктов",
                 "usersByCountryChart": "График пользователей по странам",

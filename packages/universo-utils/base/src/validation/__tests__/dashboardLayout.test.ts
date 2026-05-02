@@ -7,7 +7,7 @@ describe('dashboard layout normalization', () => {
         const config = normalizeDashboardLayoutConfig(undefined)
 
         expect(config.showLanguageSwitcher).toBe(true)
-        expect(config.showRightSideMenu).toBe(true)
+        expect(config.showRightSideMenu).toBe(false)
         expect(config.showViewToggle).toBe(false)
         expect(config.defaultViewMode).toBe('table')
         expect(config.cardColumns).toBe(3)

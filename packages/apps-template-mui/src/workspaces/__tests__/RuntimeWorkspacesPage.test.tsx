@@ -5,6 +5,23 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import RuntimeWorkspacesPage from '../RuntimeWorkspacesPage'
 import ruApps from '../../i18n/locales/ru/apps.json'
 
+const visibleAnchorRect = {
+    x: 10,
+    y: 10,
+    top: 10,
+    left: 10,
+    bottom: 50,
+    right: 210,
+    width: 200,
+    height: 40,
+    toJSON: () => visibleAnchorRect
+} satisfies DOMRect
+
+Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+    configurable: true,
+    value: () => visibleAnchorRect
+})
+
 const apiMocks = vi.hoisted(() => ({
     fetchRuntimeWorkspaces: vi.fn(),
     fetchRuntimeWorkspace: vi.fn(),

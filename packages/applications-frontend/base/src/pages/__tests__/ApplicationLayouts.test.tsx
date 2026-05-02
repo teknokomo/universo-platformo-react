@@ -25,7 +25,7 @@ vi.mock('react-i18next', () => ({
         t: (key: string, fallback?: string, params?: Record<string, unknown>) => {
             const dictionary: Record<string, string> = {
                 'layouts.widgets.menuWidget': 'Menu',
-                'layouts.widgets.statsViewerWidget': 'Statistics viewer',
+                'layouts.widgets.overviewCards': 'Overview cards',
                 'layouts.widgets.recordsTable': 'Records table'
             }
             const template = dictionary[key] ?? fallback ?? key
@@ -219,9 +219,9 @@ describe('ApplicationLayouts', () => {
                     id: 'widget-top-1',
                     layoutId: 'layout-1',
                     zone: 'top',
-                    widgetKey: 'statsViewerWidget',
+                    widgetKey: 'overviewCards',
                     sortOrder: 0,
-                    config: { scriptCodename: 'stats-runtime' },
+                    config: {},
                     isActive: true,
                     version: 1
                 },
@@ -255,7 +255,7 @@ describe('ApplicationLayouts', () => {
         })
         apiMocks.listApplicationLayoutWidgetCatalog.mockResolvedValue([
             { key: 'menuWidget', allowedZones: ['left', 'center'], multiInstance: true },
-            { key: 'statsViewerWidget', allowedZones: ['top', 'right'], multiInstance: false }
+            { key: 'overviewCards', allowedZones: ['top', 'right'], multiInstance: false }
         ])
         apiMocks.moveApplicationLayoutWidget.mockResolvedValue({
             id: 'widget-center-1',
@@ -290,7 +290,7 @@ describe('ApplicationLayouts', () => {
         expect(screen.getByText('Right')).toBeInTheDocument()
         expect(screen.getByText('Bottom')).toBeInTheDocument()
         expect(screen.getByText('Menu: Training')).toBeInTheDocument()
-        expect(screen.getByText('Statistics viewer: stats-runtime')).toBeInTheDocument()
+        expect(screen.getByText('Overview cards')).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Back to applications' })).not.toBeInTheDocument()
 

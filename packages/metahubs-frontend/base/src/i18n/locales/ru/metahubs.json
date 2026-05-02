@@ -324,6 +324,17 @@
             "autoShowAllCatalogs": "Автоматически показывать все каталоги",
             "autoShowAllCatalogsHint": "Если включено, все существующие каталоги будут автоматически добавлены в меню при отображении.",
             "autoShowAllCatalogsDisabledByBinding": "Опция отключена, пока включена прямая связь меню с хабом.",
+            "maxPrimaryItems": "Лимит основных пунктов меню",
+            "maxPrimaryItemsHint": "Дополнительные активные пункты будут перенесены в меню «Ещё».",
+            "overflowLabelKey": "i18n-ключ пункта «Ещё»",
+            "startPage": "Код стартовой страницы",
+            "startPageHint": "Используйте id или codename хаба/каталога, который должен открываться первым.",
+            "workspacePlacement": "Размещение рабочих пространств",
+            "workspacePlacements": {
+                "primary": "Основное меню",
+                "overflow": "Меню «Ещё»",
+                "hidden": "Скрыто"
+            },
             "items": "Пункты меню",
             "itemsEmpty": "Пунктов меню пока нет. Добавьте первый пункт.",
             "addItem": "Добавить пункт",
@@ -349,7 +360,8 @@
                 "catalogRequired": "Выберите каталог для этого пункта меню.",
                 "hubRequired": "Выберите хаб для этого пункта меню.",
                 "boundHubRequired": "Выберите хаб для связи меню.",
-                "hrefRequired": "Для пункта типа «Ссылка» требуется URL."
+                "hrefRequired": "Для пункта типа «Ссылка» требуется URL.",
+                "hrefUnsafeScheme": "Этот тип ссылки запрещён. Используйте https, mailto, tel, # или внутренний путь."
             },
             "saveSuccess": "Настройка меню сохранена",
             "saveError": "Не удалось сохранить настройку меню"
@@ -382,9 +394,6 @@
             "detailsTitle": "Заголовок деталей",
             "detailsTable": "Таблица деталей",
             "quizWidget": "Виджет квиза",
-            "moduleViewerWidget": "Просмотрщик модулей",
-            "statsViewerWidget": "Просмотрщик статистики",
-            "qrCodeWidget": "QR-код",
             "detailsSidePanel": "Боковая панель деталей",
             "productTree": "Дерево продуктов",
             "usersByCountryChart": "График пользователей по странам",

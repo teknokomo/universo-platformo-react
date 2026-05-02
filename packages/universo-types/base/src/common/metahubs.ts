@@ -790,10 +790,6 @@ export const DASHBOARD_LAYOUT_WIDGETS = [
     { key: 'detailsTable', allowedZones: ['center'] as const, multiInstance: false },
     { key: 'columnsContainer', allowedZones: ['center'] as const, multiInstance: true },
     { key: 'quizWidget', allowedZones: ['center', 'right'] as const, multiInstance: true },
-    // LMS widgets
-    { key: 'moduleViewerWidget', allowedZones: ['center'] as const, multiInstance: false },
-    { key: 'statsViewerWidget', allowedZones: ['center', 'right'] as const, multiInstance: false },
-    { key: 'qrCodeWidget', allowedZones: ['center', 'right'] as const, multiInstance: true },
     // Right zone widgets
     { key: 'detailsSidePanel', allowedZones: ['right'] as const, multiInstance: false },
     { key: 'productTree', allowedZones: ['center', 'right'] as const, multiInstance: false },
@@ -820,6 +816,16 @@ export interface MenuWidgetConfig {
     bindToHub?: boolean
     /** Hub ID used when direct binding is enabled. */
     boundHubId?: string | null
+    /** Legacy/editor alias for hub binding. */
+    boundTreeEntityId?: string | null
+    /** Maximum number of primary menu items before overflow is used. */
+    maxPrimaryItems?: number
+    /** Shared i18n key used for the overflow menu label. */
+    overflowLabelKey?: string | null
+    /** Preferred start page as a section id/codename or menu item id. */
+    startPage?: string | null
+    /** Placement for the runtime workspace entry injected by the published app. */
+    workspacePlacement?: 'primary' | 'overflow' | 'hidden'
     sharedBehavior?: SharedBehavior
     items: MenuWidgetConfigItem[]
 }
@@ -833,7 +839,13 @@ export interface MenuWidgetConfigItem {
     icon?: string | null
     href?: string | null
     catalogId?: string | null
+    /** Runtime/application alias for catalogId. */
+    linkedCollectionId?: string | null
+    /** Runtime/application alias for catalogId. */
+    sectionId?: string | null
     hubId?: string | null
+    /** Runtime/application alias for hubId. */
+    treeEntityId?: string | null
     sortOrder: number
     isActive: boolean
 }
@@ -852,8 +864,14 @@ export interface DashboardLayoutZoneWidget {
 
 /** A single widget entry rendered inside a column. */
 export interface ColumnsContainerColumnWidget {
+    /** Stable identity for nested widget overrides. */
+    id?: string
     /** Widget key to render. */
     widgetKey: DashboardLayoutWidgetKey
+    /** Ordered position inside the column. */
+    sortOrder?: number
+    /** Nested widget-specific config. */
+    config?: Record<string, unknown>
 }
 
 /** A single column inside a columnsContainer widget. */
@@ -886,31 +904,6 @@ export interface QuizWidgetConfig {
     sharedBehavior?: SharedBehavior
 }
 
-export interface ModuleViewerWidgetConfig {
-    scriptCodename?: string | null
-    attachedToKind?: ScriptAttachmentKind
-    mountMethodName?: string
-    emptyStateTitle?: string
-    emptyStateDescription?: string
-    sharedBehavior?: SharedBehavior
-}
-
-export interface StatsViewerWidgetConfig {
-    scriptCodename?: string | null
-    attachedToKind?: ScriptAttachmentKind
-    mountMethodName?: string
-    emptyStateTitle?: string
-    emptyStateDescription?: string
-    sharedBehavior?: SharedBehavior
-}
-
-export interface QRCodeWidgetConfig {
-    url?: string
-    publicLinkSlug?: string
-    size?: number
-    title?: string
-    sharedBehavior?: SharedBehavior
-}
 
 // ========= Menu item kinds (used by MenuWidgetConfig) =========
 

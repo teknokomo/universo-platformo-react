@@ -318,6 +318,17 @@
             "autoShowAllCatalogs": "Automatically show all catalogs",
             "autoShowAllCatalogsHint": "When enabled, all existing catalogs will be automatically added to the menu at runtime.",
             "autoShowAllCatalogsDisabledByBinding": "This option is disabled while direct menu-to-hub binding is enabled.",
+            "maxPrimaryItems": "Primary menu item limit",
+            "maxPrimaryItemsHint": "Extra active menu items are moved into the overflow menu.",
+            "overflowLabelKey": "Overflow label i18n key",
+            "startPage": "Start page code",
+            "startPageHint": "Use a hub/catalog id or codename to choose the first opened section.",
+            "workspacePlacement": "Workspace menu placement",
+            "workspacePlacements": {
+                "primary": "Primary menu",
+                "overflow": "Overflow menu",
+                "hidden": "Hidden"
+            },
             "items": "Menu items",
             "itemsEmpty": "No menu items yet. Add the first item.",
             "addItem": "Add item",
@@ -343,7 +354,8 @@
                 "catalogRequired": "Select a catalog for this menu item.",
                 "hubRequired": "Select a hub for this menu item.",
                 "boundHubRequired": "Select a hub to bind this menu to.",
-                "hrefRequired": "Link URL is required for link items."
+                "hrefRequired": "Link URL is required for link items.",
+                "hrefUnsafeScheme": "This link type is not allowed. Use https, mailto, tel, #, or an internal path."
             },
             "saveSuccess": "Menu configuration saved",
             "saveError": "Failed to save menu configuration"
@@ -376,9 +388,6 @@
             "detailsTitle": "Details title",
             "detailsTable": "Details table",
             "quizWidget": "Quiz widget",
-            "moduleViewerWidget": "Module viewer",
-            "statsViewerWidget": "Statistics viewer",
-            "qrCodeWidget": "QR code",
             "detailsSidePanel": "Details side panel",
             "productTree": "Product tree",
             "usersByCountryChart": "Users by country chart",

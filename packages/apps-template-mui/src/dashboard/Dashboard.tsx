@@ -65,6 +65,8 @@ export interface DashboardMenuSlot {
     title?: string | null
     showTitle?: boolean
     items: DashboardMenuItem[]
+    overflowItems?: DashboardMenuItem[]
+    overflowLabel?: string | null
     activeSectionId?: string | null
     onSelectSection?: (sectionId: string) => void
     activeLinkedCollectionId?: string | null
@@ -183,8 +185,8 @@ export default function Dashboard(props: DashboardProps) {
                             mt: { xs: 8, md: 0 }
                         }}
                     >
-                        {layout.showHeader && <Header layoutConfig={props.layoutConfig} />}
-                        <MainGrid layoutConfig={props.layoutConfig} centerWidgets={centerWidgets} />
+                        {layout.showHeader && <Header layoutConfig={layout} />}
+                        <MainGrid layoutConfig={layout} centerWidgets={centerWidgets} />
                     </Stack>
                 </Box>
                 {showRightSideMenu && <SideMenuRight widgets={rightWidgets} menu={props.menu} menus={props.menus} />}

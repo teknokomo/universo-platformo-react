@@ -50,6 +50,7 @@ export {
     resolveLinkedCollectionRuntimeDashboardLayoutConfig
 } from './linkedCollectionRuntimeConfig'
 export { normalizeDashboardLayoutConfig } from './dashboardLayout'
+export { SAFE_MENU_HREF_RE, isSafeMenuHref, sanitizeMenuHref } from './menuHref'
 export {
     validateNumber,
     validateNumberOrThrow,

@@ -519,6 +519,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     const initialMenuSectionId = useMemo(() => {
         if (!appData?.menus?.length) return undefined
         const menu = appData.menus.find((item) => item.id === appData.activeMenuId) ?? appData.menus[0]
+        if (menu?.startSectionId) return menu.startSectionId
         const firstSectionItem = menu?.items?.find(
             (item) =>
                 item.isActive !== false &&
@@ -936,17 +937,22 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     const onSelectSection = onSelectLinkedCollection
 
     // ----- Derived: columns, fieldConfigs, rows -----
-    const columns = useMemo(
-        () =>
-            appData
-                ? toGridColumns(appData, {
-                      onMenuOpen: handleOpenMenu,
-                      actionsAriaLabel: t('app.actions', 'Actions'),
-                      cellRenderers
-                  })
-                : [],
-        [appData, t, handleOpenMenu, cellRenderers]
-    )
+    const columns = useMemo(() => {
+        if (!appData) return []
+
+        const permissions = appData.permissions
+        const canOpenRowActions =
+            permissions === undefined ||
+            permissions.editContent === true ||
+            permissions.createContent === true ||
+            permissions.deleteContent === true
+
+        return toGridColumns(appData, {
+            onMenuOpen: canOpenRowActions ? handleOpenMenu : undefined,
+            actionsAriaLabel: t('app.actions', 'Actions'),
+            cellRenderers
+        })
+    }, [appData, t, handleOpenMenu, cellRenderers])
 
     const rows = useMemo(() => (appData ? appData.rows : []), [appData])
 
@@ -977,6 +983,13 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                 title: menu.showTitle ? menu.title ?? null : null,
                 showTitle: Boolean(menu.showTitle),
                 items: mapMenuItems(menu.items, sections, activeSectionId),
+                overflowItems: mapMenuItems(menu.overflowItems ?? [], sections, activeSectionId),
+                overflowLabel:
+                    menu.overflowLabelKey === 'runtime.menu.more'
+                        ? t('runtime.menu.more', 'More')
+                        : menu.overflowLabelKey
+                        ? t(menu.overflowLabelKey, 'More')
+                        : null,
                 activeSectionId: activeSectionId ?? null,
                 onSelectSection,
                 activeLinkedCollectionId: activeLinkedCollectionId ?? null,
@@ -984,7 +997,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             }
         }
         return map
-    }, [appData, activeLinkedCollectionId, activeSectionId, onSelectLinkedCollection, onSelectSection])
+    }, [appData, activeLinkedCollectionId, activeSectionId, onSelectLinkedCollection, onSelectSection, t])
 
     // Menu slot for simple (non-widget) usage
     const menuSlot = useMemo<DashboardMenuSlot | undefined>(() => {
@@ -993,12 +1006,31 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             title: activeMenu?.showTitle ? activeMenu.title ?? null : null,
             showTitle: Boolean(activeMenu?.showTitle),
             items: dashboardMenuItems,
+            overflowItems: activeMenu
+                ? mapMenuItems(activeMenu.overflowItems ?? [], appData?.sections ?? appData?.linkedCollections ?? [], activeSectionId)
+                : [],
+            overflowLabel:
+                activeMenu?.overflowLabelKey === 'runtime.menu.more'
+                    ? t('runtime.menu.more', 'More')
+                    : activeMenu?.overflowLabelKey
+                    ? t(activeMenu.overflowLabelKey, 'More')
+                    : null,
             activeSectionId: activeSectionId ?? null,
             onSelectSection,
             activeLinkedCollectionId: activeLinkedCollectionId ?? null,
             onSelectLinkedCollection
         }
-    }, [dashboardMenuItems, activeMenu, activeLinkedCollectionId, activeSectionId, onSelectLinkedCollection, onSelectSection])
+    }, [
+        dashboardMenuItems,
+        activeMenu,
+        activeLinkedCollectionId,
+        activeSectionId,
+        appData?.linkedCollections,
+        appData?.sections,
+        onSelectLinkedCollection,
+        onSelectSection,
+        t
+    ])
 
     // Form initial data
     const formInitialData = useMemo(() => {

@@ -183,6 +183,18 @@
                 "showTitle": "Show title",
                 "titleField": "Title",
                 "autoShowAllCatalogs": "Show all catalogs automatically",
+                "maxPrimaryItems": "Primary menu item limit",
+                "maxPrimaryItemsHint": "Extra active menu items are moved into the overflow menu.",
+                "overflowLabelKey": "Overflow label i18n key",
+                "startPage": "Start page code",
+                "startPageHint": "Use a hub/catalog id or codename to choose the first opened section.",
+                "workspacePlacement": "Workspace menu placement",
+                "workspacePlacementHint": "Workspace navigation can stay in the main menu, move to overflow, or be hidden.",
+                "workspacePlacements": {
+                    "primary": "Primary menu",
+                    "overflow": "Overflow menu",
+                    "hidden": "Hidden"
+                },
                 "itemsTitle": "Menu items",
                 "addItem": "Add item",
                 "editItem": "Edit item",
@@ -201,7 +213,8 @@
                 "validation": {
                     "titleRequired": "Name is required.",
                     "catalogRequired": "Select a catalog for this menu item.",
-                    "hrefRequired": "Link URL is required for link items."
+                    "hrefRequired": "Link URL is required for link items.",
+                    "hrefUnsafeScheme": "This link type is not allowed. Use https, mailto, tel, #, or an internal path."
                 }
             },
             "catalogBehaviorTitleGlobal": "Default catalog runtime behavior",
@@ -263,9 +276,6 @@
                 "detailsTable": "Details table",
                 "columnsContainer": "Columns container",
                 "quizWidget": "Quiz widget",
-                "moduleViewerWidget": "Module viewer",
-                "statsViewerWidget": "Statistics viewer",
-                "qrCodeWidget": "QR code",
                 "detailsSidePanel": "Details side panel",
                 "productTree": "Product tree",
                 "usersByCountryChart": "Users by country chart",

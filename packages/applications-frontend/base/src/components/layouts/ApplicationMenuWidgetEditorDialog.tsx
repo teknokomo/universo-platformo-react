@@ -5,6 +5,7 @@ import {
     Button,
     FormControl,
     FormControlLabel,
+    FormHelperText,
     IconButton,
     InputLabel,
     MenuItem,
@@ -21,7 +22,7 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import type { MenuWidgetConfig, MenuWidgetConfigItem, MetahubMenuItemKind, VersionedLocalizedContent } from '@universo/types'
 import { EntityFormDialog, LocalizedInlineField } from '@universo/template-mui'
 import { METAHUB_MENU_ITEM_KINDS } from '@universo/types'
-import { buildVLC, createLocalizedContent, ensureVLC, generateUuidV7 } from '@universo/utils'
+import { buildVLC, createLocalizedContent, ensureVLC, generateUuidV7, isSafeMenuHref } from '@universo/utils'
 import { useTranslation } from 'react-i18next'
 
 import ApplicationLayoutSharedBehaviorFields, {
@@ -61,12 +62,31 @@ type ItemDraft = {
     isActive: boolean
 }
 
+type WorkspacePlacement = NonNullable<MenuWidgetConfig['workspacePlacement']>
+
+const WORKSPACE_PLACEMENTS: WorkspacePlacement[] = ['primary', 'overflow', 'hidden']
+
+const normalizeMaxPrimaryItems = (value: unknown): number | null => {
+    if (value == null || value === '') return null
+    const parsed = Number(value)
+    if (!Number.isFinite(parsed)) return null
+    return Math.max(1, Math.min(12, Math.trunc(parsed)))
+}
+
+const normalizeWorkspacePlacement = (value: unknown): WorkspacePlacement => {
+    return WORKSPACE_PLACEMENTS.includes(value as WorkspacePlacement) ? (value as WorkspacePlacement) : 'primary'
+}
+
 const makeDefaultConfig = (_uiLocale: string): MenuWidgetConfig => ({
     showTitle: true,
     title: buildVLC('', ''),
     autoShowAllCatalogs: false,
     bindToHub: false,
     boundHubId: null,
+    maxPrimaryItems: 6,
+    overflowLabelKey: 'runtime.menu.more',
+    startPage: null,
+    workspacePlacement: 'primary',
     items: [],
     sharedBehavior: undefined
 })
@@ -77,6 +97,11 @@ const normalizeMenuConfig = (config: MenuWidgetConfig | null | undefined, uiLoca
         ...makeDefaultConfig(uiLocale),
         ...config,
         title: ensureVLC(config.title, uiLocale) ?? createLocalizedContent(normalizeLocale(uiLocale), ''),
+        maxPrimaryItems: normalizeMaxPrimaryItems(config.maxPrimaryItems),
+        overflowLabelKey:
+            typeof config.overflowLabelKey === 'string' && config.overflowLabelKey.trim() ? config.overflowLabelKey.trim() : null,
+        startPage: typeof config.startPage === 'string' && config.startPage.trim() ? config.startPage.trim() : null,
+        workspacePlacement: normalizeWorkspacePlacement(config.workspacePlacement),
         items: Array.isArray(config.items) ? config.items.filter((item) => item.kind !== 'catalogs_all') : []
     }
 }
@@ -143,9 +168,21 @@ export default function ApplicationMenuWidgetEditorDialog({
             setSubmitError(t('layouts.menuEditor.validation.catalogRequired', 'Select a catalog for this menu item.'))
             return
         }
-        if (itemDraft.kind === 'link' && !itemDraft.href.trim()) {
-            setSubmitError(t('layouts.menuEditor.validation.hrefRequired', 'Link URL is required for link items.'))
-            return
+        if (itemDraft.kind === 'link') {
+            const trimmedHref = itemDraft.href.trim()
+            if (!trimmedHref) {
+                setSubmitError(t('layouts.menuEditor.validation.hrefRequired', 'Link URL is required for link items.'))
+                return
+            }
+            if (!isSafeMenuHref(trimmedHref)) {
+                setSubmitError(
+                    t(
+                        'layouts.menuEditor.validation.hrefUnsafeScheme',
+                        'This link type is not allowed. Use https, mailto, tel, #, or an internal path.'
+                    )
+                )
+                return
+            }
         }
 
         const nextItem: MenuWidgetConfigItem = {
@@ -186,7 +223,23 @@ export default function ApplicationMenuWidgetEditorDialog({
                 descriptionLabel={t('common:fields.description', 'Description')}
                 hideDefaultFields
                 onClose={onCancel}
-                onSave={() => onSave(setSharedBehaviorInWidgetConfig(draft, sharedBehaviorValue) as unknown as MenuWidgetConfig)}
+                onSave={() =>
+                    onSave(
+                        setSharedBehaviorInWidgetConfig(
+                            {
+                                ...draft,
+                                maxPrimaryItems: normalizeMaxPrimaryItems(draft.maxPrimaryItems),
+                                overflowLabelKey:
+                                    typeof draft.overflowLabelKey === 'string' && draft.overflowLabelKey.trim()
+                                        ? draft.overflowLabelKey.trim()
+                                        : null,
+                                startPage: typeof draft.startPage === 'string' && draft.startPage.trim() ? draft.startPage.trim() : null,
+                                workspacePlacement: normalizeWorkspacePlacement(draft.workspacePlacement)
+                            },
+                            sharedBehaviorValue
+                        ) as unknown as MenuWidgetConfig
+                    )
+                }
                 saveButtonText={t('common:save', 'Save')}
                 cancelButtonText={t('common:cancel', 'Cancel')}
                 extraFields={() => (
@@ -216,6 +269,64 @@ export default function ApplicationMenuWidgetEditorDialog({
                             }
                             label={t('layouts.menuEditor.autoShowAllCatalogs', 'Show all catalogs automatically')}
                         />
+                        <TextField
+                            label={t('layouts.menuEditor.maxPrimaryItems', 'Primary menu item limit')}
+                            type='number'
+                            value={draft.maxPrimaryItems ?? ''}
+                            onChange={(event) =>
+                                setDraft((current) => ({ ...current, maxPrimaryItems: normalizeMaxPrimaryItems(event.target.value) }))
+                            }
+                            inputProps={{ min: 1, max: 12, step: 1 }}
+                            fullWidth
+                            helperText={t(
+                                'layouts.menuEditor.maxPrimaryItemsHint',
+                                'Extra active menu items are moved into the overflow menu.'
+                            )}
+                        />
+                        <TextField
+                            label={t('layouts.menuEditor.overflowLabelKey', 'Overflow label i18n key')}
+                            value={draft.overflowLabelKey ?? ''}
+                            onChange={(event) =>
+                                setDraft((current) => ({ ...current, overflowLabelKey: event.target.value.trim() || null }))
+                            }
+                            fullWidth
+                            placeholder='runtime.menu.more'
+                        />
+                        <TextField
+                            label={t('layouts.menuEditor.startPage', 'Start page code')}
+                            value={draft.startPage ?? ''}
+                            onChange={(event) => setDraft((current) => ({ ...current, startPage: event.target.value.trim() || null }))}
+                            fullWidth
+                            helperText={t(
+                                'layouts.menuEditor.startPageHint',
+                                'Use a hub/catalog id or codename to choose the first opened section.'
+                            )}
+                        />
+                        <FormControl fullWidth>
+                            <InputLabel>{t('layouts.menuEditor.workspacePlacement', 'Workspace menu placement')}</InputLabel>
+                            <Select
+                                value={draft.workspacePlacement ?? 'primary'}
+                                label={t('layouts.menuEditor.workspacePlacement', 'Workspace menu placement')}
+                                onChange={(event) =>
+                                    setDraft((current) => ({
+                                        ...current,
+                                        workspacePlacement: normalizeWorkspacePlacement(event.target.value)
+                                    }))
+                                }
+                            >
+                                {WORKSPACE_PLACEMENTS.map((placement) => (
+                                    <MenuItem key={placement} value={placement}>
+                                        {t(`layouts.menuEditor.workspacePlacements.${placement}`, placement)}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                            <FormHelperText>
+                                {t(
+                                    'layouts.menuEditor.workspacePlacementHint',
+                                    'Workspace navigation can stay in the main menu, move to overflow, or be hidden.'
+                                )}
+                            </FormHelperText>
+                        </FormControl>
                         <Stack spacing={1}>
                             <Typography variant='subtitle2'>{t('layouts.menuEditor.itemsTitle', 'Menu items')}</Typography>
                             {draft.items.map((item, index) => (

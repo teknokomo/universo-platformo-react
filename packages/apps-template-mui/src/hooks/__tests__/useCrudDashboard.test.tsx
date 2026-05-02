@@ -13,7 +13,10 @@ vi.mock('notistack', () => ({
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
-        t: (_key: string, options?: { defaultValue?: string; message?: string }) => {
+        t: (_key: string, options?: string | { defaultValue?: string; message?: string }) => {
+            if (typeof options === 'string') {
+                return options
+            }
             if (options?.defaultValue && options?.message) {
                 return options.defaultValue.replace('{{message}}', options.message)
             }
@@ -173,7 +176,17 @@ describe('useCrudDashboard optimistic mutations', () => {
                                 sectionId: 'catalog-1',
                                 isActive: true
                             }
-                        ]
+                        ],
+                        overflowItems: [
+                            {
+                                id: 'item-2',
+                                kind: 'link',
+                                title: 'Knowledge',
+                                href: '/knowledge',
+                                isActive: true
+                            }
+                        ],
+                        overflowLabelKey: 'runtime.menu.more'
                     }
                 ],
                 activeMenuId: 'menu-1'
@@ -194,8 +207,32 @@ describe('useCrudDashboard optimistic mutations', () => {
         })
         expect(getState().menuSlot).toMatchObject({
             activeSectionId: 'catalog-1',
-            activeLinkedCollectionId: 'catalog-1'
+            activeLinkedCollectionId: 'catalog-1',
+            overflowLabel: 'More',
+            overflowItems: [expect.objectContaining({ id: 'item-2', kind: 'link', href: '/knowledge' })]
         })
+    })
+
+    it('omits row action columns when runtime permissions make the section read-only', async () => {
+        const adapter = createAdapter({
+            fetchList: vi.fn().mockResolvedValue({
+                ...createAppData(),
+                permissions: {
+                    manageMembers: false,
+                    manageApplication: false,
+                    createContent: false,
+                    editContent: false,
+                    deleteContent: false
+                }
+            })
+        })
+        const { getState } = renderCrudDashboard(adapter)
+
+        await waitFor(() => {
+            expect(getState().appData).toBeDefined()
+        })
+
+        expect(getState().columns.map((column) => column.field)).toEqual(['name'])
     })
 
     it('adds a pending create row immediately and closes the form right away', async () => {

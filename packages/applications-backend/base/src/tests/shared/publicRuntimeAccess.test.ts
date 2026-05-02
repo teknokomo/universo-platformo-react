@@ -1,4 +1,5 @@
 import {
+    listActivePublicWorkspaceIds,
     loadPublicRuntimeRecord,
     loadPublicTableRows,
     resolvePublicRuntimeObject,
@@ -28,6 +29,21 @@ describe('publicRuntimeAccess helpers', () => {
         expect(result).toBeNull()
         expect(status).toHaveBeenCalledWith(403)
         expect(json).toHaveBeenCalledWith({ error: 'Application does not allow public runtime access' })
+    })
+
+    it('only exposes the deterministic public shared workspace to guest runtime helpers', async () => {
+        const { executor } = createMockDbExecutor()
+        const publicWorkspaceId = '018f8a78-7b8f-7c1d-a111-222233334441'
+
+        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+            expect(sql).toContain('AND codename = $1')
+            expect(sql).toContain('LIMIT 1')
+            expect(sql).not.toContain('CASE WHEN codename')
+            expect(params).toEqual(['__public_shared'])
+            return [{ id: publicWorkspaceId }]
+        })
+
+        await expect(listActivePublicWorkspaceIds(executor, schemaName)).resolves.toEqual([publicWorkspaceId])
     })
 
     it('loads a public runtime object definition and exposes top-level attributes', async () => {

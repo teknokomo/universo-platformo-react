@@ -16,6 +16,8 @@ import { Link } from 'react-router-dom'
 import DashboardSidebarContext from '../context/DashboardSidebarContext'
 import { MINI_DRAWER_WIDTH } from '../constants'
 
+const noopPageItemClick = () => undefined
+
 export interface DashboardSidebarPageItemProps {
     id: string
     title: string
@@ -83,7 +85,7 @@ export default function DashboardSidebarPageItem({
 
     const miniNestedNavigationSidebarContextValue = React.useMemo(() => {
         return {
-            onPageItemClick: onPageItemClick ?? (() => {}),
+            onPageItemClick: onPageItemClick ?? noopPageItemClick,
             mini: false,
             fullyExpanded: true,
             fullyCollapsed: false,

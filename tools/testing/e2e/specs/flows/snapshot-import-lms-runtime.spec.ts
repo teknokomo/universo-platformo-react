@@ -10,7 +10,6 @@ import {
     listLayouts,
     listApplicationWorkspaces,
     listLayoutZoneWidgets,
-    listMetahubScripts,
     syncApplicationSchema
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
@@ -23,15 +22,11 @@ import {
     LMS_DEMO_QUIZ,
     LMS_DEMO_QUIZZES,
     LMS_DEMO_QUIZ_RESPONSES,
-    LMS_DEMO_STATS,
     LMS_DEMO_STUDENTS,
     LMS_FIXTURE_FILENAME,
-    LMS_MODULE_VIEW,
-    LMS_MODULE_SCRIPT_CODENAME,
     LMS_PUBLICATION,
     LMS_SAMPLE_LINK,
-    LMS_SECONDARY_LINK,
-    LMS_STATS_SCRIPT_CODENAME
+    LMS_SECONDARY_LINK
 } from '../../support/lmsFixtureContract'
 import {
     waitForApplicationCatalogId,
@@ -159,7 +154,8 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await expect(dialog.getByText(LMS_FIXTURE_FILENAME)).toBeVisible()
 
         const importResponsePromise = page.waitForResponse(
-            (response) => response.request().method() === 'POST' && response.url().endsWith('/api/v1/metahubs/import'),
+            (response) =>
+                response.request().method() === 'POST' && response.url().endsWith('/api/v1/metahubs/import') && response.status() === 201,
             { timeout: 60_000 }
         )
 
@@ -177,7 +173,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await recordCreatedMetahub({
             id: importedId,
             name: fixture.metahubName,
-            codename: 'orbital-academy-lms-imported'
+            codename: 'learning-portal-lms-imported'
         })
         await recordCreatedPublication({
             id: importedPublicationId,
@@ -188,24 +184,16 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await expect(page.getByText(fixture.metahubName, { exact: true }).first()).toBeVisible({ timeout: 15_000 })
 
         const layoutId = await waitForLayoutId(api, importedId)
-        const [scriptsPayload, layoutWidgets] = await Promise.all([
-            listMetahubScripts(api, importedId, { attachedToKind: 'metahub', onlyActive: true }),
-            listLayoutZoneWidgets(api, importedId, layoutId)
-        ])
+        const layoutWidgets = await listLayoutZoneWidgets(api, importedId, layoutId)
+        const widgetKeys = new Set((layoutWidgets.items ?? []).map((item: Record<string, any>) => item?.widgetKey))
+        expect(widgetKeys.has('moduleViewerWidget')).toBe(false)
+        expect(widgetKeys.has('statsViewerWidget')).toBe(false)
+        expect(widgetKeys.has('qrCodeWidget')).toBe(false)
 
-        const importedModuleScript = (scriptsPayload.items ?? []).find(
-            (item: Record<string, any>) => item?.codename?.locales?.en?.content === LMS_MODULE_SCRIPT_CODENAME
-        )
-        const importedStatsScript = (scriptsPayload.items ?? []).find(
-            (item: Record<string, any>) => item?.codename?.locales?.en?.content === LMS_STATS_SCRIPT_CODENAME
-        )
-        expect(importedModuleScript?.attachedToKind).toBe('metahub')
-        expect(importedModuleScript?.attachedToId ?? null).toBeNull()
-        expect(importedStatsScript?.attachedToKind).toBe('metahub')
-        expect(importedStatsScript?.attachedToId ?? null).toBeNull()
-
-        const qrWidgetBinding = (layoutWidgets.items ?? []).find((item: Record<string, any>) => item?.widgetKey === 'qrCodeWidget')
-        expect(qrWidgetBinding?.config?.publicLinkSlug).toBe(LMS_SAMPLE_LINK.slug)
+        const menuWidget = (layoutWidgets.items ?? []).find((item: Record<string, any>) => item?.widgetKey === 'menuWidget')
+        expect(menuWidget?.config?.autoShowAllCatalogs).toBe(false)
+        expect(menuWidget?.config?.maxPrimaryItems).toBe(6)
+        expect(menuWidget?.config?.startPage).toBe('Modules')
 
         const linkedApplication = await createPublicationLinkedApplication(api, importedId, importedPublicationId, {
             name: LMS_PUBLICATION.applicationName,
@@ -236,30 +224,44 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await applyBrowserPreferences(page, { language: 'en' })
         await page.goto(`/a/${applicationId}`)
 
-        const expectedPublicLinkUrl = `${new URL(page.url()).origin}/public/a/${applicationId}/links/${LMS_SAMPLE_LINK.slug}`
-
-        await expect(page.getByText(LMS_MODULE_VIEW.en.title)).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByText(LMS_MODULE_VIEW.en.items[0].itemContent)).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByText(LMS_DEMO_STATS.en.title)).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByText(LMS_DEMO_STATS.en.description)).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByText('Module access QR')).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByRole('button', { name: 'Copy link' })).toBeVisible({ timeout: 30_000 })
-        await expect(page.locator('body')).toContainText(expectedPublicLinkUrl, { timeout: 30_000 })
+        await expect(page.getByRole('button', { name: 'Learning' })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText('Catalog', { exact: true })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText('Modules', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByRole('link', { name: 'Workspaces' })).toHaveCount(1)
+        await expect(page.getByText('Module access QR')).toHaveCount(0)
+        await expect(page.getByText('Learning portal stats')).toHaveCount(0)
+        await expect(page.getByText('Dashboard preview of the canonical learning lesson')).toHaveCount(0)
+        await expect(page.getByRole('button', { name: 'Copy link' })).toHaveCount(0)
+        await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
         await page.screenshot({ path: testInfo.outputPath('lms-dashboard-en.png'), fullPage: true })
+
+        await page.getByRole('link', { name: 'Knowledge' }).click()
+        await expect(page.getByText('Quizzes', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
+        await page.getByRole('link', { name: 'Development' }).click()
+        await expect(page.getByText('Classes', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
+        await page.getByRole('link', { name: 'Reports' }).click()
+        await expect(page.getByText('Module Progress', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
 
         await applyBrowserPreferences(page, { language: 'ru' })
         await page.goto(`/a/${applicationId}`)
 
-        await expect(page.getByText(LMS_MODULE_VIEW.ru.title)).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByText(LMS_MODULE_VIEW.ru.items[0].itemContent)).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByText(LMS_DEMO_STATS.ru.title)).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByRole('button', { name: 'Обучение' })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText('Каталог', { exact: true })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText('Модули', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByRole('link', { name: 'Рабочие пространства' })).toHaveCount(1)
+        await expect(page.getByText('Module access QR')).toHaveCount(0)
+        await expect(page.getByText('Статистика учебного портала')).toHaveCount(0)
+        await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
         await page.screenshot({ path: testInfo.outputPath('lms-dashboard-ru.png'), fullPage: true })
 
         await applyBrowserPreferences(page, { language: 'en' })
         await page.goto(`/public/a/${applicationId}/links/${LMS_SAMPLE_LINK.slug}`)
 
         await expect(page.getByLabel('Your name')).toBeVisible({ timeout: 30_000 })
-        await page.getByLabel('Your name').fill('Orbital guest learner')
+        await page.getByLabel('Your name').fill('Learning guest learner')
         await page.getByRole('button', { name: 'Start learning' }).click()
 
         await expect(page.getByText(LMS_DEMO_MODULE.title.en)).toBeVisible({ timeout: 30_000 })

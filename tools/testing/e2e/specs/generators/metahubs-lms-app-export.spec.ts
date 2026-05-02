@@ -5,8 +5,7 @@ import {
     createLoggedInApiContext,
     createMetahub,
     createRecord,
-    disposeApiContext,
-    sendWithCsrf
+    disposeApiContext
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { repoRoot } from '../../support/env/load-e2e-env.mjs'
@@ -25,11 +24,7 @@ import {
     LMS_DEMO_QUIZ_RESPONSES,
     LMS_DEMO_QUIZZES,
     LMS_DEMO_STUDENTS,
-    LMS_FIXTURE_FILENAME,
-    LMS_MODULE_SCRIPT_CODENAME,
-    LMS_MODULE_WIDGET_SOURCE,
-    LMS_STATS_SCRIPT_CODENAME,
-    LMS_STATS_WIDGET_SOURCE
+    LMS_FIXTURE_FILENAME
 } from '../../support/lmsFixtureContract'
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
@@ -48,51 +43,6 @@ async function apiGet(api: ApiContext, urlPath: string) {
             ...(cookieHeader ? { Cookie: cookieHeader } : {})
         }
     })
-}
-
-async function expectJsonResponse(response: Response, label: string) {
-    const text = await response.text()
-    const payload = text ? JSON.parse(text) : null
-
-    if (!response.ok) {
-        throw new Error(`${label} failed with ${response.status} ${response.statusText}: ${text}`)
-    }
-
-    return payload
-}
-
-async function createCanonicalLmsScripts(api: ApiContext, metahubId: string) {
-    await expectJsonResponse(
-        await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahubId}/scripts`, {
-            codename: LMS_MODULE_SCRIPT_CODENAME,
-            name: 'LMS module viewer',
-            description: 'Canonical LMS module widget script for snapshot export',
-            attachedToKind: 'metahub',
-            attachedToId: null,
-            moduleRole: 'widget',
-            sourceKind: 'embedded',
-            capabilities: ['rpc.client'],
-            sourceCode: LMS_MODULE_WIDGET_SOURCE,
-            isActive: true
-        }),
-        'Creating LMS module viewer script'
-    )
-
-    await expectJsonResponse(
-        await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahubId}/scripts`, {
-            codename: LMS_STATS_SCRIPT_CODENAME,
-            name: 'LMS stats viewer',
-            description: 'Canonical LMS stats widget script for snapshot export',
-            attachedToKind: 'metahub',
-            attachedToId: null,
-            moduleRole: 'widget',
-            sourceKind: 'embedded',
-            capabilities: ['rpc.client'],
-            sourceCode: LMS_STATS_WIDGET_SOURCE,
-            isActive: true
-        }),
-        'Creating LMS stats viewer script'
-    )
 }
 
 async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
@@ -306,7 +256,6 @@ test.describe('Metahubs LMS App Export', () => {
             codename: LMS_CANONICAL_METAHUB.codename.en
         })
 
-        await createCanonicalLmsScripts(api, metahub.id)
         await seedCanonicalLmsRecords(api, metahub.id)
 
         const exportResponse = await apiGet(api, `/api/v1/metahub/${metahub.id}/export`)

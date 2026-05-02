@@ -23,7 +23,12 @@ const errorHandler = (err: Error & { statusCode?: number; status?: number }, _re
 
 const buildDataSource = (handler?: QueryHandler) => {
     const { executor, txExecutor } = createMockDbExecutor()
+    let generatedUuidIndex = 0
     const respond = async (sql: string, params: unknown[] = [], scope: QueryScope) => {
+        if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
+            generatedUuidIndex += 1
+            return [{ id: `018f8a78-7b8f-7c1d-a111-22223333${String(4000 + generatedUuidIndex).padStart(4, '0')}` }]
+        }
         const override = handler?.(sql, params, scope)
         if (override !== undefined) {
             return override

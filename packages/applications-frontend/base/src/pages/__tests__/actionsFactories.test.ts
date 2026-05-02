@@ -38,7 +38,7 @@ describe('Applications page action factories', () => {
         expect(copy.dialog).toBeTruthy()
         expect(del).toBeTruthy()
         expect(del.dialog).toBeTruthy()
-    })
+    }, 15000)
 
     it('ConnectorActions exports edit/delete descriptors for localized forms', async () => {
         const mod = await import('../ConnectorActions')

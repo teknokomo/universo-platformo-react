@@ -33,6 +33,7 @@ Runtime dashboard template for published applications in the Universo Platformo 
 - **Shared renderer**: `renderWidget()` maps widget keys to concrete React components
 - **Supported widgets**: `brandSelector`, `divider`, `menuWidget`, `spacer`, `infoCard`, `userProfile`, `productTree`, `usersByCountryChart`, `detailsTable`, `columnsContainer`
 - **Menu resolution**: 2-level fallback — widget ID → menus map → legacy single menu prop
+- **Curated menu contract**: Runtime menus support primary item limits, overflow items, start-page selection, and workspace entry placement without requiring LMS-only components.
 
 ### 📝 CRUD Components
 - **FormDialog**: Generic modal form with configurable fields, validation rules, and Zod integration
@@ -45,6 +46,7 @@ Runtime dashboard template for published applications in the Universo Platformo 
 - **WorkspaceSwitcher**: Header/mobile quick switch for the user's current workspace.
 - **RuntimeWorkspacesPage**: Full workspace management section rendered inside the existing dashboard details content slot.
 - **Workspace APIs**: Typed helpers and query keys for paginated workspace lists, member lists, default switching, shared workspace creation, email-based member invitation, and member removal.
+- **Navigation placement**: Published app menus can keep the workspace entry in the primary menu, move it to overflow, or hide it while preserving the standalone switcher.
 
 ### 🔌 Route Factory
 - **createAppRuntimeRoute()**: Creates a react-router-dom v6 route for application runtime view

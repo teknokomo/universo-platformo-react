@@ -1,9 +1,11 @@
 import Avatar from '@mui/material/Avatar'
 import Chip from '@mui/material/Chip'
-import { GridCellParams, GridRowsProp, GridColDef } from '@mui/x-data-grid'
+import type { GridCellParams, GridRowsProp, GridColDef } from '@mui/x-data-grid'
 import { SparkLineChart } from '@mui/x-charts/SparkLineChart'
 
 type SparkLineData = number[]
+type PageStatus = 'Online' | 'Offline'
+type AvatarCellValue = { name: string; color: string }
 
 function getDaysInMonth(month: number, year: number) {
     const date = new Date(year, month, 0)
@@ -20,7 +22,7 @@ function getDaysInMonth(month: number, year: number) {
     return days
 }
 
-function renderSparklineCell(params: GridCellParams<SparkLineData, any>) {
+function renderSparklineCell(params: GridCellParams<SparkLineData>) {
     const data = getDaysInMonth(4, 2024)
     const { value, colDef } = params
 
@@ -47,8 +49,8 @@ function renderSparklineCell(params: GridCellParams<SparkLineData, any>) {
     )
 }
 
-function renderStatus(status: 'Online' | 'Offline') {
-    const colors: { [index: string]: 'success' | 'default' } = {
+function renderStatus(status: PageStatus) {
+    const colors: Record<PageStatus, 'success' | 'default'> = {
         Online: 'success',
         Offline: 'default'
     }
@@ -56,7 +58,7 @@ function renderStatus(status: 'Online' | 'Offline') {
     return <Chip label={status} color={colors[status]} size='small' />
 }
 
-export function renderAvatar(params: GridCellParams<{ name: string; color: string }, any, any>) {
+export function renderAvatar(params: GridCellParams<AvatarCellValue>) {
     if (params.value == null) {
         return ''
     }
@@ -82,7 +84,7 @@ export const columns: GridColDef[] = [
         headerName: 'Status',
         flex: 0.5,
         minWidth: 80,
-        renderCell: (params) => renderStatus(params.value as any)
+        renderCell: (params) => renderStatus(params.value as PageStatus)
     },
     {
         field: 'users',

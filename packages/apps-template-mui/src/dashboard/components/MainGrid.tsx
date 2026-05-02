@@ -4,6 +4,7 @@ import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import type { GridColDef } from '@mui/x-data-grid'
 import { useTranslation } from 'react-i18next'
+import { defaultDashboardLayoutConfig } from '@universo/types'
 import Copyright from '../internals/components/Copyright'
 import CustomizedDataGrid from './CustomizedDataGrid'
 import HighlightedCard from './HighlightedCard'
@@ -26,6 +27,8 @@ import {
     type PaginationActions,
     useViewPreference
 } from '@universo/template-mui'
+
+const noopSetSort = () => undefined
 
 const data: StatCardProps[] = [
     {
@@ -252,7 +255,7 @@ function EnhancedDetailsSection({ layoutConfig, showTitle = true }: { layoutConf
             details?.onPaginationModelChange?.({ page: Math.max(0, page - 1), pageSize })
         },
         setSearch: (s: string) => setSearch(s),
-        setSort: () => {},
+        setSort: noopSetSort,
         setPageSize: (size: number) => {
             if (isClientFiltered) {
                 setClientPage(0)
@@ -382,14 +385,14 @@ export default function MainGrid({
     centerWidgets?: ZoneWidgetItem[]
 }) {
     const details = useDashboardDetails()
-    const showOverviewTitle = layoutConfig?.showOverviewTitle ?? true
-    const showOverviewCards = layoutConfig?.showOverviewCards ?? true
-    const showSessionsChart = layoutConfig?.showSessionsChart ?? true
-    const showPageViewsChart = layoutConfig?.showPageViewsChart ?? true
-    const showDetailsTitle = layoutConfig?.showDetailsTitle ?? true
-    const showDetailsTable = layoutConfig?.showDetailsTable ?? true
-    const showColumnsContainer = layoutConfig?.showColumnsContainer ?? false
-    const showFooter = layoutConfig?.showFooter ?? true
+    const showOverviewTitle = layoutConfig?.showOverviewTitle ?? defaultDashboardLayoutConfig.showOverviewTitle
+    const showOverviewCards = layoutConfig?.showOverviewCards ?? defaultDashboardLayoutConfig.showOverviewCards
+    const showSessionsChart = layoutConfig?.showSessionsChart ?? defaultDashboardLayoutConfig.showSessionsChart
+    const showPageViewsChart = layoutConfig?.showPageViewsChart ?? defaultDashboardLayoutConfig.showPageViewsChart
+    const showDetailsTitle = layoutConfig?.showDetailsTitle ?? defaultDashboardLayoutConfig.showDetailsTitle
+    const showDetailsTable = layoutConfig?.showDetailsTable ?? defaultDashboardLayoutConfig.showDetailsTable
+    const showColumnsContainer = layoutConfig?.showColumnsContainer ?? defaultDashboardLayoutConfig.showColumnsContainer
+    const showFooter = layoutConfig?.showFooter ?? defaultDashboardLayoutConfig.showFooter
     const hasCustomDetailsContent = Boolean(details?.content)
 
     // Find all columnsContainer widgets in center zone (data-driven rendering, supports multiple)

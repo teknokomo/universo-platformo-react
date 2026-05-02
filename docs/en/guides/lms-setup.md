@@ -4,7 +4,7 @@ description: Step-by-step setup flow for shipping the canonical LMS metahub, pub
 
 # LMS Setup
 
-This guide describes the supported workflow for the built-in LMS template and its canonical Orbital Academy fixture.
+This guide describes the supported workflow for the built-in LMS template and its canonical Learning Portal fixture.
 
 ## 1. Create Or Regenerate The Canonical Fixture
 
@@ -16,7 +16,7 @@ This guide describes the supported workflow for the built-in LMS template and it
 
 ![Seeded LMS runtime dashboard](../.gitbook/assets/quiz-tutorial/runtime-quiz.png)
 
-The canonical fixture ships a bilingual Orbital Academy dataset with these entities:
+The canonical fixture ships a bilingual Learning Portal dataset with these entities:
 
 - `Classes`
 - `Students`
@@ -27,16 +27,19 @@ The canonical fixture ships a bilingual Orbital Academy dataset with these entit
 - `AccessLinks`
 - `Enrollments`
 
-It also ships the LMS enumerations, the default dashboard widgets, and multiple guest-access routes.
+It also ships the LMS enumerations, a curated working runtime menu, workspace-aware seeded rows, and multiple guest-access routes.
 
-## 3. Keep The Widget Script Contract Stable
+## 3. Keep The Product Fixture Contract Stable
 
-The imported LMS layout expects these canonical metahub widget scripts:
+The imported LMS layout must stay free of removed global dashboard widgets and removed metahub widget scripts:
 
-- `lms-module-viewer`
-- `lms-stats-viewer`
+- no `moduleViewerWidget`
+- no `statsViewerWidget`
+- no `qrCodeWidget`
+- no `lms-module-viewer` script
+- no `lms-stats-viewer` script
 
-Do not hand-edit exported snapshot script payloads; update the generator and contract, then re-export.
+Do not hand-edit exported snapshot payloads. Update the generator or fixture contract, then re-export or mechanically rewrite the snapshot with a recomputed `snapshotHash`.
 
 ## 4. Publish The Imported Or Generated Metahub
 
@@ -52,7 +55,7 @@ After creation, run application schema sync so the linked app can clone the seed
 
 ## 6. Do Not Manually Rebuild The Demo Rows
 
-The shipped fixture already contains the classes, modules, quizzes, access links, progress rows, and widget content required for the demo.
+The shipped fixture already contains the classes, modules, quizzes, access links, progress rows, and workspace seed data required for the MVP scenario.
 
 If the dataset must change, update the generator and fixture contract first instead of reseeding runtime tables by hand.
 
@@ -60,7 +63,7 @@ If the dataset must change, update the generator and fixture contract first inst
 
 ![LMS guest result screen](../.gitbook/assets/quiz-tutorial/runtime-quiz.png)
 
-1. Open `/a/:applicationId` and verify the authenticated EN and RU dashboard widgets.
+1. Open `/a/:applicationId` and verify that EN and RU authenticated runtime starts from the `Modules` section, has no duplicate `Workspaces` entry, and every visible menu item either opens a real section or a real route.
 2. Open `/public/a/:applicationId/links/:slug` and verify the EN and RU guest-learning flows.
 
 ## Related Reading

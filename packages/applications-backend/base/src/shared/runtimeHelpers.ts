@@ -1,7 +1,11 @@
 import type { DbExecutor } from '@universo/utils'
 import type { ApplicationLifecycleContract } from '@universo/types'
 import { getVLCString } from '@universo/utils/vlc'
-import { resolveApplicationLifecycleContractFromConfig, resolvePlatformSystemFieldsContractFromConfig } from '@universo/utils'
+import {
+    createLocalizedContent,
+    resolveApplicationLifecycleContractFromConfig,
+    resolvePlatformSystemFieldsContractFromConfig
+} from '@universo/utils'
 import type { Request, Response } from 'express'
 import type { ApplicationRole, RolePermission } from '../routes/guards'
 import { ensureApplicationAccess, ROLE_PERMISSIONS } from '../routes/guards'
@@ -355,7 +359,7 @@ export const coerceRuntimeValue = (value: unknown, dataType: string, validationR
         case 'STRING': {
             const isVLC = Boolean(validationRules?.versioned) || Boolean(validationRules?.localized)
             if (isVLC) {
-                if (typeof value === 'string') return value
+                if (typeof value === 'string') return createLocalizedContent('en', value)
                 if (typeof value === 'object') {
                     const vlc = value as Record<string, unknown>
                     if (!vlc.locales || typeof vlc.locales !== 'object') {
@@ -386,6 +390,43 @@ export const coerceRuntimeValue = (value: unknown, dataType: string, validationR
         default:
             throw new Error(`Unsupported data type: ${dataType}`)
     }
+}
+
+export type RuntimeTableChildAttributeMeta = {
+    column_name: string
+    data_type?: string | null
+    validation_rules?: Record<string, unknown>
+}
+
+export const normalizeRuntimeTableChildInsertValue = (
+    value: unknown,
+    dataType: string | null | undefined,
+    validationRules?: Record<string, unknown>
+): unknown => {
+    if (value === undefined || value === null) {
+        return null
+    }
+
+    if (dataType === 'JSON') {
+        return typeof value === 'string' ? value : JSON.stringify(value)
+    }
+
+    if (
+        dataType === 'STRING' &&
+        typeof value === 'object' &&
+        (validationRules?.localized === true || validationRules?.versioned === true)
+    ) {
+        return JSON.stringify(value)
+    }
+
+    return value
+}
+
+export const normalizeRuntimeTableChildInsertValueByMeta = (
+    value: unknown,
+    childAttrMeta?: RuntimeTableChildAttributeMeta | null
+): unknown => {
+    return normalizeRuntimeTableChildInsertValue(value, childAttrMeta?.data_type, childAttrMeta?.validation_rules)
 }
 
 // ---------------------------------------------------------------------------

@@ -32,6 +32,8 @@ import {
     buildRuntimeSoftDeleteSetClause,
     RUNTIME_WRITABLE_TYPES,
     coerceRuntimeValue,
+    normalizeRuntimeTableChildInsertValue,
+    normalizeRuntimeTableChildInsertValueByMeta,
     getTableRowLimits,
     getTableRowCountError,
     getEnumPresentationMode,
@@ -45,6 +47,7 @@ import {
     ensureRuntimePermission,
     type RuntimeDataType,
     type RuntimeRefOption,
+    type RuntimeTableChildAttributeMeta,
     type SetConstantUiConfig
 } from '../shared/runtimeHelpers'
 
@@ -103,40 +106,6 @@ const isRuntimeEnumerationKind = (kind: unknown): kind is string =>
 const isRuntimeSetKind = (kind: unknown): kind is string => typeof kind === 'string' && resolveRuntimeStandardKind(kind) === 'set'
 
 const isRuntimeHubKind = (kind: unknown): kind is string => typeof kind === 'string' && resolveRuntimeStandardKind(kind) === 'hub'
-
-type RuntimeTableChildAttributeMeta = {
-    column_name: string
-    data_type?: string | null
-    validation_rules?: Record<string, unknown>
-}
-
-export const normalizeRuntimeTableChildInsertValue = (
-    value: unknown,
-    dataType: string | null | undefined,
-    validationRules?: Record<string, unknown>
-): unknown => {
-    if (value === undefined || value === null) {
-        return null
-    }
-
-    if (dataType === 'JSON') {
-        return typeof value === 'string' ? value : JSON.stringify(value)
-    }
-
-    if (
-        dataType === 'STRING' &&
-        typeof value === 'object' &&
-        (validationRules?.localized === true || validationRules?.versioned === true)
-    ) {
-        return JSON.stringify(value)
-    }
-
-    return value
-}
-
-const normalizeRuntimeTableChildInsertValueByMeta = (value: unknown, childAttrMeta?: RuntimeTableChildAttributeMeta | null): unknown => {
-    return normalizeRuntimeTableChildInsertValue(value, childAttrMeta?.data_type, childAttrMeta?.validation_rules)
-}
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -290,6 +259,54 @@ export const resolvePreferredLinkedCollectionIdFromGlobalMenu = async (params: {
 }) => {
     const { manager, schemaName, schemaIdent } = params
 
+    const resolveLinkedCollectionByToken = async (token: string): Promise<string | null> => {
+        const normalized = token.trim()
+        if (!normalized) return null
+
+        const rows = (await manager.query(
+            `
+        SELECT id
+        FROM ${schemaIdent}._app_objects
+        WHERE ${RUNTIME_CATALOG_FILTER_SQL}
+          AND _upl_deleted = false
+          AND _app_deleted = false
+          AND (id::text = $1 OR ${runtimeCodenameTextSql('codename')} = $1)
+        ORDER BY CASE
+                   WHEN id::text = $1 THEN 0
+                   WHEN ${runtimeCodenameTextSql('codename')} = $1 THEN 1
+                   ELSE 2
+                 END,
+                 ${runtimeCodenameTextSql('codename')} ASC,
+                 id ASC
+        LIMIT 1
+      `,
+            [normalized]
+        )) as Array<{ id: string }>
+
+        return rows[0]?.id ?? null
+    }
+
+    const resolveStartPageTokenFromMenuConfig = (config: Record<string, unknown>): string | null => {
+        const startPage = typeof config.startPage === 'string' ? config.startPage.trim() : ''
+        if (!startPage) return null
+
+        const items = Array.isArray(config.items) ? config.items : []
+        const matchedItem = items
+            .map((item) => (item && typeof item === 'object' ? (item as Record<string, unknown>) : null))
+            .find((item) => item?.id === startPage)
+
+        if (matchedItem) {
+            for (const key of ['catalogId', 'sectionId', 'linkedCollectionId']) {
+                const value = matchedItem[key]
+                if (typeof value === 'string' && value.trim()) {
+                    return value.trim()
+                }
+            }
+        }
+
+        return startPage
+    }
+
     try {
         const [{ layoutsExists, widgetsExists }] = (await manager.query(
             `
@@ -346,9 +363,21 @@ export const resolvePreferredLinkedCollectionIdFromGlobalMenu = async (params: {
             [activeLayoutId]
         )) as Array<{ config?: unknown }>
 
-        const boundMenuConfig = menuWidgets
+        const menuConfigs = menuWidgets
             .map((row) => (row.config && typeof row.config === 'object' ? (row.config as Record<string, unknown>) : null))
-            .find((cfg) => Boolean(cfg?.bindToHub) && typeof cfg?.boundHubId === 'string')
+            .filter((cfg): cfg is Record<string, unknown> => Boolean(cfg))
+
+        for (const cfg of menuConfigs) {
+            const startPageToken = resolveStartPageTokenFromMenuConfig(cfg)
+            if (!startPageToken) continue
+
+            const linkedCollectionId = await resolveLinkedCollectionByToken(startPageToken)
+            if (linkedCollectionId) {
+                return linkedCollectionId
+            }
+        }
+
+        const boundMenuConfig = menuConfigs.find((cfg) => Boolean(cfg.bindToHub) && typeof cfg.boundHubId === 'string')
 
         const boundTreeEntityId = typeof boundMenuConfig?.boundHubId === 'string' ? boundMenuConfig.boundHubId : null
         if (!boundTreeEntityId) {
@@ -1053,13 +1082,21 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             isActive: boolean
         }
 
+        type RuntimeWorkspacePlacement = 'primary' | 'overflow' | 'hidden'
+
         type RuntimeMenuEntry = {
             id: string
             widgetId: string
             showTitle: boolean
             title: string
             autoShowAllCatalogs: boolean
+            startPage: string | null
+            startSectionId: string | null
+            maxPrimaryItems: number | null
+            overflowLabelKey: string | null
+            workspacePlacement: RuntimeWorkspacePlacement
             items: RuntimeMenuItem[]
+            overflowItems: RuntimeMenuItem[]
         }
 
         type RuntimeTreeEntityMeta = {
@@ -1079,6 +1116,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         }
 
         let treeEntityMetaById = new Map<string, RuntimeTreeEntityMeta>()
+        let treeEntityMetaByCodename = new Map<string, RuntimeTreeEntityMeta>()
+        let linkedCollectionMetaByCodename = new Map<string, RuntimeLinkedCollectionMeta>()
         let childTreeEntityIdsByParent = new Map<string, string[]>()
         let linkedCollectionsByTreeEntity = new Map<string, RuntimeLinkedCollectionMeta[]>()
 
@@ -1107,13 +1146,15 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
                 if (isRuntimeHubKind(row.kind)) {
                     const parentTreeEntityId = typeof config.parentHubId === 'string' ? config.parentHubId : null
-                    treeEntityMetaById.set(row.id, {
+                    const treeEntityMeta: RuntimeTreeEntityMeta = {
                         id: row.id,
                         codename: row.codename,
                         title,
                         parentTreeEntityId,
                         sortOrder
-                    })
+                    }
+                    treeEntityMetaById.set(row.id, treeEntityMeta)
+                    treeEntityMetaByCodename.set(resolveRuntimeCodenameText(row.codename), treeEntityMeta)
                     continue
                 }
 
@@ -1127,6 +1168,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     sortOrder,
                     treeEntityIds
                 }
+                linkedCollectionMetaByCodename.set(resolveRuntimeCodenameText(row.codename), linkedCollectionMeta)
                 for (const treeEntityId of treeEntityIds) {
                     const list = linkedCollectionsByTreeEntity.get(treeEntityId) ?? []
                     list.push(linkedCollectionMeta)
@@ -1159,8 +1201,41 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             // eslint-disable-next-line no-console
             console.warn('[ApplicationsRuntime] Failed to build hub/catalog runtime map for menuWidget (ignored)', e)
             treeEntityMetaById = new Map()
+            treeEntityMetaByCodename = new Map()
+            linkedCollectionMetaByCodename = new Map()
             childTreeEntityIdsByParent = new Map()
             linkedCollectionsByTreeEntity = new Map()
+        }
+
+        const resolveLinkedCollectionId = (value: unknown): string | null => {
+            if (typeof value !== 'string' || value.trim().length === 0) return null
+            const normalized = value.trim()
+            if (linkedCollectionsForRuntime.some((section) => section.id === normalized)) return normalized
+            return linkedCollectionMetaByCodename.get(normalized)?.id ?? null
+        }
+
+        const resolveTreeEntityId = (value: unknown): string | null => {
+            if (typeof value !== 'string' || value.trim().length === 0) return null
+            const normalized = value.trim()
+            if (treeEntityMetaById.has(normalized)) return normalized
+            return treeEntityMetaByCodename.get(normalized)?.id ?? null
+        }
+
+        const resolveStartSectionId = (value: unknown, items: RuntimeMenuItem[]): string | null => {
+            if (typeof value !== 'string' || value.trim().length === 0) return null
+            const normalized = value.trim()
+            const explicitItem = items.find((item) => item.id === normalized)
+            if (explicitItem?.sectionId || explicitItem?.linkedCollectionId) {
+                return explicitItem.sectionId ?? explicitItem.linkedCollectionId
+            }
+            const treeEntityId = resolveTreeEntityId(normalized)
+            if (treeEntityId) {
+                return (
+                    items.find((item) => item.treeEntityId === treeEntityId && (item.sectionId || item.linkedCollectionId))?.sectionId ??
+                    null
+                )
+            }
+            return resolveLinkedCollectionId(normalized)
         }
 
         const normalizeMenuItem = (item: unknown): RuntimeMenuItem | null => {
@@ -1169,17 +1244,17 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             if (typed.isActive === false) return null
 
             const kind = typeof typed.kind === 'string' && typed.kind.trim().length > 0 ? typed.kind : 'link'
+            const linkedCollectionId = resolveLinkedCollectionId(typed.catalogId ?? typed.sectionId ?? typed.linkedCollectionId)
+            const treeEntityId = resolveTreeEntityId(typed.hubId ?? typed.treeEntityId)
             return {
                 id: String(typed.id ?? ''),
                 kind,
                 title: resolveLocalizedContent(typed.title, requestedLocale, kind),
                 icon: typeof typed.icon === 'string' ? typed.icon : null,
                 href: typeof typed.href === 'string' ? typed.href : null,
-                linkedCollectionId:
-                    typeof typed.catalogId === 'string' ? typed.catalogId : typeof typed.sectionId === 'string' ? typed.sectionId : null,
-                sectionId:
-                    typeof typed.sectionId === 'string' ? typed.sectionId : typeof typed.catalogId === 'string' ? typed.catalogId : null,
-                treeEntityId: typeof typed.hubId === 'string' ? typed.hubId : null,
+                linkedCollectionId,
+                sectionId: linkedCollectionId,
+                treeEntityId,
                 sortOrder: typeof typed.sortOrder === 'number' ? typed.sortOrder : 0,
                 isActive: true
             }
@@ -1278,6 +1353,19 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             }))
         }
 
+        const buildWorkspaceMenuItem = (widgetId: string, sortOrder: number): RuntimeMenuItem => ({
+            id: 'runtime-workspaces',
+            kind: 'link',
+            title: requestedLocale === 'ru' ? 'Рабочие пространства' : 'Workspaces',
+            icon: 'apps',
+            href: `/a/${applicationId}/workspaces`,
+            linkedCollectionId: null,
+            sectionId: null,
+            treeEntityId: null,
+            sortOrder,
+            isActive: true
+        })
+
         let menus: RuntimeMenuEntry[] = []
         let activeMenuId: string | null = null
 
@@ -1286,7 +1374,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 if (widget.widgetKey !== 'menuWidget') continue
                 const cfg = widget.config as Record<string, unknown>
                 const bindToTreeEntity = Boolean(cfg.bindToHub)
-                const boundTreeEntityId = typeof cfg.boundHubId === 'string' ? cfg.boundHubId : null
+                const boundTreeEntityId = resolveTreeEntityId(cfg.boundHubId ?? cfg.boundTreeEntityId)
                 const autoShowAllCatalogs = Boolean(cfg.autoShowAllCatalogs) && !bindToTreeEntity
 
                 let resolvedItems: RuntimeMenuItem[] = []
@@ -1314,13 +1402,38 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     }
                 }
 
+                const rawMaxPrimaryItems = cfg.maxPrimaryItems
+                const maxPrimaryItems =
+                    typeof rawMaxPrimaryItems === 'number' && Number.isFinite(rawMaxPrimaryItems)
+                        ? Math.max(1, Math.min(12, Math.trunc(rawMaxPrimaryItems)))
+                        : null
+                const rawWorkspacePlacement = cfg.workspacePlacement
+                const workspacePlacement: RuntimeWorkspacePlacement =
+                    rawWorkspacePlacement === 'overflow' || rawWorkspacePlacement === 'hidden' ? rawWorkspacePlacement : 'primary'
+                const primaryItems = maxPrimaryItems ? resolvedItems.slice(0, maxPrimaryItems) : resolvedItems
+                const overflowItems = maxPrimaryItems ? resolvedItems.slice(maxPrimaryItems) : []
+                if (runtimeContext.workspacesEnabled) {
+                    const workspaceItem = buildWorkspaceMenuItem(widget.id, resolvedItems.length + 1000)
+                    if (workspacePlacement === 'primary') {
+                        primaryItems.push(workspaceItem)
+                    } else if (workspacePlacement === 'overflow') {
+                        overflowItems.push(workspaceItem)
+                    }
+                }
+
                 const menuEntry = {
                     id: widget.id,
                     widgetId: widget.id,
                     showTitle: Boolean(cfg.showTitle),
                     title: resolveLocalizedContent(cfg.title, requestedLocale, ''),
                     autoShowAllCatalogs,
-                    items: resolvedItems
+                    startPage: typeof cfg.startPage === 'string' ? cfg.startPage : null,
+                    startSectionId: resolveStartSectionId(cfg.startPage, resolvedItems),
+                    maxPrimaryItems,
+                    overflowLabelKey: typeof cfg.overflowLabelKey === 'string' ? cfg.overflowLabelKey : null,
+                    workspacePlacement,
+                    items: primaryItems,
+                    overflowItems
                 } satisfies RuntimeMenuEntry
                 menus.push(menuEntry)
             }
@@ -1471,6 +1584,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             settings: runtimeContext.applicationSettings,
             workspacesEnabled: runtimeContext.workspacesEnabled,
             currentWorkspaceId: runtimeContext.currentWorkspaceId,
+            permissions: runtimeContext.permissions,
             layoutConfig,
             zoneWidgets,
             menus,
@@ -2754,7 +2868,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
                     const childAttrs = (await mgr.query(
                         `
-              SELECT codename, column_name
+              SELECT codename, column_name, data_type, validation_rules
               FROM ${ctx.schemaIdent}._app_attributes
               WHERE parent_attribute_id = $1
                 AND _upl_deleted = false
@@ -2765,11 +2879,12 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     )) as Array<{
                         codename: string
                         column_name: string
-                        data_type: string
+                        data_type?: string | null
+                        validation_rules?: Record<string, unknown>
                     }>
 
                     const validChildColumns = childAttrs.map((attr) => attr.column_name).filter((column) => IDENTIFIER_REGEX.test(column))
-                    const childColumnTypes = new Map(childAttrs.map((attr) => [attr.column_name, attr.data_type]))
+                    const childAttrsByColumn = new Map(childAttrs.map((attr) => [attr.column_name, attr]))
                     const sourceChildRows = (await mgr.query(
                         `
               SELECT ${validChildColumns.length > 0 ? validChildColumns.map((column) => quoteIdentifier(column)).join(', ') + ',' : ''}
@@ -2818,7 +2933,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                         for (const column of validChildColumns) {
                             tuple.push(`$${copyParamIndex++}`)
                             copyValues.push(
-                                normalizeRuntimeTableChildInsertValue(sourceChild[column] ?? null, childColumnTypes.get(column))
+                                normalizeRuntimeTableChildInsertValueByMeta(sourceChild[column] ?? null, childAttrsByColumn.get(column))
                             )
                         }
                         valueTuples.push(`(${tuple.join(', ')})`)

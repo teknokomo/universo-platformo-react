@@ -1,12 +1,59 @@
 import { ApplicationMembershipState } from '@universo/types'
+import { resolvePreferredLinkedCollectionIdFromGlobalMenu } from '../../controllers/runtimeRowsController'
 import {
+    UpdateFailure,
+    coerceRuntimeValue,
     normalizeRuntimeTableChildInsertValue,
-    resolvePreferredLinkedCollectionIdFromGlobalMenu
-} from '../../controllers/runtimeRowsController'
-import { UpdateFailure, resolveRequestedRuntimeWorkspaceId } from '../../shared/runtimeHelpers'
+    resolveRequestedRuntimeWorkspaceId
+} from '../../shared/runtimeHelpers'
 import { createMockDbExecutor } from '../utils/dbMocks'
 
 describe('runtimeRowsController startup catalog resolution', () => {
+    it('prefers the menu startPage catalog before bound hub fallback', async () => {
+        const { executor } = createMockDbExecutor()
+
+        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('information_schema.tables')) {
+                return [{ layoutsExists: true, widgetsExists: true }]
+            }
+
+            if (sql.includes('FROM runtime_schema._app_layouts')) {
+                return [{ id: 'global-layout-1' }]
+            }
+
+            if (sql.includes('FROM runtime_schema._app_widgets')) {
+                return [
+                    {
+                        config: {
+                            bindToHub: true,
+                            boundHubId: 'hub-1',
+                            startPage: 'Modules',
+                            items: [{ id: 'catalog', kind: 'catalog', catalogId: 'Modules' }]
+                        }
+                    }
+                ]
+            }
+
+            if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('id::text = $1')) {
+                expect(params).toEqual(['Modules'])
+                return [{ id: 'modules-catalog-id' }]
+            }
+
+            throw new Error(`Unexpected SQL: ${sql}`)
+        })
+
+        await expect(
+            resolvePreferredLinkedCollectionIdFromGlobalMenu({
+                manager: executor,
+                schemaName: 'runtime_schema',
+                schemaIdent: 'runtime_schema'
+            })
+        ).resolves.toBe('modules-catalog-id')
+
+        const executedSql = executor.query.mock.calls.map(([sql]) => String(sql)).join('\n')
+        expect(executedSql).not.toContain("config->'hubs' @>")
+    })
+
     it('derives startup catalog bindings from the global default or active layout only with config-aware section filtering', async () => {
         const { executor } = createMockDbExecutor()
 
@@ -55,6 +102,23 @@ describe('normalizeRuntimeTableChildInsertValue', () => {
         expect(
             normalizeRuntimeTableChildInsertValue({ _primary: 'en', locales: { en: { content: 'Hello' } } }, 'STRING', { localized: true })
         ).toBe('{"_primary":"en","locales":{"en":{"content":"Hello"}}}')
+    })
+
+    it('wraps plain strings into VLC objects before json-backed localized storage', () => {
+        const coerced = coerceRuntimeValue('Hello', 'STRING', { localized: true, versioned: true })
+
+        expect(coerced).toEqual(
+            expect.objectContaining({
+                _schema: '1',
+                _primary: 'en',
+                locales: expect.objectContaining({
+                    en: expect.objectContaining({ content: 'Hello', version: 1, isActive: true })
+                })
+            })
+        )
+        expect(normalizeRuntimeTableChildInsertValue(coerced, 'STRING', { localized: true, versioned: true })).toContain(
+            '"content":"Hello"'
+        )
     })
 })
 

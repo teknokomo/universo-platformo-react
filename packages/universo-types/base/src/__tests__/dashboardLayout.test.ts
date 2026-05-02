@@ -20,7 +20,7 @@ describe('dashboard layout shared contract', () => {
 
     it('keeps the shared defaults aligned with runtime expectations', () => {
         expect(defaultDashboardLayoutConfig.showLanguageSwitcher).toBe(true)
-        expect(defaultDashboardLayoutConfig.showRightSideMenu).toBe(true)
+        expect(defaultDashboardLayoutConfig.showRightSideMenu).toBe(false)
         expect(defaultDashboardLayoutConfig.showViewToggle).toBe(false)
         expect(defaultDashboardLayoutConfig.defaultViewMode).toBe('table')
         expect(defaultDashboardLayoutConfig.cardColumns).toBe(3)

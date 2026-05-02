@@ -36,9 +36,9 @@ export const ROLE_PERMISSIONS: Record<ApplicationRole, Record<string, boolean>> 
     member: {
         manageMembers: false,
         manageApplication: false,
-        createContent: true,
-        editContent: true,
-        deleteContent: true
+        createContent: false,
+        editContent: false,
+        deleteContent: false
     }
 }
 
