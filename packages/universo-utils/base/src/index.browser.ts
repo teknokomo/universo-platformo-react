@@ -30,6 +30,7 @@ export * as api from './api/error-handlers'
 export * from './api/error-handlers'
 export { extractPaginationMeta, type PaginationMeta as UtilsPaginationMeta } from './api/pagination'
 export { fetchAllPaginatedItems, type FetchPageFn, type FetchAllPaginatedOptions } from './api/fetchAllPaginatedItems'
+export { SAFE_MENU_HREF_RE, isSafeMenuHref, sanitizeMenuHref } from './validation/menuHref'
 
 // Public routes utilities
 export {

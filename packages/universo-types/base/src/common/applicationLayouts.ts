@@ -51,7 +51,10 @@ const menuWidgetItemSchema = z
         icon: z.string().nullable().optional(),
         href: z.string().nullable().optional(),
         catalogId: z.string().nullable().optional(),
+        linkedCollectionId: z.string().nullable().optional(),
+        sectionId: z.string().nullable().optional(),
         hubId: z.string().nullable().optional(),
+        treeEntityId: z.string().nullable().optional(),
         sortOrder: z.number().int(),
         isActive: z.boolean()
     })
@@ -61,6 +64,15 @@ export const menuWidgetConfigSchema = z
     .object({
         boundCatalogId: z.string().nullable().optional(),
         boundHubId: z.string().nullable().optional(),
+        boundTreeEntityId: z.string().nullable().optional(),
+        bindToHub: z.boolean().optional(),
+        showTitle: z.boolean().optional(),
+        title: applicationLayoutLocalizedContentSchema.optional(),
+        autoShowAllCatalogs: z.boolean().optional(),
+        maxPrimaryItems: z.number().int().min(1).max(12).optional(),
+        overflowLabelKey: z.string().nullable().optional(),
+        startPage: z.string().nullable().optional(),
+        workspacePlacement: z.enum(['primary', 'overflow', 'hidden']).optional(),
         items: z.array(menuWidgetItemSchema),
         sharedBehavior: sharedBehaviorSchema.optional()
     })
@@ -75,7 +87,10 @@ const nestedColumnsContainerWidgetKeySchema = z
 
 const columnsContainerNestedWidgetSchema = z
     .object({
-        widgetKey: nestedColumnsContainerWidgetKeySchema
+        id: z.string().min(1).optional(),
+        widgetKey: nestedColumnsContainerWidgetKeySchema,
+        sortOrder: z.number().int().optional(),
+        config: z.record(z.unknown()).optional()
     })
     .strict()
 
@@ -114,18 +129,6 @@ export const quizWidgetConfigSchema = scriptBackedWidgetConfigSchema
     })
     .strict()
 
-export const moduleViewerWidgetConfigSchema = scriptBackedWidgetConfigSchema
-export const statsViewerWidgetConfigSchema = scriptBackedWidgetConfigSchema
-
-export const qrCodeWidgetConfigSchema = z
-    .object({
-        url: z.string().nullable().optional(),
-        publicLinkSlug: z.string().nullable().optional(),
-        size: z.number().int().optional(),
-        title: z.string().nullable().optional(),
-        sharedBehavior: sharedBehaviorSchema.optional()
-    })
-    .strict()
 
 export const detailsTableWidgetConfigSchema = z
     .object({
@@ -139,9 +142,6 @@ const widgetConfigSchemaByKey = {
     menuWidget: menuWidgetConfigSchema,
     columnsContainer: columnsContainerWidgetConfigSchema,
     quizWidget: quizWidgetConfigSchema,
-    moduleViewerWidget: moduleViewerWidgetConfigSchema,
-    statsViewerWidget: statsViewerWidgetConfigSchema,
-    qrCodeWidget: qrCodeWidgetConfigSchema,
     detailsTable: detailsTableWidgetConfigSchema
 } as const
 

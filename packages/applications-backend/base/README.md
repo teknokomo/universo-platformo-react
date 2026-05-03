@@ -21,6 +21,7 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 - Allow owner/admin visibility changes after creation while keeping workspace mode structural.
 - Expose runtime sync, diff, and release-bundle routes for managed application schemas.
 - Manage application-side layouts, including metahub lineage, application-owned copies, defaults, activation, and widget activity.
+- Materialize curated runtime menu contracts from `menuWidget` config, including explicit section items, hub/catalog codename resolution, overflow items, start-page selection, and workspace entry placement.
 - Execute published runtime scripts through a fail-closed server bridge that only exposes non-lifecycle server methods from `rpc.client` scripts and reuses runtime row helpers, workspace context, and permission maps.
 - Persist schema sync state in `applications.cat_applications` through SQL-first stores.
 - Keep runtime release metadata in the same central sync-state surface.
@@ -32,6 +33,7 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 - Switching a public application back to closed blocks new direct joins and public runtime link resolution while preserving existing members.
 - Public applications default to `workspacesEnabled = true` in the UI, but owners may turn workspace mode off during creation when they intentionally want a shared data surface.
 - Runtime schema bootstrap creates workspace support tables, seeds `owner` and `member` workspace roles, and provisions a personal `Main` workspace for the owner and every current member.
+- Public workspace-enabled applications also receive a seeded shared `Published` workspace during schema sync. Public runtime access-link reads resolve through shared workspaces only, so personal workspace data stays isolated.
 - Adding a new member to an application with initialized workspace runtime support provisions a personal workspace automatically.
 - Leaving an application or removing a member archives the personal workspace instead of hard-deleting business rows.
 - Published runtime workspace endpoints expose paginated workspace/member lists, email-based shared-workspace member invitation for active application members, default workspace switching, and owner-only member removal.

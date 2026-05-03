@@ -44,6 +44,9 @@ const UUID_PATH_SEGMENT_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[
 const buildRuntimeSectionHref = (applicationId: string, collectionId: string, sectionLinksEnabled: boolean): string =>
     sectionLinksEnabled ? `/a/${applicationId}/${encodeURIComponent(collectionId)}` : `/a/${applicationId}`
 
+const isWorkspaceRootMenuItem = (item: DashboardMenuItem): boolean =>
+    item.id === 'runtime-workspaces' || item.id === 'workspaces' || /\/workspaces(?:$|\?)/.test(item.href ?? '')
+
 const toRuntimeSectionLinkMenuItem = (
     item: DashboardMenuItem,
     applicationId: string,
@@ -152,7 +155,11 @@ const ApplicationRuntime = () => {
     const activeRuntimeConfig = activeRuntimeSection?.runtimeConfig
     const currentSectionId =
         state.selectedSectionId ?? state.activeSectionId ?? state.selectedLinkedCollectionId ?? state.activeLinkedCollectionId
-    const showCreateButton = activeRuntimeConfig?.showCreateButton !== false
+    const contentPermissions = state.appData?.permissions
+    const canCreateContent = contentPermissions?.createContent !== false
+    const canEditContent = contentPermissions?.editContent !== false
+    const canDeleteContent = contentPermissions?.deleteContent !== false
+    const showCreateButton = activeRuntimeConfig?.showCreateButton !== false && canCreateContent
     const resolveFormSurface = useCallback(
         (mode: 'create' | 'edit' | 'copy') => {
             if (mode === 'create') return activeRuntimeConfig?.createSurface ?? 'dialog'
@@ -189,6 +196,11 @@ const ApplicationRuntime = () => {
 
     const handleOpenEditSurface = useCallback(
         (rowId: string) => {
+            if (!canEditContent) {
+                clearRuntimeFormParams()
+                return
+            }
+
             if (resolveFormSurface('edit') === 'page') {
                 const next = new URLSearchParams(searchParams)
                 next.set('surface', 'page')
@@ -199,11 +211,16 @@ const ApplicationRuntime = () => {
             }
             state.handleOpenEdit(rowId)
         },
-        [resolveFormSurface, searchParams, setSearchParams, state]
+        [canEditContent, clearRuntimeFormParams, resolveFormSurface, searchParams, setSearchParams, state]
     )
 
     const handleOpenCopySurface = useCallback(
         (rowId: string) => {
+            if (!canCreateContent) {
+                clearRuntimeFormParams()
+                return
+            }
+
             if (resolveFormSurface('copy') === 'page') {
                 const next = new URLSearchParams(searchParams)
                 next.set('surface', 'page')
@@ -214,7 +231,7 @@ const ApplicationRuntime = () => {
             }
             state.handleOpenCopy(rowId)
         },
-        [resolveFormSurface, searchParams, setSearchParams, state]
+        [canCreateContent, clearRuntimeFormParams, resolveFormSurface, searchParams, setSearchParams, state]
     )
 
     const handleCloseFormSurface = useCallback(() => {
@@ -279,6 +296,14 @@ const ApplicationRuntime = () => {
             return
         }
 
+        if ((mode === 'edit' && !canEditContent) || (mode === 'copy' && !canCreateContent)) {
+            if (state.formOpen) {
+                state.handleCloseForm()
+            }
+            clearRuntimeFormParams()
+            return
+        }
+
         if (handledPageSurfaceRequestRef.current === requestKey) {
             return
         }
@@ -293,7 +318,7 @@ const ApplicationRuntime = () => {
         if (mode === 'copy' && rowId && (!state.formOpen || state.copyRowId !== rowId)) {
             state.handleOpenCopy(rowId)
         }
-    }, [clearRuntimeFormParams, searchParams, showCreateButton, state])
+    }, [canCreateContent, canEditContent, clearRuntimeFormParams, searchParams, showCreateButton, state])
 
     useEffect(() => {
         if (searchParams.get('surface') !== 'page') {
@@ -561,13 +586,24 @@ const ApplicationRuntime = () => {
     const appendWorkspaceMenuItem = (slot?: DashboardMenuSlot): DashboardMenuSlot | undefined => {
         if (!workspaceMenuItem) return slot
         const baseItems = slot?.items ?? []
+        const hasWorkspaceRootItem = baseItems.some(isWorkspaceRootMenuItem)
+        const normalizedBaseItems = baseItems.map((item) => {
+            if (isWorkspaceRootMenuItem(item)) {
+                return {
+                    ...item,
+                    kind: 'link' as const,
+                    href: item.href ?? workspaceMenuItem.href,
+                    selected: isWorkspacesRoute
+                }
+            }
+
+            return isWorkspacesRoute || sectionLinksEnabled
+                ? toRuntimeSectionLinkMenuItem(item, applicationId, sectionLinksEnabled, isWorkspacesRoute)
+                : item
+        })
         const items = [
-            ...baseItems.map((item) =>
-                isWorkspacesRoute || sectionLinksEnabled
-                    ? toRuntimeSectionLinkMenuItem(item, applicationId, sectionLinksEnabled, isWorkspacesRoute)
-                    : item
-            ),
-            workspaceMenuItem,
+            ...normalizedBaseItems,
+            ...(hasWorkspaceRootItem ? [] : [workspaceMenuItem]),
             ...(workspaceDashboardMenuItem ? [workspaceDashboardMenuItem] : []),
             ...(workspaceAccessMenuItem ? [workspaceAccessMenuItem] : [])
         ]
@@ -631,6 +667,11 @@ const ApplicationRuntime = () => {
 
                     <RowActionsMenu
                         state={runtimeState}
+                        permissions={{
+                            canEdit: canEditContent,
+                            canCopy: canCreateContent,
+                            canDelete: canDeleteContent
+                        }}
                         labels={{
                             editText: t('app.edit', 'Edit'),
                             copyText: t('app.copy', 'Copy'),

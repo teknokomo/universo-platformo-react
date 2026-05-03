@@ -88,7 +88,14 @@ const resolveLocalizedText = (value: unknown, locale: string, fallback: string):
 
 const buildInitialWidgetConfig = (widgetKey: string): Record<string, unknown> => {
     if (widgetKey === 'menuWidget') {
-        return { items: [] }
+        return {
+            items: [],
+            autoShowAllCatalogs: false,
+            maxPrimaryItems: 6,
+            overflowLabelKey: 'runtime.menu.more',
+            startPage: null,
+            workspacePlacement: 'primary'
+        }
     }
 
     if (widgetKey === 'columnsContainer') {
@@ -491,16 +498,6 @@ const ApplicationLayouts = () => {
                     )
                     .join(', ')
                 return nestedWidgets ? `${base}: ${nestedWidgets}` : base
-            }
-
-            if (
-                widget.widgetKey === 'moduleViewerWidget' ||
-                widget.widgetKey === 'statsViewerWidget' ||
-                widget.widgetKey === 'qrCodeWidget'
-            ) {
-                const config = widget.config as { scriptCodename?: unknown } | undefined
-                const scriptCodename = typeof config?.scriptCodename === 'string' ? config.scriptCodename.trim() : ''
-                return scriptCodename ? `${base}: ${scriptCodename}` : base
             }
 
             return base

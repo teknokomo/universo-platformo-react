@@ -40,6 +40,9 @@ const UUID_PATH_SEGMENT_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[
 const buildStandaloneSectionHref = (applicationId: string, collectionId: string, sectionLinksEnabled: boolean): string =>
     sectionLinksEnabled ? `/a/${applicationId}/${encodeURIComponent(collectionId)}` : `/a/${applicationId}`
 
+const isWorkspaceRootMenuItem = (item: DashboardMenuItem): boolean =>
+    item.id === 'runtime-workspaces' || item.id === 'workspaces' || /\/workspaces(?:$|\?)/.test(item.href ?? '')
+
 const readCurrentRouteSource = (): string => {
     if (typeof window === 'undefined') return ''
     return `${window.location.pathname}${window.location.hash}`
@@ -103,7 +106,11 @@ export default function DashboardApp(props: DashboardAppProps) {
     const state = useCrudDashboard({ adapter, locale: props.locale, initialSectionId: routeSectionId })
 
     const detailsTitle = isWorkspacesRoute ? t('workspace.title', 'Workspaces') : state.appData?.linkedCollection.name ?? 'Details'
-    const showCreateButton = state.appData?.linkedCollection.runtimeConfig?.showCreateButton !== false
+    const contentPermissions = state.appData?.permissions
+    const canCreateContent = contentPermissions?.createContent !== false
+    const canEditContent = contentPermissions?.editContent !== false
+    const canDeleteContent = contentPermissions?.deleteContent !== false
+    const showCreateButton = state.appData?.linkedCollection.runtimeConfig?.showCreateButton !== false && canCreateContent
     const activeLinkedCollectionRuntimeConfig = state.appData?.linkedCollection.runtimeConfig
     const currentWorkspaceId = state.appData?.currentWorkspaceId ?? null
     const workspacesEnabled = state.appData?.workspacesEnabled ?? false
@@ -118,7 +125,13 @@ export default function DashboardApp(props: DashboardAppProps) {
     const createActions = useMemo(
         () =>
             showCreateButton ? (
-                <Button variant='contained' size='small' startIcon={<AddIcon />} onClick={state.handleOpenCreate}>
+                <Button
+                    data-testid='application-runtime-create-row'
+                    variant='contained'
+                    size='small'
+                    startIcon={<AddIcon />}
+                    onClick={state.handleOpenCreate}
+                >
                     {t('app.createRow', 'Create')}
                 </Button>
             ) : null,
@@ -241,17 +254,29 @@ export default function DashboardApp(props: DashboardAppProps) {
     const appendWorkspaceMenuItem = (slot?: DashboardMenuSlot): DashboardMenuSlot | undefined => {
         if (!workspaceMenuItem) return slot
         const baseItems = slot?.items ?? []
+        const hasWorkspaceRootItem = baseItems.some(isWorkspaceRootMenuItem)
+        const normalizedBaseItems = baseItems.map((item) => {
+            if (isWorkspaceRootMenuItem(item)) {
+                return {
+                    ...item,
+                    kind: 'link' as const,
+                    href: item.href ?? workspaceMenuItem.href,
+                    selected: isWorkspacesRoute
+                }
+            }
+
+            return isWorkspacesRoute || sectionLinksEnabled
+                ? toStandaloneSectionLinkMenuItem(item, props.applicationId, sectionLinksEnabled, isWorkspacesRoute)
+                : item
+        })
+
         return {
             ...slot,
             title: slot?.title ?? null,
             showTitle: slot?.showTitle ?? false,
             items: [
-                ...baseItems.map((item) =>
-                    isWorkspacesRoute || sectionLinksEnabled
-                        ? toStandaloneSectionLinkMenuItem(item, props.applicationId, sectionLinksEnabled, isWorkspacesRoute)
-                        : item
-                ),
-                workspaceMenuItem,
+                ...normalizedBaseItems,
+                ...(hasWorkspaceRootItem ? [] : [workspaceMenuItem]),
                 ...(workspaceDashboardMenuItem ? [workspaceDashboardMenuItem] : []),
                 ...(workspaceAccessMenuItem ? [workspaceAccessMenuItem] : [])
             ]
@@ -309,6 +334,11 @@ export default function DashboardApp(props: DashboardAppProps) {
 
                     <RowActionsMenu
                         state={state}
+                        permissions={{
+                            canEdit: canEditContent,
+                            canCopy: canCreateContent,
+                            canDelete: canDeleteContent
+                        }}
                         labels={{
                             editText: t('app.edit', 'Edit'),
                             copyText: t('app.copy', 'Copy'),

@@ -13,6 +13,8 @@ interface DialogStackEntry<P, R> {
     resolve: (result: R) => void
 }
 
+const noopOnClose = async () => undefined
+
 export interface DialogProviderProps {
     children?: React.ReactNode
     unmountAfter?: number
@@ -24,17 +26,17 @@ export interface DialogProviderProps {
  */
 export default function DialogsProvider(props: DialogProviderProps) {
     const { children, unmountAfter = 1000 } = props
-    const [stack, setStack] = React.useState<DialogStackEntry<any, any>[]>([])
+    const [stack, setStack] = React.useState<DialogStackEntry<unknown, unknown>[]>([])
     const keyPrefix = React.useId()
     const nextId = React.useRef(0)
-    const dialogMetadata = React.useRef(new WeakMap<Promise<any>, DialogStackEntry<any, any>>())
+    const dialogMetadata = React.useRef(new WeakMap<Promise<unknown>, DialogStackEntry<unknown, unknown>>())
 
     const requestDialog = useEventCallback<OpenDialog>(function open<P, R>(
         Component: DialogComponent<P, R>,
         payload: P,
         options: OpenDialogOptions<R> = {}
     ) {
-        const { onClose = async () => {} } = options
+        const { onClose = noopOnClose } = options
         let resolve: ((result: R) => void) | undefined
         const promise = new Promise<R>((resolveImpl) => {
             resolve = resolveImpl
@@ -58,9 +60,9 @@ export default function DialogsProvider(props: DialogProviderProps) {
         }
 
         // Store metadata for reliable access during close
-        dialogMetadata.current.set(promise, newEntry)
+        dialogMetadata.current.set(promise, newEntry as DialogStackEntry<unknown, unknown>)
 
-        setStack((prevStack) => [...prevStack, newEntry])
+        setStack((prevStack) => [...prevStack, newEntry as DialogStackEntry<unknown, unknown>])
         return promise
     })
 
@@ -74,13 +76,13 @@ export default function DialogsProvider(props: DialogProviderProps) {
     })
 
     const closeDialog = useEventCallback(async function closeDialog<R>(dialog: Promise<R>, result: R) {
-        const entryToClose = dialogMetadata.current.get(dialog)
+        const entryToClose = dialogMetadata.current.get(dialog as Promise<unknown>)
         if (!entryToClose) {
             throw new Error('Dialog not found.')
         }
 
         try {
-            await entryToClose.onClose(result)
+            await entryToClose.onClose(result as unknown)
         } finally {
             entryToClose.resolve(result)
             closeDialogUi(dialog)

@@ -70,6 +70,7 @@ export function TabularPartEditor({
         () => childFields.find((field) => field.type === 'STRING' || field.type === 'NUMBER')?.id ?? null,
         [childFields]
     )
+    const deleteDisabled = typeof minRows === 'number' && value.length <= minRows
 
     const startRowPrimaryEdit = useCallback(
         (rowId: string) => {
@@ -129,9 +130,10 @@ export function TabularPartEditor({
 
     const handleDeleteRow = useCallback(
         (rowId: string) => {
+            if (deleteDisabled) return
             onChange(value.filter((row, idx) => getRowId(row, idx) !== rowId))
         },
-        [value, onChange]
+        [value, onChange, deleteDisabled]
     )
 
     const handleOpenRowMenu = useCallback((event: MouseEvent<HTMLElement>, rowId: string) => {
@@ -152,11 +154,11 @@ export function TabularPartEditor({
     }, [menuRowId, startRowPrimaryEdit, handleCloseRowMenu])
 
     const handleDeleteRowFromMenu = useCallback(() => {
-        if (menuRowId) {
+        if (menuRowId && !deleteDisabled) {
             setDeleteRowId(menuRowId)
         }
         handleCloseRowMenu()
-    }, [menuRowId, handleCloseRowMenu])
+    }, [menuRowId, deleteDisabled, handleCloseRowMenu])
 
     const handleConfirmDelete = useCallback(() => {
         if (deleteRowId) {
@@ -332,7 +334,7 @@ export function TabularPartEditor({
                     {t('app.edit', 'Edit')}
                 </MenuItem>
                 <Divider />
-                <MenuItem onClick={handleDeleteRowFromMenu} sx={{ color: 'error.main' }}>
+                <MenuItem onClick={handleDeleteRowFromMenu} disabled={deleteDisabled} sx={{ color: 'error.main' }}>
                     <DeleteIcon fontSize='small' sx={{ mr: 1 }} />
                     {t('tabular.delete', 'Delete')}
                 </MenuItem>

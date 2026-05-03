@@ -36,8 +36,8 @@ const MAX_WIDGETS_PER_COLUMN = 6
 
 const makeDefaultConfig = (): ColumnsContainerConfig => ({
     columns: [
-        { id: generateUuidV7(), width: 6, widgets: [{ widgetKey: 'sessionsChart' }] },
-        { id: generateUuidV7(), width: 6, widgets: [{ widgetKey: 'pageViewsChart' }] }
+        { id: generateUuidV7(), width: 6, widgets: [{ id: generateUuidV7(), widgetKey: 'sessionsChart', sortOrder: 1, config: {} }] },
+        { id: generateUuidV7(), width: 6, widgets: [{ id: generateUuidV7(), widgetKey: 'pageViewsChart', sortOrder: 1, config: {} }] }
     ]
 })
 
@@ -185,7 +185,26 @@ export default function ApplicationColumnsContainerEditorDialog({ open, config, 
             descriptionLabel={t('common:fields.description', 'Description')}
             hideDefaultFields
             onClose={onCancel}
-            onSave={() => onSave(setSharedBehaviorInWidgetConfig({ columns }, sharedBehaviorValue) as unknown as ColumnsContainerConfig)}
+            onSave={() =>
+                onSave(
+                    setSharedBehaviorInWidgetConfig(
+                        {
+                            columns: columns.map((column) => ({
+                                ...column,
+                                widgets: column.widgets
+                                    .filter((widget) => widget.widgetKey !== 'columnsContainer')
+                                    .map((widget, index) => ({
+                                        ...widget,
+                                        id: widget.id ?? generateUuidV7(),
+                                        sortOrder: index + 1,
+                                        config: widget.config ?? {}
+                                    }))
+                            }))
+                        },
+                        sharedBehaviorValue
+                    ) as unknown as ColumnsContainerConfig
+                )
+            }
             saveButtonText={t('common:save', 'Save')}
             cancelButtonText={t('common:cancel', 'Cancel')}
             extraFields={() => (
@@ -218,7 +237,9 @@ export default function ApplicationColumnsContainerEditorDialog({ open, config, 
                                                     return {
                                                         ...item,
                                                         widgets: item.widgets.map((widget, index) =>
-                                                            index === widgetIndex ? { ...widget, widgetKey: key } : widget
+                                                            index === widgetIndex
+                                                                ? { ...widget, widgetKey: key, config: widget.config ?? {} }
+                                                                : widget
                                                         )
                                                     }
                                                 })
@@ -228,7 +249,18 @@ export default function ApplicationColumnsContainerEditorDialog({ open, config, 
                                             setColumns((prev) =>
                                                 prev.map((item) =>
                                                     item.id === column.id && item.widgets.length < MAX_WIDGETS_PER_COLUMN
-                                                        ? { ...item, widgets: [...item.widgets, { widgetKey: CENTER_WIDGET_KEYS[0] }] }
+                                                        ? {
+                                                              ...item,
+                                                              widgets: [
+                                                                  ...item.widgets,
+                                                                  {
+                                                                      id: generateUuidV7(),
+                                                                      widgetKey: CENTER_WIDGET_KEYS[0],
+                                                                      sortOrder: item.widgets.length + 1,
+                                                                      config: {}
+                                                                  }
+                                                              ]
+                                                          }
                                                         : item
                                                 )
                                             )

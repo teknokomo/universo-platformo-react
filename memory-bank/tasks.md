@@ -6,6 +6,155 @@
 
 ## Current Task Ledger (Canonical)
 
+## Active: LMS PR Hygiene Closure (2026-05-03)
+
+> Goal: close the small QA hygiene findings before the LMS MVP PR without widening the product scope.
+
+### Action Plan
+
+- [x] Replace stale legacy LMS test wording with neutral learning portal wording
+- [x] Remove the guest runtime UUID v4 fallback so runtime IDs remain UUID v7/fail-closed
+- [x] Align application and metahub menu editor URL validation with runtime href sanitization
+- [x] Run focused tests/lint checks and update memory-bank progress
+
+## Active: LMS Backend QA Blocker Closure (2026-05-02)
+
+> Goal: close the backend QA blockers found after the LMS runtime remediation without widening the LMS MVP scope.
+
+### Action Plan
+
+- [x] Align the applications fixed-schema migration-chain invariant with the current application settings migration contract.
+- [x] Fix or update the application sync diff TABLE child-field regression so preview metadata returns 200 with child fields.
+- [x] Align the canonical application release-bundle route contract with the current bundle shape without weakening integrity checks.
+- [x] Harden published-app menu href rendering against protocol-relative URLs.
+- [x] Remove stale LMS legacy wording from GitBook docs.
+- [x] Re-run focused backend tests, affected frontend/template checks, docs checks, whitespace checks, root build, and targeted LMS Playwright.
+
+## Active: LMS Documentation And Template Lint QA Closure (2026-05-02)
+
+> Goal: close the remaining QA blockers in GitBook documentation, memory-bank context, and apps-template-mui lint warnings.
+
+### Action Plan
+
+- [x] Remove stale GitBook wording that fails the docs checker while preserving the current LMS widget-removal contract
+- [x] Refresh `memory-bank/activeContext.md` so it no longer describes removed LMS global widgets as active
+- [x] Reduce `@universo/apps-template-mui` lint output to zero warnings without changing runtime behavior
+- [x] Re-run docs check, apps-template lint/test, and whitespace validation
+
+## Active: LMS Runtime Child Rows QA Closure (2026-05-02)
+
+> Goal: close the remaining QA blockers in runtime TABLE child-row permissions, copy normalization, and regression coverage.
+
+### Action Plan
+
+- [x] Correct runtime child-row read/write permission checks so read-only members can read child rows but cannot mutate them
+- [x] Normalize copied child-row values with declared child attribute `data_type` and validation rules
+- [x] Add backend regression coverage for child-row read access, mutation denial, and copy normalization
+- [x] Run focused backend validation, lint/build, whitespace checks, and update memory-bank progress
+
+## Active: LMS QA Closure Implementation (2026-05-02)
+
+> Goal: close the remaining QA findings around LMS runtime roles, runtime copy integrity, browser coverage, and implementation hygiene without adding duplicate UI primitives.
+
+### Action Plan
+
+- [x] Make application `member` a read-only runtime content role while keeping owner/admin/editor authoring contracts explicit
+- [x] Expose runtime content permissions to published app clients and hide unavailable create/edit/copy/delete controls through existing dashboard components
+- [x] Fix TABLE child-row copy normalization so copied child values use declared `data_type` and validation rules
+- [x] Add focused Jest/Vitest coverage for member mutation denial, permission-driven UI gating, and TABLE child copy metadata
+- [x] Extend LMS Playwright workspace flow with member negative checks for runtime authoring controls
+- [x] Run focused lint/build/test validation and update memory-bank progress
+
+## Active: Phase 3 - Gate demo template surfaces and fix right-zone defaults (2026-05-02)
+
+> Goal: disable demo surfaces by default in apps-template-mui so published runtime applications don't show demo content unless explicitly enabled.
+
+### Action Plan
+
+- [x] Update default values in `dashboardLayout.ts` (showOverviewCards, showSessionsChart, showPageViewsChart, showRightSideMenu to false)
+- [x] Replace hardcoded user profile in `widgetRenderer.tsx` with generic profile
+- [x] Update `dashboardLayout.test.ts` to match new defaults
+- [x] Update `normalizeDashboardLayoutConfig` test to match new defaults
+- [x] Verify LMS template has no demo widgets
+- [x] Run build and tests to validate changes
+
+## Active: Fix Public Shared Workspace Selection Ambiguity (2026-05-02)
+
+> Goal: make `ensurePublicSharedWorkspace` and `listActivePublicWorkspaceIds` deterministically select the public shared workspace by adding a `codename` column and a `__public_shared` constant.
+
+### Action Plan
+
+- [x] Add `codename` column to `_app_workspaces` DDL (with `ADD COLUMN IF NOT EXISTS` for backwards compat)
+- [x] Add `PUBLIC_SHARED_WORKSPACE_CODENAME` constant and update `ensurePublicSharedWorkspace` SELECT/INSERT
+- [x] Update `listActivePublicWorkspaceIds` in `publicRuntimeAccess.ts` to prefer `__public_shared` workspace
+- [x] Update backend tests for the new codename behavior
+- [x] Run tests to validate changes
+
+## Active: Remove Legacy LMS Widget Types (2026-05-02)
+
+> Goal: fully remove the three legacy LMS widget types (moduleViewerWidget, statsViewerWidget, qrCodeWidget) from platform code since they represent a widget-centric approach replaced by entity-first runtime views.
+
+### Action Plan
+
+- [x] Remove legacy LMS widget entries from `DASHBOARD_LAYOUT_WIDGETS` and interface definitions in `metahubs.ts`
+- [x] Remove legacy widget config schemas from `applicationLayouts.ts`
+- [x] Clean up `widgetRenderer.tsx` imports and switch cases
+- [x] Delete `ModuleViewerWidget.tsx`, `StatsViewerWidget.tsx`, `QRCodeWidget.tsx` component files
+- [x] Delete legacy widget test files
+- [x] Fix `applicationLayoutsStore.test.ts` to replace `statsViewerWidget` references
+- [x] Clean up i18n locale files (metahubs and applications frontends)
+- [x] Clean up `ApplicationLayouts.tsx` widget filtering
+- [x] Clean up `ApplicationLayouts.test.tsx`
+- [x] Clean up e2e test references
+- [x] Run lint/build validation
+
+## Active: LMS Portal Runtime Refactor Implementation (2026-05-02)
+
+> Goal: turn the LMS fixture/runtime into a clean entity-first MVP portal by removing global demo widgets, extending existing generic runtime primitives, preserving current platform contracts, and validating the result with focused tests/docs.
+
+### Final Action Plan — Current Implementation Pass (2026-05-02)
+
+- [x] Remove global LMS module/statistics/QR widgets from the LMS template and product fixture contract while preserving contextual public access
+- [x] Extend the existing menu widget contract for quick access, overflow, start page, and workspace placement without breaking `autoShowAllCatalogs`
+- [x] Preserve nested `columnsContainer` widget config through shared types, editors, sync, and runtime rendering
+- [x] Replace or gate demo runtime surfaces in `apps-template-mui` using existing dashboard components and i18n
+- [x] Rebuild the LMS seed/generator contract toward product-facing entities, navigation, and scripts without schema/template version bumps
+- [x] Rewrite focused Jest/Vitest/Playwright coverage for the new LMS product contract, including negative assertions and screenshots
+- [x] Ensure public workspace-enabled applications seed a shared runtime workspace so public access links are usable immediately after schema sync
+- [x] Update package READMEs, GitBook docs, and memory-bank progress
+- [x] Run focused lint/build/test validation and document any remaining environment limits
+
+### Validation Notes
+
+- The LMS template and committed fixture no longer include default `moduleViewerWidget`, `statsViewerWidget`, `qrCodeWidget`, or their removed metahub-level widget scripts.
+- Runtime menu contracts now support curated items, codename/id resolution, overflow items, `startPage`, and workspace entry placement. The LMS fixture starts from `Modules` and exposes a product-facing menu without `autoShowAllCatalogs`.
+- `columnsContainer` nested widget `id`, `sortOrder`, and `config` are preserved through shared schemas, metahub/application editors, and runtime rendering.
+- The LMS snapshot fixture was rebuilt in place with neutral Learning Portal seed names and a recomputed `snapshotHash`.
+- Public workspace-enabled applications now create and seed a shared `Published` workspace during schema sync. Public runtime access links remain blocked from personal workspace data but are usable immediately from the shared workspace.
+- Focused builds passed for `@universo/types`, `@universo/apps-template-mui`, `@universo/applications-backend`, `@universo/metahubs-backend`, `@universo/applications-frontend`, and `@universo/metahubs-frontend`.
+- Focused tests passed for `useCrudDashboard.test.tsx`, `templateManifestValidator.test.ts`, `applicationWorkspaces.test.ts`, and the LMS fixture contract validation.
+- Package lints passed for `@universo/applications-backend`, `@universo/applications-frontend`, and `@universo/metahubs-frontend`; `@universo/apps-template-mui` passed with pre-existing warnings only.
+- Targeted Playwright passed for `snapshot-import-lms-runtime.spec.ts --project=chromium` on a clean database. It imported the LMS fixture, created and synced a public workspace-enabled application, captured EN/RU dashboard screenshots, completed EN/RU public guest journeys, and verified final runtime row counts.
+- Root `pnpm build` passed across the workspace (`30/30` tasks).
+
+### QA Remediation Pass (2026-05-02)
+
+- [x] Make the LMS published app open the configured `Modules` start page deterministically
+- [x] Remove duplicate runtime workspace navigation entries while preserving the existing standalone workspace route
+- [x] Replace no-op LMS menu links with working catalog/section-backed MVP navigation
+- [x] Harden shared public workspace sync for existing workspaces and avoid redundant seed passes
+- [x] Refresh stale GitBook setup docs and fixture contract residue after the widget removal
+- [x] Expand Jest/Vitest/Playwright coverage for the QA defects and rerun focused validation
+
+### QA Remediation Validation Notes
+
+- The published LMS runtime now resolves `menuWidget.config.startPage` against materialized runtime catalog ids/codenames before falling back to the bound hub, so the clean imported fixture opens `Modules` instead of a secondary section.
+- Runtime workspace navigation is deduplicated in both the integrated application route and standalone dashboard template when the runtime menu already contains the workspace root item.
+- The committed LMS template and fixture no longer contain inert top-level link items. `Knowledge`, `Development`, and `Reports` now target real catalog-backed sections, while generic menu rendering disables any future link item that lacks an `href`.
+- Public shared workspace sync now ensures owner membership for an existing shared workspace and avoids a second seed pass during schema sync.
+- LMS GitBook setup docs and the fixture contract were refreshed to remove the old Orbital/default widget/script wording and to validate the new working menu contract.
+- Focused Jest/Vitest suites, package builds, package lints, root `pnpm build`, `git diff --check`, and the targeted Chromium LMS snapshot import/runtime Playwright flow passed after the remediation. The apps-template and metahubs-backend lint commands still report only unrelated pre-existing warnings.
+
 ## Completed: Runtime Workspace PR Review Hardening (2026-04-29)
 
 > Goal: address the actionable PR #779 review comments without widening the feature surface or regressing standalone template behavior.
@@ -2080,6 +2229,37 @@ Validation notes:
 - [x] Re-run focused validation plus canonical build, then record the completed closure in `progress.md`.
   - Target: targeted metahubs frontend/backend validation and root `pnpm build` succeed after the closure changes.
   - Note: focused frontend/backend validation completed in this session; fixture/doc regeneration still needs a working Playwright env.
+
+## Active Session: 2026-05-02 Safe Scheme Validation for Menu href Links
+
+- [x] Add unsafe scheme validation (javascript:, data:, vbscript:) in ApplicationMenuWidgetEditorDialog.tsx before href empty check.
+- [x] Add the same unsafe scheme validation in metahubs MenuWidgetEditorDialog.tsx (ItemFormDialog handleSave).
+- [x] Add sanitizeHref helper and fix anchor rendering in MenuContent.tsx (block unsafe schemes at render time, remove unnecessary rel='noreferrer' with target='_self').
+- [x] Add hrefUnsafeScheme i18n key in applications en/ru locales.
+- [x] Add hrefUnsafeScheme i18n key in metahubs en/ru locales.
+- [x] Run lint on all modified files -- all pass.
+
+## Active Session: 2026-05-02 LMS Runtime QA Remediation
+
+- [x] Fix runtime creation for localized/versioned string fields so TABLE child and parent JSONB columns accept plain string API input safely.
+  - Target: the contextual access-link Playwright flow can create an LMS module with content items without PostgreSQL JSON syntax failures.
+- [x] Restrict public guest runtime workspace discovery to the deterministic public shared workspace.
+  - Target: public access links and guest sessions do not scan arbitrary active shared workspaces.
+- [x] Normalize dashboard layout before passing it to Header/MainGrid and remove remaining lint debt from deleted legacy widgets.
+  - Target: direct and partial Dashboard consumers do not resurrect demo overview cards/charts, and touched lint output stays clean.
+- [x] Add focused tests for JSONB/VLC coercion, public workspace isolation, and dashboard default behavior.
+  - Target: regressions are covered by unit tests before running browser validation.
+- [x] Re-run focused Jest/Vitest/build/lint checks plus the failing Playwright access-link flow and update progress.
+  - Target: validation proves the QA blockers are closed.
+
+## Active Session: 2026-05-02 LMS Frontend QA Closure
+
+- [x] Align applications frontend tests with the current connector sync API contract.
+  - Target: `useSyncConnector` tests assert the optional layout resolution policy argument explicitly.
+- [x] Align application update tests with the mutable visibility payload contract.
+  - Target: application edit tests assert `isPublic` when the edit dialog submits visibility state.
+- [x] Re-run focused applications frontend tests, package tests, lint, and whitespace checks.
+  - Target: the QA-blocking frontend suite is green before handoff.
 
 ## Completed Session: 2026-04-14 Metadata Capability Neutralization
 

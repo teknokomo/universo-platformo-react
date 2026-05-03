@@ -1,10 +1,12 @@
-import { Fragment } from 'react'
+import { Fragment, useState } from 'react'
 import Divider from '@mui/material/Divider'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemButton from '@mui/material/ListItemButton'
 import ListItemIcon from '@mui/material/ListItemIcon'
 import ListItemText from '@mui/material/ListItemText'
+import Menu from '@mui/material/Menu'
+import MenuItem from '@mui/material/MenuItem'
 import Typography from '@mui/material/Typography'
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded'
 import AnalyticsRoundedIcon from '@mui/icons-material/AnalyticsRounded'
@@ -15,7 +17,12 @@ import FolderRoundedIcon from '@mui/icons-material/FolderRounded'
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded'
 import TableRowsRoundedIcon from '@mui/icons-material/TableRowsRounded'
 import AppsRoundedIcon from '@mui/icons-material/AppsRounded'
+import MoreHorizRoundedIcon from '@mui/icons-material/MoreHorizRounded'
+import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded'
+import { sanitizeMenuHref } from '@universo/utils'
 import type { DashboardMenuSlot } from '../Dashboard'
+
+export const sanitizeHref = sanitizeMenuHref
 
 const resolveIcon = (iconName?: string | null) => {
     const normalized = iconName?.trim().toLowerCase()
@@ -38,6 +45,11 @@ const resolveIcon = (iconName?: string | null) => {
             return <AppsRoundedIcon />
         case 'dashboard':
             return <DashboardRoundedIcon />
+        case 'school':
+        case 'learning':
+            return <SchoolRoundedIcon />
+        case 'more':
+            return <MoreHorizRoundedIcon />
         default:
             return <LinkRoundedIcon />
     }
@@ -48,10 +60,31 @@ interface MenuContentProps {
 }
 
 export default function MenuContent({ menu }: MenuContentProps) {
+    const [overflowAnchor, setOverflowAnchor] = useState<HTMLElement | null>(null)
     const items = menu?.items ?? []
+    const overflowItems = menu?.overflowItems ?? []
     const isWorkspaceRootItem = (item: DashboardMenuSlot['items'][number]) =>
         item.id === 'runtime-workspaces' || item.id === 'workspaces' || /\/workspaces(?:$|\?)/.test(item.href ?? '')
     const firstWorkspaceRootIndex = items.findIndex(isWorkspaceRootItem)
+    const handleItemSelect = (item: DashboardMenuSlot['items'][number]) => {
+        if (item.kind !== 'catalog' && item.kind !== 'section') {
+            return
+        }
+
+        const targetSectionId = item.sectionId ?? item.linkedCollectionId
+        if (!targetSectionId) {
+            return
+        }
+
+        if (menu?.onSelectSection) {
+            menu.onSelectSection(targetSectionId)
+            return
+        }
+
+        if (menu?.onSelectLinkedCollection) {
+            menu.onSelectLinkedCollection(targetSectionId)
+        }
+    }
 
     return (
         <List dense sx={{ p: 1 }}>
@@ -65,36 +98,19 @@ export default function MenuContent({ menu }: MenuContentProps) {
             ) : null}
             {items.map((item, index) => {
                 const isHubLabel = item.kind === 'hub'
+                const isInertLink = item.kind === 'link' && !sanitizeHref(item.href)
                 const needsWorkspaceDivider = index === firstWorkspaceRootIndex
                 return (
                     <Fragment key={item.id}>
                         {needsWorkspaceDivider ? <Divider sx={{ my: 0.5 }} /> : null}
                         <ListItem disablePadding sx={{ display: 'block' }}>
                             <ListItemButton
-                                disabled={isHubLabel}
+                                disabled={isHubLabel || isInertLink}
                                 selected={Boolean(item.selected)}
-                                {...(item.kind === 'link' && item.href
-                                    ? { component: 'a' as const, href: item.href, target: '_self', rel: 'noreferrer' }
+                                {...(item.kind === 'link' && sanitizeHref(item.href)
+                                    ? { component: 'a' as const, href: sanitizeHref(item.href) }
                                     : {})}
-                                onClick={() => {
-                                    if (item.kind !== 'catalog' && item.kind !== 'section') {
-                                        return
-                                    }
-
-                                    const targetSectionId = item.sectionId ?? item.linkedCollectionId
-                                    if (!targetSectionId) {
-                                        return
-                                    }
-
-                                    if (menu?.onSelectSection) {
-                                        menu.onSelectSection(targetSectionId)
-                                        return
-                                    }
-
-                                    if (menu?.onSelectLinkedCollection) {
-                                        menu.onSelectLinkedCollection(targetSectionId)
-                                    }
-                                }}
+                                onClick={() => handleItemSelect(item)}
                             >
                                 <ListItemIcon>{resolveIcon(item.icon)}</ListItemIcon>
                                 <ListItemText primary={item.label} />
@@ -103,6 +119,33 @@ export default function MenuContent({ menu }: MenuContentProps) {
                     </Fragment>
                 )
             })}
+            {overflowItems.length > 0 ? (
+                <ListItem disablePadding sx={{ display: 'block' }}>
+                    <ListItemButton onClick={(event) => setOverflowAnchor(event.currentTarget)}>
+                        <ListItemIcon>{resolveIcon('more')}</ListItemIcon>
+                        <ListItemText primary={menu?.overflowLabel || 'More'} />
+                    </ListItemButton>
+                    <Menu anchorEl={overflowAnchor} open={Boolean(overflowAnchor)} onClose={() => setOverflowAnchor(null)}>
+                        {overflowItems.map((item) => (
+                            <MenuItem
+                                key={item.id}
+                                selected={Boolean(item.selected)}
+                                disabled={item.kind === 'hub' || (item.kind === 'link' && !sanitizeHref(item.href))}
+                                {...(item.kind === 'link' && sanitizeHref(item.href)
+                                    ? { component: 'a' as const, href: sanitizeHref(item.href) }
+                                    : {})}
+                                onClick={() => {
+                                    handleItemSelect(item)
+                                    setOverflowAnchor(null)
+                                }}
+                            >
+                                <ListItemIcon>{resolveIcon(item.icon)}</ListItemIcon>
+                                <ListItemText primary={item.label} />
+                            </MenuItem>
+                        ))}
+                    </Menu>
+                </ListItem>
+            ) : null}
         </List>
     )
 }

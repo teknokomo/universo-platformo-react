@@ -1,12 +1,59 @@
 import { ApplicationMembershipState } from '@universo/types'
+import { partitionRuntimeMenuItems, resolvePreferredLinkedCollectionIdFromGlobalMenu } from '../../controllers/runtimeRowsController'
 import {
+    UpdateFailure,
+    coerceRuntimeValue,
     normalizeRuntimeTableChildInsertValue,
-    resolvePreferredLinkedCollectionIdFromGlobalMenu
-} from '../../controllers/runtimeRowsController'
-import { UpdateFailure, resolveRequestedRuntimeWorkspaceId } from '../../shared/runtimeHelpers'
+    resolveRequestedRuntimeWorkspaceId
+} from '../../shared/runtimeHelpers'
 import { createMockDbExecutor } from '../utils/dbMocks'
 
 describe('runtimeRowsController startup catalog resolution', () => {
+    it('prefers the menu startPage catalog before bound hub fallback', async () => {
+        const { executor } = createMockDbExecutor()
+
+        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('information_schema.tables')) {
+                return [{ layoutsExists: true, widgetsExists: true }]
+            }
+
+            if (sql.includes('FROM runtime_schema._app_layouts')) {
+                return [{ id: 'global-layout-1' }]
+            }
+
+            if (sql.includes('FROM runtime_schema._app_widgets')) {
+                return [
+                    {
+                        config: {
+                            bindToHub: true,
+                            boundHubId: 'hub-1',
+                            startPage: 'Modules',
+                            items: [{ id: 'catalog', kind: 'catalog', catalogId: 'Modules' }]
+                        }
+                    }
+                ]
+            }
+
+            if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('id::text = $1')) {
+                expect(params).toEqual(['Modules'])
+                return [{ id: 'modules-catalog-id' }]
+            }
+
+            throw new Error(`Unexpected SQL: ${sql}`)
+        })
+
+        await expect(
+            resolvePreferredLinkedCollectionIdFromGlobalMenu({
+                manager: executor,
+                schemaName: 'runtime_schema',
+                schemaIdent: 'runtime_schema'
+            })
+        ).resolves.toBe('modules-catalog-id')
+
+        const executedSql = executor.query.mock.calls.map(([sql]) => String(sql)).join('\n')
+        expect(executedSql).not.toContain("config->'hubs' @>")
+    })
+
     it('derives startup catalog bindings from the global default or active layout only with config-aware section filtering', async () => {
         const { executor } = createMockDbExecutor()
 
@@ -45,6 +92,44 @@ describe('runtimeRowsController startup catalog resolution', () => {
     })
 })
 
+describe('partitionRuntimeMenuItems', () => {
+    const items = ['modules', 'knowledge', 'development', 'reports']
+    const workspaceItem = 'workspaces'
+
+    it('keeps the injected workspace item inside the primary menu limit', () => {
+        const result = partitionRuntimeMenuItems(items, 3, workspaceItem, 'primary')
+
+        expect(result.primaryItems).toEqual(['modules', 'knowledge', 'workspaces'])
+        expect(result.overflowItems).toEqual(['development', 'reports'])
+    })
+
+    it('handles a primary workspace item when the limit leaves no room for regular items', () => {
+        const result = partitionRuntimeMenuItems(items, 1, workspaceItem, 'primary')
+
+        expect(result.primaryItems).toEqual(['workspaces'])
+        expect(result.overflowItems).toEqual(items)
+    })
+
+    it('does not reserve primary capacity when the workspace item is in overflow or hidden', () => {
+        expect(partitionRuntimeMenuItems(items, 2, workspaceItem, 'overflow')).toEqual({
+            primaryItems: ['modules', 'knowledge'],
+            overflowItems: ['development', 'reports', 'workspaces']
+        })
+        expect(partitionRuntimeMenuItems(items, 2, workspaceItem, 'hidden')).toEqual({
+            primaryItems: ['modules', 'knowledge'],
+            overflowItems: ['development', 'reports']
+        })
+    })
+
+    it('does not mutate the source items when there is no primary limit', () => {
+        const result = partitionRuntimeMenuItems(items, null, workspaceItem, 'primary')
+
+        expect(result.primaryItems).toEqual(['modules', 'knowledge', 'development', 'reports', 'workspaces'])
+        expect(result.overflowItems).toEqual([])
+        expect(items).toEqual(['modules', 'knowledge', 'development', 'reports'])
+    })
+})
+
 describe('normalizeRuntimeTableChildInsertValue', () => {
     it('stringifies JSON child values exactly once', () => {
         expect(normalizeRuntimeTableChildInsertValue({ ok: true }, 'JSON')).toBe('{"ok":true}')
@@ -55,6 +140,23 @@ describe('normalizeRuntimeTableChildInsertValue', () => {
         expect(
             normalizeRuntimeTableChildInsertValue({ _primary: 'en', locales: { en: { content: 'Hello' } } }, 'STRING', { localized: true })
         ).toBe('{"_primary":"en","locales":{"en":{"content":"Hello"}}}')
+    })
+
+    it('wraps plain strings into VLC objects before json-backed localized storage', () => {
+        const coerced = coerceRuntimeValue('Hello', 'STRING', { localized: true, versioned: true })
+
+        expect(coerced).toEqual(
+            expect.objectContaining({
+                _schema: '1',
+                _primary: 'en',
+                locales: expect.objectContaining({
+                    en: expect.objectContaining({ content: 'Hello', version: 1, isActive: true })
+                })
+            })
+        )
+        expect(normalizeRuntimeTableChildInsertValue(coerced, 'STRING', { localized: true, versioned: true })).toContain(
+            '"content":"Hello"'
+        )
     })
 })
 

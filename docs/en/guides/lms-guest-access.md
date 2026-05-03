@@ -30,8 +30,7 @@ This keeps public LMS traffic fail-closed inside the intended workspace when `wo
 
 ## QR Codes
 
-The `qrCodeWidget` in the shared MUI app template renders an SVG QR code entirely on the client.
-Use it when you want to distribute a guest module or quiz URL to a classroom or printed handout.
+Access links are regular public URLs. Generate QR codes from the saved link URL at the content-distribution boundary, for example in an operator workflow, printed handout pipeline, or external classroom tool, instead of attaching a global LMS-specific widget to every published runtime page.
 
 ## Retention Model
 

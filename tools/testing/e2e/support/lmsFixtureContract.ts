@@ -1,40 +1,38 @@
 import { buildVLC, computeSnapshotHash } from '@universo/utils'
 
 export const LMS_FIXTURE_FILENAME = 'metahubs-lms-app-snapshot.json'
-export const LMS_MODULE_SCRIPT_CODENAME = 'lms-module-viewer'
-export const LMS_STATS_SCRIPT_CODENAME = 'lms-stats-viewer'
 
 export const LMS_CANONICAL_METAHUB = {
     name: {
-        en: 'Orbital Academy LMS',
-        ru: 'Орбитальная академия LMS'
+        en: 'Learning Portal LMS',
+        ru: 'Учебный портал LMS'
     },
     description: {
-        en: 'Canonical bilingual LMS metahub fixture with seeded classes, modules, public links, and dashboard widgets.',
-        ru: 'Канонический двуязычный LMS fixture metahub с заполненными классами, модулями, публичными ссылками и dashboard-виджетами.'
+        en: 'Canonical bilingual LMS metahub fixture with seeded classes, modules, and public learning links.',
+        ru: 'Канонический двуязычный LMS fixture metahub с заполненными классами, модулями и публичными учебными ссылками.'
     },
     codename: {
-        en: 'OrbitalAcademyLms',
-        ru: 'ОрбитальнаяАкадемияLms'
+        en: 'LearningPortalLms',
+        ru: 'УчебныйПорталLms'
     }
 }
 
 export const LMS_PUBLICATION = {
     name: {
-        en: 'Orbital Academy Publication',
-        ru: 'Публикация Орбитальной академии'
+        en: 'Learning Portal Publication',
+        ru: 'Публикация учебного портала'
     },
     applicationName: {
-        en: 'Orbital Academy App',
-        ru: 'Приложение Орбитальной академии'
+        en: 'Learning Portal App',
+        ru: 'Приложение учебного портала'
     }
 }
 
 export const LMS_SAMPLE_LINK = {
     slug: 'demo-module',
     title: {
-        en: 'Orbital navigation guest journey',
-        ru: 'Гостевой путь по орбитальной навигации'
+        en: 'Learning path guest journey',
+        ru: 'Гостевой учебный маршрут'
     }
 }
 
@@ -46,52 +44,17 @@ export const LMS_SECONDARY_LINK = {
     }
 }
 
-const buildInlineRouteMapDataUri = (title: string, subtitle: string) => {
-        const svg = `
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720" role="img" aria-label="${title}">
-    <defs>
-        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stop-color="#071426" />
-            <stop offset="100%" stop-color="#15345c" />
-        </linearGradient>
-    </defs>
-    <rect width="1200" height="720" fill="url(#bg)" rx="32" />
-    <g fill="none" stroke="#9ed8ff" stroke-width="8" stroke-linecap="round">
-        <path d="M140 520 C260 420 340 340 450 330 S660 360 760 290 S980 180 1060 140" opacity="0.9" />
-        <path d="M140 520 C240 560 340 600 430 590 S620 520 720 470 S900 360 1040 320" opacity="0.35" />
-    </g>
-    <g fill="#f7fbff" font-family="Arial, Helvetica, sans-serif">
-        <text x="96" y="112" font-size="48" font-weight="700">${title}</text>
-        <text x="96" y="160" font-size="28" opacity="0.82">${subtitle}</text>
-        <text x="96" y="636" font-size="22" opacity="0.7">Orbital Academy LMS demo fixture</text>
-    </g>
-    <g>
-        <circle cx="180" cy="516" r="18" fill="#9ed8ff" />
-        <circle cx="454" cy="332" r="18" fill="#9ed8ff" />
-        <circle cx="762" cy="290" r="18" fill="#9ed8ff" />
-        <circle cx="1060" cy="140" r="18" fill="#9ed8ff" />
-        <circle cx="1040" cy="320" r="18" fill="#89f0c7" />
-    </g>
-</svg>`.trim()
-
-        return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
-}
-
-const LMS_ROUTE_MAP_IMAGE = {
-        en: buildInlineRouteMapDataUri('Orbital Route Map', 'Shared guest path and dashboard hand-off remain available after clean import.'),
-        ru: buildInlineRouteMapDataUri('Карта орбитального маршрута', 'Гостевой путь и dashboard-переход доступны сразу после чистого импорта.')
-}
 
 export const LMS_DEMO_CLASSES = [
     {
-        key: 'orbital-navigation',
+        key: 'learning-path',
         name: {
-            en: 'Orbital Navigation Cohort',
-            ru: 'Когорта орбитальной навигации'
+            en: 'Learning Design Cohort',
+            ru: 'Когорта учебного дизайна'
         },
         description: {
-            en: 'Crew training for orbital checkpoints.',
-            ru: 'Подготовка экипажа по орбитальным точкам.'
+            en: 'Crew training for learning checkpoints.',
+            ru: 'Подготовка экипажа по учебным точкам.'
         },
         schoolYear: '2061',
         studentCountLimit: 24
@@ -132,10 +95,10 @@ export const LMS_DEMO_STUDENTS = [
 
 export const LMS_DEMO_QUIZZES = [
     {
-        key: 'orbital-navigation',
+        key: 'learning-path',
         title: {
-            en: 'Orbital Readiness Check',
-            ru: 'Проверка орбитальной готовности'
+            en: 'Learning Readiness Check',
+            ru: 'Проверка готовности к обучению'
         },
         description: {
             en: 'Two questions confirm corridor readiness.',
@@ -150,8 +113,8 @@ export const LMS_DEMO_QUIZZES = [
                     description: 'Choose one answer.',
                     explanation: 'Confirm the departure window first.',
                     options: [
-                        { id: 'orbital-q1-opt-a', label: buildVLC('Departure window', 'Окно отправления'), isCorrect: true },
-                        { id: 'orbital-q1-opt-b', label: buildVLC('Docking corridor', 'Коридор стыковки'), isCorrect: false }
+                        { id: 'learning-q1-opt-a', label: buildVLC('Departure window', 'Окно отправления'), isCorrect: true },
+                        { id: 'learning-q1-opt-b', label: buildVLC('Docking corridor', 'Коридор стыковки'), isCorrect: false }
                     ],
                     sortOrder: 1
                 },
@@ -160,8 +123,8 @@ export const LMS_DEMO_QUIZZES = [
                     description: 'Choose one answer.',
                     explanation: 'The navigation beacon confirms stability.',
                     options: [
-                        { id: 'orbital-q2-opt-a', label: buildVLC('Navigation beacon', 'Навигационный маяк'), isCorrect: true },
-                        { id: 'orbital-q2-opt-b', label: buildVLC('Cabin humidity alert', 'Сигнал влажности кабины'), isCorrect: false }
+                        { id: 'learning-q2-opt-a', label: buildVLC('Navigation beacon', 'Навигационный маяк'), isCorrect: true },
+                        { id: 'learning-q2-opt-b', label: buildVLC('Cabin humidity alert', 'Сигнал влажности кабины'), isCorrect: false }
                     ],
                     sortOrder: 2
                 }
@@ -172,8 +135,8 @@ export const LMS_DEMO_QUIZZES = [
                     description: 'Выберите один вариант.',
                     explanation: 'Сначала подтвердите окно отправления.',
                     options: [
-                        { id: 'orbital-q1-opt-a', label: buildVLC('Departure window', 'Окно отправления'), isCorrect: true },
-                        { id: 'orbital-q1-opt-b', label: buildVLC('Docking corridor', 'Коридор стыковки'), isCorrect: false }
+                        { id: 'learning-q1-opt-a', label: buildVLC('Departure window', 'Окно отправления'), isCorrect: true },
+                        { id: 'learning-q1-opt-b', label: buildVLC('Docking corridor', 'Коридор стыковки'), isCorrect: false }
                     ],
                     sortOrder: 1
                 },
@@ -182,8 +145,8 @@ export const LMS_DEMO_QUIZZES = [
                     description: 'Выберите один вариант.',
                     explanation: 'Навигационный маяк подтверждает устойчивость.',
                     options: [
-                        { id: 'orbital-q2-opt-a', label: buildVLC('Navigation beacon', 'Навигационный маяк'), isCorrect: true },
-                        { id: 'orbital-q2-opt-b', label: buildVLC('Cabin humidity alert', 'Сигнал влажности кабины'), isCorrect: false }
+                        { id: 'learning-q2-opt-a', label: buildVLC('Navigation beacon', 'Навигационный маяк'), isCorrect: true },
+                        { id: 'learning-q2-opt-b', label: buildVLC('Cabin humidity alert', 'Сигнал влажности кабины'), isCorrect: false }
                     ],
                     sortOrder: 2
                 }
@@ -312,12 +275,12 @@ export const LMS_DEMO_QUIZZES = [
 
 export const LMS_DEMO_MODULES = [
     {
-        key: 'orbital-navigation',
-        linkedQuizKey: 'orbital-navigation',
-        linkedClassKey: 'orbital-navigation',
+        key: 'learning-path',
+        linkedQuizKey: 'learning-path',
+        linkedClassKey: 'learning-path',
         title: {
-            en: 'Orbital Navigation 101',
-            ru: 'Орбитальная навигация 101'
+            en: 'Learning Path 101',
+            ru: 'Учебный маршрут 101'
         },
         description: {
             en: 'Lesson on transfer windows and checkpoints.',
@@ -357,7 +320,7 @@ export const LMS_DEMO_MODULES = [
     {
         key: 'docking-corridor',
         linkedQuizKey: 'docking-corridor',
-        linkedClassKey: 'orbital-navigation',
+        linkedClassKey: 'learning-path',
         title: {
             en: 'Docking Corridor Basics',
             ru: 'Основы стыковочного коридора'
@@ -447,29 +410,29 @@ export const LMS_DEMO_ACCESS_LINKS = [
         key: 'demo-module',
         slug: LMS_SAMPLE_LINK.slug,
         title: LMS_SAMPLE_LINK.title,
-        moduleKey: 'orbital-navigation',
-        classKey: 'orbital-navigation'
+        moduleKey: 'learning-path',
+        classKey: 'learning-path'
     },
     {
         key: 'docking-drill',
         slug: LMS_SECONDARY_LINK.slug,
         title: LMS_SECONDARY_LINK.title,
         moduleKey: 'docking-corridor',
-        classKey: 'orbital-navigation'
+        classKey: 'learning-path'
     }
 ] as const
 
 export const LMS_DEMO_ENROLLMENTS = [
     {
-        key: 'ava-orbital-navigation',
+        key: 'ava-learning-path',
         studentKey: 'ava-solaris',
-        classKey: 'orbital-navigation',
-        moduleKey: 'orbital-navigation'
+        classKey: 'learning-path',
+        moduleKey: 'learning-path'
     },
     {
         key: 'ava-docking-corridor',
         studentKey: 'ava-solaris',
-        classKey: 'orbital-navigation',
+        classKey: 'learning-path',
         moduleKey: 'docking-corridor'
     },
     {
@@ -482,9 +445,9 @@ export const LMS_DEMO_ENROLLMENTS = [
 
 export const LMS_DEMO_MODULE_PROGRESS = [
     {
-        key: 'ava-orbital-navigation-progress',
+        key: 'ava-learning-path-progress',
         studentKey: 'ava-solaris',
-        moduleKey: 'orbital-navigation',
+        moduleKey: 'learning-path',
         status: 'completed',
         progressPercent: 100
     },
@@ -506,20 +469,20 @@ export const LMS_DEMO_MODULE_PROGRESS = [
 
 export const LMS_DEMO_QUIZ_RESPONSES = [
     {
-        key: 'ava-orbital-navigation-q1',
+        key: 'ava-learning-path-q1',
         studentKey: 'ava-solaris',
-        quizKey: 'orbital-navigation',
-        questionId: 'orbital-navigation-question-1',
-        selectedOptionIds: ['orbital-q1-opt-a'],
+        quizKey: 'learning-path',
+        questionId: 'learning-path-question-1',
+        selectedOptionIds: ['learning-q1-opt-a'],
         isCorrect: true,
         attemptNumber: 1
     },
     {
-        key: 'ava-orbital-navigation-q2',
+        key: 'ava-learning-path-q2',
         studentKey: 'ava-solaris',
-        quizKey: 'orbital-navigation',
-        questionId: 'orbital-navigation-question-2',
-        selectedOptionIds: ['orbital-q2-opt-a'],
+        quizKey: 'learning-path',
+        questionId: 'learning-path-question-2',
+        selectedOptionIds: ['learning-q2-opt-a'],
         isCorrect: true,
         attemptNumber: 1
     },
@@ -566,119 +529,7 @@ export const LMS_DEMO_STUDENT = LMS_DEMO_STUDENTS[0]
 export const LMS_DEMO_MODULE = LMS_DEMO_MODULES[0]
 export const LMS_DEMO_QUIZ = LMS_DEMO_QUIZZES[0]
 
-export const LMS_DEMO_STATS = {
-    en: {
-        title: 'Orbital academy stats',
-        description: 'Seeded LMS metrics available immediately after fixture import.',
-        categories: ['Seeded students', 'Published modules', 'Guest routes', 'Seeded quiz attempts'],
-        series: [
-            {
-                label: 'Count',
-                values: [2, 3, 2, 3]
-            }
-        ]
-    },
-    ru: {
-        title: 'Статистика орбитальной академии',
-        description: 'Метрики LMS, доступные сразу после импорта fixture.',
-        categories: ['Заполненные студенты', 'Опубликованные модули', 'Гостевые маршруты', 'Заполненные попытки тестов'],
-        series: [
-            {
-                label: 'Количество',
-                values: [2, 3, 2, 3]
-            }
-        ]
-    }
-}
-
-export const LMS_MODULE_VIEW = {
-    en: {
-        title: LMS_DEMO_MODULE.title.en,
-        description: 'Dashboard preview of the canonical orbital lesson and route hand-off.',
-        progressPercent: 100,
-        items: [
-            {
-                id: 'briefing',
-                itemType: 'text',
-                itemTitle: 'Mission briefing',
-                itemContent: 'The imported dashboard should already contain the canonical orbital lesson, seeded guest routes, and a valid QR hand-off.',
-                sortOrder: 1
-            },
-            {
-                id: 'visual',
-                itemType: 'image',
-                itemTitle: 'Route map',
-                itemContent: LMS_ROUTE_MAP_IMAGE.en,
-                sortOrder: 2
-            }
-        ]
-    },
-    ru: {
-        title: LMS_DEMO_MODULE.title.ru,
-        description: 'Dashboard-превью канонического урока по орбитальной навигации и передачи в гостевой маршрут.',
-        progressPercent: 100,
-        items: [
-            {
-                id: 'briefing',
-                itemType: 'text',
-                itemTitle: 'Брифинг миссии',
-                itemContent: 'Импортированный dashboard уже должен содержать канонический орбитальный урок, заполненные гостевые маршруты и рабочий QR-переход.',
-                sortOrder: 1
-            },
-            {
-                id: 'visual',
-                itemType: 'image',
-                itemTitle: 'Карта маршрута',
-                itemContent: LMS_ROUTE_MAP_IMAGE.ru,
-                sortOrder: 2
-            }
-        ]
-    }
-}
-
-const normalizeLocaleScript = (locale) => (typeof locale === 'string' && locale.toLowerCase().startsWith('ru') ? 'ru' : 'en')
-
-export const LMS_MODULE_WIDGET_SOURCE = `const AtClient = () => () => undefined
-const AtServer = () => () => undefined
-class ExtensionScript {}
-
-const MODULE_BY_LOCALE = ${JSON.stringify(LMS_MODULE_VIEW)}
-
-const normalizeLocale = ${normalizeLocaleScript.toString()}
-
-export default class LmsModuleViewerFixture extends ExtensionScript {
-    @AtClient()
-    async mount(locale = 'en') {
-        return this.ctx.callServerMethod('getModule', [{ locale }])
-    }
-
-    @AtServer()
-    async getModule(payload) {
-        return MODULE_BY_LOCALE[normalizeLocale(payload?.locale)] || MODULE_BY_LOCALE.en
-    }
-}
-`
-
-export const LMS_STATS_WIDGET_SOURCE = `const AtClient = () => () => undefined
-const AtServer = () => () => undefined
-class ExtensionScript {}
-
-const STATS_BY_LOCALE = ${JSON.stringify(LMS_DEMO_STATS)}
-
-const normalizeLocale = ${normalizeLocaleScript.toString()}
-
-export default class LmsStatsViewerFixture extends ExtensionScript {
-    @AtClient()
-    async mount(locale = 'en') {
-        return this.ctx.callServerMethod('getStats', [{ locale }])
-    }
-
-    @AtServer()
-    async getStats(payload) {
-        return STATS_BY_LOCALE[normalizeLocale(payload?.locale)] || STATS_BY_LOCALE.en
-    }
-}
-`
+const normalizeLocaleScript = (locale: string) => (typeof locale === 'string' && locale.toLowerCase().startsWith('ru') ? 'ru' : 'en')
 
 type SnapshotEntity = { id?: string; codename?: unknown; kind?: string; fields?: Array<Record<string, unknown>> }
 type SnapshotElement = { id?: string; data?: Record<string, unknown> }
@@ -829,80 +680,60 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
     }
 
     const scripts = Array.isArray(envelope.snapshot?.scripts) ? envelope.snapshot.scripts : []
-    if (scripts.length !== 2) {
-        errors.push(`LMS fixture must contain exactly two exported scripts, received ${scripts.length}`)
-    }
-
-    const expectedScripts = [
-        { codename: LMS_MODULE_SCRIPT_CODENAME, sourceCode: LMS_MODULE_WIDGET_SOURCE },
-        { codename: LMS_STATS_SCRIPT_CODENAME, sourceCode: LMS_STATS_WIDGET_SOURCE }
-    ]
-
-    for (const expectedScript of expectedScripts) {
-        const script = scripts.find((item) => readLocalizedText(item?.codename, 'en') === expectedScript.codename)
-        if (!script) {
-            errors.push(`LMS fixture is missing the canonical ${expectedScript.codename} script`)
-            continue
-        }
-
-        if (script.attachedToKind !== 'metahub') {
-            errors.push(`LMS script ${expectedScript.codename} must attach to metahub`)
-        }
-        if ((script.attachedToId ?? null) !== null) {
-            errors.push(`LMS script ${expectedScript.codename} must keep a null metahub attachment id`)
-        }
-        if (script.moduleRole !== 'widget') {
-            errors.push(`LMS script ${expectedScript.codename} must keep widget moduleRole`)
-        }
-        if (script.sourceKind !== 'embedded') {
-            errors.push(`LMS script ${expectedScript.codename} must keep embedded sourceKind`)
-        }
-        if (script.isActive !== true) {
-            errors.push(`LMS script ${expectedScript.codename} must stay active`)
-        }
-        if (script.sourceCode !== expectedScript.sourceCode) {
-            errors.push(`LMS script ${expectedScript.codename} sourceCode drifted from the canonical source`) 
+    const forbiddenScriptCodenames = new Set(['lms-module-viewer', 'lms-stats-viewer'])
+    for (const script of scripts) {
+        const scriptCodename = readLocalizedText(script?.codename, 'en')
+        if (scriptCodename && forbiddenScriptCodenames.has(scriptCodename)) {
+            errors.push(`LMS fixture must not export legacy dashboard script ${scriptCodename}`)
         }
     }
 
     const widgets = Array.isArray(envelope.snapshot?.layoutZoneWidgets) ? envelope.snapshot.layoutZoneWidgets : []
-    const moduleWidget = widgets.find((widget) => widget?.widgetKey === 'moduleViewerWidget')
-    const statsWidget = widgets.find((widget) => widget?.widgetKey === 'statsViewerWidget')
-    const qrWidget = widgets.find((widget) => widget?.widgetKey === 'qrCodeWidget')
-
-    if (!moduleWidget) {
-        errors.push('LMS fixture must include moduleViewerWidget in the default layout')
-    } else {
-        const config = readWidgetConfig(moduleWidget.config)
-        if (config.attachedToKind !== 'metahub') {
-            errors.push('LMS moduleViewerWidget must bind to metahub scripts')
-        }
-        if (config.scriptCodename !== LMS_MODULE_SCRIPT_CODENAME) {
-            errors.push('LMS moduleViewerWidget must bind to the canonical module viewer script')
+    const forbiddenWidgetKeys = new Set(['moduleViewerWidget', 'statsViewerWidget', 'qrCodeWidget'])
+    for (const widget of widgets) {
+        if (forbiddenWidgetKeys.has(String(widget?.widgetKey))) {
+            errors.push(`LMS fixture must not include legacy global widget ${String(widget?.widgetKey)}`)
         }
     }
 
-    if (!statsWidget) {
-        errors.push('LMS fixture must include statsViewerWidget in the default layout')
+    const menuWidget = widgets.find((widget) => widget?.widgetKey === 'menuWidget')
+    if (!menuWidget) {
+        errors.push('LMS fixture must include a default menuWidget')
     } else {
-        const config = readWidgetConfig(statsWidget.config)
-        if (config.attachedToKind !== 'metahub') {
-            errors.push('LMS statsViewerWidget must bind to metahub scripts')
+        const config = readWidgetConfig(menuWidget.config)
+        const menuItems = Array.isArray(config.items) ? config.items : []
+        const activeItems = menuItems.filter((item) => (item as Record<string, unknown>)?.isActive !== false)
+        if (config.autoShowAllCatalogs !== false) {
+            errors.push('LMS menuWidget must disable autoShowAllCatalogs and expose only curated primary sections')
         }
-        if (config.scriptCodename !== LMS_STATS_SCRIPT_CODENAME) {
-            errors.push('LMS statsViewerWidget must bind to the canonical stats viewer script')
+        if (activeItems.length < 4) {
+            errors.push('LMS menuWidget must include product-facing primary navigation items')
         }
-    }
-
-    if (!qrWidget) {
-        errors.push('LMS fixture must include qrCodeWidget in the default layout')
-    } else {
-        const config = readWidgetConfig(qrWidget.config)
-        if (config.publicLinkSlug !== LMS_SAMPLE_LINK.slug) {
-            errors.push(`LMS qrCodeWidget must bind to the canonical public link slug ${LMS_SAMPLE_LINK.slug}`)
+        for (const item of activeItems) {
+            const normalizedItem = item as Record<string, unknown>
+            if (normalizedItem.kind === 'link' && typeof normalizedItem.href !== 'string') {
+                errors.push(`LMS menuWidget item ${String(normalizedItem.id ?? '<unknown>')} must not be an inert link`)
+            }
+            if (
+                normalizedItem.kind === 'catalog' &&
+                typeof normalizedItem.catalogId !== 'string' &&
+                typeof normalizedItem.sectionId !== 'string' &&
+                typeof normalizedItem.linkedCollectionId !== 'string'
+            ) {
+                errors.push(`LMS menuWidget catalog item ${String(normalizedItem.id ?? '<unknown>')} must target a real catalog`)
+            }
         }
-        if (typeof config.url === 'string' && config.url.length > 0) {
-            errors.push('LMS qrCodeWidget must not persist a hardcoded URL')
+        if (config.maxPrimaryItems !== 6) {
+            errors.push('LMS menuWidget must keep maxPrimaryItems=6 for stable primary navigation')
+        }
+        if (config.overflowLabelKey !== 'runtime.menu.more') {
+            errors.push('LMS menuWidget must use the shared runtime.menu.more overflow label key')
+        }
+        if (config.startPage !== 'Modules') {
+            errors.push('LMS menuWidget must start from the Modules catalog')
+        }
+        if (config.workspacePlacement !== 'primary') {
+            errors.push('LMS menuWidget must keep workspace navigation in the primary menu for MVP')
         }
     }
 

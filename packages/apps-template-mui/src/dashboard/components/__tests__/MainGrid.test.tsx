@@ -1,7 +1,47 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
+import type { ChangeEventHandler, ReactNode } from 'react'
 import MainGrid from '../MainGrid'
 import { DashboardDetailsProvider } from '../../DashboardDetailsContext'
+
+type MockRow = Record<string, unknown> & { id: string }
+
+interface MockViewHeaderProps {
+    title?: ReactNode
+    search?: boolean
+    searchValue?: string
+    onSearchChange?: ChangeEventHandler<HTMLInputElement>
+    children?: ReactNode
+}
+
+interface MockItemCardProps {
+    data: { name?: ReactNode }
+}
+
+interface MockTableColumn {
+    render?: (row?: MockRow) => ReactNode
+}
+
+interface MockFlowListTableProps {
+    data?: MockRow[]
+    sortableRows?: boolean
+    customColumns?: MockTableColumn[]
+}
+
+interface MockPaginationControlsProps {
+    pagination: {
+        currentPage: number
+        totalItems: number
+    }
+}
+
+interface MockRenderCellParams {
+    id: string
+    api: {
+        getRow: (id: string) => MockRow
+        getCellValue: (id: string, field: string) => unknown
+    }
+}
 
 vi.mock('../CustomizedDataGrid', () => ({
     default: (props: { rows: Array<unknown>; rowCount?: number; hideFooter?: boolean }) => (
@@ -18,19 +58,25 @@ vi.mock('../../internals/components/Copyright', () => ({
     default: () => <div data-testid='copyright' />
 }))
 
-vi.mock('../HighlightedCard', () => ({ default: () => <div /> }))
-vi.mock('../PageViewsBarChart', () => ({ default: () => <div /> }))
-vi.mock('../SessionsChart', () => ({ default: () => <div /> }))
-vi.mock('../StatCard', () => ({ default: () => <div /> }))
+vi.mock('../HighlightedCard', () => ({ default: () => <div data-testid='highlighted-card' /> }))
+vi.mock('../PageViewsBarChart', () => ({ default: () => <div data-testid='page-views-chart' /> }))
+vi.mock('../SessionsChart', () => ({ default: () => <div data-testid='sessions-chart' /> }))
+vi.mock('../StatCard', () => ({ default: () => <div data-testid='stat-card' /> }))
 vi.mock('../widgetRenderer', () => ({
     renderWidget: (widget: { widgetKey: string }) => <div data-testid={`rendered-widget-${widget.widgetKey}`}>{widget.widgetKey}</div>
+}))
+
+vi.mock('react-i18next', () => ({
+    useTranslation: () => ({
+        t: (_key: string, fallback?: string) => fallback ?? _key
+    })
 }))
 
 vi.mock('@universo/template-mui', async () => {
     const React = await import('react')
 
     return {
-        ViewHeaderMUI: (props: any) => (
+        ViewHeaderMUI: (props: MockViewHeaderProps) => (
             <div>
                 <div>{props.title}</div>
                 {props.search ? <input aria-label='search' value={props.searchValue} onChange={props.onSearchChange} /> : null}
@@ -38,8 +84,8 @@ vi.mock('@universo/template-mui', async () => {
             </div>
         ),
         ToolbarControls: () => <div data-testid='toolbar-controls' />,
-        ItemCard: (props: any) => <div data-testid='item-card'>{props.data.name}</div>,
-        FlowListTable: (props: any) => (
+        ItemCard: (props: MockItemCardProps) => <div data-testid='item-card'>{props.data.name}</div>,
+        FlowListTable: (props: MockFlowListTableProps) => (
             <div
                 data-testid='flow-list-table'
                 data-rows={String(props.data?.length ?? 0)}
@@ -50,7 +96,7 @@ vi.mock('@universo/template-mui', async () => {
                 </div>
             </div>
         ),
-        PaginationControls: (props: any) => (
+        PaginationControls: (props: MockPaginationControlsProps) => (
             <div data-testid='pagination-controls'>
                 {props.pagination.currentPage}:{props.pagination.totalItems}
             </div>
@@ -85,6 +131,20 @@ describe('MainGrid enhanced runtime details', () => {
         onPaginationModelChange: vi.fn(),
         pageSizeOptions: [10, 20, 50]
     }
+
+    it('uses shared dashboard defaults when layoutConfig is omitted', () => {
+        render(
+            <DashboardDetailsProvider value={details}>
+                <MainGrid />
+            </DashboardDetailsProvider>
+        )
+
+        expect(screen.getByText('Overview')).toBeInTheDocument()
+        expect(screen.queryByTestId('stat-card')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('sessions-chart')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('page-views-chart')).not.toBeInTheDocument()
+        expect(screen.getByTestId('customized-grid')).toBeInTheDocument()
+    })
 
     it('uses local filtered totals and client rows when search narrows the current dataset', () => {
         render(
@@ -127,7 +187,7 @@ describe('MainGrid enhanced runtime details', () => {
     })
 
     it('passes a minimal Grid API shim into FlowListTable renderCell callbacks', () => {
-        const renderCell = vi.fn((params: any) => {
+        const renderCell = vi.fn((params: MockRenderCellParams) => {
             const currentRow = params.api.getRow(params.id)
             return `${String(currentRow.name)}:${String(params.api.getCellValue(params.id, 'status'))}`
         })

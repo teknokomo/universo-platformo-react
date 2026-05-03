@@ -4,6 +4,16 @@
 
 ---
 
+## Current Focus: LMS Portal Runtime Refactor Implementation And QA Remediation — Complete (2026-05-02)
+
+- **Goal achieved**: the LMS template, fixture, runtime menu, application sync, and published app template now produce a clean entity-first LMS MVP surface without the old global module/statistics/QR demo widgets.
+- **Runtime architecture outcome**: LMS navigation is driven by generic `menuWidget` config (`maxPrimaryItems`, overflow label, `startPage`, workspace placement) and materialized by the applications backend using codename/id resolution rather than LMS-specific frontend components.
+- **QA remediation outcome**: the published runtime now opens the configured `Modules` start page deterministically, no longer duplicates `Workspaces` in the left menu, and no longer ships inert LMS menu links. `Knowledge`, `Development`, and `Reports` are catalog-backed navigation entries.
+- **Workspace/public access outcome**: public workspace-enabled applications now get a seeded shared `Published` workspace during schema sync. Public access links resolve from shared workspace data while personal workspace rows remain isolated from public runtime reads.
+- **Workspace sync hardening outcome**: existing public shared workspaces now receive owner membership when schema sync runs, and sync avoids redundant shared-workspace seed passes.
+- **Fixture outcome**: `tools/fixtures/metahubs-lms-app-snapshot.json` was rebuilt with neutral Learning Portal seed names, no removed global LMS widget scripts, no Orbital demo copy, and a recomputed hash.
+- **Validation outcome**: focused builds/tests/lints passed, the targeted Chromium LMS snapshot import/runtime Playwright flow passed end-to-end with EN/RU dashboard screenshots and menu navigation proof, `git diff --check` passed, and the root `pnpm build` completed green (`30/30` tasks).
+
 ## Current Focus: Runtime Workspace UI QA Remediation — Complete (2026-04-28)
 
 - **Goal achieved**: the published application Workspaces route now renders the real workspace management interface as the primary content, without the MUI demo overview/stat/chart surface above it.
@@ -158,16 +168,14 @@
 - **Architecture**: All LMS logic as metahub configuration data, not hardcoded in packages
 - **Critical gap**: Workspace system exists in DB but has no frontend UI — Phase 0 addresses this
 - **Implemented in current session so far**:
-- **Implemented in current session so far**:
-  - Generic workspace controls in `@universo/apps-template-mui` were tightened: `WorkspaceSwitcher` now renders the current workspace deterministically, opens `WorkspaceManagerDialog`, and keeps runtime workspace mutations/query invalidation wired through React Query.
-  - New LMS runtime widgets were finished and registered in the shared renderer/type path: `moduleViewerWidget`, `statsViewerWidget`, and `qrCodeWidget` now compile in `@universo/types`, `@universo/apps-template-mui`, and `@universo/metahubs-backend`.
-  - The LMS template now seeds a root `Learning` hub and exposes module/stats/QR widgets directly in the default layout instead of remaining a pure catalog seed without runtime presentation.
+  - Generic workspace controls in `@universo/apps-template-mui` were tightened: `WorkspaceSwitcher` now renders the current workspace deterministically and keeps runtime workspace mutations/query invalidation wired through React Query.
+  - The LMS default layout no longer exposes the removed global module/statistics/QR widgets; contextual learning content is reached through entity rows, runtime tables, and public access links.
   - Guest/public runtime access is now implemented end-to-end on backend/frontend route surfaces: public link resolution, guest session creation, public runtime payload loading, guest quiz submission, guest progress updates, and `GuestApp` route rendering are in place.
-  - Targeted validation now covers the new seams: `publicRuntimeAccess.test.ts`, `runtimeWorkspaceService.test.ts`, `publicApplicationsRoutes.test.ts`, `ModuleViewerWidget.test.tsx`, `GuestApp.test.tsx`, `WorkspaceSwitcher.test.tsx`, `QRCodeWidget.test.tsx`, plus template-manifest validation for `lmsTemplate`.
+  - Targeted validation now covers the current seams: `publicRuntimeAccess.test.ts`, `runtimeWorkspaceService.test.ts`, `publicApplicationsRoutes.test.ts`, `GuestApp.test.tsx`, `WorkspaceSwitcher.test.tsx`, runtime dashboard coverage, and template-manifest validation for `lmsTemplate`.
   - LMS fixture/docs scaffolding is present: `lmsFixtureContract.ts`, `metahubs-lms-app-export.spec.ts`, new EN/RU GitBook pages for LMS/workspaces, updated workspace platform pages, updated quiz tutorial compatibility notes, and refreshed root README sections.
   - The `POST /api/v1/metahubs` contract now supports `templateCodename` as a first-class selector with explicit conflict handling against `templateId`, closing the silent fallback-to-`basic` bug that blocked LMS template materialization in real E2E generation.
   - `EntityTypeService` now synthesizes the platform standard entity type definitions (`hub`, `catalog`, `set`, `enumeration`) when a schema lacks persisted builtin rows, so snapshot export and runtime metadata remain complete for templates that seed standard objects directly.
-  - The full Playwright generator cycle now passes and physically produced `tools/fixtures/metahubs-lms-app-snapshot.json`; the exported canonical LMS snapshot contains the required LMS entities plus `moduleViewerWidget`, `statsViewerWidget`, and `qrCodeWidget`.
+  - The full Playwright generator cycle now passes and physically produced `tools/fixtures/metahubs-lms-app-snapshot.json`; the exported canonical LMS snapshot contains the required LMS entities and intentionally excludes the removed global module/statistics/QR widgets.
 - **Residual major work**:
   - No open LMS MVP implementation phases remain in this execution track.
 
@@ -1092,6 +1100,7 @@
 
 ## Current Guardrails
 
+- The 2026-05-02 LMS runtime QA remediation is validated: runtime writes now wrap plain string input for localized/versioned fields into VLC objects, public guest runtime resolves only `__public_shared`, and Dashboard/MainGrid no longer use local `true` fallbacks that resurrect demo cards/charts.
 - The 2026-04-28 runtime workspace QA gap closure is now validated: keep application visibility mutable through edit/settings, keep workspace mode immutable, preserve `/a/:applicationId/workspaces` catalog exits through published runtime URLs, and keep runtime workspace/member management on the isolated `apps-template-mui` card/list patterns.
 - Runtime workspace member UI now has card/list parity, Russian `Рабочие пространства` browser proof, and focused Playwright coverage through `lms-workspace-management.spec.ts`.
 - The committed LMS, quiz, and self-hosted snapshot fixtures now match the current snapshot hash normalizer; future fixture changes must be regenerated through the documented Playwright generator specs and revalidated with the import flows.

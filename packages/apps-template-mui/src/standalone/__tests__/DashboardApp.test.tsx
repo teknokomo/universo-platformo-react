@@ -241,6 +241,30 @@ describe('DashboardApp', () => {
         expect(screen.queryByRole('button', { name: 'Create' })).not.toBeInTheDocument()
     })
 
+    it('hides the create action when runtime permissions are read-only', () => {
+        dashboardMocks.dashboardStateOverrides = {
+            appData: {
+                zoneWidgets: { left: [], right: [], center: [] },
+                menus: [],
+                activeMenuId: null,
+                linkedCollection: {
+                    name: 'Standalone details'
+                },
+                permissions: {
+                    manageMembers: false,
+                    manageApplication: false,
+                    createContent: false,
+                    editContent: false,
+                    deleteContent: false
+                }
+            }
+        }
+
+        render(<DashboardApp applicationId='app-1' locale='en' apiBaseUrl='http://localhost:3000' />)
+
+        expect(screen.queryByRole('button', { name: 'Create' })).not.toBeInTheDocument()
+    })
+
     it('renders the Workspaces route with runtime navigation and no demo dashboard layout', () => {
         const applicationId = '00000000-0000-7000-8000-000000000001'
         window.history.pushState({}, '', `/a/${applicationId}/workspaces`)
@@ -270,6 +294,34 @@ describe('DashboardApp', () => {
         expect(screen.getByTestId('dashboard-content')).toHaveTextContent(`workspaces:${applicationId}:${workspaceId}:access`)
         expect(screen.getByTestId('dashboard-menu')).toHaveTextContent(
             `Modules:false:/a/${applicationId}/catalog-1|Workspaces:true:/a/${applicationId}/workspaces|Dashboard:false:/a/${applicationId}/workspaces/${workspaceId}|Access:true:/a/${applicationId}/workspaces/${workspaceId}/access`
+        )
+    })
+
+    it('does not duplicate Workspaces when the runtime menu already provides the root workspace link', () => {
+        const applicationId = '00000000-0000-7000-8000-000000000001'
+        window.history.pushState({}, '', `/a/${applicationId}/workspaces`)
+        dashboardMocks.dashboardStateOverrides = {
+            menuSlot: {
+                title: null,
+                showTitle: false,
+                items: [
+                    { id: 'modules', label: 'Modules', kind: 'catalog', linkedCollectionId: 'catalog-1', selected: true },
+                    {
+                        id: 'runtime-workspaces',
+                        label: 'Workspaces',
+                        icon: 'apps',
+                        kind: 'link',
+                        href: `/a/${applicationId}/workspaces`,
+                        selected: false
+                    }
+                ]
+            }
+        }
+
+        render(<DashboardApp applicationId={applicationId} locale='en' apiBaseUrl='http://localhost:3000' />)
+
+        expect(screen.getByTestId('dashboard-menu')).toHaveTextContent(
+            `Modules:false:/a/${applicationId}/catalog-1|Workspaces:true:/a/${applicationId}/workspaces`
         )
     })
 })

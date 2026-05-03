@@ -323,6 +323,32 @@ describe('ApplicationRuntime pending interaction safety', () => {
         )
     })
 
+    it('does not duplicate Workspaces when the runtime menu already provides the root workspace link', () => {
+        runtimeMocks.dashboardStateOverrides = {
+            menuSlot: {
+                title: null,
+                showTitle: false,
+                items: [
+                    { id: 'modules', label: 'Modules', kind: 'catalog', linkedCollectionId: 'catalog-1', selected: true },
+                    {
+                        id: 'runtime-workspaces',
+                        label: 'Workspaces',
+                        icon: 'apps',
+                        kind: 'link',
+                        href: '/a/app-1/workspaces',
+                        selected: false
+                    }
+                ]
+            }
+        }
+
+        renderRuntimePageAt('/applications/app-1/runtime/workspaces')
+
+        expect(screen.getByTestId('apps-dashboard-menu')).toHaveTextContent(
+            'Modules:false:/a/app-1/catalog-1|Workspaces:true:/a/app-1/workspaces'
+        )
+    })
+
     it('uses the base runtime URL for section links when section-specific links are disabled', () => {
         runtimeMocks.dashboardStateOverrides = {
             appData: {
@@ -423,6 +449,35 @@ describe('ApplicationRuntime pending interaction safety', () => {
         renderRuntimePage()
 
         expect(screen.queryByRole('button', { name: 'Create' })).not.toBeInTheDocument()
+    })
+
+    it('hides the create action and clears direct page create mode when runtime permissions are read-only', async () => {
+        runtimeMocks.dashboardStateOverrides = {
+            appData: {
+                zoneWidgets: { left: [], right: [], center: [] },
+                menus: [],
+                activeMenuId: null,
+                linkedCollection: {
+                    name: 'Details',
+                    runtimeConfig: { createSurface: 'page' }
+                },
+                permissions: {
+                    manageMembers: false,
+                    manageApplication: false,
+                    createContent: false,
+                    editContent: false,
+                    deleteContent: false
+                }
+            }
+        }
+
+        renderRuntimePageAt('/applications/app-1/runtime?surface=page&mode=create')
+
+        await waitFor(() => {
+            expect(screen.queryByRole('button', { name: 'Create' })).not.toBeInTheDocument()
+        })
+        expect(runtimeMocks.handleOpenCreate).not.toHaveBeenCalled()
+        expect(screen.getByTestId('runtime-location-search')).toBeEmptyDOMElement()
     })
 
     it('renders page-surface forms inside dashboard content when createSurface is configured as page', async () => {

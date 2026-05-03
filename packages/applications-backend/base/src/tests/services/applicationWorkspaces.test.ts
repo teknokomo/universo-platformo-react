@@ -1,7 +1,8 @@
 import {
     archivePersonalWorkspaceForUser,
     ensureApplicationRuntimeWorkspaceSchema,
-    ensurePersonalWorkspaceForUser
+    ensurePersonalWorkspaceForUser,
+    ensurePublicSharedWorkspace
 } from '../../services/applicationWorkspaces'
 import { createMockDbExecutor } from '../utils/dbMocks'
 
@@ -204,6 +205,211 @@ describe('applicationWorkspaces service', () => {
                     en: 'Shared starter',
                     ru: 'Общий старт'
                 })
+            ])
+        )
+    })
+
+    it('creates and seeds a public shared workspace during public workspace schema bootstrap', async () => {
+        const { executor } = createMockDbExecutor()
+        const schemaName = 'app_018f8a787b8f7c1da111222233334455'
+        const generatedIds = [
+            '018f8a78-7b8f-7c1d-a111-222233334456',
+            '018f8a78-7b8f-7c1d-a111-222233334457',
+            '018f8a78-7b8f-7c1d-a111-222233334458',
+            '018f8a78-7b8f-7c1d-a111-222233334459',
+            '018f8a78-7b8f-7c1d-a111-222233334460'
+        ]
+
+        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
+                const id = generatedIds.shift()
+                return id ? [{ id }] : []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_roles"`)) {
+                if (sql.includes('SELECT id') && !sql.includes('SELECT id, codename') && params?.[0] === 'owner') {
+                    return [{ id: '018f8a78-7b8f-7c1d-a111-222233334456', codename: 'owner' }]
+                }
+                if (params?.[0] === 'owner' || params?.[0] === 'member') {
+                    return []
+                }
+            }
+
+            if (sql.includes('FROM applications.rel_application_users')) {
+                return []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
+                return []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_user_roles"`)) {
+                return []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_settings"`)) {
+                return [
+                    {
+                        value: {
+                            version: 1,
+                            elements: {
+                                '018f8a78-7b8f-7c1d-a111-222233334470': [
+                                    {
+                                        id: 'public-seed-row',
+                                        data: {
+                                            title: {
+                                                en: 'Public starter',
+                                                ru: 'Публичный старт'
+                                            }
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                ]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
+                return [
+                    {
+                        objectId: '018f8a78-7b8f-7c1d-a111-222233334470',
+                        codename: 'accesslinks',
+                        tableName: 'cat_018f8a787b8f7c1da111222233334470'
+                    }
+                ]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_attributes"`)) {
+                return [
+                    {
+                        objectId: '018f8a78-7b8f-7c1d-a111-222233334470',
+                        attributeId: '018f8a78-7b8f-7c1d-a111-222233334471',
+                        parentAttributeId: null,
+                        codename: 'title',
+                        columnName: 'col_018f8a787b8f7c1da111222233334471',
+                        dataType: 'STRING',
+                        uiConfig: {
+                            stringMode: 'vlc'
+                        },
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    }
+                ]
+            }
+
+            if (sql.includes('FROM information_schema.columns')) {
+                return [
+                    {
+                        tableName: 'cat_018f8a787b8f7c1da111222233334470',
+                        columnName: 'col_018f8a787b8f7c1da111222233334471',
+                        udtName: 'jsonb'
+                    }
+                ]
+            }
+
+            if (sql.includes('SELECT id, _seed_source_key AS "seedSourceKey"')) {
+                return []
+            }
+
+            return []
+        })
+
+        await ensureApplicationRuntimeWorkspaceSchema(executor, {
+            schemaName,
+            applicationId: '018f8a78-7b8f-7c1d-a111-222233334440',
+            actorUserId: '018f8a78-7b8f-7c1d-a111-222233334441',
+            ensurePublicSharedWorkspace: true,
+            entities: [
+                {
+                    id: '018f8a78-7b8f-7c1d-a111-222233334470',
+                    codename: 'accesslinks',
+                    kind: 'catalog',
+                    fields: []
+                } as never
+            ]
+        })
+
+        const workspaceInsertCall = executor.query.mock.calls.find(([sql]) =>
+            String(sql).includes(`INSERT INTO "${schemaName}"."_app_workspaces"`)
+        )
+        const membershipInsertCall = executor.query.mock.calls.find(([sql]) =>
+            String(sql).includes(`INSERT INTO "${schemaName}"."_app_workspace_user_roles"`)
+        )
+        const runtimeSeedInsertCall = executor.query.mock.calls.find(([sql]) =>
+            String(sql).includes(`INSERT INTO "${schemaName}"."cat_018f8a787b8f7c1da111222233334470"`)
+        )
+
+        expect(workspaceInsertCall).toBeDefined()
+        expect(String(workspaceInsertCall?.[0])).toContain("'shared', $4, 'active'")
+        expect(workspaceInsertCall?.[1]).toEqual(expect.arrayContaining(['__public_shared']))
+        expect(membershipInsertCall?.[1]).toEqual(
+            expect.arrayContaining([
+                '018f8a78-7b8f-7c1d-a111-222233334459',
+                '018f8a78-7b8f-7c1d-a111-222233334458',
+                '018f8a78-7b8f-7c1d-a111-222233334441',
+                '018f8a78-7b8f-7c1d-a111-222233334456'
+            ])
+        )
+        expect(runtimeSeedInsertCall).toBeDefined()
+        expect(runtimeSeedInsertCall?.[1]).toEqual(
+            expect.arrayContaining([
+                '018f8a78-7b8f-7c1d-a111-222233334460',
+                '018f8a78-7b8f-7c1d-a111-222233334458',
+                'public-seed-row',
+                JSON.stringify({
+                    en: 'Public starter',
+                    ru: 'Публичный старт'
+                })
+            ])
+        )
+    })
+
+    it('ensures owner membership when a public shared workspace already exists', async () => {
+        const { executor } = createMockDbExecutor()
+        const schemaName = 'app_018f8a787b8f7c1da111222233334490'
+
+        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
+                return [{ id: '018f8a78-7b8f-7c1d-a111-222233334491' }]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
+                return [{ id: '018f8a78-7b8f-7c1d-a111-222233334492' }]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_roles"`)) {
+                expect(params).toEqual(['owner'])
+                return [{ id: '018f8a78-7b8f-7c1d-a111-222233334493' }]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_user_roles"`)) {
+                return []
+            }
+
+            return []
+        })
+
+        await expect(
+            ensurePublicSharedWorkspace(executor, {
+                schemaName,
+                ownerUserId: '018f8a78-7b8f-7c1d-a111-222233334494',
+                actorUserId: '018f8a78-7b8f-7c1d-a111-222233334495',
+                seedWorkspace: false
+            })
+        ).resolves.toEqual({ workspaceId: '018f8a78-7b8f-7c1d-a111-222233334492', created: false })
+
+        const executedSql = executor.query.mock.calls.map(([sql]) => String(sql)).join('\n')
+        expect(executedSql).not.toContain(`INSERT INTO "${schemaName}"."_app_workspaces"`)
+        const membershipInsertCall = executor.query.mock.calls.find(([sql]) =>
+            String(sql).includes(`INSERT INTO "${schemaName}"."_app_workspace_user_roles"`)
+        )
+        expect(membershipInsertCall?.[1]).toEqual(
+            expect.arrayContaining([
+                '018f8a78-7b8f-7c1d-a111-222233334491',
+                '018f8a78-7b8f-7c1d-a111-222233334492',
+                '018f8a78-7b8f-7c1d-a111-222233334494',
+                '018f8a78-7b8f-7c1d-a111-222233334493'
             ])
         )
     })
@@ -577,7 +783,7 @@ describe('applicationWorkspaces service', () => {
                                     {
                                         id: 'module-seed-row',
                                         data: {
-                                            Title: 'Orbital Navigation 101'
+                                            Title: 'Learning Portal Basics'
                                         }
                                     }
                                 ],
@@ -811,7 +1017,7 @@ describe('applicationWorkspaces service', () => {
                                     {
                                         id: 'module-seed-row',
                                         data: {
-                                            Title: 'Orbital Navigation 101',
+                                            Title: 'Learning Portal Basics',
                                             ContentItems: [
                                                 {
                                                     QuizId: 'quiz-seed-row',
@@ -967,5 +1173,141 @@ describe('applicationWorkspaces service', () => {
             ])
         )
         expect(childInsertCall?.[1]).not.toEqual(expect.arrayContaining(['quiz-seed-row']))
+    })
+
+    it('selects the __public_shared workspace deterministically when multiple shared workspaces exist', async () => {
+        const { executor } = createMockDbExecutor()
+        const schemaName = 'app_018f8a787b8f7c1da111222233335000'
+        const publicSharedWorkspaceId = '018f8a78-7b8f-7c1d-a111-222233335001'
+        const otherSharedWorkspaceId = '018f8a78-7b8f-7c1d-a111-222233335002'
+
+        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
+                return [{ id: '018f8a78-7b8f-7c1d-a111-222233335003' }]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
+                if (params?.[0] === '__public_shared') {
+                    return [{ id: publicSharedWorkspaceId }]
+                }
+                return [{ id: otherSharedWorkspaceId }]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_roles"`)) {
+                if (params?.[0] === 'owner') {
+                    return [{ id: '018f8a78-7b8f-7c1d-a111-222233335004' }]
+                }
+                return []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_user_roles"`)) {
+                return []
+            }
+
+            return []
+        })
+
+        const result = await ensurePublicSharedWorkspace(executor, {
+            schemaName,
+            ownerUserId: '018f8a78-7b8f-7c1d-a111-222233335005',
+            actorUserId: '018f8a78-7b8f-7c1d-a111-222233335006',
+            seedWorkspace: false
+        })
+
+        expect(result.workspaceId).toBe(publicSharedWorkspaceId)
+        expect(result.created).toBe(false)
+
+        const executedSql = executor.query.mock.calls.map(([sql]) => String(sql)).join('\n')
+        expect(executedSql).toContain('AND codename = $1')
+        expect(executedSql).not.toContain('CASE WHEN codename')
+        expect(executedSql).not.toContain(`INSERT INTO "${schemaName}"."_app_workspaces"`)
+    })
+
+    it('creates a public shared workspace instead of reusing a non-public shared workspace', async () => {
+        const { executor } = createMockDbExecutor()
+        const schemaName = 'app_018f8a787b8f7c1da111222233335100'
+        const createdWorkspaceId = '018f8a78-7b8f-7c1d-a111-222233335102'
+        const nonPublicWorkspaceId = '018f8a78-7b8f-7c1d-a111-222233335101'
+
+        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
+                return [{ id: createdWorkspaceId }]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
+                if (params?.[0] === '__public_shared') {
+                    return []
+                }
+                return [{ id: nonPublicWorkspaceId }]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_roles"`)) {
+                if (params?.[0] === 'owner') {
+                    return [{ id: '018f8a78-7b8f-7c1d-a111-222233335103' }]
+                }
+                return []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_user_roles"`)) {
+                return []
+            }
+
+            return []
+        })
+
+        const result = await ensurePublicSharedWorkspace(executor, {
+            schemaName,
+            ownerUserId: '018f8a78-7b8f-7c1d-a111-222233335104',
+            actorUserId: '018f8a78-7b8f-7c1d-a111-222233335105',
+            seedWorkspace: false
+        })
+
+        expect(result.workspaceId).toBe(createdWorkspaceId)
+        expect(result.created).toBe(true)
+
+        const workspaceInsertCall = executor.query.mock.calls.find(([sql]) =>
+            String(sql).includes(`INSERT INTO "${schemaName}"."_app_workspaces"`)
+        )
+        expect(workspaceInsertCall?.[1]).toEqual(expect.arrayContaining(['__public_shared']))
+    })
+
+    it('sets __public_shared codename when creating a new public shared workspace', async () => {
+        const { executor } = createMockDbExecutor()
+        const schemaName = 'app_018f8a787b8f7c1da111222233335200'
+
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
+                return [{ id: '018f8a78-7b8f-7c1d-a111-222233335201' }]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
+                return []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_roles"`)) {
+                return []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_user_roles"`)) {
+                return []
+            }
+
+            return []
+        })
+
+        const result = await ensurePublicSharedWorkspace(executor, {
+            schemaName,
+            ownerUserId: null,
+            seedWorkspace: false
+        })
+
+        expect(result.created).toBe(true)
+
+        const workspaceInsertCall = executor.query.mock.calls.find(([sql]) =>
+            String(sql).includes(`INSERT INTO "${schemaName}"."_app_workspaces"`)
+        )
+        expect(workspaceInsertCall).toBeDefined()
+        expect(String(workspaceInsertCall?.[0])).toContain('$4')
+        expect(workspaceInsertCall?.[1]).toEqual(expect.arrayContaining(['__public_shared']))
     })
 })

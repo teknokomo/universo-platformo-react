@@ -14,7 +14,7 @@ import {
     waitForOptionValueId
 } from '../../support/lmsRuntime'
 
-test('@flow lms qr widget exposes the real public link and leads into guest access', async ({ page, runManifest }) => {
+test('@flow lms contextual access link enables guest journey without legacy QR widget', async ({ page, runManifest }) => {
     test.setTimeout(300_000)
 
     const api = await createLoggedInApiContext({
@@ -25,15 +25,15 @@ test('@flow lms qr widget exposes the real public link and leads into guest acce
     try {
         const lms = await setupPublishedLmsApplication(api, {
             runId: runManifest.runId,
-            label: 'Qr',
+            label: 'Access',
             isPublic: true,
             workspacesEnabled: true
         })
 
         await recordCreatedMetahub({
             id: lms.metahub.id,
-            name: `E2E ${runManifest.runId} Qr LMS`,
-            codename: `${runManifest.runId}-qr-lms`
+            name: `E2E ${runManifest.runId} Access LMS`,
+            codename: `${runManifest.runId}-access-lms`
         })
         await recordCreatedPublication({
             id: lms.publication.id,
@@ -52,19 +52,19 @@ test('@flow lms qr widget exposes the real public link and leads into guest acce
         const textValueId = await waitForOptionValueId(api, lms.metahub.id, contentTypeEnumerationId, 'Text')
         const publishedModuleStatusValueId = await waitForOptionValueId(api, lms.metahub.id, moduleStatusEnumerationId, 'Published')
 
-        const moduleSlug = 'demo-module'
+        const accessSlug = `access-${runManifest.runId}`
         const moduleRow = await createRuntimeRow(api, lms.applicationId, {
             linkedCollectionId: modulesCatalogId,
             data: {
-                Title: `QR Module ${runManifest.runId}`,
-                Description: 'Module opened from QR widget link',
+                Title: `Access Link Module ${runManifest.runId}`,
+                Description: 'Module opened through contextual access link',
                 Status: publishedModuleStatusValueId,
-                AccessLinkSlug: moduleSlug,
+                AccessLinkSlug: accessSlug,
                 ContentItems: [
                     {
                         ItemType: textValueId,
-                        ItemTitle: 'QR Lesson',
-                        ItemContent: 'This lesson was reached from the QR widget.',
+                        ItemTitle: 'Access link lesson',
+                        ItemContent: 'This lesson was reached from a contextual access link.',
                         SortOrder: 1
                     }
                 ]
@@ -75,39 +75,30 @@ test('@flow lms qr widget exposes the real public link and leads into guest acce
         const accessLinkRow = await createRuntimeRow(api, lms.applicationId, {
             linkedCollectionId: accessLinksCatalogId,
             data: {
-                Slug: moduleSlug,
+                Slug: accessSlug,
                 TargetType: 'module',
                 TargetId: moduleRow.id,
                 IsActive: true,
                 MaxUses: 20,
                 UseCount: 0,
-                LinkTitle: 'QR module access'
+                LinkTitle: 'Access link module test'
             }
         })
         await waitForApplicationRuntimeRow(api, lms.applicationId, accessLinksCatalogId, accessLinkRow.id)
 
         const widgetPayload = await listLayoutZoneWidgets(api, lms.metahub.id, lms.layoutId)
-        const qrWidget = (widgetPayload.items ?? []).find((item: { id?: string; widgetKey?: string }) => item.widgetKey === 'qrCodeWidget')
-        if (!qrWidget?.id) {
-            throw new Error('LMS QR widget was not present in the default layout')
-        }
+        const widgetKeys = (widgetPayload.items ?? []).map((item: { widgetKey?: string }) => item.widgetKey)
+        expect(widgetKeys).not.toContain('qrCodeWidget')
+        expect(widgetKeys).not.toContain('moduleViewerWidget')
+        expect(widgetKeys).not.toContain('statsViewerWidget')
 
-        expect(qrWidget.config?.publicLinkSlug).toBe(moduleSlug)
-
-        const publicLinkPath = `http://localhost:3000/public/a/${lms.applicationId}/links/${moduleSlug}`
-
-        await page.goto(`/a/${lms.applicationId}?catalogId=${modulesCatalogId}`)
-        await expect(page.getByText('Module access QR')).toBeVisible({ timeout: 30_000 })
-        await expect(page.locator('canvas')).toBeVisible()
-        await expect(page.getByText(publicLinkPath, { exact: true })).toBeVisible({ timeout: 30_000 })
-
-        await page.goto(`/public/a/${lms.applicationId}/links/${moduleSlug}`)
+        await page.goto(`/public/a/${lms.applicationId}/links/${accessSlug}`)
         await expect(page.getByLabel('Your name')).toBeVisible({ timeout: 30_000 })
-        await page.getByLabel('Your name').fill('QR learner')
+        await page.getByLabel('Your name').fill('Access link learner')
         await page.getByRole('button', { name: 'Start learning' }).click()
 
-        await expect(page.getByText(`QR Module ${runManifest.runId}`)).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByText('This lesson was reached from the QR widget.')).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText(`Access Link Module ${runManifest.runId}`)).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText('This lesson was reached from a contextual access link.')).toBeVisible({ timeout: 30_000 })
     } finally {
         await disposeApiContext(api)
     }

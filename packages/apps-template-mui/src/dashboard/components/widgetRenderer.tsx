@@ -5,18 +5,15 @@ import Divider from '@mui/material/Divider'
 import Grid from '@mui/material/Grid'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
+import PersonRoundedIcon from '@mui/icons-material/PersonRounded'
 import type { ColumnsContainerConfig } from '@universo/types'
 import SelectContent from './SelectContent'
 import MenuContent from './MenuContent'
 import CardAlert from './CardAlert'
-import OptionsMenu from './OptionsMenu'
 import CustomizedTreeView from './CustomizedTreeView'
 import ChartUserByCountry from './ChartUserByCountry'
 import CustomizedDataGrid from './CustomizedDataGrid'
 import QuizWidget from './QuizWidget'
-import ModuleViewerWidget from './ModuleViewerWidget'
-import StatsViewerWidget from './StatsViewerWidget'
-import QRCodeWidget from './QRCodeWidget'
 import WorkspaceSwitcher from './WorkspaceSwitcher'
 import type { DashboardMenuSlot, DashboardMenusMap, ZoneWidgetItem } from '../Dashboard'
 import { useDashboardDetails } from '../DashboardDetailsContext'
@@ -42,9 +39,6 @@ export function resolveMenuForWidget(
  * A columnsContainer inside another columnsContainer is blocked at render time.
  */
 const MAX_CONTAINER_DEPTH = 1
-
-/** Stable empty config reference to avoid re-renders when creating virtual ZoneWidgetItem objects. */
-const EMPTY_WIDGET_CONFIG: Record<string, unknown> = Object.freeze({})
 
 /**
  * Inner component for detailsTable widget that consumes DashboardDetailsContext.
@@ -110,16 +104,14 @@ export function renderWidget(widget: ZoneWidgetItem, menus?: DashboardMenusMap, 
                         borderColor: 'divider'
                     }}
                 >
-                    <Avatar sizes='small' alt='Riley Carter' src='/static/images/avatar/7.jpg' sx={{ width: 36, height: 36 }} />
+                    <Avatar sizes='small' sx={{ width: 36, height: 36 }}>
+                        <PersonRoundedIcon fontSize='small' />
+                    </Avatar>
                     <Box sx={{ mr: 'auto' }}>
                         <Typography variant='body2' sx={{ fontWeight: 500, lineHeight: '16px' }}>
-                            Riley Carter
-                        </Typography>
-                        <Typography variant='caption' sx={{ color: 'text.secondary' }}>
-                            riley@email.com
+                            User
                         </Typography>
                     </Box>
-                    <OptionsMenu />
                 </Stack>
             )
         case 'productTree':
@@ -130,12 +122,6 @@ export function renderWidget(widget: ZoneWidgetItem, menus?: DashboardMenusMap, 
             return <DetailsTableWidget key={widget.id} />
         case 'quizWidget':
             return <QuizWidget key={widget.id} config={widget.config} />
-        case 'moduleViewerWidget':
-            return <ModuleViewerWidget key={widget.id} config={widget.config} />
-        case 'statsViewerWidget':
-            return <StatsViewerWidget key={widget.id} config={widget.config} />
-        case 'qrCodeWidget':
-            return <QRCodeWidget key={widget.id} config={widget.config} />
         case 'columnsContainer': {
             // Guard against infinite recursion if a columnsContainer nests another
             if (depth >= MAX_CONTAINER_DEPTH) return null
@@ -147,10 +133,10 @@ export function renderWidget(widget: ZoneWidgetItem, menus?: DashboardMenusMap, 
                         <Grid key={col.id} size={{ xs: 12, md: col.width }}>
                             {(col.widgets ?? []).map((w, wIdx) => {
                                 const inner: ZoneWidgetItem = {
-                                    id: `${col.id}-w${wIdx}`,
+                                    id: w.id ?? `${col.id}-w${wIdx}`,
                                     widgetKey: w.widgetKey,
-                                    sortOrder: wIdx,
-                                    config: EMPTY_WIDGET_CONFIG
+                                    sortOrder: typeof w.sortOrder === 'number' ? w.sortOrder : wIdx,
+                                    config: w.config ?? {}
                                 }
                                 return (
                                     <Box key={inner.id} sx={wIdx > 0 ? { mt: 2 } : undefined}>

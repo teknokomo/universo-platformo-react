@@ -38,10 +38,11 @@ LMS-шаблон намеренно построен вокруг сущност
 
 ## Слой виджетов
 
-LMS layout использует общие widgets:
+LMS layout использует те же общие dashboard-виджеты, что и другие опубликованные приложения:
 
-- `moduleViewerWidget`
-- `statsViewerWidget`
-- `qrCodeWidget`
+- `menuWidget` с выбранными основными пунктами, optional overflow и `startPage`, указывающим на учебный хаб.
+- `appNavbar`, `header`, `detailsTitle` и `detailsTable` для runtime shell и поверхностей данных.
+- `columnsContainer`, когда макету нужна составная dashboard-композиция с сохранением конфигурации вложенных виджетов.
 
-Платформенные пакеты предоставляют инфраструктуру рендера; LMS-специфический смысл задаётся конфигурацией metahub и runtime-данными.
+Платформа по-прежнему поддерживает script-backed widgets и QR widgets как общие возможности, но LMS fixture не привязывает глобальные module/statistics/QR widgets в default application layout.
+LMS-специфическое поведение задаётся конфигурацией metahub, данными сущностей, скриптами на релевантной metadata surface и публичными runtime-ссылками.

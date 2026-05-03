@@ -172,6 +172,7 @@ export async function syncApplicationSchemaFromSource(options: {
                     migrationManager,
                     userId,
                     workspacesEnabled: application.workspacesEnabled,
+                    isPublic: application.isPublic,
                     layoutResolutionPolicy
                 })
 
@@ -252,6 +253,7 @@ export async function syncApplicationSchemaFromSource(options: {
                             migrationId,
                             userId,
                             workspacesEnabled: application.workspacesEnabled,
+                            isPublic: application.isPublic,
                             layoutResolutionPolicy
                         })
                     )
@@ -440,6 +442,7 @@ export async function syncApplicationSchemaFromSource(options: {
                     migrationId,
                     userId,
                     workspacesEnabled: application.workspacesEnabled,
+                    isPublic: application.isPublic,
                     layoutResolutionPolicy
                 })
 
@@ -546,6 +549,7 @@ export async function syncApplicationSchemaFromSource(options: {
                         migrationId,
                         userId,
                         workspacesEnabled: application.workspacesEnabled,
+                        isPublic: application.isPublic,
                         layoutResolutionPolicy
                     })
 
@@ -698,17 +702,23 @@ export function buildCreateTableDetails(options: {
     const { entities, snapshot, includeEntityIds } = options
     const catalogEntities = entities.filter((entity) => entity.kind === 'catalog')
     const { catalogElementLabels, enumerationValueLabels } = buildPreviewLabelMaps(entities, snapshot)
+    const flattenFieldDetails = (fields: EntityField[] = []): DiffTableDetails['fields'] =>
+        fields.flatMap((field) => {
+            const current = {
+                id: field.id,
+                codename: field.codename,
+                dataType: field.dataType,
+                isRequired: Boolean(field.isRequired),
+                parentAttributeId: field.parentAttributeId ?? null
+            }
+            const childFields = Array.isArray(field.childFields) ? flattenFieldDetails(field.childFields as EntityField[]) : []
+            return [current, ...childFields]
+        })
 
     return catalogEntities
         .filter((entity) => (includeEntityIds ? includeEntityIds.has(entity.id) : true))
         .map((entity) => {
-            const fields = (entity.fields ?? []).map((f: EntityField) => ({
-                id: f.id,
-                codename: f.codename,
-                dataType: f.dataType,
-                isRequired: Boolean(f.isRequired),
-                parentAttributeId: f.parentAttributeId ?? null
-            }))
+            const fields = flattenFieldDetails(entity.fields ?? [])
 
             const elements = (snapshot.elements && (snapshot.elements as Record<string, unknown[]>)[entity.id]) as unknown[] | undefined
             const records = Array.isArray(elements)
@@ -804,6 +814,7 @@ export async function runPublishedApplicationRuntimeSync(options: {
     migrationId?: string
     userId?: string | null
     workspacesEnabled?: boolean
+    isPublic?: boolean
     layoutResolutionPolicy?: {
         default?: ApplicationLayoutSyncResolution
         bySourceLayoutId?: Record<string, ApplicationLayoutSyncResolution>
@@ -867,7 +878,9 @@ export async function runPublishedApplicationRuntimeSync(options: {
                 schemaName,
                 applicationId,
                 entities,
-                actorUserId: userId
+                actorUserId: userId,
+                ensurePublicSharedWorkspace: options.isPublic === true,
+                seedPublicSharedWorkspace: false
             })
         )
         await runSchemaSyncStep(`runtimeSync:${applicationId}:workspaceSeededElements`, async () =>

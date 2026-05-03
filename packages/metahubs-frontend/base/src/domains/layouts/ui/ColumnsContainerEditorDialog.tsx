@@ -50,8 +50,8 @@ const MAX_WIDGETS_PER_COLUMN = 6
 function makeDefaultConfig(): ColumnsContainerConfig {
     return {
         columns: [
-            { id: generateUuidV7(), width: 6, widgets: [{ widgetKey: 'sessionsChart' }] },
-            { id: generateUuidV7(), width: 6, widgets: [{ widgetKey: 'pageViewsChart' }] }
+            { id: generateUuidV7(), width: 6, widgets: [{ id: generateUuidV7(), widgetKey: 'sessionsChart', sortOrder: 1, config: {} }] },
+            { id: generateUuidV7(), width: 6, widgets: [{ id: generateUuidV7(), widgetKey: 'pageViewsChart', sortOrder: 1, config: {} }] }
         ]
     }
 }
@@ -223,7 +223,7 @@ export default function ColumnsContainerEditorDialog({
         setColumns((prev) =>
             prev.map((c) => {
                 if (c.id !== colId) return c
-                const widgets = c.widgets.map((w, i) => (i === widgetIndex ? { ...w, widgetKey } : w))
+                const widgets = c.widgets.map((w, i) => (i === widgetIndex ? { ...w, widgetKey, config: w.config ?? {} } : w))
                 return { ...c, widgets }
             })
         )
@@ -233,7 +233,13 @@ export default function ColumnsContainerEditorDialog({
         setColumns((prev) =>
             prev.map((c) => {
                 if (c.id !== colId || c.widgets.length >= MAX_WIDGETS_PER_COLUMN) return c
-                return { ...c, widgets: [...c.widgets, { widgetKey: CENTER_WIDGET_KEYS[0] }] }
+                return {
+                    ...c,
+                    widgets: [
+                        ...c.widgets,
+                        { id: generateUuidV7(), widgetKey: CENTER_WIDGET_KEYS[0], sortOrder: c.widgets.length + 1, config: {} }
+                    ]
+                }
             })
         )
     }, [])
@@ -263,7 +269,14 @@ export default function ColumnsContainerEditorDialog({
         // Defense-in-depth: strip any accidental columnsContainer nesting
         const sanitized = columns.map((c) => ({
             ...c,
-            widgets: c.widgets.filter((w) => w.widgetKey !== 'columnsContainer')
+            widgets: c.widgets
+                .filter((w) => w.widgetKey !== 'columnsContainer')
+                .map((widget, index) => ({
+                    ...widget,
+                    id: widget.id ?? generateUuidV7(),
+                    sortOrder: index + 1,
+                    config: widget.config ?? {}
+                }))
         }))
         onSave(setSharedBehaviorInWidgetConfig({ columns: sanitized }, sharedBehaviorValue) as ColumnsContainerConfig)
     }, [columns, onSave, sharedBehaviorValue, totalWidth])

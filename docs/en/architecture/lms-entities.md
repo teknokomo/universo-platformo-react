@@ -38,10 +38,11 @@ All primary LMS concepts are represented as ordinary metahub entities.
 
 ## Widget Layer
 
-The LMS layout uses generic widgets:
+The LMS layout uses the same generic dashboard widgets as other published applications:
 
-- `moduleViewerWidget`
-- `statsViewerWidget`
-- `qrCodeWidget`
+- `menuWidget` with curated primary items, optional overflow, and a `startPage` pointing at the learning hub.
+- `appNavbar`, `header`, `detailsTitle`, and `detailsTable` for the runtime shell and data surfaces.
+- `columnsContainer` when a layout needs composed dashboard content while preserving nested widget configuration.
 
-The platform packages provide the rendering infrastructure; the LMS-specific meaning comes from metahub configuration and runtime data.
+The platform still supports script-backed widgets and QR widgets as generic capabilities, but the LMS fixture does not bind global module/statistics/QR widgets into the default application layout.
+LMS-specific behavior comes from metahub configuration, entity data, scripts attached to the relevant metadata surface, and public runtime links.

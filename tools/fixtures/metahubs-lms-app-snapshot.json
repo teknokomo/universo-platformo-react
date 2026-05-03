@@ -8,14 +8,14 @@
       "_schema": "1",
       "locales": {
         "en": {
-          "content": "Orbital Academy LMS",
+          "content": "Learning Portal LMS",
           "version": 1,
           "isActive": true,
           "createdAt": "2026-04-21T05:49:56.222Z",
           "updatedAt": "2026-04-21T05:49:56.222Z"
         },
         "ru": {
-          "content": "Орбитальная академия LMS",
+          "content": "Учебный портал LMS",
           "version": 1,
           "isActive": true,
           "createdAt": "2026-04-21T05:49:56.222Z",
@@ -28,14 +28,14 @@
       "_schema": "1",
       "locales": {
         "en": {
-          "content": "Canonical bilingual LMS metahub fixture with seeded classes, modules, public links, and dashboard widgets.",
+          "content": "Canonical bilingual LMS metahub fixture with seeded classes, modules, and public learning links.",
           "version": 1,
           "isActive": true,
           "createdAt": "2026-04-21T05:49:56.222Z",
           "updatedAt": "2026-04-21T05:49:56.222Z"
         },
         "ru": {
-          "content": "Канонический двуязычный LMS fixture metahub с заполненными классами, модулями, публичными ссылками и dashboard-виджетами.",
+          "content": "Канонический двуязычный LMS fixture metahub с заполненными классами, модулями и публичными учебными ссылками.",
           "version": 1,
           "isActive": true,
           "createdAt": "2026-04-21T05:49:56.222Z",
@@ -48,14 +48,14 @@
       "_schema": "1",
       "locales": {
         "en": {
-          "content": "OrbitalAcademyLms",
+          "content": "LearningPortalLms",
           "version": 2,
           "isActive": true,
           "createdAt": "2026-04-21T05:49:55.523Z",
           "updatedAt": "2026-04-21T05:49:56.223Z"
         },
         "ru": {
-          "content": "ОрбитальнаяАкадемияLms",
+          "content": "УчебныйПорталLms",
           "version": 1,
           "isActive": true,
           "createdAt": "2026-04-21T05:49:55.523Z",
@@ -4426,9 +4426,9 @@
           "id": "019dae97-3a52-7378-8a2a-3b6de3439bda",
           "objectId": "019dae96-c52d-77e2-8c5a-71454f8f8180",
           "data": {
-            "Name": "Orbital Navigation Cohort",
+            "Name": "Learning Design Cohort",
             "SchoolYear": "2061",
-            "Description": "Crew training for orbital checkpoints.",
+            "Description": "Crew training for learning checkpoints.",
             "StudentCountLimit": 24
           },
           "sortOrder": 1
@@ -4478,14 +4478,14 @@
               "_schema": "1",
               "locales": {
                 "en": {
-                  "content": "Orbital Navigation 101",
+                  "content": "Learning Path 101",
                   "version": 1,
                   "isActive": true,
                   "createdAt": "2026-04-21T05:50:49.536Z",
                   "updatedAt": "2026-04-21T05:50:49.536Z"
                 },
                 "ru": {
-                  "content": "Орбитальная навигация 101",
+                  "content": "Учебный маршрут 101",
                   "version": 1,
                   "isActive": true,
                   "createdAt": "2026-04-21T05:50:49.536Z",
@@ -4843,14 +4843,14 @@
               "_schema": "1",
               "locales": {
                 "en": {
-                  "content": "Orbital Readiness Check",
+                  "content": "Learning Readiness Check",
                   "version": 1,
                   "isActive": true,
                   "createdAt": "2026-04-21T05:50:44.642Z",
                   "updatedAt": "2026-04-21T05:50:44.642Z"
                 },
                 "ru": {
-                  "content": "Проверка орбитальной готовности",
+                  "content": "Проверка готовности к обучению",
                   "version": 1,
                   "isActive": true,
                   "createdAt": "2026-04-21T05:50:44.642Z",
@@ -4861,7 +4861,7 @@
             },
             "Questions": [
               {
-                "Id": "orbital-navigation-question-1",
+                "Id": "learning-path-question-1",
                 "Prompt": {
                   "_schema": "1",
                   "locales": {
@@ -4884,7 +4884,7 @@
                 },
                 "Options": [
                   {
-                    "id": "orbital-q1-opt-a",
+                    "id": "learning-q1-opt-a",
                     "label": {
                       "_schema": "1",
                       "locales": {
@@ -4908,7 +4908,7 @@
                     "isCorrect": true
                   },
                   {
-                    "id": "orbital-q1-opt-b",
+                    "id": "learning-q1-opt-b",
                     "label": {
                       "_schema": "1",
                       "locales": {
@@ -4977,7 +4977,7 @@
                 }
               },
               {
-                "Id": "orbital-navigation-question-2",
+                "Id": "learning-path-question-2",
                 "Prompt": {
                   "_schema": "1",
                   "locales": {
@@ -5000,7 +5000,7 @@
                 },
                 "Options": [
                   {
-                    "id": "orbital-q2-opt-a",
+                    "id": "learning-q2-opt-a",
                     "label": {
                       "_schema": "1",
                       "locales": {
@@ -5024,7 +5024,7 @@
                     "isCorrect": true
                   },
                   {
-                    "id": "orbital-q2-opt-b",
+                    "id": "learning-q2-opt-b",
                     "label": {
                       "_schema": "1",
                       "locales": {
@@ -5693,11 +5693,11 @@
             "QuizId": "019dae97-5363-73b5-abd4-7c5639d5a46a",
             "IsCorrect": true,
             "StudentId": "019dae97-46c2-74f5-8ae9-a8194a51e9f0",
-            "QuestionId": "orbital-navigation-question-1",
+            "QuestionId": "learning-path-question-1",
             "SubmittedAt": "2061-02-01T08:20:00.000Z",
             "AttemptNumber": 1,
             "SelectedOptionIds": [
-              "orbital-q1-opt-a"
+              "learning-q1-opt-a"
             ]
           },
           "sortOrder": 1
@@ -5709,11 +5709,11 @@
             "QuizId": "019dae97-5363-73b5-abd4-7c5639d5a46a",
             "IsCorrect": true,
             "StudentId": "019dae97-46c2-74f5-8ae9-a8194a51e9f0",
-            "QuestionId": "orbital-navigation-question-2",
+            "QuestionId": "learning-path-question-2",
             "SubmittedAt": "2061-02-01T08:20:00.000Z",
             "AttemptNumber": 1,
             "SelectedOptionIds": [
-              "orbital-q2-opt-a"
+              "learning-q2-opt-a"
             ]
           },
           "sortOrder": 2
@@ -5841,14 +5841,14 @@
               "_schema": "1",
               "locales": {
                 "en": {
-                  "content": "Orbital navigation guest journey",
+                  "content": "Learning path guest journey",
                   "version": 1,
                   "isActive": true,
                   "createdAt": "2026-04-21T05:50:54.470Z",
                   "updatedAt": "2026-04-21T05:50:54.470Z"
                 },
                 "ru": {
-                  "content": "Гостевой путь по орбитальной навигации",
+                  "content": "Гостевой учебный маршрут",
                   "version": 1,
                   "isActive": true,
                   "createdAt": "2026-04-21T05:50:54.470Z",
@@ -7135,162 +7135,7 @@
         }
       }
     },
-    "scripts": [
-      {
-        "id": "019dae97-229e-74da-ab0e-bbe2bc375806",
-        "codename": {
-          "_schema": "1",
-          "locales": {
-            "en": {
-              "content": "lms-module-viewer",
-              "version": 1,
-              "isActive": true,
-              "createdAt": "2026-04-21T05:50:33.524Z",
-              "updatedAt": "2026-04-21T05:50:33.524Z"
-            }
-          },
-          "_primary": "en"
-        },
-        "presentation": {
-          "name": {
-            "_schema": "1",
-            "locales": {
-              "en": {
-                "content": "LMS module viewer",
-                "version": 1,
-                "isActive": true,
-                "createdAt": "2026-04-21T05:50:33.054Z",
-                "updatedAt": "2026-04-21T05:50:33.054Z"
-              }
-            },
-            "_primary": "en"
-          },
-          "description": {
-            "_schema": "1",
-            "locales": {
-              "en": {
-                "content": "Canonical LMS module widget script for snapshot export",
-                "version": 1,
-                "isActive": true,
-                "createdAt": "2026-04-21T05:50:33.054Z",
-                "updatedAt": "2026-04-21T05:50:33.054Z"
-              }
-            },
-            "_primary": "en"
-          }
-        },
-        "attachedToKind": "metahub",
-        "attachedToId": null,
-        "moduleRole": "widget",
-        "sourceKind": "embedded",
-        "sdkApiVersion": "1.0.0",
-        "sourceCode": "const AtClient = () => () => undefined\nconst AtServer = () => () => undefined\nclass ExtensionScript {}\n\nconst MODULE_BY_LOCALE = {\"en\":{\"title\":\"Orbital Navigation 101\",\"description\":\"Dashboard preview of the canonical orbital lesson and route hand-off.\",\"progressPercent\":100,\"items\":[{\"id\":\"briefing\",\"itemType\":\"text\",\"itemTitle\":\"Mission briefing\",\"itemContent\":\"The imported dashboard should already contain the canonical orbital lesson, seeded guest routes, and a valid QR hand-off.\",\"sortOrder\":1},{\"id\":\"visual\",\"itemType\":\"image\",\"itemTitle\":\"Route map\",\"itemContent\":\"data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%221200%22%20height%3D%22720%22%20viewBox%3D%220%200%201200%20720%22%20role%3D%22img%22%20aria-label%3D%22Orbital%20Route%20Map%22%3E%0A%20%20%20%20%3Cdefs%3E%0A%20%20%20%20%20%20%20%20%3ClinearGradient%20id%3D%22bg%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23071426%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%2315345c%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%3C%2FlinearGradient%3E%0A%20%20%20%20%3C%2Fdefs%3E%0A%20%20%20%20%3Crect%20width%3D%221200%22%20height%3D%22720%22%20fill%3D%22url(%23bg)%22%20rx%3D%2232%22%20%2F%3E%0A%20%20%20%20%3Cg%20fill%3D%22none%22%20stroke%3D%22%239ed8ff%22%20stroke-width%3D%228%22%20stroke-linecap%3D%22round%22%3E%0A%20%20%20%20%20%20%20%20%3Cpath%20d%3D%22M140%20520%20C260%20420%20340%20340%20450%20330%20S660%20360%20760%20290%20S980%20180%201060%20140%22%20opacity%3D%220.9%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%3Cpath%20d%3D%22M140%20520%20C240%20560%20340%20600%20430%20590%20S620%20520%20720%20470%20S900%20360%201040%20320%22%20opacity%3D%220.35%22%20%2F%3E%0A%20%20%20%20%3C%2Fg%3E%0A%20%20%20%20%3Cg%20fill%3D%22%23f7fbff%22%20font-family%3D%22Arial%2C%20Helvetica%2C%20sans-serif%22%3E%0A%20%20%20%20%20%20%20%20%3Ctext%20x%3D%2296%22%20y%3D%22112%22%20font-size%3D%2248%22%20font-weight%3D%22700%22%3EOrbital%20Route%20Map%3C%2Ftext%3E%0A%20%20%20%20%20%20%20%20%3Ctext%20x%3D%2296%22%20y%3D%22160%22%20font-size%3D%2228%22%20opacity%3D%220.82%22%3EShared%20guest%20path%20and%20dashboard%20hand-off%20remain%20available%20after%20clean%20import.%3C%2Ftext%3E%0A%20%20%20%20%20%20%20%20%3Ctext%20x%3D%2296%22%20y%3D%22636%22%20font-size%3D%2222%22%20opacity%3D%220.7%22%3EOrbital%20Academy%20LMS%20demo%20fixture%3C%2Ftext%3E%0A%20%20%20%20%3C%2Fg%3E%0A%20%20%20%20%3Cg%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%22180%22%20cy%3D%22516%22%20r%3D%2218%22%20fill%3D%22%239ed8ff%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%22454%22%20cy%3D%22332%22%20r%3D%2218%22%20fill%3D%22%239ed8ff%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%22762%22%20cy%3D%22290%22%20r%3D%2218%22%20fill%3D%22%239ed8ff%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%221060%22%20cy%3D%22140%22%20r%3D%2218%22%20fill%3D%22%239ed8ff%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%221040%22%20cy%3D%22320%22%20r%3D%2218%22%20fill%3D%22%2389f0c7%22%20%2F%3E%0A%20%20%20%20%3C%2Fg%3E%0A%3C%2Fsvg%3E\",\"sortOrder\":2}]},\"ru\":{\"title\":\"Орбитальная навигация 101\",\"description\":\"Dashboard-превью канонического урока по орбитальной навигации и передачи в гостевой маршрут.\",\"progressPercent\":100,\"items\":[{\"id\":\"briefing\",\"itemType\":\"text\",\"itemTitle\":\"Брифинг миссии\",\"itemContent\":\"Импортированный dashboard уже должен содержать канонический орбитальный урок, заполненные гостевые маршруты и рабочий QR-переход.\",\"sortOrder\":1},{\"id\":\"visual\",\"itemType\":\"image\",\"itemTitle\":\"Карта маршрута\",\"itemContent\":\"data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%221200%22%20height%3D%22720%22%20viewBox%3D%220%200%201200%20720%22%20role%3D%22img%22%20aria-label%3D%22%D0%9A%D0%B0%D1%80%D1%82%D0%B0%20%D0%BE%D1%80%D0%B1%D0%B8%D1%82%D0%B0%D0%BB%D1%8C%D0%BD%D0%BE%D0%B3%D0%BE%20%D0%BC%D0%B0%D1%80%D1%88%D1%80%D1%83%D1%82%D0%B0%22%3E%0A%20%20%20%20%3Cdefs%3E%0A%20%20%20%20%20%20%20%20%3ClinearGradient%20id%3D%22bg%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23071426%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%2315345c%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%3C%2FlinearGradient%3E%0A%20%20%20%20%3C%2Fdefs%3E%0A%20%20%20%20%3Crect%20width%3D%221200%22%20height%3D%22720%22%20fill%3D%22url(%23bg)%22%20rx%3D%2232%22%20%2F%3E%0A%20%20%20%20%3Cg%20fill%3D%22none%22%20stroke%3D%22%239ed8ff%22%20stroke-width%3D%228%22%20stroke-linecap%3D%22round%22%3E%0A%20%20%20%20%20%20%20%20%3Cpath%20d%3D%22M140%20520%20C260%20420%20340%20340%20450%20330%20S660%20360%20760%20290%20S980%20180%201060%20140%22%20opacity%3D%220.9%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%3Cpath%20d%3D%22M140%20520%20C240%20560%20340%20600%20430%20590%20S620%20520%20720%20470%20S900%20360%201040%20320%22%20opacity%3D%220.35%22%20%2F%3E%0A%20%20%20%20%3C%2Fg%3E%0A%20%20%20%20%3Cg%20fill%3D%22%23f7fbff%22%20font-family%3D%22Arial%2C%20Helvetica%2C%20sans-serif%22%3E%0A%20%20%20%20%20%20%20%20%3Ctext%20x%3D%2296%22%20y%3D%22112%22%20font-size%3D%2248%22%20font-weight%3D%22700%22%3E%D0%9A%D0%B0%D1%80%D1%82%D0%B0%20%D0%BE%D1%80%D0%B1%D0%B8%D1%82%D0%B0%D0%BB%D1%8C%D0%BD%D0%BE%D0%B3%D0%BE%20%D0%BC%D0%B0%D1%80%D1%88%D1%80%D1%83%D1%82%D0%B0%3C%2Ftext%3E%0A%20%20%20%20%20%20%20%20%3Ctext%20x%3D%2296%22%20y%3D%22160%22%20font-size%3D%2228%22%20opacity%3D%220.82%22%3E%D0%93%D0%BE%D1%81%D1%82%D0%B5%D0%B2%D0%BE%D0%B9%20%D0%BF%D1%83%D1%82%D1%8C%20%D0%B8%20dashboard-%D0%BF%D0%B5%D1%80%D0%B5%D1%85%D0%BE%D0%B4%20%D0%B4%D0%BE%D1%81%D1%82%D1%83%D0%BF%D0%BD%D1%8B%20%D1%81%D1%80%D0%B0%D0%B7%D1%83%20%D0%BF%D0%BE%D1%81%D0%BB%D0%B5%20%D1%87%D0%B8%D1%81%D1%82%D0%BE%D0%B3%D0%BE%20%D0%B8%D0%BC%D0%BF%D0%BE%D1%80%D1%82%D0%B0.%3C%2Ftext%3E%0A%20%20%20%20%20%20%20%20%3Ctext%20x%3D%2296%22%20y%3D%22636%22%20font-size%3D%2222%22%20opacity%3D%220.7%22%3EOrbital%20Academy%20LMS%20demo%20fixture%3C%2Ftext%3E%0A%20%20%20%20%3C%2Fg%3E%0A%20%20%20%20%3Cg%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%22180%22%20cy%3D%22516%22%20r%3D%2218%22%20fill%3D%22%239ed8ff%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%22454%22%20cy%3D%22332%22%20r%3D%2218%22%20fill%3D%22%239ed8ff%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%22762%22%20cy%3D%22290%22%20r%3D%2218%22%20fill%3D%22%239ed8ff%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%221060%22%20cy%3D%22140%22%20r%3D%2218%22%20fill%3D%22%239ed8ff%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%221040%22%20cy%3D%22320%22%20r%3D%2218%22%20fill%3D%22%2389f0c7%22%20%2F%3E%0A%20%20%20%20%3C%2Fg%3E%0A%3C%2Fsvg%3E\",\"sortOrder\":2}]}}\n\nconst normalizeLocale = locale => typeof locale === 'string' && locale.toLowerCase().startsWith('ru') ? 'ru' : 'en'\n\nexport default class LmsModuleViewerFixture extends ExtensionScript {\n    @AtClient()\n    async mount(locale = 'en') {\n        return this.ctx.callServerMethod('getModule', [{ locale }])\n    }\n\n    @AtServer()\n    async getModule(payload) {\n        return MODULE_BY_LOCALE[normalizeLocale(payload?.locale)] || MODULE_BY_LOCALE.en\n    }\n}\n",
-        "manifest": {
-          "className": "LmsModuleViewerFixture",
-          "sdkApiVersion": "1.0.0",
-          "moduleRole": "widget",
-          "sourceKind": "embedded",
-          "capabilities": [
-            "rpc.client"
-          ],
-          "methods": [
-            {
-              "name": "mount",
-              "target": "client",
-              "eventName": null
-            },
-            {
-              "name": "getModule",
-              "target": "server",
-              "eventName": null
-            }
-          ],
-          "checksum": "f14ac489eaa14ec94d1269049493c765b2acb0810eb4e62d8a1e292dcefb441a"
-        },
-        "serverBundle": "var __defProp = Object.defineProperty;\nvar __getOwnPropDesc = Object.getOwnPropertyDescriptor;\nvar __getOwnPropNames = Object.getOwnPropertyNames;\nvar __hasOwnProp = Object.prototype.hasOwnProperty;\nvar __export = (target, all) => {\n  for (var name in all)\n    __defProp(target, name, { get: all[name], enumerable: true });\n};\nvar __copyProps = (to, from, except, desc) => {\n  if (from && typeof from === \"object\" || typeof from === \"function\") {\n    for (let key of __getOwnPropNames(from))\n      if (!__hasOwnProp.call(to, key) && key !== except)\n        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n  }\n  return to;\n};\nvar __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\nvar __decorateClass = (decorators, target, key, kind) => {\n  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc(target, key) : target;\n  for (var i = decorators.length - 1, decorator; i >= 0; i--)\n    if (decorator = decorators[i])\n      result = (kind ? decorator(target, key, result) : decorator(result)) || result;\n  if (kind && result) __defProp(target, key, result);\n  return result;\n};\n\n// extension-script.ts\nvar extension_script_exports = {};\n__export(extension_script_exports, {\n  default: () => LmsModuleViewerFixture\n});\nmodule.exports = __toCommonJS(extension_script_exports);\nvar AtClient = () => () => void 0;\nvar AtServer = () => () => void 0;\nvar ExtensionScript = class {\n};\nvar MODULE_BY_LOCALE = { \"en\": { \"title\": \"Orbital Navigation 101\", \"description\": \"Dashboard preview of the canonical orbital lesson and route hand-off.\", \"progressPercent\": 100, \"items\": [{ \"id\": \"briefing\", \"itemType\": \"text\", \"itemTitle\": \"Mission briefing\", \"itemContent\": \"The imported dashboard should already contain the canonical orbital lesson, seeded guest routes, and a valid QR hand-off.\", \"sortOrder\": 1 }, { \"id\": \"visual\", \"itemType\": \"image\", \"itemTitle\": \"Route map\", \"itemContent\": \"data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%221200%22%20height%3D%22720%22%20viewBox%3D%220%200%201200%20720%22%20role%3D%22img%22%20aria-label%3D%22Orbital%20Route%20Map%22%3E%0A%20%20%20%20%3Cdefs%3E%0A%20%20%20%20%20%20%20%20%3ClinearGradient%20id%3D%22bg%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23071426%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%2315345c%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%3C%2FlinearGradient%3E%0A%20%20%20%20%3C%2Fdefs%3E%0A%20%20%20%20%3Crect%20width%3D%221200%22%20height%3D%22720%22%20fill%3D%22url(%23bg)%22%20rx%3D%2232%22%20%2F%3E%0A%20%20%20%20%3Cg%20fill%3D%22none%22%20stroke%3D%22%239ed8ff%22%20stroke-width%3D%228%22%20stroke-linecap%3D%22round%22%3E%0A%20%20%20%20%20%20%20%20%3Cpath%20d%3D%22M140%20520%20C260%20420%20340%20340%20450%20330%20S660%20360%20760%20290%20S980%20180%201060%20140%22%20opacity%3D%220.9%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%3Cpath%20d%3D%22M140%20520%20C240%20560%20340%20600%20430%20590%20S620%20520%20720%20470%20S900%20360%201040%20320%22%20opacity%3D%220.35%22%20%2F%3E%0A%20%20%20%20%3C%2Fg%3E%0A%20%20%20%20%3Cg%20fill%3D%22%23f7fbff%22%20font-family%3D%22Arial%2C%20Helvetica%2C%20sans-serif%22%3E%0A%20%20%20%20%20%20%20%20%3Ctext%20x%3D%2296%22%20y%3D%22112%22%20font-size%3D%2248%22%20font-weight%3D%22700%22%3EOrbital%20Route%20Map%3C%2Ftext%3E%0A%20%20%20%20%20%20%20%20%3Ctext%20x%3D%2296%22%20y%3D%22160%22%20font-size%3D%2228%22%20opacity%3D%220.82%22%3EShared%20guest%20path%20and%20dashboard%20hand-off%20remain%20available%20after%20clean%20import.%3C%2Ftext%3E%0A%20%20%20%20%20%20%20%20%3Ctext%20x%3D%2296%22%20y%3D%22636%22%20font-size%3D%2222%22%20opacity%3D%220.7%22%3EOrbital%20Academy%20LMS%20demo%20fixture%3C%2Ftext%3E%0A%20%20%20%20%3C%2Fg%3E%0A%20%20%20%20%3Cg%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%22180%22%20cy%3D%22516%22%20r%3D%2218%22%20fill%3D%22%239ed8ff%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%22454%22%20cy%3D%22332%22%20r%3D%2218%22%20fill%3D%22%239ed8ff%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%22762%22%20cy%3D%22290%22%20r%3D%2218%22%20fill%3D%22%239ed8ff%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%221060%22%20cy%3D%22140%22%20r%3D%2218%22%20fill%3D%22%239ed8ff%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%221040%22%20cy%3D%22320%22%20r%3D%2218%22%20fill%3D%22%2389f0c7%22%20%2F%3E%0A%20%20%20%20%3C%2Fg%3E%0A%3C%2Fsvg%3E\", \"sortOrder\": 2 }] }, \"ru\": { \"title\": \"\\u041E\\u0440\\u0431\\u0438\\u0442\\u0430\\u043B\\u044C\\u043D\\u0430\\u044F \\u043D\\u0430\\u0432\\u0438\\u0433\\u0430\\u0446\\u0438\\u044F 101\", \"description\": \"Dashboard-\\u043F\\u0440\\u0435\\u0432\\u044C\\u044E \\u043A\\u0430\\u043D\\u043E\\u043D\\u0438\\u0447\\u0435\\u0441\\u043A\\u043E\\u0433\\u043E \\u0443\\u0440\\u043E\\u043A\\u0430 \\u043F\\u043E \\u043E\\u0440\\u0431\\u0438\\u0442\\u0430\\u043B\\u044C\\u043D\\u043E\\u0439 \\u043D\\u0430\\u0432\\u0438\\u0433\\u0430\\u0446\\u0438\\u0438 \\u0438 \\u043F\\u0435\\u0440\\u0435\\u0434\\u0430\\u0447\\u0438 \\u0432 \\u0433\\u043E\\u0441\\u0442\\u0435\\u0432\\u043E\\u0439 \\u043C\\u0430\\u0440\\u0448\\u0440\\u0443\\u0442.\", \"progressPercent\": 100, \"items\": [{ \"id\": \"briefing\", \"itemType\": \"text\", \"itemTitle\": \"\\u0411\\u0440\\u0438\\u0444\\u0438\\u043D\\u0433 \\u043C\\u0438\\u0441\\u0441\\u0438\\u0438\", \"itemContent\": \"\\u0418\\u043C\\u043F\\u043E\\u0440\\u0442\\u0438\\u0440\\u043E\\u0432\\u0430\\u043D\\u043D\\u044B\\u0439 dashboard \\u0443\\u0436\\u0435 \\u0434\\u043E\\u043B\\u0436\\u0435\\u043D \\u0441\\u043E\\u0434\\u0435\\u0440\\u0436\\u0430\\u0442\\u044C \\u043A\\u0430\\u043D\\u043E\\u043D\\u0438\\u0447\\u0435\\u0441\\u043A\\u0438\\u0439 \\u043E\\u0440\\u0431\\u0438\\u0442\\u0430\\u043B\\u044C\\u043D\\u044B\\u0439 \\u0443\\u0440\\u043E\\u043A, \\u0437\\u0430\\u043F\\u043E\\u043B\\u043D\\u0435\\u043D\\u043D\\u044B\\u0435 \\u0433\\u043E\\u0441\\u0442\\u0435\\u0432\\u044B\\u0435 \\u043C\\u0430\\u0440\\u0448\\u0440\\u0443\\u0442\\u044B \\u0438 \\u0440\\u0430\\u0431\\u043E\\u0447\\u0438\\u0439 QR-\\u043F\\u0435\\u0440\\u0435\\u0445\\u043E\\u0434.\", \"sortOrder\": 1 }, { \"id\": \"visual\", \"itemType\": \"image\", \"itemTitle\": \"\\u041A\\u0430\\u0440\\u0442\\u0430 \\u043C\\u0430\\u0440\\u0448\\u0440\\u0443\\u0442\\u0430\", \"itemContent\": \"data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%221200%22%20height%3D%22720%22%20viewBox%3D%220%200%201200%20720%22%20role%3D%22img%22%20aria-label%3D%22%D0%9A%D0%B0%D1%80%D1%82%D0%B0%20%D0%BE%D1%80%D0%B1%D0%B8%D1%82%D0%B0%D0%BB%D1%8C%D0%BD%D0%BE%D0%B3%D0%BE%20%D0%BC%D0%B0%D1%80%D1%88%D1%80%D1%83%D1%82%D0%B0%22%3E%0A%20%20%20%20%3Cdefs%3E%0A%20%20%20%20%20%20%20%20%3ClinearGradient%20id%3D%22bg%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23071426%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%2315345c%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%3C%2FlinearGradient%3E%0A%20%20%20%20%3C%2Fdefs%3E%0A%20%20%20%20%3Crect%20width%3D%221200%22%20height%3D%22720%22%20fill%3D%22url(%23bg)%22%20rx%3D%2232%22%20%2F%3E%0A%20%20%20%20%3Cg%20fill%3D%22none%22%20stroke%3D%22%239ed8ff%22%20stroke-width%3D%228%22%20stroke-linecap%3D%22round%22%3E%0A%20%20%20%20%20%20%20%20%3Cpath%20d%3D%22M140%20520%20C260%20420%20340%20340%20450%20330%20S660%20360%20760%20290%20S980%20180%201060%20140%22%20opacity%3D%220.9%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%3Cpath%20d%3D%22M140%20520%20C240%20560%20340%20600%20430%20590%20S620%20520%20720%20470%20S900%20360%201040%20320%22%20opacity%3D%220.35%22%20%2F%3E%0A%20%20%20%20%3C%2Fg%3E%0A%20%20%20%20%3Cg%20fill%3D%22%23f7fbff%22%20font-family%3D%22Arial%2C%20Helvetica%2C%20sans-serif%22%3E%0A%20%20%20%20%20%20%20%20%3Ctext%20x%3D%2296%22%20y%3D%22112%22%20font-size%3D%2248%22%20font-weight%3D%22700%22%3E%D0%9A%D0%B0%D1%80%D1%82%D0%B0%20%D0%BE%D1%80%D0%B1%D0%B8%D1%82%D0%B0%D0%BB%D1%8C%D0%BD%D0%BE%D0%B3%D0%BE%20%D0%BC%D0%B0%D1%80%D1%88%D1%80%D1%83%D1%82%D0%B0%3C%2Ftext%3E%0A%20%20%20%20%20%20%20%20%3Ctext%20x%3D%2296%22%20y%3D%22160%22%20font-size%3D%2228%22%20opacity%3D%220.82%22%3E%D0%93%D0%BE%D1%81%D1%82%D0%B5%D0%B2%D0%BE%D0%B9%20%D0%BF%D1%83%D1%82%D1%8C%20%D0%B8%20dashboard-%D0%BF%D0%B5%D1%80%D0%B5%D1%85%D0%BE%D0%B4%20%D0%B4%D0%BE%D1%81%D1%82%D1%83%D0%BF%D0%BD%D1%8B%20%D1%81%D1%80%D0%B0%D0%B7%D1%83%20%D0%BF%D0%BE%D1%81%D0%BB%D0%B5%20%D1%87%D0%B8%D1%81%D1%82%D0%BE%D0%B3%D0%BE%20%D0%B8%D0%BC%D0%BF%D0%BE%D1%80%D1%82%D0%B0.%3C%2Ftext%3E%0A%20%20%20%20%20%20%20%20%3Ctext%20x%3D%2296%22%20y%3D%22636%22%20font-size%3D%2222%22%20opacity%3D%220.7%22%3EOrbital%20Academy%20LMS%20demo%20fixture%3C%2Ftext%3E%0A%20%20%20%20%3C%2Fg%3E%0A%20%20%20%20%3Cg%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%22180%22%20cy%3D%22516%22%20r%3D%2218%22%20fill%3D%22%239ed8ff%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%22454%22%20cy%3D%22332%22%20r%3D%2218%22%20fill%3D%22%239ed8ff%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%22762%22%20cy%3D%22290%22%20r%3D%2218%22%20fill%3D%22%239ed8ff%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%221060%22%20cy%3D%22140%22%20r%3D%2218%22%20fill%3D%22%239ed8ff%22%20%2F%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%221040%22%20cy%3D%22320%22%20r%3D%2218%22%20fill%3D%22%2389f0c7%22%20%2F%3E%0A%20%20%20%20%3C%2Fg%3E%0A%3C%2Fsvg%3E\", \"sortOrder\": 2 }] } };\nvar normalizeLocale = (locale) => typeof locale === \"string\" && locale.toLowerCase().startsWith(\"ru\") ? \"ru\" : \"en\";\nvar LmsModuleViewerFixture = class extends ExtensionScript {\n  async mount(locale = \"en\") {\n    throw new Error('Client-only method \"mount\" is unavailable in the server bundle');\n  }\n  async getModule(payload) {\n    return MODULE_BY_LOCALE[normalizeLocale(payload?.locale)] || MODULE_BY_LOCALE.en;\n  }\n};\n__decorateClass([\n  AtClient()\n], LmsModuleViewerFixture.prototype, \"mount\", 1);\n__decorateClass([\n  AtServer()\n], LmsModuleViewerFixture.prototype, \"getModule\", 1);\n",
-        "clientBundle": "var __defProp = Object.defineProperty;\nvar __getOwnPropDesc = Object.getOwnPropertyDescriptor;\nvar __getOwnPropNames = Object.getOwnPropertyNames;\nvar __hasOwnProp = Object.prototype.hasOwnProperty;\nvar __export = (target, all) => {\n  for (var name in all)\n    __defProp(target, name, { get: all[name], enumerable: true });\n};\nvar __copyProps = (to, from, except, desc) => {\n  if (from && typeof from === \"object\" || typeof from === \"function\") {\n    for (let key of __getOwnPropNames(from))\n      if (!__hasOwnProp.call(to, key) && key !== except)\n        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n  }\n  return to;\n};\nvar __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\nvar __decorateClass = (decorators, target, key, kind) => {\n  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc(target, key) : target;\n  for (var i = decorators.length - 1, decorator; i >= 0; i--)\n    if (decorator = decorators[i])\n      result = (kind ? decorator(target, key, result) : decorator(result)) || result;\n  if (kind && result) __defProp(target, key, result);\n  return result;\n};\n\n// extension-script.ts\nvar extension_script_exports = {};\n__export(extension_script_exports, {\n  default: () => LmsModuleViewerFixture\n});\nmodule.exports = __toCommonJS(extension_script_exports);\nvar AtClient = () => () => void 0;\nvar AtServer = () => () => void 0;\nvar ExtensionScript = class {\n};\nvar LmsModuleViewerFixture = class extends ExtensionScript {\n  async mount(locale = \"en\") {\n    return this.ctx.callServerMethod(\"getModule\", [{ locale }]);\n  }\n  async getModule(payload) {\n    return this.ctx.callServerMethod(\"getModule\", Array.from(arguments));\n  }\n};\n__decorateClass([\n  AtClient()\n], LmsModuleViewerFixture.prototype, \"mount\", 1);\n__decorateClass([\n  AtServer()\n], LmsModuleViewerFixture.prototype, \"getModule\", 1);\n",
-        "checksum": "f14ac489eaa14ec94d1269049493c765b2acb0810eb4e62d8a1e292dcefb441a",
-        "isActive": true,
-        "config": {}
-      },
-      {
-        "id": "019dae97-2770-79d1-9766-c9a90f4f519f",
-        "codename": {
-          "_schema": "1",
-          "locales": {
-            "en": {
-              "content": "lms-stats-viewer",
-              "version": 1,
-              "isActive": true,
-              "createdAt": "2026-04-21T05:50:34.823Z",
-              "updatedAt": "2026-04-21T05:50:34.823Z"
-            }
-          },
-          "_primary": "en"
-        },
-        "presentation": {
-          "name": {
-            "_schema": "1",
-            "locales": {
-              "en": {
-                "content": "LMS stats viewer",
-                "version": 1,
-                "isActive": true,
-                "createdAt": "2026-04-21T05:50:34.427Z",
-                "updatedAt": "2026-04-21T05:50:34.427Z"
-              }
-            },
-            "_primary": "en"
-          },
-          "description": {
-            "_schema": "1",
-            "locales": {
-              "en": {
-                "content": "Canonical LMS stats widget script for snapshot export",
-                "version": 1,
-                "isActive": true,
-                "createdAt": "2026-04-21T05:50:34.427Z",
-                "updatedAt": "2026-04-21T05:50:34.427Z"
-              }
-            },
-            "_primary": "en"
-          }
-        },
-        "attachedToKind": "metahub",
-        "attachedToId": null,
-        "moduleRole": "widget",
-        "sourceKind": "embedded",
-        "sdkApiVersion": "1.0.0",
-        "sourceCode": "const AtClient = () => () => undefined\nconst AtServer = () => () => undefined\nclass ExtensionScript {}\n\nconst STATS_BY_LOCALE = {\"en\":{\"title\":\"Orbital academy stats\",\"description\":\"Seeded LMS metrics available immediately after fixture import.\",\"categories\":[\"Seeded students\",\"Published modules\",\"Guest routes\",\"Seeded quiz attempts\"],\"series\":[{\"label\":\"Count\",\"values\":[2,3,2,3]}]},\"ru\":{\"title\":\"Статистика орбитальной академии\",\"description\":\"Метрики LMS, доступные сразу после импорта fixture.\",\"categories\":[\"Заполненные студенты\",\"Опубликованные модули\",\"Гостевые маршруты\",\"Заполненные попытки тестов\"],\"series\":[{\"label\":\"Количество\",\"values\":[2,3,2,3]}]}}\n\nconst normalizeLocale = locale => typeof locale === 'string' && locale.toLowerCase().startsWith('ru') ? 'ru' : 'en'\n\nexport default class LmsStatsViewerFixture extends ExtensionScript {\n    @AtClient()\n    async mount(locale = 'en') {\n        return this.ctx.callServerMethod('getStats', [{ locale }])\n    }\n\n    @AtServer()\n    async getStats(payload) {\n        return STATS_BY_LOCALE[normalizeLocale(payload?.locale)] || STATS_BY_LOCALE.en\n    }\n}\n",
-        "manifest": {
-          "className": "LmsStatsViewerFixture",
-          "sdkApiVersion": "1.0.0",
-          "moduleRole": "widget",
-          "sourceKind": "embedded",
-          "capabilities": [
-            "rpc.client"
-          ],
-          "methods": [
-            {
-              "name": "mount",
-              "target": "client",
-              "eventName": null
-            },
-            {
-              "name": "getStats",
-              "target": "server",
-              "eventName": null
-            }
-          ],
-          "checksum": "1f75284903cb86f6883dd0de3894c08d92388f0fb3f9bc9bd1d3cd1307882130"
-        },
-        "serverBundle": "var __defProp = Object.defineProperty;\nvar __getOwnPropDesc = Object.getOwnPropertyDescriptor;\nvar __getOwnPropNames = Object.getOwnPropertyNames;\nvar __hasOwnProp = Object.prototype.hasOwnProperty;\nvar __export = (target, all) => {\n  for (var name in all)\n    __defProp(target, name, { get: all[name], enumerable: true });\n};\nvar __copyProps = (to, from, except, desc) => {\n  if (from && typeof from === \"object\" || typeof from === \"function\") {\n    for (let key of __getOwnPropNames(from))\n      if (!__hasOwnProp.call(to, key) && key !== except)\n        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n  }\n  return to;\n};\nvar __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\nvar __decorateClass = (decorators, target, key, kind) => {\n  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc(target, key) : target;\n  for (var i = decorators.length - 1, decorator; i >= 0; i--)\n    if (decorator = decorators[i])\n      result = (kind ? decorator(target, key, result) : decorator(result)) || result;\n  if (kind && result) __defProp(target, key, result);\n  return result;\n};\n\n// extension-script.ts\nvar extension_script_exports = {};\n__export(extension_script_exports, {\n  default: () => LmsStatsViewerFixture\n});\nmodule.exports = __toCommonJS(extension_script_exports);\nvar AtClient = () => () => void 0;\nvar AtServer = () => () => void 0;\nvar ExtensionScript = class {\n};\nvar STATS_BY_LOCALE = { \"en\": { \"title\": \"Orbital academy stats\", \"description\": \"Seeded LMS metrics available immediately after fixture import.\", \"categories\": [\"Seeded students\", \"Published modules\", \"Guest routes\", \"Seeded quiz attempts\"], \"series\": [{ \"label\": \"Count\", \"values\": [2, 3, 2, 3] }] }, \"ru\": { \"title\": \"\\u0421\\u0442\\u0430\\u0442\\u0438\\u0441\\u0442\\u0438\\u043A\\u0430 \\u043E\\u0440\\u0431\\u0438\\u0442\\u0430\\u043B\\u044C\\u043D\\u043E\\u0439 \\u0430\\u043A\\u0430\\u0434\\u0435\\u043C\\u0438\\u0438\", \"description\": \"\\u041C\\u0435\\u0442\\u0440\\u0438\\u043A\\u0438 LMS, \\u0434\\u043E\\u0441\\u0442\\u0443\\u043F\\u043D\\u044B\\u0435 \\u0441\\u0440\\u0430\\u0437\\u0443 \\u043F\\u043E\\u0441\\u043B\\u0435 \\u0438\\u043C\\u043F\\u043E\\u0440\\u0442\\u0430 fixture.\", \"categories\": [\"\\u0417\\u0430\\u043F\\u043E\\u043B\\u043D\\u0435\\u043D\\u043D\\u044B\\u0435 \\u0441\\u0442\\u0443\\u0434\\u0435\\u043D\\u0442\\u044B\", \"\\u041E\\u043F\\u0443\\u0431\\u043B\\u0438\\u043A\\u043E\\u0432\\u0430\\u043D\\u043D\\u044B\\u0435 \\u043C\\u043E\\u0434\\u0443\\u043B\\u0438\", \"\\u0413\\u043E\\u0441\\u0442\\u0435\\u0432\\u044B\\u0435 \\u043C\\u0430\\u0440\\u0448\\u0440\\u0443\\u0442\\u044B\", \"\\u0417\\u0430\\u043F\\u043E\\u043B\\u043D\\u0435\\u043D\\u043D\\u044B\\u0435 \\u043F\\u043E\\u043F\\u044B\\u0442\\u043A\\u0438 \\u0442\\u0435\\u0441\\u0442\\u043E\\u0432\"], \"series\": [{ \"label\": \"\\u041A\\u043E\\u043B\\u0438\\u0447\\u0435\\u0441\\u0442\\u0432\\u043E\", \"values\": [2, 3, 2, 3] }] } };\nvar normalizeLocale = (locale) => typeof locale === \"string\" && locale.toLowerCase().startsWith(\"ru\") ? \"ru\" : \"en\";\nvar LmsStatsViewerFixture = class extends ExtensionScript {\n  async mount(locale = \"en\") {\n    throw new Error('Client-only method \"mount\" is unavailable in the server bundle');\n  }\n  async getStats(payload) {\n    return STATS_BY_LOCALE[normalizeLocale(payload?.locale)] || STATS_BY_LOCALE.en;\n  }\n};\n__decorateClass([\n  AtClient()\n], LmsStatsViewerFixture.prototype, \"mount\", 1);\n__decorateClass([\n  AtServer()\n], LmsStatsViewerFixture.prototype, \"getStats\", 1);\n",
-        "clientBundle": "var __defProp = Object.defineProperty;\nvar __getOwnPropDesc = Object.getOwnPropertyDescriptor;\nvar __getOwnPropNames = Object.getOwnPropertyNames;\nvar __hasOwnProp = Object.prototype.hasOwnProperty;\nvar __export = (target, all) => {\n  for (var name in all)\n    __defProp(target, name, { get: all[name], enumerable: true });\n};\nvar __copyProps = (to, from, except, desc) => {\n  if (from && typeof from === \"object\" || typeof from === \"function\") {\n    for (let key of __getOwnPropNames(from))\n      if (!__hasOwnProp.call(to, key) && key !== except)\n        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n  }\n  return to;\n};\nvar __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\nvar __decorateClass = (decorators, target, key, kind) => {\n  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc(target, key) : target;\n  for (var i = decorators.length - 1, decorator; i >= 0; i--)\n    if (decorator = decorators[i])\n      result = (kind ? decorator(target, key, result) : decorator(result)) || result;\n  if (kind && result) __defProp(target, key, result);\n  return result;\n};\n\n// extension-script.ts\nvar extension_script_exports = {};\n__export(extension_script_exports, {\n  default: () => LmsStatsViewerFixture\n});\nmodule.exports = __toCommonJS(extension_script_exports);\nvar AtClient = () => () => void 0;\nvar AtServer = () => () => void 0;\nvar ExtensionScript = class {\n};\nvar LmsStatsViewerFixture = class extends ExtensionScript {\n  async mount(locale = \"en\") {\n    return this.ctx.callServerMethod(\"getStats\", [{ locale }]);\n  }\n  async getStats(payload) {\n    return this.ctx.callServerMethod(\"getStats\", Array.from(arguments));\n  }\n};\n__decorateClass([\n  AtClient()\n], LmsStatsViewerFixture.prototype, \"mount\", 1);\n__decorateClass([\n  AtServer()\n], LmsStatsViewerFixture.prototype, \"getStats\", 1);\n",
-        "checksum": "1f75284903cb86f6883dd0de3894c08d92388f0fb3f9bc9bd1d3cd1307882130",
-        "isActive": true,
-        "config": {}
-      }
-    ],
+    "scripts": [],
     "layouts": [
       {
         "id": "019dae96-b7ea-7a56-bec9-a2c1474fab37",
@@ -7395,18 +7240,6 @@
         "isActive": true
       },
       {
-        "id": "019dae96-bb24-753e-b2d7-021d1e41407b",
-        "layoutId": "019dae96-b7ea-7a56-bec9-a2c1474fab37",
-        "zone": "center",
-        "widgetKey": "moduleViewerWidget",
-        "sortOrder": 6,
-        "config": {
-          "attachedToKind": "metahub",
-          "scriptCodename": "lms-module-viewer"
-        },
-        "isActive": true
-      },
-      {
         "id": "019dae96-bbb4-7e63-95f5-b8f6cfc77fbd",
         "layoutId": "019dae96-b7ea-7a56-bec9-a2c1474fab37",
         "zone": "center",
@@ -7422,7 +7255,153 @@
         "widgetKey": "menuWidget",
         "sortOrder": 3,
         "config": {
-          "items": [],
+          "items": [
+            {
+              "id": "0199a5f0-0000-7000-8000-000000000002",
+              "kind": "hub",
+              "title": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Learning",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  },
+                  "ru": {
+                    "content": "Обучение",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "icon": "school",
+              "hubId": "Learning",
+              "treeEntityId": "Learning",
+              "sortOrder": 1,
+              "isActive": true
+            },
+            {
+              "id": "0199a5f0-0000-7000-8000-000000000003",
+              "kind": "catalog",
+              "title": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Catalog",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  },
+                  "ru": {
+                    "content": "Каталог",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "icon": "menu_book",
+              "catalogId": "Modules",
+              "linkedCollectionId": "Modules",
+              "sortOrder": 2,
+              "isActive": true
+            },
+            {
+              "id": "0199a5f0-0000-7000-8000-000000000004",
+              "kind": "catalog",
+              "title": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Knowledge",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  },
+                  "ru": {
+                    "content": "База знаний",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "icon": "article",
+              "sortOrder": 3,
+              "isActive": true,
+              "catalogId": "Quizzes",
+              "linkedCollectionId": "Quizzes"
+            },
+            {
+              "id": "0199a5f0-0000-7000-8000-000000000005",
+              "kind": "catalog",
+              "title": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Development",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  },
+                  "ru": {
+                    "content": "Развитие",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "icon": "trending_up",
+              "sortOrder": 4,
+              "isActive": true,
+              "catalogId": "Classes",
+              "linkedCollectionId": "Classes"
+            },
+            {
+              "id": "0199a5f0-0000-7000-8000-000000000006",
+              "kind": "catalog",
+              "title": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Reports",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  },
+                  "ru": {
+                    "content": "Отчёты",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "icon": "bar_chart",
+              "sortOrder": 5,
+              "isActive": true,
+              "catalogId": "ModuleProgress",
+              "linkedCollectionId": "ModuleProgress"
+            }
+          ],
           "title": {
             "_schema": "1",
             "locales": {
@@ -7446,31 +7425,11 @@
           "bindToHub": false,
           "showTitle": true,
           "boundTreeEntityId": null,
-          "autoShowAllCatalogs": true
-        },
-        "isActive": true
-      },
-      {
-        "id": "019dae96-bc44-7f6b-9cbb-81611987d9c1",
-        "layoutId": "019dae96-b7ea-7a56-bec9-a2c1474fab37",
-        "zone": "right",
-        "widgetKey": "statsViewerWidget",
-        "sortOrder": 1,
-        "config": {
-          "attachedToKind": "metahub",
-          "scriptCodename": "lms-stats-viewer"
-        },
-        "isActive": true
-      },
-      {
-        "id": "019dae96-bcd2-7b61-8e5a-6c9b5e98d21c",
-        "layoutId": "019dae96-b7ea-7a56-bec9-a2c1474fab37",
-        "zone": "right",
-        "widgetKey": "qrCodeWidget",
-        "sortOrder": 2,
-        "config": {
-          "title": "Module access QR",
-          "publicLinkSlug": "demo-module"
+          "autoShowAllCatalogs": false,
+          "maxPrimaryItems": 6,
+          "overflowLabelKey": "runtime.menu.more",
+          "startPage": "Modules",
+          "workspacePlacement": "primary"
         },
         "isActive": true
       },
@@ -7495,5 +7454,5 @@
     ],
     "catalogLayoutWidgetOverrides": []
   },
-  "snapshotHash": "2ccb067cb30c2bb3621cae4b35452446d23a24b700c760150a18968e71e74b49"
+  "snapshotHash": "230a246dfa75fb8b8318eb20e5003cf3696de3f8f89100869e0612f87731db2e"
 }

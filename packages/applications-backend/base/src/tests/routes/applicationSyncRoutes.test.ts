@@ -106,6 +106,9 @@ jest.mock('@universo/schema-ddl', () => ({
         }
     }),
     generateSchemaName: jest.fn((id: string) => `app_${id.replace(/-/g, '')}`),
+    resolveEntityTableName: jest.fn(
+        (entity: { physicalTableName?: string | null; codename?: string }) => entity.physicalTableName ?? entity.codename ?? null
+    ),
     generateTableName: jest.fn(),
     generateColumnName: jest.fn(),
     generateChildTableName: jest.fn(),
@@ -1360,7 +1363,7 @@ describe('applicationSyncRoutes', () => {
                             })
                         ]
                     }),
-                    constants: expect.objectContaining({
+                    fixedValues: expect.objectContaining({
                         'set-1': [
                             expect.objectContaining({
                                 id: 'constant-1',

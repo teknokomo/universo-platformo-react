@@ -13,6 +13,7 @@ import {
     buildRuntimeActiveRowCondition,
     buildRuntimeSoftDeleteSetClause,
     coerceRuntimeValue,
+    normalizeRuntimeTableChildInsertValueByMeta,
     getTableRowLimits,
     getTableRowCountError,
     getEnumPresentationMode,
@@ -23,7 +24,8 @@ import {
     createQueryHelper,
     resolveTabularContext,
     resolveRuntimeSchema,
-    ensureRuntimePermission
+    ensureRuntimePermission,
+    type RuntimeTableChildAttributeMeta
 } from '../shared/runtimeHelpers'
 
 // ---------------------------------------------------------------------------
@@ -59,7 +61,6 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
 
         const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
         if (!ctx) return
-        if (!ensureRuntimePermission(res, ctx, 'createContent')) return
 
         const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, linkedCollectionId, attributeId)
         if (tc.error !== null) return res.status(400).json({ error: tc.error })
@@ -301,7 +302,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
 
         const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
         if (!ctx) return
-        if (!ensureRuntimePermission(res, ctx, 'createContent')) return
+        if (!ensureRuntimePermission(res, ctx, 'editContent')) return
 
         const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, linkedCollectionId, attributeId)
         if (tc.error !== null) return res.status(400).json({ error: tc.error })
@@ -580,7 +581,19 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                     [recordId, sourceSortOrder]
                 )
 
-                const copyColumns = tc.childAttrs.map((attr) => attr.column_name).filter((column) => IDENTIFIER_REGEX.test(column))
+                const childAttrsByColumn = new Map<string, RuntimeTableChildAttributeMeta>(
+                    tc.childAttrs
+                        .filter((attr) => IDENTIFIER_REGEX.test(attr.column_name))
+                        .map((attr) => [
+                            attr.column_name,
+                            {
+                                column_name: attr.column_name,
+                                data_type: attr.data_type,
+                                validation_rules: attr.validation_rules
+                            }
+                        ])
+                )
+                const copyColumns = [...childAttrsByColumn.keys()]
                 const headerColumns = [
                     '_tp_parent_id',
                     '_tp_sort_order',
@@ -602,7 +615,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                 }
                 for (const column of copyColumns) {
                     copyPlaceholders.push(`$${paramIndex++}`)
-                    copyValues.push(sourceRow[column] ?? null)
+                    copyValues.push(normalizeRuntimeTableChildInsertValueByMeta(sourceRow[column] ?? null, childAttrsByColumn.get(column)))
                 }
 
                 const [row] = (await tx.query(
@@ -634,6 +647,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
 
         const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
         if (!ctx) return
+        if (!ensureRuntimePermission(res, ctx, 'deleteContent')) return
 
         const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, linkedCollectionId, attributeId)
         if (tc.error !== null) return res.status(400).json({ error: tc.error })

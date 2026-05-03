@@ -99,16 +99,32 @@ describe('TemplateManifestValidator', () => {
         expect(widgets.some((widget) => widget.widgetKey === 'productTree')).toBe(false)
     })
 
-    it('keeps the lms template aligned with the dedicated learning widgets and canonical entities', () => {
+    it('keeps the lms template aligned with curated navigation and canonical entities', () => {
         const manifest = cloneTemplate(lmsTemplate)
         const widgets = manifest.seed.layoutZoneWidgets.main ?? []
         const entityCodenames = manifest.seed.entities.map((entity) => entity.codename)
+        const menuWidget = widgets.find((widget) => widget.widgetKey === 'menuWidget')
 
-        expect(widgets).toEqual(
+        expect(widgets.some((widget) => widget.widgetKey === 'moduleViewerWidget')).toBe(false)
+        expect(widgets.some((widget) => widget.widgetKey === 'statsViewerWidget')).toBe(false)
+        expect(widgets.some((widget) => widget.widgetKey === 'qrCodeWidget')).toBe(false)
+        expect(menuWidget?.config).toEqual(
+            expect.objectContaining({
+                autoShowAllCatalogs: false,
+                maxPrimaryItems: 6,
+                overflowLabelKey: 'runtime.menu.more',
+                startPage: 'Modules',
+                workspacePlacement: 'primary'
+            })
+        )
+        const menuItems = Array.isArray(menuWidget?.config?.items) ? menuWidget.config.items : []
+        expect(menuItems).not.toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'link', href: null })]))
+        expect(menuItems).toEqual(
             expect.arrayContaining([
-                expect.objectContaining({ zone: 'center', widgetKey: 'moduleViewerWidget' }),
-                expect.objectContaining({ zone: 'right', widgetKey: 'statsViewerWidget' }),
-                expect.objectContaining({ zone: 'right', widgetKey: 'qrCodeWidget' })
+                expect.objectContaining({ id: 'lms-nav-catalog', kind: 'catalog', catalogId: 'Modules' }),
+                expect.objectContaining({ id: 'lms-nav-knowledge', kind: 'catalog', catalogId: 'Quizzes' }),
+                expect.objectContaining({ id: 'lms-nav-development', kind: 'catalog', catalogId: 'Classes' }),
+                expect.objectContaining({ id: 'lms-nav-reports', kind: 'catalog', catalogId: 'ModuleProgress' })
             ])
         )
         expect(entityCodenames).toEqual(

@@ -804,6 +804,7 @@ describe('ApplicationList', () => {
                     description: { en: 'Edited Application Description' },
                     namePrimaryLocale: 'en',
                     descriptionPrimaryLocale: 'en',
+                    isPublic: false,
                     expectedVersion: undefined
                 })
             })

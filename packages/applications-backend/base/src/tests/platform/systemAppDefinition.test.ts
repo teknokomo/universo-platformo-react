@@ -7,7 +7,11 @@ describe('applications system-app definition', () => {
     it('keeps the migration chain stable for applications fresh fixed-schema bootstrap', () => {
         expect(
             applicationsSystemAppDefinition.migrations.map((entry) => (entry.kind === 'file' ? entry.migration.id : entry.definition.id))
-        ).toEqual(['PrepareApplicationsSchemaSupport1800000000000', 'FinalizeApplicationsSchemaSupport1800000000001'])
+        ).toEqual([
+            'PrepareApplicationsSchemaSupport1800000000000',
+            'FinalizeApplicationsSchemaSupport1800000000001',
+            'AddApplicationSettings1800000000100'
+        ])
     })
 
     it('keeps current and target business tables aligned for the effective fresh-bootstrap state', () => {

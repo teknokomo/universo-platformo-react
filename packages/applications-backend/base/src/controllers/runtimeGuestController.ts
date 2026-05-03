@@ -277,7 +277,11 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
     const scriptsService = new RuntimeScriptsService()
     const createUuidV7 = async (executor: DbExecutor): Promise<string> => {
         const rows = await executor.query<{ id: string }>('SELECT public.uuid_generate_v7() AS id')
-        return rows[0]?.id ?? crypto.randomUUID()
+        const id = rows[0]?.id
+        if (!id) {
+            throw new Error('Database UUID v7 generation failed')
+        }
+        return id
     }
 
     const resolveAccessLinksBinding = async (executor: DbExecutor, schemaName: string) =>

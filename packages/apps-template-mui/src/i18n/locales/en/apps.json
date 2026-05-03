@@ -206,6 +206,11 @@
         "copied": "Copied!",
         "copyLink": "Copy link"
     },
+    "runtime": {
+        "menu": {
+            "more": "More"
+        }
+    },
     "guest": {
         "invalidLink": "Public guest link is invalid.",
         "enterNameTitle": "Enter your name to continue",

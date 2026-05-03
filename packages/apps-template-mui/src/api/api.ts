@@ -7,6 +7,16 @@ const AUTH_CSRF_STORAGE_KEY = 'up.auth.csrf'
 
 let csrfTokenPromise: Promise<string> | null = null
 
+const runtimePermissionsSchema = z
+    .object({
+        manageMembers: z.boolean().optional().default(false),
+        manageApplication: z.boolean().optional().default(false),
+        createContent: z.boolean().optional().default(true),
+        editContent: z.boolean().optional().default(true),
+        deleteContent: z.boolean().optional().default(true)
+    })
+    .optional()
+
 const getSessionStorage = (): Storage | null => {
     try {
         return typeof window !== 'undefined' ? window.sessionStorage : null
@@ -253,6 +263,7 @@ export const appDataResponseSchema = z.object({
     settings: z.record(z.unknown()).optional().default({}),
     workspacesEnabled: z.boolean().optional().default(false),
     currentWorkspaceId: z.string().nullable().optional(),
+    permissions: runtimePermissionsSchema,
     // Added by backend for dashboard rendering; optional for backward compatibility.
     layoutConfig: dashboardLayoutConfigSchema,
     zoneWidgets: z
@@ -300,6 +311,11 @@ export const appDataResponseSchema = z.object({
                 showTitle: z.boolean().optional().default(true),
                 title: z.string(),
                 autoShowAllCatalogs: z.boolean().optional().default(false),
+                startPage: z.string().nullable().optional(),
+                startSectionId: z.string().nullable().optional(),
+                maxPrimaryItems: z.number().nullable().optional(),
+                overflowLabelKey: z.string().nullable().optional(),
+                workspacePlacement: z.enum(['primary', 'overflow', 'hidden']).optional().default('primary'),
                 items: z.array(
                     z.object({
                         id: z.string(),
@@ -313,7 +329,24 @@ export const appDataResponseSchema = z.object({
                         sortOrder: z.number().optional().default(0),
                         isActive: z.boolean().optional().default(true)
                     })
-                )
+                ),
+                overflowItems: z
+                    .array(
+                        z.object({
+                            id: z.string(),
+                            kind: z.enum(['catalog', 'section', 'catalogs_all', 'hub', 'link']),
+                            title: z.string(),
+                            icon: z.string().nullable().optional(),
+                            href: z.string().nullable().optional(),
+                            sectionId: z.string().nullable().optional(),
+                            linkedCollectionId: z.string().nullable().optional(),
+                            treeEntityId: z.string().nullable().optional(),
+                            sortOrder: z.number().optional().default(0),
+                            isActive: z.boolean().optional().default(true)
+                        })
+                    )
+                    .optional()
+                    .default([])
             })
         )
         .optional()

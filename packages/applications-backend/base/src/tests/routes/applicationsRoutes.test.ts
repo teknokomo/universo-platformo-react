@@ -7,12 +7,14 @@ jest.mock('@universo/admin-backend', () => ({
 
 const mockCloneSchemaWithExecutor = jest.fn(async () => undefined)
 const mockGenerateSchemaName = jest.fn((id: string) => `app_${id.replace(/-/g, '')}`)
+const mockGenerateChildTableName = jest.fn((attributeId: string) => `tab_${attributeId.replace(/-/g, '')}`)
 const mockIsValidSchemaName = jest.fn(() => true)
 
 jest.mock('@universo/schema-ddl', () => ({
     __esModule: true,
     cloneSchemaWithExecutor: (...args: unknown[]) => mockCloneSchemaWithExecutor(...args),
     generateSchemaName: (...args: unknown[]) => mockGenerateSchemaName(...(args as [string])),
+    generateChildTableName: (...args: unknown[]) => mockGenerateChildTableName(...(args as [string])),
     isValidSchemaName: (...args: unknown[]) => mockIsValidSchemaName(...(args as [string]))
 }))
 
@@ -137,6 +139,7 @@ describe('Applications Routes', () => {
         jest.clearAllMocks()
         mockCloneSchemaWithExecutor.mockClear()
         mockGenerateSchemaName.mockClear()
+        mockGenerateChildTableName.mockClear()
         mockIsValidSchemaName.mockClear()
         mockIsValidSchemaName.mockReturnValue(true)
         ;(isSuperuser as jest.Mock).mockResolvedValue(false)
@@ -338,6 +341,11 @@ describe('Applications Routes', () => {
                 ])
             )
             expect(response.body.activeSectionId).toBe(runtimeLinkedCollectionId)
+            expect(response.body.permissions).toMatchObject({
+                createContent: false,
+                editContent: false,
+                deleteContent: false
+            })
         })
     })
 
@@ -2580,6 +2588,52 @@ describe('Applications Routes', () => {
         const reorderedRowIdA = '018f8a78-7b8f-7c1d-a111-222233334474'
         const reorderedRowIdB = '018f8a78-7b8f-7c1d-a111-222233334475'
 
+        it('keeps application member role read-only for runtime content mutations', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role: 'member'
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test',
+                workspacesEnabled: false
+            })
+
+            const app = buildApp(dataSource)
+
+            await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows`)
+                .send({
+                    linkedCollectionId: runtimeLinkedCollectionId,
+                    data: { title: 'Member-created row' }
+                })
+                .expect(403)
+
+            await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/copy`)
+                .send({ linkedCollectionId: runtimeLinkedCollectionId })
+                .expect(403)
+
+            await request(app)
+                .patch(`/applications/${runtimeApplicationId}/runtime/${runtimeRowId}`)
+                .send({
+                    linkedCollectionId: runtimeLinkedCollectionId,
+                    field: 'title',
+                    value: 'Member edit'
+                })
+                .expect(403)
+
+            await request(app)
+                .delete(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}`)
+                .query({ linkedCollectionId: runtimeLinkedCollectionId })
+                .expect(403)
+
+            expect(dataSource.manager.query).not.toHaveBeenCalled()
+        })
+
         it('rejects inline PATCH before touching runtime tables when edit permissions are unavailable', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
             const originalEditPermission = ROLE_PERMISSIONS.editor.editContent
@@ -2697,6 +2751,109 @@ describe('Applications Routes', () => {
                 copyOptions: { copyChildTables: true },
                 hasRequiredChildTables: false
             })
+        })
+
+        it('copies TABLE child rows with declared child data type and validation metadata', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+            const tableAttributeId = '018f8a78-7b8f-7c1d-a111-222233334476'
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role: 'editor'
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test',
+                workspacesEnabled: false
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_attributes') && params?.[0] === tableAttributeId) {
+                    expect(sql).toContain('data_type')
+                    expect(sql).toContain('validation_rules')
+                    return [
+                        {
+                            codename: 'Body',
+                            column_name: 'body',
+                            data_type: 'STRING',
+                            validation_rules: { localized: true, versioned: true }
+                        },
+                        {
+                            codename: 'Payload',
+                            column_name: 'payload',
+                            data_type: 'JSON',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                    return [
+                        {
+                            id: 'attr-title',
+                            codename: 'Title',
+                            column_name: 'title',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {}
+                        },
+                        {
+                            id: tableAttributeId,
+                            codename: 'ContentItems',
+                            column_name: 'content_items',
+                            data_type: 'TABLE',
+                            is_required: false,
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"."orders"')) {
+                    if (Array.isArray(params) && params[0] === runtimeRowId) {
+                        return [{ id: runtimeRowId, title: 'Source row', _upl_locked: false }]
+                    }
+                    if (Array.isArray(params) && params[0] === copiedRowId) {
+                        return [{ id: copiedRowId, title: 'Source row', _upl_locked: false }]
+                    }
+                    return []
+                }
+                if (sql.includes('INSERT INTO "app_runtime_test"."orders"')) {
+                    return [{ id: copiedRowId }]
+                }
+                if (sql.includes('FROM "app_runtime_test"."content_items"')) {
+                    return [
+                        {
+                            body: { _primary: 'en', locales: { en: { content: 'Intro', version: 1, isActive: true } } },
+                            payload: { duration: 5 },
+                            _tp_sort_order: 0
+                        }
+                    ]
+                }
+                if (sql.includes('INSERT INTO "app_runtime_test"."content_items"')) {
+                    return []
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/copy`)
+                .send({ linkedCollectionId: runtimeLinkedCollectionId })
+                .expect(201)
+
+            const childInsertCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
+                String(call[0]).includes('INSERT INTO "app_runtime_test"."content_items"')
+            )
+
+            expect(childInsertCall).toBeDefined()
+            expect(childInsertCall?.[1]).toEqual([
+                copiedRowId,
+                0,
+                'test-user-id',
+                JSON.stringify({ _primary: 'en', locales: { en: { content: 'Intro', version: 1, isActive: true } } }),
+                JSON.stringify({ duration: 5 })
+            ])
         })
 
         it('dispatches beforeCopy inside the transaction and afterCopy after commit', async () => {
@@ -2856,21 +3013,31 @@ describe('Applications Routes', () => {
         const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334560'
         const runtimeLinkedCollectionId = '018f8a78-7b8f-7c1d-a111-222233334561'
         const runtimeRecordId = '018f8a78-7b8f-7c1d-a111-222233334562'
+        const runtimeAttributeId = '018f8a78-7b8f-7c1d-a111-222233334563'
         const runtimeChildRowId = '018f8a78-7b8f-7c1d-a111-222233334564'
+        const copiedChildRowId = '018f8a78-7b8f-7c1d-a111-222233334565'
 
-        it('allows editor role to enter child-row copy because copy is governed by create permissions', async () => {
-            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-
+        const mockRuntimeApplication = (
+            applicationRepo: ReturnType<typeof buildDataSource>['applicationRepo'],
+            applicationUserRepo: ReturnType<typeof buildDataSource>['applicationUserRepo'],
+            role: 'owner' | 'admin' | 'editor' | 'member'
+        ) => {
             applicationUserRepo.findOne.mockResolvedValue({
                 userId: 'test-user-id',
                 applicationId: runtimeApplicationId,
-                role: 'editor'
+                role
             })
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
                 schemaName: 'app_runtime_test',
                 workspacesEnabled: false
             })
+        }
+
+        it('allows editor role to enter child-row copy because copy is governed by create permissions', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'editor')
 
             const app = buildApp(dataSource)
             const response = await request(app)
@@ -2879,6 +3046,199 @@ describe('Applications Routes', () => {
                 .expect(400)
 
             expect(response.body).toEqual({ error: 'Invalid catalog or attribute ID format' })
+        })
+
+        it('allows member role to read child rows without granting mutation permissions', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'member')
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeAttributeId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_attribute_id = $1')) {
+                    return [
+                        {
+                            id: 'child-title',
+                            codename: 'title',
+                            column_name: 'title',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('COUNT(*)::int AS total')) {
+                    return [{ total: 1 }]
+                }
+                if (sql.includes('FROM "app_runtime_test"."items"')) {
+                    return [{ id: runtimeChildRowId, _tp_sort_order: 0, title: 'Visible child row' }]
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .get(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeAttributeId}`)
+                .query({ linkedCollectionId: runtimeLinkedCollectionId })
+                .expect(200)
+
+            expect(response.body).toEqual({
+                items: [{ id: runtimeChildRowId, _tp_sort_order: 0, title: 'Visible child row' }],
+                total: 1
+            })
+        })
+
+        it('keeps member role read-only for child-row mutations before touching runtime tables', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'member')
+
+            const app = buildApp(dataSource)
+
+            await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeAttributeId}`)
+                .query({ linkedCollectionId: runtimeLinkedCollectionId })
+                .send({ data: { title: 'Blocked' } })
+                .expect(403)
+            await request(app)
+                .patch(
+                    `/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeAttributeId}/${runtimeChildRowId}`
+                )
+                .query({ linkedCollectionId: runtimeLinkedCollectionId })
+                .send({ data: { title: 'Blocked' } })
+                .expect(403)
+            await request(app)
+                .post(
+                    `/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeAttributeId}/${runtimeChildRowId}/copy`
+                )
+                .query({ linkedCollectionId: runtimeLinkedCollectionId })
+                .expect(403)
+            await request(app)
+                .delete(
+                    `/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeAttributeId}/${runtimeChildRowId}`
+                )
+                .query({ linkedCollectionId: runtimeLinkedCollectionId })
+                .expect(403)
+
+            expect(dataSource.manager.query).not.toHaveBeenCalled()
+        })
+
+        it('checks edit permission, not create permission, before updating child rows', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+            const originalEditPermission = ROLE_PERMISSIONS.editor.editContent
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'editor')
+            ROLE_PERMISSIONS.editor.editContent = false
+
+            try {
+                const app = buildApp(dataSource)
+                const response = await request(app)
+                    .patch(
+                        `/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeAttributeId}/${runtimeChildRowId}`
+                    )
+                    .query({ linkedCollectionId: runtimeLinkedCollectionId })
+                    .send({ data: { title: 'Blocked' } })
+                    .expect(403)
+
+                expect(response.body).toEqual({ error: 'Insufficient permissions for this action' })
+                expect(dataSource.manager.query).not.toHaveBeenCalled()
+            } finally {
+                ROLE_PERMISSIONS.editor.editContent = originalEditPermission
+            }
+        })
+
+        it('copies child rows with declared child data type and validation metadata', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeAttributeId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_attribute_id = $1')) {
+                    return [
+                        {
+                            id: 'child-title',
+                            codename: 'title',
+                            column_name: 'title',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: { localized: true, versioned: true }
+                        },
+                        {
+                            id: 'child-payload',
+                            codename: 'payload',
+                            column_name: 'payload',
+                            data_type: 'JSON',
+                            is_required: false,
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT id, _upl_locked') && sql.includes('FROM "app_runtime_test"."orders"')) {
+                    return [{ id: runtimeRecordId, _upl_locked: false }]
+                }
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."items"')) {
+                    return [
+                        {
+                            id: runtimeChildRowId,
+                            _tp_sort_order: 0,
+                            title: { _primary: 'en', locales: { en: { content: 'Copied title' } } },
+                            payload: { ok: true }
+                        }
+                    ]
+                }
+                if (sql.includes('COUNT(*)::int AS cnt')) {
+                    return [{ cnt: 1 }]
+                }
+                if (sql.includes('UPDATE "app_runtime_test"."items"')) {
+                    return []
+                }
+                if (sql.includes('INSERT INTO "app_runtime_test"."items"')) {
+                    expect(params).toEqual([
+                        runtimeRecordId,
+                        1,
+                        'test-user-id',
+                        '{"_primary":"en","locales":{"en":{"content":"Copied title"}}}',
+                        '{"ok":true}'
+                    ])
+                    return [{ id: copiedChildRowId }]
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(
+                    `/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeAttributeId}/${runtimeChildRowId}/copy`
+                )
+                .query({ linkedCollectionId: runtimeLinkedCollectionId })
+                .expect(201)
+
+            expect(response.body).toEqual({ id: copiedChildRowId, status: 'created' })
         })
     })
 })

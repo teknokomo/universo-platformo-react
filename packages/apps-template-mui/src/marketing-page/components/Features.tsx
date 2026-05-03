@@ -1,4 +1,5 @@
 import * as React from 'react'
+import type { CSSProperties } from 'react'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
@@ -38,6 +39,11 @@ const items = [
         imageDark: `url("${process.env.TEMPLATE_IMAGE_URL || 'https://mui.com'}/static/images/templates/templates-images/devices-dark.png")`
     }
 ]
+
+type FeatureImageStyle = CSSProperties & {
+    '--items-imageLight'?: string
+    '--items-imageDark'?: string
+}
 
 interface ChipProps {
     selected?: boolean
@@ -109,7 +115,7 @@ export function MobileLayout({ selectedItemIndex, handleItemClick, selectedFeatu
                             ? ({
                                   '--items-imageLight': items[selectedItemIndex].imageLight,
                                   '--items-imageDark': items[selectedItemIndex].imageDark
-                              } as any)
+                              } satisfies FeatureImageStyle)
                             : {}
                     }
                 />
@@ -244,7 +250,7 @@ export default function Features() {
                                     ? ({
                                           '--items-imageLight': items[selectedItemIndex].imageLight,
                                           '--items-imageDark': items[selectedItemIndex].imageDark
-                                      } as any)
+                                      } satisfies FeatureImageStyle)
                                     : {}
                             }
                         />

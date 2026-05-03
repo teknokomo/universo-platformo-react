@@ -47,6 +47,81 @@
 | 0.22.0-alpha | 2025-07-27 | 0.22.0 Alpha — 2025-07-27 (Global Impulse) ⚡️ | Memory Bank, MMOOMM improvements |
 | 0.21.0-alpha | 2025-07-20 | 0.21.0 Alpha — 2025-07-20 (Firm Resolve) 💪 | Handler refactoring, PlayCanvas stabilization |
 
+## 2026-05-03 LMS PR Hygiene Closure
+
+Closed the small QA hygiene findings before preparing the LMS MVP PR.
+
+| Area | Resolution |
+| --- | --- |
+| Legacy LMS wording | Replaced stale `Orbital Navigation 101` test fixture titles with neutral `Learning Portal Basics` wording in application workspace tests. |
+| UUID policy | Removed the guest runtime `crypto.randomUUID()` fallback. Guest runtime IDs now require `public.uuid_generate_v7()` and fail closed if the database does not return an id. |
+| Menu href safety | Added shared `sanitizeMenuHref` / `isSafeMenuHref` validation in `@universo/utils` and reused it in the published runtime menu plus metahub/application menu editors. Editors now reject protocol-relative and unsupported-scheme links consistently with runtime rendering. |
+| Validation | Focused backend tests, menu href unit tests, apps-template MenuContent tests, affected package lints, targeted builds, root `pnpm build`, and `git diff --check` pass. `@universo/utils` lint still reports unrelated pre-existing warnings in older files. |
+
+## 2026-05-02 LMS Documentation And Template Lint QA Closure
+
+Closed the remaining QA cleanup after the LMS portal runtime implementation.
+
+| Area | Resolution |
+| --- | --- |
+| GitBook docs | Replaced stale wording about removed LMS global widgets in the EN setup/overview pages; the GitBook EN/RU page-pair checker is green again. |
+| Memory-bank context | Refreshed active LMS context so removed module/statistics/QR widget surfaces are not described as active runtime functionality. |
+| Template lint hygiene | Reduced `@universo/apps-template-mui` ESLint output from 37 warnings to zero by tightening test/theme/demo-template typing, removing empty no-op bodies, removing demo `console.log` handlers, and wiring `TabularPartEditor.minRows` to delete protection. |
+| Test hygiene | Removed noisy JSDOM-only MUI anchor warnings from workspace tests and mocked `react-i18next` in the MainGrid unit tests; the intentional browser-worker timeout diagnostic remains covered by its fail-closed test. |
+| Validation | `node tools/docs/check-i18n-docs.mjs`, `pnpm --filter @universo/apps-template-mui lint`, `pnpm --filter @universo/apps-template-mui test` (87/87), and `git diff --check` all pass. |
+
+## 2026-05-02 Phase 3 - Gate Demo Template Surfaces and Fix Right-Zone Defaults
+
+Disabled demo template surfaces by default in apps-template-mui so published runtime applications don't show demo content unless explicitly enabled.
+
+| Area | Resolution |
+| --- | --- |
+| `dashboardLayout.ts` defaults | Changed `showOverviewCards`, `showSessionsChart`, `showPageViewsChart`, `showRightSideMenu`, `showProductTree`, `showUsersByCountryChart` from `true` to `false`. These demo surfaces only render when a layout explicitly enables them, keeping backward compatibility for layouts that already opt in. |
+| `widgetRenderer.tsx` userProfile | Replaced hardcoded "Riley Carter" / "riley@email.com" demo user with a generic "User" label and `PersonRoundedIcon` avatar without demo data. Removed the `OptionsMenu` import dependency from this widget. |
+| `dashboardLayout.test.ts` | Updated assertion: `showRightSideMenu` default is now `false`. |
+| `dashboardLayout.test.ts` (utils) | Updated assertion in `normalizeDashboardLayoutConfig` test: `showRightSideMenu` default is now `false`. |
+| LMS template | Verified that `lms.template.ts` contains only `menuWidget`, `appNavbar`, `header`, `detailsTitle`, `detailsTable` -- no demo widgets. |
+| Validation | `@universo/types` (32/32), `@universo/utils` (297/297), `@universo/apps-template-mui` (84/84) tests all pass. Metahubs layout tests (12/12) pass. Builds pass for types and apps-template-mui. |
+
+## 2026-05-02 Fix Public Shared Workspace Selection Ambiguity
+
+Made public shared workspace selection deterministic by adding a `codename` column and a `__public_shared` constant.
+
+| Area | Resolution |
+| --- | --- |
+| `_app_workspaces` DDL | Added nullable `codename TEXT` column to the workspaces table with a unique active index. Existing tables receive the column via `ADD COLUMN IF NOT EXISTS`. |
+| `ensurePublicSharedWorkspace` | SELECT now prefers workspaces with `codename = '__public_shared'` via deterministic ORDER BY, then falls back to any active shared workspace for backward compatibility. INSERT now includes the `__public_shared` codename. |
+| `listActivePublicWorkspaceIds` | Updated ORDER BY to prefer the `__public_shared` workspace first, ensuring deterministic iteration in the guest controller. |
+| Tests | Added 3 new tests: deterministic selection with codename, fallback without codename, and codename set on creation. Updated existing workspace creation test to assert `'__public_shared'` in the INSERT SQL. All 13 workspace tests pass. |
+
+## 2026-05-02 LMS Portal Runtime Refactor Implementation
+
+Implemented the first LMS portal cleanup pass from the May 2 plan.
+
+| Area | Resolution |
+| --- | --- |
+| LMS template and fixture | Removed global `moduleViewerWidget`, `statsViewerWidget`, and `qrCodeWidget` bindings from the built-in LMS template and committed fixture. The fixture no longer exports the removed metahub-level widget scripts and now uses neutral Learning Portal seed names with a recomputed snapshot hash. |
+| Runtime menu contract | Extended `menuWidget` config with `maxPrimaryItems`, `overflowLabelKey`, `startPage`, and `workspacePlacement`. Runtime menu materialization now resolves hub/catalog ids or codenames, expands hub items, moves extra entries into overflow, selects the Modules catalog as the start section, and injects the workspace entry according to placement. |
+| Editors and schemas | Updated shared types, application layout schemas, metahub menu editor, application menu editor, and initial application widget config so new menu fields persist through authoring. |
+| Columns container | Preserved nested widget `id`, `sortOrder`, and `config` in shared types, metahub/application editors, and the published app widget renderer instead of dropping nested config. |
+| Public shared workspace seeding | Public workspace-enabled applications now create and seed a shared `Published` workspace during schema sync, so public runtime access links are usable immediately while personal workspaces stay excluded from public reads. |
+| Published app template | Added overflow menu rendering with existing MUI list/menu primitives, i18n for `runtime.menu.more`, and kept the runtime shell on existing dashboard components rather than adding LMS-only UI. |
+| Tests and docs | Updated the LMS fixture contract, generator, import/runtime flow assertions, `useCrudDashboard` Vitest coverage, template manifest Jest coverage, package READMEs, and GitBook LMS docs. |
+| Validation | Focused builds passed for types, apps-template, applications-backend, metahubs-backend, applications-frontend, and metahubs-frontend. Focused Vitest/Jest/fixture-contract checks passed, including the workspace seeding service test. Package lints passed, with apps-template retaining only unrelated pre-existing warnings. Targeted Chromium Playwright passed for the full LMS snapshot import/runtime flow with EN/RU dashboard screenshots, public guest journeys, and runtime row-count verification. Root `pnpm build` passed across the workspace (`30/30` tasks). |
+
+## 2026-05-02 LMS Portal Runtime QA Remediation Closure
+
+Closed the follow-up QA findings from the LMS portal runtime refactor.
+
+| Area | Resolution |
+| --- | --- |
+| Start page resolution | Runtime row loading now resolves `menuWidget.config.startPage` against materialized runtime catalog ids/codenames before falling back to the bound hub, so imported LMS apps open `Modules` deterministically. |
+| Menu contract | The LMS template and committed fixture no longer include inert top-level link items. `Knowledge`, `Development`, and `Reports` point to real catalog-backed sections, and generic menu rendering disables link items that lack an `href`. |
+| Workspace navigation | Integrated and standalone runtime shells deduplicate the workspace root menu entry when the runtime menu already provides it, preserving the route without showing two `Workspaces` items. |
+| Public workspace sync | Existing public shared workspaces now get owner membership during sync, and schema sync avoids a redundant shared-workspace seed pass while preserving the later all-workspaces seed flow. |
+| Docs and fixture contract | LMS setup docs and fixture validation were refreshed to describe the Learning Portal contract, removed stale Orbital/default-widget/script residue, and enforce the new working navigation shape. |
+| Validation | Focused backend Jest, frontend/apps-template Vitest, metahubs-backend Jest, package builds, package lints, root `pnpm build`, `git diff --check`, and targeted Chromium Playwright for `snapshot-import-lms-runtime.spec.ts` passed. The final Playwright screenshots show the EN/RU `Modules` dashboard without legacy widgets or transient loading state. |
+
 ## 2026-04-29 Runtime Workspace PR Review Hardening
 
 Closed the actionable review findings on PR #779.
@@ -1653,3 +1728,62 @@ The 2026-04-09 wave completed the first large end-to-end ECAE delivery set. This
 | Safe member actions | Workspace member list responses include backend-owned `canRemove` metadata, and the UI hides removal actions for members that cannot be safely removed, including the sole owner. |
 | Runtime labels | Workspace creation and member access actions now use Create/Add wording, with the member dialog titled Add member and localized Russian equivalents. |
 | Validation | Focused apps-template Vitest, applications-backend Jest, both touched package builds, backend lint, apps-template lint, root `build:e2e`, and the focused Chromium Playwright workspace-management flow passed with screenshots for the workspace list, member access, Russian page, and switcher dropdown. |
+
+## 2026-05-02 Safe Scheme Validation for Menu href Links
+
+| Entry | Durable outcome |
+| --- | --- |
+| Editor validation | Both `ApplicationMenuWidgetEditorDialog` and metahubs `MenuWidgetEditorDialog` now reject `javascript:`, `data:`, and `vbscript:` URL schemes in link items before saving, with a localized error message. |
+| Runtime sanitization | `MenuContent.tsx` uses a `sanitizeHref` whitelist (`/`, `https:`, `mailto:`, `tel:`, `#`) at render time, blocking any unsafe href from becoming an anchor attribute. Links with unsafe schemes render as disabled inert items. |
+| Unnecessary rel removed | `rel='noreferrer'` was removed from anchor elements since `target='_self'` does not require it. |
+| i18n | Added `hrefUnsafeScheme` validation message in both en and ru locales for applications-frontend and metahubs-frontend. |
+| Validation | ESLint passed on all modified TypeScript and JSON files. |
+
+## 2026-05-02 LMS Runtime QA Remediation
+
+| Entry | Durable outcome |
+| --- | --- |
+| JSONB/VLC runtime writes | Plain string runtime API input for localized/versioned `STRING` fields is normalized to a VLC object before insert/update, so parent and TABLE child JSONB-backed fields accept safe API payloads without PostgreSQL JSON syntax failures. |
+| Public workspace isolation | Public guest runtime workspace discovery now resolves only the deterministic `__public_shared` workspace and no longer scans arbitrary active shared workspaces. Public shared workspace creation also parameterizes the codename insert value. |
+| Dashboard default contract | `Dashboard` passes the resolved layout to `Header` and `MainGrid`, and `MainGrid` falls back to shared dashboard defaults instead of local `true` fallbacks for demo overview cards/charts. |
+| Legacy widget lint closure | The stale `OptionsMenu` import left after deleting legacy LMS widgets was removed from `widgetRenderer.tsx`. |
+| Validation | Focused backend Jest, apps-template Vitest, backend/apps-template build and lint, whitespace check, `lms-qr-code.spec.ts`, and `snapshot-import-lms-runtime.spec.ts` all passed. |
+
+## 2026-05-02 LMS Runtime Role And Copy QA Closure
+
+| Entry | Durable outcome |
+| --- | --- |
+| Runtime member role | Application `member` is now a read-only runtime content role: backend create/edit/copy/delete row mutations fail closed, while owner/admin/editor authoring contracts remain explicit. |
+| Permission contract | Runtime app data responses expose content permissions, and both integrated and standalone MUI runtime clients hide create/edit/copy/delete controls through the existing dashboard/menu components. |
+| TABLE copy integrity | Runtime row copy now loads child TABLE attribute `data_type` and validation rules, then normalizes copied child values through the same metadata-aware insert path as fresh writes. |
+| Legacy widget cleanup | Remaining active editor/i18n/test references to the removed LMS global widgets were deleted; only negative tests and docs that state their absence still mention those keys. |
+| Validation | Backend Jest, applications/apps-template Vitest, applications/metahubs frontend lint/build, backend/apps-template/application package lint/build, root `build:e2e`, `git diff --check`, and targeted Chromium `lms-workspace-management.spec.ts` all passed. |
+
+## 2026-05-02 LMS Runtime Child Rows QA Closure
+
+| Entry | Durable outcome |
+| --- | --- |
+| Child-row permissions | Runtime TABLE child-row listing no longer requires mutation permissions, so read-only members can inspect tabular content. Child-row create/update/copy/delete now fail closed through `editContent`, `createContent`, and `deleteContent` as appropriate. |
+| Child-row copy integrity | TABLE child-row copy now uses shared metadata-aware normalization for localized/versioned `STRING` and `JSON` child values, matching parent-row TABLE copy behavior. |
+| Regression coverage | Backend route tests now cover member read access, member mutation denial before table access, update guarded by `editContent`, and metadata-aware child-row copy parameters. |
+| Validation | Focused backend Jest passed for `applicationsRoutes.test.ts` and `runtimeRowsController.test.ts` (`67/67`), `@universo/applications-backend` lint/build passed, root `build:e2e` passed (`30/30`), targeted Chromium `lms-workspace-management.spec.ts` passed (`2/2`), and `git diff --check` passed. |
+
+## 2026-05-02 LMS Frontend QA Closure
+
+| Entry | Durable outcome |
+| --- | --- |
+| Connector sync test contract | Applications frontend mutation tests now assert the current `syncApplication(applicationId, confirmDestructive, layoutResolutionPolicy)` call shape, including the default `undefined` policy. |
+| Mutable visibility test contract | Application list update coverage now asserts that the edit flow submits `isPublic` with localized name/description updates, matching the current mutable visibility behavior. |
+| Descriptor test stability | The dynamic import descriptor test now uses the same extended timeout as the adjacent connector descriptor test, removing the observed package-level timing flake without changing assertions. |
+| Validation | Focused applications frontend Vitest passed for `mutations.test.tsx`, `ApplicationList.test.tsx`, and `actionsFactories.test.ts` (`34/34`); full `@universo/applications-frontend` Vitest passed (`139/139`); `@universo/applications-frontend` lint and `git diff --check` passed. |
+
+## 2026-05-02 LMS Backend QA Blocker Closure
+
+| Entry | Durable outcome |
+| --- | --- |
+| Sync diff preview | New-schema application diff preview now flattens TABLE child fields into table metadata, so preview rendering can see child `parentAttributeId` values while preserving nested record preview data. |
+| Release bundle contract | Backend route tests now assert the current application-origin release bundle shape, including `fixedValues`, bootstrap artifacts, and incremental migration lineage. |
+| Applications system migrations | The fixed applications system-app invariant now includes the persisted application settings migration as part of the fresh fixed-schema bootstrap contract. |
+| Menu href hardening | Published app menu rendering now rejects protocol-relative `//host` href values in addition to unsafe schemes, with direct sanitizer coverage in `apps-template-mui`. |
+| Documentation cleanup | The Russian LMS overview now avoids stale legacy wording while still documenting that removed LMS global widget keys are intentionally absent. |
+| Validation | Full `@universo/applications-backend` Jest passed (`240/240`), full `@universo/apps-template-mui` Vitest passed (`89/89`), backend/apps-template lint and builds passed, GitBook docs check and `git diff --check` passed, root `pnpm build` passed (`30/30`), and targeted Chromium `snapshot-import-lms-runtime.spec.ts` passed (`2/2`) with screenshots. |
