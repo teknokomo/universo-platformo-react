@@ -107,6 +107,31 @@ const isRuntimeSetKind = (kind: unknown): kind is string => typeof kind === 'str
 
 const isRuntimeHubKind = (kind: unknown): kind is string => typeof kind === 'string' && resolveRuntimeStandardKind(kind) === 'hub'
 
+type RuntimeMenuPartitionPlacement = 'primary' | 'overflow' | 'hidden'
+
+export const partitionRuntimeMenuItems = <T>(
+    resolvedItems: readonly T[],
+    maxPrimaryItems: number | null,
+    workspaceItem: T | null,
+    workspacePlacement: RuntimeMenuPartitionPlacement
+): { primaryItems: T[]; overflowItems: T[] } => {
+    const workspaceInPrimary = workspaceItem !== null && workspacePlacement === 'primary'
+    const effectiveMaxPrimary = maxPrimaryItems === null ? null : Math.max(0, maxPrimaryItems - (workspaceInPrimary ? 1 : 0))
+
+    const primaryItems = effectiveMaxPrimary === null ? [...resolvedItems] : resolvedItems.slice(0, effectiveMaxPrimary)
+    const overflowItems = effectiveMaxPrimary === null ? [] : resolvedItems.slice(effectiveMaxPrimary)
+
+    if (workspaceItem !== null) {
+        if (workspacePlacement === 'primary') {
+            primaryItems.push(workspaceItem)
+        } else if (workspacePlacement === 'overflow') {
+            overflowItems.push(workspaceItem)
+        }
+    }
+
+    return { primaryItems, overflowItems }
+}
+
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
@@ -1410,16 +1435,16 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 const rawWorkspacePlacement = cfg.workspacePlacement
                 const workspacePlacement: RuntimeWorkspacePlacement =
                     rawWorkspacePlacement === 'overflow' || rawWorkspacePlacement === 'hidden' ? rawWorkspacePlacement : 'primary'
-                const primaryItems = maxPrimaryItems ? resolvedItems.slice(0, maxPrimaryItems) : resolvedItems
-                const overflowItems = maxPrimaryItems ? resolvedItems.slice(maxPrimaryItems) : []
+                let workspaceItem: RuntimeMenuItem | null = null
                 if (runtimeContext.workspacesEnabled) {
-                    const workspaceItem = buildWorkspaceMenuItem(widget.id, resolvedItems.length + 1000)
-                    if (workspacePlacement === 'primary') {
-                        primaryItems.push(workspaceItem)
-                    } else if (workspacePlacement === 'overflow') {
-                        overflowItems.push(workspaceItem)
-                    }
+                    workspaceItem = buildWorkspaceMenuItem(widget.id, resolvedItems.length + 1000)
                 }
+                const { primaryItems, overflowItems } = partitionRuntimeMenuItems(
+                    resolvedItems,
+                    maxPrimaryItems,
+                    workspaceItem,
+                    workspacePlacement
+                )
 
                 const menuEntry = {
                     id: widget.id,

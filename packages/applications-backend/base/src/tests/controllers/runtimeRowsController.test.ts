@@ -1,5 +1,5 @@
 import { ApplicationMembershipState } from '@universo/types'
-import { resolvePreferredLinkedCollectionIdFromGlobalMenu } from '../../controllers/runtimeRowsController'
+import { partitionRuntimeMenuItems, resolvePreferredLinkedCollectionIdFromGlobalMenu } from '../../controllers/runtimeRowsController'
 import {
     UpdateFailure,
     coerceRuntimeValue,
@@ -89,6 +89,44 @@ describe('runtimeRowsController startup catalog resolution', () => {
         ).resolves.toBe('catalog-1')
 
         expect(executor.query).toHaveBeenCalled()
+    })
+})
+
+describe('partitionRuntimeMenuItems', () => {
+    const items = ['modules', 'knowledge', 'development', 'reports']
+    const workspaceItem = 'workspaces'
+
+    it('keeps the injected workspace item inside the primary menu limit', () => {
+        const result = partitionRuntimeMenuItems(items, 3, workspaceItem, 'primary')
+
+        expect(result.primaryItems).toEqual(['modules', 'knowledge', 'workspaces'])
+        expect(result.overflowItems).toEqual(['development', 'reports'])
+    })
+
+    it('handles a primary workspace item when the limit leaves no room for regular items', () => {
+        const result = partitionRuntimeMenuItems(items, 1, workspaceItem, 'primary')
+
+        expect(result.primaryItems).toEqual(['workspaces'])
+        expect(result.overflowItems).toEqual(items)
+    })
+
+    it('does not reserve primary capacity when the workspace item is in overflow or hidden', () => {
+        expect(partitionRuntimeMenuItems(items, 2, workspaceItem, 'overflow')).toEqual({
+            primaryItems: ['modules', 'knowledge'],
+            overflowItems: ['development', 'reports', 'workspaces']
+        })
+        expect(partitionRuntimeMenuItems(items, 2, workspaceItem, 'hidden')).toEqual({
+            primaryItems: ['modules', 'knowledge'],
+            overflowItems: ['development', 'reports']
+        })
+    })
+
+    it('does not mutate the source items when there is no primary limit', () => {
+        const result = partitionRuntimeMenuItems(items, null, workspaceItem, 'primary')
+
+        expect(result.primaryItems).toEqual(['modules', 'knowledge', 'development', 'reports', 'workspaces'])
+        expect(result.overflowItems).toEqual([])
+        expect(items).toEqual(['modules', 'knowledge', 'development', 'reports'])
     })
 })
 
