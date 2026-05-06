@@ -27,7 +27,13 @@ export const setEntityPreset: EntityTypePresetManifest = {
         ui: SET_TYPE_UI,
         presentation: {
             name: STANDARD_SET_NAME,
-            description: STANDARD_SET_DESCRIPTION
+            description: STANDARD_SET_DESCRIPTION,
+            dialogTitles: {
+                create: vlc('Create Set', 'Создать набор'),
+                edit: vlc('Edit Set', 'Редактировать набор'),
+                copy: vlc('Copy Set', 'Копирование набора'),
+                delete: vlc('Delete Set', 'Удалить набор')
+            }
         },
         config: {}
     },

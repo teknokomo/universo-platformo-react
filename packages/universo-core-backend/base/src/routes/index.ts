@@ -5,7 +5,7 @@ import pingRouter from './ping'
 // Universo Platformo | Logger
 import logger from '../utils/logger'
 // Universo Platformo | Import auth middleware
-import { createEnsureAuthWithRls, createPermissionService } from '@universo/auth-backend'
+import { createEnsureAuthWithRls, createPermissionService, ensureAuth as ensurePlainAuth } from '@universo/auth-backend'
 // Universo Platformo | Metahubs
 import {
     createMetahubsServiceRoutes,
@@ -91,7 +91,9 @@ router.use((req: Request, res: Response, next: NextFunction) => {
 let applicationsRouter: ExpressRouter | null = null
 router.use((req: Request, res: Response, next: NextFunction) => {
     if (!applicationsRouter) {
-        applicationsRouter = createApplicationsServiceRoutes(ensureAuthWithRls, getPoolExecutor, loadPublishedPublicationRuntimeSource)
+        applicationsRouter = createApplicationsServiceRoutes(ensureAuthWithRls, getPoolExecutor, loadPublishedPublicationRuntimeSource, {
+            syncEnsureAuth: ensurePlainAuth
+        })
     }
     if (applicationsRouter) {
         applicationsRouter(req, res, next)

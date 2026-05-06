@@ -28,6 +28,7 @@ export interface ConnectorLinkRecord {
     id: string
     connectorId: string
     publicationId: string
+    schemaOptions: Record<string, unknown>
     sortOrder: number
     version: number
     createdAt: Date
@@ -38,6 +39,7 @@ export interface ConnectorPublicationListItem {
     id: string
     connectorId: string
     publicationId: string
+    schemaOptions: Record<string, unknown>
     sortOrder: number
     createdAt: Date
     publication: {
@@ -346,6 +348,7 @@ export async function findConnectorPublicationLink(
             id,
             connector_id AS "connectorId",
             publication_id AS "publicationId",
+            schema_options AS "schemaOptions",
             sort_order AS "sortOrder",
             _upl_version AS "version",
             _upl_created_at AS "createdAt",
@@ -372,6 +375,7 @@ export async function findFirstConnectorPublicationLinkByConnectorId(
             id,
             connector_id AS "connectorId",
             publication_id AS "publicationId",
+            schema_options AS "schemaOptions",
             sort_order AS "sortOrder",
             _upl_version AS "version",
             _upl_created_at AS "createdAt",
@@ -399,6 +403,7 @@ export async function findConnectorPublicationLinkById(
             id,
             connector_id AS "connectorId",
             publication_id AS "publicationId",
+            schema_options AS "schemaOptions",
             sort_order AS "sortOrder",
             _upl_version AS "version",
             _upl_created_at AS "createdAt",
@@ -421,6 +426,7 @@ export async function insertConnectorPublicationLink(
         connectorId: string
         publicationId: string
         sortOrder: number
+        schemaOptions?: Record<string, unknown> | null
         userId?: string
     }
 ): Promise<ConnectorLinkRecord> {
@@ -429,21 +435,30 @@ export async function insertConnectorPublicationLink(
         INSERT INTO applications.rel_connector_publications (
             connector_id,
             publication_id,
+            schema_options,
             sort_order,
             _upl_created_by,
             _upl_updated_by
         )
-        VALUES ($1, $2, $3, $4, $5)
+        VALUES ($1, $2, $3::jsonb, $4, $5, $6)
         RETURNING
             id,
             connector_id AS "connectorId",
             publication_id AS "publicationId",
+            schema_options AS "schemaOptions",
             sort_order AS "sortOrder",
             _upl_version AS "version",
             _upl_created_at AS "createdAt",
             _upl_updated_at AS "updatedAt"
         `,
-        [input.connectorId, input.publicationId, input.sortOrder, input.userId ?? null, input.userId ?? null]
+        [
+            input.connectorId,
+            input.publicationId,
+            JSON.stringify(input.schemaOptions ?? {}),
+            input.sortOrder,
+            input.userId ?? null,
+            input.userId ?? null
+        ]
     )
 
     return rows[0]
@@ -471,12 +486,48 @@ export async function deleteConnectorPublicationLink(
     return rows.length > 0
 }
 
+export async function updateConnectorPublicationSchemaOptions(
+    executor: SqlQueryable,
+    input: {
+        connectorId: string
+        linkId: string
+        schemaOptions: Record<string, unknown>
+        userId?: string | null
+    }
+): Promise<ConnectorLinkRecord | null> {
+    const rows = await executor.query<ConnectorLinkRecord>(
+        `
+        UPDATE applications.rel_connector_publications
+        SET schema_options = $3::jsonb,
+            _upl_updated_at = NOW(),
+            _upl_updated_by = $4,
+            _upl_version = COALESCE(_upl_version, 1) + 1
+        WHERE id = $1
+          AND connector_id = $2
+          AND ${activeRowPredicate()}
+        RETURNING
+            id,
+            connector_id AS "connectorId",
+            publication_id AS "publicationId",
+            schema_options AS "schemaOptions",
+            sort_order AS "sortOrder",
+            _upl_version AS "version",
+            _upl_created_at AS "createdAt",
+            _upl_updated_at AS "updatedAt"
+        `,
+        [input.linkId, input.connectorId, JSON.stringify(input.schemaOptions), input.userId ?? null]
+    )
+
+    return rows[0] ?? null
+}
+
 export async function listConnectorPublicationLinks(executor: SqlQueryable, connectorId: string): Promise<ConnectorPublicationListItem[]> {
     const rows = await executor.query<
         Array<{
             id: string
             connectorId: string
             publicationId: string
+            schemaOptions: Record<string, unknown>
             sortOrder: number
             createdAt: Date
             publication_id: string | null
@@ -492,6 +543,7 @@ export async function listConnectorPublicationLinks(executor: SqlQueryable, conn
             cp.id,
             cp.connector_id AS "connectorId",
             cp.publication_id AS "publicationId",
+            cp.schema_options AS "schemaOptions",
             cp.sort_order AS "sortOrder",
             cp._upl_created_at AS "createdAt",
             p.id AS publication_id,
@@ -516,6 +568,7 @@ export async function listConnectorPublicationLinks(executor: SqlQueryable, conn
         id: row.id,
         connectorId: row.connectorId,
         publicationId: row.publicationId,
+        schemaOptions: row.schemaOptions ?? {},
         sortOrder: row.sortOrder,
         createdAt: row.createdAt,
         publication: row.publication_id

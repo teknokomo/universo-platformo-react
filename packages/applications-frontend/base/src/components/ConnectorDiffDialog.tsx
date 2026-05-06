@@ -30,9 +30,13 @@ import {
     TableHead,
     TableRow,
     FormControl,
+    FormControlLabel,
     InputLabel,
     MenuItem,
-    Select
+    Select,
+    Radio,
+    RadioGroup,
+    Checkbox
 } from '@mui/material'
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline'
@@ -127,7 +131,14 @@ export interface ConnectorDiffDialogProps {
     connector?: Connector | null
     applicationId: string
     onClose: () => void
-    onSync: (confirmDestructive: boolean, layoutResolutionPolicy?: ApplicationLayoutSyncPolicy) => Promise<void>
+    onSync: (
+        confirmDestructive: boolean,
+        layoutResolutionPolicy?: ApplicationLayoutSyncPolicy,
+        schemaOptions?: {
+            workspaceModeRequested?: 'enabled' | 'not_requested' | null
+            acknowledgeIrreversibleWorkspaceEnablement?: boolean
+        }
+    ) => Promise<void>
     isSyncing: boolean
     uiLocale: string
     schemaStatus?: SchemaStatus
@@ -173,6 +184,8 @@ export function ConnectorDiffDialog({
     const [bulkLayoutResolution, setBulkLayoutResolution] = useState<ApplicationLayoutSyncResolution | ''>('')
     const [layoutOverrides, setLayoutOverrides] = useState<Record<string, ApplicationLayoutSyncResolution>>({})
     const [syncErrorMessage, setSyncErrorMessage] = useState<string | null>(null)
+    const [workspaceModeRequested, setWorkspaceModeRequested] = useState<'enabled' | 'not_requested' | null>(null)
+    const [workspaceAcknowledged, setWorkspaceAcknowledged] = useState(false)
     const formatChange = (change: string) => {
         if (change === 'ui.layout.update') {
             return t('connectors.diffDialog.uiLayoutUpdate', 'UI layout settings will be updated')
@@ -383,8 +396,22 @@ export function ConnectorDiffDialog({
             setBulkLayoutResolution('')
             setLayoutOverrides({})
             setSyncErrorMessage(null)
+            setWorkspaceModeRequested(null)
+            setWorkspaceAcknowledged(false)
         }
     }, [open])
+
+    useEffect(() => {
+        if (!open || !diffData) {
+            return
+        }
+
+        if (diffData.workspaceMode?.policy === 'required') {
+            setWorkspaceModeRequested('enabled')
+            return
+        }
+        setWorkspaceModeRequested(diffData.workspaceMode?.requested ?? diffData.schemaOptions?.workspaceModeRequested ?? 'not_requested')
+    }, [diffData, open])
 
     const hasDestructiveChanges = (diffData?.diff?.destructive?.length ?? 0) > 0
     const hasAdditiveChanges = (diffData?.diff?.additive?.length ?? 0) > 0
@@ -396,10 +423,37 @@ export function ConnectorDiffDialog({
     const needsCreate = diffData?.schemaExists === false || schemaStatus === 'draft'
     const hasChanges = needsCreate || diffData?.diff?.hasChanges || hasDestructiveChanges || hasAdditiveChanges
 
+    const runtimeWorkspacePolicy = diffData?.workspaceMode?.policy ?? diffData?.runtimePolicy?.workspaceMode ?? 'optional'
+    const workspaceCanChoose = diffData?.workspaceMode?.canChoose === true
+    const workspaceEffectiveEnabled =
+        runtimeWorkspacePolicy === 'required' ||
+        diffData?.workspaceMode?.applicationWorkspacesEnabled === true ||
+        (runtimeWorkspacePolicy === 'optional' && workspaceModeRequested === 'enabled')
+    const workspaceRequiresAcknowledgement = diffData?.workspaceMode?.applicationWorkspacesEnabled !== true && workspaceEffectiveEnabled
+    const workspaceSyncDisabled = workspaceRequiresAcknowledgement && !workspaceAcknowledged
+
+    const hasWorkspaceMetadata = Boolean(diffData?.workspaceMode || diffData?.runtimePolicy || diffData?.schemaOptions)
+    const buildSchemaOptions = () => {
+        if (!hasWorkspaceMetadata) {
+            return undefined
+        }
+
+        return {
+            workspaceModeRequested: runtimeWorkspacePolicy === 'required' ? 'enabled' : workspaceModeRequested,
+            acknowledgeIrreversibleWorkspaceEnablement: workspaceRequiresAcknowledgement ? workspaceAcknowledged : undefined
+        }
+    }
+
     const handleSync = async (confirmDestructive: boolean) => {
         setSyncErrorMessage(null)
         try {
-            await onSync(confirmDestructive, buildLayoutResolutionPolicy())
+            const layoutResolutionPolicy = buildLayoutResolutionPolicy()
+            const schemaOptions = buildSchemaOptions()
+            if (schemaOptions) {
+                await onSync(confirmDestructive, layoutResolutionPolicy, schemaOptions)
+            } else {
+                await onSync(confirmDestructive, layoutResolutionPolicy)
+            }
         } catch (error) {
             const responseData = (error as { response?: { data?: { error?: string; message?: string } } })?.response?.data
             const errorCode = responseData?.error
@@ -426,6 +480,55 @@ export function ConnectorDiffDialog({
     const additiveStructured = (diffData?.diff?.details?.changes?.additive ?? []) as StructuredDiffChange[]
     const destructiveStructured = (diffData?.diff?.details?.changes?.destructive ?? []) as StructuredDiffChange[]
     const hasCreateTableDetails = createTables.length > 0
+    const workspaceModeSection =
+        diffData && !diffError ? (
+            <Box sx={{ mb: 2 }}>
+                {runtimeWorkspacePolicy === 'required' ? (
+                    <Alert severity='info'>
+                        {t('connectors.diffDialog.workspace.required', 'This publication version requires application workspaces.')}
+                    </Alert>
+                ) : workspaceCanChoose ? (
+                    <FormControl component='fieldset' fullWidth>
+                        <Typography variant='subtitle2' sx={{ mb: 1 }}>
+                            {t('connectors.diffDialog.workspace.title', 'Workspaces')}
+                        </Typography>
+                        <RadioGroup
+                            value={workspaceModeRequested ?? 'not_requested'}
+                            onChange={(event) => setWorkspaceModeRequested(event.target.value === 'enabled' ? 'enabled' : 'not_requested')}
+                        >
+                            <FormControlLabel
+                                value='not_requested'
+                                control={<Radio />}
+                                label={t('connectors.diffDialog.workspace.withoutWorkspaces', 'Do not create workspaces')}
+                                disabled={isSyncing}
+                            />
+                            <FormControlLabel
+                                value='enabled'
+                                control={<Radio />}
+                                label={t('connectors.diffDialog.workspace.withWorkspaces', 'Create application workspaces')}
+                                disabled={isSyncing}
+                            />
+                        </RadioGroup>
+                    </FormControl>
+                ) : null}
+                {workspaceRequiresAcknowledgement ? (
+                    <FormControlLabel
+                        sx={{ mt: 1 }}
+                        control={
+                            <Checkbox
+                                checked={workspaceAcknowledged}
+                                onChange={(event) => setWorkspaceAcknowledged(event.target.checked)}
+                                disabled={isSyncing}
+                            />
+                        }
+                        label={t(
+                            'connectors.diffDialog.workspace.acknowledge',
+                            'I understand that workspaces cannot be turned off after they are enabled for this application.'
+                        )}
+                    />
+                ) : null}
+            </Box>
+        ) : null
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth='md' fullWidth aria-labelledby='connector-diff-dialog-title'>
@@ -446,6 +549,7 @@ export function ConnectorDiffDialog({
                     <Alert severity='error'>{t('errors.connectionFailed', 'Failed to load schema changes')}</Alert>
                 ) : needsCreate ? (
                     <Box>
+                        {workspaceModeSection}
                         {/* Schema creation header */}
                         <Box sx={{ textAlign: 'center', py: 2, mb: 2 }}>
                             <AddCircleOutlineIcon sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
@@ -593,15 +697,19 @@ export function ConnectorDiffDialog({
                         ) : null}
                     </Box>
                 ) : !hasChanges ? (
-                    <Box sx={{ textAlign: 'center', py: 4 }}>
-                        <CheckCircleOutlineIcon sx={{ fontSize: 64, color: 'success.main', mb: 2 }} />
-                        <Typography variant='h6'>{t('connectors.diffDialog.noChanges', 'No changes detected')}</Typography>
-                        <Typography variant='body2' color='text.secondary'>
-                            {t('connectors.diffDialog.schemaUpToDate', 'Schema matches current configuration')}
-                        </Typography>
+                    <Box>
+                        {workspaceModeSection}
+                        <Box sx={{ textAlign: 'center', py: 4 }}>
+                            <CheckCircleOutlineIcon sx={{ fontSize: 64, color: 'success.main', mb: 2 }} />
+                            <Typography variant='h6'>{t('connectors.diffDialog.noChanges', 'No changes detected')}</Typography>
+                            <Typography variant='body2' color='text.secondary'>
+                                {t('connectors.diffDialog.schemaUpToDate', 'Schema matches current configuration')}
+                            </Typography>
+                        </Box>
                     </Box>
                 ) : (
                     <Box>
+                        {workspaceModeSection}
                         {/* Summary */}
                         {(diffData?.diff?.summaryKey || diffData?.diff?.summary) && (
                             <Alert severity='info' sx={{ mb: 2 }}>
@@ -965,7 +1073,7 @@ export function ConnectorDiffDialog({
                         variant='contained'
                         color='primary'
                         onClick={() => handleSync(false)}
-                        disabled={isSyncing || isDiffLoading || hasUnresolvedRequiredLayoutChanges}
+                        disabled={isSyncing || isDiffLoading || hasUnresolvedRequiredLayoutChanges || workspaceSyncDisabled}
                         startIcon={isSyncing ? <CircularProgress size={16} /> : null}
                     >
                         {isSyncing
@@ -982,7 +1090,7 @@ export function ConnectorDiffDialog({
                                 variant='outlined'
                                 color='primary'
                                 onClick={() => handleSync(false)}
-                                disabled={isSyncing || isDiffLoading || hasUnresolvedRequiredLayoutChanges}
+                                disabled={isSyncing || isDiffLoading || hasUnresolvedRequiredLayoutChanges || workspaceSyncDisabled}
                             >
                                 {t('connectors.diffDialog.applySafeChanges', 'Apply Safe Changes Only')}
                             </Button>
@@ -991,7 +1099,7 @@ export function ConnectorDiffDialog({
                             variant='contained'
                             color='error'
                             onClick={() => handleSync(true)}
-                            disabled={isSyncing || isDiffLoading || hasUnresolvedRequiredLayoutChanges}
+                            disabled={isSyncing || isDiffLoading || hasUnresolvedRequiredLayoutChanges || workspaceSyncDisabled}
                             startIcon={isSyncing ? <CircularProgress size={16} color='inherit' /> : null}
                         >
                             {isSyncing

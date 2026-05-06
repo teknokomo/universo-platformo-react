@@ -108,7 +108,10 @@ async function waitForWidgetZone(
         .toBe(expectedZone)
 }
 
-test('@flow @combined application layout management exposes sourced layouts and browser widget reordering', async ({ page, runManifest }, testInfo) => {
+test('@flow @combined application layout management exposes sourced layouts and browser widget reordering', async ({
+    page,
+    runManifest
+}, testInfo) => {
     test.setTimeout(300_000)
 
     const api = await createLoggedInApiContext({
@@ -164,8 +167,7 @@ test('@flow @combined application layout management exposes sourced layouts and 
         const linkedApplication = await createPublicationLinkedApplication(api, metahub.id, publication.id, {
             name: { en: applicationName },
             namePrimaryLocale: 'en',
-            createApplicationSchema: false,
-            workspacesEnabled: false
+            createApplicationSchema: false
         })
 
         const applicationId = linkedApplication?.application?.id
@@ -246,7 +248,10 @@ test('@flow @combined application layout management exposes sourced layouts and 
     }
 })
 
-test('@flow @combined application layout sync resolves layout conflicts, preserves excluded sources, and imports new metahub layouts', async ({ page, runManifest }, testInfo) => {
+test('@flow @combined application layout sync resolves layout conflicts, preserves excluded sources, and imports new metahub layouts', async ({
+    page,
+    runManifest
+}, testInfo) => {
     test.setTimeout(360_000)
 
     const api = await createLoggedInApiContext({
@@ -299,8 +304,7 @@ test('@flow @combined application layout sync resolves layout conflicts, preserv
         const linkedApplication = await createPublicationLinkedApplication(api, metahub.id, publication.id, {
             name: { en: applicationName },
             namePrimaryLocale: 'en',
-            createApplicationSchema: false,
-            workspacesEnabled: false
+            createApplicationSchema: false
         })
         const applicationId = linkedApplication?.application?.id
         if (typeof applicationId !== 'string') {
@@ -316,12 +320,17 @@ test('@flow @combined application layout sync resolves layout conflicts, preserv
         }
 
         const metahubLayouts = await listLayouts(api, metahub.id, { limit: 20, offset: 0 })
-        const baseMetahubLayoutId = metahubLayouts.items?.find((item: { id?: string; idSource?: string | null }) => item.id !== secondarySourceLayout.id)?.id
+        const baseMetahubLayoutId = metahubLayouts.items?.find(
+            (item: { id?: string; idSource?: string | null }) => item.id !== secondarySourceLayout.id
+        )?.id
         if (typeof baseMetahubLayoutId !== 'string') {
             throw new Error('Could not resolve the primary metahub layout id for exclusion coverage')
         }
 
-        const initialAppLayouts = (await listApplicationLayouts(api, applicationId, { limit: 50, offset: 0 })) as ApplicationLayoutListResponse
+        const initialAppLayouts = (await listApplicationLayouts(api, applicationId, {
+            limit: 50,
+            offset: 0
+        })) as ApplicationLayoutListResponse
         const baseImportedLayout = initialAppLayouts.items?.find((item) => item.sourceLayoutId === baseMetahubLayoutId)
         const secondaryImportedLayout = initialAppLayouts.items?.find((item) => item.sourceLayoutId === secondarySourceLayout.id)
         if (!baseImportedLayout?.id || !secondaryImportedLayout?.id) {
@@ -379,20 +388,26 @@ test('@flow @combined application layout sync resolves layout conflicts, preserv
         await expect(page.getByTestId('connector-diff-dialog')).not.toBeVisible({ timeout: 30_000 })
 
         await expect
-            .poll(async () => {
-                const response = (await listApplicationLayouts(api, applicationId, { limit: 50, offset: 0 })) as ApplicationLayoutListResponse
-                const excludedBase = response.items?.find(
-                    (item) => item.sourceLayoutId === baseMetahubLayoutId && item.syncState === 'source_excluded'
-                )
-                const copiedConflictLayout = response.items?.find(
-                    (item) => item.sourceKind === 'application' && item.sourceLayoutId === secondarySourceLayout.id
-                )
-                const importedNewLayout = response.items?.find(
-                    (item) => item.sourceKind === 'metahub' && item.sourceLayoutId === newSourceLayout.id
-                )
+            .poll(
+                async () => {
+                    const response = (await listApplicationLayouts(api, applicationId, {
+                        limit: 50,
+                        offset: 0
+                    })) as ApplicationLayoutListResponse
+                    const excludedBase = response.items?.find(
+                        (item) => item.sourceLayoutId === baseMetahubLayoutId && item.syncState === 'source_excluded'
+                    )
+                    const copiedConflictLayout = response.items?.find(
+                        (item) => item.sourceKind === 'application' && item.sourceLayoutId === secondarySourceLayout.id
+                    )
+                    const importedNewLayout = response.items?.find(
+                        (item) => item.sourceKind === 'metahub' && item.sourceLayoutId === newSourceLayout.id
+                    )
 
-                return Boolean(excludedBase && copiedConflictLayout && importedNewLayout)
-            }, { timeout: 30_000 })
+                    return Boolean(excludedBase && copiedConflictLayout && importedNewLayout)
+                },
+                { timeout: 30_000 }
+            )
             .toBe(true)
 
         await page.goto(`/a/${applicationId}/admin/layouts`)

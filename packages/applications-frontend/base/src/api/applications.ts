@@ -24,12 +24,21 @@ import {
 } from '../types'
 import type { SimpleLocalizedInput } from '../types'
 
-// Input type for creating/updating applications with localized content
+// Input type for updating applications with localized content
 export interface ApplicationInput extends ApplicationLocalizedPayload {
     slug?: string
     isPublic?: boolean
-    workspacesEnabled?: boolean
     expectedVersion?: number
+}
+
+// Input type for creating applications. Keep this aligned with the strict backend create schema.
+export interface ApplicationCreateInput {
+    name: SimpleLocalizedInput
+    description?: SimpleLocalizedInput
+    namePrimaryLocale?: string
+    descriptionPrimaryLocale?: string
+    slug?: string
+    isPublic?: boolean
 }
 
 export interface ApplicationCopyInput extends Partial<ApplicationInput>, Partial<ApplicationCopyOptions> {}
@@ -74,7 +83,7 @@ export const listApplications = async (params?: ApplicationPaginationParams): Pr
 
 export const getApplication = (id: string) => apiClient.get<Application>(`/applications/${id}`)
 
-export const createApplication = (data: ApplicationInput) => apiClient.post<Application>('/applications', data)
+export const createApplication = (data: ApplicationCreateInput) => apiClient.post<Application>('/applications', data)
 
 /**
  * Update an application

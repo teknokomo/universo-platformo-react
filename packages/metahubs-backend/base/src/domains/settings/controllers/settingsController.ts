@@ -1,10 +1,12 @@
 import { z } from 'zod'
+import type { DbExecutor } from '@universo/utils/database'
 import type { SqlQueryable } from '../../../persistence'
 import type { createMetahubHandlerFactory } from '../../shared/createMetahubHandler'
 import { MetahubSettingsService } from '../services/MetahubSettingsService'
-import { METAHUB_SETTINGS_REGISTRY, getSettingDefinition } from '@universo/types'
-import type { MetahubSettingRow } from '@universo/types'
+import { ENTITY_SETTINGS_KINDS, METAHUB_SETTINGS_REGISTRY, getSettingDefinition } from '@universo/types'
+import type { MetahubSettingRow, ResolvedEntityType } from '@universo/types'
 import { validateSettingValue } from '../../shared/validateSettingValue'
+import { EntityTypeService } from '../../entities/services/EntityTypeService'
 
 type RegistryEntry = (typeof METAHUB_SETTINGS_REGISTRY)[number]
 
@@ -25,6 +27,12 @@ const settingsUpdateSchema = z
             .max(50)
     })
     .strict()
+
+const ENTITY_SETTING_TABS = new Set<string>(ENTITY_SETTINGS_KINDS)
+
+const isEntitySettingKind = (value: string): value is (typeof ENTITY_SETTINGS_KINDS)[number] => {
+    return ENTITY_SETTING_TABS.has(value)
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -100,18 +108,41 @@ const withDynamicLanguageOptions = (languageOptions: string[]): RegistryEntry[] 
     })
 }
 
+const filterRegistryForEntityTypes = (registry: RegistryEntry[], entityTypes: ResolvedEntityType[]): RegistryEntry[] => {
+    const availableEntityTabs = new Set(entityTypes.map((entityType) => entityType.kindKey).filter(isEntitySettingKind))
+
+    return registry.filter((entry) => !isEntitySettingKind(entry.tab) || availableEntityTabs.has(entry.tab))
+}
+
+const buildRegistry = async ({
+    exec,
+    schemaService,
+    metahubId,
+    userId,
+    languageOptions
+}: {
+    exec: DbExecutor
+    schemaService: ConstructorParameters<typeof EntityTypeService>[1]
+    metahubId: string
+    userId?: string
+    languageOptions: string[]
+}): Promise<RegistryEntry[]> => {
+    const entityTypes = await new EntityTypeService(exec, schemaService).listTypes(metahubId, userId)
+    return filterRegistryForEntityTypes(withDynamicLanguageOptions(languageOptions), entityTypes)
+}
+
 // ---------------------------------------------------------------------------
 // Controller factory
 // ---------------------------------------------------------------------------
 
 export function createSettingsController(createHandler: ReturnType<typeof createMetahubHandlerFactory>) {
     // GET /metahub/:metahubId/settings
-    const list = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {
+    const list = createHandler(async ({ res, metahubId, userId, exec, schemaService }) => {
         const settingsService = new MetahubSettingsService(exec, schemaService)
 
         const dbRows = await settingsService.findAll(metahubId, userId)
         const languageOptions = await getContentLocaleCodes(exec)
-        const registry = withDynamicLanguageOptions(languageOptions)
+        const registry = await buildRegistry({ exec, schemaService, metahubId, userId, languageOptions })
         const merged = mergeSettingsWithDefaults(dbRows, registry)
         const hasHubNesting = await settingsService.hasHubNesting(metahubId, userId)
 
@@ -150,7 +181,7 @@ export function createSettingsController(createHandler: ReturnType<typeof create
             }
 
             const dbRows = await settingsService.findAll(metahubId, userId)
-            const registry = withDynamicLanguageOptions(languageOptions)
+            const registry = await buildRegistry({ exec, schemaService, metahubId, userId, languageOptions })
             const merged = mergeSettingsWithDefaults(dbRows, registry)
             const hasHubNesting = await settingsService.hasHubNesting(metahubId, userId)
             res.json({ settings: merged, registry, meta: { hasHubNesting } })

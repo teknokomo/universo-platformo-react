@@ -1,11 +1,16 @@
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import React from 'react'
 import { usePaginated } from '../usePaginated'
 import type { PaginatedResponse } from '../../types/pagination'
 
+interface MockItem {
+    id: string
+    name: string
+}
+
 // Mock API responses
-const createMockResponse = (page: number, pageSize: number, total: number): PaginatedResponse<any> => ({
+const createMockResponse = (page: number, pageSize: number, total: number): PaginatedResponse<MockItem> => ({
     items: Array.from({ length: Math.min(pageSize, total - (page - 1) * pageSize) }, (_, i) => ({
         id: `item-${(page - 1) * pageSize + i + 1}`,
         name: `Item ${(page - 1) * pageSize + i + 1}`
@@ -108,7 +113,9 @@ describe('usePaginated', () => {
 
             expect(result.current.pagination.currentPage).toBe(1)
 
-            result.current.actions.nextPage()
+            act(() => {
+                result.current.actions.nextPage()
+            })
 
             await waitFor(() => {
                 expect(result.current.pagination.currentPage).toBe(2)
@@ -137,7 +144,9 @@ describe('usePaginated', () => {
 
             expect(result.current.pagination.currentPage).toBe(2)
 
-            result.current.actions.previousPage()
+            act(() => {
+                result.current.actions.previousPage()
+            })
 
             await waitFor(() => {
                 expect(result.current.pagination.currentPage).toBe(1)
@@ -162,7 +171,9 @@ describe('usePaginated', () => {
             })
 
             const currentPage = result.current.pagination.currentPage
-            result.current.actions.nextPage()
+            act(() => {
+                result.current.actions.nextPage()
+            })
 
             await waitFor(() => {
                 expect(result.current.pagination.currentPage).toBe(currentPage)
@@ -185,7 +196,9 @@ describe('usePaginated', () => {
                 expect(result.current.isLoading).toBe(false)
             })
 
-            result.current.actions.previousPage()
+            act(() => {
+                result.current.actions.previousPage()
+            })
 
             await waitFor(() => {
                 expect(result.current.pagination.currentPage).toBe(1)
@@ -211,7 +224,9 @@ describe('usePaginated', () => {
                 expect(result.current.isLoading).toBe(false)
             })
 
-            result.current.actions.goToPage(3)
+            act(() => {
+                result.current.actions.goToPage(3)
+            })
 
             await waitFor(() => {
                 expect(result.current.pagination.currentPage).toBe(3)
@@ -242,7 +257,9 @@ describe('usePaginated', () => {
 
             expect(result.current.pagination.currentPage).toBe(2)
 
-            result.current.actions.setSearch('test query')
+            act(() => {
+                result.current.actions.setSearch('test query')
+            })
 
             await waitFor(() => {
                 expect(result.current.pagination.currentPage).toBe(1)
@@ -274,7 +291,9 @@ describe('usePaginated', () => {
 
             expect(result.current.pagination.currentPage).toBe(2)
 
-            result.current.actions.setSort('name', 'asc')
+            act(() => {
+                result.current.actions.setSort('name', 'asc')
+            })
 
             await waitFor(() => {
                 expect(result.current.pagination.currentPage).toBe(1)
@@ -306,7 +325,9 @@ describe('usePaginated', () => {
             expect(result.current.pagination.currentPage).toBe(2)
             expect(result.current.pagination.pageSize).toBe(20)
 
-            result.current.actions.setPageSize(50)
+            act(() => {
+                result.current.actions.setPageSize(50)
+            })
 
             await waitFor(() => {
                 expect(result.current.pagination.currentPage).toBe(1)

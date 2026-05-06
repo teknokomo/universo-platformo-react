@@ -432,7 +432,27 @@ export function RuntimeWorkspacesPage({
 
     const workspaceColumns = useMemo<TableColumn<WorkspaceViewRow>[]>(
         () => [
-            { id: 'name', label: t('workspace.fields.name', 'Name'), render: (row) => row.displayName },
+            {
+                id: 'name',
+                label: t('workspace.fields.name', 'Name'),
+                render: (row) => (
+                    <Stack direction='row' spacing={0.75} alignItems='center' sx={{ minWidth: 0 }}>
+                        <Typography component='span' noWrap>
+                            {row.displayName}
+                        </Typography>
+                        {row.isDefault ? (
+                            <Tooltip title={t('workspace.default', 'Default')}>
+                                <StarRoundedIcon
+                                    fontSize='small'
+                                    color='primary'
+                                    aria-label={t('workspace.default', 'Default')}
+                                    sx={{ flexShrink: 0 }}
+                                />
+                            </Tooltip>
+                        ) : null}
+                    </Stack>
+                )
+            },
             { id: 'description', label: t('workspace.fields.description', 'Description'), render: (row) => row.description || '-' },
             {
                 id: 'type',
@@ -600,6 +620,17 @@ export function RuntimeWorkspacesPage({
                                             allowStretch
                                             onClick={() => navigateTo(buildWorkspaceHref(applicationId, workspace.id))}
                                             headerAction={renderWorkspaceActions(workspace)}
+                                            titleEndContent={
+                                                workspace.isDefault ? (
+                                                    <Tooltip title={t('workspace.default', 'Default')}>
+                                                        <StarRoundedIcon
+                                                            fontSize='small'
+                                                            color='primary'
+                                                            aria-label={t('workspace.default', 'Default')}
+                                                        />
+                                                    </Tooltip>
+                                                ) : null
+                                            }
                                             footerStartContent={
                                                 <Chip
                                                     size='small'
@@ -610,25 +641,6 @@ export function RuntimeWorkspacesPage({
                                                             : t('workspace.roleMember', 'Member')
                                                     }
                                                 />
-                                            }
-                                            footerEndContent={
-                                                workspace.isDefault ? (
-                                                    <Chip
-                                                        size='small'
-                                                        icon={<StarRoundedIcon />}
-                                                        label={t('workspace.default', 'Default')}
-                                                    />
-                                                ) : (
-                                                    <Button
-                                                        size='small'
-                                                        onClick={(event) => {
-                                                            event.stopPropagation()
-                                                            defaultMutation.mutate(workspace.id)
-                                                        }}
-                                                    >
-                                                        {t('workspace.setDefault', 'Set default')}
-                                                    </Button>
-                                                )
                                             }
                                         />
                                     </Box>
@@ -641,13 +653,6 @@ export function RuntimeWorkspacesPage({
                                 isLoading={workspacesQuery.isFetching}
                                 renderActions={(row) => (
                                     <Stack direction='row' spacing={1} justifyContent='flex-end'>
-                                        {row.isDefault ? (
-                                            <Chip size='small' icon={<StarRoundedIcon />} label={t('workspace.default', 'Default')} />
-                                        ) : (
-                                            <Button size='small' onClick={() => defaultMutation.mutate(row.id)}>
-                                                {t('workspace.setDefault', 'Set default')}
-                                            </Button>
-                                        )}
                                         {renderWorkspaceActions(row)}
                                     </Stack>
                                 )}
@@ -840,6 +845,18 @@ export function RuntimeWorkspacesPage({
                 >
                     <OpenInNewRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
                     {t('workspace.open', 'Open')}
+                </MenuItem>
+                <MenuItem
+                    disabled={workspaceMenuTarget?.isDefault === true || defaultMutation.isPending}
+                    onClick={() => {
+                        if (workspaceMenuTarget) {
+                            defaultMutation.mutate(workspaceMenuTarget.id)
+                        }
+                        closeWorkspaceMenu()
+                    }}
+                >
+                    <StarRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
+                    {t('workspace.setDefault', 'Set default')}
                 </MenuItem>
                 <MenuItem
                     onClick={() => {

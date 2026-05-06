@@ -468,7 +468,7 @@ describe('applications mutation hooks', () => {
             await syncConnector!.mutateAsync({ applicationId: 'app-1', confirmDestructive: false })
         })
 
-        expect(connectorsApi.syncApplication).toHaveBeenCalledWith('app-1', false, undefined)
+        expect(connectorsApi.syncApplication).toHaveBeenCalledWith('app-1', false, undefined, undefined)
         expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['applications', 'detail', 'app-1'] })
         expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['applications', 'detail', 'app-1', 'diff'] })
         expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['applications', 'detail', 'app-1', 'connectors'] })
@@ -537,7 +537,7 @@ describe('applications mutation hooks', () => {
             await syncConnector!.mutateAsync({ applicationId: 'app-2', confirmDestructive: true })
         })
 
-        expect(connectorsApi.syncApplication).toHaveBeenCalledWith('app-2', true, undefined)
+        expect(connectorsApi.syncApplication).toHaveBeenCalledWith('app-2', true, undefined, undefined)
         expect(enqueueSnackbar).toHaveBeenCalledWith('Schema synchronized', { variant: 'success' })
     })
 

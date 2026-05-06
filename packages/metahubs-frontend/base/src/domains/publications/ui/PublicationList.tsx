@@ -53,7 +53,7 @@ import { usePublicationListData } from '../hooks/usePublicationListData'
 import { useViewPreference } from '../../../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../../../view-preferences/storage'
 import { metahubsQueryKeys, invalidatePublicationsQueries } from '../../shared'
-import type { VersionedLocalizedContent } from '@universo/types'
+import type { VersionedLocalizedContent, WorkspaceModePolicy } from '@universo/types'
 import { getVLCString, type PublicationDisplay } from '../../../types'
 import { extractLocalizedInput, hasPrimaryContent, ensureLocalizedContent, normalizeLocale } from '../../../utils/localizedInput'
 import { isOptimisticLockConflict, extractConflictInfo, isPendingEntity, getPendingAction, type ConflictInfo } from '@universo/utils'
@@ -66,7 +66,8 @@ type PublicationFormValues = {
     descriptionVlc: VersionedLocalizedContent<string> | null
     versionBranchId?: string | null
     applicationIsPublic?: boolean
-    applicationWorkspacesEnabled?: boolean
+    workspaceModePolicy?: WorkspaceModePolicy
+    requiredWorkspaceModeAcknowledged?: boolean
 }
 
 type PublicationFormFieldsProps = {
@@ -213,7 +214,8 @@ const PublicationList = () => {
             descriptionVlc: null,
             versionBranchId: defaultBranchId ?? null,
             applicationIsPublic: false,
-            applicationWorkspacesEnabled: false
+            workspaceModePolicy: 'optional',
+            requiredWorkspaceModeAcknowledged: false
         }
     }, [metahub, defaultBranchId, i18n.language])
 
@@ -224,9 +226,15 @@ const PublicationList = () => {
             if (!hasPrimaryContent(nameVlc)) {
                 errors.nameVlc = tc('crud.nameRequired', 'Name is required')
             }
+            if (values.workspaceModePolicy === 'required' && values.requiredWorkspaceModeAcknowledged !== true) {
+                errors.requiredWorkspaceModeAcknowledged = t(
+                    'publications.versions.workspaceMode.requiredAckRequired',
+                    'Confirm that required workspaces cannot be turned off in later versions.'
+                )
+            }
             return Object.keys(errors).length > 0 ? errors : null
         },
-        [tc]
+        [t, tc]
     )
 
     const canSavePublicationForm = useCallback((values: Record<string, unknown>) => {
@@ -255,13 +263,7 @@ const PublicationList = () => {
         }): TabConfig[] => {
             const fieldErrors = errors ?? {}
             const applicationIsPublic = values.applicationIsPublic === true
-            const applicationWorkspacesEnabled = values.applicationWorkspacesEnabled === true
-            const handleApplicationVisibilityChange = (nextIsPublic: boolean) => {
-                setValue('applicationIsPublic', nextIsPublic)
-                if (nextIsPublic && !applicationWorkspacesEnabled) {
-                    setValue('applicationWorkspacesEnabled', true)
-                }
-            }
+            const workspaceModePolicy = (values.workspaceModePolicy as WorkspaceModePolicy | undefined) ?? 'optional'
 
             return [
                 {
@@ -329,6 +331,50 @@ const PublicationList = () => {
                                             )}
                                         </FormHelperText>
                                     </FormControl>
+                                    <FormControl fullWidth disabled={isFormLoading}>
+                                        <InputLabel id='publication-workspace-mode-label'>
+                                            {t('publications.versions.workspaceMode.label', 'Workspace policy')}
+                                        </InputLabel>
+                                        <Select
+                                            labelId='publication-workspace-mode-label'
+                                            value={workspaceModePolicy}
+                                            label={t('publications.versions.workspaceMode.label', 'Workspace policy')}
+                                            onChange={(event) => setValue('workspaceModePolicy', event.target.value)}
+                                        >
+                                            <MenuItem value='optional'>
+                                                {t('publications.versions.workspaceMode.optional', 'Optional workspaces')}
+                                            </MenuItem>
+                                            <MenuItem value='required'>
+                                                {t('publications.versions.workspaceMode.required', 'Require workspaces')}
+                                            </MenuItem>
+                                        </Select>
+                                        <FormHelperText>
+                                            {t(
+                                                'publications.versions.workspaceMode.helper',
+                                                'This policy is stored in the version snapshot and controls application schema creation.'
+                                            )}
+                                        </FormHelperText>
+                                    </FormControl>
+                                    {workspaceModePolicy === 'required' ? (
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
+                                                    checked={values.requiredWorkspaceModeAcknowledged === true}
+                                                    onChange={(event) =>
+                                                        setValue('requiredWorkspaceModeAcknowledged', event.target.checked)
+                                                    }
+                                                    disabled={isFormLoading}
+                                                />
+                                            }
+                                            label={t(
+                                                'publications.versions.workspaceMode.requiredAck',
+                                                'I understand that required workspace mode cannot be turned off in later versions.'
+                                            )}
+                                        />
+                                    ) : null}
+                                    {fieldErrors.requiredWorkspaceModeAcknowledged ? (
+                                        <Alert severity='warning'>{fieldErrors.requiredWorkspaceModeAcknowledged}</Alert>
+                                    ) : null}
                                 </Stack>
                             </CollapsibleSection>
 
@@ -340,31 +386,19 @@ const PublicationList = () => {
                                         onChange={(e) => {
                                             const checked = e.target.checked
                                             setValue('autoCreateApplication', checked)
-                                            if (!checked) {
-                                                setValue('createApplicationSchema', false)
-                                            }
+                                            setValue('createApplicationSchema', false)
                                         }}
                                         disabled={isFormLoading}
                                     />
                                 }
                                 label={t('publications.create.createApplication', 'Create application')}
                             />
-                            <FormControlLabel
-                                control={
-                                    <Switch
-                                        checked={Boolean(values.createApplicationSchema)}
-                                        onChange={(e) => setValue('createApplicationSchema', e.target.checked)}
-                                        disabled={isFormLoading || !values.autoCreateApplication}
-                                    />
-                                }
-                                label={t('publications.create.createApplicationSchema', 'Create application schema')}
-                            />
 
                             {values.autoCreateApplication && (
                                 <Alert severity='info' sx={{ mt: 1 }}>
                                     {t(
                                         'publications.create.applicationWillBeCreated',
-                                        'An application and a connector linked to this Metahub will be created.'
+                                        'An application and a connector linked to this Metahub will be created. Create the application schema from the connector schema changes dialog.'
                                     )}
                                 </Alert>
                             )}
@@ -396,7 +430,7 @@ const PublicationList = () => {
                                         />
                                         <RadioGroup
                                             value={applicationIsPublic ? 'public' : 'closed'}
-                                            onChange={(event) => handleApplicationVisibilityChange(event.target.value === 'public')}
+                                            onChange={(event) => setValue('applicationIsPublic', event.target.value === 'public')}
                                         >
                                             <FormControlLabel
                                                 value='closed'
@@ -417,30 +451,6 @@ const PublicationList = () => {
                                                 'Application visibility cannot be changed after creation.'
                                             )}
                                         </Alert>
-                                        <FormControlLabel
-                                            control={
-                                                <Checkbox
-                                                    checked={applicationWorkspacesEnabled}
-                                                    onChange={(event) => setValue('applicationWorkspacesEnabled', event.target.checked)}
-                                                    disabled={isFormLoading}
-                                                />
-                                            }
-                                            label={t('publications.applicationParameters.workspacesEnabled', 'Add workspaces')}
-                                        />
-                                        <Alert severity='info'>
-                                            {t(
-                                                'publications.applicationParameters.workspacesHint',
-                                                'Workspace mode cannot be disabled after the application is created.'
-                                            )}
-                                        </Alert>
-                                        {applicationIsPublic && !applicationWorkspacesEnabled ? (
-                                            <Alert severity='warning'>
-                                                {t(
-                                                    'publications.applicationParameters.publicWorkspacesRecommended',
-                                                    'Workspaces are recommended for public applications to isolate each participant data.'
-                                                )}
-                                            </Alert>
-                                        ) : null}
                                     </Stack>
                                 </CollapsibleSection>
                             )}
@@ -711,7 +721,7 @@ const PublicationList = () => {
                 namePrimaryLocale,
                 descriptionPrimaryLocale,
                 autoCreateApplication: Boolean(data.autoCreateApplication),
-                createApplicationSchema: Boolean(data.createApplicationSchema),
+                createApplicationSchema: false,
                 // First version data
                 versionName: versionNameInput,
                 versionDescription: versionDescriptionInput,
@@ -724,7 +734,10 @@ const PublicationList = () => {
                 applicationNamePrimaryLocale,
                 applicationDescriptionPrimaryLocale,
                 applicationIsPublic: Boolean(data.applicationIsPublic),
-                applicationWorkspacesEnabled: Boolean(data.applicationWorkspacesEnabled)
+                runtimePolicy: {
+                    workspaceMode: ((data.workspaceModePolicy as WorkspaceModePolicy | undefined) ?? 'optional') as WorkspaceModePolicy,
+                    requiredWorkspaceModeAcknowledged: data.requiredWorkspaceModeAcknowledged === true
+                }
             }
         })
 

@@ -79,7 +79,9 @@ async function createLegacyCompatibleObjectViaApi(
 
     if (!response.ok) {
         throw new Error(
-            `Creating runtime entity ${payload.kindKey}/${payload.codename} failed with ${response.status} ${response.statusText}: ${await response.text()}`
+            `Creating runtime entity ${payload.kindKey}/${payload.codename} failed with ${response.status} ${
+                response.statusText
+            }: ${await response.text()}`
         )
     }
 
@@ -201,8 +203,7 @@ test('@flow @combined published standard preset instances surface as runtime sec
         const linkedApplication = await createPublicationLinkedApplication(api, metahub.id, publication.id, {
             name: { en: applicationName },
             namePrimaryLocale: 'en',
-            createApplicationSchema: false,
-            workspacesEnabled: false
+            createApplicationSchema: false
         })
 
         const applicationId = linkedApplication?.application?.id

@@ -170,14 +170,14 @@ describe('queryKeys factories + invalidation helpers', () => {
             'detail',
             'h1'
         ])
-        expect(metahubsQueryKeys.blockingLinkedCollections('m1', 'h1')).toEqual([
+        expect(metahubsQueryKeys.blockingTreeDependencies('m1', 'h1')).toEqual([
             'metahubs',
             'detail',
             'm1',
             'treeEntities',
             'detail',
             'h1',
-            'blockingLinkedCollections'
+            'blockingTreeDependencies'
         ])
 
         expect(metahubsQueryKeys.linkedCollections('m1', 'h1')).toEqual([

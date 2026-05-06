@@ -230,6 +230,7 @@ export const createApplicationsSchemaMigrationDefinition: SqlMigrationDefinition
                     connector_id UUID NOT NULL,
                     publication_id UUID NOT NULL,
                     sort_order INTEGER NOT NULL DEFAULT 0,
+                    schema_options JSONB NOT NULL DEFAULT '{}'::jsonb,
                     _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
                     _upl_created_by UUID,
                     _upl_updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),

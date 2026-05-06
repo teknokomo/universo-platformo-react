@@ -11,13 +11,13 @@ const { S3StreamLogger } = require('s3-streamlogger')
 
 const { combine, timestamp, printf, errors } = format
 
-let s3ServerStream: any
-let s3ErrorStream: any
-let s3ServerReqStream: any
+let s3ServerStream!: NodeJS.WritableStream
+let s3ErrorStream!: NodeJS.WritableStream
+let s3ServerReqStream!: NodeJS.WritableStream
 
-let gcsServerStream: any
-let gcsErrorStream: any
-let gcsServerReqStream: any
+let gcsServerStream!: LoggingWinston
+let gcsErrorStream!: LoggingWinston
+let gcsServerReqStream!: LoggingWinston
 
 if (process.env.STORAGE_TYPE === 's3') {
     const accessKeyId = process.env.S3_STORAGE_ACCESS_KEY_ID
@@ -70,7 +70,7 @@ if (process.env.STORAGE_TYPE === 'gcs') {
     const config = {
         projectId: process.env.GOOGLE_CLOUD_STORAGE_PROJ_ID,
         keyFilename: process.env.GOOGLE_CLOUD_STORAGE_CREDENTIAL,
-        defaultCallback: (err: any) => {
+        defaultCallback: (err: unknown) => {
             if (err) {
                 console.error('Error logging to GCS: ' + err)
             }

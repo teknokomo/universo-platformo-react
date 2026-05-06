@@ -619,8 +619,10 @@ describe('Public Applications Routes', () => {
         expect(persistedState).not.toBe(response.body.sessionToken)
         expect(JSON.parse(String(persistedState))).toEqual(
             expect.objectContaining({
+                linkId: accessLinkId,
                 secret: expect.any(String),
-                expiresAt: expect.any(String)
+                expiresAt: expect.any(String),
+                workspaceId: null
             })
         )
     })
@@ -907,8 +909,10 @@ describe('Public Applications Routes', () => {
                                   {
                                       id: studentId,
                                       guest_session_token: JSON.stringify({
+                                          linkId: accessLinkId,
                                           secret: 'guest-secret',
-                                          expiresAt: '2099-01-01T00:00:00.000Z'
+                                          expiresAt: '2099-01-01T00:00:00.000Z',
+                                          workspaceId: workspaceId2
                                       })
                                   }
                               ]
@@ -972,6 +976,72 @@ describe('Public Applications Routes', () => {
             })
         ])
         expect(currentWorkspaceId).toBe(workspaceId2)
+    })
+
+    it('rejects guest runtime tokens when the transport link id is tampered', async () => {
+        const studentId = 'af8a5659-4155-4681-aa2f-a7605809cbf0'
+        const tamperedLinkId = 'f3a1c528-0868-44b6-a30b-7e63a9f963da'
+        const sessionToken = Buffer.from(
+            JSON.stringify({
+                linkId: tamperedLinkId,
+                secret: 'guest-secret',
+                workspaceId: null
+            }),
+            'utf8'
+        ).toString('base64url')
+
+        const dataSource = buildDataSource(
+            withPublicApplication((sql, params) => {
+                if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
+                    if (params[0] === 'Students') {
+                        return [{ id: 'object-students', codename: codenameVlc('Students'), kind: 'catalog', table_name: 'students_table' }]
+                    }
+                    return []
+                }
+
+                if (sql.includes(`FROM "${schemaName}"."_app_attributes"`)) {
+                    return [
+                        {
+                            id: 'attr-1',
+                            codename: codenameVlc('GuestSessionToken'),
+                            column_name: 'guest_session_token',
+                            data_type: 'STRING',
+                            parent_attribute_id: null
+                        },
+                        {
+                            id: 'attr-2',
+                            codename: codenameVlc('IsGuest'),
+                            column_name: 'is_guest',
+                            data_type: 'BOOLEAN',
+                            parent_attribute_id: null
+                        }
+                    ]
+                }
+
+                if (sql.includes(`FROM "${schemaName}"."students_table"`)) {
+                    return [
+                        {
+                            id: studentId,
+                            guest_session_token: JSON.stringify({
+                                linkId: accessLinkId,
+                                secret: 'guest-secret',
+                                expiresAt: '2099-01-01T00:00:00.000Z',
+                                workspaceId: null
+                            })
+                        }
+                    ]
+                }
+
+                return undefined
+            })
+        )
+
+        const app = buildApp(dataSource)
+        await request(app)
+            .get(`/public/a/${applicationId}/runtime?slug=demo-module`)
+            .set('X-Guest-Student-Id', studentId)
+            .set('X-Guest-Session-Token', sessionToken)
+            .expect(403)
     })
 
     it('rejects direct runtime access without a slug', async () => {

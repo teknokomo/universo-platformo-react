@@ -13,6 +13,7 @@ export interface FieldDefinition extends Omit<MetaFieldDefinition, 'targetEntity
 export interface EntityDefinition extends Omit<MetaEntityDefinition, 'kind' | 'fields'> {
     kind: RuntimeEntityKind
     fields: FieldDefinition[]
+    physicalTableEnabled?: boolean
     physicalTableName?: string
     physicalTablePrefix?: string | null
     config?: Record<string, unknown>
@@ -36,7 +37,8 @@ export interface SchemaFieldSnapshot {
 export interface SchemaEntitySnapshot {
     kind: RuntimeEntityKind
     codename: string
-    tableName: string
+    tableName: string | null
+    physicalTableEnabled?: boolean
     fields: Record<string, SchemaFieldSnapshot>
 }
 
@@ -51,7 +53,7 @@ export interface SysObjectRecord {
     id: string
     kind: RuntimeEntityKind
     codename: string
-    tableName: string
+    tableName: string | null
     presentation: MetaPresentation
     config: Record<string, unknown>
 }

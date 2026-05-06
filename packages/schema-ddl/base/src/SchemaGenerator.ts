@@ -17,7 +17,7 @@ import { generateMigrationName } from './MigrationManager'
 import type { MigrationManager } from './MigrationManager'
 import type { EntityDefinition, FieldDefinition, SchemaGenerationResult, SchemaSnapshot } from './types'
 import type { SchemaDiff } from './diff'
-import { isStandardEnumerationKind, isStandardSetKind, isNonPhysicalStandardEntity } from './builtinEntityKinds'
+import { hasPhysicalRuntimeTable, isStandardEnumerationKind, isStandardSetKind } from './builtinEntityKinds'
 
 const DEFAULT_DDL_STATEMENT_TIMEOUT_MS = 120_000
 const ENTITY_KIND_DB_LENGTH = 64
@@ -292,7 +292,7 @@ export class SchemaGenerator {
                 await this.createSchema(schemaName, trx)
 
                 for (const entity of entities) {
-                    if (isNonPhysicalStandardEntity(entity)) {
+                    if (!hasPhysicalRuntimeTable(entity)) {
                         continue
                     }
                     await this.createEntityTable(schemaName, entity, trx)
@@ -320,7 +320,8 @@ export class SchemaGenerator {
                     }
 
                     const childRefFields = entity.fields.filter(
-                        (field) => field.dataType === FieldDefinitionDataType.REF && field.targetEntityId && Boolean(field.parentAttributeId)
+                        (field) =>
+                            field.dataType === FieldDefinitionDataType.REF && field.targetEntityId && Boolean(field.parentAttributeId)
                     )
                     for (const childRefField of childRefFields) {
                         const tableParentField = entity.fields.find(
@@ -397,7 +398,7 @@ export class SchemaGenerator {
     }
 
     public async createEntityTable(schemaName: string, entity: EntityDefinition, trx?: Knex.Transaction): Promise<void> {
-        if (isNonPhysicalStandardEntity(entity)) {
+        if (!hasPhysicalRuntimeTable(entity)) {
             console.log(`[SchemaGenerator] Skipping physical table for ${entity.kind} entity: ${entity.codename}`)
             return
         }
@@ -544,6 +545,10 @@ export class SchemaGenerator {
         entities: EntityDefinition[],
         trx?: Knex.Transaction
     ): Promise<void> {
+        if (!hasPhysicalRuntimeTable(entity)) {
+            return
+        }
+
         const sourceTableName = resolveEntityTableName(entity)
         await this.addForeignKeyToTable(schemaName, sourceTableName, field, entities, trx)
     }
@@ -592,6 +597,13 @@ export class SchemaGenerator {
             return
         }
 
+        if (!hasPhysicalRuntimeTable(targetEntity)) {
+            console.log(
+                `[SchemaGenerator] Skipping FK for nonphysical target: ${sourceTableName}.${columnName} -> ${targetEntity.kind}:${targetEntity.codename}`
+            )
+            return
+        }
+
         const targetTableName = resolveEntityTableName(targetEntity)
 
         console.log(`[SchemaGenerator] Adding FK: ${sourceTableName}.${columnName} -> ${targetTableName}.id`)
@@ -631,7 +643,7 @@ export class SchemaGenerator {
                 table.uuid('id').primary()
                 table.string('kind', ENTITY_KIND_DB_LENGTH).notNullable()
                 table.jsonb('codename').notNullable()
-                table.string('table_name', 255).notNullable()
+                table.string('table_name', 255).nullable()
                 table.jsonb('presentation').notNullable().defaultTo('{}')
                 table.jsonb('config').notNullable().defaultTo('{}')
 
@@ -687,6 +699,10 @@ export class SchemaGenerator {
         await knex.raw(`
             ALTER TABLE "${schemaName}"."_app_objects"
             ALTER COLUMN "kind" TYPE VARCHAR(${ENTITY_KIND_DB_LENGTH})
+        `)
+        await knex.raw(`
+            ALTER TABLE "${schemaName}"."_app_objects"
+            ALTER COLUMN "table_name" DROP NOT NULL
         `)
 
         const hasAttributes = capabilities.includeAttributes ? await knex.schema.withSchema(schemaName).hasTable('_app_attributes') : true
@@ -1038,7 +1054,9 @@ export class SchemaGenerator {
                 ON "${schemaName}"._app_widgets (layout_id, is_active)
             `)
             if (SINGLE_INSTANCE_DASHBOARD_WIDGET_KEYS.length > 0) {
-                const singleInstanceWidgetKeysSql = `ARRAY[${SINGLE_INSTANCE_DASHBOARD_WIDGET_KEYS.map(quoteSqlStringLiteral).join(', ')}]::text[]`
+                const singleInstanceWidgetKeysSql = `ARRAY[${SINGLE_INSTANCE_DASHBOARD_WIDGET_KEYS.map(quoteSqlStringLiteral).join(
+                    ', '
+                )}]::text[]`
                 await knex.raw(`
                     CREATE UNIQUE INDEX IF NOT EXISTS idx_app_widgets_single_instance_active
                     ON "${schemaName}"._app_widgets (layout_id, zone, widget_key)
@@ -1301,7 +1319,7 @@ export class SchemaGenerator {
             id: entity.id,
             kind: entity.kind,
             codename: createCodenameVLC('en', entity.codename),
-            table_name: resolveEntityTableName(entity),
+            table_name: hasPhysicalRuntimeTable(entity) ? resolveEntityTableName(entity) : null,
             presentation: entity.presentation,
             config: (entity as { config?: Record<string, unknown> }).config ?? {},
             _upl_created_at: knex.fn.now(),
@@ -1320,7 +1338,6 @@ export class SchemaGenerator {
         }
 
         const attributeRows = entities.flatMap((entity) => {
-            const entityTableName = resolveEntityTableName(entity)
             return entity.fields.map((field) => {
                 // For TABLE fields, column_name stores the tabular table name
                 // For child fields, column_name is the physical column in the tabular table

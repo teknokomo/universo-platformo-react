@@ -53,7 +53,7 @@ const toRuntimeSectionLinkMenuItem = (
     sectionLinksEnabled: boolean,
     forceLink: boolean
 ): DashboardMenuItem => {
-    if (item.kind !== 'catalog' && item.kind !== 'section') {
+    if (item.kind !== 'catalog' && item.kind !== 'section' && item.kind !== 'page') {
         return { ...item, selected: false }
     }
 
@@ -503,11 +503,13 @@ const ApplicationRuntime = () => {
                       onReorder: state.handlePersistRowReorder,
                       isPending: state.isReordering
                   }
-                : undefined
+                : undefined,
+            pageBlocks: activeRuntimeSection?.pageBlocks
         }),
         [
             activeRuntimeConfig?.searchMode,
             activeRuntimeSection?.codename,
+            activeRuntimeSection?.pageBlocks,
             applicationId,
             currentSectionId,
             detailsTitle,

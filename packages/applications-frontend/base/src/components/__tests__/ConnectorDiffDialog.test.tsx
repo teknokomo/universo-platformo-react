@@ -129,6 +129,19 @@ describe('ConnectorDiffDialog', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Apply Safe Changes Only' }))
         expect(safeSync).toHaveBeenCalledWith(false, undefined)
 
+        vi.mocked(useApplicationDiff).mockReturnValue(
+            createDiffQuery({
+                data: {
+                    schemaExists: true,
+                    diff: {
+                        hasChanges: true,
+                        additive: ['safe change'],
+                        destructive: ['drop column']
+                    }
+                }
+            })
+        )
+
         rerender(
             <ConnectorDiffDialog
                 open
@@ -423,5 +436,114 @@ describe('ConnectorDiffDialog', () => {
         await userEvent.click(screen.getByText('Resources'))
 
         expect(screen.getByText('Чистая вода')).toBeInTheDocument()
+    })
+
+    it('requires acknowledgement before first-time optional workspace enablement', async () => {
+        const onSync = vi.fn().mockResolvedValue(undefined)
+        vi.mocked(useApplicationDiff).mockReturnValue(
+            createDiffQuery({
+                data: {
+                    schemaExists: false,
+                    workspaceMode: {
+                        policy: 'optional',
+                        requested: null,
+                        applicationWorkspacesEnabled: false,
+                        effectiveWorkspacesEnabled: false,
+                        schemaAlreadyInstalled: false,
+                        requiresAcknowledgement: true,
+                        canChoose: true
+                    },
+                    diff: {
+                        hasChanges: true,
+                        additive: [],
+                        destructive: []
+                    }
+                }
+            })
+        )
+
+        render(
+            <ConnectorDiffDialog
+                open
+                connector={baseConnector}
+                applicationId='app-1'
+                onClose={vi.fn()}
+                onSync={onSync}
+                isSyncing={false}
+                uiLocale='en'
+                schemaStatus='draft'
+            />
+        )
+
+        await userEvent.click(screen.getByRole('radio', { name: 'Create application workspaces' }))
+        const applyButton = screen.getByRole('button', { name: 'Create Schema' })
+        expect(applyButton).toBeDisabled()
+
+        await userEvent.click(
+            screen.getByRole('checkbox', {
+                name: 'I understand that workspaces cannot be turned off after they are enabled for this application.'
+            })
+        )
+        expect(applyButton).toBeEnabled()
+
+        await userEvent.click(applyButton)
+
+        expect(onSync).toHaveBeenCalledWith(false, undefined, {
+            workspaceModeRequested: 'enabled',
+            acknowledgeIrreversibleWorkspaceEnablement: true
+        })
+    })
+
+    it('requires acknowledgement when required publication policy enables workspaces on first schema creation', async () => {
+        const onSync = vi.fn().mockResolvedValue(undefined)
+        vi.mocked(useApplicationDiff).mockReturnValue(
+            createDiffQuery({
+                data: {
+                    schemaExists: false,
+                    workspaceMode: {
+                        policy: 'required',
+                        requested: 'enabled',
+                        applicationWorkspacesEnabled: false,
+                        effectiveWorkspacesEnabled: true,
+                        schemaAlreadyInstalled: false,
+                        requiresAcknowledgement: true,
+                        canChoose: false
+                    },
+                    diff: {
+                        hasChanges: true,
+                        additive: [],
+                        destructive: []
+                    }
+                }
+            })
+        )
+
+        render(
+            <ConnectorDiffDialog
+                open
+                connector={baseConnector}
+                applicationId='app-1'
+                onClose={vi.fn()}
+                onSync={onSync}
+                isSyncing={false}
+                uiLocale='en'
+                schemaStatus='draft'
+            />
+        )
+
+        const applyButton = screen.getByRole('button', { name: 'Create Schema' })
+        expect(applyButton).toBeDisabled()
+
+        await userEvent.click(
+            screen.getByRole('checkbox', {
+                name: 'I understand that workspaces cannot be turned off after they are enabled for this application.'
+            })
+        )
+        await userEvent.click(applyButton)
+
+        expect(onSync).toHaveBeenCalledWith(false, undefined, {
+            workspaceModeRequested: 'enabled',
+            acknowledgeIrreversibleWorkspaceEnablement: true
+        })
     })
 })

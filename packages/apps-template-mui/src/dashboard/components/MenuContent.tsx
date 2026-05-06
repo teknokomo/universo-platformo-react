@@ -67,7 +67,7 @@ export default function MenuContent({ menu }: MenuContentProps) {
         item.id === 'runtime-workspaces' || item.id === 'workspaces' || /\/workspaces(?:$|\?)/.test(item.href ?? '')
     const firstWorkspaceRootIndex = items.findIndex(isWorkspaceRootItem)
     const handleItemSelect = (item: DashboardMenuSlot['items'][number]) => {
-        if (item.kind !== 'catalog' && item.kind !== 'section') {
+        if (item.kind !== 'catalog' && item.kind !== 'section' && item.kind !== 'page') {
             return
         }
 

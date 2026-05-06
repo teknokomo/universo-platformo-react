@@ -83,7 +83,8 @@ describe('DDL Snapshot Utilities', () => {
             const snapshot = buildSchemaSnapshot(entities)
 
             expect(snapshot.entities['cat-0000-0000-0000-000000000001'].tableName).toMatch(/^cat_/)
-            expect(snapshot.entities['hub-0000-0000-0000-000000000002'].tableName).toMatch(/^hub_/)
+            expect(snapshot.entities['hub-0000-0000-0000-000000000002'].tableName).toBeNull()
+            expect(snapshot.entities['hub-0000-0000-0000-000000000002'].physicalTableEnabled).toBe(false)
             expect(snapshot.entities['doc-0000-0000-0000-000000000003'].tableName).toMatch(/^doc_/)
         })
 

@@ -5,6 +5,9 @@ import { createLocalizedContent } from '@universo/utils'
 vi.mock('@universo/template-mui', () => ({
     createEntityActions: vi.fn((config: unknown) => config),
     createMemberActions: vi.fn((config: unknown) => config),
+    createEditActionIcon: () => null,
+    createCopyActionIcon: () => null,
+    createDeleteActionIcon: () => null,
     LocalizedInlineField: () => null,
     useCodenameAutoFillVlc: () => undefined,
     notifyError: vi.fn()

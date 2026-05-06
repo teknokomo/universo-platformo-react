@@ -10,6 +10,7 @@ import BranchListComponent from './domains/branches/ui/BranchList'
 import MetahubMigrationsComponent from './domains/migrations/ui/MetahubMigrations'
 import EntitiesWorkspaceComponent from './domains/entities/ui/EntitiesWorkspace'
 import EntityInstanceListComponent from './domains/entities/ui/EntityInstanceList'
+import EntityBlockContentPageComponent from './domains/entities/ui/EntityBlockContentPage'
 import {
     StandardEntityChildCollectionPage as StandardEntityChildCollectionPageComponent,
     BuiltinEntityCollectionPage as BuiltinEntityCollectionPageComponent
@@ -40,6 +41,7 @@ export const MetahubMigrations = withMetahubDialogSettings(MetahubMigrationsComp
 export { default as MetahubMigrationGuard } from './domains/migrations/ui/MetahubMigrationGuard'
 export const EntitiesWorkspace = withMetahubDialogSettings(EntitiesWorkspaceComponent)
 export const EntityInstanceList = withMetahubDialogSettings(EntityInstanceListComponent)
+export const EntityBlockContentPage = withMetahubDialogSettings(EntityBlockContentPageComponent)
 export const BuiltinEntityCollectionPage = withMetahubDialogSettings(BuiltinEntityCollectionPageComponent)
 export const StandardEntityChildCollectionPage = withMetahubDialogSettings(StandardEntityChildCollectionPageComponent)
 

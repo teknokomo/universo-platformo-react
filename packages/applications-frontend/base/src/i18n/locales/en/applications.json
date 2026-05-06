@@ -32,7 +32,7 @@
             "visibilityHint": "Application visibility can be changed after creation.",
             "visibilityMutableHint": "Application visibility can be changed after creation. Workspace mode remains fixed.",
             "workspacesEnabled": "Add workspaces",
-            "workspacesHint": "Workspace mode cannot be disabled after the application is created.",
+            "workspacesHint": "Workspace mode cannot be turned off after the application is created.",
             "workspacesLocked": "Workspace mode is fixed after creation and cannot be changed.",
             "publicRequiresWorkspaces": "Workspaces are recommended for public applications to isolate data for each participant.",
             "publicWorkspacesRecommended": "Workspaces are recommended for public applications to isolate data for each participant."
@@ -93,7 +93,7 @@
             "workspaceModeLabel": "Workspace mode",
             "workspaceModeEnabled": "Enabled",
             "workspaceModeDisabled": "Disabled",
-            "workspaceModeReadOnly": "Workspace mode is selected during application creation and cannot be changed after the runtime structure is defined.",
+            "workspaceModeReadOnly": "Workspace mode is selected during connector schema sync according to the publication version policy and cannot be turned off after runtime workspaces are enabled.",
             "sectionLinksEnabled": "Section-specific links",
             "sectionLinksEnabledDescription": "Give every application menu section its own browser URL based on the section identifier.",
             "dialogActionTooltips": {
@@ -204,15 +204,18 @@
                 "href": "Link URL",
                 "catalog": "Catalog",
                 "hubId": "Hub id",
+                "pageId": "Page id or codename",
                 "isActive": "Active",
                 "kinds": {
                     "link": "Link",
                     "catalog": "Catalog",
-                    "hub": "Hub"
+                    "hub": "Hub",
+                    "page": "Page"
                 },
                 "validation": {
                     "titleRequired": "Name is required.",
                     "catalogRequired": "Select a catalog for this menu item.",
+                    "pageRequired": "Enter a page id or codename for this menu item.",
                     "hrefRequired": "Link URL is required for link items.",
                     "hrefUnsafeScheme": "This link type is not allowed. Use https, mailto, tel, #, or an internal path."
                 }
@@ -486,6 +489,13 @@
             "uiLayoutsUpdate": "UI layouts list will be updated",
             "uiLayoutZonesUpdate": "UI layout zone widgets will be updated",
             "layoutConflictWarning": "Layout changes may conflict with application-side customizations. Choose how metahub layout updates should be handled during sync.",
+            "workspace": {
+                "title": "Workspaces",
+                "required": "This publication version requires application workspaces.",
+                "withoutWorkspaces": "Create without workspaces",
+                "withWorkspaces": "Create application workspaces",
+                "acknowledge": "I understand that workspaces cannot be turned off after they are enabled for this application."
+            },
             "layoutResolution": {
                 "label": "Layout update policy",
                 "keepApplication": "Keep application changes and mark conflicts",

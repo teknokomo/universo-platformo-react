@@ -27,8 +27,11 @@ const buildTreeEntityConfig = (params: { sortOrder?: number; parentTreeEntityId?
  */
 export interface BlockingTreeDependency {
     id: string
+    kind: string
     name: VersionedLocalizedContent<string>
-    codename: string
+    codename: VersionedLocalizedContent<string> | string
+    typeName?: VersionedLocalizedContent<string>
+    typeNameKey?: string
 }
 
 /**
@@ -36,9 +39,7 @@ export interface BlockingTreeDependency {
  */
 export interface BlockingTreeDependencyResponse {
     treeEntityId: string
-    blockingLinkedCollections: BlockingTreeDependency[]
-    blockingValueGroups: BlockingTreeDependency[]
-    blockingOptionLists: BlockingTreeDependency[]
+    blockingRelatedObjects: BlockingTreeDependency[]
     blockingChildTreeEntities: BlockingTreeDependency[]
     totalBlocking: number
     canDelete: boolean

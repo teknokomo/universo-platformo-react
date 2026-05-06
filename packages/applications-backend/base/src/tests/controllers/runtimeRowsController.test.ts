@@ -72,7 +72,7 @@ describe('runtimeRowsController startup catalog resolution', () => {
             }
 
             if (sql.includes("config->'hubs' @>")) {
-                expect(sql).toContain("COALESCE(kind, '') NOT IN ('hub', 'set', 'enumeration')")
+                expect(sql).toContain("COALESCE(kind, '') NOT IN ('hub', 'set', 'enumeration', 'page')")
                 expect(sql).not.toContain('custom.')
                 return [{ id: 'catalog-1' }]
             }

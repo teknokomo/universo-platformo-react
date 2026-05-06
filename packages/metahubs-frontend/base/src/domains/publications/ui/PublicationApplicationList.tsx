@@ -12,9 +12,7 @@ import {
     DialogActions,
     Button,
     FormControlLabel,
-    Switch,
     Alert,
-    Checkbox,
     Radio,
     RadioGroup,
     IconButton,
@@ -142,9 +140,7 @@ export const PublicationApplicationList: React.FC = () => {
     const { dialogs, openCreate, close } = useListDialogs<{ id: string }>()
     const [nameVlc, setNameVlc] = useState<VersionedLocalizedContent<string> | null>(null)
     const [descriptionVlc, setDescriptionVlc] = useState<VersionedLocalizedContent<string> | null>(null)
-    const [createSchema, setCreateSchema] = useState(false)
     const [isPublic, setIsPublic] = useState(false)
-    const [workspacesEnabled, setWorkspacesEnabled] = useState(false)
 
     // ── Table data ─────────────────────────────────────────────────────
     const applications: ApplicationTableRow[] = useMemo(
@@ -280,9 +276,7 @@ export const PublicationApplicationList: React.FC = () => {
         close('create')
         setNameVlc(null)
         setDescriptionVlc(null)
-        setCreateSchema(false)
         setIsPublic(false)
-        setWorkspacesEnabled(false)
     }, [close])
     const createDialogPresentation = useDialogPresentation({
         open: dialogs.create.open,
@@ -305,24 +299,13 @@ export const PublicationApplicationList: React.FC = () => {
                     description: descriptionInput,
                     namePrimaryLocale,
                     descriptionPrimaryLocale,
-                    createApplicationSchema: createSchema,
-                    isPublic,
-                    workspacesEnabled
+                    createApplicationSchema: false,
+                    isPublic
                 }
             },
             { onSuccess: () => handleCloseCreateDialog() }
         )
-    }, [
-        metahubId,
-        publicationId,
-        nameVlc,
-        descriptionVlc,
-        createSchema,
-        isPublic,
-        workspacesEnabled,
-        createMutation,
-        handleCloseCreateDialog
-    ])
+    }, [metahubId, publicationId, nameVlc, descriptionVlc, isPublic, createMutation, handleCloseCreateDialog])
 
     // Name validation
     const hasName = nameVlc && nameVlc._primary && nameVlc.locales?.[nameVlc._primary]?.content
@@ -466,13 +449,7 @@ export const PublicationApplicationList: React.FC = () => {
                         />
                         <RadioGroup
                             value={isPublic ? 'public' : 'closed'}
-                            onChange={(event) => {
-                                const nextIsPublic = event.target.value === 'public'
-                                setIsPublic(nextIsPublic)
-                                if (nextIsPublic && !workspacesEnabled) {
-                                    setWorkspacesEnabled(true)
-                                }
-                            }}
+                            onChange={(event) => setIsPublic(event.target.value === 'public')}
                         >
                             <FormControlLabel
                                 value='closed'
@@ -491,38 +468,12 @@ export const PublicationApplicationList: React.FC = () => {
                                 'Application visibility cannot be changed after creation.'
                             )}
                         </Alert>
-                        <FormControlLabel
-                            control={
-                                <Checkbox checked={workspacesEnabled} onChange={(event) => setWorkspacesEnabled(event.target.checked)} />
-                            }
-                            label={t('metahubs:publications.applicationParameters.workspacesEnabled', 'Add workspaces')}
-                        />
                         <Alert severity='info'>
                             {t(
-                                'metahubs:publications.applicationParameters.workspacesHint',
-                                'Workspace mode cannot be disabled after the application is created.'
+                                'metahubs:publications.create.applicationSchemaConnectorHint',
+                                'After the application and connector are created, create the application schema from the connector schema changes dialog.'
                             )}
                         </Alert>
-                        {isPublic && !workspacesEnabled ? (
-                            <Alert severity='warning'>
-                                {t(
-                                    'metahubs:publications.applicationParameters.publicWorkspacesRecommended',
-                                    'Workspaces are recommended for public applications to isolate each participant data.'
-                                )}
-                            </Alert>
-                        ) : null}
-                        <FormControlLabel
-                            control={<Switch checked={createSchema} onChange={(e) => setCreateSchema(e.target.checked)} />}
-                            label={t('metahubs:publications.create.createApplicationSchema', 'Create application schema')}
-                        />
-                        {createSchema && (
-                            <Alert severity='info'>
-                                {t(
-                                    'metahubs:publications.create.applicationWillBeCreated',
-                                    'An application with the same name and a connector linked to the Metahub will be created.'
-                                )}
-                            </Alert>
-                        )}
                     </Stack>
                 </DialogContent>
                 <DialogActions sx={{ p: 3, pt: 2, justifyContent: 'flex-end', gap: 1 }}>

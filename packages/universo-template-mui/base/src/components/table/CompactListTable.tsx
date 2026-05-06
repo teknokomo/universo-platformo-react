@@ -7,6 +7,14 @@ import { Link } from 'react-router-dom'
 
 import type { FlowListTableData, TableColumn } from './FlowListTable'
 
+interface CustomizationState {
+    customization?: {
+        isDarkMode?: boolean
+    }
+}
+
+const getRowValue = <T extends FlowListTableData>(row: T, key: string): unknown => (row as Record<PropertyKey, unknown>)[key]
+
 export type CompactListTableLinkMode = 'none' | 'all-cells' | 'columns'
 
 export interface CompactListTableProps<T extends FlowListTableData = FlowListTableData> {
@@ -25,7 +33,7 @@ export interface CompactListTableProps<T extends FlowListTableData = FlowListTab
 }
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
-    borderColor: (theme as any).vars?.palette?.outline ?? alpha(theme.palette.text.primary, 0.08),
+    borderColor: theme.vars?.palette?.outline ?? alpha(theme.palette.text.primary, 0.08),
 
     [`&.${tableCellClasses.head}`]: {
         color: theme.palette.grey[900]
@@ -59,11 +67,11 @@ export const CompactListTable = <T extends FlowListTableData = FlowListTableData
     actionColumnWidth = 60
 }: CompactListTableProps<T>): React.ReactElement => {
     const theme = useTheme()
-    const customization = useSelector((state: any) => state.customization)
+    const customization = useSelector((state: CustomizationState) => state.customization)
 
-    const headerBackgroundColor = customization.isDarkMode ? theme.palette.common.black : theme.palette.grey[100]
+    const headerBackgroundColor = customization?.isDarkMode ? theme.palette.common.black : theme.palette.grey[100]
 
-    const borderColor = (theme as any).vars?.palette?.outline ?? alpha(theme.palette.text.primary, 0.08)
+    const borderColor = theme.vars?.palette?.outline ?? alpha(theme.palette.text.primary, 0.08)
 
     return (
         <Paper variant='outlined' sx={{ borderRadius: 1, overflow: 'hidden', borderColor }}>
@@ -103,7 +111,7 @@ export const CompactListTable = <T extends FlowListTableData = FlowListTableData
                             return (
                                 <StyledTableRow key={row.id || index}>
                                     {columns.map((column) => {
-                                        const content = column.render ? column.render(row, index) : (row as any)?.[column.id]
+                                        const content = column.render ? column.render(row, index) : getRowValue(row, column.id)
                                         const linkThisCell = Boolean(rowLink) && shouldLinkCell(linkMode, column.id, linkColumnIds)
 
                                         return (
@@ -122,14 +130,16 @@ export const CompactListTable = <T extends FlowListTableData = FlowListTableData
                                                         >
                                                             {typeof content === 'string' || typeof content === 'number' ? (
                                                                 <Typography variant='body2'>{content}</Typography>
-                                                            ) : (
+                                                            ) : React.isValidElement(content) ? (
                                                                 content
-                                                            )}
+                                                            ) : null}
                                                         </Box>
                                                     </Link>
-                                                ) : (
+                                                ) : React.isValidElement(content) ? (
                                                     content
-                                                )}
+                                                ) : typeof content === 'string' || typeof content === 'number' ? (
+                                                    content
+                                                ) : null}
                                             </StyledTableCell>
                                         )
                                     })}

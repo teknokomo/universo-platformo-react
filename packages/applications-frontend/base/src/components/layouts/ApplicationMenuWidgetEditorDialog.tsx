@@ -59,6 +59,7 @@ type ItemDraft = {
     href: string
     catalogId: string
     hubId: string
+    sectionId: string
     isActive: boolean
 }
 
@@ -114,6 +115,7 @@ const createItemDraft = (uiLocale: string, item?: MenuWidgetConfigItem | null): 
     href: item?.href ?? '',
     catalogId: item?.catalogId ?? '',
     hubId: item?.hubId ?? '',
+    sectionId: item?.sectionId ?? '',
     isActive: item?.isActive ?? true
 })
 
@@ -144,7 +146,10 @@ export default function ApplicationMenuWidgetEditorDialog({
         setSharedBehaviorValue(getSharedBehaviorFromWidgetConfig(config))
     }, [config, open, uiLocale])
 
-    const kindOptions = useMemo(() => METAHUB_MENU_ITEM_KINDS.filter((kind) => kind === 'link' || kind === 'catalog' || kind === 'hub'), [])
+    const kindOptions = useMemo(
+        () => METAHUB_MENU_ITEM_KINDS.filter((kind) => kind === 'link' || kind === 'catalog' || kind === 'hub' || kind === 'page'),
+        []
+    )
 
     const openItemEditor = (index: number | null) => {
         const sourceItem = index == null ? null : draft.items[index] ?? null
@@ -166,6 +171,10 @@ export default function ApplicationMenuWidgetEditorDialog({
         }
         if (itemDraft.kind === 'catalog' && !itemDraft.catalogId) {
             setSubmitError(t('layouts.menuEditor.validation.catalogRequired', 'Select a catalog for this menu item.'))
+            return
+        }
+        if (itemDraft.kind === 'page' && !itemDraft.sectionId.trim()) {
+            setSubmitError(t('layouts.menuEditor.validation.pageRequired', 'Enter a page id or codename for this menu item.'))
             return
         }
         if (itemDraft.kind === 'link') {
@@ -193,6 +202,7 @@ export default function ApplicationMenuWidgetEditorDialog({
             href: itemDraft.kind === 'link' ? itemDraft.href.trim() || null : null,
             catalogId: itemDraft.kind === 'catalog' ? itemDraft.catalogId || null : null,
             hubId: itemDraft.kind === 'hub' ? itemDraft.hubId.trim() || null : null,
+            sectionId: itemDraft.kind === 'page' ? itemDraft.sectionId.trim() || null : null,
             sortOrder: 0,
             isActive: itemDraft.isActive
         }
@@ -451,6 +461,14 @@ export default function ApplicationMenuWidgetEditorDialog({
                                 label={t('layouts.menuEditor.hubId', 'Hub id')}
                                 value={itemDraft.hubId}
                                 onChange={(event) => setItemDraft((current) => ({ ...current, hubId: event.target.value }))}
+                                fullWidth
+                            />
+                        ) : null}
+                        {itemDraft.kind === 'page' ? (
+                            <TextField
+                                label={t('layouts.menuEditor.pageId', 'Page id or codename')}
+                                value={itemDraft.sectionId}
+                                onChange={(event) => setItemDraft((current) => ({ ...current, sectionId: event.target.value }))}
                                 fullWidth
                             />
                         ) : null}

@@ -36,7 +36,7 @@ It combines SQL-first domain services with isolated DDL boundaries, template see
 
 - The built-in `lms` template is entity-first: classes, students, modules, quizzes, access links, progress, enrollments, and supporting enumerations are ordinary seeded entities.
 - The default LMS layout uses the shared dashboard shell (`menuWidget`, `appNavbar`, `header`, `detailsTitle`, `detailsTable`) instead of binding global LMS-only module, statistics, or QR widgets.
-- The LMS menu disables `autoShowAllCatalogs`, exposes curated primary sections, uses `maxPrimaryItems` plus `overflowLabelKey`, and starts from the learning hub via `startPage`.
+- The LMS menu disables `autoShowAllCatalogs`, exposes curated primary sections directly in the sidebar, and starts from the Learner Home Page via `startPage`.
 - Snapshot export/import tests assert that the committed LMS fixture does not reintroduce removed global dashboard widgets or metahub-level widget scripts.
 
 ## Main Responsibilities

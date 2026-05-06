@@ -9,7 +9,7 @@ import {
     listLayouts,
     listLayoutZoneWidgets,
     listMetahubScripts,
-    syncApplicationSchema,
+    syncApplicationSchema
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
 import { toolbarSelectors } from '../../support/selectors/contracts'
@@ -214,7 +214,10 @@ test.describe('Quiz Snapshot Import Runtime Flow', () => {
         }
     })
 
-    test('@flow quiz snapshot fixture imports through the browser UI and preserves publication/application/runtime behavior', async ({ page, runManifest }) => {
+    test('@flow quiz snapshot fixture imports through the browser UI and preserves publication/application/runtime behavior', async ({
+        page,
+        runManifest
+    }) => {
         test.setTimeout(240_000)
 
         const fixture = await loadQuizFixture()
@@ -246,7 +249,10 @@ test.describe('Quiz Snapshot Import Runtime Flow', () => {
             { timeout: 60_000 }
         )
 
-        await dialog.getByRole('button', { name: /import/i }).last().click()
+        await dialog
+            .getByRole('button', { name: /import/i })
+            .last()
+            .click()
 
         const importResponse = await importResponsePromise
         expect(importResponse.status()).toBe(201)
@@ -291,8 +297,7 @@ test.describe('Quiz Snapshot Import Runtime Flow', () => {
         const linkedApplication = await createPublicationLinkedApplication(api, importedId, importedPublicationId, {
             name: QUIZ_PUBLICATION.applicationName,
             namePrimaryLocale: 'en',
-            createApplicationSchema: false,
-            workspacesEnabled: false
+            createApplicationSchema: false
         })
 
         const applicationId = linkedApplication?.application?.id
@@ -329,7 +334,9 @@ test.describe('Quiz Snapshot Import Runtime Flow', () => {
         expect(clientBundleResponse.ok()).toBe(true)
 
         const runtimeScriptsPayload = await listScriptsResponse.json()
-        const selectedRuntimeScript = runtimeScriptsPayload?.items?.find((item: Record<string, any>) => item?.codename === QUIZ_SCRIPT_CODENAME)
+        const selectedRuntimeScript = runtimeScriptsPayload?.items?.find(
+            (item: Record<string, any>) => item?.codename === QUIZ_SCRIPT_CODENAME
+        )
         expect(selectedRuntimeScript?.clientBundle ?? null).toBeNull()
         expect(selectedRuntimeScript?.serverBundle ?? null).toBeNull()
 

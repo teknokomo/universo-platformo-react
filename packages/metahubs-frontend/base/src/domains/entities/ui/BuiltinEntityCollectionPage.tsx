@@ -5,12 +5,14 @@ import { LinkedCollectionListContent } from '../presets/ui/LinkedCollectionList'
 import { OptionListContent } from '../presets/ui/OptionListList'
 import { TreeEntityListContent } from '../presets/ui/TreeEntityList'
 import { ValueGroupListContent } from '../presets/ui/ValueGroupList'
+import EntityInstanceListContent from './EntityInstanceListContent'
 
 const standardEntityCollectionViews: Record<BuiltinEntityKind, () => JSX.Element> = {
     catalog: LinkedCollectionListContent,
     hub: TreeEntityListContent,
     set: ValueGroupListContent,
-    enumeration: OptionListContent
+    enumeration: OptionListContent,
+    page: EntityInstanceListContent
 }
 
 const renderStandardEntityCollection = (kindKey: BuiltinEntityKind | null) => {
@@ -39,8 +41,11 @@ export interface StandardEntityChildCollectionPageProps {
 }
 
 export const StandardEntityChildCollectionPage = ({ childKind }: StandardEntityChildCollectionPageProps) => {
-    const params = useParams<{ kindKey?: string }>()
+    const params = useParams<{ kindKey?: string; treeEntityId?: string }>()
     const resolvedKindKey = childKind ?? (isBuiltinEntityKind(params.kindKey ?? '') ? params.kindKey : null)
+    if (params.treeEntityId && resolvedKindKey !== 'hub') {
+        return <EntityInstanceListContent />
+    }
 
     return renderStandardEntityCollection(resolvedKindKey)
 }

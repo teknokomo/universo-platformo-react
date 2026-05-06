@@ -639,13 +639,12 @@ describe('ApplicationList', () => {
                     description: { en: 'Created from acceptance' },
                     namePrimaryLocale: 'en',
                     descriptionPrimaryLocale: 'en',
-                    isPublic: false,
-                    workspacesEnabled: false
+                    isPublic: false
                 })
             })
         }, 15_000)
 
-        it('submits public create payload even when workspaces are manually disabled', async () => {
+        it('submits public create payload without connector workspace schema options', async () => {
             const { user } = renderWithProviders(<ApplicationList />)
 
             await waitFor(() => {
@@ -668,7 +667,6 @@ describe('ApplicationList', () => {
             await user.click(screen.getByRole('button', { name: 'Fill Name' }))
             await user.click(screen.getByRole('tab', { name: 'Parameters' }))
             await user.click(screen.getByRole('radio', { name: 'Public' }))
-            await user.click(screen.getByRole('checkbox', { name: 'Add workspaces' }))
             await user.click(screen.getByRole('button', { name: 'Create' }))
 
             await waitFor(() => {
@@ -677,8 +675,7 @@ describe('ApplicationList', () => {
                     description: undefined,
                     namePrimaryLocale: 'en',
                     descriptionPrimaryLocale: undefined,
-                    isPublic: true,
-                    workspacesEnabled: false
+                    isPublic: true
                 })
             })
         }, 15_000)
@@ -871,7 +868,6 @@ describe('ApplicationList', () => {
                     namePrimaryLocale: 'en',
                     descriptionPrimaryLocale: 'en',
                     isPublic: false,
-                    workspacesEnabled: false,
                     copyConnector: true,
                     createSchema: false,
                     copyAccess: true

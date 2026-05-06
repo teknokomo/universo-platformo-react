@@ -129,7 +129,6 @@ export const quizWidgetConfigSchema = scriptBackedWidgetConfigSchema
     })
     .strict()
 
-
 export const detailsTableWidgetConfigSchema = z
     .object({
         enableRowReordering: z.boolean().optional(),

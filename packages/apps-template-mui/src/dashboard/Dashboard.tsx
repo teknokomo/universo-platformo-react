@@ -4,7 +4,7 @@ import { alpha } from '@mui/material/styles'
 import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
 import { useMemo } from 'react'
-import { defaultDashboardLayoutConfig, type DashboardLayoutConfig } from '@universo/types'
+import { defaultDashboardLayoutConfig, type DashboardLayoutConfig, type RuntimePageBlock } from '@universo/types'
 import AppNavbar from './components/AppNavbar'
 import Header from './components/Header'
 import MainGrid from './components/MainGrid'
@@ -47,13 +47,15 @@ export interface DashboardDetailsSlot {
         onReorder: (orderedRowIds: string[]) => Promise<void>
         isPending?: boolean
     }
+    /** Structured Page metadata blocks, compatible with the Editor.js block shape. */
+    pageBlocks?: RuntimePageBlock[]
 }
 
 export interface DashboardMenuItem {
     id: string
     label: string
     icon?: string | null
-    kind: 'catalog' | 'section' | 'hub' | 'link'
+    kind: 'catalog' | 'section' | 'page' | 'hub' | 'link'
     sectionId?: string | null
     linkedCollectionId?: string | null
     treeEntityId?: string | null

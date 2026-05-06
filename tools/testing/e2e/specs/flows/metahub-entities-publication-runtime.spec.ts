@@ -134,9 +134,7 @@ test('@flow @combined published custom entities survive publication sync and ope
 
         const createEntityRequest = waitForSettledMutationResponse(
             page,
-            (response) =>
-                response.request().method() === 'POST' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/entities`),
+            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/entities`),
             { label: 'Creating published custom entity instance' }
         )
 
@@ -173,8 +171,7 @@ test('@flow @combined published custom entities survive publication sync and ope
         const linkedApplication = await createPublicationLinkedApplication(api, metahub.id, publication.id, {
             name: { en: applicationName },
             namePrimaryLocale: 'en',
-            createApplicationSchema: false,
-            workspacesEnabled: false
+            createApplicationSchema: false
         })
 
         const applicationId = linkedApplication?.application?.id

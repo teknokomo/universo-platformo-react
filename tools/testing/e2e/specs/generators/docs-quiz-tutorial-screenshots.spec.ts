@@ -20,11 +20,7 @@ import {
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
 import { repoRoot } from '../../support/env/load-e2e-env.mjs'
-import {
-    buildEntityMenuItemSelector,
-    buildEntityMenuTriggerSelector,
-    entityDialogSelectors
-} from '../../support/selectors/contracts'
+import { buildEntityMenuItemSelector, buildEntityMenuTriggerSelector, entityDialogSelectors } from '../../support/selectors/contracts'
 import {
     QUIZ_CENTERED_LAYOUT_CONFIG,
     QUIZ_REMOVED_LAYOUT_WIDGET_KEYS,
@@ -125,7 +121,7 @@ async function waitForLayoutId(api: ApiContext, metahubId: string) {
 
 async function applyCenteredQuizLayout(api: ApiContext, metahubId: string, layoutId: string) {
     const layout = await getLayout(api, metahubId, layoutId)
-    const currentConfig = layout?.config && typeof layout.config === "object" ? layout.config : {}
+    const currentConfig = layout?.config && typeof layout.config === 'object' ? layout.config : {}
     const removableWidgetKeys = new Set<string>(QUIZ_REMOVED_LAYOUT_WIDGET_KEYS)
 
     await expectJsonResponse(
@@ -275,8 +271,7 @@ test.describe('Docs Quiz Tutorial Screenshots', () => {
         const linkedApplication = await createPublicationLinkedApplication(api, metahub.id, publication.id, {
             name: { en: `Docs Quiz Tutorial App ${runManifest.runId}` },
             namePrimaryLocale: 'en',
-            createApplicationSchema: false,
-            workspacesEnabled: true
+            createApplicationSchema: false
         })
 
         const applicationId = linkedApplication?.application?.id
@@ -289,7 +284,12 @@ test.describe('Docs Quiz Tutorial Screenshots', () => {
             slug: linkedApplication.application.slug
         })
 
-        await syncApplicationSchema(api, applicationId)
+        await syncApplicationSchema(api, applicationId, {
+            schemaOptions: {
+                workspaceModeRequested: 'enabled',
+                acknowledgeIrreversibleWorkspaceEnablement: true
+            }
+        })
 
         for (const locale of ['en', 'ru'] as const) {
             const labels = LOCALE_COPY[locale]

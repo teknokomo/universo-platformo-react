@@ -195,6 +195,7 @@ function ItemFormDialog({
     const [href, setHref] = useState(item?.href ?? '')
     const [linkedCollectionId, setLinkedCollectionId] = useState(item?.linkedCollectionId ?? '')
     const [treeEntityId, setTreeEntityId] = useState(item?.treeEntityId ?? '')
+    const [pageSectionId, setPageSectionId] = useState(item?.sectionId ?? '')
     const [isActive, setIsActive] = useState(item?.isActive ?? true)
 
     // BUG-1 fix: Reset local state when the edited item changes
@@ -209,6 +210,7 @@ function ItemFormDialog({
         setHref(item?.href ?? '')
         setLinkedCollectionId(item?.linkedCollectionId ?? '')
         setTreeEntityId(item?.treeEntityId ?? '')
+        setPageSectionId(item?.sectionId ?? '')
         setIsActive(item?.isActive ?? true)
     }, [item, uiLocale])
 
@@ -244,6 +246,11 @@ function ItemFormDialog({
             return
         }
 
+        if (kind === 'page' && !pageSectionId.trim()) {
+            setSubmitError(t('layouts.menuEditor.validation.pageRequired', 'Enter a page id or codename for this menu item.'))
+            return
+        }
+
         if (kind === 'link') {
             const trimmedHref = href.trim()
             if (trimmedHref.length === 0) {
@@ -270,6 +277,7 @@ function ItemFormDialog({
             href: kind === 'link' ? href.trim() || null : null,
             linkedCollectionId: kind === 'catalog' ? linkedCollectionId || null : null,
             treeEntityId: kind === 'hub' ? treeEntityId || null : null,
+            sectionId: kind === 'page' ? pageSectionId.trim() || null : null,
             sortOrder: item?.sortOrder ?? 0,
             isActive
         })
@@ -406,6 +414,18 @@ function ItemFormDialog({
                             </Select>
                         </FormControl>
                     )}
+                    {kind === 'page' && (
+                        <TextField
+                            label={t('layouts.menuEditor.itemPage', 'Page id or codename')}
+                            value={pageSectionId}
+                            onChange={(e) => {
+                                setSubmitError(null)
+                                setPageSectionId(e.target.value)
+                            }}
+                            fullWidth
+                            placeholder='LearnerHome'
+                        />
+                    )}
 
                     <FormControlLabel
                         sx={{ ml: 0 }}
@@ -533,6 +553,7 @@ export default function MenuWidgetEditorDialog({
         catalog: t('layouts.menuEditor.kindCatalog'),
         catalogs_all: t('layouts.menuEditor.kindCatalogsAll'),
         hub: t('layouts.menuEditor.kindHub'),
+        page: t('layouts.menuEditor.kindPage', 'Page'),
         link: t('layouts.menuEditor.kindLink')
     }
 

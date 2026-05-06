@@ -179,9 +179,9 @@ POST   /api/v1/applications/:id/layouts/:layoutId/copy # Copy layout into an app
 ## Workspace-Aware Behavior
 
 - `Public` / `Closed` visibility is editable from Application Settings with optimistic locking.
-- `workspacesEnabled` remains read-only after creation because it is tied to runtime schema structure.
-- The create UI auto-enables workspaces for public apps, but still allows opting out with a warning when a shared data surface is intentional.
-- `Add workspaces` is also immutable after creation.
+- `workspacesEnabled` is resolved during connector schema sync from the publication-version workspace policy and connector schema options.
+- The application create and copy dialogs do not expose a workspace toggle.
+- Once schema sync enables workspaces, later connector syncs cannot turn them off.
 - On first runtime schema creation, the owner and all current members receive a personal `Main` workspace in the database.
 - Runtime catalog creation and copy flows enforce workspace boundaries automatically.
 - When a workspace limit is reached, the runtime UI disables the create action and shows an informational alert.

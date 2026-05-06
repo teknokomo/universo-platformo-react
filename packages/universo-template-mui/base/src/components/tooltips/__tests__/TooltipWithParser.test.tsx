@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { TooltipWithParser } from '../TooltipWithParser'
 
 // Mock html-react-parser
@@ -151,7 +151,10 @@ describe('TooltipWithParser', () => {
             render(<TooltipWithParser title='Help text' />)
             const button = screen.getByRole('button')
 
-            button.focus()
+            await act(async () => {
+                button.focus()
+                await Promise.resolve()
+            })
             expect(button).toHaveFocus()
         })
     })

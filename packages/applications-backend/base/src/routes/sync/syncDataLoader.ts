@@ -9,6 +9,7 @@ import {
     generateTableName,
     generateColumnName,
     generateChildTableName,
+    hasPhysicalRuntimeTable,
     type EntityDefinition,
     type SchemaSnapshot
 } from '@universo/schema-ddl'
@@ -163,11 +164,13 @@ export async function loadApplicationRuntimeEntities(exec: DbExecutor, schemaNam
         const id = typeof row.id === 'string' ? row.id : null
         const kind = normalizeRuntimeEntityKind(row.kind)
         const codename = typeof row.codename === 'string' ? row.codename : null
-        const tableName = typeof row.table_name === 'string' ? row.table_name : null
+        const tableName = typeof row.table_name === 'string' && row.table_name.trim().length > 0 ? row.table_name : null
 
-        if (!id || !kind || !codename || !tableName) {
+        if (!id || !kind || !codename) {
             continue
         }
+
+        const physicalTableEnabled = tableName !== null
 
         const topLevelFields = [...(topLevelNodesByObject.get(id) ?? [])].sort(sortFieldNodes).map((node) => node.field)
 
@@ -177,7 +180,8 @@ export async function loadApplicationRuntimeEntities(exec: DbExecutor, schemaNam
             codename,
             presentation: normalizeRuntimePresentation(row.presentation),
             fields: topLevelFields,
-            physicalTableName: tableName,
+            physicalTableEnabled,
+            physicalTableName: tableName ?? undefined,
             config: isRecord(row.config) ? row.config : {}
         })
     }
@@ -193,7 +197,7 @@ export async function loadApplicationRuntimeElements(
     const result: Record<string, unknown[]> = {}
 
     for (const entity of entities) {
-        if (entity.kind !== 'catalog') {
+        if (entity.kind !== 'catalog' || !hasPhysicalRuntimeTable(entity)) {
             continue
         }
 

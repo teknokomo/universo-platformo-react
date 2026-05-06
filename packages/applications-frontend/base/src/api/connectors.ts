@@ -1,6 +1,11 @@
 import apiClient from './apiClient'
 import { Connector, ConnectorLocalizedPayload, PaginationParams, PaginatedResponse } from '../types'
-import type { ApplicationLayoutChange, ApplicationLayoutSyncPolicy, ApplicationMigrationStatusResponse } from '@universo/types'
+import type {
+    ApplicationLayoutChange,
+    ApplicationLayoutSyncPolicy,
+    ApplicationMigrationStatusResponse,
+    WorkspaceModePolicy
+} from '@universo/types'
 
 /**
  * List connectors for a specific application
@@ -68,6 +73,22 @@ export const deleteConnector = (applicationId: string, connectorId: string) =>
  * Schema diff response
  */
 export interface SchemaDiffResponse {
+    runtimePolicy?: {
+        workspaceMode?: WorkspaceModePolicy
+    }
+    schemaOptions?: {
+        workspaceModeRequested?: 'enabled' | 'not_requested' | null
+        acknowledgedIrreversibleWorkspaceEnablementAt?: string
+    }
+    workspaceMode?: {
+        policy: WorkspaceModePolicy
+        requested: 'enabled' | 'not_requested' | null
+        applicationWorkspacesEnabled: boolean
+        effectiveWorkspacesEnabled: boolean
+        schemaAlreadyInstalled: boolean
+        requiresAcknowledgement: boolean
+        canChoose: boolean
+    }
     schemaExists: boolean
     schemaName?: string
     diff: {
@@ -178,11 +199,16 @@ export const getApplicationDiff = async (applicationId: string): Promise<SchemaD
 export const syncApplication = async (
     applicationId: string,
     confirmDestructive = false,
-    layoutResolutionPolicy?: ApplicationLayoutSyncPolicy
+    layoutResolutionPolicy?: ApplicationLayoutSyncPolicy,
+    schemaOptions?: {
+        workspaceModeRequested?: 'enabled' | 'not_requested' | null
+        acknowledgeIrreversibleWorkspaceEnablement?: boolean
+    }
 ): Promise<SchemaSyncResponse> => {
     const response = await apiClient.post<SchemaSyncResponse>(`/application/${applicationId}/sync`, {
         confirmDestructive,
-        ...(layoutResolutionPolicy ? { layoutResolutionPolicy } : {})
+        ...(layoutResolutionPolicy ? { layoutResolutionPolicy } : {}),
+        ...(schemaOptions ? { schemaOptions } : {})
     })
     return response.data
 }

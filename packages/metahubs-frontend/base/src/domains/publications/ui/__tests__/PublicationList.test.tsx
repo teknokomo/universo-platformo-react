@@ -172,8 +172,7 @@ vi.mock('@universo/template-mui/components/dialogs', () => ({
                                 _primary: 'en',
                                 locales: { en: { content: 'Generated from publication flow' } }
                             },
-                            applicationIsPublic: true,
-                            applicationWorkspacesEnabled: false
+                            applicationIsPublic: true
                         })
                     }
                 >
@@ -325,7 +324,7 @@ describe('PublicationList', () => {
                     namePrimaryLocale: 'en',
                     descriptionPrimaryLocale: 'en',
                     autoCreateApplication: true,
-                    createApplicationSchema: true,
+                    createApplicationSchema: false,
                     versionName: { en: 'Initial Version' },
                     versionDescription: { en: 'First version payload' },
                     versionNamePrimaryLocale: 'en',
@@ -336,7 +335,10 @@ describe('PublicationList', () => {
                     applicationNamePrimaryLocale: 'en',
                     applicationDescriptionPrimaryLocale: 'en',
                     applicationIsPublic: true,
-                    applicationWorkspacesEnabled: false
+                    runtimePolicy: {
+                        workspaceMode: 'optional',
+                        requiredWorkspaceModeAcknowledged: false
+                    }
                 }
             })
         })

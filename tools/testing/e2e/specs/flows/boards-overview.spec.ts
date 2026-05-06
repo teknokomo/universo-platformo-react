@@ -227,8 +227,7 @@ test('@flow board routes show backend-backed overview counters for metahub, appl
         const linkedApplication = await createPublicationLinkedApplication(userApi, metahub.id, publication.id, {
             name: { en: applicationName },
             namePrimaryLocale: 'en',
-            createApplicationSchema: false,
-            workspacesEnabled: false
+            createApplicationSchema: false
         })
 
         const applicationId = linkedApplication?.application?.id

@@ -190,14 +190,14 @@ function mapMenuItems(
     return items.flatMap((item): DashboardMenuItem[] => {
         if (!item.isActive) return []
 
-        if (item.kind === 'catalog' || item.kind === 'section') {
+        if (item.kind === 'catalog' || item.kind === 'section' || item.kind === 'page') {
             const targetSectionId = item.sectionId ?? item.linkedCollectionId ?? null
             return [
                 {
                     id: item.id,
                     label: item.title,
                     icon: item.icon ?? null,
-                    kind: targetSectionId ? ('section' as const) : ('catalog' as const),
+                    kind: item.kind === 'page' ? ('page' as const) : targetSectionId ? ('section' as const) : ('catalog' as const),
                     sectionId: targetSectionId,
                     linkedCollectionId: item.linkedCollectionId ?? targetSectionId,
                     href: null,
@@ -481,17 +481,48 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     const backendActiveSectionId =
         appData?.activeSectionId ?? appData?.section?.id ?? appData?.activeLinkedCollectionId ?? appData?.linkedCollection.id
     const backendActiveLinkedCollectionId = appData?.activeLinkedCollectionId ?? appData?.linkedCollection.id ?? backendActiveSectionId
-    const activeSectionId = selectedLinkedCollectionId ?? backendActiveSectionId
-    const activeLinkedCollectionId = selectedLinkedCollectionId ?? backendActiveLinkedCollectionId
+
+    const initialMenuSectionId = useMemo(() => {
+        if (!appData?.menus?.length) return undefined
+        const menu = appData.menus.find((item) => item.id === appData.activeMenuId) ?? appData.menus[0]
+        if (menu?.startSectionId) return menu.startSectionId
+        const firstSectionItem = menu?.items?.find(
+            (item) =>
+                item.isActive !== false &&
+                (item.kind === 'catalog' || item.kind === 'section' || item.kind === 'page') &&
+                Boolean(item.sectionId ?? item.linkedCollectionId)
+        )
+        return firstSectionItem?.sectionId ?? firstSectionItem?.linkedCollectionId ?? undefined
+    }, [appData])
+
+    const isResolvingInitialMenuSection = Boolean(
+        appData &&
+            !selectedLinkedCollectionId &&
+            initialMenuSectionId &&
+            backendActiveSectionId &&
+            initialMenuSectionId !== backendActiveSectionId
+    )
+    const isResolvingSelectedSection = Boolean(
+        appData &&
+            selectedLinkedCollectionId &&
+            backendActiveSectionId &&
+            selectedLinkedCollectionId !== backendActiveSectionId &&
+            listQuery.isFetching
+    )
+    const isSuppressingStaleSectionData = isResolvingInitialMenuSection || isResolvingSelectedSection
+    const displayAppData = isSuppressingStaleSectionData ? undefined : appData
+    const activeSectionId = selectedLinkedCollectionId ?? (isSuppressingStaleSectionData ? initialMenuSectionId : backendActiveSectionId)
+    const activeLinkedCollectionId =
+        selectedLinkedCollectionId ?? (isSuppressingStaleSectionData ? initialMenuSectionId : backendActiveLinkedCollectionId)
     const tableColumnRefs = useMemo(
         () =>
-            (appData?.columns ?? [])
+            (displayAppData?.columns ?? [])
                 .filter((column) => column.dataType === 'TABLE')
                 .map((column) => ({
                     fieldId: column.field,
                     attributeId: column.id
                 })),
-        [appData?.columns]
+        [displayAppData?.columns]
     )
     const copyTablesKey = useMemo(
         () =>
@@ -507,27 +538,14 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
     // Schema fingerprint (M4)
     const currentSchemaFingerprint = useMemo(() => {
-        if (!appData?.columns) return null
-        return appData.columns
+        if (!displayAppData?.columns) return null
+        return displayAppData.columns
             .map((c) => c.field)
             .sort()
             .join(',')
-    }, [appData?.columns])
-    const fieldConfigs = useMemo(() => (appData ? toFieldConfigs(appData) : []), [appData])
+    }, [displayAppData?.columns])
+    const fieldConfigs = useMemo(() => (displayAppData ? toFieldConfigs(displayAppData) : []), [displayAppData])
     const canPersistRowReorder = Boolean(adapter?.reorderRows)
-
-    const initialMenuSectionId = useMemo(() => {
-        if (!appData?.menus?.length) return undefined
-        const menu = appData.menus.find((item) => item.id === appData.activeMenuId) ?? appData.menus[0]
-        if (menu?.startSectionId) return menu.startSectionId
-        const firstSectionItem = menu?.items?.find(
-            (item) =>
-                item.isActive !== false &&
-                (item.kind === 'catalog' || item.kind === 'section') &&
-                Boolean(item.sectionId ?? item.linkedCollectionId)
-        )
-        return firstSectionItem?.sectionId ?? firstSectionItem?.linkedCollectionId ?? undefined
-    }, [appData])
 
     // Initialize section from the menu (fallback: backend active section)
     useEffect(() => {
@@ -693,12 +711,12 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
     // ----- CRUD handlers -----
     const handleOpenCreate = useCallback(() => {
-        if (appData?.workspaceLimit?.canCreate === false) {
+        if (displayAppData?.workspaceLimit?.canCreate === false) {
             enqueueSnackbar(
                 t('app.workspaceLimitReached', {
                     defaultValue: 'The workspace limit for this section has been reached ({{current}} / {{max}}).',
-                    current: appData.workspaceLimit.currentRows,
-                    max: appData.workspaceLimit.maxRows ?? '∞'
+                    current: displayAppData.workspaceLimit.currentRows,
+                    max: displayAppData.workspaceLimit.maxRows ?? '∞'
                 }),
                 { variant: 'info' }
             )
@@ -711,7 +729,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         setFormError(null)
         formColumnsRef.current = currentSchemaFingerprint
         setFormOpen(true)
-    }, [appData?.workspaceLimit, currentSchemaFingerprint, enqueueSnackbar, t])
+    }, [displayAppData?.workspaceLimit, currentSchemaFingerprint, enqueueSnackbar, t])
 
     const handleOpenEdit = useCallback(
         (rowId: string) => {
@@ -862,12 +880,12 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     const handleOpenCopy = useCallback(
         (rowId: string) => {
             if (guardPendingRowInteraction(rowId)) return
-            if (appData?.workspaceLimit?.canCreate === false) {
+            if (displayAppData?.workspaceLimit?.canCreate === false) {
                 enqueueSnackbar(
                     t('app.workspaceLimitReached', {
                         defaultValue: 'The workspace limit for this section has been reached ({{current}} / {{max}}).',
-                        current: appData.workspaceLimit.currentRows,
-                        max: appData.workspaceLimit.maxRows ?? '∞'
+                        current: displayAppData.workspaceLimit.currentRows,
+                        max: displayAppData.workspaceLimit.maxRows ?? '∞'
                     }),
                     { variant: 'info' }
                 )
@@ -881,7 +899,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             setEditRowId(null)
             formColumnsRef.current = currentSchemaFingerprint
         },
-        [appData?.workspaceLimit, currentSchemaFingerprint, enqueueSnackbar, guardPendingRowInteraction, t]
+        [displayAppData?.workspaceLimit, currentSchemaFingerprint, enqueueSnackbar, guardPendingRowInteraction, t]
     )
 
     const handleCloseCopy = useCallback(() => {
@@ -938,46 +956,46 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
     // ----- Derived: columns, fieldConfigs, rows -----
     const columns = useMemo(() => {
-        if (!appData) return []
+        if (!displayAppData) return []
 
-        const permissions = appData.permissions
+        const permissions = displayAppData.permissions
         const canOpenRowActions =
             permissions === undefined ||
             permissions.editContent === true ||
             permissions.createContent === true ||
             permissions.deleteContent === true
 
-        return toGridColumns(appData, {
+        return toGridColumns(displayAppData, {
             onMenuOpen: canOpenRowActions ? handleOpenMenu : undefined,
             actionsAriaLabel: t('app.actions', 'Actions'),
             cellRenderers
         })
-    }, [appData, t, handleOpenMenu, cellRenderers])
+    }, [displayAppData, t, handleOpenMenu, cellRenderers])
 
-    const rows = useMemo(() => (appData ? appData.rows : []), [appData])
+    const rows = useMemo(() => (displayAppData ? displayAppData.rows : []), [displayAppData])
 
-    const rowCount = appData?.pagination.total
-    const layoutConfig = useMemo(() => normalizeDashboardLayoutConfig(appData?.layoutConfig), [appData?.layoutConfig])
+    const rowCount = displayAppData?.pagination.total
+    const layoutConfig = useMemo(() => normalizeDashboardLayoutConfig(displayAppData?.layoutConfig), [displayAppData?.layoutConfig])
     const localeText = useMemo(() => getDataGridLocaleText(locale), [locale])
 
     // ----- Derived: menus -----
     const activeMenu = useMemo(() => {
-        if (!appData?.menus?.length) return null
-        return appData.menus.find((m) => m.id === appData.activeMenuId) ?? appData.menus[0]
-    }, [appData])
+        if (!displayAppData?.menus?.length) return null
+        return displayAppData.menus.find((m) => m.id === displayAppData.activeMenuId) ?? displayAppData.menus[0]
+    }, [displayAppData])
 
     const dashboardMenuItems = useMemo<DashboardMenuItem[]>(() => {
         if (!activeMenu) return []
-        return mapMenuItems(activeMenu.items, appData?.sections ?? appData?.linkedCollections ?? [], activeSectionId)
-    }, [activeMenu, appData?.linkedCollections, appData?.sections, activeSectionId])
+        return mapMenuItems(activeMenu.items, displayAppData?.sections ?? displayAppData?.linkedCollections ?? [], activeSectionId)
+    }, [activeMenu, displayAppData?.linkedCollections, displayAppData?.sections, activeSectionId])
 
     // Build menus map keyed by widgetId
     const menusMap = useMemo<{ [widgetId: string]: DashboardMenuSlot }>(() => {
-        if (!appData?.menus?.length) return {}
-        const sections = appData.sections ?? appData.linkedCollections ?? []
+        if (!displayAppData?.menus?.length) return {}
+        const sections = displayAppData.sections ?? displayAppData.linkedCollections ?? []
         const map: { [widgetId: string]: DashboardMenuSlot } = {}
 
-        for (const menu of appData.menus) {
+        for (const menu of displayAppData.menus) {
             if (!menu.widgetId) continue
             map[menu.widgetId] = {
                 title: menu.showTitle ? menu.title ?? null : null,
@@ -997,7 +1015,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             }
         }
         return map
-    }, [appData, activeLinkedCollectionId, activeSectionId, onSelectLinkedCollection, onSelectSection, t])
+    }, [displayAppData, activeLinkedCollectionId, activeSectionId, onSelectLinkedCollection, onSelectSection, t])
 
     // Menu slot for simple (non-widget) usage
     const menuSlot = useMemo<DashboardMenuSlot | undefined>(() => {
@@ -1007,7 +1025,11 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             showTitle: Boolean(activeMenu?.showTitle),
             items: dashboardMenuItems,
             overflowItems: activeMenu
-                ? mapMenuItems(activeMenu.overflowItems ?? [], appData?.sections ?? appData?.linkedCollections ?? [], activeSectionId)
+                ? mapMenuItems(
+                      activeMenu.overflowItems ?? [],
+                      displayAppData?.sections ?? displayAppData?.linkedCollections ?? [],
+                      activeSectionId
+                  )
                 : [],
             overflowLabel:
                 activeMenu?.overflowLabelKey === 'runtime.menu.more'
@@ -1025,8 +1047,8 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         activeMenu,
         activeLinkedCollectionId,
         activeSectionId,
-        appData?.linkedCollections,
-        appData?.sections,
+        displayAppData?.linkedCollections,
+        displayAppData?.sections,
         onSelectLinkedCollection,
         onSelectSection,
         t
@@ -1060,8 +1082,8 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
     return {
         // Data
-        appData,
-        isLoading: listQuery.isLoading,
+        appData: displayAppData,
+        isLoading: listQuery.isLoading || isSuppressingStaleSectionData,
         isFetching: listQuery.isFetching,
         isError: listQuery.isError,
 

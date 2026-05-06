@@ -23,6 +23,7 @@ export interface EntityInstancesListParams extends PaginationParams {
     locale?: string
     includeDeleted?: boolean
     onlyDeleted?: boolean
+    treeEntityId?: string
 }
 
 export interface EntityInstancePayload {
@@ -84,7 +85,8 @@ export const listEntityInstances = async (
             search: params.search,
             locale: params.locale,
             includeDeleted: params.includeDeleted,
-            onlyDeleted: params.onlyDeleted
+            onlyDeleted: params.onlyDeleted,
+            treeEntityId: params.treeEntityId
         }
     })
 

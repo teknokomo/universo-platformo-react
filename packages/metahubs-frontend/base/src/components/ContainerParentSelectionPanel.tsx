@@ -72,9 +72,15 @@ export const ContainerParentSelectionPanel = ({
             selectedIds={parentContainerId ? [parentContainerId] : []}
             onSelectionChange={(ids) => onParentContainerChange(ids[0] ?? null)}
             getDisplayName={(container) =>
-                getVLCString(container.name, uiLocale) || getVLCString(container.name, 'en') || container.codename
+                getVLCString(container.name, uiLocale) ||
+                getVLCString(container.name, 'en') ||
+                getVLCString(container.codename, uiLocale) ||
+                getVLCString(container.codename, 'en') ||
+                container.id
             }
-            getCodename={(container) => container.codename}
+            getCodename={(container) =>
+                getVLCString(container.codename, uiLocale) || getVLCString(container.codename, 'en') || container.id
+            }
             labels={labels}
             disabled={disabled}
             error={error}

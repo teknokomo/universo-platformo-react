@@ -1,6 +1,6 @@
 import type { DbExecutor, SqlQueryable } from '@universo/utils'
 import { qColumn, qSchema, qSchemaTable, qTable } from '@universo/database'
-import { generateChildTableName, resolveEntityTableName, type EntityDefinition } from '@universo/schema-ddl'
+import { generateChildTableName, hasPhysicalRuntimeTable, resolveEntityTableName, type EntityDefinition } from '@universo/schema-ddl'
 import { ApplicationMembershipState, type VersionedLocalizedContent } from '@universo/types'
 
 const WORKSPACES_TABLE = '_app_workspaces'
@@ -52,12 +52,6 @@ const MAIN_WORKSPACE_DESCRIPTION = createStaticVlc({
     en: 'Personal workspace for the current user',
     ru: 'Личное рабочее пространство текущего пользователя'
 })
-const PUBLIC_SHARED_WORKSPACE_NAME = createStaticVlc({ en: 'Published', ru: 'Опубликованное' })
-const PUBLIC_SHARED_WORKSPACE_DESCRIPTION = createStaticVlc({
-    en: 'Shared workspace used by public runtime access links',
-    ru: 'Общее рабочее пространство для публичных ссылок доступа'
-})
-export const PUBLIC_SHARED_WORKSPACE_CODENAME = '__public_shared'
 const OWNER_ROLE_NAME = createStaticVlc({ en: 'Owner', ru: 'Владелец' })
 const MEMBER_ROLE_NAME = createStaticVlc({ en: 'Member', ru: 'Участник' })
 
@@ -136,8 +130,8 @@ type WorkspaceSeedElementRow = {
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
 
-const resolveWorkspaceSeedStandardKind = (kind: string | null | undefined): 'catalog' | 'hub' | 'set' | 'enumeration' | null => {
-    if (kind === 'catalog' || kind === 'hub' || kind === 'set' || kind === 'enumeration') {
+const resolveWorkspaceSeedStandardKind = (kind: string | null | undefined): 'catalog' | 'hub' | 'set' | 'enumeration' | 'page' | null => {
+    if (kind === 'catalog' || kind === 'hub' || kind === 'set' || kind === 'enumeration' || kind === 'page') {
         return kind
     }
 
@@ -145,7 +139,7 @@ const resolveWorkspaceSeedStandardKind = (kind: string | null | undefined): 'cat
 }
 
 const isWorkspaceSeedCatalogLikeTargetKind = (kind: string | null | undefined): boolean =>
-    typeof kind === 'string' && !['hub', 'set', 'enumeration'].includes(resolveWorkspaceSeedStandardKind(kind) ?? '')
+    typeof kind === 'string' && !['hub', 'set', 'enumeration', 'page'].includes(resolveWorkspaceSeedStandardKind(kind) ?? '')
 
 const normalizeReferenceId = (value: unknown): string | null => {
     if (typeof value === 'string') {
@@ -586,8 +580,6 @@ export async function ensureApplicationRuntimeWorkspaceSchema(
         applicationId: string
         entities: EntityDefinition[]
         actorUserId?: string | null
-        ensurePublicSharedWorkspace?: boolean
-        seedPublicSharedWorkspace?: boolean
     }
 ): Promise<void> {
     await ensureWorkspaceSupportTables(executor, input.schemaName)
@@ -595,7 +587,7 @@ export async function ensureApplicationRuntimeWorkspaceSchema(
 
     const scopedTableNames = new Set<string>()
     for (const entity of input.entities) {
-        if (entity.kind === 'hub' || entity.kind === 'set' || entity.kind === 'enumeration') {
+        if (!hasPhysicalRuntimeTable(entity)) {
             continue
         }
 
@@ -617,184 +609,6 @@ export async function ensureApplicationRuntimeWorkspaceSchema(
         applicationId: input.applicationId,
         actorUserId: input.actorUserId
     })
-
-    if (input.ensurePublicSharedWorkspace === true) {
-        await ensurePublicSharedWorkspace(executor, {
-            schemaName: input.schemaName,
-            ownerUserId: input.actorUserId ?? null,
-            actorUserId: input.actorUserId,
-            seedWorkspace: input.seedPublicSharedWorkspace
-        })
-    }
-}
-
-export async function ensurePublicSharedWorkspace(
-    executor: DbExecutor,
-    input: {
-        schemaName: string
-        ownerUserId?: string | null
-        actorUserId?: string | null
-        seedWorkspace?: boolean
-    }
-): Promise<{ workspaceId: string; created: boolean }> {
-    const workspacesQt = qSchemaTable(input.schemaName, WORKSPACES_TABLE)
-
-    const existingRows = await executor.query<{ id: string }>(
-        `
-        SELECT id
-        FROM ${workspacesQt}
-        WHERE workspace_type = 'shared'
-          AND codename = $1
-          AND COALESCE(status, 'active') = 'active'
-          AND ${ACTIVE_ROW_SQL}
-        ORDER BY _upl_created_at ASC, id ASC
-        LIMIT 1
-        `,
-        [PUBLIC_SHARED_WORKSPACE_CODENAME]
-    )
-
-    if (existingRows[0]?.id) {
-        if (input.ownerUserId) {
-            await ensureWorkspaceOwnerMembership(executor, {
-                schemaName: input.schemaName,
-                workspaceId: existingRows[0].id,
-                ownerUserId: input.ownerUserId,
-                actorUserId: input.actorUserId
-            })
-        }
-        return { workspaceId: existingRows[0].id, created: false }
-    }
-
-    const [{ id: workspaceId }] = await executor.query<{ id: string }>('SELECT public.uuid_generate_v7() AS id')
-    await executor.query(
-        `
-        INSERT INTO ${workspacesQt} (
-            id,
-            name,
-            description,
-            workspace_type,
-            codename,
-            status,
-            _upl_created_by,
-            _upl_updated_by
-        )
-        VALUES ($1, $2::jsonb, $3::jsonb, 'shared', $4, 'active', $5, $6)
-        `,
-        [
-            workspaceId,
-            JSON.stringify(PUBLIC_SHARED_WORKSPACE_NAME),
-            JSON.stringify(PUBLIC_SHARED_WORKSPACE_DESCRIPTION),
-            PUBLIC_SHARED_WORKSPACE_CODENAME,
-            input.actorUserId ?? null,
-            input.actorUserId ?? null
-        ]
-    )
-
-    if (input.ownerUserId) {
-        await ensureWorkspaceOwnerMembership(executor, {
-            schemaName: input.schemaName,
-            workspaceId,
-            ownerUserId: input.ownerUserId,
-            actorUserId: input.actorUserId
-        })
-    }
-
-    if (input.seedWorkspace !== false) {
-        await syncWorkspaceSeededElements(executor, {
-            schemaName: input.schemaName,
-            workspaceId,
-            actorUserId: input.actorUserId
-        })
-    }
-
-    return { workspaceId, created: true }
-}
-
-async function ensureWorkspaceOwnerMembership(
-    executor: DbExecutor,
-    input: {
-        schemaName: string
-        workspaceId: string
-        ownerUserId: string
-        actorUserId?: string | null
-    }
-): Promise<void> {
-    const workspaceUserRolesQt = qSchemaTable(input.schemaName, WORKSPACE_USER_ROLES_TABLE)
-    const workspaceRolesQt = qSchemaTable(input.schemaName, WORKSPACE_ROLES_TABLE)
-
-    const ownerRoleRows = await executor.query<{ id: string }>(
-        `
-        SELECT id
-        FROM ${workspaceRolesQt}
-        WHERE codename = $1
-          AND ${ACTIVE_ROW_SQL}
-        LIMIT 1
-        `,
-        ['owner']
-    )
-    const ownerRoleId = ownerRoleRows[0]?.id
-    if (!ownerRoleId) {
-        throw new Error('Owner role not found in workspace schema')
-    }
-
-    await executor.query(
-        `
-        UPDATE ${workspaceUserRolesQt}
-        SET is_default_workspace = false,
-            _upl_updated_at = NOW(),
-            _upl_updated_by = $2
-        WHERE user_id = $1
-          AND is_default_workspace = true
-          AND ${ACTIVE_ROW_SQL}
-        `,
-        [input.ownerUserId, input.actorUserId ?? null]
-    )
-
-    const existingMembershipRows = await executor.query<{ id: string }>(
-        `
-        SELECT id
-        FROM ${workspaceUserRolesQt}
-        WHERE workspace_id = $1
-          AND user_id = $2
-          AND ${ACTIVE_ROW_SQL}
-        LIMIT 1
-        `,
-        [input.workspaceId, input.ownerUserId]
-    )
-
-    if (existingMembershipRows[0]?.id) {
-        await executor.query(
-            `
-            UPDATE ${workspaceUserRolesQt}
-            SET role_id = $3,
-                is_default_workspace = true,
-                _upl_updated_at = NOW(),
-                _upl_updated_by = $4
-            WHERE id = $1
-              AND workspace_id = $2
-              AND ${ACTIVE_ROW_SQL}
-            `,
-            [existingMembershipRows[0].id, input.workspaceId, ownerRoleId, input.actorUserId ?? null]
-        )
-        return
-    }
-
-    const [{ id: relationId }] = await executor.query<{ id: string }>('SELECT public.uuid_generate_v7() AS id')
-    await executor.query(
-        `
-        INSERT INTO ${workspaceUserRolesQt} (
-            id,
-            workspace_id,
-            user_id,
-            role_id,
-            is_default_workspace,
-            _upl_created_by,
-            _upl_updated_by
-        )
-        VALUES ($1, $2, $3, $4, true, $5, $6)
-        `,
-        [relationId, input.workspaceId, input.ownerUserId, ownerRoleId, input.actorUserId ?? null, input.actorUserId ?? null]
-    )
 }
 
 async function ensureWorkspaceRole(
@@ -1174,7 +988,8 @@ async function loadRuntimeCatalogSeedMetadata(
             `
                         SELECT id AS "objectId", ${runtimeCodenameTextSql('codename')} AS codename, table_name AS "tableName"
             FROM ${objectsQt}
-                        WHERE COALESCE(kind, '') NOT IN ('hub', 'set', 'enumeration')
+                        WHERE COALESCE(kind, '') NOT IN ('hub', 'set', 'enumeration', 'page')
+              AND table_name IS NOT NULL
               AND ${ACTIVE_ROW_SQL}
             ORDER BY ${runtimeCodenameTextSql('codename')} ASC, id ASC
             `

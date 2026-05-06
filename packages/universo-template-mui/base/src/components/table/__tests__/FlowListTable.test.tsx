@@ -2,7 +2,7 @@ import React from 'react'
 import { render, screen, within } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
-import { BrowserRouter } from 'react-router-dom'
+import { MemoryRouter } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
 
 import { FlowListTable } from '../FlowListTable'
@@ -32,9 +32,9 @@ jest.mock('react-redux', () => ({
 const theme = createTheme()
 
 const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-    <BrowserRouter>
+    <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
         <ThemeProvider theme={theme}>{children}</ThemeProvider>
-    </BrowserRouter>
+    </MemoryRouter>
 )
 
 describe('FlowListTable sortable header behavior', () => {

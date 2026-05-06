@@ -1799,6 +1799,21 @@ describe('Metahubs Routes', () => {
                     })
                 })
             )
+            expect(mockCreateInitialBranch).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    metahubId: 'new-metahub-id',
+                    createdBy: 'test-user-id',
+                    createOptions: {
+                        presetToggles: {
+                            hub: false,
+                            page: false,
+                            catalog: false,
+                            set: false,
+                            enumeration: false
+                        }
+                    }
+                })
+            )
         })
 
         it('preserves exported publication version number when the snapshot envelope carries it', async () => {
@@ -1945,6 +1960,50 @@ describe('Metahubs Routes', () => {
                 'test-user-id'
             )
             expect(transactionExecutors[1].query).toHaveBeenCalledWith(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`)
+        })
+
+        it('returns readable details when snapshot restore throws a structured object', async () => {
+            const schemaName = 'mhb_018f8a787b8f7c1da111222233334444_b1'
+            const metahubRow = {
+                id: 'new-metahub-id',
+                name: createLocalizedContent('en', 'Test Metahub'),
+                codename: testCodenameVlc('test-codename-imported'),
+                defaultBranchId: 'branch-main'
+            }
+
+            mockCreateMetahub.mockResolvedValueOnce(metahubRow)
+            mockFindMetahubById.mockResolvedValueOnce(metahubRow)
+            mockFindBranchByIdAndMetahub.mockResolvedValueOnce({
+                id: 'branch-main',
+                schemaName,
+                metahubId: 'new-metahub-id'
+            })
+            mockFindMetahubForUpdate.mockResolvedValueOnce(metahubRow)
+            mockRestoreFromSnapshot.mockRejectedValueOnce({
+                message: 'restore object exploded',
+                detail: 'extra restore context'
+            })
+
+            mockExec.transaction.mockImplementation(async (cb: any) => {
+                const tx = {
+                    query: jest.fn(async () => []),
+                    transaction: jest.fn(),
+                    isReleased: () => false
+                }
+                return cb(tx)
+            })
+
+            const app = buildApp()
+            const res = await request(app).post('/metahubs/import').send(makeTestEnvelope()).expect(500)
+
+            expect(res.body).toMatchObject({
+                error: 'Snapshot import failed and created resources were cleaned up',
+                code: 'METAHUB_IMPORT_ROLLED_BACK',
+                details: {
+                    metahubId: 'new-metahub-id',
+                    importError: 'restore object exploded'
+                }
+            })
         })
 
         it('rolls back imported metahub artifacts when the initial branch is missing after create', async () => {

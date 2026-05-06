@@ -32,6 +32,7 @@ import {
     buildDesignTimeCopyPlan,
     applyDesignTimeCopyOverrides,
     hasDesignTimeChildrenToCopy,
+    validateEntityConfigForComponents,
     executeBehaviorDelete,
     executeBehaviorBlockingState,
     type EntityInstanceRow
@@ -52,16 +53,24 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             onlyDeleted: parsed.data.onlyDeleted
         })) as EntityInstanceRow[]
 
+        const hubScopedItems = parsed.data.treeEntityId
+            ? items.filter((item) => {
+                  const config = item.config && typeof item.config === 'object' ? (item.config as Record<string, unknown>) : {}
+                  const hubs = Array.isArray(config.hubs) ? config.hubs : []
+                  return hubs.some((hubId) => hubId === parsed.data.treeEntityId)
+              })
+            : items
+
         const search = parsed.data.search?.toLowerCase()
         const filtered =
             search && search.length > 0
-                ? items.filter((item) => {
+                ? hubScopedItems.filter((item) => {
                       const codename = getCodenamePayloadText(item.codename as never).toLowerCase()
                       const name = buildNameSearchText(getEntityNameField(item), parsed.data.locale)
                       const description = buildNameSearchText(getEntityDescriptionField(item), parsed.data.locale)
                       return codename.includes(search) || name.includes(search) || description.includes(search)
                   })
-                : items
+                : hubScopedItems
 
         return res.json(paginateItems(filtered.map(mapEntityInstanceResponse), parsed.data))
     })
@@ -103,6 +112,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
 
         const name = buildRequiredLocalizedField(parsed.data.name, parsed.data.namePrimaryLocale, 'Name', normalizedCodename)
         const description = buildOptionalLocalizedField(parsed.data.description, parsed.data.descriptionPrimaryLocale)
+        const config = validateEntityConfigForComponents(resolvedType, parsed.data.config)
 
         const pendingObjectId = generateUuidV7()
 
@@ -123,7 +133,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
                         codename: payload,
                         name,
                         description,
-                        config: parsed.data.config
+                        config
                     },
                     userId,
                     tx
@@ -157,6 +167,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
         if (nextCodename) {
             await assertCodenameAvailable(objectsService, metahubId, existing.kind, nextCodename.normalizedCodename, userId, existing.id)
         }
+        const config = validateEntityConfigForComponents(resolvedType, parsed.data.config)
 
         const updated = (await mutationService.run({
             metahubId,
@@ -174,7 +185,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
                         codename: nextCodename?.payload,
                         name: buildOptionalLocalizedField(parsed.data.name, parsed.data.namePrimaryLocale),
                         description: buildOptionalLocalizedField(parsed.data.description, parsed.data.descriptionPrimaryLocale),
-                        config: parsed.data.config,
+                        config,
                         updatedBy: userId,
                         expectedVersion: parsed.data.expectedVersion
                     },
@@ -491,6 +502,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
                         if (parsed.data.parentTreeEntityId !== undefined) {
                             nextConfig.parentTreeEntityId = parsed.data.parentTreeEntityId
                         }
+                        const validatedConfig = validateEntityConfigForComponents(resolvedType, nextConfig)
 
                         const nextEntity = await objectsService.createObject(
                             metahubId,
@@ -504,7 +516,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
                                     parsed.data.description !== undefined
                                         ? buildOptionalLocalizedField(parsed.data.description, parsed.data.descriptionPrimaryLocale)
                                         : getEntityDescriptionField(source),
-                                config: nextConfig
+                                config: validatedConfig
                             },
                             userId,
                             tx

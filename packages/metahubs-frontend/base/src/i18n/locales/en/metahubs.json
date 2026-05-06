@@ -341,6 +341,7 @@
             "itemHref": "Link URL",
             "itemCatalog": "Catalog",
             "itemHub": "Hub",
+            "itemPage": "Page id or codename",
             "itemActive": "Active",
             "selectCatalog": "Select catalog",
             "noCatalogs": "No catalogs available",
@@ -348,11 +349,13 @@
             "kindCatalog": "Catalog",
             "kindCatalogsAll": "All catalogs",
             "kindHub": "Hub",
+            "kindPage": "Page",
             "kindLink": "Link",
             "validation": {
                 "titleRequired": "Name is required.",
                 "catalogRequired": "Select a catalog for this menu item.",
                 "hubRequired": "Select a hub for this menu item.",
+                "pageRequired": "Enter a page id or codename for this menu item.",
                 "boundHubRequired": "Select a hub to bind this menu to.",
                 "hrefRequired": "Link URL is required for link items.",
                 "hrefUnsafeScheme": "This link type is not allowed. Use https, mailto, tel, #, or an internal path."
@@ -761,6 +764,7 @@
             },
             "tabs": {
                 "containers": "Containers",
+                "content": "Content",
                 "actions": "Actions",
                 "events": "Events"
             },
@@ -782,7 +786,8 @@
                 "singleDisabledHelp": "The entity can be linked to multiple containers"
             },
             "layouts": {
-                "emptyTitle": "No layouts"
+                "emptyTitle": "No layouts",
+                "createHint": "Individual layouts can be configured after this entity is created."
             },
             "automation": {
                 "actions": {
@@ -891,6 +896,22 @@
             "validation": {
                 "hubRequired": "At least one hub is required",
                 "singleHubInvalid": "Single hub entities cannot be linked to multiple hubs"
+            },
+            "content": {
+                "description": "{{entityType}} content",
+                "descriptionWithMetahub": "{{entityType}} content in {{metahub}}",
+                "addLanguage": "Add content language",
+                "contentLanguage": "Content language",
+                "editorLoading": "Loading editor...",
+                "editorLoadError": "The block editor could not be loaded.",
+                "fallbackHelper": "Fallback JSON editor for recovery when the visual editor cannot be loaded.",
+                "languageActions": "{{language}} language actions",
+                "notEnabled": "Block content is not enabled for this entity type.",
+                "notFound": "Entity content was not found.",
+                "readOnly": "You do not have permission to edit this content.",
+                "saveError": "Failed to save content",
+                "saving": "Saving...",
+                "validationInvalid": "The editor content is not valid."
             }
         }
     },
@@ -1195,6 +1216,26 @@
             "partialSuccess": "Added {{successCount}} set(s). {{failCount}} set(s) could not be linked.",
             "failedAll": "Selected sets could not be linked to this hub. Please review restrictions and try again."
         }
+    },
+    "pages": {
+        "title": "Pages",
+        "allTitle": "Pages",
+        "description": "Structured metadata pages with Editor.js-compatible content blocks",
+        "searchPlaceholder": "Search pages...",
+        "empty": "No pages yet",
+        "emptyDescription": "Create the first page to author structured application content",
+        "noSearchResults": "No pages found",
+        "noSearchResultsHint": "Try a different search query",
+        "createDialog": {
+            "title": "Create Page"
+        },
+        "editDialog": {
+            "title": "Edit Page"
+        },
+        "editTitle": "Edit Page",
+        "copyTitle": "Copy Page",
+        "copySuccess": "Page copied",
+        "copyError": "Failed to copy page"
     },
     "sets": {
         "title": "Sets",
@@ -1529,7 +1570,8 @@
             "catalog": "Catalog",
             "enumeration": "Enumeration",
             "set": "Set",
-            "hub": "Hub"
+            "hub": "Hub",
+            "page": "Page"
         }
     },
     "members": {
@@ -1594,7 +1636,8 @@
             "applicationSettings": "Application settings",
             "createApplication": "Create application",
             "createApplicationSchema": "Create application schema",
-            "applicationWillBeCreated": "An application and a connector linked to this Metahub will be created."
+            "applicationWillBeCreated": "An application and a connector linked to this Metahub will be created.",
+            "applicationSchemaWorkspacePolicyHint": "The application schema will use the active publication version workspace policy."
         },
         "applicationParameters": {
             "visibility": {
@@ -1603,7 +1646,7 @@
             },
             "visibilityHint": "Application visibility cannot be changed after creation.",
             "workspacesEnabled": "Add workspaces",
-            "workspacesHint": "Workspace mode cannot be disabled after the application is created.",
+            "workspacesHint": "Workspace mode cannot be turned off after the application is created.",
             "publicWorkspacesRecommended": "Workspaces are recommended for public applications to isolate data for each participant."
         },
         "createDialog": {
@@ -1730,7 +1773,15 @@
             "deleteConfirm": "Are you sure you want to delete this version? This action cannot be undone.",
             "deleteSuccess": "Version deleted successfully",
             "deleteError": "Failed to delete version",
-            "deleteActiveError": "Cannot delete an active version"
+            "deleteActiveError": "Cannot delete an active version",
+            "workspaceMode": {
+                "label": "Workspace policy",
+                "optional": "Optional workspaces",
+                "required": "Require workspaces",
+                "helper": "The selected policy is stored in the publication version snapshot and controls application schema sync.",
+                "requiredAck": "I understand that after workspaces are required, later versions cannot turn off this requirement.",
+                "requiredAckRequired": "Confirm the irreversible workspace requirement before creating the version."
+            }
         }
     },
     "migrations": {
@@ -1842,6 +1893,7 @@
         "optionalEntities": "Default entities",
         "noOptionalPresets": "This template does not define optional presets.",
         "hub": "Hub",
+        "page": "Page",
         "catalog": "Catalog",
         "set": "Set",
         "enumeration": "Enumeration"
@@ -1854,7 +1906,8 @@
             "hub": "Hubs",
             "catalog": "Catalogs",
             "set": "Sets",
-            "enumeration": "Enumerations"
+            "enumeration": "Enumerations",
+            "page": "Pages"
         },
         "search": "Search settings...",
         "save": "Save Changes",
@@ -1938,7 +1991,11 @@
             "entity.enumeration.allowCopy": "Allow Copy",
             "entity.enumeration.allowCopy.description": "Allow copying enumerations within this metahub",
             "entity.enumeration.allowDelete": "Allow Delete",
-            "entity.enumeration.allowDelete.description": "Allow deleting enumerations from this metahub"
+            "entity.enumeration.allowDelete.description": "Allow deleting enumerations from this metahub",
+            "entity.page.allowCopy": "Allow Copy",
+            "entity.page.allowCopy.description": "Allow copying pages within this metahub",
+            "entity.page.allowDelete": "Allow Delete",
+            "entity.page.allowDelete.description": "Allow deleting pages from this metahub"
         },
         "languages": {
             "system": "System"

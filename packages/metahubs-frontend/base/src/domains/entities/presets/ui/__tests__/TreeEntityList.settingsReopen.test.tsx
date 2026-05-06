@@ -55,8 +55,8 @@ vi.mock('@tanstack/react-query', () => ({
     useQueryClient: () => ({
         invalidateQueries: invalidateQueriesMock
     }),
-    useQuery: () => ({
-        data: { items: [currentHub] }
+    useQuery: ({ queryKey }: { queryKey?: unknown[] } = {}) => ({
+        data: Array.isArray(queryKey) && queryKey.includes('entity-types-list') ? { items: [] } : { items: [currentHub] }
     })
 }))
 
@@ -122,6 +122,15 @@ vi.mock('../../hooks/treeEntityMutations', () => ({
     useReorderTreeEntity: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false })
 }))
 
+vi.mock('../../../hooks', () => ({
+    useEntityTypesQuery: () => ({
+        data: { items: [] },
+        isLoading: false,
+        isError: false,
+        error: null
+    })
+}))
+
 vi.mock('../../../../../hooks/useViewPreference', () => ({
     useViewPreference: () => ['table', vi.fn()]
 }))
@@ -131,6 +140,7 @@ vi.mock('../../../../shared', () => ({
     metahubsQueryKeys: {
         childTreeEntitiesList: (...args: unknown[]) => ['child-treeEntities-list', ...args],
         treeEntitiesList: (...args: unknown[]) => ['treeEntities-list', ...args],
+        entityTypesList: (...args: unknown[]) => ['entity-types-list', ...args],
         childTreeEntities: (...args: unknown[]) => ['child-treeEntities', ...args],
         treeEntities: (...args: unknown[]) => ['treeEntities', ...args],
         treeEntityDetail: (...args: unknown[]) => ['hub-detail', ...args]

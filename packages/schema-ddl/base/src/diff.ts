@@ -1,6 +1,6 @@
 import type { EntityDefinition, RuntimeEntityKind, SchemaSnapshot } from './types'
 import { resolveFieldColumnName, resolveEntityTableName, generateChildTableName } from './naming'
-import { isStandardSetKind, isNonPhysicalStandardEntity } from './builtinEntityKinds'
+import { hasPhysicalRuntimeTable, isStandardSetKind } from './builtinEntityKinds'
 
 export enum ChangeType {
     ADD_TABLE = 'ADD_TABLE',
@@ -73,10 +73,10 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
         destructive: [],
         summary: ''
     }
-    const newPhysicalEntities = newEntities.filter((entity) => !isNonPhysicalStandardEntity(entity))
+    const newPhysicalEntities = newEntities.filter((entity) => hasPhysicalRuntimeTable(entity))
     const oldPhysicalEntities = oldSnapshot?.entities
         ? Object.entries(oldSnapshot.entities)
-              .filter(([, entity]) => !isNonPhysicalStandardEntity(entity))
+              .filter(([, entity]) => hasPhysicalRuntimeTable(entity))
               .map(([entityId, entity]) => ({
                   ...entity,
                   id: entityId
@@ -122,6 +122,7 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
         if (!newEntityIds.has(oldEntityId)) {
             const oldEntity = oldEntitiesById.get(oldEntityId)
             if (!oldEntity) continue
+            if (!oldEntity.tableName) continue
             diff.destructive.push({
                 type: ChangeType.DROP_TABLE,
                 entityId: oldEntityId,
@@ -144,6 +145,7 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
         const tableName = resolveEntityTableName(entity)
 
         if (oldEntity.kind !== entity.kind) {
+            if (!oldEntity.tableName) continue
             diff.destructive.push({
                 type: ChangeType.DROP_TABLE,
                 entityId: entity.id,

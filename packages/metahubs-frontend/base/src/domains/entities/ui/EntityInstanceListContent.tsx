@@ -1,18 +1,14 @@
 import { useCallback, useMemo, useState } from 'react'
-import { Alert, Box, Checkbox, Chip, FormControlLabel, IconButton, Skeleton, Stack, Switch, Tooltip, Typography } from '@mui/material'
+import { Alert, Box, Checkbox, Chip, FormControlLabel, Skeleton, Stack, Tab, Tabs, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
-import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
-import DeleteForeverRoundedIcon from '@mui/icons-material/DeleteForeverRounded'
-import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
-import EditRoundedIcon from '@mui/icons-material/EditRounded'
-import RestoreRoundedIcon from '@mui/icons-material/RestoreRounded'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useCommonTranslations } from '@universo/i18n'
 import type { EntitySelectionLabels } from '@universo/template-mui'
 import {
     APIEmptySVG,
+    BaseEntityMenu,
     EmptyListState,
     FlowListTable,
     ItemCard,
@@ -21,11 +17,17 @@ import {
     TemplateMainCard as MainCard,
     ToolbarControls,
     ViewHeaderMUI as ViewHeader,
+    createCopyActionIcon,
+    createDeleteActionIcon,
+    createDeleteForeverActionIcon,
+    createEditActionIcon,
+    createRestoreActionIcon,
     gridSpacing,
     useDebouncedSearch,
     useListDialogs,
     usePaginated
 } from '@universo/template-mui'
+import type { ActionDescriptor } from '@universo/template-mui'
 import { ConfirmDeleteDialog, ConflictResolutionDialog, EntityFormDialog, type TabConfig } from '@universo/template-mui/components/dialogs'
 import { isEnabledComponentConfig, type VersionedLocalizedContent } from '@universo/types'
 import { extractConflictInfo, isOptimisticLockConflict, type ConflictInfo } from '@universo/utils'
@@ -74,6 +76,7 @@ import {
     getLinkedCollectionCopyOptions,
     isRecord,
     resolveEntityMetadataKind,
+    resolveEntityInstanceDialogTitle,
     resolveEntityTypeName,
     toStrictLocalizedRecord
 } from './entityInstanceListHelpers'
@@ -123,8 +126,17 @@ const LinkedCollectionCopyOptionsTab = ({
 }
 
 const EntityInstanceListContent = () => {
-    const { metahubId, kindKey: routeKindKey } = useParams<{ metahubId: string; kindKey: string }>()
+    const {
+        metahubId,
+        kindKey: routeKindKey,
+        treeEntityId
+    } = useParams<{
+        metahubId: string
+        kindKey: string
+        treeEntityId?: string
+    }>()
     const resolvedKindKey = useMemo(() => decodeKindKey(routeKindKey), [routeKindKey])
+    const navigate = useNavigate()
     const preferredVlcLocale = useMetahubPrimaryLocale()
     const codenameConfig = useCodenameConfig()
     const { t } = useTranslation(['metahubs', 'common', 'flowList'])
@@ -140,12 +152,14 @@ const EntityInstanceListContent = () => {
         [t]
     )
     const queryClient = useQueryClient()
+    const isHubScoped = Boolean(treeEntityId)
     const metahubDetailsQuery = useMetahubDetails(metahubId ?? '', { enabled: Boolean(metahubId) })
     const cachedMetahub = metahubId ? queryClient.getQueryData<Metahub>(metahubsQueryKeys.detail(metahubId)) : undefined
     const resolvedPermissions = metahubDetailsQuery.data?.permissions ?? cachedMetahub?.permissions
     const { allowCopy: allowLinkedCollectionCopy, allowDelete: allowLinkedCollectionDelete } = useEntityPermissions('linkedCollection')
+    const { allowCopy: allowPageCopy, allowDelete: allowPageDelete } = useEntityPermissions('page')
 
-    const [showDeleted, setShowDeleted] = useState(false)
+    const showDeleted = false
     const [storedView, setStoredView] = useViewPreference(STORAGE_KEYS.ENTITY_INSTANCE_DISPLAY_STYLE, 'list')
     const view = (storedView === 'table' ? 'list' : storedView) as 'card' | 'list'
     const treeEntities = useTreeEntities(metahubId)
@@ -171,6 +185,50 @@ const EntityInstanceListContent = () => {
         () => (entityTypesQuery.data?.items ?? []).find((item) => item.kindKey === resolvedKindKey) ?? null,
         [entityTypesQuery.data?.items, resolvedKindKey]
     )
+    const hubScopedTabs = useMemo(() => {
+        const entityTypes = entityTypesQuery.data?.items ?? []
+        const tabs = entityTypes
+            .filter((type) => type.kindKey === 'hub' || isEnabledComponentConfig(type.components?.treeAssignment))
+            .sort((a, b) => {
+                if (a.kindKey === 'hub') return -1
+                if (b.kindKey === 'hub') return 1
+                const byOrder = (a.ui?.sidebarOrder ?? 1000) - (b.ui?.sidebarOrder ?? 1000)
+                return byOrder !== 0 ? byOrder : a.kindKey.localeCompare(b.kindKey)
+            })
+            .map((type) => ({
+                kindKey: type.kindKey,
+                label: resolveEntityTypeName(type, preferredVlcLocale, translate, type.kindKey)
+            }))
+
+        return [
+            ...tabs,
+            {
+                kindKey: 'settings',
+                label: t('settings.title')
+            }
+        ]
+    }, [entityTypesQuery.data?.items, preferredVlcLocale, t, translate])
+    const activeHubScopedTab = useMemo(() => {
+        if (hubScopedTabs.some((tab) => tab.kindKey === resolvedKindKey)) {
+            return resolvedKindKey
+        }
+
+        return hubScopedTabs[0]?.kindKey ?? resolvedKindKey
+    }, [hubScopedTabs, resolvedKindKey])
+    const handleHubScopedTabChange = useCallback(
+        (_event: unknown, tabValue: string) => {
+            if (!metahubId || !treeEntityId) return
+            if (tabValue === 'settings') {
+                navigate(`/metahub/${metahubId}/entities/hub/instance/${treeEntityId}/instances`, {
+                    state: { openHubSettings: true }
+                })
+                return
+            }
+
+            navigate(`/metahub/${metahubId}/entities/${encodeURIComponent(tabValue)}/instance/${treeEntityId}/instances`)
+        },
+        [metahubId, navigate, treeEntityId]
+    )
 
     const resolvedEntityTypeName = useMemo(
         () => resolveEntityTypeName(entityType, preferredVlcLocale, translate, resolvedKindKey),
@@ -179,6 +237,8 @@ const EntityInstanceListContent = () => {
     const entityMetadataKind = useMemo(() => resolveEntityMetadataKind(entityType, resolvedKindKey), [entityType, resolvedKindKey])
     const isEntityMetadataSurface = entityMetadataKind !== null
     const usesLinkedCollectionAuthoring = entityMetadataKind === 'catalog'
+    const usesPageAuthoring = entityMetadataKind === 'page'
+    const usesGenericEntityAuthoring = isHubScoped || !isEntityMetadataSurface || usesPageAuthoring
     const canEditLinkedCollectionInstances = resolvedPermissions?.editContent === true
     const canDeleteLinkedCollectionInstances = resolvedPermissions?.deleteContent === true
     const canManageEntityInstances = usesLinkedCollectionAuthoring
@@ -188,22 +248,45 @@ const EntityInstanceListContent = () => {
     const canEditEntityInstances = canManageEntityInstances
     const canCopyEntityInstances = usesLinkedCollectionAuthoring
         ? canEditLinkedCollectionInstances && allowLinkedCollectionCopy
-        : canManageEntityInstances
+        : canManageEntityInstances && (!usesPageAuthoring || allowPageCopy)
     const canDeleteEntityInstances = usesLinkedCollectionAuthoring
         ? canDeleteLinkedCollectionInstances && allowLinkedCollectionDelete
-        : canManageEntityInstances
+        : canManageEntityInstances && (!usesPageAuthoring || allowPageDelete)
     const canRestoreEntityInstances = usesLinkedCollectionAuthoring ? canEditLinkedCollectionInstances : canManageEntityInstances
     const showManageEntityInstancesNotice = Boolean(resolvedPermissions) && !canCreateEntityInstances
+    const isStandardEntityCollection = isEntityMetadataSurface
+    const collectionTitle = isStandardEntityCollection
+        ? resolvedEntityTypeName
+        : t('entities.instances.title', {
+              name: resolvedEntityTypeName,
+              defaultValue: '{{name}} instances'
+          })
+    const collectionDescription = isStandardEntityCollection
+        ? undefined
+        : t('entities.instances.description', {
+              name: resolvedEntityTypeName,
+              kindKey: resolvedKindKey,
+              defaultValue: 'Manage {{name}} instances on the unified entity-owned route for kind {{kindKey}}.'
+          })
 
     const requestedTabs = useMemo(() => new Set(entityType?.ui.tabs ?? []), [entityType?.ui.tabs])
+    const treeAssignmentTabId = requestedTabs.has('hubs') ? 'hubs' : 'treeEntities'
     const showHubsTab = Boolean(
-        entityType && isEnabledComponentConfig(entityType.components.treeAssignment) && requestedTabs.has('treeEntities')
+        entityType &&
+            isEnabledComponentConfig(entityType.components?.treeAssignment) &&
+            (requestedTabs.has('treeEntities') || requestedTabs.has('hubs'))
     )
-    const showAttributesTab = Boolean(entityType && isEnabledComponentConfig(entityType.components.dataSchema))
-    const showLayoutTab = Boolean(entityType && isEnabledComponentConfig(entityType.components.layoutConfig) && requestedTabs.has('layout'))
-    const showScriptsTab = Boolean(entityType && isEnabledComponentConfig(entityType.components.scripting) && requestedTabs.has('scripts'))
-    const showActionsTab = Boolean(entityType && isEnabledComponentConfig(entityType.components.actions))
-    const showEventsTab = Boolean(entityType && isEnabledComponentConfig(entityType.components.events))
+    const showAttributesTab = Boolean(entityType && isEnabledComponentConfig(entityType.components?.dataSchema))
+    const showLayoutTab = Boolean(
+        entityType && isEnabledComponentConfig(entityType.components?.layoutConfig) && requestedTabs.has('layout')
+    )
+    const showScriptsTab = Boolean(entityType && isEnabledComponentConfig(entityType.components?.scripting) && requestedTabs.has('scripts'))
+    const showActionsTab = Boolean(entityType && isEnabledComponentConfig(entityType.components?.actions))
+    const showEventsTab = Boolean(entityType && isEnabledComponentConfig(entityType.components?.events))
+    const showPageBlocksTab = Boolean(entityType && isEnabledComponentConfig(entityType.components?.blockContent))
+    const contentRouteBase =
+        metahubId && resolvedKindKey ? `/metahub/${metahubId}/entities/${encodeURIComponent(resolvedKindKey)}/instance` : ''
+    const standardCollectionI18nPrefix = entityMetadataKind === 'page' ? 'pages' : null
 
     const paginationResult = usePaginated<MetahubEntityInstance, 'updated' | 'sortOrder'>({
         queryKeyFn: (params) =>
@@ -212,20 +295,22 @@ const EntityInstanceListContent = () => {
                       ...params,
                       kind: resolvedKindKey,
                       locale: preferredVlcLocale,
-                      includeDeleted: showDeleted
+                      includeDeleted: showDeleted,
+                      treeEntityId
                   })
-                : ['metahubs', 'entities', 'empty', resolvedKindKey, showDeleted],
+                : ['metahubs', 'entities', 'empty', resolvedKindKey, treeEntityId, showDeleted],
         queryFn: (params) =>
             entitiesApi.listEntityInstances(metahubId!, {
                 ...params,
                 kind: resolvedKindKey,
                 locale: preferredVlcLocale,
-                includeDeleted: showDeleted
+                includeDeleted: showDeleted,
+                treeEntityId
             }),
         initialLimit: 20,
         sortBy: 'updated',
         sortOrder: 'desc',
-        enabled: Boolean(metahubId && resolvedKindKey && entityType && !isEntityMetadataSurface),
+        enabled: Boolean(metahubId && resolvedKindKey && entityType && usesGenericEntityAuthoring),
         keepPreviousDataOnQueryKeyChange: false
     })
 
@@ -236,7 +321,7 @@ const EntityInstanceListContent = () => {
 
     const existingCodenameQuery = useEntityInstancesQuery(
         metahubId,
-        isEntityMetadataSurface
+        !usesGenericEntityAuthoring
             ? undefined
             : {
                   kind: resolvedKindKey,
@@ -295,7 +380,15 @@ const EntityInstanceListContent = () => {
     const editDialogEntity = editEntityDetailQuery.data ?? dialogs.edit.item
     const copyDialogEntity = copyEntityDetailQuery.data ?? dialogs.copy.item
 
-    const createInitialValues = useMemo(() => buildInitialFormValues(preferredVlcLocale, null), [preferredVlcLocale])
+    const createInitialValues = useMemo(() => {
+        const initial = buildInitialFormValues(preferredVlcLocale, null)
+        return treeEntityId && showHubsTab
+            ? {
+                  ...initial,
+                  treeEntityIds: [treeEntityId]
+              }
+            : initial
+    }, [preferredVlcLocale, showHubsTab, treeEntityId])
     const editInitialValues = useMemo(
         () => buildInitialFormValues(preferredVlcLocale, editDialogEntity),
         [editDialogEntity, preferredVlcLocale]
@@ -400,7 +493,6 @@ const EntityInstanceListContent = () => {
             const isRequiredHub = Boolean(values.isRequiredHub)
             const isSingleHub = Boolean(values.isSingleHub)
             const hubsValid = !showHubsTab || ((!isRequiredHub || treeEntityIds.length > 0) && (!isSingleHub || treeEntityIds.length <= 1))
-
             return (
                 !values._hasCodenameDuplicate &&
                 hubsValid &&
@@ -429,7 +521,8 @@ const EntityInstanceListContent = () => {
                 const treeEntityIds = Array.isArray(values.treeEntityIds)
                     ? values.treeEntityIds.filter((value): value is string => typeof value === 'string')
                     : []
-                nextConfig.treeEntities = treeEntityIds
+                nextConfig.hubs = treeEntityIds
+                delete nextConfig.treeEntities
                 nextConfig.isSingleHub = Boolean(values.isSingleHub)
                 nextConfig.isRequiredHub = Boolean(values.isRequiredHub)
             }
@@ -482,15 +575,28 @@ const EntityInstanceListContent = () => {
         async (values: EntityInstanceFormValues) => {
             if (!metahubId || !resolvedKindKey || !canCreateEntityInstances) return
 
-            await createEntityMutation.mutateAsync({
+            const created = await createEntityMutation.mutateAsync({
                 metahubId,
                 data: {
                     kind: resolvedKindKey,
                     ...buildEntityPayload({ values, preserveBaseConfig: false })
                 }
             })
+
+            if (showPageBlocksTab && created?.id) {
+                navigate(`${contentRouteBase}/${created.id}/content`)
+            }
         },
-        [buildEntityPayload, canCreateEntityInstances, createEntityMutation, metahubId, resolvedKindKey]
+        [
+            buildEntityPayload,
+            canCreateEntityInstances,
+            contentRouteBase,
+            createEntityMutation,
+            metahubId,
+            navigate,
+            resolvedKindKey,
+            showPageBlocksTab
+        ]
     )
 
     const handleUpdateEntity = useCallback(
@@ -675,6 +781,15 @@ const EntityInstanceListContent = () => {
         [handleOpenEdit, resolveDisplayEntity]
     )
 
+    const handleOpenContentRow = useCallback(
+        (row: Pick<EntityInstanceDisplayRow, 'id' | 'raw'>) => {
+            const entity = resolveDisplayEntity(row)
+            if (!entity || !contentRouteBase) return
+            navigate(`${contentRouteBase}/${entity.id}/content`)
+        },
+        [contentRouteBase, navigate, resolveDisplayEntity]
+    )
+
     const handleOpenCopyRow = useCallback(
         (row: Pick<EntityInstanceDisplayRow, 'id' | 'raw'>) => {
             const entity = resolveDisplayEntity(row)
@@ -763,8 +878,8 @@ const EntityInstanceListContent = () => {
                     : []
 
                 tabs.push({
-                    id: 'treeEntities',
-                    label: t('entities.instances.tabs.containers', 'Containers'),
+                    id: treeAssignmentTabId,
+                    label: treeAssignmentTabId === 'hubs' ? t('hubs.title', 'Hubs') : t('entities.instances.tabs.containers', 'Containers'),
                     content: (
                         <ContainerSelectionPanel
                             availableContainers={treeEntities}
@@ -806,35 +921,43 @@ const EntityInstanceListContent = () => {
                 })
             }
 
-            if (options.mode === 'edit' && options.entityId && showLayoutTab && metahubId) {
+            if (showLayoutTab && metahubId && ((options.mode === 'edit' && options.entityId) || showPageBlocksTab)) {
                 tabs.push({
                     id: 'layout',
                     label: t('catalogs.tabs.layout', 'Layouts'),
-                    content: (
-                        <LayoutList
-                            metahubId={metahubId}
-                            linkedCollectionId={options.entityId}
-                            detailBasePath={buildEntityInstanceLayoutBasePath(metahubId, resolvedKindKey, options.entityId)}
-                            title={null}
-                            emptyTitle={
-                                usesLinkedCollectionAuthoring
-                                    ? t('catalogs.layoutTab.emptyTitle', 'No catalog layouts')
-                                    : t('entities.instances.layouts.emptyTitle', 'No layouts')
-                            }
-                            emptyDescription={
-                                usesLinkedCollectionAuthoring
-                                    ? t(
-                                          'catalogs.layoutTab.emptyDescription',
-                                          'This catalog currently uses the active global layout. Create the first catalog layout to override widgets and catalog runtime behavior.'
-                                      )
-                                    : t(
-                                          'entities.instances.layouts.emptyDescription',
-                                          'Create the first layout to override the default runtime arrangement for this custom entity kind.'
-                                      )
-                            }
-                            embedded
-                        />
-                    )
+                    content:
+                        options.mode === 'edit' && options.entityId ? (
+                            <LayoutList
+                                metahubId={metahubId}
+                                linkedCollectionId={options.entityId}
+                                detailBasePath={buildEntityInstanceLayoutBasePath(metahubId, resolvedKindKey, options.entityId)}
+                                title={null}
+                                emptyTitle={
+                                    usesLinkedCollectionAuthoring
+                                        ? t('catalogs.layoutTab.emptyTitle', 'No catalog layouts')
+                                        : t('entities.instances.layouts.emptyTitle', 'No layouts')
+                                }
+                                emptyDescription={
+                                    usesLinkedCollectionAuthoring
+                                        ? t(
+                                              'catalogs.layoutTab.emptyDescription',
+                                              'This catalog currently uses the active global layout. Create the first catalog layout to override widgets and catalog runtime behavior.'
+                                          )
+                                        : t(
+                                              'entities.instances.layouts.emptyDescription',
+                                              'Create the first layout to override the default runtime arrangement for this custom entity kind.'
+                                          )
+                                }
+                                embedded
+                            />
+                        ) : (
+                            <Alert severity='info'>
+                                {t(
+                                    'entities.instances.layouts.createHint',
+                                    'Individual layouts can be configured after this entity is created.'
+                                )}
+                            </Alert>
+                        )
                 })
             }
 
@@ -893,8 +1016,10 @@ const EntityInstanceListContent = () => {
             showEventsTab,
             showHubsTab,
             showLayoutTab,
+            showPageBlocksTab,
             showScriptsTab,
             t,
+            treeAssignmentTabId,
             translate,
             tc
         ]
@@ -964,7 +1089,7 @@ const EntityInstanceListContent = () => {
             },
             {
                 id: 'treeEntities',
-                label: t('entities.instances.columns.containers', 'Containers'),
+                label: treeAssignmentTabId === 'hubs' ? t('hubs.title', 'Hubs') : t('entities.instances.columns.containers', 'Containers'),
                 width: '24%',
                 sortable: true,
                 sortAccessor: (row: EntityInstanceDisplayRow) => row.treeEntityIds.length,
@@ -998,9 +1123,9 @@ const EntityInstanceListContent = () => {
                     row.isDeleted ? <Chip size='small' color='warning' label={t('entities.instances.badges.deleted', 'Deleted')} /> : null
             }
         ]
-    }, [renderHubSummary, showDeleted, t, tc])
+    }, [renderHubSummary, showDeleted, t, tc, treeAssignmentTabId])
 
-    const renderRowActions = useCallback(
+    const renderEntityActionMenu = useCallback(
         (row: EntityInstanceDisplayRow) => {
             const canShowRestore = row.isDeleted && canRestoreEntityInstances
             const canShowPermanentDelete = row.isDeleted && canDeleteEntityInstances
@@ -1012,68 +1137,78 @@ const EntityInstanceListContent = () => {
                 return null
             }
 
+            const descriptors: ActionDescriptor<EntityInstanceDisplayRow>[] = []
+
+            if (canShowRestore) {
+                descriptors.push({
+                    id: 'restore',
+                    labelKey: 'common:actions.restore',
+                    icon: createRestoreActionIcon(),
+                    order: 10,
+                    enabled: () => !restoreEntityMutation.isPending,
+                    onSelect: ({ entity }) => handleRestoreEntityRow(entity)
+                })
+            }
+
+            if (canShowPermanentDelete) {
+                descriptors.push({
+                    id: 'delete-permanently',
+                    labelKey: 'common:actions.deletePermanently',
+                    icon: createDeleteForeverActionIcon(),
+                    tone: 'danger',
+                    order: 20,
+                    enabled: () => !permanentDeleteEntityMutation.isPending,
+                    onSelect: ({ entity }) => handleSelectPermanentDeleteTargetRow(entity)
+                })
+            }
+
+            if (canShowEdit) {
+                descriptors.push({
+                    id: 'edit',
+                    labelKey: 'common:actions.edit',
+                    icon: createEditActionIcon(),
+                    order: 10,
+                    onSelect: ({ entity }) => handleOpenEditRow(entity)
+                })
+            }
+
+            if (canShowCopy) {
+                descriptors.push({
+                    id: 'copy',
+                    labelKey: 'common:actions.copy',
+                    icon: createCopyActionIcon(),
+                    order: 20,
+                    onSelect: ({ entity }) => handleOpenCopyRow(entity)
+                })
+            }
+
+            if (canShowDelete) {
+                descriptors.push({
+                    id: 'delete',
+                    labelKey: 'common:actions.delete',
+                    icon: createDeleteActionIcon(),
+                    tone: 'danger',
+                    order: 100,
+                    group: 'danger',
+                    onSelect: ({ entity }) => handleOpenDeleteRow(entity)
+                })
+            }
+
             return (
-                <Stack direction='row' spacing={0.5} onClick={(event) => event.stopPropagation()}>
-                    {row.isDeleted ? (
-                        <>
-                            {canShowRestore ? (
-                                <Tooltip title={t('common:actions.restore', 'Restore')}>
-                                    <IconButton
-                                        size='small'
-                                        color='primary'
-                                        aria-label={t('common:actions.restore', 'Restore')}
-                                        onClick={() => handleRestoreEntityRow(row)}
-                                        disabled={restoreEntityMutation.isPending}
-                                    >
-                                        <RestoreRoundedIcon fontSize='small' />
-                                    </IconButton>
-                                </Tooltip>
-                            ) : null}
-                            {canShowPermanentDelete ? (
-                                <Tooltip title={t('common:actions.deletePermanently', 'Delete permanently')}>
-                                    <IconButton
-                                        size='small'
-                                        color='error'
-                                        aria-label={t('common:actions.deletePermanently', 'Delete permanently')}
-                                        onClick={() => handleSelectPermanentDeleteTargetRow(row)}
-                                        disabled={permanentDeleteEntityMutation.isPending}
-                                    >
-                                        <DeleteForeverRoundedIcon fontSize='small' />
-                                    </IconButton>
-                                </Tooltip>
-                            ) : null}
-                        </>
-                    ) : (
-                        <>
-                            {canShowCopy ? (
-                                <Tooltip title={tc('actions.copy', 'Copy')}>
-                                    <IconButton size='small' aria-label={tc('actions.copy', 'Copy')} onClick={() => handleOpenCopyRow(row)}>
-                                        <ContentCopyRoundedIcon fontSize='small' />
-                                    </IconButton>
-                                </Tooltip>
-                            ) : null}
-                            {canShowEdit ? (
-                                <Tooltip title={tc('actions.edit', 'Edit')}>
-                                    <IconButton size='small' aria-label={tc('actions.edit', 'Edit')} onClick={() => handleOpenEditRow(row)}>
-                                        <EditRoundedIcon fontSize='small' />
-                                    </IconButton>
-                                </Tooltip>
-                            ) : null}
-                            {canShowDelete ? (
-                                <Tooltip title={tc('actions.delete', 'Delete')}>
-                                    <IconButton
-                                        size='small'
-                                        color='error'
-                                        aria-label={tc('actions.delete', 'Delete')}
-                                        onClick={() => handleOpenDeleteRow(row)}
-                                    >
-                                        <DeleteOutlineRoundedIcon fontSize='small' />
-                                    </IconButton>
-                                </Tooltip>
-                            ) : null}
-                        </>
-                    )}
-                </Stack>
+                <Box onClick={(event) => event.stopPropagation()}>
+                    <BaseEntityMenu<EntityInstanceDisplayRow>
+                        entity={row}
+                        entityKind={resolvedKindKey ?? 'entity'}
+                        descriptors={descriptors}
+                        namespace='metahubs'
+                        menuButtonLabelKey='flowList:menu.button'
+                        createContext={(base) => ({
+                            entity: row,
+                            entityKind: resolvedKindKey ?? 'entity',
+                            t: base.t ?? ((key: string) => key)
+                        })}
+                    />
+                </Box>
             )
         },
         [
@@ -1088,101 +1223,7 @@ const EntityInstanceListContent = () => {
             handleSelectPermanentDeleteTargetRow,
             permanentDeleteEntityMutation.isPending,
             restoreEntityMutation.isPending,
-            t,
-            tc
-        ]
-    )
-
-    const renderCardAction = useCallback(
-        (row: EntityInstanceDisplayRow) => {
-            const canShowRestore = row.isDeleted && canRestoreEntityInstances
-            const canShowPermanentDelete = row.isDeleted && canDeleteEntityInstances
-            const canShowCopy = !row.isDeleted && canCopyEntityInstances
-            const canShowEdit = !row.isDeleted && canEditEntityInstances
-            const canShowDelete = !row.isDeleted && canDeleteEntityInstances
-
-            if (!canShowRestore && !canShowPermanentDelete && !canShowCopy && !canShowEdit && !canShowDelete) {
-                return null
-            }
-
-            return (
-                <Stack direction='row' spacing={0.5} onClick={(event) => event.stopPropagation()}>
-                    {row.isDeleted ? (
-                        <>
-                            {canShowRestore ? (
-                                <Tooltip title={t('common:actions.restore', 'Restore')}>
-                                    <IconButton
-                                        size='small'
-                                        color='primary'
-                                        aria-label={t('common:actions.restore', 'Restore')}
-                                        onClick={() => handleRestoreEntityRow(row)}
-                                        disabled={restoreEntityMutation.isPending}
-                                    >
-                                        <RestoreRoundedIcon fontSize='small' />
-                                    </IconButton>
-                                </Tooltip>
-                            ) : null}
-                            {canShowPermanentDelete ? (
-                                <Tooltip title={t('common:actions.deletePermanently', 'Delete permanently')}>
-                                    <IconButton
-                                        size='small'
-                                        color='error'
-                                        aria-label={t('common:actions.deletePermanently', 'Delete permanently')}
-                                        onClick={() => handleSelectPermanentDeleteTargetRow(row)}
-                                        disabled={permanentDeleteEntityMutation.isPending}
-                                    >
-                                        <DeleteForeverRoundedIcon fontSize='small' />
-                                    </IconButton>
-                                </Tooltip>
-                            ) : null}
-                        </>
-                    ) : (
-                        <>
-                            {canShowCopy ? (
-                                <Tooltip title={tc('actions.copy', 'Copy')}>
-                                    <IconButton size='small' aria-label={tc('actions.copy', 'Copy')} onClick={() => handleOpenCopyRow(row)}>
-                                        <ContentCopyRoundedIcon fontSize='small' />
-                                    </IconButton>
-                                </Tooltip>
-                            ) : null}
-                            {canShowEdit ? (
-                                <Tooltip title={tc('actions.edit', 'Edit')}>
-                                    <IconButton size='small' aria-label={tc('actions.edit', 'Edit')} onClick={() => handleOpenEditRow(row)}>
-                                        <EditRoundedIcon fontSize='small' />
-                                    </IconButton>
-                                </Tooltip>
-                            ) : null}
-                            {canShowDelete ? (
-                                <Tooltip title={tc('actions.delete', 'Delete')}>
-                                    <IconButton
-                                        size='small'
-                                        color='error'
-                                        aria-label={tc('actions.delete', 'Delete')}
-                                        onClick={() => handleOpenDeleteRow(row)}
-                                    >
-                                        <DeleteOutlineRoundedIcon fontSize='small' />
-                                    </IconButton>
-                                </Tooltip>
-                            ) : null}
-                        </>
-                    )}
-                </Stack>
-            )
-        },
-        [
-            canCopyEntityInstances,
-            canDeleteEntityInstances,
-            canEditEntityInstances,
-            canRestoreEntityInstances,
-            handleOpenCopyRow,
-            handleOpenDeleteRow,
-            handleOpenEditRow,
-            handleRestoreEntityRow,
-            handleSelectPermanentDeleteTargetRow,
-            permanentDeleteEntityMutation.isPending,
-            restoreEntityMutation.isPending,
-            t,
-            tc
+            resolvedKindKey
         ]
     )
 
@@ -1199,6 +1240,28 @@ const EntityInstanceListContent = () => {
     }, [paginationResult.error, t])
 
     const isMissingEntityType = Boolean(!entityTypesQuery.isLoading && !entityType && resolvedKindKey)
+    const isEntityTypeInitialLoading = entityTypesQuery.isLoading && !entityType
+    const isInstancesInitialLoading = Boolean(entityType && usesGenericEntityAuthoring && paginationResult.isLoading)
+    const dialogTitles = useMemo(
+        () => ({
+            create: usesLinkedCollectionAuthoring
+                ? t('catalogs.createDialog.title', 'Create LinkedCollectionEntity')
+                : resolveEntityInstanceDialogTitle(entityType, 'create', preferredVlcLocale, translate, resolvedKindKey),
+            edit: usesLinkedCollectionAuthoring
+                ? t('catalogs.editDialog.title', 'Edit LinkedCollectionEntity')
+                : resolveEntityInstanceDialogTitle(entityType, 'edit', preferredVlcLocale, translate, resolvedKindKey),
+            copy: usesLinkedCollectionAuthoring
+                ? t('catalogs.copyTitle', 'Copying LinkedCollectionEntity')
+                : resolveEntityInstanceDialogTitle(entityType, 'copy', preferredVlcLocale, translate, resolvedKindKey),
+            delete: usesLinkedCollectionAuthoring
+                ? t('catalogs.deleteDialog.title', 'Delete LinkedCollectionEntity')
+                : resolveEntityInstanceDialogTitle(entityType, 'delete', preferredVlcLocale, translate, resolvedKindKey),
+            deletePermanent: usesLinkedCollectionAuthoring
+                ? t('entities.instances.linkedCollectionDeletePermanentDialog.title', 'Delete Catalog Permanently')
+                : resolveEntityInstanceDialogTitle(entityType, 'deletePermanent', preferredVlcLocale, translate, resolvedKindKey)
+        }),
+        [entityType, preferredVlcLocale, resolvedKindKey, t, translate, usesLinkedCollectionAuthoring]
+    )
 
     return (
         <ExistingCodenamesProvider entities={codenameEntities}>
@@ -1212,21 +1275,16 @@ const EntityInstanceListContent = () => {
             >
                 <Stack flexDirection='column' sx={{ gap: 1 }}>
                     <ViewHeader
-                        title={t('entities.instances.title', {
-                            name: resolvedEntityTypeName,
-                            defaultValue: '{{name}} instances'
-                        })}
-                        description={t('entities.instances.description', {
-                            name: resolvedEntityTypeName,
-                            kindKey: resolvedKindKey,
-                            defaultValue: usesLinkedCollectionAuthoring
-                                ? 'Manage {{name}} through the shared catalog authoring surface on the unified entity-owned route for kind {{kindKey}}.'
-                                : 'Manage {{name}} instances on the unified entity-owned route for kind {{kindKey}}.'
-                        })}
+                        title={collectionTitle}
+                        description={collectionDescription}
                         search
                         searchValue={searchValue}
                         onSearchChange={handleSearchChange}
-                        searchPlaceholder={t('entities.instances.searchPlaceholder', 'Search entity instances...')}
+                        searchPlaceholder={
+                            standardCollectionI18nPrefix
+                                ? t(`${standardCollectionI18nPrefix}.searchPlaceholder`, 'Search...')
+                                : t('entities.instances.searchPlaceholder', 'Search entity instances...')
+                        }
                     >
                         <ToolbarControls
                             viewToggleEnabled
@@ -1237,7 +1295,9 @@ const EntityInstanceListContent = () => {
                             primaryAction={
                                 canManageEntityInstances
                                     ? {
-                                          label: usesLinkedCollectionAuthoring
+                                          label: isStandardEntityCollection
+                                              ? tc('actions.create', 'Create')
+                                              : usesLinkedCollectionAuthoring
                                               ? t('catalogs.create', 'Create LinkedCollectionEntity')
                                               : t('entities.instances.actions.create', 'Create entity'),
                                           onClick: handleOpenCreate,
@@ -1246,29 +1306,41 @@ const EntityInstanceListContent = () => {
                                       }
                                     : undefined
                             }
-                        >
-                            <FormControlLabel
-                                control={
-                                    <Switch size='small' checked={showDeleted} onChange={(event) => setShowDeleted(event.target.checked)} />
-                                }
-                                label={t('entities.instances.filters.showDeleted', 'Show deleted')}
-                                sx={{ mx: 0.5 }}
-                            />
-                        </ToolbarControls>
+                        />
                     </ViewHeader>
 
-                    <Alert severity='info'>
-                        {usesLinkedCollectionAuthoring
-                            ? t(
-                                  'entities.instances.linkedCollectionBanner',
-                                  'This page reuses the shared linked-collection authoring contract on the unified entity-owned route, including linked-collection copy options, layouts, and scripts.'
-                              )
-                            : t('entities.instances.banner', {
-                                  name: resolvedEntityTypeName,
-                                  defaultValue:
-                                      'This page authors design-time instances for the selected entity kind on the unified entity-owned route surface.'
-                              })}
-                    </Alert>
+                    {isHubScoped ? (
+                        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                            <Tabs
+                                value={activeHubScopedTab}
+                                onChange={handleHubScopedTabChange}
+                                aria-label={t('hubs.title', 'Hubs')}
+                                textColor='primary'
+                                indicatorColor='primary'
+                                sx={{
+                                    minHeight: 40,
+                                    '& .MuiTab-root': {
+                                        minHeight: 40,
+                                        textTransform: 'none'
+                                    }
+                                }}
+                            >
+                                {hubScopedTabs.map((tab) => (
+                                    <Tab key={tab.kindKey} value={tab.kindKey} label={tab.label} />
+                                ))}
+                            </Tabs>
+                        </Box>
+                    ) : null}
+
+                    {!isStandardEntityCollection ? (
+                        <Alert severity='info'>
+                            {t('entities.instances.banner', {
+                                name: resolvedEntityTypeName,
+                                defaultValue:
+                                    'This page authors design-time instances for the selected entity kind on the unified entity-owned route surface.'
+                            })}
+                        </Alert>
+                    ) : null}
 
                     {showManageEntityInstancesNotice ? (
                         <Alert severity='info'>
@@ -1282,7 +1354,7 @@ const EntityInstanceListContent = () => {
                     {entityTypeLoadError ? <Alert severity='error'>{entityTypeLoadError}</Alert> : null}
                     {instancesLoadError ? <Alert severity='error'>{instancesLoadError}</Alert> : null}
 
-                    {entityTypesQuery.isLoading && !entityType ? (
+                    {isEntityTypeInitialLoading || isInstancesInitialLoading ? (
                         view === 'card' ? (
                             <SkeletonGrid insetMode='content' />
                         ) : (
@@ -1304,14 +1376,25 @@ const EntityInstanceListContent = () => {
                             imageAlt='No entity instances'
                             title={
                                 searchValue
-                                    ? t('entities.instances.noSearchResults', 'No entity instances found')
+                                    ? standardCollectionI18nPrefix
+                                        ? t(`${standardCollectionI18nPrefix}.noSearchResults`, 'No results found')
+                                        : t('entities.instances.noSearchResults', 'No entity instances found')
+                                    : standardCollectionI18nPrefix
+                                    ? t(`${standardCollectionI18nPrefix}.empty`, 'No items yet')
                                     : t('entities.instances.empty', 'No entity instances yet')
                             }
                             description={
                                 searchValue
+                                    ? standardCollectionI18nPrefix
+                                        ? t(`${standardCollectionI18nPrefix}.noSearchResultsHint`, 'Try a different search query.')
+                                        : t(
+                                              'entities.instances.noSearchResultsDescription',
+                                              'Try a different search query or clear the filter.'
+                                          )
+                                    : standardCollectionI18nPrefix
                                     ? t(
-                                          'entities.instances.noSearchResultsDescription',
-                                          'Try a different search query or clear the filter.'
+                                          `${standardCollectionI18nPrefix}.emptyDescription`,
+                                          'Create the first item to start authoring content.'
                                       )
                                     : t(
                                           'entities.instances.emptyDescription',
@@ -1335,8 +1418,8 @@ const EntityInstanceListContent = () => {
                                 <ItemCard
                                     key={row.id}
                                     data={{ name: row.name, description: row.description }}
-                                    onClick={!row.isDeleted && canEditEntityInstances ? () => handleOpenEditRow(row) : undefined}
-                                    headerAction={renderCardAction(row)}
+                                    onClick={!row.isDeleted && showPageBlocksTab ? () => handleOpenContentRow(row) : undefined}
+                                    headerAction={renderEntityActionMenu(row)}
                                     footerStartContent={
                                         <Stack direction='row' spacing={0.5} useFlexGap flexWrap='wrap'>
                                             <Chip size='small' variant='outlined' label={row.codename || row.id} />
@@ -1364,7 +1447,8 @@ const EntityInstanceListContent = () => {
                                 isLoading={paginationResult.isLoading}
                                 customColumns={columns}
                                 i18nNamespace='flowList'
-                                renderActions={renderRowActions}
+                                renderActions={renderEntityActionMenu}
+                                onRowClick={showPageBlocksTab ? (row) => handleOpenContentRow(row) : undefined}
                                 initialOrder='desc'
                                 initialOrderBy='updatedAt'
                                 getRowSx={(row) => (row.isDeleted ? { backgroundColor: (theme) => theme.palette.action.hover } : undefined)}
@@ -1373,7 +1457,16 @@ const EntityInstanceListContent = () => {
                     )}
 
                     {instanceRows.length > 0 ? (
-                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', px: { xs: 0, md: 1 } }}>
+                        <Box
+                            data-testid='entity-instances-pagination'
+                            sx={{
+                                mt: 2,
+                                width: '100%',
+                                '& > div': {
+                                    width: '100%'
+                                }
+                            }}
+                        >
                             <PaginationControls
                                 pagination={paginationResult.pagination}
                                 actions={paginationResult.actions}
@@ -1388,11 +1481,7 @@ const EntityInstanceListContent = () => {
                 <EntityFormDialog
                     open={dialogs.create.open && canCreateEntityInstances}
                     mode='create'
-                    title={
-                        usesLinkedCollectionAuthoring
-                            ? t('catalogs.createDialog.title', 'Create LinkedCollectionEntity')
-                            : t('entities.instances.createDialog.title', 'Create Entity')
-                    }
+                    title={dialogTitles.create}
                     nameLabel={tc('fields.name', 'Name')}
                     descriptionLabel={tc('fields.description', 'Description')}
                     saveButtonText={usesLinkedCollectionAuthoring ? t('common:actions.create', 'Create') : tc('actions.create', 'Create')}
@@ -1413,11 +1502,7 @@ const EntityInstanceListContent = () => {
                 <EntityFormDialog
                     open={dialogs.edit.open && canEditEntityInstances}
                     mode='edit'
-                    title={
-                        usesLinkedCollectionAuthoring
-                            ? t('catalogs.editDialog.title', 'Edit LinkedCollectionEntity')
-                            : t('entities.instances.editDialog.title', 'Edit Entity')
-                    }
+                    title={dialogTitles.edit}
                     nameLabel={tc('fields.name', 'Name')}
                     descriptionLabel={tc('fields.description', 'Description')}
                     saveButtonText={tc('actions.save', 'Save')}
@@ -1436,11 +1521,7 @@ const EntityInstanceListContent = () => {
                 <EntityFormDialog
                     open={dialogs.copy.open && canCopyEntityInstances}
                     mode='copy'
-                    title={
-                        usesLinkedCollectionAuthoring
-                            ? t('catalogs.copyTitle', 'Copying LinkedCollectionEntity')
-                            : t('entities.instances.copyDialog.title', 'Copy Entity')
-                    }
+                    title={dialogTitles.copy}
                     nameLabel={tc('fields.name', 'Name')}
                     descriptionLabel={tc('fields.description', 'Description')}
                     saveButtonText={usesLinkedCollectionAuthoring ? t('catalogs.copy.action', 'Copy') : tc('actions.copy', 'Copy')}
@@ -1462,11 +1543,7 @@ const EntityInstanceListContent = () => {
 
                 <ConfirmDeleteDialog
                     open={dialogs.delete.open && !usesLinkedCollectionAuthoring && canDeleteEntityInstances}
-                    title={
-                        usesLinkedCollectionAuthoring
-                            ? t('catalogs.deleteDialog.title', 'Delete LinkedCollectionEntity')
-                            : t('entities.instances.deleteDialog.title', 'Delete Entity')
-                    }
+                    title={dialogTitles.delete}
                     description={
                         usesLinkedCollectionAuthoring
                             ? t('entities.instances.linkedCollectionDeleteDialog.description', {
@@ -1517,11 +1594,7 @@ const EntityInstanceListContent = () => {
 
                 <ConfirmDeleteDialog
                     open={Boolean(permanentDeleteTarget) && canDeleteEntityInstances}
-                    title={
-                        usesLinkedCollectionAuthoring
-                            ? t('entities.instances.linkedCollectionDeletePermanentDialog.title', 'Delete Catalog Permanently')
-                            : t('entities.instances.deletePermanentDialog.title', 'Delete Entity Permanently')
-                    }
+                    title={dialogTitles.deletePermanent}
                     description={
                         usesLinkedCollectionAuthoring
                             ? t('entities.instances.linkedCollectionDeletePermanentDialog.description', {

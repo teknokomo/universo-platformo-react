@@ -21,6 +21,53 @@ export type EntityInstanceDisplayRow = {
 }
 
 export const DIALOG_SAVE_CANCEL = { __dialogCancelled: true } as const
+export const DEFAULT_PAGE_BLOCK_CONTENT = { format: 'editorjs', blocks: [] } as const
+
+export type EntityInstanceDialogMode = 'create' | 'edit' | 'copy' | 'delete' | 'deletePermanent'
+
+const BUILTIN_ENTITY_TYPE_NAME_KEYS: Record<BuiltinEntityKind, { key: string; fallback: string }> = {
+    hub: { key: 'metahubs:hubs.title', fallback: 'Hubs' },
+    catalog: { key: 'metahubs:catalogs.title', fallback: 'Catalogs' },
+    set: { key: 'metahubs:sets.title', fallback: 'Sets' },
+    enumeration: { key: 'metahubs:enumerations.title', fallback: 'Enumerations' },
+    page: { key: 'metahubs:pages.title', fallback: 'Pages' }
+}
+
+const BUILTIN_ENTITY_DIALOG_TITLE_KEYS: Record<
+    BuiltinEntityKind,
+    Partial<Record<EntityInstanceDialogMode, { key: string; fallback: string }>>
+> = {
+    hub: {
+        create: { key: 'metahubs:hubs.createDialog.title', fallback: 'Create Hub' },
+        edit: { key: 'metahubs:hubs.editDialog.title', fallback: 'Edit Hub' },
+        copy: { key: 'metahubs:hubs.copyTitle', fallback: 'Copy Hub' },
+        delete: { key: 'metahubs:hubs.deleteDialog.title', fallback: 'Delete Hub' }
+    },
+    catalog: {
+        create: { key: 'metahubs:catalogs.createDialog.title', fallback: 'Create Catalog' },
+        edit: { key: 'metahubs:catalogs.editDialog.title', fallback: 'Edit Catalog' },
+        copy: { key: 'metahubs:catalogs.copyTitle', fallback: 'Copy Catalog' },
+        delete: { key: 'metahubs:catalogs.deleteDialog.title', fallback: 'Delete Catalog' }
+    },
+    set: {
+        create: { key: 'metahubs:sets.createDialog.title', fallback: 'Create Set' },
+        edit: { key: 'metahubs:sets.editDialog.title', fallback: 'Edit Set' },
+        copy: { key: 'metahubs:sets.copyTitle', fallback: 'Copy Set' },
+        delete: { key: 'metahubs:sets.deleteDialog.title', fallback: 'Delete Set' }
+    },
+    enumeration: {
+        create: { key: 'metahubs:enumerations.createDialog.title', fallback: 'Create Enumeration' },
+        edit: { key: 'metahubs:enumerations.editDialog.title', fallback: 'Edit Enumeration' },
+        copy: { key: 'metahubs:enumerations.copyTitle', fallback: 'Copy Enumeration' },
+        delete: { key: 'metahubs:enumerations.deleteDialog.title', fallback: 'Delete Enumeration' }
+    },
+    page: {
+        create: { key: 'metahubs:pages.createDialog.title', fallback: 'Create Page' },
+        edit: { key: 'metahubs:pages.editDialog.title', fallback: 'Edit Page' },
+        copy: { key: 'metahubs:pages.copyTitle', fallback: 'Copy Page' },
+        delete: { key: 'metahubs:pages.deleteDialog.title', fallback: 'Delete Page' }
+    }
+}
 
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
     Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -37,15 +84,87 @@ export const decodeKindKey = (value?: string): string => {
     }
 }
 
+const STANDARD_ENTITY_METADATA_KIND_SET = new Set<string>(['hub', 'catalog', 'set', 'enumeration', 'page'])
+
+export const isStandardEntityMetadataKind = (kind: string): kind is BuiltinEntityKind => STANDARD_ENTITY_METADATA_KIND_SET.has(kind)
+
 export const buildEntityInstanceLayoutBasePath = (metahubId: string, kindKey: string, entityId: string) =>
     `/metahub/${metahubId}/entities/${encodeURIComponent(kindKey)}/instance/${entityId}/layout`
 
 export const resolveEntityMetadataKind = (entityType: MetahubEntityType | null, kindKey: string): BuiltinEntityKind | null => {
     const resolvedKindKey = entityType?.kindKey ?? kindKey
-    return isBuiltinEntityKind(resolvedKindKey) ? resolvedKindKey : null
+    return isStandardEntityMetadataKind(resolvedKindKey) ? resolvedKindKey : null
 }
 
 export const shouldTranslateEntityTypeUiText = (kindKey: string) => isBuiltinEntityKind(kindKey)
+
+export const resolveBuiltinEntityTypeName = (kindKey: string, t: UiTranslate): string | null => {
+    if (!isBuiltinEntityKind(kindKey)) {
+        return null
+    }
+
+    const spec = BUILTIN_ENTITY_TYPE_NAME_KEYS[kindKey]
+    return t(spec.key, { defaultValue: spec.fallback }) || spec.fallback
+}
+
+const resolvePresentationDialogTitle = (
+    entityType: MetahubEntityType | null,
+    mode: EntityInstanceDialogMode,
+    uiLocale: string
+): string | null => {
+    const presentation = entityType?.presentation
+    if (!isRecord(presentation)) {
+        return null
+    }
+
+    const dialogTitles = presentation.dialogTitles
+    if (!isRecord(dialogTitles)) {
+        return null
+    }
+
+    const value = dialogTitles[mode]
+    if (typeof value === 'string') {
+        const normalized = value.trim()
+        return normalized.length > 0 ? normalized : null
+    }
+
+    return getLocalizedContentText(value as VersionedLocalizedContent<string> | null | undefined, uiLocale, '') || null
+}
+
+export const resolveEntityInstanceDialogTitle = (
+    entityType: MetahubEntityType | null,
+    mode: EntityInstanceDialogMode,
+    uiLocale: string,
+    t: UiTranslate,
+    fallbackKindKey: string
+): string => {
+    const presentationTitle = resolvePresentationDialogTitle(entityType, mode, uiLocale)
+    if (presentationTitle) {
+        return presentationTitle
+    }
+
+    const builtinKind = entityType?.kindKey ?? fallbackKindKey
+    if (isBuiltinEntityKind(builtinKind)) {
+        const spec = BUILTIN_ENTITY_DIALOG_TITLE_KEYS[builtinKind]?.[mode]
+        if (spec) {
+            return t(spec.key, { defaultValue: spec.fallback }) || spec.fallback
+        }
+    }
+
+    const entityTypeName = resolveEntityTypeName(entityType, uiLocale, t, fallbackKindKey)
+    const fallbackByMode: Record<EntityInstanceDialogMode, string> = {
+        create: `Create ${entityTypeName}`,
+        edit: `Edit ${entityTypeName}`,
+        copy: `Copy ${entityTypeName}`,
+        delete: `Delete ${entityTypeName}`,
+        deletePermanent: `Delete ${entityTypeName} Permanently`
+    }
+
+    return t(`entities.instances.dialogTitles.${mode}`, {
+        name: entityTypeName,
+        defaultValue: fallbackByMode[mode]
+    })
+}
 
 export const appendLocalizedCopySuffix = (
     value: VersionedLocalizedContent<string> | null | undefined,
@@ -77,12 +196,13 @@ export const appendLocalizedCopySuffix = (
 
 export const resolveEntityTypeName = (entityType: MetahubEntityType | null, uiLocale: string, t: UiTranslate, fallbackKindKey: string) => {
     if (!entityType) {
-        return fallbackKindKey
+        return resolveBuiltinEntityTypeName(fallbackKindKey, t) ?? fallbackKindKey
     }
 
     const codename = getLocalizedContentText(entityType.codename, uiLocale, entityType.kindKey)
     if (shouldTranslateEntityTypeUiText(entityType.kindKey)) {
-        return t(entityType.ui.nameKey, { defaultValue: entityType.ui.nameKey }) || codename || entityType.kindKey
+        const builtinFallback = resolveBuiltinEntityTypeName(entityType.kindKey, t)
+        return t(entityType.ui.nameKey, { defaultValue: builtinFallback ?? entityType.ui.nameKey }) || codename || entityType.kindKey
     }
 
     return entityType.ui.nameKey || codename || entityType.kindKey
@@ -96,9 +216,7 @@ export const getEntityConfig = (entity?: MetahubEntityInstance | null): Record<s
 }
 
 export const getConfigTreeEntityIds = (config: Record<string, unknown>): string[] =>
-    Array.isArray(config.treeEntities)
-        ? config.treeEntities.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-        : []
+    Array.isArray(config.hubs) ? config.hubs.filter((value): value is string => typeof value === 'string' && value.trim().length > 0) : []
 
 export const getConfigBoolean = (config: Record<string, unknown>, key: 'isSingleHub' | 'isRequiredHub') => config[key] === true
 

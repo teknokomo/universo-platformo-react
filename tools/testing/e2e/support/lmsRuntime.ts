@@ -232,8 +232,7 @@ export async function setupPublishedLmsApplication(
         name: { en: `E2E ${options.runId} ${options.label} LMS App` },
         namePrimaryLocale: 'en',
         createApplicationSchema: false,
-        isPublic: options.isPublic === true,
-        workspacesEnabled: options.workspacesEnabled !== false
+        isPublic: options.isPublic === true
     })
 
     const applicationId = linkedApplication?.application?.id
@@ -241,7 +240,18 @@ export async function setupPublishedLmsApplication(
         throw new Error(`LMS linked application did not return an id for ${options.label}`)
     }
 
-    await syncApplicationSchema(api, applicationId)
+    await syncApplicationSchema(
+        api,
+        applicationId,
+        options.workspacesEnabled === false
+            ? {}
+            : {
+                  schemaOptions: {
+                      workspaceModeRequested: 'enabled',
+                      acknowledgeIrreversibleWorkspaceEnablement: true
+                  }
+              }
+    )
 
     return {
         metahub,

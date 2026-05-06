@@ -19,6 +19,7 @@ interface MetahubsBundle {
     entities?: Record<string, unknown>
     documents?: Record<string, unknown>
     hubs?: Record<string, unknown>
+    pages?: Record<string, unknown>
     catalogs?: Record<string, unknown>
     sets?: Record<string, unknown>
     fixedValues?: Record<string, unknown>
@@ -62,6 +63,7 @@ const consolidateMetahubsNamespace = (bundle: MetahubsBundle) => {
         entities: bundle?.entities ?? {},
         documents: bundle?.documents ?? {},
         hubs: bundle?.hubs ?? {},
+        pages: bundle?.pages ?? {},
         catalogs: bundle?.catalogs ?? {},
         sets: bundle?.sets ?? {},
         fixedValues: bundle?.fixedValues ?? {},
@@ -101,6 +103,7 @@ interface MetahubsTranslation {
     entities?: Record<string, unknown>
     documents?: Record<string, unknown>
     hubs?: Record<string, unknown>
+    pages?: Record<string, unknown>
     catalogs?: Record<string, unknown>
     sets?: Record<string, unknown>
     fixedValues?: Record<string, unknown>

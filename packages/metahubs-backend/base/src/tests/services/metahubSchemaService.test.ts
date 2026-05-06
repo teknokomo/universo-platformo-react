@@ -337,7 +337,7 @@ describe('MetahubSchemaService create options', () => {
         })
     })
 
-    it('loads entity type definitions for direct seed entities without adding preset default instances', async () => {
+    it('loads LMS entity type definitions from the Basic baseline presets and direct seed entities', async () => {
         const exec = createSchemaServiceExec()
         const service = new MetahubSchemaService(exec)
 
@@ -345,10 +345,21 @@ describe('MetahubSchemaService create options', () => {
         const kindKeys = bundle.entityTypePresets.map((preset: { entityType: { kindKey: string } }) => preset.entityType.kindKey)
         const entityCodenames = bundle.seed.entities.map((entity: { codename: string }) => entity.codename)
 
-        expect(kindKeys).toEqual(expect.arrayContaining(['hub', 'catalog', 'enumeration']))
-        expect(entityCodenames).toEqual(expect.arrayContaining(['Learning', 'Modules', 'ModuleStatus', 'QuestionType']))
-        expect(entityCodenames).not.toContain('MainCatalog')
-        expect(entityCodenames).not.toContain('MainHub')
+        expect(kindKeys).toEqual(expect.arrayContaining(['hub', 'page', 'catalog', 'set', 'enumeration']))
+        expect(entityCodenames).toEqual(
+            expect.arrayContaining([
+                'MainHub',
+                'WelcomePage',
+                'MainCatalog',
+                'MainSet',
+                'MainEnumeration',
+                'Learning',
+                'LmsConfiguration',
+                'Modules',
+                'ModuleStatus',
+                'QuestionType'
+            ])
+        )
     })
 
     it('resolves the public structure version from the baseline migration row', async () => {

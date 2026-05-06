@@ -5,7 +5,13 @@
  * during application schema sync operations.
  */
 
-import { resolveEntityTableName, generateColumnName, generateChildTableName, type EntityDefinition } from '@universo/schema-ddl'
+import {
+    generateChildTableName,
+    generateColumnName,
+    hasPhysicalRuntimeTable,
+    resolveEntityTableName,
+    type EntityDefinition
+} from '@universo/schema-ddl'
 import { FieldDefinitionDataType } from '@universo/types'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
 import { type ApplicationSyncQueryBuilder, type ApplicationSyncTransaction, getApplicationSyncKnex } from '../../ddl'
@@ -62,6 +68,7 @@ export async function seedPredefinedElements(
 
             const entity = entityMap.get(objectId)
             if (!entity) continue
+            if (!hasPhysicalRuntimeTable(entity)) continue
 
             const tableName = resolveEntityTableName(entity)
             // Build field map: codename -> { columnName, field definition }
@@ -234,7 +241,9 @@ export async function remapStaleEnumerationReferences(options: {
     if (staleValueIdsByObject.size === 0) return
 
     const knownTables = new Map<string, boolean>()
-    const catalogEntities = Object.values(snapshot.entities ?? {}).filter((entity) => entity.kind === 'catalog')
+    const catalogEntities = Object.values(snapshot.entities ?? {}).filter(
+        (entity) => entity.kind === 'catalog' && hasPhysicalRuntimeTable(entity as unknown as EntityDefinition)
+    )
 
     for (const entity of catalogEntities) {
         const tableName = resolveEntityTableName(entity)

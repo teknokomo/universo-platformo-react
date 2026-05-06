@@ -11,6 +11,7 @@ export interface PersistApplicationSchemaSyncStateInput {
     lastSyncedPublicationVersionId: string | null
     appStructureVersion: number | null
     installedReleaseMetadata?: Record<string, unknown> | null
+    workspacesEnabled?: boolean
     userId?: string | null
 }
 
@@ -41,6 +42,12 @@ export const persistApplicationSchemaSyncState = async (
     if (input.installedReleaseMetadata !== undefined) {
         setClauses.push(`installed_release_metadata = $${nextParam}`)
         params.push(input.installedReleaseMetadata ? JSON.stringify(input.installedReleaseMetadata) : null)
+        nextParam++
+    }
+
+    if (input.workspacesEnabled !== undefined) {
+        setClauses.push(`workspaces_enabled = $${nextParam}`)
+        params.push(input.workspacesEnabled)
         nextParam++
     }
 

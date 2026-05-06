@@ -12,6 +12,7 @@ export interface ConflictInfo {
         | 'hub'
         | 'catalog'
         | 'set'
+        | 'page'
         | 'document'
         | 'enumeration'
         | 'enumeration_value'

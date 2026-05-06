@@ -28,6 +28,9 @@ const createMemberActions = vi.fn((config: unknown) => config)
 vi.mock('@universo/template-mui', () => ({
     createEntityActions,
     createMemberActions,
+    createEditActionIcon: () => null,
+    createCopyActionIcon: () => null,
+    createDeleteActionIcon: () => null,
     LocalizedInlineField: () => null,
     useCodenameAutoFill: () => undefined,
     notifyError: vi.fn()

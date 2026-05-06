@@ -201,7 +201,6 @@ test('@flow @combined application connector can be created through the browser a
         const application = await createApplication(api, {
             name: { en: applicationName },
             namePrimaryLocale: 'en',
-            workspacesEnabled: false,
             isPublic: false
         })
 
@@ -247,7 +246,8 @@ test('@flow @combined application connector can be created through the browser a
 
         const createRequest = waitForSettledMutationResponse(
             page,
-            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${application.id}/connectors`),
+            (response) =>
+                response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${application.id}/connectors`),
             { label: 'Creating connector' }
         )
 
@@ -368,7 +368,6 @@ test('@flow imported snapshot publication creates schema on first connector atte
         const application = await createApplication(api, {
             name: { en: applicationName },
             namePrimaryLocale: 'en',
-            workspacesEnabled: false,
             isPublic: false
         })
 
@@ -408,7 +407,8 @@ test('@flow imported snapshot publication creates schema on first connector atte
 
         const createRequest = waitForSettledMutationResponse(
             page,
-            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${application.id}/connectors`),
+            (response) =>
+                response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${application.id}/connectors`),
             { label: 'Creating imported connector' }
         )
         await createDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -433,16 +433,25 @@ test('@flow imported snapshot publication creates schema on first connector atte
         const diffDialog = page.getByRole('dialog', { name: 'Schema Changes' })
         await expect(diffDialog).toBeVisible()
         await expect(diffDialog.getByRole('heading', { name: /The following schema will be created/i })).toBeVisible()
+        await expect(diffDialog.getByText('Workspaces', { exact: true })).toBeVisible()
+        await diffDialog.getByLabel('Create application workspaces').check()
+        await diffDialog.getByLabel('I understand that workspaces cannot be turned off after they are enabled for this application.').check()
 
         const syncResponsePromise = waitForSettledMutationResponse(
             page,
             (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/application/${application.id}/sync`),
-            { label: 'Syncing application schema' }
+            { label: 'Syncing application schema', timeout: 120_000 }
         )
         await diffDialog.getByRole('button', { name: 'Create Schema' }).click()
 
         const syncResponse = await syncResponsePromise
         expect(syncResponse.status()).toBe(200)
+        expect(syncResponse.request().postDataJSON()).toMatchObject({
+            schemaOptions: {
+                workspaceModeRequested: 'enabled',
+                acknowledgeIrreversibleWorkspaceEnablement: true
+            }
+        })
 
         const syncBody = await syncResponse.json()
         expect(syncBody?.status).toBe('created')
@@ -454,6 +463,12 @@ test('@flow imported snapshot publication creates schema on first connector atte
                 return refreshed?.schemaStatus ?? refreshed?.data?.schemaStatus ?? null
             })
             .toBe('synced')
+        await expect
+            .poll(async () => {
+                const refreshed = await getApplication(api, application.id)
+                return refreshed?.workspacesEnabled ?? refreshed?.data?.workspacesEnabled ?? false
+            })
+            .toBe(true)
     } finally {
         await disposeApiContext(api)
     }

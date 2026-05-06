@@ -28,6 +28,25 @@ export const LMS_PUBLICATION = {
     }
 }
 
+export const LMS_WELCOME_PAGE = {
+    title: {
+        en: 'Welcome to your learning portal',
+        ru: 'Добро пожаловать в учебный портал'
+    },
+    intro: {
+        en: 'This portal brings together the learning paths, modules, assignments, tests, and progress indicators that learners need every day. Start with your assigned modules, continue from the last opened activity, and use the catalog to find approved materials for independent study.',
+        ru: 'Этот портал объединяет учебные траектории, модули, задания, тесты и показатели прогресса, которые нужны учащимся каждый день. Начните с назначенных модулей, продолжите обучение с последнего открытого материала и используйте каталог для самостоятельного изучения утвержденных материалов.'
+    },
+    howToStartTitle: {
+        en: 'How to start',
+        ru: 'Как начать'
+    },
+    workspaceGuidance: {
+        en: 'Workspaces separate personal learning, team learning, and shared training areas. The main workspace is created automatically, and additional workspaces can be added later when a team needs isolated content, members, and reporting.',
+        ru: 'Рабочие пространства разделяют личное обучение, обучение команд и общие учебные области. Основное рабочее пространство создается автоматически, а дополнительные рабочие пространства можно добавить позже, когда команде понадобятся отдельные материалы, участники и отчеты.'
+    }
+} as const
+
 export const LMS_SAMPLE_LINK = {
     slug: 'demo-module',
     title: {
@@ -43,7 +62,6 @@ export const LMS_SECONDARY_LINK = {
         ru: 'Гостевая тренировка по стыковочному коридору'
     }
 }
-
 
 export const LMS_DEMO_CLASSES = [
     {
@@ -231,7 +249,11 @@ export const LMS_DEMO_QUIZZES = [
                     description: 'Choose one answer.',
                     explanation: 'Use the outbound supply manifest.',
                     options: [
-                        { id: 'logistics-q1-opt-a', label: buildVLC('Outbound supply manifest', 'Манифест исходящих поставок'), isCorrect: true },
+                        {
+                            id: 'logistics-q1-opt-a',
+                            label: buildVLC('Outbound supply manifest', 'Манифест исходящих поставок'),
+                            isCorrect: true
+                        },
                         { id: 'logistics-q1-opt-b', label: buildVLC('Crew meal rota', 'График питания экипажа'), isCorrect: false }
                     ],
                     sortOrder: 1
@@ -253,7 +275,11 @@ export const LMS_DEMO_QUIZZES = [
                     description: 'Выберите один вариант.',
                     explanation: 'Используйте манифест исходящих поставок.',
                     options: [
-                        { id: 'logistics-q1-opt-a', label: buildVLC('Outbound supply manifest', 'Манифест исходящих поставок'), isCorrect: true },
+                        {
+                            id: 'logistics-q1-opt-a',
+                            label: buildVLC('Outbound supply manifest', 'Манифест исходящих поставок'),
+                            isCorrect: true
+                        },
                         { id: 'logistics-q1-opt-b', label: buildVLC('Crew meal rota', 'График питания экипажа'), isCorrect: false }
                     ],
                     sortOrder: 1
@@ -531,7 +557,16 @@ export const LMS_DEMO_QUIZ = LMS_DEMO_QUIZZES[0]
 
 const normalizeLocaleScript = (locale: string) => (typeof locale === 'string' && locale.toLowerCase().startsWith('ru') ? 'ru' : 'en')
 
-type SnapshotEntity = { id?: string; codename?: unknown; kind?: string; fields?: Array<Record<string, unknown>> }
+type SnapshotEntity = {
+    id?: string
+    codename?: unknown
+    kind?: string
+    fields?: Array<Record<string, unknown>>
+    config?: Record<string, unknown>
+    presentation?: {
+        name?: unknown
+    }
+}
 type SnapshotElement = { id?: string; data?: Record<string, unknown> }
 type SnapshotScript = Record<string, unknown>
 type SnapshotLayoutWidget = Record<string, unknown>
@@ -540,6 +575,7 @@ type SnapshotEnvelope = Record<string, unknown> & {
     snapshot?: {
         entities?: Record<string, SnapshotEntity>
         elements?: Record<string, SnapshotElement[]>
+        fixedValues?: Record<string, Array<Record<string, unknown>>>
         scripts?: SnapshotScript[]
         layoutZoneWidgets?: SnapshotLayoutWidget[]
     }
@@ -552,15 +588,33 @@ type SnapshotEnvelope = Record<string, unknown> & {
 }
 
 const REQUIRED_ENTITY_CODENAMES = [
+    'LearnerHome',
     'Classes',
     'Students',
+    'Departments',
+    'LearningTracks',
     'Modules',
     'Quizzes',
     'QuizResponses',
     'ModuleProgress',
     'AccessLinks',
-    'Enrollments'
+    'Enrollments',
+    'Assignments',
+    'TrainingEvents',
+    'Certificates',
+    'Reports',
+    'AssignmentStatus',
+    'TrainingEventType',
+    'CertificateStatus',
+    'ReportType'
 ]
+
+const REQUIRED_BASIC_BASELINE_ENTITIES = [
+    { kind: 'hub', name: 'Main' },
+    { kind: 'catalog', name: 'Main' },
+    { kind: 'set', name: 'Main' },
+    { kind: 'enumeration', name: 'Main' }
+] as const
 
 const readLocalizedText = (value: unknown, locale = 'en'): string | undefined => {
     if (typeof value === 'string') {
@@ -599,12 +653,7 @@ const getSeededRows = (elementsByEntityId: Record<string, SnapshotElement[]>, en
     return Array.isArray(elementsByEntityId[entityId]) ? elementsByEntityId[entityId] : []
 }
 
-const findRowByField = (
-    rows: SnapshotElement[],
-    fieldName: string,
-    expectedValue: string,
-    locale: 'en' | 'ru' = 'en'
-) =>
+const findRowByField = (rows: SnapshotElement[], fieldName: string, expectedValue: string, locale: 'en' | 'ru' = 'en') =>
     rows.find((row) => {
         const value = row?.data?.[fieldName]
         if (typeof value === 'string') {
@@ -660,7 +709,11 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         errors.push(`Unexpected LMS fixture Russian codename: ${metahubCodenameRu ?? '<missing>'}`)
     }
 
-    if ([metahubNameEn, metahubNameRu, metahubCodenameEn, metahubCodenameRu].some((value) => typeof value === 'string' && /e2e|runid|imported-/i.test(value))) {
+    if (
+        [metahubNameEn, metahubNameRu, metahubCodenameEn, metahubCodenameRu].some(
+            (value) => typeof value === 'string' && /e2e|runid|imported-/i.test(value)
+        )
+    ) {
         errors.push('LMS fixture identity still contains run-specific markers')
     }
 
@@ -673,9 +726,18 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         }
     }
 
+    const findEntityByKindAndName = (kind: string, name: string) =>
+        entities.find((entity) => entity?.kind === kind && readLocalizedText(entity?.presentation?.name, 'en') === name)
+
     for (const codename of REQUIRED_ENTITY_CODENAMES) {
         if (!entityByCodename.has(codename)) {
             errors.push(`LMS fixture is missing entity ${codename}`)
+        }
+    }
+
+    for (const requiredEntity of REQUIRED_BASIC_BASELINE_ENTITIES) {
+        if (!findEntityByKindAndName(requiredEntity.kind, requiredEntity.name)) {
+            errors.push(`LMS fixture is missing Basic baseline ${requiredEntity.kind} entity "${requiredEntity.name}"`)
         }
     }
 
@@ -711,16 +773,19 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         }
         for (const item of activeItems) {
             const normalizedItem = item as Record<string, unknown>
+            if (normalizedItem.kind === 'hub') {
+                errors.push(`LMS menuWidget item ${String(normalizedItem.id ?? '<unknown>')} must not render an inert hub label`)
+            }
             if (normalizedItem.kind === 'link' && typeof normalizedItem.href !== 'string') {
                 errors.push(`LMS menuWidget item ${String(normalizedItem.id ?? '<unknown>')} must not be an inert link`)
             }
             if (
-                normalizedItem.kind === 'catalog' &&
+                (normalizedItem.kind === 'catalog' || normalizedItem.kind === 'page') &&
                 typeof normalizedItem.catalogId !== 'string' &&
                 typeof normalizedItem.sectionId !== 'string' &&
                 typeof normalizedItem.linkedCollectionId !== 'string'
             ) {
-                errors.push(`LMS menuWidget catalog item ${String(normalizedItem.id ?? '<unknown>')} must target a real catalog`)
+                errors.push(`LMS menuWidget section item ${String(normalizedItem.id ?? '<unknown>')} must target a real section`)
             }
         }
         if (config.maxPrimaryItems !== 6) {
@@ -729,11 +794,65 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         if (config.overflowLabelKey !== 'runtime.menu.more') {
             errors.push('LMS menuWidget must use the shared runtime.menu.more overflow label key')
         }
-        if (config.startPage !== 'Modules') {
-            errors.push('LMS menuWidget must start from the Modules catalog')
+        if (config.startPage !== 'LearnerHome') {
+            errors.push('LMS menuWidget must start from the LearnerHome page')
         }
         if (config.workspacePlacement !== 'primary') {
             errors.push('LMS menuWidget must keep workspace navigation in the primary menu for MVP')
+        }
+    }
+
+    const learnerHomeEntity = entityByCodename.get('LearnerHome')
+    if (learnerHomeEntity?.kind !== 'page') {
+        errors.push('LMS fixture must include LearnerHome as a Page entity')
+    } else {
+        const learnerHomeNameEn = readLocalizedText(learnerHomeEntity.presentation?.name, 'en')
+        const learnerHomeNameRu = readLocalizedText(learnerHomeEntity.presentation?.name, 'ru')
+        if (learnerHomeNameEn !== 'Welcome' || learnerHomeNameRu !== 'Добро пожаловать') {
+            errors.push('LMS LearnerHome page must be presented as the visible Welcome page')
+        }
+        const pageConfig = learnerHomeEntity as SnapshotEntity & { config?: Record<string, unknown> }
+        const blockContent = pageConfig.config?.blockContent as Record<string, unknown> | undefined
+        const blocks = Array.isArray(blockContent?.blocks) ? blockContent.blocks : []
+        if (blockContent?.format !== 'editorjs') {
+            errors.push('LMS LearnerHome page must use Editor.js-compatible block content')
+        }
+        if (blocks.length < 2) {
+            errors.push('LMS LearnerHome page must include starter header and paragraph blocks')
+        }
+        if (blocks.length < 5) {
+            errors.push('LMS LearnerHome page must include a complete starter page, not only a short placeholder')
+        }
+        const blockContentText = JSON.stringify(blockContent)
+        if (!blockContentText.includes(LMS_WELCOME_PAGE.intro.en)) {
+            errors.push('LMS LearnerHome page must include the full English onboarding text')
+        }
+        if (!blockContentText.includes(LMS_WELCOME_PAGE.intro.ru)) {
+            errors.push('LMS LearnerHome page must include the full Russian onboarding text')
+        }
+    }
+
+    const shortPresetPage = entities.find(
+        (entity) =>
+            entity?.kind === 'page' &&
+            JSON.stringify(entity?.config ?? {}).includes('Use this page to publish structured application content.')
+    )
+    if (shortPresetPage) {
+        errors.push('LMS fixture must not expose the short Basic preset Welcome page as product content')
+    }
+
+    const lmsConfigurationEntity =
+        entityByCodename.get('LmsConfiguration') ??
+        entityByCodename.get('LMSConfiguration') ??
+        findEntityByKindAndName('set', 'LMS Configuration')
+    if (lmsConfigurationEntity?.kind !== 'set') {
+        errors.push('LMS fixture must include LmsConfiguration as a Set entity')
+    }
+    const exportedFixedValues = Object.values(envelope.snapshot?.fixedValues ?? {}).flat()
+    const fixedValueCodenames = new Set(exportedFixedValues.map((value) => readLocalizedText(value?.codename, 'en')).filter(Boolean))
+    for (const codename of ['AppName', 'DefaultPassingScore', 'CertificateValidityDays', 'AutoEnrollEnabled', 'SupportEmail']) {
+        if (!fixedValueCodenames.has(codename)) {
+            errors.push(`LMS fixture is missing Set/Constants fixed value ${codename}`)
         }
     }
 
@@ -953,9 +1072,7 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         }
 
         const quizResponseData = quizResponseRow.data ?? {}
-        const normalizedSelectedOptionIds = Array.isArray(quizResponseData.SelectedOptionIds)
-            ? quizResponseData.SelectedOptionIds
-            : []
+        const normalizedSelectedOptionIds = Array.isArray(quizResponseData.SelectedOptionIds) ? quizResponseData.SelectedOptionIds : []
 
         if (quizResponseData.QuestionId !== seededResponse.questionId) {
             errors.push(`LMS quiz response ${seededResponse.key} must keep QuestionId=${seededResponse.questionId}`)

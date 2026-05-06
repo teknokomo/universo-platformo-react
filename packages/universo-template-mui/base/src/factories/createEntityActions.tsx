@@ -1,6 +1,6 @@
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
-import type { ActionDescriptor, ActionContext } from '../components/menu'
+import type { ActionDescriptor, ActionContext, SnackbarNotifier } from '../components/menu'
 
 /**
  * Configuration for standard CRUD entity actions (edit, delete)
@@ -68,31 +68,41 @@ export interface EntityActionsConfig<TEntity, TFormData> {
  *                          This is an acceptable trade-off for library compatibility.
  * @param error - Error object to extract message from (supports Axios errors, Error instances, strings)
  */
+function getErrorMessage(error: unknown): string | undefined {
+    if (
+        error &&
+        typeof error === 'object' &&
+        'response' in error &&
+        typeof (error as { response?: { data?: { message?: unknown } } }).response?.data?.message === 'string'
+    ) {
+        return (error as { response: { data: { message: string } } }).response.data.message
+    }
+
+    if (error instanceof Error) {
+        return error.message
+    }
+
+    return typeof error === 'string' ? error : undefined
+}
+
 export function notifyError(
     t: (key: string, defaultValue?: string) => string,
-    enqueueSnackbar: any, // Compatibility layer for notistack v2/v3 API differences
+    enqueueSnackbar: SnackbarNotifier | undefined,
     error: unknown
 ): void {
     if (!enqueueSnackbar) return
 
     const fallback = t('common:error', 'Operation failed')
-    const candidateMessage =
-        error && typeof error === 'object' && 'response' in error && typeof (error as any)?.response?.data?.message === 'string'
-            ? (error as any).response.data.message
-            : error instanceof Error
-            ? error.message
-            : typeof error === 'string'
-            ? error
-            : fallback
+    const candidateMessage = getErrorMessage(error) ?? fallback
 
     const message = candidateMessage && candidateMessage.length > 0 ? candidateMessage : fallback
 
     // Handle both notistack v2 and v3 API
     if (typeof enqueueSnackbar === 'function') {
         if (enqueueSnackbar.length >= 2) {
-            enqueueSnackbar(message, { variant: 'error' })
+            ;(enqueueSnackbar as (message: string, options?: { variant: 'error' }) => void)(message, { variant: 'error' })
         } else {
-            enqueueSnackbar({
+            ;(enqueueSnackbar as (payload: { message: string; options?: { variant: 'error' } }) => void)({
                 message,
                 options: { variant: 'error' }
             })

@@ -140,8 +140,7 @@ async function setupPublicGuestApplication(api: ApiContext, runManifest, suffix:
         name: { en: `E2E ${runManifest.runId} LMS Guest ${suffix} App` },
         namePrimaryLocale: 'en',
         createApplicationSchema: false,
-        isPublic: true,
-        workspacesEnabled: true
+        isPublic: true
     })
 
     const applicationId = linkedApplication?.application?.id
@@ -154,7 +153,12 @@ async function setupPublicGuestApplication(api: ApiContext, runManifest, suffix:
         slug: linkedApplication.application.slug
     })
 
-    await syncApplicationSchema(api, applicationId)
+    await syncApplicationSchema(api, applicationId, {
+        schemaOptions: {
+            workspaceModeRequested: 'enabled',
+            acknowledgeIrreversibleWorkspaceEnablement: true
+        }
+    })
 
     const quizzesCatalogId = await waitForApplicationCatalogId(api, applicationId, 'Quizzes')
     const accessLinksCatalogId = await waitForApplicationCatalogId(api, applicationId, 'AccessLinks')

@@ -165,8 +165,7 @@ test('@flow public lms guest links enforce the guest journey through the browser
             name: { en: `E2E ${runManifest.runId} LMS Guest App` },
             namePrimaryLocale: 'en',
             createApplicationSchema: false,
-            isPublic: true,
-            workspacesEnabled: true
+            isPublic: true
         })
 
         const applicationId = linkedApplication?.application?.id
@@ -179,7 +178,12 @@ test('@flow public lms guest links enforce the guest journey through the browser
             slug: linkedApplication.application.slug
         })
 
-        await syncApplicationSchema(api, applicationId)
+        await syncApplicationSchema(api, applicationId, {
+            schemaOptions: {
+                workspaceModeRequested: 'enabled',
+                acknowledgeIrreversibleWorkspaceEnablement: true
+            }
+        })
 
         const quizzesCatalogId = await waitForApplicationCatalogId(api, applicationId, 'Quizzes')
         const accessLinksCatalogId = await waitForApplicationCatalogId(api, applicationId, 'AccessLinks')

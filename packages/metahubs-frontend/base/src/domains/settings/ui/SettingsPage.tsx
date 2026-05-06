@@ -6,7 +6,7 @@
  * from @universo/template-mui.
  */
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { Box, Tabs, Tab, Typography, Stack, Button, Divider, Skeleton, IconButton, Tooltip, Alert } from '@mui/material'
 import RestartAltIcon from '@mui/icons-material/RestartAlt'
 import SaveIcon from '@mui/icons-material/Save'
@@ -81,6 +81,19 @@ const SettingsPage = () => {
     const { confirm } = useConfirm()
 
     // ── Derived data ─────────────────────────────────────────────────────
+
+    const visibleTabs = useMemo(() => {
+        if (!data?.registry) return SETTING_TABS
+
+        const registryTabs = new Set(data.registry.map((entry) => entry.tab))
+        return SETTING_TABS.filter((tab) => registryTabs.has(tab))
+    }, [data?.registry])
+
+    useEffect(() => {
+        if (visibleTabs.length > 0 && !visibleTabs.includes(activeTab)) {
+            setActiveTab(visibleTabs[0])
+        }
+    }, [activeTab, visibleTabs])
 
     /** Registry entries for the active tab, sorted by sortOrder */
     const tabRegistry = useMemo(() => {
@@ -249,7 +262,7 @@ const SettingsPage = () => {
             {/* Tabs */}
             <Box data-testid='metahub-settings-tabs' sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
                 <Tabs value={activeTab} onChange={handleTabChange} variant='scrollable' scrollButtons='auto'>
-                    {SETTING_TABS.map((tab) => (
+                    {visibleTabs.map((tab) => (
                         <Tab key={tab} label={t(`settings.tabs.${tab}`)} value={tab} />
                     ))}
                 </Tabs>

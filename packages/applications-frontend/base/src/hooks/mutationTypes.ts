@@ -81,4 +81,8 @@ export interface SyncConnectorParams {
     applicationId: string
     confirmDestructive?: boolean
     layoutResolutionPolicy?: ApplicationLayoutSyncPolicy
+    schemaOptions?: {
+        workspaceModeRequested?: 'enabled' | 'not_requested' | null
+        acknowledgeIrreversibleWorkspaceEnablement?: boolean
+    }
 }

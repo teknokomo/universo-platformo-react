@@ -2,10 +2,14 @@ import type { Request, Response } from 'express'
 import { z } from 'zod'
 import { generateSchemaName, uuidToLockKey, type SchemaChange, type SchemaSnapshot } from '@universo/schema-ddl'
 import type { ApplicationLayoutChange, ApplicationLayoutSyncResolution } from '@universo/types'
-import type { DbExecutor } from '@universo/utils'
+import { parseWorkspaceModePolicy, resolveWorkspaceModeDecision, WorkspacePolicyError, type DbExecutor } from '@universo/utils'
 import { ensureApplicationAccess, type ApplicationRole } from '../routes/guards'
 import { findApplicationCopySource } from '../persistence/applicationsStore'
-import { findFirstConnectorByApplicationId, findFirstConnectorPublicationLinkByConnectorId } from '../persistence/connectorsStore'
+import {
+    findFirstConnectorByApplicationId,
+    findFirstConnectorPublicationLinkByConnectorId,
+    updateConnectorPublicationSchemaOptions
+} from '../persistence/connectorsStore'
 import type { LoadPublishedApplicationSyncContext } from '../services/applicationSyncContracts'
 import { extractInstalledReleaseVersion, type ApplicationReleaseBundle } from '../services/applicationReleaseBundle'
 import { acquireApplicationSyncAdvisoryLock, getApplicationSyncDdlServices, releaseApplicationSyncAdvisoryLock } from '../ddl'
@@ -32,6 +36,7 @@ import {
 
 const ADMIN_ROLES: ApplicationRole[] = ['owner', 'admin']
 const SAFE_BULK_LAYOUT_RESOLUTIONS = new Set<ApplicationLayoutSyncResolution>(['keep_local', 'copy_source_as_application', 'skip_source'])
+const WORKSPACE_INSTALLED_SCHEMA_STATUSES = new Set<string>(['synced', 'outdated', 'update_available', 'maintenance', 'error'])
 
 const requiresExplicitLayoutResolution = (change: ApplicationLayoutChange): boolean =>
     change.type === 'LAYOUT_CONFLICT' || change.type === 'LAYOUT_DEFAULT_COLLISION' || change.type === 'LAYOUT_SOURCE_REMOVED'
@@ -51,6 +56,82 @@ const buildStaleLayoutDiffResponse = (layoutChanges: ApplicationLayoutChange[]) 
         layoutChanges
     }
 })
+
+const connectorSchemaOptionsSchema = z
+    .object({
+        workspaceModeRequested: z.enum(['enabled', 'not_requested']).nullable().optional(),
+        acknowledgedIrreversibleWorkspaceEnablementAt: z.string().datetime().optional(),
+        acknowledgeIrreversibleWorkspaceEnablement: z.boolean().optional()
+    })
+    .strict()
+
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
+
+const normalizeConnectorSchemaOptions = (
+    storedOptions: unknown,
+    requestedOptions: unknown
+): {
+    options: Record<string, unknown>
+    workspaceModeRequested: boolean | null
+    acknowledgementReceived: boolean
+} => {
+    const stored = isRecord(storedOptions) ? storedOptions : {}
+    const parsedRequest = requestedOptions === undefined ? null : connectorSchemaOptionsSchema.parse(requestedOptions)
+    const merged: Record<string, unknown> = {
+        ...stored,
+        ...(parsedRequest ?? {})
+    }
+
+    if (parsedRequest?.acknowledgeIrreversibleWorkspaceEnablement === true && !merged.acknowledgedIrreversibleWorkspaceEnablementAt) {
+        merged.acknowledgedIrreversibleWorkspaceEnablementAt = new Date().toISOString()
+    }
+    delete merged.acknowledgeIrreversibleWorkspaceEnablement
+
+    const rawRequested = merged.workspaceModeRequested
+    const workspaceModeRequested = rawRequested === 'enabled' ? true : rawRequested === 'not_requested' ? false : null
+    const acknowledgementReceived = typeof merged.acknowledgedIrreversibleWorkspaceEnablementAt === 'string'
+
+    return { options: merged, workspaceModeRequested, acknowledgementReceived }
+}
+
+const resolveWorkspaceRequestedLabel = (requested: boolean | null): 'enabled' | 'not_requested' | null =>
+    requested === true ? 'enabled' : requested === false ? 'not_requested' : null
+
+const isAppliedSyncResult = (result: { statusCode: number; body?: unknown }): boolean => {
+    if (result.statusCode < 200 || result.statusCode >= 300 || !isRecord(result.body)) {
+        return false
+    }
+
+    return result.body.status !== 'pending_confirmation' && result.body.status !== 'error'
+}
+
+const buildWorkspaceModePreview = ({
+    policy,
+    requested,
+    applicationWorkspacesEnabled,
+    schemaAlreadyInstalled,
+    acknowledgementReceived
+}: {
+    policy: ReturnType<typeof parseWorkspaceModePolicy>
+    requested: boolean | null
+    applicationWorkspacesEnabled: boolean
+    schemaAlreadyInstalled: boolean
+    acknowledgementReceived: boolean
+}) => {
+    const enablingWorkspaces = !applicationWorkspacesEnabled && (policy === 'required' || (policy === 'optional' && requested === true))
+    const effectiveWorkspacesEnabled =
+        applicationWorkspacesEnabled || policy === 'required' || (policy === 'optional' && requested === true)
+
+    return {
+        policy,
+        requested: resolveWorkspaceRequestedLabel(requested),
+        applicationWorkspacesEnabled,
+        effectiveWorkspacesEnabled,
+        schemaAlreadyInstalled,
+        requiresAcknowledgement: enablingWorkspaces && !acknowledgementReceived,
+        canChoose: policy === 'optional' && !applicationWorkspacesEnabled
+    }
+}
 
 export function createSyncController(
     getDbExecutor: () => DbExecutor,
@@ -83,7 +164,8 @@ export function createSyncController(
                             .record(z.enum(['overwrite_local', 'keep_local', 'copy_source_as_application', 'skip_source']))
                             .optional()
                     })
-                    .optional()
+                    .optional(),
+                schemaOptions: connectorSchemaOptionsSchema.optional()
             })
             const parsed = syncSchema.safeParse(req.body)
             if (!parsed.success) {
@@ -134,6 +216,41 @@ export function createSyncController(
                 } = syncContext
                 if (!snapshot || typeof snapshot !== 'object' || !snapshot.entities || typeof snapshot.entities !== 'object') {
                     return res.status(400).json({ error: 'Invalid publication snapshot' })
+                }
+
+                const connectorSchemaOptions = normalizeConnectorSchemaOptions(
+                    connectorPublication.schemaOptions,
+                    parsed.data.schemaOptions
+                )
+                const schemaAlreadyInstalled =
+                    application.schemaSnapshot != null ||
+                    (typeof application.schemaStatus === 'string' && WORKSPACE_INSTALLED_SCHEMA_STATUSES.has(application.schemaStatus))
+
+                let policy
+                let effectiveWorkspacesEnabled: boolean
+                try {
+                    policy = parseWorkspaceModePolicy(isRecord(snapshot.runtimePolicy) ? snapshot.runtimePolicy.workspaceMode : undefined)
+                    effectiveWorkspacesEnabled = resolveWorkspaceModeDecision({
+                        policy,
+                        requested: connectorSchemaOptions.workspaceModeRequested,
+                        applicationAlreadyEnabled: application.workspacesEnabled === true,
+                        schemaAlreadyInstalled,
+                        acknowledgementReceived: connectorSchemaOptions.acknowledgementReceived
+                    })
+                } catch (error) {
+                    if (error instanceof WorkspacePolicyError) {
+                        return res.status(409).json({
+                            error: error.code,
+                            message: error.message,
+                            runtimePolicy: { workspaceMode: policy }
+                        })
+                    }
+                    throw error
+                }
+
+                const applicationForSync = {
+                    ...application,
+                    workspacesEnabled: effectiveWorkspacesEnabled
                 }
 
                 if (application.schemaName) {
@@ -188,7 +305,7 @@ export function createSyncController(
                 }
 
                 const source = buildApplicationSyncSourceFromPublication({
-                    application,
+                    application: applicationForSync,
                     syncContext: {
                         publicationId,
                         publicationVersionId,
@@ -199,7 +316,7 @@ export function createSyncController(
                     }
                 })
                 const result = await syncApplicationSchemaFromSource({
-                    application,
+                    application: applicationForSync,
                     exec,
                     userId,
                     confirmDestructive,
@@ -207,6 +324,15 @@ export function createSyncController(
                     source,
                     layoutResolutionPolicy: parsed.data.layoutResolutionPolicy
                 })
+
+                if (isAppliedSyncResult(result) && parsed.data.schemaOptions !== undefined) {
+                    await updateConnectorPublicationSchemaOptions(exec, {
+                        connectorId: connector.id,
+                        linkId: connectorPublication.id,
+                        schemaOptions: connectorSchemaOptions.options,
+                        userId
+                    })
+                }
 
                 return res.status(result.statusCode).json(result.body)
             } finally {
@@ -459,6 +585,26 @@ export function createSyncController(
                 return res.status(400).json({ error: 'Invalid publication snapshot' })
             }
 
+            const connectorSchemaOptions = normalizeConnectorSchemaOptions(connectorPublication.schemaOptions, undefined)
+            const schemaAlreadyInstalled =
+                application.schemaSnapshot != null ||
+                (typeof application.schemaStatus === 'string' && WORKSPACE_INSTALLED_SCHEMA_STATUSES.has(application.schemaStatus))
+            const workspacePolicy = parseWorkspaceModePolicy(
+                isRecord(snapshot.runtimePolicy) ? snapshot.runtimePolicy.workspaceMode : undefined
+            )
+            const workspaceMode = buildWorkspaceModePreview({
+                policy: workspacePolicy,
+                requested: connectorSchemaOptions.workspaceModeRequested,
+                applicationWorkspacesEnabled: application.workspacesEnabled === true,
+                schemaAlreadyInstalled,
+                acknowledgementReceived: connectorSchemaOptions.acknowledgementReceived
+            })
+            const workspaceRuntimePayload = {
+                runtimePolicy: { workspaceMode: workspacePolicy },
+                schemaOptions: connectorSchemaOptions.options,
+                workspaceMode
+            }
+
             const { generator, migrator, migrationManager } = getApplicationSyncDdlServices()
 
             const schemaName = application.schemaName || generateSchemaName(application.id)
@@ -470,6 +616,7 @@ export function createSyncController(
                 const additive = createTables.map((t) => `Create table "${t.codename}" with ${t.fields.length} field(s)`)
 
                 return res.json({
+                    ...workspaceRuntimePayload,
                     schemaExists: false,
                     schemaName,
                     diff: {
@@ -507,6 +654,7 @@ export function createSyncController(
                 const widgetsNeedUpdate = await hasPublishedWidgetsChanges({ schemaName, snapshot })
                 const hasUiChanges = uiNeedsUpdate || layoutsNeedUpdate || widgetsNeedUpdate || layoutChanges.length > 0
                 return res.json({
+                    ...workspaceRuntimePayload,
                     schemaExists: true,
                     schemaName,
                     diff: {
@@ -593,6 +741,7 @@ export function createSyncController(
             const destructiveStructured: DiffStructuredChange[] = diff.destructive.map((c: SchemaChange) => mapStructuredChange(c))
 
             return res.json({
+                ...workspaceRuntimePayload,
                 schemaExists: true,
                 schemaName,
                 diff: {

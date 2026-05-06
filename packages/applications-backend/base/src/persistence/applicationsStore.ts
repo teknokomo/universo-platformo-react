@@ -821,15 +821,17 @@ export async function copyApplicationWithOptions(
                     connector_id,
                     publication_id,
                     sort_order,
+                    schema_options,
                     _upl_created_by,
                     _upl_updated_by
                 )
-                SELECT
-                    sc.new_id,
-                    cp.publication_id,
-                    cp.sort_order,
-                    $3,
-                    $4
+                    SELECT
+                        sc.new_id,
+                        cp.publication_id,
+                        cp.sort_order,
+                        cp.schema_options,
+                        $3,
+                        $4
                 FROM source_connectors sc
                 JOIN applications.rel_connector_publications cp ON cp.connector_id = sc.source_id
                                 WHERE ${activeRowPredicate('cp')}

@@ -173,8 +173,7 @@ test('@flow @combined @slow combined and split publication setup both create usa
         const splitLinkedResult = await createPublicationLinkedApplication(api, splitMetahub.id, splitPublication.id, {
             name: { en: `E2E ${runManifest.runId} Split App` },
             namePrimaryLocale: 'en',
-            createApplicationSchema: false,
-            workspacesEnabled: true
+            createApplicationSchema: false
         })
 
         if (!splitLinkedResult?.application?.id) {
@@ -186,7 +185,12 @@ test('@flow @combined @slow combined and split publication setup both create usa
             slug: splitLinkedResult.application.slug
         })
 
-        await syncApplicationSchema(api, splitLinkedResult.application.id)
+        await syncApplicationSchema(api, splitLinkedResult.application.id, {
+            schemaOptions: {
+                workspaceModeRequested: 'enabled',
+                acknowledgeIrreversibleWorkspaceEnablement: true
+            }
+        })
         await waitForApplicationReady(api, splitLinkedResult.application.id)
         await waitForConnectors(api, splitLinkedResult.application.id)
 

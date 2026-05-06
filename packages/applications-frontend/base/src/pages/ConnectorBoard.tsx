@@ -159,7 +159,14 @@ const ConnectorBoard = () => {
         setDiffDialogOpen(true)
     }
 
-    const handleSyncConfirm = async (confirmDestructive: boolean, layoutResolutionPolicy?: ApplicationLayoutSyncPolicy) => {
+    const handleSyncConfirm = async (
+        confirmDestructive: boolean,
+        layoutResolutionPolicy?: ApplicationLayoutSyncPolicy,
+        schemaOptions?: {
+            workspaceModeRequested?: 'enabled' | 'not_requested' | null
+            acknowledgeIrreversibleWorkspaceEnablement?: boolean
+        }
+    ) => {
         if (!applicationId) {
             return
         }
@@ -167,7 +174,8 @@ const ConnectorBoard = () => {
             await syncMutation.mutateAsync({
                 applicationId,
                 confirmDestructive,
-                layoutResolutionPolicy
+                layoutResolutionPolicy,
+                schemaOptions
             })
             setDiffDialogOpen(false)
         } catch (error) {

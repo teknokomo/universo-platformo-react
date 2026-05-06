@@ -25,6 +25,12 @@ export const STANDARD_ENUMERATION_DESCRIPTION = vlc(
     'Стандартный тип перечисления для перечислимых значений и design-time автоматизации.'
 )
 
+export const STANDARD_PAGE_NAME = vlc('Pages', 'Страницы')
+export const STANDARD_PAGE_DESCRIPTION = vlc(
+    'Standard page entity type for structured block content stored on metadata objects.',
+    'Стандартный тип страницы для структурированного блочного контента, хранящегося в объектах метаданных.'
+)
+
 export const HUB_TYPE_COMPONENTS: ComponentManifest = {
     dataSchema: false,
     records: false,
@@ -37,6 +43,7 @@ export const HUB_TYPE_COMPONENTS: ComponentManifest = {
     actions: { enabled: true },
     events: { enabled: true },
     scripting: { enabled: true },
+    blockContent: false,
     layoutConfig: false,
     runtimeBehavior: false,
     physicalTable: false
@@ -71,6 +78,7 @@ export const CATALOG_TYPE_COMPONENTS: ComponentManifest = {
     actions: { enabled: true },
     events: { enabled: true },
     scripting: { enabled: true },
+    blockContent: false,
     layoutConfig: { enabled: true },
     runtimeBehavior: { enabled: true },
     physicalTable: { enabled: true, prefix: 'cat' }
@@ -80,7 +88,7 @@ export const CATALOG_TYPE_UI: EntityTypeUIConfig = {
     iconName: 'IconDatabase',
     tabs: ['general', 'hubs', 'layout', 'scripts'],
     sidebarSection: 'objects',
-    sidebarOrder: 20,
+    sidebarOrder: 30,
     nameKey: 'metahubs:catalogs.title',
     resourceSurfaces: [FIELD_DEFINITIONS_RESOURCE_SURFACE]
 }
@@ -88,7 +96,7 @@ export const CATALOG_TYPE_UI: EntityTypeUIConfig = {
 export const SET_TYPE_COMPONENTS: ComponentManifest = {
     dataSchema: { enabled: true },
     records: false,
-    treeAssignment: false,
+    treeAssignment: { enabled: true },
     optionValues: false,
     fixedValues: { enabled: true },
     hierarchy: false,
@@ -97,6 +105,7 @@ export const SET_TYPE_COMPONENTS: ComponentManifest = {
     actions: { enabled: true },
     events: { enabled: true },
     scripting: { enabled: true },
+    blockContent: false,
     layoutConfig: { enabled: true },
     runtimeBehavior: false,
     physicalTable: false
@@ -104,9 +113,9 @@ export const SET_TYPE_COMPONENTS: ComponentManifest = {
 
 export const SET_TYPE_UI: EntityTypeUIConfig = {
     iconName: 'IconFileText',
-    tabs: ['general', 'scripts'],
+    tabs: ['general', 'hubs', 'scripts'],
     sidebarSection: 'objects',
-    sidebarOrder: 30,
+    sidebarOrder: 40,
     nameKey: 'metahubs:sets.title',
     resourceSurfaces: [
         {
@@ -123,7 +132,7 @@ export const SET_TYPE_UI: EntityTypeUIConfig = {
 export const ENUMERATION_TYPE_COMPONENTS: ComponentManifest = {
     dataSchema: false,
     records: false,
-    treeAssignment: false,
+    treeAssignment: { enabled: true },
     optionValues: { enabled: true },
     fixedValues: false,
     hierarchy: false,
@@ -132,6 +141,7 @@ export const ENUMERATION_TYPE_COMPONENTS: ComponentManifest = {
     actions: { enabled: true },
     events: { enabled: true },
     scripting: { enabled: true },
+    blockContent: false,
     layoutConfig: false,
     runtimeBehavior: false,
     physicalTable: false
@@ -139,9 +149,9 @@ export const ENUMERATION_TYPE_COMPONENTS: ComponentManifest = {
 
 export const ENUMERATION_TYPE_UI: EntityTypeUIConfig = {
     iconName: 'IconFiles',
-    tabs: ['general', 'scripts'],
+    tabs: ['general', 'hubs', 'scripts'],
     sidebarSection: 'objects',
-    sidebarOrder: 40,
+    sidebarOrder: 50,
     nameKey: 'metahubs:enumerations.title',
     resourceSurfaces: [
         {
@@ -155,11 +165,85 @@ export const ENUMERATION_TYPE_UI: EntityTypeUIConfig = {
     ]
 }
 
+export const PAGE_TYPE_COMPONENTS: ComponentManifest = {
+    dataSchema: false,
+    records: false,
+    treeAssignment: { enabled: true, isSingleHub: false, isRequiredHub: false },
+    optionValues: false,
+    fixedValues: false,
+    hierarchy: false,
+    nestedCollections: false,
+    relations: false,
+    actions: { enabled: true },
+    events: { enabled: true },
+    scripting: { enabled: true },
+    blockContent: {
+        enabled: true,
+        storage: 'objectConfig',
+        defaultFormat: 'editorjs',
+        supportedFormats: ['editorjs'],
+        allowedBlockTypes: ['paragraph', 'header', 'list', 'quote', 'table', 'image', 'embed', 'delimiter'],
+        maxBlocks: 500
+    },
+    layoutConfig: { enabled: true },
+    runtimeBehavior: { enabled: true },
+    physicalTable: false
+}
+
+export const PAGE_TYPE_UI: EntityTypeUIConfig = {
+    iconName: 'IconFileText',
+    tabs: ['general', 'hubs', 'content', 'layout', 'scripts'],
+    sidebarSection: 'objects',
+    sidebarOrder: 20,
+    nameKey: 'metahubs:pages.title'
+}
+
 export const HUB_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
     {
         codename: 'MainHub',
         name: vlc('Main', 'Основной'),
         description: vlc('Main hub for organizing metahub content', 'Основной хаб для организации контента метахаба')
+    }
+]
+
+export const PAGE_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
+    {
+        codename: 'WelcomePage',
+        name: vlc('Welcome', 'Добро пожаловать'),
+        description: vlc('Starter page with structured block content.', 'Стартовая страница со структурированным блочным контентом.'),
+        config: {
+            blockContent: {
+                format: 'editorjs',
+                data: {
+                    time: 0,
+                    version: '2.29.1',
+                    blocks: [
+                        {
+                            id: 'welcome-title',
+                            type: 'header',
+                            data: {
+                                text: vlc('Welcome', 'Добро пожаловать'),
+                                level: 2
+                            }
+                        },
+                        {
+                            id: 'welcome-body',
+                            type: 'paragraph',
+                            data: {
+                                text: vlc(
+                                    'Use this page to publish structured application content.',
+                                    'Используйте эту страницу для публикации структурированного контента приложения.'
+                                )
+                            }
+                        }
+                    ]
+                }
+            },
+            runtime: {
+                routeSegment: 'welcome',
+                menuVisibility: 'visible'
+            }
+        }
     }
 ]
 

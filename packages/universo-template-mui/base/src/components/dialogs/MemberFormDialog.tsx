@@ -6,6 +6,8 @@ import { memberFormSchema, type MemberFormData, type MemberRole, type VersionedL
 import { LocalizedInlineField } from '../forms/LocalizedInlineField'
 import { mergeDialogPaperProps, mergeDialogSx, useDialogPresentation } from './dialogPresentation'
 
+type LocalizedCommentEntry = NonNullable<VersionedLocalizedContent<string>['locales']>[string]
+
 export interface MemberFormDialogProps {
     open: boolean
     title: string
@@ -126,13 +128,16 @@ export const MemberFormDialog: React.FC<MemberFormDialogProps> = ({
 
     const normalizedCommentVlc = useMemo(() => {
         if (!commentVlcState?.locales) return null
-        const nextLocales = Object.entries(commentVlcState.locales).reduce<Record<string, any>>((acc, [locale, entry]) => {
-            if (!entry || typeof entry.content !== 'string') return acc
-            const trimmed = entry.content.trim()
-            if (trimmed.length === 0) return acc
-            acc[locale] = { ...entry, content: trimmed }
-            return acc
-        }, {})
+        const nextLocales = Object.entries(commentVlcState.locales).reduce<Record<string, LocalizedCommentEntry>>(
+            (acc, [locale, entry]) => {
+                if (!entry || typeof entry.content !== 'string') return acc
+                const trimmed = entry.content.trim()
+                if (trimmed.length === 0) return acc
+                acc[locale] = { ...entry, content: trimmed }
+                return acc
+            },
+            {}
+        )
 
         const localeCodes = Object.keys(nextLocales)
         if (localeCodes.length === 0) return null
@@ -146,7 +151,7 @@ export const MemberFormDialog: React.FC<MemberFormDialogProps> = ({
 
     const localizedMaxLength = useMemo(() => {
         if (!commentVlcState?.locales) return 0
-        return Object.values(commentVlcState.locales).reduce((max, entry: any) => {
+        return Object.values(commentVlcState.locales).reduce((max, entry) => {
             const length = typeof entry?.content === 'string' ? entry.content.trim().length : 0
             return Math.max(max, length)
         }, 0)

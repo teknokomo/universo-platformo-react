@@ -63,6 +63,9 @@ const MetahubMigrationGuard = Loadable(
 )
 const MetahubMembers = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubMembers }))))
 const EntityInstanceList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.EntityInstanceList }))))
+const EntityBlockContentPage = Loadable(
+    lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.EntityBlockContentPage })))
+)
 const MetahubSettings = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m: any) => ({ default: m.MetahubSettings }))))
 const PublicationVersionList = Loadable(
     lazy(() => import('@universo/metahubs-frontend').then((m: any) => ({ default: m.PublicationVersionList })))
@@ -258,6 +261,7 @@ const MainRoutes = {
                 { path: 'resources', element: <MetahubResources /> },
                 { path: 'entities', element: <EntitiesWorkspace /> },
                 { path: 'entities/:kindKey/instances', element: <EntityInstanceList /> },
+                { path: 'entities/:kindKey/instance/:entityId/content', element: <EntityBlockContentPage /> },
                 { path: 'resources/layouts/:layoutId', element: <MetahubLayoutDetails /> },
                 { path: 'entities/:kindKey/instance/:linkedCollectionId/layout/:layoutId', element: <MetahubLayoutDetails /> },
                 { path: 'entities/:kindKey/instance/:linkedCollectionId/field-definitions', element: <FieldDefinitionList /> },

@@ -21,23 +21,29 @@ export interface ConfirmSpec {
     descriptionKey?: string
     confirmKey?: string
     cancelKey?: string
-    interpolate?: Record<string, any>
+    interpolate?: Record<string, unknown>
 }
+
+export type TranslationFunction = (key: string, params?: Record<string, unknown> | string) => string
+export type SnackbarOptions = { variant?: 'default' | 'error' | 'success' | 'warning' | 'info' }
+export type SnackbarNotifier =
+    | ((payload: { message: string; options?: SnackbarOptions }) => void)
+    | ((message: string, options?: SnackbarOptions) => void)
 
 /**
  * Dialog configuration for an action
  * Generic types allow type-safe context handling
  */
-export interface DialogConfig<TEntity = any, TData = any> {
-    loader: () => Promise<{ default: React.ComponentType<any> }>
-    buildProps: (ctx: ActionContext<TEntity, TData>) => Record<string, any>
+export interface DialogConfig<TEntity = unknown, TData = unknown> {
+    loader: () => Promise<{ default: React.ElementType }>
+    buildProps: (ctx: ActionContext<TEntity, TData>) => Record<string, unknown>
 }
 
 /**
  * Action descriptor defining a single menu action
  * Generic types ensure type safety across the action pipeline
  */
-export interface ActionDescriptor<TEntity = any, TData = any> {
+export interface ActionDescriptor<TEntity = unknown, TData = unknown> {
     id: string
     labelKey: string
     icon?: React.ReactNode | (() => React.ReactNode)
@@ -59,18 +65,16 @@ export interface ActionDescriptor<TEntity = any, TData = any> {
  * Generic type TEntity allows for type-safe entity access
  * Generic type TData allows for type-safe update data
  */
-export interface ActionContext<TEntity = any, TData = any> {
+export interface ActionContext<TEntity = unknown, TData = unknown> {
     entity: TEntity
     entityKind: string
-    t: (key: string, params?: any) => string
+    t: TranslationFunction
     api?: {
         updateEntity?: (id: string, data: TData) => Promise<void>
         deleteEntity?: (id: string) => Promise<void>
     }
     helpers?: {
-        enqueueSnackbar?:
-            | ((payload: { message: string; options?: { variant?: 'default' | 'error' | 'success' | 'warning' | 'info' } }) => void)
-            | ((message: string, options?: { variant?: 'default' | 'error' | 'success' | 'warning' | 'info' }) => void)
+        enqueueSnackbar?: SnackbarNotifier
         confirm?: (config: {
             title: string
             description?: string
@@ -81,19 +85,19 @@ export interface ActionContext<TEntity = any, TData = any> {
         openDeleteDialog?: (entity: TEntity) => void
         openEditDialog?: (entity: TEntity) => void | Promise<void>
         openCopyDialog?: (entity: TEntity) => void | Promise<void>
-        closeSnackbar?: (key: any) => void
+        closeSnackbar?: (key: unknown) => void
         openWindow?: (url: string) => void
     }
-    meta?: Record<string, any>
-    runtime?: Record<string, any>
-    [key: string]: any
+    meta?: Record<string, unknown>
+    runtime?: Record<string, unknown>
+    [key: string]: unknown
 }
 
 /**
  * Props for BaseEntityMenu component
  * Generic types provide type safety for entity and data operations
  */
-export interface BaseEntityMenuProps<TEntity = any, TData = any> {
+export interface BaseEntityMenuProps<TEntity = unknown, TData = unknown> {
     /** Entity object being acted upon */
     entity: TEntity
     /** Entity type identifier (e.g., 'metaverse', 'cluster', 'unik') */
@@ -111,7 +115,7 @@ export interface BaseEntityMenuProps<TEntity = any, TData = any> {
     /** Factory function to create action context */
     createContext: (base: Partial<ActionContext<TEntity, TData>>) => ActionContext<TEntity, TData>
     /** Additional context properties to merge */
-    contextExtras?: Record<string, any>
+    contextExtras?: Record<string, unknown>
 }
 
 /**
@@ -119,8 +123,8 @@ export interface BaseEntityMenuProps<TEntity = any, TData = any> {
  */
 interface DialogState {
     id: string
-    Comp: React.ComponentType<any>
-    props: Record<string, any>
+    Comp: React.ElementType
+    props: Record<string, unknown>
 }
 
 /**
@@ -149,7 +153,7 @@ interface DialogState {
  * />
  * ```
  */
-export const BaseEntityMenu = <TEntity = any, TData = any>({
+export const BaseEntityMenu = <TEntity = unknown, TData = unknown>({
     entity,
     entityKind,
     descriptors,
@@ -176,7 +180,7 @@ export const BaseEntityMenu = <TEntity = any, TData = any>({
     const ctx = createContext({
         entity,
         entityKind,
-        t,
+        t: t as TranslationFunction,
         ...contextExtras
     })
 
@@ -185,14 +189,14 @@ export const BaseEntityMenu = <TEntity = any, TData = any>({
         .filter((d) => !d.visible || d.visible(ctx))
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
 
-    const groups: Record<string, ActionDescriptor[]> = {}
+    const groups: Record<string, ActionDescriptor<TEntity, TData>[]> = {}
     visible.forEach((d) => {
         const g = d.group || '_default'
         if (!groups[g]) groups[g] = []
         groups[g].push(d)
     })
 
-    const doAction = async (event: React.MouseEvent<HTMLElement>, d: ActionDescriptor) => {
+    const doAction = async (event: React.MouseEvent<HTMLElement>, d: ActionDescriptor<TEntity, TData>) => {
         event.preventDefault()
         event.stopPropagation()
         if (busyActionId) return
@@ -228,8 +232,8 @@ export const BaseEntityMenu = <TEntity = any, TData = any>({
             if (ctx.helpers?.enqueueSnackbar) {
                 const enqueue = ctx.helpers.enqueueSnackbar
                 const candidateMessage =
-                    e && typeof e === 'object' && 'message' in e && typeof (e as any).message === 'string'
-                        ? (e as any).message
+                    e && typeof e === 'object' && 'message' in e && typeof (e as { message?: unknown }).message === 'string'
+                        ? (e as { message: string }).message
                         : typeof e === 'string'
                         ? e
                         : 'Action failed'
@@ -330,7 +334,14 @@ export const BaseEntityMenu = <TEntity = any, TData = any>({
                                         {IconNode && (
                                             <span
                                                 className='base-entity-menu-icon'
-                                                style={{ display: 'inline-flex', marginRight: 10, alignItems: 'center' }}
+                                                style={{
+                                                    display: 'inline-flex',
+                                                    width: 24,
+                                                    minWidth: 24,
+                                                    marginRight: 10,
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center'
+                                                }}
                                             >
                                                 {IconNode}
                                             </span>
@@ -345,27 +356,31 @@ export const BaseEntityMenu = <TEntity = any, TData = any>({
                     </React.Fragment>
                 ))}
             </Menu>
-            {dialogState && (
-                <Suspense fallback={null}>
-                    <dialogState.Comp
-                        {...dialogState.props}
-                        onCancel={() => setDialogState(null)}
-                        onClose={() => setDialogState(null)}
-                        onSubmit={
-                            dialogState.props.onSubmit
-                                ? async (...args: unknown[]) => {
-                                      try {
-                                          await dialogState.props.onSubmit(...args)
-                                          setDialogState(null)
-                                      } catch {
-                                          // Dialog stays open; the original onSubmit handler manages its own error state
-                                      }
-                                  }
-                                : undefined
-                        }
-                    />
-                </Suspense>
-            )}
+            {dialogState &&
+                (() => {
+                    const dialogOnSubmit = dialogState.props.onSubmit
+                    return (
+                        <Suspense fallback={null}>
+                            <dialogState.Comp
+                                {...dialogState.props}
+                                onCancel={() => setDialogState(null)}
+                                onClose={() => setDialogState(null)}
+                                onSubmit={
+                                    typeof dialogOnSubmit === 'function'
+                                        ? async (...args: unknown[]) => {
+                                              try {
+                                                  await dialogOnSubmit(...args)
+                                                  setDialogState(null)
+                                              } catch {
+                                                  // Dialog stays open; the original onSubmit handler manages its own error state
+                                              }
+                                          }
+                                        : undefined
+                                }
+                            />
+                        </Suspense>
+                    )
+                })()}
         </>
     )
 }

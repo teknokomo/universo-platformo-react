@@ -118,7 +118,7 @@ const renderBreadcrumbs = (path: string) => {
     return render(
         <ThemeProvider theme={theme}>
             <QueryClientProvider client={queryClient}>
-                <MemoryRouter initialEntries={[path]}>
+                <MemoryRouter initialEntries={[path]} future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
                     <NavbarBreadcrumbs />
                 </MemoryRouter>
             </QueryClientProvider>
@@ -177,5 +177,70 @@ describe('NavbarBreadcrumbs', () => {
             expect(screen.getByText('Sets')).toBeInTheDocument()
         })
         expect(screen.getByRole('link', { name: 'Entities' })).toHaveAttribute('href', '/metahub/mhb-1/entities')
+    })
+
+    it('uses localized entity type presentation for Page breadcrumbs', async () => {
+        mockClientGet.mockImplementation((path: string) => {
+            if (path === '/metahub/mhb-1') {
+                return Promise.resolve({
+                    data: {
+                        name: {
+                            _schema: 'v1',
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'LMS Portal' },
+                                ru: { content: 'Учебный портал LMS' }
+                            }
+                        }
+                    }
+                })
+            }
+
+            if (path === '/metahub/mhb-1/entity-types') {
+                return Promise.resolve({
+                    data: {
+                        items: [
+                            {
+                                kindKey: 'page',
+                                codename: {
+                                    _schema: 'v1',
+                                    _primary: 'en',
+                                    locales: {
+                                        en: { content: 'Page' },
+                                        ru: { content: 'Страница' }
+                                    }
+                                },
+                                presentation: {
+                                    name: {
+                                        _schema: 'v1',
+                                        _primary: 'en',
+                                        locales: {
+                                            en: { content: 'Pages' },
+                                            ru: { content: 'Страницы' }
+                                        }
+                                    }
+                                },
+                                ui: {
+                                    nameKey: 'metahubs:pages.title'
+                                }
+                            }
+                        ]
+                    }
+                })
+            }
+
+            return Promise.reject(new Error(`Unexpected breadcrumb request: ${path}`))
+        })
+
+        renderBreadcrumbs('/metahub/mhb-1/entities/page/instances')
+
+        expect(screen.getByText('Pages')).toBeInTheDocument()
+        expect(screen.queryByText('pages')).not.toBeInTheDocument()
+
+        await waitFor(() => {
+            expect(screen.getByText('Pages')).toBeInTheDocument()
+        })
+        expect(screen.queryByText('pages')).not.toBeInTheDocument()
+        expect(screen.queryByText('metahubs:pages.title')).not.toBeInTheDocument()
     })
 })

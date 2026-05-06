@@ -114,6 +114,15 @@ function createAppData(): AppDataResponse {
     }
 }
 
+function createRuntimeSection(id: string, name: string): NonNullable<AppDataResponse['sections']>[number] {
+    return {
+        id,
+        codename: id,
+        tableName: id,
+        name
+    }
+}
+
 function createAdapter(overrides: Partial<CrudDataAdapter> = {}): CrudDataAdapter {
     return {
         queryKeyPrefix: ['runtime', 'app-1'],
@@ -157,6 +166,126 @@ function renderCrudDashboard(adapter: CrudDataAdapter) {
 }
 
 describe('useCrudDashboard optimistic mutations', () => {
+    it('suppresses stale fallback section data while resolving the menu start section', async () => {
+        const accessLinksSection = createRuntimeSection('access-links', 'Access Links')
+        const welcomeSection = createRuntimeSection('welcome-page', 'Welcome')
+        const secondList = createDeferred<AppDataResponse>()
+        const fetchList = vi
+            .fn()
+            .mockResolvedValueOnce({
+                ...createAppData(),
+                section: accessLinksSection,
+                linkedCollection: accessLinksSection,
+                sections: [accessLinksSection, welcomeSection],
+                linkedCollections: [accessLinksSection, welcomeSection],
+                activeSectionId: 'access-links',
+                activeLinkedCollectionId: 'access-links',
+                columns: [
+                    {
+                        id: 'access-slug',
+                        codename: 'slug',
+                        field: 'slug',
+                        dataType: 'STRING',
+                        headerName: 'Slug',
+                        isRequired: false,
+                        validationRules: {},
+                        uiConfig: {}
+                    }
+                ],
+                rows: [{ id: 'access-row-1', slug: 'demo-module' }],
+                pagination: { total: 1, limit: 20, offset: 0 },
+                menus: [
+                    {
+                        id: 'menu-1',
+                        widgetId: 'runtime-menu',
+                        showTitle: false,
+                        title: 'Main',
+                        startSectionId: 'welcome-page',
+                        items: [
+                            {
+                                id: 'home',
+                                kind: 'page',
+                                title: 'Home',
+                                linkedCollectionId: 'welcome-page',
+                                sectionId: 'welcome-page',
+                                isActive: true
+                            },
+                            {
+                                id: 'access',
+                                kind: 'section',
+                                title: 'Access Links',
+                                linkedCollectionId: 'access-links',
+                                sectionId: 'access-links',
+                                isActive: true
+                            }
+                        ],
+                        overflowItems: []
+                    }
+                ],
+                activeMenuId: 'menu-1'
+            } satisfies AppDataResponse)
+            .mockImplementationOnce(() => secondList.promise)
+
+        const adapter = createAdapter({ fetchList })
+        const { getState } = renderCrudDashboard(adapter)
+
+        await waitFor(() => {
+            expect(fetchList).toHaveBeenCalledTimes(2)
+        })
+
+        expect(fetchList).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                linkedCollectionId: 'welcome-page',
+                sectionId: 'welcome-page'
+            })
+        )
+        expect(getState().isLoading).toBe(true)
+        expect(getState().appData).toBeUndefined()
+        expect(getState().rows).toEqual([])
+
+        await act(async () => {
+            secondList.resolve({
+                ...createAppData(),
+                section: welcomeSection,
+                linkedCollection: welcomeSection,
+                sections: [accessLinksSection, welcomeSection],
+                linkedCollections: [accessLinksSection, welcomeSection],
+                activeSectionId: 'welcome-page',
+                activeLinkedCollectionId: 'welcome-page',
+                columns: [],
+                rows: [],
+                pagination: { total: 0, limit: 20, offset: 0 },
+                menus: [
+                    {
+                        id: 'menu-1',
+                        widgetId: 'runtime-menu',
+                        showTitle: false,
+                        title: 'Main',
+                        startSectionId: 'welcome-page',
+                        items: [
+                            {
+                                id: 'home',
+                                kind: 'page',
+                                title: 'Home',
+                                linkedCollectionId: 'welcome-page',
+                                sectionId: 'welcome-page',
+                                isActive: true
+                            }
+                        ],
+                        overflowItems: []
+                    }
+                ],
+                activeMenuId: 'menu-1'
+            })
+        })
+
+        await waitFor(() => {
+            expect(getState().isLoading).toBe(false)
+            expect(getState().appData?.activeSectionId).toBe('welcome-page')
+            expect(getState().selectedLinkedCollectionId).toBe('welcome-page')
+        })
+    })
+
     it('exposes section aliases and section-aware menu items while keeping catalog compatibility', async () => {
         const adapter = createAdapter({
             fetchList: vi.fn().mockResolvedValue({
