@@ -37,6 +37,17 @@ type LocalizedTextValue = {
 
 const SUPPORTED_BLOCK_TYPE_SET = new Set<string>(SUPPORTED_PAGE_BLOCK_TYPES)
 
+function warnUnsupportedBlockTypes(blockTypes: readonly string[]): void {
+    if (blockTypes.length === 0) {
+        return
+    }
+
+    console.warn(
+        `[EditorJsBlockEditor] Ignoring unsupported page block type(s): ${blockTypes.join(', ')}. ` +
+            'Check the entity blockContent component configuration.'
+    )
+}
+
 export async function loadEditorJsToolBundle(): Promise<EditorJsToolBundle> {
     const [header, list, quote, table, embed, delimiter, image] = await Promise.all([
         import('@editorjs/header'),
@@ -61,9 +72,17 @@ export async function loadEditorJsToolBundle(): Promise<EditorJsToolBundle> {
 
 export function normalizeAllowedBlockTypes(allowedBlockTypes?: readonly string[]): SupportedPageBlockType[] {
     const source = allowedBlockTypes && allowedBlockTypes.length > 0 ? allowedBlockTypes : SUPPORTED_PAGE_BLOCK_TYPES
+    const unsupported = source.filter((type) => !SUPPORTED_BLOCK_TYPE_SET.has(type))
+    warnUnsupportedBlockTypes(unsupported)
+
     const normalized = source.filter((type): type is SupportedPageBlockType => SUPPORTED_BLOCK_TYPE_SET.has(type))
 
-    return normalized.length > 0 ? normalized : ['paragraph']
+    if (normalized.length > 0) {
+        return normalized
+    }
+
+    console.warn('[EditorJsBlockEditor] No supported page block types were configured. Falling back to paragraph blocks only.')
+    return ['paragraph']
 }
 
 export function buildEditorJsTools(bundle: EditorJsToolBundle, allowedBlockTypes?: readonly string[]): EditorJsToolConfig {

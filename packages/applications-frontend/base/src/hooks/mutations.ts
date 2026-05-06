@@ -75,7 +75,7 @@ export function useCreateApplication() {
 
     return useMutation({
         mutationKey: ['applications', 'create'],
-        mutationFn: async (data: applicationsApi.ApplicationInput) => {
+        mutationFn: async (data: applicationsApi.ApplicationCreateInput) => {
             const response = await applicationsApi.createApplication(data)
             return response.data
         },

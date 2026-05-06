@@ -169,6 +169,7 @@ export const EntityBlockContentPage = () => {
         conflict: ConflictInfo | null
         patch: UpdateEntityInstancePayload | null
     }>({ open: false, conflict: null, patch: null })
+    const [isResolvingConflict, setIsResolvingConflict] = useState(false)
 
     useEffect(() => {
         if (!entity) {
@@ -370,13 +371,18 @@ export const EntityBlockContentPage = () => {
         void queryClient.invalidateQueries({ queryKey: metahubId && entityId ? metahubsQueryKeys.entityDetail(metahubId, entityId) : [] })
     }
 
-    const handleOverwriteConflict = () => {
-        if (!conflictState.patch) {
+    const handleOverwriteConflict = async () => {
+        if (!conflictState.patch || isResolvingConflict) {
             return
         }
 
         const { expectedVersion: _ignored, ...patchWithoutVersion } = conflictState.patch
-        void handleSave(patchWithoutVersion)
+        setIsResolvingConflict(true)
+        try {
+            await handleSave(patchWithoutVersion)
+        } finally {
+            setIsResolvingConflict(false)
+        }
     }
 
     if (entityTypesQuery.isLoading || entityQuery.isLoading) {
@@ -543,7 +549,7 @@ export const EntityBlockContentPage = () => {
                     onCancel={() => setConflictState({ open: false, conflict: null, patch: null })}
                     onReload={handleReloadAfterConflict}
                     onOverwrite={handleOverwriteConflict}
-                    isLoading={updateEntityMutation.isPending}
+                    isLoading={updateEntityMutation.isPending || isResolvingConflict}
                 />
             </Stack>
         </MainCard>

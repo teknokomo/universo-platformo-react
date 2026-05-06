@@ -51,6 +51,35 @@ const DEFAULT_LABELS: Required<EditorJsBlockEditorLabels> = {
 
 const EDITOR_HOLDER_MIN_HEIGHT = 280
 
+function stableSerializeEditorValue(input: unknown): string {
+    const seen = new WeakSet<object>()
+
+    return (
+        JSON.stringify(input, (_key, value) => {
+            if (!value || typeof value !== 'object' || Array.isArray(value)) {
+                return value
+            }
+
+            if (seen.has(value)) {
+                return '[Circular]'
+            }
+            seen.add(value)
+
+            const record = value as Record<string, unknown>
+            return Object.keys(record)
+                .sort()
+                .reduce<Record<string, unknown>>((result, key) => {
+                    result[key] = record[key]
+                    return result
+                }, {})
+        }) ?? ''
+    )
+}
+
+function buildEditorValueSignature(value: PageBlockContent, contentLocale: string): string {
+    return stableSerializeEditorValue({ contentLocale, value })
+}
+
 function buildEditorJsI18n(locale?: string): Record<string, unknown> | undefined {
     const normalizedLocale = (locale ?? 'en').split(/[-_]/)[0].toLowerCase()
 
@@ -205,7 +234,7 @@ export function EditorJsBlockEditor({
     }, [onValidationError])
 
     useEffect(() => {
-        const nextValueJson = JSON.stringify({ value, contentLocale: resolvedContentLocale })
+        const nextValueJson = buildEditorValueSignature(value, resolvedContentLocale)
         initialValueRef.current = value
         setFallbackText(JSON.stringify(value, null, 2))
 
@@ -247,10 +276,7 @@ export function EditorJsBlockEditor({
                 }
 
                 const initialEditorData = toEditorJsOutputData(initialValueRef.current, resolvedContentLocale)
-                const initialEditorValueJson = JSON.stringify({
-                    value: initialValueRef.current,
-                    contentLocale: resolvedContentLocale
-                })
+                const initialEditorValueJson = buildEditorValueSignature(initialValueRef.current, resolvedContentLocale)
 
                 const editor = new EditorJS({
                     holder: holderRef.current,
@@ -273,10 +299,7 @@ export function EditorJsBlockEditor({
                                     validationOptions
                                 )
                                 initialValueRef.current = normalized
-                                lastAppliedValueJsonRef.current = JSON.stringify({
-                                    value: normalized,
-                                    contentLocale: resolvedContentLocale
-                                })
+                                lastAppliedValueJsonRef.current = buildEditorValueSignature(normalized, resolvedContentLocale)
                                 onValidationErrorRef.current?.(null)
                                 onChangeRef.current(normalized)
                             } catch (error) {
@@ -295,10 +318,7 @@ export function EditorJsBlockEditor({
                 }
 
                 editorRef.current = editor
-                const currentValueJson = JSON.stringify({
-                    value: initialValueRef.current,
-                    contentLocale: resolvedContentLocale
-                })
+                const currentValueJson = buildEditorValueSignature(initialValueRef.current, resolvedContentLocale)
                 if (currentValueJson !== initialEditorValueJson) {
                     await editor.render?.(toEditorJsOutputData(initialValueRef.current, resolvedContentLocale))
                 }
@@ -347,7 +367,7 @@ export function EditorJsBlockEditor({
         setFallbackText(nextValue)
         try {
             const parsed = normalizePageBlockContentForStorage(JSON.parse(nextValue), validationOptions)
-            lastAppliedValueJsonRef.current = JSON.stringify({ value: parsed, contentLocale: resolvedContentLocale })
+            lastAppliedValueJsonRef.current = buildEditorValueSignature(parsed, resolvedContentLocale)
             onValidationError?.(null)
             onChange(parsed)
         } catch (error) {

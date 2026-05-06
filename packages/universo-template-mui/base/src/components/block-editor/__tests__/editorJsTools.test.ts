@@ -26,9 +26,15 @@ const mockBundle: EditorJsToolBundle = {
 
 describe('editorJsTools', () => {
     it('normalizes allowed block types and falls back to paragraph for invalid configs', () => {
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined)
+
         expect(normalizeAllowedBlockTypes(['header', 'unknown', 'list'])).toEqual(['header', 'list'])
         expect(normalizeAllowedBlockTypes(['unknown'])).toEqual(['paragraph'])
         expect(normalizeAllowedBlockTypes()).toContain('paragraph')
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Ignoring unsupported page block type(s): unknown'))
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Falling back to paragraph blocks only'))
+
+        warnSpy.mockRestore()
     })
 
     it('builds Editor.js tools only for block types enabled by the entity component config', () => {
