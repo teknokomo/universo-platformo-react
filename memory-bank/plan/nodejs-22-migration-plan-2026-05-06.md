@@ -76,7 +76,7 @@ The goal is to migrate the Universo Platformo project from Node.js 20.19.4 to No
   pnpm list --depth=inf 2>/dev/null | grep -E "isolated-vm|sharp|bcrypt|sqlite3|node-sass|better-sqlite3"
   ```
   - Expected: Only `isolated-vm` should appear
-  - Risk Level: Low (isolated-vm 5.0.4 supports Node.js 22)
+  - Risk Level: High (isolated-vm 5.0.4 does NOT support Node.js 22, upgrade required)
 
 - [ ] **Step 1.2**: Verify isolated-vm compatibility ⚠️ **CRITICAL UPDATE**
   ```bash
