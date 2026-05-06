@@ -204,6 +204,9 @@
 ## Build, Test, And Tooling Notes
 
 - Package management: PNPM workspaces.
+- **Node.js version**: >=22.6.0 REQUIRED (for isolated-vm 6.x compatibility).
+- **isolated-vm**: Version 6.x required for Node.js 22+ (uses V8 API changes).
+- **Startup flag**: `--no-node-snapshot` REQUIRED for isolated-vm (configured in `bin/run`).
 - Supply-chain policy: minimum release age, exotic-subdependency blocking, and trust-policy no-downgrade remain active.
 - Primary root validation command: `pnpm build` from the repository root.
 - Turbo 2 is the workspace orchestrator; repeated root builds should reuse the local Turbo cache.
