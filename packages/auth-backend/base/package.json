@@ -6,7 +6,7 @@
         "main": "dist/index.js",
         "types": "dist/index.d.ts",
         "engines": {
-                "node": ">=18.15.0 <19 || >=20"
+                "node": ">=22.6.0"
         },
         "scripts": {
                 "clean": "rimraf dist",

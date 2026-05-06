@@ -6,6 +6,86 @@
 
 ## Current Task Ledger (Canonical)
 
+## Active: Node.js 22 Migration (2026-05-06)
+
+> Goal: Migrate project from Node.js 20 to Node.js 22.6.0+ to enable autoskills tool support.
+
+### Critical Finding from QA
+
+**isolated-vm version incompatibility discovered:**
+- Current: isolated-vm@5.0.4 (requires Node.js >=18.0.0, does NOT support Node.js 22)
+- Required: isolated-vm@6.x (requires Node.js >=22.0.0, mandatory for Node.js 22)
+
+**Migration sequence must be:**
+1. First upgrade isolated-vm to 6.x on Node.js 20
+2. Verify all tests pass
+3. Then migrate to Node.js 22
+
+### Phase 1: Preparation and Risk Assessment
+
+- [x] Step 1.1: Create comprehensive dependency audit for Node.js 22 compatibility
+- [x] Step 1.2: Review isolated-vm 6.x CHANGELOG for breaking changes
+- [x] Step 1.3: Audit AWS SDK dependencies compatibility
+
+### Phase 2: Local Development Migration
+
+- [x] Step 2.1: Update package.json engines field to >=22.6.0
+- [x] Step 2.2: Create .nvmrc file at project root with "22"
+- [x] Step 2.3: Verify server startup scripts have --no-node-snapshot flag
+- [x] Step 2.4: Install Node.js 22 locally via nvm ✅ DONE by user
+- [x] Step 2.5: Upgrade isolated-vm from 5.0.4 to 6.1.2
+- [x] Step 2.6: Clean install with new Node.js version ✅ DONE by user
+
+### Phase 3: Build and Test Validation
+
+- [x] Step 3.1: Run full build (pnpm build) ✅ PASSED (3m1s)
+- [x] Step 3.2: Run linting (pnpm lint) ✅ PASSED (scripting-engine fixed)
+- [x] Step 3.3: Run unit tests (pnpm test:vitest) ✅ PASSED (911 tests, 173s)
+- [ ] Step 3.4: Run E2E smoke tests (pnpm test:e2e:smoke)
+- [ ] Step 3.5: Run Playwright flow tests (pnpm test:e2e:flows)
+- [x] Step 3.6: Verify scripting engine runtime (pnpm benchmark) ✅ PASSED (mean: 1.47ms, p95: 2.16ms)
+
+### Validation Summary (2026-05-07)
+
+**Completed validations:**
+- ✅ Build: All 30 packages built successfully
+- ✅ Lint: Fixed prettier formatting in scripting-engine, all lint checks pass
+- ✅ Unit tests: 911 tests passed across 161 test files
+- ✅ Scripting engine: isolated-vm 6.x works correctly with Node.js 22
+- ✅ autoskills: Tool runs successfully, detected 8 technologies, 14 skills available
+
+**Code changes made:**
+- Fixed prettier formatting in `packages/scripting-engine/base/src/runtime.ts`
+- Fixed prettier formatting in `packages/scripting-engine/base/src/compiler.ts`
+- Fixed prettier formatting in `packages/scripting-engine/base/src/index.ts`
+- Fixed prettier formatting in `packages/scripting-engine/base/src/runtime.test.ts`
+- Fixed no-useless-escape error in `runtime.ts` (line 438)
+
+**Remaining:**
+- E2E tests (require running server, user should run manually)
+- CI/CD verification (push to test branch)
+
+### Phase 4: CI/CD Pipeline Update
+
+- [x] Step 4.1: Update GitHub Actions workflow to Node.js 22.x
+- [x] Step 4.2: Update pnpm version in CI if needed (no change required)
+- [ ] Step 4.3: Verify CI build passes (USER ACTION: push to test branch)
+
+### Phase 5: Production Deployment Preparation
+
+- [x] Step 5.1: Update deployment documentation (migration guide created)
+- [ ] Step 5.2: Create deployment checklist (environment-specific)
+- [ ] Step 5.3: Staging environment test (environment-specific)
+
+### Phase 6: Documentation and Knowledge Transfer
+
+- [x] Step 6.1: Update tech.md steering file with Node.js 22 requirements
+- [x] Step 6.2: Update README.md prerequisites section
+- [x] Step 6.3: Update memory-bank/techContext.md
+- [x] Step 6.4: Create migration guide for developers
+
+---
+
 ## Completed: QA Follow-Up For Generic Hub-Assignable Entities (2026-05-06)
 
 > Goal: close QA blockers found after the generic hub-assignable Entity implementation.

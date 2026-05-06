@@ -93,12 +93,10 @@ let isolatedVmPromise: Promise<IsolatedVmModule> | null = null
 const loadIsolatedVm = async (): Promise<IsolatedVmModule> => {
     if (!isolatedVmPromise) {
         isolatedVmPromise = import('isolated-vm')
-            .then((mod) => ((mod as { default?: IsolatedVmModule }).default ?? (mod as unknown as IsolatedVmModule)))
+            .then((mod) => (mod as { default?: IsolatedVmModule }).default ?? (mod as unknown as IsolatedVmModule))
             .catch((error) => {
                 isolatedVmPromise = null
-                throw new Error(
-                    `isolated-vm is required for script execution: ${error instanceof Error ? error.message : String(error)}`
-                )
+                throw new Error(`isolated-vm is required for script execution: ${error instanceof Error ? error.message : String(error)}`)
             })
     }
 
@@ -114,11 +112,13 @@ const createScriptPoolKey = (bundle: string): string => createHash('sha256').upd
 export class ScriptHealthMonitor {
     private readonly states = new Map<string, ScriptHealthState>()
 
-    constructor(private readonly options: Required<ScriptHealthMonitorOptions> = {
-        failureThreshold: DEFAULT_FAILURE_THRESHOLD,
-        cooldownMs: DEFAULT_COOLDOWN_MS,
-        now: () => Date.now()
-    }) {}
+    constructor(
+        private readonly options: Required<ScriptHealthMonitorOptions> = {
+            failureThreshold: DEFAULT_FAILURE_THRESHOLD,
+            cooldownMs: DEFAULT_COOLDOWN_MS,
+            now: () => Date.now()
+        }
+    ) {}
 
     assertAvailable(scriptKey: string): void {
         const current = this.states.get(scriptKey)
@@ -168,11 +168,13 @@ export class ScriptHealthMonitor {
     }
 
     getState(scriptKey: string): ScriptHealthState {
-        return this.states.get(scriptKey) ?? {
-            consecutiveFailures: 0,
-            cooldownUntil: null,
-            lastError: null
-        }
+        return (
+            this.states.get(scriptKey) ?? {
+                consecutiveFailures: 0,
+                cooldownUntil: null,
+                lastError: null
+            }
+        )
     }
 }
 
@@ -433,7 +435,7 @@ export class IsolatedVmScriptRuntimeHost implements ScriptRuntimeHost {
         const hostCallReference = new ivm.Reference(async (path: string, args: unknown[]) => {
             const target = hostFunctions.get(path)
             if (!target) {
-                throw new Error(`Script context host bridge \"${path}\" was not found`)
+                throw new Error(`Script context host bridge '${path}' was not found`)
             }
 
             return await Promise.resolve(target(...(Array.isArray(args) ? args : [])))

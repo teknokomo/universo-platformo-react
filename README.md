@@ -67,7 +67,7 @@ Website: [https://universo.pro](https://universo.pro)
 
 ## Tech Stack
 
--   Node.js (>=18.15.0 <19.0.0 || ^20)
+-   Node.js (>=22.6.0)
 -   PNPM (>=9)
 -   React
 -   Express.js

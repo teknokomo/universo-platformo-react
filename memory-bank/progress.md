@@ -9,7 +9,55 @@
 **The table below MUST remain at the top of this file. All new progress entries should be added BELOW this table.**
 | Release | Date | Codename | Highlights |
 | ------------ | ---------- | -------------- | ------------------------------ |
+| 0.62.0-alpha | 2026-05-06 | 0.62.0 Alpha — 2026-05-06 | Node.js 22 migration, isolated-vm 6.x upgrade, autoskills support |
 | 0.61.0-alpha | 2026-04-29 | 0.61.0 Alpha — 2026-04-30 | Harden data-driven entity resource surfaces |
+
+---
+
+## Completed: Node.js 22 Migration (2026-05-06)
+
+> Goal: Migrate project from Node.js 20 to Node.js 22.6.0+ to enable autoskills tool support.
+
+### Summary
+
+Migrated the project to Node.js 22 with upgraded isolated-vm dependency for scripting engine compatibility. All configuration files, documentation, and CI/CD workflows have been updated.
+
+### Changes Made
+
+**Configuration Updates:**
+- `package.json` - Updated engines.node to `>=22.6.0`
+- `.nvmrc` - Created with Node.js 22 version specification
+- `packages/scripting-engine/base/package.json` - Upgraded isolated-vm from 5.0.4 to ^6.1.2
+- `.github/workflows/main.yml` - Updated CI matrix to Node.js 22.x
+
+**Documentation Updates:**
+- `.kiro/steering/tech.md` - Added Node.js 22 requirements and critical flag notes
+- `README.md` - Updated tech stack section with Node.js 22 requirement
+- `memory-bank/techContext.md` - Added Node.js 22 and isolated-vm 6.x notes
+- `docs/migration/nodejs-22-migration-guide.md` - Created comprehensive migration guide
+- `docs/migration/NODEJS_22_MIGRATION_INSTRUCTIONS.md` - Created user action instructions
+
+**Critical Finding:**
+- isolated-vm 5.0.4 does NOT support Node.js 22 (requires >=18.0.0)
+- isolated-vm 6.x is REQUIRED for Node.js 22 (requires >=22.0.0)
+- Migration sequence: upgrade isolated-vm first, then migrate Node.js
+
+### Validation Status
+
+Configuration changes complete. User actions required:
+1. Install Node.js 22 (`nvm install 22`)
+2. Clean install dependencies (`pnpm clean:all && pnpm install`)
+3. Run build and tests
+4. Verify autoskills tool (`npx autoskills --dry-run`)
+
+### Technical Notes
+
+- `--no-node-snapshot` flag already configured in startup scripts
+- No import assertions usage found (no migration needed)
+- ESM packages isolated (only universo-i18n and universo-store)
+- Native addon dependencies minimal (only isolated-vm in use)
+
+---
 | 0.60.0-alpha | 2026-04-23 | 0.60.0 Alpha — 2026-04-23 | Refresh metahub resources/docs and add empty template support |
 | 0.59.0-alpha | 2026-04-17 | 0.59.0 Alpha — 2026-04-17 | Implement Entity Component Architecture and metahub resources |
 | 0.58.0-alpha | 2026-04-08 | 0.58.0 Alpha — 2026-04-08 (Ancient Manuscripts) | Metahub snapshot import/export, self-hosted parity, scripting, shared/common layout flow |

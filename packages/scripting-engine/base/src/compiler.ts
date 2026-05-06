@@ -563,7 +563,10 @@ const validateLibraryScriptSource = (sourceFile: ts.SourceFile, selectedClass: t
     const visit = (node: ts.Node): void => {
         for (const decorator of getDecorators(node)) {
             const decoratorName = getDecoratorName(decorator)
-            if (decoratorName && Object.values(METHOD_DECORATORS).includes(decoratorName as (typeof METHOD_DECORATORS)[keyof typeof METHOD_DECORATORS])) {
+            if (
+                decoratorName &&
+                Object.values(METHOD_DECORATORS).includes(decoratorName as (typeof METHOD_DECORATORS)[keyof typeof METHOD_DECORATORS])
+            ) {
                 forbiddenDecorators.add(decoratorName)
             }
         }

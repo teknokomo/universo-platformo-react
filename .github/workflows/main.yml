@@ -13,7 +13,7 @@ jobs:
         strategy:
             matrix:
                 platform: [ubuntu-latest]
-                node-version: [18.15.0]
+                node-version: [22.x]
         runs-on: ${{ matrix.platform }}
         env:
             PUPPETEER_SKIP_DOWNLOAD: true
@@ -23,7 +23,7 @@ jobs:
             - uses: actions/checkout@v4
             - uses: pnpm/action-setup@v3
               with:
-                  version: 9.0.4
+                  version: 10.33.2
             - name: Use Node.js ${{ matrix.node-version }}
               uses: actions/setup-node@v4
               with:
