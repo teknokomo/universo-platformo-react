@@ -94,6 +94,7 @@ export const basicTemplate: MetahubTemplateManifest = {
     },
     presets: [
         { presetCodename: 'hub', includedByDefault: true },
+        { presetCodename: 'page', includedByDefault: true },
         { presetCodename: 'catalog', includedByDefault: true },
         { presetCodename: 'set', includedByDefault: true },
         { presetCodename: 'enumeration', includedByDefault: true }

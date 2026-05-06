@@ -33,6 +33,7 @@ import type { ApplicationSyncQueryBuilder } from '../../ddl'
 import {
     EMPTY_VLC,
     RUNTIME_ENTITY_KINDS,
+    RUNTIME_ENTITY_KIND_PATTERN,
     type SyncableApplicationRecord,
     type PersistedAppLayout,
     type PersistedAppLayoutZoneWidget,
@@ -215,7 +216,11 @@ export function normalizeRuntimeEntityKind(value: unknown): EntityDefinition['ki
         return null
     }
 
-    return RUNTIME_ENTITY_KINDS.has(value as EntityDefinition['kind']) ? (value as EntityDefinition['kind']) : null
+    if (RUNTIME_ENTITY_KINDS.has(value as EntityDefinition['kind'])) {
+        return value as EntityDefinition['kind']
+    }
+
+    return RUNTIME_ENTITY_KIND_PATTERN.test(value) ? (value as EntityDefinition['kind']) : null
 }
 
 export function normalizeRuntimePresentation(value: unknown): EntityDefinition['presentation'] {

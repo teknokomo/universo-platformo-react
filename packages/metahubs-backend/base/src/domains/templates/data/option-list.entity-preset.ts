@@ -27,7 +27,13 @@ export const enumerationEntityPreset: EntityTypePresetManifest = {
         ui: ENUMERATION_TYPE_UI,
         presentation: {
             name: STANDARD_ENUMERATION_NAME,
-            description: STANDARD_ENUMERATION_DESCRIPTION
+            description: STANDARD_ENUMERATION_DESCRIPTION,
+            dialogTitles: {
+                create: vlc('Create Enumeration', 'Создать перечисление'),
+                edit: vlc('Edit Enumeration', 'Редактировать перечисление'),
+                copy: vlc('Copy Enumeration', 'Копирование перечисления'),
+                delete: vlc('Delete Enumeration', 'Удалить перечисление')
+            }
         },
         config: {}
     },

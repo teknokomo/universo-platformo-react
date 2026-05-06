@@ -628,6 +628,171 @@ describe('Entity instance routes', () => {
         expect(mockEnsureMetahubAccess).not.toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
     })
 
+    it('rejects invalid Page block content before persisting the entity', async () => {
+        mockResolver.resolve.mockResolvedValueOnce({
+            kindKey: 'page',
+            components: {
+                blockContent: { enabled: true }
+            }
+        })
+
+        const app = buildApp()
+
+        const response = await request(app)
+            .post('/metahub/metahub-1/entities')
+            .send({
+                kind: 'page',
+                codename: 'LandingPage',
+                name: { en: 'Landing page' },
+                namePrimaryLocale: 'en',
+                config: {
+                    blockContent: {
+                        format: 'editorjs',
+                        blocks: [{ id: 'unsafe-html', type: 'html', data: { html: '<script />' } }]
+                    }
+                }
+            })
+            .expect(400)
+
+        expect(response.body.error).toBe('Invalid page block content')
+        expect(mockObjectsService.createObject).not.toHaveBeenCalled()
+    })
+
+    it('rejects Page block content that violates Entity-specific block constraints', async () => {
+        mockResolver.resolve.mockResolvedValueOnce({
+            kindKey: 'page',
+            components: {
+                blockContent: {
+                    enabled: true,
+                    storage: 'objectConfig',
+                    defaultFormat: 'editorjs',
+                    supportedFormats: ['editorjs'],
+                    allowedBlockTypes: ['paragraph'],
+                    maxBlocks: 1
+                }
+            }
+        })
+
+        const app = buildApp()
+
+        const response = await request(app)
+            .post('/metahub/metahub-1/entities')
+            .send({
+                kind: 'page',
+                codename: 'LandingPage',
+                name: { en: 'Landing page' },
+                namePrimaryLocale: 'en',
+                config: {
+                    blockContent: {
+                        format: 'editorjs',
+                        blocks: [{ id: 'title', type: 'header', data: { text: 'Title', level: 2 } }]
+                    }
+                }
+            })
+            .expect(400)
+
+        expect(response.body.error).toBe('Invalid page block content')
+        expect(mockObjectsService.createObject).not.toHaveBeenCalled()
+    })
+
+    it('normalizes Editor.js list 2.x output before persisting Page block content', async () => {
+        mockResolver.resolve.mockResolvedValueOnce({
+            kindKey: 'page',
+            components: {
+                blockContent: { enabled: true }
+            }
+        })
+
+        const app = buildApp()
+
+        await request(app)
+            .post('/metahub/metahub-1/entities')
+            .send({
+                kind: 'page',
+                codename: 'LandingPage',
+                name: { en: 'Landing page' },
+                namePrimaryLocale: 'en',
+                config: {
+                    blockContent: {
+                        time: 1,
+                        version: '2.31.6',
+                        blocks: [
+                            {
+                                id: 'list-1',
+                                type: 'list',
+                                data: {
+                                    style: 'unordered',
+                                    items: [
+                                        { content: 'First item', meta: {}, items: [] },
+                                        { content: 'Second item', meta: {}, items: [] }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                }
+            })
+            .expect(201)
+
+        expect(mockObjectsService.createObject).toHaveBeenCalledWith(
+            'metahub-1',
+            'page',
+            expect.objectContaining({
+                config: {
+                    blockContent: {
+                        format: 'editorjs',
+                        data: {
+                            time: 1,
+                            version: '2.31.6',
+                            blocks: [
+                                {
+                                    id: 'list-1',
+                                    type: 'list',
+                                    data: {
+                                        style: 'unordered',
+                                        items: ['First item', 'Second item']
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }),
+            'user-1',
+            mockExec
+        )
+    })
+
+    it('rejects inline HTML in Page block content before persisting the entity', async () => {
+        mockResolver.resolve.mockResolvedValueOnce({
+            kindKey: 'page',
+            components: {
+                blockContent: { enabled: true }
+            }
+        })
+
+        const app = buildApp()
+
+        const response = await request(app)
+            .post('/metahub/metahub-1/entities')
+            .send({
+                kind: 'page',
+                codename: 'LandingPage',
+                name: { en: 'Landing page' },
+                namePrimaryLocale: 'en',
+                config: {
+                    blockContent: {
+                        format: 'editorjs',
+                        blocks: [{ id: 'paragraph-1', type: 'paragraph', data: { text: '<b>Unsafe</b>' } }]
+                    }
+                }
+            })
+            .expect(400)
+
+        expect(response.body.error).toBe('Invalid page block content')
+        expect(mockObjectsService.createObject).not.toHaveBeenCalled()
+    })
+
     it('updates a custom entity via the mutation service', async () => {
         const app = buildApp()
 
@@ -1057,6 +1222,37 @@ describe('Entity instance routes', () => {
         expect(mockObjectsService.createObject).not.toHaveBeenCalled()
     })
 
+    it('rejects Page copies when entity.page.allowCopy is disabled', async () => {
+        mockResolver.resolve.mockResolvedValueOnce({
+            kindKey: 'page',
+            components: {}
+        })
+        mockObjectsService.findById.mockResolvedValueOnce({
+            id: 'entity-1',
+            kind: 'page',
+            codename: 'Page',
+            name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Page' } } },
+            description: null,
+            config: { enabled: true },
+            _mhb_deleted: false
+        })
+        mockSettingsService.findByKey.mockImplementation(async (_metahubId: string, key: string) => {
+            if (key === 'entity.page.allowCopy') {
+                return { key, value: { _value: false } }
+            }
+            return null
+        })
+
+        const app = buildApp()
+
+        const response = await request(app).post('/metahub/metahub-1/entity/entity-1/copy').send({}).expect(403)
+
+        expect(response.body.error).toBe('Copying pages is disabled in metahub settings')
+        expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'editContent', mockDbSession)
+        expect(mockEnsureMetahubAccess).not.toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
+        expect(mockObjectsService.createObject).not.toHaveBeenCalled()
+    })
+
     it('blocks catalog entity deletes when other catalogs reference the entity', async () => {
         mockResolver.resolve.mockResolvedValueOnce({
             kindKey: 'catalog',
@@ -1138,7 +1334,7 @@ describe('Entity instance routes', () => {
                 kindKey: 'hub'
             }
         ])
-        mockExec.query.mockResolvedValueOnce([]).mockResolvedValueOnce([
+        mockExec.query.mockResolvedValueOnce([
             {
                 id: 'child-hub-1',
                 codename: 'ChildHub',
@@ -1158,6 +1354,63 @@ describe('Entity instance routes', () => {
         expect(mockObjectsService.delete).not.toHaveBeenCalled()
     })
 
+    it('blocks hub deletes when a required hub-assignable page would become orphaned', async () => {
+        mockResolver.resolve.mockResolvedValueOnce({
+            kindKey: 'hub',
+            components: {}
+        })
+        mockObjectsService.findById.mockResolvedValueOnce({
+            id: 'entity-1',
+            kind: 'hub',
+            codename: 'Hub',
+            _mhb_deleted: false
+        })
+        mockEntityTypeService.listEditableTypes.mockResolvedValueOnce([
+            {
+                kindKey: 'hub',
+                components: {}
+            },
+            {
+                kindKey: 'page',
+                codename: 'Page',
+                components: {
+                    treeAssignment: { enabled: true }
+                },
+                presentation: {
+                    name: { _primary: 'en', locales: { en: { content: 'Pages' } } }
+                },
+                ui: {
+                    nameKey: 'metahubs:pages.title'
+                }
+            }
+        ])
+        mockExec.query.mockResolvedValueOnce([
+            {
+                id: 'page-1',
+                kind: 'page',
+                codename: 'WelcomePage',
+                presentation: { name: { en: 'Welcome Page' } }
+            }
+        ])
+        mockExec.query.mockResolvedValueOnce([])
+
+        const app = buildApp()
+
+        const response = await request(app).delete('/metahub/metahub-1/entity/entity-1').expect(409)
+
+        expect(response.body.error).toBe('Cannot delete hub: required objects would become orphaned')
+        expect(response.body.totalBlocking).toBe(1)
+        expect(response.body.blockingRelatedObjects).toEqual([
+            expect.objectContaining({
+                id: 'page-1',
+                kind: 'page',
+                typeNameKey: 'metahubs:pages.title'
+            })
+        ])
+        expect(response.body.blockingChildTreeEntities).toEqual([])
+        expect(mockObjectsService.delete).not.toHaveBeenCalled()
+    })
+
     it('returns hub blocking dependencies through the behavior-based entity endpoint', async () => {
         mockResolver.resolve.mockResolvedValueOnce({
             kindKey: 'hub',
@@ -1174,7 +1427,7 @@ describe('Entity instance routes', () => {
                 kindKey: 'hub'
             }
         ])
-        mockExec.query.mockResolvedValueOnce([]).mockResolvedValueOnce([
+        mockExec.query.mockResolvedValueOnce([
             {
                 id: 'child-hub-1',
                 codename: 'ChildHub',
@@ -1413,6 +1666,34 @@ describe('Entity instance routes', () => {
         const response = await request(app).delete('/metahub/metahub-1/entity/entity-1/permanent').expect(403)
 
         expect(response.body.error).toBe('Deleting enumerations is disabled in metahub settings')
+        expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'deleteContent', mockDbSession)
+        expect(mockEnsureMetahubAccess).not.toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
+        expect(mockObjectsService.permanentDelete).not.toHaveBeenCalled()
+    })
+
+    it('rejects Page permanent delete when entity.page.allowDelete is disabled', async () => {
+        mockResolver.resolve.mockResolvedValueOnce({
+            kindKey: 'page',
+            components: {}
+        })
+        mockObjectsService.findById.mockResolvedValueOnce({
+            id: 'entity-1',
+            kind: 'page',
+            codename: 'Page',
+            _mhb_deleted: true
+        })
+        mockSettingsService.findByKey.mockImplementation(async (_metahubId: string, key: string) => {
+            if (key === 'entity.page.allowDelete') {
+                return { key, value: { _value: false } }
+            }
+            return null
+        })
+
+        const app = buildApp()
+
+        const response = await request(app).delete('/metahub/metahub-1/entity/entity-1/permanent').expect(403)
+
+        expect(response.body.error).toBe('Deleting pages is disabled in metahub settings')
         expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'deleteContent', mockDbSession)
         expect(mockEnsureMetahubAccess).not.toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
         expect(mockObjectsService.permanentDelete).not.toHaveBeenCalled()

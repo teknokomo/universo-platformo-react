@@ -41,8 +41,26 @@ export { EmptyListState, SkeletonGrid, Loader } from './feedback'
 export type { EmptyListStateProps, SkeletonGridProps } from './feedback'
 
 // Menu components
-export { BaseEntityMenu } from './menu'
+export {
+    BaseEntityMenu,
+    createCopyActionIcon,
+    createDeleteActionIcon,
+    createDeleteForeverActionIcon,
+    createEditActionIcon,
+    createRestoreActionIcon
+} from './menu'
 export type { BaseEntityMenuProps, ActionDescriptor, ActionContext, TriggerProps } from './menu'
+export {
+    EditorJsBlockEditor,
+    addEditorJsContentLocale,
+    collectEditorJsContentLocales,
+    normalizeEditorContentLocale,
+    removeEditorJsContentLocale,
+    renameEditorJsContentLocale,
+    resolveEditorJsContentPrimaryLocale,
+    setEditorJsContentPrimaryLocale
+} from './block-editor'
+export type { EditorJsBlockEditorLabels, EditorJsBlockEditorProps } from './block-editor'
 
 // Routing components
 export { Loadable, AuthGuard, AdminGuard, RegisteredUserGuard, StartAccessGuard, HomeRouteResolver, ResourceGuard } from './routing'
@@ -57,6 +75,8 @@ export { CodenameField } from './forms/CodenameField'
 export type { CodenameFieldProps } from './forms/CodenameField'
 export { LocalizedInlineField } from './forms/LocalizedInlineField'
 export { LocalizedFieldEditor } from './forms/LocalizedFieldEditor'
+export { LocalizedVariantTabs } from './tabs'
+export type { LocalizedVariantTabItem, LocalizedVariantTabsLabels, LocalizedVariantTabsProps } from './tabs'
 
 // Layout components
 export { CollapsibleSection } from './layout'

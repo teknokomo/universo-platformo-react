@@ -18,6 +18,9 @@ import {
     Select,
     MenuItem,
     FormHelperText,
+    FormControlLabel,
+    Checkbox,
+    Alert,
     TextField,
     IconButton,
     Menu,
@@ -69,7 +72,7 @@ import {
     useDeletePublicationVersion,
     useImportSnapshotVersion
 } from '../hooks/versionMutations'
-import type { VersionedLocalizedContent } from '@universo/types'
+import type { VersionedLocalizedContent, WorkspaceModePolicy } from '@universo/types'
 import { getVLCString } from '../../../types'
 import { extractLocalizedInput } from '../../../utils/localizedInput'
 import type { PublicationVersion } from '../api'
@@ -179,6 +182,8 @@ export const PublicationVersionList: React.FC = () => {
     const [nameVlc, setNameVlc] = useState<VersionedLocalizedContent<string> | null>(null)
     const [descriptionVlc, setDescriptionVlc] = useState<VersionedLocalizedContent<string> | null>(null)
     const [createBranchId, setCreateBranchId] = useState<string>('')
+    const [workspaceModePolicy, setWorkspaceModePolicy] = useState<WorkspaceModePolicy>('optional')
+    const [requiredWorkspaceModeAcknowledged, setRequiredWorkspaceModeAcknowledged] = useState(false)
 
     // Edit form state
     const [editNameVlc, setEditNameVlc] = useState<VersionedLocalizedContent<string> | null>(null)
@@ -197,6 +202,8 @@ export const PublicationVersionList: React.FC = () => {
         setNameVlc(null)
         setDescriptionVlc(null)
         setCreateBranchId('')
+        setWorkspaceModePolicy('optional')
+        setRequiredWorkspaceModeAcknowledged(false)
     }, [close])
 
     const handleOpenEditDialog = useCallback(
@@ -306,12 +313,27 @@ export const PublicationVersionList: React.FC = () => {
                     namePrimaryLocale,
                     description: descriptionInput,
                     descriptionPrimaryLocale,
-                    branchId
+                    branchId,
+                    runtimePolicy: {
+                        workspaceMode: workspaceModePolicy,
+                        requiredWorkspaceModeAcknowledged
+                    }
                 }
             },
             { onSuccess: () => handleCloseCreateDialog() }
         )
-    }, [metahubId, publicationId, nameVlc, descriptionVlc, createBranchId, defaultBranchId, createMutation, handleCloseCreateDialog])
+    }, [
+        metahubId,
+        publicationId,
+        nameVlc,
+        descriptionVlc,
+        createBranchId,
+        defaultBranchId,
+        workspaceModePolicy,
+        requiredWorkspaceModeAcknowledged,
+        createMutation,
+        handleCloseCreateDialog
+    ])
 
     const handleUpdate = useCallback(() => {
         if (!dialogs.edit.item || !metahubId || !publicationId) return
@@ -403,6 +425,7 @@ export const PublicationVersionList: React.FC = () => {
     // Name validation
     const hasName = nameVlc && nameVlc._primary && nameVlc.locales?.[nameVlc._primary]?.content
     const hasEditName = editNameVlc && editNameVlc._primary && editNameVlc.locales?.[editNameVlc._primary]?.content
+    const workspaceModeAckRequired = workspaceModePolicy === 'required' && !requiredWorkspaceModeAcknowledged
 
     // ── Render ─────────────────────────────────────────────────────────
     return (
@@ -561,11 +584,61 @@ export const PublicationVersionList: React.FC = () => {
                                 {t('metahubs:publications.versions.branchHelper', 'Snapshot will be created from the selected branch.')}
                             </FormHelperText>
                         </FormControl>
+                        <FormControl fullWidth>
+                            <InputLabel id='version-workspace-mode-create-label'>
+                                {t('metahubs:publications.versions.workspaceMode.label', 'Workspace policy')}
+                            </InputLabel>
+                            <Select
+                                labelId='version-workspace-mode-create-label'
+                                value={workspaceModePolicy}
+                                label={t('metahubs:publications.versions.workspaceMode.label', 'Workspace policy')}
+                                onChange={(e) => setWorkspaceModePolicy(e.target.value as WorkspaceModePolicy)}
+                            >
+                                <MenuItem value='optional'>
+                                    {t('metahubs:publications.versions.workspaceMode.optional', 'Optional workspaces')}
+                                </MenuItem>
+                                <MenuItem value='required'>
+                                    {t('metahubs:publications.versions.workspaceMode.required', 'Require workspaces')}
+                                </MenuItem>
+                            </Select>
+                            <FormHelperText>
+                                {t(
+                                    'metahubs:publications.versions.workspaceMode.helper',
+                                    'This policy is stored in the version snapshot and controls application schema creation.'
+                                )}
+                            </FormHelperText>
+                        </FormControl>
+                        {workspaceModePolicy === 'required' ? (
+                            <FormControlLabel
+                                control={
+                                    <Checkbox
+                                        checked={requiredWorkspaceModeAcknowledged}
+                                        onChange={(event) => setRequiredWorkspaceModeAcknowledged(event.target.checked)}
+                                    />
+                                }
+                                label={t(
+                                    'metahubs:publications.versions.workspaceMode.requiredAck',
+                                    'I understand that required workspace mode cannot be turned off in later versions.'
+                                )}
+                            />
+                        ) : null}
+                        {workspaceModeAckRequired ? (
+                            <Alert severity='warning'>
+                                {t(
+                                    'metahubs:publications.versions.workspaceMode.requiredAckRequired',
+                                    'Confirm that required workspaces cannot be turned off in later versions.'
+                                )}
+                            </Alert>
+                        ) : null}
                     </Stack>
                 </DialogContent>
                 <DialogActions sx={{ p: 3, pt: 2, justifyContent: 'flex-end', gap: 1 }}>
                     <Button onClick={handleCloseCreateDialog}>{tc('cancel')}</Button>
-                    <Button onClick={handleCreate} variant='contained' disabled={!hasName || createMutation.isPending}>
+                    <Button
+                        onClick={handleCreate}
+                        variant='contained'
+                        disabled={!hasName || workspaceModeAckRequired || createMutation.isPending}
+                    >
                         {tc('create')}
                     </Button>
                 </DialogActions>

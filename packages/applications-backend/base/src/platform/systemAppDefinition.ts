@@ -172,6 +172,14 @@ const applicationBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
                 physicalDataType: 'INTEGER',
                 isRequired: true,
                 defaultSqlExpression: '0'
+            },
+            {
+                codename: 'schema_options',
+                physicalColumnName: 'schema_options',
+                dataType: FieldDefinitionDataType.JSON,
+                isRequired: true,
+                defaultSqlExpression: `'{}'::jsonb`,
+                presentation: p('Schema Options', 'Connector-level schema installation options')
             }
         ]
     },

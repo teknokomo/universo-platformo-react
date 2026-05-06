@@ -10,6 +10,7 @@ export const ENTITY_COMPONENT_KEYS = [
     'actions',
     'events',
     'scripting',
+    'blockContent',
     'layoutConfig',
     'runtimeBehavior',
     'physicalTable'
@@ -50,6 +51,14 @@ export interface ActionsComponentConfig extends ComponentConfig {}
 
 export interface EventsComponentConfig extends ComponentConfig {}
 
+export interface BlockContentComponentConfig extends ComponentConfig {
+    storage: 'objectConfig' | 'recordJsonb'
+    defaultFormat: 'editorjs'
+    supportedFormats: readonly string[]
+    allowedBlockTypes: readonly string[]
+    maxBlocks: number
+}
+
 export interface PhysicalTableComponentConfig extends ComponentConfig {
     prefix: string
 }
@@ -66,6 +75,7 @@ export interface ComponentManifest {
     actions: ActionsComponentConfig | false
     events: EventsComponentConfig | false
     scripting: ComponentConfig | false
+    blockContent: BlockContentComponentConfig | false
     layoutConfig: ComponentConfig | false
     runtimeBehavior: ComponentConfig | false
     physicalTable: PhysicalTableComponentConfig | false
@@ -83,6 +93,7 @@ export const COMPONENT_DEPENDENCIES: Record<EntityComponentKey, readonly EntityC
     actions: [],
     events: ['actions'],
     scripting: [],
+    blockContent: [],
     layoutConfig: [],
     runtimeBehavior: ['layoutConfig'],
     physicalTable: []

@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, type MouseEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Alert, Box, Button, ButtonBase, Checkbox, FormControlLabel, Radio, RadioGroup, Skeleton, Stack, Typography } from '@mui/material'
+import { Alert, Box, Button, ButtonBase, FormControlLabel, Radio, RadioGroup, Skeleton, Stack, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded'
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded'
@@ -58,7 +58,6 @@ export type ApplicationFormValues = {
     nameVlc?: VersionedLocalizedContent<string> | null
     descriptionVlc?: VersionedLocalizedContent<string> | null
     isPublic?: boolean
-    workspacesEnabled?: boolean
 }
 
 type ApplicationFormRenderState = {
@@ -234,10 +233,7 @@ const ApplicationList = () => {
         return imagesMap
     }, [applicationsDisplay])
 
-    const localizedFormDefaults = useMemo<ApplicationFormValues>(
-        () => ({ nameVlc: null, descriptionVlc: null, isPublic: false, workspacesEnabled: false }),
-        []
-    )
+    const localizedFormDefaults = useMemo<ApplicationFormValues>(() => ({ nameVlc: null, descriptionVlc: null, isPublic: false }), [])
 
     const renderLocalizedFields = useCallback(
         ({ values, setValue, isLoading, errors }: ApplicationFormRenderState) => {
@@ -277,19 +273,12 @@ const ApplicationList = () => {
     const renderCreateParametersTab = useCallback(
         ({ values, setValue, isLoading }: ApplicationFormRenderState) => {
             const isPublic = values.isPublic === true
-            const workspacesEnabled = values.workspacesEnabled === true
-            const handleVisibilityChange = (nextIsPublic: boolean) => {
-                setValue('isPublic', nextIsPublic)
-                if (nextIsPublic && !workspacesEnabled) {
-                    setValue('workspacesEnabled', true)
-                }
-            }
 
             return (
                 <Stack spacing={2}>
                     <RadioGroup
                         value={isPublic ? 'public' : 'closed'}
-                        onChange={(event) => handleVisibilityChange(event.target.value === 'public')}
+                        onChange={(event) => setValue('isPublic', event.target.value === 'public')}
                     >
                         <FormControlLabel
                             value='closed'
@@ -307,28 +296,6 @@ const ApplicationList = () => {
                     <Alert severity='info'>
                         {t('parameters.visibilityHint', 'Application visibility cannot be changed after creation.')}
                     </Alert>
-
-                    <FormControlLabel
-                        control={
-                            <Checkbox
-                                checked={workspacesEnabled}
-                                onChange={(event) => setValue('workspacesEnabled', event.target.checked)}
-                                disabled={isLoading}
-                            />
-                        }
-                        label={t('parameters.workspacesEnabled', 'Add workspaces')}
-                    />
-                    <Alert severity='info'>
-                        {t('parameters.workspacesHint', 'Workspace mode cannot be disabled after the application is created.')}
-                    </Alert>
-                    {isPublic && !workspacesEnabled ? (
-                        <Alert severity='warning'>
-                            {t(
-                                'parameters.publicWorkspacesRecommended',
-                                'Workspaces are recommended for public applications to isolate each participant data.'
-                            )}
-                        </Alert>
-                    ) : null}
                 </Stack>
             )
         },
@@ -380,8 +347,7 @@ const ApplicationList = () => {
             description: descriptionInput,
             namePrimaryLocale,
             descriptionPrimaryLocale,
-            isPublic: data.isPublic === true,
-            workspacesEnabled: data.workspacesEnabled === true
+            isPublic: data.isPublic === true
         })
 
         handleDialogSave()
@@ -583,7 +549,6 @@ const ApplicationList = () => {
                         namePrimaryLocale?: string
                         descriptionPrimaryLocale?: string
                         isPublic?: boolean
-                        workspacesEnabled?: boolean
                         copyConnector?: boolean
                         createSchema?: boolean
                         copyAccess?: boolean

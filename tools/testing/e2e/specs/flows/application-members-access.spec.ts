@@ -126,7 +126,6 @@ test('@flow @permission application admin access is enforced for invited members
         const application = await createApplication(ownerApi, {
             name: { en: applicationName },
             namePrimaryLocale: 'en',
-            workspacesEnabled: false,
             isPublic: false
         })
 

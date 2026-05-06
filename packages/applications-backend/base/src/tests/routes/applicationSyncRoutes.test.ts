@@ -74,6 +74,7 @@ const mockEnsureApplicationAccess = jest.fn()
 const mockFindApplicationCopySource = jest.fn()
 const mockFindFirstConnectorByApplicationId = jest.fn()
 const mockFindFirstConnectorPublicationLinkByConnectorId = jest.fn()
+const mockUpdateConnectorPublicationSchemaOptions = jest.fn()
 const mockUpdateApplicationSyncFields = jest.fn()
 const mockAcquireAdvisoryLock = jest.fn()
 const mockReleaseAdvisoryLock = jest.fn()
@@ -112,6 +113,10 @@ jest.mock('@universo/schema-ddl', () => ({
     generateTableName: jest.fn(),
     generateColumnName: jest.fn(),
     generateChildTableName: jest.fn(),
+    hasPhysicalRuntimeTable: jest.fn(
+        (entity: { physicalTableEnabled?: boolean; physicalTableName?: string | null }) =>
+            entity.physicalTableEnabled !== false && typeof entity.physicalTableName === 'string' && entity.physicalTableName.length > 0
+    ),
     generateMigrationName: jest.fn(),
     uuidToLockKey: jest.fn((value: string) => value),
     acquireAdvisoryLock: (...args: unknown[]) => mockAcquireAdvisoryLock(...args),
@@ -132,7 +137,8 @@ jest.mock('../../persistence/applicationsStore', () => ({
 jest.mock('../../persistence/connectorsStore', () => ({
     __esModule: true,
     findFirstConnectorByApplicationId: (...args: unknown[]) => mockFindFirstConnectorByApplicationId(...args),
-    findFirstConnectorPublicationLinkByConnectorId: (...args: unknown[]) => mockFindFirstConnectorPublicationLinkByConnectorId(...args)
+    findFirstConnectorPublicationLinkByConnectorId: (...args: unknown[]) => mockFindFirstConnectorPublicationLinkByConnectorId(...args),
+    updateConnectorPublicationSchemaOptions: (...args: unknown[]) => mockUpdateConnectorPublicationSchemaOptions(...args)
 }))
 
 jest.mock('../../services/ApplicationSchemaSyncStateStore', () => ({
@@ -191,7 +197,8 @@ describe('applicationSyncRoutes', () => {
         fields: [],
         presentation: { name: {} },
         config: {},
-        physicalTableName: 'products'
+        physicalTableName: 'products',
+        physicalTableEnabled: true
     }
     const baseSyncContext = {
         publicationId: 'publication-1',
@@ -355,8 +362,11 @@ describe('applicationSyncRoutes', () => {
         mockFindFirstConnectorByApplicationId.mockResolvedValue({ id: 'connector-1' })
         mockFindFirstConnectorPublicationLinkByConnectorId.mockResolvedValue({
             id: 'link-1',
-            publicationId: 'publication-1'
+            publicationId: 'publication-1',
+            schemaOptions: null
         })
+        mockUpdateConnectorPublicationSchemaOptions.mockClear()
+        mockUpdateConnectorPublicationSchemaOptions.mockResolvedValue(undefined)
         mockAcquireAdvisoryLock.mockResolvedValue(true)
         mockReleaseAdvisoryLock.mockResolvedValue(undefined)
     })
@@ -408,7 +418,15 @@ describe('applicationSyncRoutes', () => {
         })
 
         const app = buildApp(loadPublishedApplicationSyncContext)
-        const response = await request(app).post('/application/application-1/sync').send({ confirmDestructive: false }).expect(200)
+        const response = await request(app)
+            .post('/application/application-1/sync')
+            .send({
+                confirmDestructive: false,
+                schemaOptions: {
+                    workspaceModeRequested: 'not_requested'
+                }
+            })
+            .expect(200)
 
         expect(response.body).toEqual({
             status: 'created',
@@ -446,6 +464,93 @@ describe('applicationSyncRoutes', () => {
                 userId: 'user-1'
             })
         )
+    })
+
+    it('persists connector schema options only after successful schema sync', async () => {
+        mockFindApplicationCopySource.mockResolvedValue({
+            id: 'application-1',
+            schemaName: null,
+            schemaSnapshot: null,
+            schemaStatus: 'draft',
+            workspacesEnabled: false
+        })
+        const loadPublishedApplicationSyncContext = jest.fn().mockResolvedValue({
+            ...baseSyncContext,
+            snapshot: {
+                ...baseSyncContext.snapshot,
+                runtimePolicy: { workspaceMode: 'optional' }
+            }
+        })
+        const { generator } = configureDdlServices({
+            schemaExists: false,
+            latestMigrations: [{ meta: { seedWarnings: [] } }],
+            generateFullSchemaResult: {
+                success: true,
+                schemaName: 'app_application1',
+                tablesCreated: ['products'],
+                errors: []
+            }
+        })
+
+        const app = buildApp(loadPublishedApplicationSyncContext)
+        await request(app)
+            .post('/application/application-1/sync')
+            .send({
+                confirmDestructive: false,
+                schemaOptions: {
+                    workspaceModeRequested: 'enabled',
+                    acknowledgeIrreversibleWorkspaceEnablement: true
+                }
+            })
+            .expect(200)
+
+        expect(mockUpdateConnectorPublicationSchemaOptions).toHaveBeenCalledWith(exec, {
+            connectorId: 'connector-1',
+            linkId: 'link-1',
+            schemaOptions: expect.objectContaining({
+                workspaceModeRequested: 'enabled',
+                acknowledgedIrreversibleWorkspaceEnablementAt: expect.any(String)
+            }),
+            userId: 'user-1'
+        })
+        expect(generator.generateFullSchema.mock.invocationCallOrder[0]).toBeLessThan(
+            mockUpdateConnectorPublicationSchemaOptions.mock.invocationCallOrder[0]
+        )
+    })
+
+    it('does not persist connector schema options when schema sync fails', async () => {
+        mockFindApplicationCopySource.mockResolvedValue({
+            id: 'application-1',
+            schemaName: null,
+            schemaSnapshot: null,
+            schemaStatus: 'draft',
+            workspacesEnabled: false
+        })
+        const loadPublishedApplicationSyncContext = jest.fn().mockResolvedValue(baseSyncContext)
+        configureDdlServices({
+            schemaExists: false,
+            latestMigrations: [{ meta: { seedWarnings: [] } }],
+            generateFullSchemaResult: {
+                success: false,
+                schemaName: 'app_application1',
+                tablesCreated: [],
+                errors: ['DDL failed']
+            }
+        })
+
+        const app = buildApp(loadPublishedApplicationSyncContext)
+        await request(app)
+            .post('/application/application-1/sync')
+            .send({
+                confirmDestructive: false,
+                schemaOptions: {
+                    workspaceModeRequested: 'enabled',
+                    acknowledgeIrreversibleWorkspaceEnablement: true
+                }
+            })
+            .expect(500)
+
+        expect(mockUpdateConnectorPublicationSchemaOptions).not.toHaveBeenCalled()
     })
 
     it('includes TABLE child field metadata in create diff details for preview rendering', async () => {
@@ -1128,6 +1233,7 @@ describe('applicationSyncRoutes', () => {
             message: 'Destructive changes detected. Set confirmDestructive=true to proceed.'
         })
         expect(migrator.applyAllChanges).not.toHaveBeenCalled()
+        expect(mockUpdateConnectorPublicationSchemaOptions).not.toHaveBeenCalled()
         expect(mockUpdateApplicationSyncFields).toHaveBeenNthCalledWith(
             1,
             exec,
@@ -1412,6 +1518,7 @@ describe('applicationSyncRoutes', () => {
                         }
                     ],
                     physicalTableName: 'products',
+                    physicalTableEnabled: true,
                     config: {}
                 }
             },

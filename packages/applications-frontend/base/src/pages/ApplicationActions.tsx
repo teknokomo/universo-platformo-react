@@ -13,7 +13,6 @@ import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, norma
 type ApplicationDialogValues = ApplicationFormValues &
     Partial<ApplicationCopyOptions> & {
         isPublic?: boolean
-        workspacesEnabled?: boolean
     }
 
 type ApplicationDialogRenderProps = {
@@ -41,8 +40,7 @@ const buildInitialValues = (ctx: ApplicationActionContext) => {
     return {
         nameVlc: ensureLocalizedContent(raw?.name ?? ctx.entity?.name, uiLocale, nameFallback),
         descriptionVlc: ensureLocalizedContent(raw?.description ?? ctx.entity?.description, uiLocale, descriptionFallback),
-        isPublic: raw?.isPublic ?? ctx.entity?.isPublic ?? false,
-        workspacesEnabled: raw?.workspacesEnabled ?? ctx.entity?.workspacesEnabled ?? false
+        isPublic: raw?.isPublic ?? ctx.entity?.isPublic ?? false
     }
 }
 
@@ -131,21 +129,11 @@ const renderParametersTab = (
     mode: 'create' | 'edit' | 'copy'
 ) => {
     const isPublic = values.isPublic === true
-    const workspacesEnabled = values.workspacesEnabled === true
     const isEditMode = mode === 'edit'
-    const handleVisibilityChange = (nextIsPublic: boolean) => {
-        setValue('isPublic', nextIsPublic)
-        if (!isEditMode && nextIsPublic && !workspacesEnabled) {
-            setValue('workspacesEnabled', true)
-        }
-    }
 
     return (
         <Stack spacing={2}>
-            <RadioGroup
-                value={isPublic ? 'public' : 'closed'}
-                onChange={(event) => handleVisibilityChange(event.target.value === 'public')}
-            >
+            <RadioGroup value={isPublic ? 'public' : 'closed'} onChange={(event) => setValue('isPublic', event.target.value === 'public')}>
                 <FormControlLabel value='closed' control={<Radio />} label={ctx.t('visibility.closed', 'Closed')} disabled={isLoading} />
                 <FormControlLabel value='public' control={<Radio />} label={ctx.t('visibility.public', 'Public')} disabled={isLoading} />
             </RadioGroup>
@@ -153,37 +141,10 @@ const renderParametersTab = (
                 {ctx.t(
                     isEditMode ? 'parameters.visibilityMutableHint' : 'parameters.visibilityHint',
                     isEditMode
-                        ? 'Application visibility can be changed after creation. Workspace mode remains fixed.'
+                        ? 'Application visibility can be changed after creation.'
                         : 'Application visibility can be changed after creation.'
                 )}
             </Alert>
-
-            <FormControlLabel
-                control={
-                    <Checkbox
-                        checked={workspacesEnabled}
-                        onChange={(event) => setValue('workspacesEnabled', event.target.checked)}
-                        disabled={isLoading || isEditMode}
-                    />
-                }
-                label={ctx.t('parameters.workspacesEnabled', 'Add workspaces')}
-            />
-            <Alert severity='info'>
-                {ctx.t(
-                    isEditMode ? 'parameters.workspacesLocked' : 'parameters.workspacesHint',
-                    isEditMode
-                        ? 'Workspace mode is fixed after creation and cannot be changed.'
-                        : 'Workspace mode cannot be disabled after the application is created.'
-                )}
-            </Alert>
-            {isPublic && !workspacesEnabled ? (
-                <Alert severity='warning'>
-                    {ctx.t(
-                        'parameters.publicWorkspacesRecommended',
-                        'Workspaces are recommended for public applications to isolate each participant data.'
-                    )}
-                </Alert>
-            ) : null}
         </Stack>
     )
 }
@@ -200,13 +161,12 @@ const toPayload = (values: ApplicationDialogValues): ApplicationLocalizedPayload
         description: descriptionInput,
         namePrimaryLocale,
         descriptionPrimaryLocale,
-        isPublic: values.isPublic === true,
-        workspacesEnabled: values.workspacesEnabled === true
+        isPublic: values.isPublic === true
     }
 }
 
 const toUpdatePayload = (values: ApplicationDialogValues): ApplicationLocalizedPayload => {
-    const { workspacesEnabled: _workspacesEnabled, ...payload } = toPayload(values)
+    const payload = toPayload(values)
     if (values.isPublic === undefined) {
         delete payload.isPublic
     }

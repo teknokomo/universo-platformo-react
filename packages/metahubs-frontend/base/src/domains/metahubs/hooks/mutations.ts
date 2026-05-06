@@ -22,6 +22,7 @@ import type { SimpleLocalizedInput } from '../../../types'
 import { normalizeLocale } from '../../../utils/localizedInput'
 import { sanitizeCodenameForStyle, isValidCodenameForStyle } from '../../../utils/codename'
 import { useCodenameConfig } from '../../settings/hooks/useCodenameConfig'
+import { extractImportErrorMessage } from '../../shared/importErrorMessage'
 import { metahubsQueryKeys } from '../../shared'
 import * as metahubsApi from '../api'
 import type { MetahubInput } from '../api'
@@ -545,12 +546,7 @@ export function useImportMetahubFromSnapshot() {
                 const { data } = await metahubsApi.importMetahubFromSnapshot(envelopeJson)
                 return data
             } catch (error: unknown) {
-                const err = error as Record<string, unknown> & {
-                    response?: { data?: { details?: string; error?: string; message?: string } }
-                    message?: string
-                }
-                const message = err?.response?.data?.details || err?.response?.data?.error || err?.message || 'Snapshot import failed'
-                throw new Error(message)
+                throw new Error(extractImportErrorMessage(error))
             }
         },
         onSuccess: () => {

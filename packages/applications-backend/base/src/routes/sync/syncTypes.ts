@@ -336,4 +336,13 @@ export const EMPTY_VLC: VersionedLocalizedContent<string> = {
     locales: {}
 }
 
-export const RUNTIME_ENTITY_KINDS = new Set<EntityDefinition['kind']>(['hub', 'catalog', 'set', 'enumeration', 'relation', 'settings'])
+export const RUNTIME_ENTITY_KIND_PATTERN = /^[a-z][a-z0-9._-]{0,63}$/
+export const RUNTIME_ENTITY_KINDS = new Set<EntityDefinition['kind']>([
+    'hub',
+    'catalog',
+    'set',
+    'enumeration',
+    'page',
+    'relation',
+    'settings'
+])

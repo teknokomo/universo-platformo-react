@@ -4,11 +4,21 @@ import {
     SHARED_ENTITY_KIND_TO_POOL_KIND,
     SHARED_POOL_TO_ENTITY_KIND,
     SHARED_POOL_TO_TARGET_KIND,
+    isEnabledComponentConfig,
+    normalizePageBlockContentForStorage,
+    type BlockContentComponentConfig,
+    type PageBlockContentValidationOptions,
     type SharedEntityKind,
     type SharedObjectKind
 } from '@universo/types'
-import type { MetahubSnapshot, MetaEntitySnapshot, MetaFieldSnapshot } from '../../publications/services/SnapshotSerializer'
+import type {
+    MetahubEntityTypeDefinitionSnapshot,
+    MetahubSnapshot,
+    MetaEntitySnapshot,
+    MetaFieldSnapshot
+} from '../../publications/services/SnapshotSerializer'
 import { ensureCodenameValue } from '../../shared/codename'
+import { MetahubValidationError } from '../../shared/domainErrors'
 import { toJsonbValue } from '../../shared/jsonb'
 import { SHARED_CONTAINER_DESCRIPTORS } from '../../shared/services/SharedContainerService'
 import {
@@ -32,6 +42,11 @@ const getEntityCodenameText = (codename: MetaEntitySnapshot['codename']): string
     if (typeof codename === 'string') return codename
     return getCodenamePrimary(codename) ?? '[unknown]'
 }
+
+const buildPageBlockContentValidationOptions = (component: Partial<BlockContentComponentConfig>): PageBlockContentValidationOptions => ({
+    allowedBlockTypes: component.allowedBlockTypes,
+    maxBlocks: component.maxBlocks
+})
 
 /**
  * Restores metahub branch schema entities from a MetahubSnapshot.
@@ -78,27 +93,48 @@ export class SnapshotRestoreService {
         const now = new Date()
 
         for (const definition of definitions) {
+            const row = {
+                kind_key: definition.kindKey,
+                codename: ensureCodenameValue(definition.codename),
+                presentation: definition.presentation ?? {},
+                components: definition.components ?? {},
+                ui_config: definition.ui ?? {},
+                config: definition.config ?? {},
+                _upl_updated_at: now,
+                _upl_updated_by: userId,
+                _mhb_published: definition.published === true,
+                _mhb_archived: false,
+                _mhb_deleted: false
+            }
+            const existing = await qb
+                .withSchema(this.schemaName)
+                .from('_mhb_entity_type_definitions')
+                .where({ kind_key: definition.kindKey, _upl_deleted: false, _mhb_deleted: false })
+                .first<{ id: string }>()
+
+            if (existing?.id) {
+                await qb
+                    .withSchema(this.schemaName)
+                    .from('_mhb_entity_type_definitions')
+                    .where({ id: existing.id })
+                    .update({
+                        ...row,
+                        _upl_version: qb.raw('_upl_version + 1')
+                    })
+                continue
+            }
+
             await qb
                 .withSchema(this.schemaName)
                 .into('_mhb_entity_type_definitions')
                 .insert({
-                    kind_key: definition.kindKey,
-                    codename: ensureCodenameValue(definition.codename),
-                    presentation: definition.presentation ?? {},
-                    components: definition.components ?? {},
-                    ui_config: definition.ui ?? {},
-                    config: definition.config ?? {},
+                    ...row,
                     _upl_created_at: now,
                     _upl_created_by: userId,
-                    _upl_updated_at: now,
-                    _upl_updated_by: userId,
                     _upl_version: 1,
                     _upl_archived: false,
                     _upl_deleted: false,
-                    _upl_locked: false,
-                    _mhb_published: definition.published === true,
-                    _mhb_archived: false,
-                    _mhb_deleted: false
+                    _upl_locked: false
                 })
         }
     }
@@ -339,7 +375,7 @@ export class SnapshotRestoreService {
         })
 
         for (const [oldId, entity] of sortedEntries) {
-            const config = this.buildEntityConfig(entity, entityIdMap)
+            const config = this.buildEntityConfig(entity, entityIdMap, snapshot.entityTypeDefinitions)
 
             const [inserted] = await qb
                 .withSchema(this.schemaName)
@@ -382,9 +418,40 @@ export class SnapshotRestoreService {
     /**
      * Build entity config JSONB, remapping hub references (old ID → new ID).
      */
-    private buildEntityConfig(entity: MetaEntitySnapshot, entityIdMap: Map<string, string>): Record<string, unknown> {
+    private buildEntityConfig(
+        entity: MetaEntitySnapshot,
+        entityIdMap: Map<string, string>,
+        entityTypeDefinitions?: Record<string, MetahubEntityTypeDefinitionSnapshot>
+    ): Record<string, unknown> {
         const config: Record<string, unknown> = { ...(entity.config ?? {}) }
         const entityCodenameText = getEntityCodenameText(entity.codename)
+
+        if (Object.prototype.hasOwnProperty.call(config, 'blockContent')) {
+            const definition = entityTypeDefinitions?.[entity.kind]
+            const blockContentComponent = definition?.components?.blockContent
+
+            if (!isEnabledComponentConfig(blockContentComponent)) {
+                throw new MetahubValidationError('Block content is not enabled for imported entity type', {
+                    kind: entity.kind,
+                    codename: entityCodenameText,
+                    field: 'config.blockContent'
+                })
+            }
+
+            try {
+                config.blockContent = normalizePageBlockContentForStorage(
+                    config.blockContent,
+                    buildPageBlockContentValidationOptions(blockContentComponent)
+                )
+            } catch (error) {
+                throw new MetahubValidationError('Invalid imported page block content', {
+                    kind: entity.kind,
+                    codename: entityCodenameText,
+                    field: 'config.blockContent',
+                    issues: error instanceof Error ? error.message : error
+                })
+            }
+        }
 
         // Remap hub references
         if (Array.isArray(entity.hubs) && entity.hubs.length > 0) {

@@ -15,12 +15,11 @@ export interface ItemCardData {
     templateName?: string
     name?: string
     description?: string
-    [key: string]: any
 }
 
 export interface ItemCardProps<T extends ItemCardData = ItemCardData> {
     data: T
-    images?: any[]
+    images?: string[]
     onClick?: () => void
     href?: string
     allowStretch?: boolean
@@ -28,6 +27,8 @@ export interface ItemCardProps<T extends ItemCardData = ItemCardData> {
     footerStartContent?: React.ReactNode
     /** Content to display at the end (right) of the footer */
     footerEndContent?: React.ReactNode
+    /** Content to display next to the title */
+    titleEndContent?: React.ReactNode
     headerAction?: React.ReactNode
     sx?: SxProps<Theme>
     /** Size of the color dot in pixels (default: 35) */
@@ -72,6 +73,7 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
     allowStretch = false,
     footerStartContent = null,
     footerEndContent = null,
+    titleEndContent = null,
     headerAction = null,
     sx = {},
     colorDotSize = 35,
@@ -196,19 +198,22 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
                                     }}
                                 ></div>
                             )}
-                            <Typography
-                                sx={{
-                                    fontSize: '1.25rem',
-                                    fontWeight: 500,
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                    width: '100%',
-                                    flexShrink: 1
-                                }}
-                            >
-                                {data.templateName || data.name}
-                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, flex: 1 }}>
+                                <Typography
+                                    sx={{
+                                        fontSize: '1.25rem',
+                                        fontWeight: 500,
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                        minWidth: 0,
+                                        flexShrink: 1
+                                    }}
+                                >
+                                    {data.templateName || data.name}
+                                </Typography>
+                                {titleEndContent ? <Box sx={{ display: 'inline-flex', flexShrink: 0 }}>{titleEndContent}</Box> : null}
+                            </Box>
                         </div>
                         {data.description && (
                             <Typography

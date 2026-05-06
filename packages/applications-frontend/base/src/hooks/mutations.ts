@@ -93,7 +93,7 @@ export function useCreateApplication() {
                     description: data.description,
                     displayName: displayName || '',
                     isPublic: data.isPublic === true,
-                    workspacesEnabled: data.workspacesEnabled === true,
+                    workspacesEnabled: false,
                     role: 'owner',
                     accessType: 'member',
                     connectorsCount: 0,
@@ -265,7 +265,7 @@ export function useCopyApplication() {
                     description: existingApp?.description,
                     displayName: typeof existingApp?.displayName === 'string' ? existingApp.displayName : '',
                     isPublic: data?.isPublic ?? existingApp?.isPublic ?? false,
-                    workspacesEnabled: data?.workspacesEnabled ?? existingApp?.workspacesEnabled ?? false,
+                    workspacesEnabled: existingApp?.workspacesEnabled ?? false,
                     role: 'owner',
                     accessType: 'member',
                     connectorsCount: 0,
@@ -750,8 +750,8 @@ export function useSyncConnector() {
     const { t } = useTranslation('applications')
 
     return useMutation({
-        mutationFn: async ({ applicationId, confirmDestructive = false, layoutResolutionPolicy }: SyncConnectorParams) => {
-            return connectorsApi.syncApplication(applicationId, confirmDestructive, layoutResolutionPolicy)
+        mutationFn: async ({ applicationId, confirmDestructive = false, layoutResolutionPolicy, schemaOptions }: SyncConnectorParams) => {
+            return connectorsApi.syncApplication(applicationId, confirmDestructive, layoutResolutionPolicy, schemaOptions)
         },
         onSuccess: (data, variables) => {
             // Invalidate application-related queries

@@ -31,9 +31,10 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 
 - Applications can be created as `closed` or `public`, and owners/admins can later change visibility from Application Settings.
 - Switching a public application back to closed blocks new direct joins and public runtime link resolution while preserving existing members.
-- Public applications default to `workspacesEnabled = true` in the UI, but owners may turn workspace mode off during creation when they intentionally want a shared data surface.
+- Applications are created as shells without a workspace toggle. Workspace mode is resolved during connector schema sync from the selected publication-version policy and the connector schema options.
+- Once a successful schema sync enables workspaces for an application, later syncs cannot turn off workspace mode.
 - Runtime schema bootstrap creates workspace support tables, seeds `owner` and `member` workspace roles, and provisions a personal `Main` workspace for the owner and every current member.
-- Public workspace-enabled applications also receive a seeded shared `Published` workspace during schema sync. Public runtime access-link reads resolve through shared workspaces only, so personal workspace data stays isolated.
+- Public workspace-enabled applications do not receive an automatic shared workspace. Public runtime access-link reads resolve through the workspace that owns the explicit access link or guest session, starting from the owner's `Main` workspace unless users create and share another workspace.
 - Adding a new member to an application with initialized workspace runtime support provisions a personal workspace automatically.
 - Leaving an application or removing a member archives the personal workspace instead of hard-deleting business rows.
 - Published runtime workspace endpoints expose paginated workspace/member lists, email-based shared-workspace member invitation for active application members, default workspace switching, and owner-only member removal.

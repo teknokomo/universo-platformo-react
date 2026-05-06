@@ -20,9 +20,7 @@ vi.mock('@tanstack/react-query', async () => {
         ...actual,
         useQuery: () => ({
             data: {
-                blockingLinkedCollections: [],
-                blockingOptionLists: [],
-                blockingValueGroups: [],
+                blockingRelatedObjects: [],
                 blockingChildTreeEntities: []
             },
             isLoading: false,

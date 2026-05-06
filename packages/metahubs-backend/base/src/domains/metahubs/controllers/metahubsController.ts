@@ -210,7 +210,31 @@ const toMetahubCountsSummary = (entityCounts: Record<string, number>): { treeEnt
 })
 
 const safeErrorMessage = (error: unknown): string => {
-    return error instanceof Error ? error.message : String(error)
+    if (error instanceof Error) {
+        return error.message
+    }
+
+    if (typeof error === 'string') {
+        return error
+    }
+
+    if (error && typeof error === 'object') {
+        const record = error as Record<string, unknown>
+        for (const key of ['message', 'error', 'detail', 'details']) {
+            const value = record[key]
+            if (typeof value === 'string' && value.trim().length > 0) {
+                return value
+            }
+        }
+
+        try {
+            return JSON.stringify(error)
+        } catch {
+            return 'Unknown object error'
+        }
+    }
+
+    return String(error)
 }
 
 const resolveBearerAccessToken = (req: Request): string | null => {
@@ -1911,6 +1935,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                 createOptions: {
                     presetToggles: {
                         hub: false,
+                        page: false,
                         catalog: false,
                         set: false,
                         enumeration: false

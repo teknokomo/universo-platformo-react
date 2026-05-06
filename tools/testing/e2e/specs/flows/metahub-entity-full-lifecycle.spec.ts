@@ -187,10 +187,7 @@ test('@flow @combined full entity lifecycle: create, author metadata, copy, publ
         )
         await linkedCollectionDialog.getByTestId(entityDialogSelectors.submitButton).click()
 
-        const createdLinkedCollection = await parseJsonResponse<EntityRecord>(
-            await createLinkedCollectionResponse,
-            'Creating catalog'
-        )
+        const createdLinkedCollection = await parseJsonResponse<EntityRecord>(await createLinkedCollectionResponse, 'Creating catalog')
         if (!createdLinkedCollection.id) throw new Error('Catalog creation did not return an id')
 
         await expect(page.getByText(linkedCollectionName, { exact: true })).toBeVisible()
@@ -237,10 +234,7 @@ test('@flow @combined full entity lifecycle: create, author metadata, copy, publ
         )
         await copyLinkedCollectionDialog.getByTestId(entityDialogSelectors.submitButton).click()
 
-        const copiedLinkedCollection = await parseJsonResponse<EntityRecord>(
-            await copyLinkedCollectionResponse,
-            'Copying catalog'
-        )
+        const copiedLinkedCollection = await parseJsonResponse<EntityRecord>(await copyLinkedCollectionResponse, 'Copying catalog')
         if (!copiedLinkedCollection.id) throw new Error('Catalog copy did not return an id')
 
         await waitForListEntity(
@@ -282,8 +276,7 @@ test('@flow @combined full entity lifecycle: create, author metadata, copy, publ
         const linkedApp = await createPublicationLinkedApplication(api, metahub.id, publication.id, {
             name: { en: applicationName },
             namePrimaryLocale: 'en',
-            createApplicationSchema: false,
-            workspacesEnabled: false
+            createApplicationSchema: false
         })
 
         const applicationId = linkedApp?.application?.id

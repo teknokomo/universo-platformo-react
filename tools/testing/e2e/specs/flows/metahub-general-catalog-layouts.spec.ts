@@ -81,7 +81,11 @@ async function waitForLayoutId(api: Awaited<ReturnType<typeof createLoggedInApiC
 
     await expect
         .poll(async () => {
-            const response = (await listLayouts(api, metahubId, { limit: 20, offset: 0, ...(catalogId ? { catalogId } : {}) })) as LayoutListResponse
+            const response = (await listLayouts(api, metahubId, {
+                limit: 20,
+                offset: 0,
+                ...(catalogId ? { catalogId } : {})
+            })) as LayoutListResponse
             layoutId = response?.items?.[0]?.id
             return typeof layoutId === 'string'
         })
@@ -94,17 +98,15 @@ async function waitForLayoutId(api: Awaited<ReturnType<typeof createLoggedInApiC
     return layoutId
 }
 
-async function waitForRuntimeState(
-    api: Awaited<ReturnType<typeof createLoggedInApiContext>>,
-    applicationId: string,
-    catalogId: string
-) {
+async function waitForRuntimeState(api: Awaited<ReturnType<typeof createLoggedInApiContext>>, applicationId: string, catalogId: string) {
     let runtimeState: RuntimeState | null = null
 
     await expect
         .poll(async () => {
             runtimeState = (await getApplicationRuntime(api, applicationId, { catalogId })) as RuntimeState
-            return typeof runtimeState?.catalog?.id === 'string' && Array.isArray(runtimeState?.columns) && Array.isArray(runtimeState?.rows)
+            return (
+                typeof runtimeState?.catalog?.id === 'string' && Array.isArray(runtimeState?.columns) && Array.isArray(runtimeState?.rows)
+            )
         })
         .toBe(true)
 
@@ -352,8 +354,7 @@ test('@flow @combined metahub General and catalog-specific layouts drive runtime
         const linkedApplication = await createPublicationLinkedApplication(api, metahub.id, publication.id, {
             name: { en: applicationName },
             namePrimaryLocale: 'en',
-            createApplicationSchema: false,
-            workspacesEnabled: false
+            createApplicationSchema: false
         })
 
         const applicationId = linkedApplication?.application?.id

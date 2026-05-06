@@ -69,8 +69,7 @@ test('@flow application list shows linked applications and navigates through exi
         const linkedApplication = await createPublicationLinkedApplication(api, metahub.id, publication.id, {
             name: { en: applicationName },
             namePrimaryLocale: 'en',
-            createApplicationSchema: false,
-            workspacesEnabled: false
+            createApplicationSchema: false
         })
 
         const applicationId = linkedApplication?.application?.id

@@ -51,11 +51,11 @@ export type DialogSizePreset = 'small' | 'medium' | 'large'
 export type DialogCloseBehavior = 'strict-modal' | 'backdrop-close'
 
 /** Entity metadata kinds that expose entity-scoped settings. */
-export const ENTITY_SETTINGS_KINDS = ['hub', 'catalog', 'set', 'enumeration'] as const
+export const ENTITY_SETTINGS_KINDS = ['hub', 'catalog', 'set', 'enumeration', 'page'] as const
 export type EntitySettingsKind = (typeof ENTITY_SETTINGS_KINDS)[number]
 
 /** Neutral entity-authoring surface aliases that map to stored builtin kind values. */
-export const ENTITY_SURFACE_KEYS = ['treeEntity', 'linkedCollection', 'valueGroup', 'optionList'] as const
+export const ENTITY_SURFACE_KEYS = ['treeEntity', 'linkedCollection', 'valueGroup', 'optionList', 'page'] as const
 export type EntitySurfaceKey = (typeof ENTITY_SURFACE_KEYS)[number]
 
 export type EntitySettingsScope = EntitySettingsKind | EntitySurfaceKey
@@ -64,21 +64,24 @@ const ENTITY_SURFACE_TO_SETTINGS_KIND_MAP: Record<EntitySurfaceKey, EntitySettin
     treeEntity: 'hub',
     linkedCollection: 'catalog',
     valueGroup: 'set',
-    optionList: 'enumeration'
+    optionList: 'enumeration',
+    page: 'page'
 }
 
 const SETTINGS_KIND_TO_ENTITY_SURFACE_MAP: Record<EntitySettingsKind, EntitySurfaceKey> = {
     hub: 'treeEntity',
     catalog: 'linkedCollection',
     set: 'valueGroup',
-    enumeration: 'optionList'
+    enumeration: 'optionList',
+    page: 'page'
 }
 
 export const ENTITY_SURFACE_LABELS: Record<EntitySurfaceKey, { singular: string; plural: string }> = {
     treeEntity: { singular: 'Hub', plural: 'Hubs' },
     linkedCollection: { singular: 'Catalog', plural: 'Catalogs' },
     valueGroup: { singular: 'Set', plural: 'Sets' },
-    optionList: { singular: 'Enumeration', plural: 'Enumerations' }
+    optionList: { singular: 'Enumeration', plural: 'Enumerations' },
+    page: { singular: 'Page', plural: 'Pages' }
 }
 
 export const isEntitySurfaceKey = (value: string): value is EntitySurfaceKey =>
@@ -439,6 +442,22 @@ export const METAHUB_SETTINGS_REGISTRY: readonly SettingDefinition[] = [
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 2
+    },
+
+    // ── Pages ──
+    {
+        key: buildEntitySettingKey('page', 'allowCopy'),
+        tab: 'page',
+        valueType: 'boolean',
+        defaultValue: true,
+        sortOrder: 1
+    },
+    {
+        key: buildEntitySettingKey('page', 'allowDelete'),
+        tab: 'page',
+        valueType: 'boolean',
+        defaultValue: true,
+        sortOrder: 2
     }
 ]
 
@@ -654,7 +673,8 @@ const _META_ENTITY_KIND_MAP = {
     CATALOG: 'catalog',
     SET: 'set',
     ENUMERATION: 'enumeration',
-    HUB: 'hub'
+    HUB: 'hub',
+    PAGE: 'page'
 } as const
 
 export const MetaEntityKind = _META_ENTITY_KIND_MAP
@@ -663,7 +683,8 @@ export const BuiltinEntityKinds = {
     CATALOG: 'catalog',
     SET: 'set',
     ENUMERATION: 'enumeration',
-    HUB: 'hub'
+    HUB: 'hub',
+    PAGE: 'page'
 } as const
 
 // eslint-disable-next-line no-redeclare
@@ -841,7 +862,7 @@ export interface MenuWidgetConfigItem {
     catalogId?: string | null
     /** Runtime/application alias for catalogId. */
     linkedCollectionId?: string | null
-    /** Runtime/application alias for catalogId. */
+    /** Runtime/application alias for catalogId, or Page id/codename for page items. */
     sectionId?: string | null
     hubId?: string | null
     /** Runtime/application alias for hubId. */
@@ -904,10 +925,9 @@ export interface QuizWidgetConfig {
     sharedBehavior?: SharedBehavior
 }
 
-
 // ========= Menu item kinds (used by MenuWidgetConfig) =========
 
-export const METAHUB_MENU_ITEM_KINDS = ['catalog', 'catalogs_all', 'hub', 'link'] as const
+export const METAHUB_MENU_ITEM_KINDS = ['catalog', 'catalogs_all', 'hub', 'page', 'link'] as const
 export type MetahubMenuItemKind = (typeof METAHUB_MENU_ITEM_KINDS)[number]
 
 // ========= Template Manifest Types =========
@@ -1110,6 +1130,11 @@ export interface TemplateSeedEntity {
     kind: EntityKind
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
+    /**
+     * When false, the seed keeps the explicit codename instead of deriving localized
+     * codename variants from the presentation name.
+     */
+    localizeCodenameFromName?: boolean
     config?: Record<string, unknown>
     attributes?: TemplateSeedAttribute[]
     /** Constants are supported only for entities with kind = set. */
@@ -1189,6 +1214,7 @@ export interface PresetDefaultInstance {
     codename: string
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
+    localizeCodenameFromName?: boolean
     config?: Record<string, unknown>
     hubs?: string[]
     attributes?: TemplateSeedAttribute[]

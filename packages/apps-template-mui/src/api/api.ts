@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { linkedCollectionRuntimeViewConfigSchema, dashboardLayoutConfigSchema } from '@universo/types'
+import { linkedCollectionRuntimeViewConfigSchema, dashboardLayoutConfigSchema, runtimePageBlockSchema } from '@universo/types'
 
 export type { DashboardLayoutConfig } from '@universo/types'
 
@@ -129,25 +129,30 @@ export const appDataResponseSchema = z.object({
     section: z
         .object({
             id: z.string(),
+            kind: z.string().optional(),
             codename: z.string(),
-            tableName: z.string(),
+            tableName: z.string().nullable(),
             name: z.string(),
-            runtimeConfig: linkedCollectionRuntimeViewConfigSchema.optional()
+            runtimeConfig: linkedCollectionRuntimeViewConfigSchema.optional(),
+            pageBlocks: z.array(runtimePageBlockSchema).optional()
         })
         .optional(),
     linkedCollection: z.object({
         id: z.string(),
+        kind: z.string().optional(),
         codename: z.string(),
-        tableName: z.string(),
+        tableName: z.string().nullable(),
         name: z.string(),
-        runtimeConfig: linkedCollectionRuntimeViewConfigSchema.optional()
+        runtimeConfig: linkedCollectionRuntimeViewConfigSchema.optional(),
+        pageBlocks: z.array(runtimePageBlockSchema).optional()
     }),
     sections: z
         .array(
             z.object({
                 id: z.string(),
+                kind: z.string().optional(),
                 codename: z.string(),
-                tableName: z.string(),
+                tableName: z.string().nullable(),
                 name: z.string(),
                 runtimeConfig: linkedCollectionRuntimeViewConfigSchema.optional()
             })
@@ -158,8 +163,9 @@ export const appDataResponseSchema = z.object({
         .array(
             z.object({
                 id: z.string(),
+                kind: z.string().optional(),
                 codename: z.string(),
-                tableName: z.string(),
+                tableName: z.string().nullable(),
                 name: z.string(),
                 runtimeConfig: linkedCollectionRuntimeViewConfigSchema.optional()
             })
@@ -319,7 +325,7 @@ export const appDataResponseSchema = z.object({
                 items: z.array(
                     z.object({
                         id: z.string(),
-                        kind: z.enum(['catalog', 'section', 'catalogs_all', 'hub', 'link']),
+                        kind: z.enum(['catalog', 'section', 'page', 'catalogs_all', 'hub', 'link']),
                         title: z.string(),
                         icon: z.string().nullable().optional(),
                         href: z.string().nullable().optional(),
@@ -334,7 +340,7 @@ export const appDataResponseSchema = z.object({
                     .array(
                         z.object({
                             id: z.string(),
-                            kind: z.enum(['catalog', 'section', 'catalogs_all', 'hub', 'link']),
+                            kind: z.enum(['catalog', 'section', 'page', 'catalogs_all', 'hub', 'link']),
                             title: z.string(),
                             icon: z.string().nullable().optional(),
                             href: z.string().nullable().optional(),

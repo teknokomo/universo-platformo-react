@@ -28,7 +28,6 @@ import type { SimpleLocalizedInput } from '../types'
 export interface ApplicationInput extends ApplicationLocalizedPayload {
     slug?: string
     isPublic?: boolean
-    workspacesEnabled?: boolean
     expectedVersion?: number
 }
 

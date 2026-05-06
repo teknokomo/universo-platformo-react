@@ -171,7 +171,6 @@ test('@flow application settings show an info state before schema creation and w
         const preSchemaApplication = await createApplication(ownerApi, {
             name: { en: `E2E ${runManifest.runId} No Schema App` },
             namePrimaryLocale: 'en',
-            workspacesEnabled: true,
             isPublic: false
         })
 
@@ -246,8 +245,7 @@ test('@flow application settings show an info state before schema creation and w
         const linkedApplication = await createPublicationLinkedApplication(ownerApi, metahub.id, publication.id, {
             name: { en: `E2E ${runManifest.runId} Workspace App` },
             namePrimaryLocale: 'en',
-            createApplicationSchema: false,
-            workspacesEnabled: true
+            createApplicationSchema: false
         })
 
         const applicationId = linkedApplication?.application?.id
@@ -260,7 +258,12 @@ test('@flow application settings show an info state before schema creation and w
             slug: linkedApplication.application.slug
         })
 
-        await syncApplicationSchema(ownerApi, applicationId)
+        await syncApplicationSchema(ownerApi, applicationId, {
+            schemaOptions: {
+                workspaceModeRequested: 'enabled',
+                acknowledgeIrreversibleWorkspaceEnablement: true
+            }
+        })
 
         const resolvedCatalogId = await waitForRuntimeCatalogId(ownerApi, applicationId, catalogId)
 
@@ -413,8 +416,7 @@ test('@flow application without workspaces shares runtime rows between members',
         const linkedApplication = await createPublicationLinkedApplication(ownerApi, metahub.id, publication.id, {
             name: { en: `E2E ${runManifest.runId} Shared App` },
             namePrimaryLocale: 'en',
-            createApplicationSchema: false,
-            workspacesEnabled: false
+            createApplicationSchema: false
         })
 
         const applicationId = linkedApplication?.application?.id

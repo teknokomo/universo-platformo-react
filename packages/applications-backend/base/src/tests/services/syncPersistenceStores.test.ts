@@ -31,7 +31,8 @@ describe('sync persistence helpers', () => {
         const [sql, params] = mock.query.mock.calls[0]
         expect(sql).toContain('UPDATE applications.cat_applications')
         expect(sql).toContain('RETURNING id')
-        expect(sql).toContain('WHERE id = $9 AND _upl_deleted = false AND _app_deleted = false')
+        expect(sql).toContain('workspaces_enabled = COALESCE($8, workspaces_enabled)')
+        expect(sql).toContain('WHERE id = $10 AND _upl_deleted = false AND _app_deleted = false')
         expect(params).toEqual([
             ApplicationSchemaStatus.SYNCED,
             null,
@@ -40,6 +41,7 @@ describe('sync persistence helpers', () => {
             'publication-version-1',
             53,
             null,
+            undefined,
             'user-1',
             'application-1'
         ])

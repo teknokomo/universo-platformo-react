@@ -140,6 +140,9 @@ vi.mock('@universo/template-mui', () => {
         useListDialogs,
         createMemberActions: vi.fn(() => []),
         createEntityActions: vi.fn(() => []),
+        createEditActionIcon: () => null,
+        createCopyActionIcon: () => null,
+        createDeleteActionIcon: () => null,
         TemplateMainCard: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
         ToolbarControls: ({ primaryAction }: { primaryAction?: { label?: string; onClick?: () => void; disabled?: boolean } }) => (
             <button type='button' onClick={primaryAction?.onClick}>

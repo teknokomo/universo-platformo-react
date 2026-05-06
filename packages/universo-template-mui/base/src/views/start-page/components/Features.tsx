@@ -1,4 +1,5 @@
 import * as React from 'react'
+import type { CSSProperties } from 'react'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
@@ -10,6 +11,11 @@ import { styled } from '@mui/material/styles'
 import DevicesRoundedIcon from '@mui/icons-material/DevicesRounded'
 import EdgesensorHighRoundedIcon from '@mui/icons-material/EdgesensorHighRounded'
 import ViewQuiltRoundedIcon from '@mui/icons-material/ViewQuiltRounded'
+
+type FeatureImageStyle = CSSProperties & {
+    '--items-imageLight'?: string
+    '--items-imageDark'?: string
+}
 
 const items = [
     {
@@ -43,7 +49,9 @@ interface ChipProps {
     selected?: boolean
 }
 
-const Chip = styled(MuiChip)<ChipProps>(({ theme }) => ({
+const Chip = styled(MuiChip, {
+    shouldForwardProp: (prop) => prop !== 'selected'
+})<ChipProps>(({ theme }) => ({
     variants: [
         {
             props: ({ selected }) => !!selected,
@@ -109,8 +117,8 @@ export function MobileLayout({ selectedItemIndex, handleItemClick, selectedFeatu
                             ? ({
                                   '--items-imageLight': items[selectedItemIndex].imageLight,
                                   '--items-imageDark': items[selectedItemIndex].imageDark
-                              } as any)
-                            : {}
+                              } as FeatureImageStyle)
+                            : undefined
                     }
                 />
                 <Box sx={{ px: 2, pb: 2 }}>
@@ -244,8 +252,8 @@ export default function Features() {
                                     ? ({
                                           '--items-imageLight': items[selectedItemIndex].imageLight,
                                           '--items-imageDark': items[selectedItemIndex].imageDark
-                                      } as any)
-                                    : {}
+                                      } as FeatureImageStyle)
+                                    : undefined
                             }
                         />
                     </Card>

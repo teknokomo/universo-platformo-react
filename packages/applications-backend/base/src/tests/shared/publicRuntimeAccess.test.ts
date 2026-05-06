@@ -31,19 +31,21 @@ describe('publicRuntimeAccess helpers', () => {
         expect(json).toHaveBeenCalledWith({ error: 'Application does not allow public runtime access' })
     })
 
-    it('only exposes the deterministic public shared workspace to guest runtime helpers', async () => {
+    it('exposes active workspace candidates to guest runtime helpers without relying on a seeded shared workspace', async () => {
         const { executor } = createMockDbExecutor()
-        const publicWorkspaceId = '018f8a78-7b8f-7c1d-a111-222233334441'
+        const mainWorkspaceId = '018f8a78-7b8f-7c1d-a111-222233334441'
+        const sharedWorkspaceId = '018f8a78-7b8f-7c1d-a111-222233334442'
 
         executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
-            expect(sql).toContain('AND codename = $1')
-            expect(sql).toContain('LIMIT 1')
-            expect(sql).not.toContain('CASE WHEN codename')
-            expect(params).toEqual(['__public_shared'])
-            return [{ id: publicWorkspaceId }]
+            expect(sql).toContain('COALESCE(status,')
+            expect(sql).toContain('ORDER BY workspace_type ASC, _upl_created_at ASC, id ASC')
+            expect(sql).not.toContain('codename = $1')
+            expect(sql).not.toContain('LIMIT 1')
+            expect(params).toEqual([])
+            return [{ id: mainWorkspaceId }, { id: sharedWorkspaceId }, { id: 'not-a-uuid' }]
         })
 
-        await expect(listActivePublicWorkspaceIds(executor, schemaName)).resolves.toEqual([publicWorkspaceId])
+        await expect(listActivePublicWorkspaceIds(executor, schemaName)).resolves.toEqual([mainWorkspaceId, sharedWorkspaceId])
     })
 
     it('loads a public runtime object definition and exposes top-level attributes', async () => {

@@ -27,7 +27,13 @@ export const catalogEntityPreset: EntityTypePresetManifest = {
         ui: CATALOG_TYPE_UI,
         presentation: {
             name: STANDARD_CATALOG_NAME,
-            description: STANDARD_CATALOG_DESCRIPTION
+            description: STANDARD_CATALOG_DESCRIPTION,
+            dialogTitles: {
+                create: vlc('Create Catalog', 'Создать каталог'),
+                edit: vlc('Edit Catalog', 'Редактировать каталог'),
+                copy: vlc('Copy Catalog', 'Копирование каталога'),
+                delete: vlc('Delete Catalog', 'Удалить каталог')
+            }
         },
         config: {}
     },

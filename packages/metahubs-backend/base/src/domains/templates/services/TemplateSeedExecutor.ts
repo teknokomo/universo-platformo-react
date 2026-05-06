@@ -375,7 +375,11 @@ export class TemplateSeedExecutor {
                 .into('_mhb_objects')
                 .insert({
                     kind: entity.kind,
-                    codename: buildTemplateSeedEntityCodenameValue(entity.codename, entity.name, codenameConfig),
+                    codename: buildTemplateSeedEntityCodenameValue(
+                        entity.codename,
+                        entity.localizeCodenameFromName === false ? undefined : entity.name,
+                        codenameConfig
+                    ),
                     table_name: null,
                     presentation: { name: entity.name, description: entity.description },
                     config: entityConfig,

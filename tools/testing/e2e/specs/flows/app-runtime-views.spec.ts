@@ -120,7 +120,10 @@ test.describe('Application Runtime View Settings', () => {
             const viewSettingsHeading = page.getByText(/view settings|настройки отображения/i).first()
             await expect(viewSettingsHeading).toBeVisible({ timeout: 10_000 })
 
-            const viewToggleSwitch = page.locator('label').filter({ hasText: /view toggle|переключатель/i }).first()
+            const viewToggleSwitch = page
+                .locator('label')
+                .filter({ hasText: /view toggle|переключатель/i })
+                .first()
             if (await viewToggleSwitch.isVisible().catch(() => false)) {
                 await expect(viewToggleSwitch).toBeVisible()
             }
@@ -198,8 +201,7 @@ test.describe('Application Runtime View Settings', () => {
             const linkedApplication = await createPublicationLinkedApplication(api, metahub.id, publication.id, {
                 name: { en: applicationName },
                 namePrimaryLocale: 'en',
-                createApplicationSchema: false,
-                workspacesEnabled: false
+                createApplicationSchema: false
             })
 
             const applicationId = linkedApplication?.application?.id
@@ -225,13 +227,18 @@ test.describe('Application Runtime View Settings', () => {
             await expect(listViewButton).toBeVisible()
             await expect(searchInput).toBeVisible()
             await expect(cardViewButton).toHaveAttribute('aria-pressed', 'true')
-            await expectHeightsAligned(page.getByTestId(applicationSelectors.runtimeCreateButton), page.getByTestId(viewHeaderSelectors.searchInput), 2)
+            await expectHeightsAligned(
+                page.getByTestId(applicationSelectors.runtimeCreateButton),
+                page.getByTestId(viewHeaderSelectors.searchInput),
+                2
+            )
             await expectHeightsAligned(page.getByTestId(applicationSelectors.runtimeCreateButton), cardViewButton, 2)
             await expectHeightsAligned(page.getByTestId(applicationSelectors.runtimeCreateButton), listViewButton, 2)
 
             const createAlphaRequest = waitForSettledMutationResponse(
                 page,
-                (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows`),
+                (response) =>
+                    response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows`),
                 { label: 'Creating alpha runtime row' }
             )
             await page.getByTestId(applicationSelectors.runtimeCreateButton).click()
@@ -244,7 +251,8 @@ test.describe('Application Runtime View Settings', () => {
 
             const createBetaRequest = waitForSettledMutationResponse(
                 page,
-                (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows`),
+                (response) =>
+                    response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows`),
                 { label: 'Creating beta runtime row' }
             )
             await page.getByTestId(applicationSelectors.runtimeCreateButton).click()

@@ -1,6 +1,9 @@
 import { ENTITY_SURFACE_LABELS, resolveEntitySurfaceKey, type BuiltinEntityKind } from '@universo/types'
+import { qSchemaTable } from '@universo/database'
+import { queryMany, queryOne } from '@universo/utils/database'
 
 import { generateTableName } from '../../ddl'
+import { codenamePrimaryTextSql } from '../../shared/codename'
 import { resolveEntityMetadataKinds, resolveEntityMetadataSettingKey } from '../../shared/entityMetadataKinds'
 import { findBlockingLinkedCollectionReferences, isLinkedCollectionCompatibleResolvedType } from '../children/linkedCollectionContext'
 import { findBlockingTreeDependencies, loadTreeEntityContext, removeHubFromObjectAssociations } from '../children/treeEntityContext'
@@ -13,6 +16,84 @@ const getSurfaceLabels = (kindKey: BuiltinEntityKind) => {
 
 export const resolveBuiltinGeneratedTableName = (kindKey: BuiltinEntityKind, objectId: string): string | null =>
     resolveEntitySurfaceKey(kindKey) === 'linkedCollection' ? generateTableName(objectId, kindKey) : null
+
+type PageLayoutReference = {
+    source: 'layoutWidget' | 'catalogWidgetOverride'
+    layoutId: string
+    widgetId: string
+    layoutName: unknown
+    reference: string
+}
+
+const findBlockingPageLayoutReferences = async ({
+    metahubId,
+    entityId,
+    userId,
+    exec,
+    schemaService
+}: Pick<EntityBehaviorDeleteContext, 'metahubId' | 'entityId' | 'userId' | 'exec' | 'schemaService'>): Promise<PageLayoutReference[]> => {
+    const schemaName = await schemaService.ensureSchema(metahubId, userId)
+    const objectsQt = qSchemaTable(schemaName, '_mhb_objects')
+    const layoutsQt = qSchemaTable(schemaName, '_mhb_layouts')
+    const widgetsQt = qSchemaTable(schemaName, '_mhb_widgets')
+    const overridesQt = qSchemaTable(schemaName, '_mhb_catalog_widget_overrides')
+    const codenameSql = codenamePrimaryTextSql('codename')
+
+    const page = await queryOne<{ id: string; codename: string }>(
+        exec,
+        `SELECT id, ${codenameSql} AS codename
+           FROM ${objectsQt}
+          WHERE id = $1 AND kind = 'page' AND _upl_deleted = false AND _mhb_deleted = false
+          LIMIT 1`,
+        [entityId]
+    )
+    const identifiers = [page?.id, page?.codename].filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    if (identifiers.length === 0) {
+        return []
+    }
+
+    const widgetRows = await queryMany<PageLayoutReference>(
+        exec,
+        `SELECT 'layoutWidget'::text AS source,
+                l.id AS "layoutId",
+                w.id AS "widgetId",
+                l.name AS "layoutName",
+                COALESCE(w.config->>'startPage', item.value->>'sectionId') AS reference
+           FROM ${widgetsQt} w
+           JOIN ${layoutsQt} l ON l.id = w.layout_id AND l._upl_deleted = false AND l._mhb_deleted = false
+      LEFT JOIN LATERAL jsonb_array_elements(
+                CASE WHEN jsonb_typeof(w.config->'items') = 'array' THEN w.config->'items' ELSE '[]'::jsonb END
+           ) item(value) ON item.value->>'kind' = 'page' AND item.value->>'sectionId' = ANY($1::text[])
+          WHERE w.widget_key = 'menuWidget'
+            AND w.is_active = true
+            AND w._upl_deleted = false
+            AND w._mhb_deleted = false
+            AND (w.config->>'startPage' = ANY($1::text[]) OR item.value IS NOT NULL)`,
+        [identifiers]
+    )
+
+    const overrideRows = await queryMany<PageLayoutReference>(
+        exec,
+        `SELECT 'catalogWidgetOverride'::text AS source,
+                o.catalog_layout_id AS "layoutId",
+                o.id AS "widgetId",
+                l.name AS "layoutName",
+                COALESCE(o.config->>'startPage', item.value->>'sectionId') AS reference
+           FROM ${overridesQt} o
+           JOIN ${layoutsQt} l ON l.id = o.catalog_layout_id AND l._upl_deleted = false AND l._mhb_deleted = false
+      LEFT JOIN LATERAL jsonb_array_elements(
+                CASE WHEN jsonb_typeof(o.config->'items') = 'array' THEN o.config->'items' ELSE '[]'::jsonb END
+           ) item(value) ON item.value->>'kind' = 'page' AND item.value->>'sectionId' = ANY($1::text[])
+          WHERE o.config IS NOT NULL
+            AND COALESCE(o.is_deleted_override, false) = false
+            AND o._upl_deleted = false
+            AND o._mhb_deleted = false
+            AND (o.config->>'startPage' = ANY($1::text[]) OR item.value IS NOT NULL)`,
+        [identifiers]
+    )
+
+    return [...widgetRows, ...overrideRows]
+}
 
 export const buildBuiltinKindBlockingState = async (
     kindKey: BuiltinEntityKind,
@@ -84,27 +165,35 @@ export const buildBuiltinKindBlockingState = async (
         }
     }
 
+    if (surfaceKey === 'page') {
+        const blockingReferences = await findBlockingPageLayoutReferences({ metahubId, entityId, userId, exec, schemaService })
+        return {
+            status: 200,
+            body: {
+                pageId: entityId,
+                blockingReferences,
+                canDelete: blockingReferences.length === 0
+            }
+        }
+    }
+
     const compatibility = await loadTreeEntityContext(entityTypeService, metahubId, userId)
-    const { blockingLinkedCollections, blockingValueGroups, blockingOptionLists, blockingChildTreeEntities } =
-        await findBlockingTreeDependencies({
-            metahubId,
-            treeEntityId: entityId,
-            schemaService,
-            userId,
-            db: exec,
-            compatibility
-        })
-    const totalBlocking =
-        blockingLinkedCollections.length + blockingValueGroups.length + blockingOptionLists.length + blockingChildTreeEntities.length
+    const { blockingRelatedObjects, blockingChildTreeEntities } = await findBlockingTreeDependencies({
+        metahubId,
+        treeEntityId: entityId,
+        schemaService,
+        userId,
+        db: exec,
+        compatibility
+    })
+    const totalBlocking = blockingRelatedObjects.length + blockingChildTreeEntities.length
 
     return {
         status: 200,
         body: {
             treeEntityId: entityId,
-            blockingLinkedCollections,
-            blockingValueGroups,
-            blockingOptionLists,
             blockingChildTreeEntities,
+            blockingRelatedObjects,
             totalBlocking,
             canDelete: totalBlocking === 0
         }
@@ -206,6 +295,25 @@ export const buildBuiltinKindDeletePlan = async (
         return { policyOutcome: null }
     }
 
+    if (surfaceKey === 'page') {
+        const blockingReferences = await findBlockingPageLayoutReferences({ metahubId, entityId, userId, exec, schemaService })
+        if (blockingReferences.length > 0) {
+            return {
+                policyOutcome: {
+                    status: 409,
+                    body: {
+                        error: 'Cannot delete page because it is referenced by runtime navigation',
+                        code: 'PAGE_DELETE_BLOCKED_BY_LAYOUT_REFERENCES',
+                        pageId: entityId,
+                        blockingReferences
+                    }
+                }
+            }
+        }
+
+        return { policyOutcome: null }
+    }
+
     const blockingState = await buildBuiltinKindBlockingState(kindKey, {
         resolvedType,
         settingsService,
@@ -218,14 +326,11 @@ export const buildBuiltinKindDeletePlan = async (
         exec,
         schemaService
     })
-    const { blockingLinkedCollections, blockingValueGroups, blockingOptionLists, blockingChildTreeEntities, totalBlocking } =
-        blockingState.body as {
-            blockingLinkedCollections: unknown[]
-            blockingValueGroups: unknown[]
-            blockingOptionLists: unknown[]
-            blockingChildTreeEntities: unknown[]
-            totalBlocking: number
-        }
+    const { blockingRelatedObjects, blockingChildTreeEntities, totalBlocking } = blockingState.body as {
+        blockingRelatedObjects: unknown[]
+        blockingChildTreeEntities: unknown[]
+        totalBlocking: number
+    }
 
     if (totalBlocking > 0) {
         return {
@@ -233,9 +338,7 @@ export const buildBuiltinKindDeletePlan = async (
                 status: 409,
                 body: {
                     error: 'Cannot delete hub: required objects would become orphaned',
-                    blockingLinkedCollections,
-                    blockingValueGroups,
-                    blockingOptionLists,
+                    blockingRelatedObjects,
                     blockingChildTreeEntities,
                     totalBlocking
                 }

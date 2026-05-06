@@ -130,6 +130,14 @@ describe('Template seed services transaction scope', () => {
         expect(localizedCodename?.locales?.ru?.content).toBe('Основной')
     })
 
+    it('keeps explicit seed codename when localized name syncing is disabled by the caller', () => {
+        const codenameConfig = resolveTemplateSeedCodenameConfig(basicTemplate.seed.settings)
+        const codename = buildTemplateSeedEntityCodenameValue('LearnerHome', undefined, codenameConfig)
+
+        expect(codename?.locales?.en?.content).toBe('LearnerHome')
+        expect(codename?.locales?.ru).toBeUndefined()
+    })
+
     it('remaps seeded hub references after all entities are inserted', async () => {
         const objectRows = new Map<string, { id: string; kind: string; codename: unknown; config: Record<string, unknown> }>()
         let nextId = 1

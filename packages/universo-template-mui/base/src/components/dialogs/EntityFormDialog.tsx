@@ -62,7 +62,11 @@ function a11yProps(index: number) {
     }
 }
 
-const isRecord = (value: unknown): value is Record<string, any> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+type EntityDialogExtraValues = Record<string, unknown>
+type EntityDialogValues = { name: string; description: string } & EntityDialogExtraValues
+type EntityDialogSaveValues = { name: string; description?: string } & EntityDialogExtraValues
+
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 
 const isBlankLocalizedScaffold = (value: unknown): boolean => {
     if (!isRecord(value) || !isRecord(value.locales)) {
@@ -108,7 +112,7 @@ export interface EntityFormDialogProps {
     loading?: boolean
     error?: string
     onClose: () => void
-    onSave: (data: { name: string; description?: string } & Record<string, any>) => Promise<void> | void
+    onSave: (data: EntityDialogSaveValues) => Promise<void> | void
     /** Optional callback called after successful save (before auto-close). */
     onSuccess?: () => void
     /** If true (default), the dialog will auto-close after a successful save. Set to false to keep it open. */
@@ -124,15 +128,15 @@ export interface EntityFormDialogProps {
     /** Hide default name/description fields (useful for custom field rendering). */
     hideDefaultFields?: boolean
     /** Custom save gating based on current values. */
-    canSave?: (values: { name: string; description: string } & Record<string, any>) => boolean
+    canSave?: (values: EntityDialogValues) => boolean
     extraFields?: (helpers: {
-        values: Record<string, any>
-        setValue: (name: string, value: any) => void
+        values: EntityDialogExtraValues
+        setValue: (name: string, value: unknown) => void
         isLoading: boolean
         errors: Record<string, string>
     }) => React.ReactNode
-    initialExtraValues?: Record<string, any>
-    validate?: (values: { name: string; description: string } & Record<string, any>) => Record<string, string> | null
+    initialExtraValues?: EntityDialogExtraValues
+    validate?: (values: EntityDialogValues) => Record<string, string> | null
     /**
      * Optional function that returns tab configurations for tabbed dialog layout.
      * When provided, the dialog renders a tabbed interface instead of flat content.
@@ -141,8 +145,8 @@ export interface EntityFormDialogProps {
      * name/description fields within the first tab for better UX.
      */
     tabs?: (helpers: {
-        values: Record<string, any>
-        setValue: (name: string, value: any) => void
+        values: EntityDialogExtraValues
+        setValue: (name: string, value: unknown) => void
         isLoading: boolean
         errors: Record<string, string>
     }) => TabConfig[]
@@ -187,13 +191,13 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
     const [name, setName] = useState(initialName)
     const [description, setDescription] = useState(initialDescription)
-    const [extraValues, setExtraValues] = useState<Record<string, any>>(normalizedInitialExtraValues)
+    const [extraValues, setExtraValues] = useState<EntityDialogExtraValues>(normalizedInitialExtraValues)
     const [hasTouchedExtraValues, setHasTouchedExtraValues] = useState(false)
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [activeTab, setActiveTab] = useState(initialTabIndex)
     const nameInputRef = useRef<HTMLInputElement>(null)
-    const extraValuesRef = useRef<Record<string, any>>(normalizedInitialExtraValues)
+    const extraValuesRef = useRef<EntityDialogExtraValues>(normalizedInitialExtraValues)
     const wasOpenRef = useRef(false)
 
     const syncFormStateToInitials = useCallback(() => {
@@ -237,7 +241,7 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
         }
     }, [open, normalizedInitialExtraValues, hasTouchedExtraValues])
 
-    const handleExtraValueChange = useCallback((fieldName: string, value: any) => {
+    const handleExtraValueChange = useCallback((fieldName: string, value: unknown) => {
         const previousValue = extraValuesRef.current[fieldName]
         if (!shouldPreserveAsyncHydration(fieldName, previousValue, value)) {
             setHasTouchedExtraValues(true)

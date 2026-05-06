@@ -6,9 +6,9 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { DatePicker, DatePickerFieldProps } from '@mui/x-date-pickers/DatePicker'
 
-interface ButtonFieldProps extends DatePickerFieldProps {}
+type ButtonFieldProps = DatePickerFieldProps
 
-function ButtonField(props: ButtonFieldProps) {
+function ButtonField(_props: ButtonFieldProps) {
     return (
         <Button variant='outlined' size='small' startIcon={<CalendarTodayRoundedIcon fontSize='small' />} sx={{ minWidth: 'fit-content' }}>
             Apr 17, 2023

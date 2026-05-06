@@ -20,11 +20,17 @@ jest.mock('@universo/auth-backend', () => {
         ;(req as express.Request & { user?: { id: string } }).user = { id: 'user-1' }
         next()
     }
+    const ensureAuthWithRls = (req: express.Request, _res: express.Response, next: express.NextFunction) => {
+        ;(req as express.Request & { user?: { id: string }; rlsWrapped?: boolean }).user = { id: 'user-1' }
+        ;(req as express.Request & { rlsWrapped?: boolean }).rlsWrapped = true
+        next()
+    }
 
     return {
         __esModule: true,
         ensureAuth,
-        createEnsureAuthWithRls: jest.fn(() => ensureAuth),
+        ensureAuthWithRls,
+        createEnsureAuthWithRls: jest.fn(() => ensureAuthWithRls),
         createPermissionService: jest.fn(() => ({}))
     }
 })
@@ -117,7 +123,7 @@ jest.mock('@universo/applications-backend', () => {
             (
                 _ensureAuth,
                 getDbExecutor: () => unknown,
-                loadPublishedPublicationRuntimeSource: (executor: unknown, publicationId: string) => Promise<any>
+                loadPublishedPublicationRuntimeSource: (executor: unknown, publicationId: string) => Promise<Record<string, unknown> | null>
             ) => {
                 const router = expressModule.Router()
 
@@ -240,6 +246,15 @@ describe('core route composition publication -> application sync flow', () => {
 
         expect(metahubsModule.createMetahubsServiceRoutes).toHaveBeenCalledTimes(1)
         expect(applicationsModule.createApplicationsServiceRoutes).toHaveBeenCalledTimes(1)
+        const authModule = jest.requireMock('@universo/auth-backend') as {
+            ensureAuth: express.RequestHandler
+            ensureAuthWithRls: express.RequestHandler
+            createEnsureAuthWithRls: jest.Mock
+        }
+        expect(applicationsModule.createApplicationsServiceRoutes.mock.calls[0][0]).toBe(authModule.ensureAuthWithRls)
+        expect(applicationsModule.createApplicationsServiceRoutes.mock.calls[0][3]).toMatchObject({
+            syncEnsureAuth: authModule.ensureAuth
+        })
         expect(metahubsModule.loadPublishedPublicationRuntimeSource).toHaveBeenCalledWith(mockExecutor, 'publication-1')
     })
 

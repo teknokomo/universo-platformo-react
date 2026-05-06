@@ -11,7 +11,7 @@ export interface UsePaginatedParams<TSortBy extends string = string> {
     /**
      * API function that fetches paginated data
      */
-    queryFn: (params: PaginationParams) => Promise<PaginatedResponse<any>>
+    queryFn: (params: PaginationParams) => Promise<PaginatedResponse<unknown>>
 
     /**
      * Initial items per page (defaults to 20)
@@ -84,7 +84,15 @@ export interface UsePaginatedReturn<TData> {
  * })
  * ```
  */
-export function usePaginated<TData = any, TSortBy extends string = string>(params: UsePaginatedParams<TSortBy>): UsePaginatedReturn<TData> {
+interface HttpStatusError extends Error {
+    response?: {
+        status?: number
+    }
+}
+
+export function usePaginated<TData = unknown, TSortBy extends string = string>(
+    params: UsePaginatedParams<TSortBy>
+): UsePaginatedReturn<TData> {
     const {
         queryKeyFn,
         queryFn,
@@ -122,17 +130,17 @@ export function usePaginated<TData = any, TSortBy extends string = string>(param
     // Main query
     const query: UseQueryResult<PaginatedResponse<TData>, Error> = useQuery({
         queryKey: queryKeyFn(queryParams),
-        queryFn: () => queryFn(queryParams),
+        queryFn: () => queryFn(queryParams) as Promise<PaginatedResponse<TData>>,
         enabled,
         staleTime,
         placeholderData: keepPreviousDataOnQueryKeyChange ? keepPreviousDataPlaceholder : undefined,
         refetchOnWindowFocus: false,
         refetchOnReconnect: false,
         retryOnMount: false,
-        retry: (failureCount: number, error: any) => {
+        retry: (failureCount: number, error: HttpStatusError) => {
             const status = error?.response?.status
             // Do not amplify backend overload/auth/client errors with retries.
-            if ([400, 401, 403, 404, 409, 422, 429, 500, 502, 503, 504].includes(status)) return false
+            if (typeof status === 'number' && [400, 401, 403, 404, 409, 422, 429, 500, 502, 503, 504].includes(status)) return false
             // Keep only a single retry for transient network-level errors without HTTP status.
             return failureCount < 1
         }

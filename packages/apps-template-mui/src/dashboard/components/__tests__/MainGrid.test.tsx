@@ -68,7 +68,8 @@ vi.mock('../widgetRenderer', () => ({
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
-        t: (_key: string, fallback?: string) => fallback ?? _key
+        t: (_key: string, fallback?: string) => fallback ?? _key,
+        i18n: { language: 'en' }
     })
 }))
 
@@ -262,5 +263,89 @@ describe('MainGrid enhanced runtime details', () => {
         expect(screen.getByTestId('custom-page-surface')).toHaveTextContent('Page surface')
         expect(screen.queryByTestId('customized-grid')).not.toBeInTheDocument()
         expect(screen.queryByTestId('rendered-widget-quizWidget')).not.toBeInTheDocument()
+    })
+
+    it('renders page blocks instead of the details table for nonphysical Page sections', () => {
+        render(
+            <DashboardDetailsProvider
+                value={{
+                    ...details,
+                    pageBlocks: [
+                        {
+                            id: 'title',
+                            type: 'header',
+                            data: {
+                                level: 2,
+                                text: {
+                                    _primary: 'en',
+                                    locales: {
+                                        en: { content: 'Learner Home' }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            id: 'body',
+                            type: 'paragraph',
+                            data: {
+                                text: {
+                                    _primary: 'en',
+                                    locales: {
+                                        en: { content: 'Continue lessons from one place.' }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            id: 'ordered',
+                            type: 'list',
+                            data: {
+                                style: 'ordered',
+                                items: ['First step', 'Second step']
+                            }
+                        },
+                        {
+                            id: 'table',
+                            type: 'table',
+                            data: {
+                                withHeadings: true,
+                                content: [
+                                    ['Metric', 'Value'],
+                                    ['Completion', '80%']
+                                ]
+                            }
+                        },
+                        {
+                            id: 'image',
+                            type: 'image',
+                            data: {
+                                url: 'https://example.com/lesson.png',
+                                alt: 'Lesson illustration',
+                                caption: 'Lesson image'
+                            }
+                        },
+                        {
+                            id: 'embed',
+                            type: 'embed',
+                            data: {
+                                url: 'https://example.com/resource',
+                                caption: 'External resource'
+                            }
+                        }
+                    ]
+                }}
+            >
+                <MainGrid layoutConfig={baseLayoutConfig} />
+            </DashboardDetailsProvider>
+        )
+
+        expect(screen.getByTestId('runtime-page-blocks')).toBeInTheDocument()
+        expect(screen.getByText('Learner Home')).toBeInTheDocument()
+        expect(screen.getByText('Continue lessons from one place.')).toBeInTheDocument()
+        expect(screen.getByText('First step')).toBeInTheDocument()
+        expect(screen.getByText('Completion')).toBeInTheDocument()
+        expect(screen.getByRole('img', { name: 'Lesson illustration' })).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: 'External resource' })).toHaveAttribute('href', 'https://example.com/resource')
+        expect(screen.queryByTestId('customized-grid')).not.toBeInTheDocument()
     })
 })

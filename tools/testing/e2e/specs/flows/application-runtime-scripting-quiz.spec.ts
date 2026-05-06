@@ -821,8 +821,7 @@ test('@flow quiz widget scripts publish into runtime and execute through the rea
         const linkedApplication = await createPublicationLinkedApplication(api, metahub.id, publication.id, {
             name: { en: applicationName },
             namePrimaryLocale: 'en',
-            createApplicationSchema: false,
-            workspacesEnabled: false
+            createApplicationSchema: false
         })
 
         const applicationId = linkedApplication?.application?.id

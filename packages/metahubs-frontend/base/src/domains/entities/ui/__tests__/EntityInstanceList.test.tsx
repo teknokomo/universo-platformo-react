@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createLocalizedContent } from '@universo/utils'
 
 import EntityInstanceList from '../EntityInstanceList'
+import EntityInstanceListContent from '../EntityInstanceListContent'
 
 const makeVlc = (content: string) => createLocalizedContent('en', content)
 
@@ -70,6 +71,13 @@ const mockEntityInstanceDetailQuery = vi.fn()
 const mockUseMetahubHubs = vi.fn()
 const mockUseMetahubDetails = vi.fn()
 const mockUseEntityPermissions = vi.fn()
+const mockUsePaginated = vi.fn()
+const mockCreateEntityInstance = vi.fn()
+const mockUpdateEntityInstance = vi.fn()
+const mockCopyEntityInstance = vi.fn()
+const mockDeleteEntityInstance = vi.fn()
+const mockRestoreEntityInstance = vi.fn()
+const mockPermanentDeleteEntityInstance = vi.fn()
 const templateMainCardMock = vi.fn()
 const catalogEntityInstanceViewMock = vi.fn()
 const hubEntityInstanceViewMock = vi.fn()
@@ -86,6 +94,8 @@ type MockListRow = {
 type FlowListTableProps = {
     data: MockListRow[]
     renderActions?: (row: MockListRow) => React.ReactNode
+    onRowClick?: (row: MockListRow) => void
+    customColumns?: Array<{ id: string; label: string }>
 }
 
 type ItemCardProps = {
@@ -105,15 +115,35 @@ type ToolbarControlsProps = {
     children?: React.ReactNode
 }
 
+type MockActionDescriptor<TEntity> = {
+    id: string
+    labelKey: string
+    visible?: (ctx: { entity: TEntity; entityKind: string; t: (key: string) => string }) => boolean
+    enabled?: (ctx: { entity: TEntity; entityKind: string; t: (key: string) => string }) => boolean
+    onSelect?: (ctx: { entity: TEntity; entityKind: string; t: (key: string) => string }) => void | Promise<void>
+}
+
+type BaseEntityMenuProps<TEntity> = {
+    entity: TEntity
+    entityKind: string
+    descriptors: MockActionDescriptor<TEntity>[]
+    createContext: (base: { entity: TEntity; entityKind: string; t: (key: string) => string }) => {
+        entity: TEntity
+        entityKind: string
+        t: (key: string) => string
+    }
+}
+
 type ViewHeaderProps = {
     title: string
-    description: string
+    description?: string
     children?: React.ReactNode
 }
 
 type MockDialogTab = {
     id: string
     label: string
+    content?: React.ReactNode
 }
 
 type EntityFormDialogRenderProps = {
@@ -128,11 +158,39 @@ type EntityFormDialogProps = {
     tabs?: (props: EntityFormDialogRenderProps) => MockDialogTab[]
     initialExtraValues?: Record<string, unknown>
     title?: string
+    onSave?: (values: Record<string, unknown>) => Promise<void> | void
 }
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
         t: (key: string, defaultValueOrOptions?: string | { defaultValue?: string }) => {
+            const mapped: Record<string, string> = {
+                'metahubs:pages.title': 'Pages',
+                'metahubs:pages.createDialog.title': 'Create Page',
+                'metahubs:pages.editDialog.title': 'Edit Page',
+                'metahubs:pages.copyTitle': 'Copy Page',
+                'metahubs:pages.deleteDialog.title': 'Delete Page',
+                'hubs.title': 'Hubs',
+                'catalogs.tabs.layout': 'Layouts',
+                'pages.empty': 'No pages yet',
+                'pages.emptyDescription': 'Create the first page to configure structured application content',
+                'pages.searchPlaceholder': 'Search pages...',
+                'entities.instances.tabs.content': 'Content',
+                'common:actions.more': 'More actions',
+                'common:actions.copy': 'Copy',
+                'common:actions.edit': 'Edit',
+                'common:actions.delete': 'Delete',
+                'common:actions.restore': 'Restore',
+                'common:actions.deletePermanently': 'Delete permanently',
+                'flowList:menu.button': 'More actions',
+                'actions.more': 'More actions',
+                'actions.copy': 'Copy',
+                'actions.edit': 'Edit',
+                'actions.delete': 'Delete',
+                'actions.restore': 'Restore',
+                'actions.deletePermanently': 'Delete permanently'
+            }
+            if (mapped[key]) return mapped[key]
             if (typeof defaultValueOrOptions === 'string') return defaultValueOrOptions
             if (typeof defaultValueOrOptions?.defaultValue === 'string') return defaultValueOrOptions.defaultValue
             return key
@@ -148,6 +206,17 @@ vi.mock('@universo/i18n', () => ({
 }))
 
 vi.mock('@tanstack/react-query', () => ({
+    useQuery: () => ({
+        data: undefined,
+        isLoading: false,
+        isError: false,
+        error: null
+    }),
+    useMutation: () => ({
+        mutate: vi.fn(),
+        mutateAsync: vi.fn(),
+        isPending: false
+    }),
     useQueryClient: () => ({ getQueryData: vi.fn() })
 }))
 
@@ -158,17 +227,33 @@ vi.mock('@universo/template-mui', async (importOriginal) => {
     return {
         ...actual,
         APIEmptySVG: 'api-empty',
+        createCopyActionIcon: () => <span data-testid='copy-action-icon' />,
+        createDeleteActionIcon: () => <span data-testid='delete-action-icon' />,
+        createDeleteForeverActionIcon: () => <span data-testid='delete-forever-action-icon' />,
+        createEditActionIcon: () => <span data-testid='edit-action-icon' />,
+        createRestoreActionIcon: () => <span data-testid='restore-action-icon' />,
         EmptyListState: ({ title, description }: { title: string; description: string }) => (
             <div>
                 <div>{title}</div>
                 <div>{description}</div>
             </div>
         ),
-        FlowListTable: ({ data, renderActions }: FlowListTableProps) => (
+        FlowListTable: ({ data, renderActions, onRowClick, customColumns }: FlowListTableProps) => (
             <div>
+                {customColumns ? (
+                    <div role='row'>
+                        {customColumns.map((column) => (
+                            <span role='columnheader' key={column.id}>
+                                {column.label}
+                            </span>
+                        ))}
+                    </div>
+                ) : null}
                 {data.map((row) => (
                     <div key={row.id}>
-                        <span>{row.name}</span>
+                        <button type='button' onClick={() => onRowClick?.({ ...row, raw: undefined })}>
+                            {row.name}
+                        </button>
                         {renderActions ? renderActions({ ...row, raw: undefined }) : null}
                     </div>
                 ))}
@@ -182,7 +267,45 @@ vi.mock('@universo/template-mui', async (importOriginal) => {
                 {headerAction}
             </div>
         ),
-        PaginationControls: () => null,
+        BaseEntityMenu: <TEntity,>({ entity, entityKind, descriptors, createContext }: BaseEntityMenuProps<TEntity>) => {
+            const [open, setOpen] = ReactModule.useState(false)
+            const t = (key: string) => {
+                const mapped: Record<string, string> = {
+                    'common:actions.copy': 'Copy',
+                    'common:actions.edit': 'Edit',
+                    'common:actions.delete': 'Delete',
+                    'common:actions.restore': 'Restore',
+                    'common:actions.deletePermanently': 'Delete permanently'
+                }
+                return mapped[key] ?? key
+            }
+            const ctx = createContext({ entity, entityKind, t })
+            const visible = descriptors.filter((descriptor) => !descriptor.visible || descriptor.visible(ctx))
+
+            return (
+                <div>
+                    <button type='button' aria-label='More actions' onClick={() => setOpen((current) => !current)}>
+                        More actions
+                    </button>
+                    {open ? (
+                        <div role='menu'>
+                            {visible.map((descriptor) => (
+                                <button
+                                    key={descriptor.id}
+                                    type='button'
+                                    role='menuitem'
+                                    disabled={descriptor.enabled ? !descriptor.enabled(ctx) : false}
+                                    onClick={() => void descriptor.onSelect?.(ctx)}
+                                >
+                                    {t(descriptor.labelKey)}
+                                </button>
+                            ))}
+                        </div>
+                    ) : null}
+                </div>
+            )
+        },
+        PaginationControls: () => <div data-testid='pagination-controls' />,
         SkeletonGrid: () => <div data-testid='skeleton-grid' />,
         TemplateMainCard: ({ children, ...props }: { children: React.ReactNode } & Record<string, unknown>) => {
             templateMainCardMock(props)
@@ -201,13 +324,13 @@ vi.mock('@universo/template-mui', async (importOriginal) => {
         ViewHeaderMUI: ({ title, description, children }: ViewHeaderProps) => (
             <div>
                 <h1>{title}</h1>
-                <p>{description}</p>
+                {description ? <p>{description}</p> : null}
                 {children}
             </div>
         ),
         gridSpacing: 2,
         useDebouncedSearch: () => ({ searchValue: '', handleSearchChange: vi.fn() }),
-        usePaginated: () => mockPaginatedResult,
+        usePaginated: (...args: unknown[]) => mockUsePaginated(...args),
         useListDialogs: () => {
             const [dialogs, setDialogs] = ReactModule.useState<MockDialogState>({
                 create: { open: false },
@@ -239,19 +362,26 @@ vi.mock('../api', () => ({
 }))
 
 vi.mock('@universo/template-mui/components/dialogs', () => ({
-    EntityFormDialog: ({ open, tabs, initialExtraValues, title }: EntityFormDialogProps) =>
+    EntityFormDialog: ({ open, tabs, initialExtraValues, title, onSave }: EntityFormDialogProps) =>
         open ? (
             <div data-testid='entity-form-dialog'>
                 <div>{title}</div>
+                <pre data-testid='dialog-extra-values'>{JSON.stringify(initialExtraValues ?? {})}</pre>
                 <div data-testid='dialog-description'>
                     {((initialExtraValues?.descriptionVlc as { locales?: { en?: { content?: string } } } | undefined)?.locales?.en
                         ?.content as string | undefined) ?? ''}
                 </div>
                 {tabs
                     ? tabs({ values: initialExtraValues ?? {}, setValue: vi.fn(), isLoading: false, errors: {} }).map((tab) => (
-                          <span key={tab.id}>{tab.label}</span>
+                          <div key={tab.id}>
+                              <span>{tab.label}</span>
+                              {tab.content}
+                          </div>
                       ))
                     : null}
+                <button type='button' onClick={() => onSave?.(initialExtraValues ?? {})}>
+                    Save dialog
+                </button>
             </div>
         ) : null,
     ConfirmDeleteDialog: () => null,
@@ -343,12 +473,12 @@ vi.mock('../../hooks', () => ({
     useEntityTypesQuery: (...args: unknown[]) => mockEntityTypesQuery(...args),
     useEntityInstancesQuery: (...args: unknown[]) => mockEntityInstancesQuery(...args),
     useEntityInstanceQuery: (...args: unknown[]) => mockEntityInstanceDetailQuery(...args),
-    useCreateEntityInstance: () => ({ mutateAsync: vi.fn(), isPending: false }),
-    useUpdateEntityInstance: () => ({ mutateAsync: vi.fn(), isPending: false }),
-    useCopyEntityInstance: () => ({ mutateAsync: vi.fn(), isPending: false }),
-    useDeleteEntityInstance: () => ({ mutateAsync: vi.fn(), isPending: false }),
-    useRestoreEntityInstance: () => ({ mutateAsync: vi.fn(), isPending: false }),
-    usePermanentDeleteEntityInstance: () => ({ mutateAsync: vi.fn(), isPending: false })
+    useCreateEntityInstance: () => ({ mutateAsync: mockCreateEntityInstance, isPending: false }),
+    useUpdateEntityInstance: () => ({ mutateAsync: mockUpdateEntityInstance, isPending: false }),
+    useCopyEntityInstance: () => ({ mutateAsync: mockCopyEntityInstance, isPending: false }),
+    useDeleteEntityInstance: () => ({ mutateAsync: mockDeleteEntityInstance, isPending: false }),
+    useRestoreEntityInstance: () => ({ mutateAsync: mockRestoreEntityInstance, isPending: false }),
+    usePermanentDeleteEntityInstance: () => ({ mutateAsync: mockPermanentDeleteEntityInstance, isPending: false })
 }))
 
 describe('EntityInstanceList', () => {
@@ -364,6 +494,7 @@ describe('EntityInstanceList', () => {
             data: { permissions: { manageMetahub: true, editContent: true, deleteContent: true } },
             isLoading: false
         })
+        mockUsePaginated.mockReturnValue(mockPaginatedResult)
 
         mockUseEntityPermissions.mockReturnValue({
             allowCopy: true,
@@ -482,14 +613,15 @@ describe('EntityInstanceList', () => {
         await user.click(screen.getByRole('button', { name: 'Create entity' }))
 
         expect(screen.getByText('General')).toBeInTheDocument()
-        expect(screen.getByText('Containers')).toBeInTheDocument()
+        expect(screen.getAllByText('Containers').length).toBeGreaterThan(0)
         expect(screen.queryByText('Attributes')).not.toBeInTheDocument()
         expect(screen.queryByText('Layouts')).not.toBeInTheDocument()
         expect(screen.queryByText('Scripts')).not.toBeInTheDocument()
         expect(screen.queryByText('Actions')).not.toBeInTheDocument()
         expect(screen.queryByText('Events')).not.toBeInTheDocument()
 
-        await user.click(screen.getByRole('button', { name: 'Edit' }))
+        await user.click(screen.getByRole('button', { name: 'More actions' }))
+        await user.click(screen.getByRole('menuitem', { name: 'Edit' }))
 
         expect(screen.getByText('Attributes')).toBeInTheDocument()
         expect(screen.getByText('Layouts')).toBeInTheDocument()
@@ -509,11 +641,392 @@ describe('EntityInstanceList', () => {
             </MemoryRouter>
         )
 
-        await user.click(screen.getByRole('button', { name: 'Edit' }))
+        await user.click(screen.getByRole('button', { name: 'More actions' }))
+        await user.click(screen.getByRole('menuitem', { name: 'Edit' }))
 
         expect(await screen.findByTestId('entity-form-dialog')).toBeInTheDocument()
         expect(screen.getByTestId('dialog-description')).toHaveTextContent('Fresh shared description')
         expect(screen.getByText('Attributes')).toBeInTheDocument()
+    })
+
+    it('opens the dedicated content route for block-content entity kinds', async () => {
+        mockEntityTypesQuery.mockReturnValue({
+            data: {
+                items: [
+                    {
+                        id: 'type-page',
+                        kindKey: 'custom.page',
+                        codename: makeVlc('CustomPage'),
+                        ui: {
+                            iconName: 'IconFile',
+                            tabs: ['general'],
+                            sidebarSection: 'objects',
+                            nameKey: 'Pages'
+                        },
+                        components: {
+                            blockContent: { enabled: true }
+                        }
+                    }
+                ]
+            },
+            error: null,
+            isLoading: false
+        })
+        mockPaginatedResult.data = [
+            {
+                id: 'page-1',
+                kind: 'custom.page',
+                codename: makeVlc('learner-home'),
+                name: makeVlc('Learner Home'),
+                description: makeVlc('Page row'),
+                config: {
+                    blockContent: {
+                        format: 'editorjs',
+                        blocks: [{ id: 'intro', type: 'paragraph', data: { text: 'Intro text' } }]
+                    }
+                },
+                version: 3,
+                updatedAt: '2026-04-09T12:00:00.000Z',
+                _mhb_deleted: false
+            }
+        ]
+        mockEntityInstancesQuery.mockReturnValue({
+            data: { items: mockPaginatedResult.data }
+        })
+        mockEntityInstanceDetailQuery.mockReturnValue({
+            data: mockPaginatedResult.data[0],
+            isLoading: false
+        })
+        const user = userEvent.setup()
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/custom.page/instances']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instances' element={<EntityInstanceList />} />
+                    <Route
+                        path='/metahub/:metahubId/entities/:kindKey/instance/:entityId/content'
+                        element={<div>Content route opened</div>}
+                    />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        await user.click(screen.getByRole('button', { name: 'Learner Home' }))
+
+        expect(screen.getByText('Content route opened')).toBeInTheDocument()
+    })
+
+    it('renders the standard Page collection without generic entity-owned copy or deleted filters', async () => {
+        mockEntityTypesQuery.mockReturnValue({
+            data: {
+                items: [
+                    {
+                        id: 'type-page',
+                        kindKey: 'page',
+                        codename: makeVlc('Page'),
+                        ui: {
+                            iconName: 'IconFileText',
+                            tabs: ['general', 'hubs', 'content', 'layout', 'scripts'],
+                            sidebarSection: 'objects',
+                            nameKey: 'metahubs:pages.title'
+                        },
+                        presentation: {
+                            dialogTitles: {
+                                create: makeVlc('Create Page'),
+                                edit: makeVlc('Edit Page'),
+                                copy: makeVlc('Copy Page'),
+                                delete: makeVlc('Delete Page')
+                            }
+                        },
+                        components: {
+                            blockContent: { enabled: true },
+                            treeAssignment: { enabled: true },
+                            layoutConfig: { enabled: true },
+                            scripting: { enabled: true }
+                        },
+                        config: {}
+                    }
+                ]
+            },
+            error: null,
+            isLoading: false
+        })
+        mockPaginatedResult.data = []
+        const user = userEvent.setup()
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/page/instances']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instances' element={<EntityInstanceListContent />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        expect(screen.getByRole('heading', { name: 'Pages' })).toBeInTheDocument()
+        expect(screen.getByText('No pages yet')).toBeInTheDocument()
+        expect(screen.queryByText('No entity instances yet')).not.toBeInTheDocument()
+        expect(screen.queryByText(/unified entity-owned route/i)).not.toBeInTheDocument()
+        expect(screen.queryByText('Show deleted')).not.toBeInTheDocument()
+        expect(mockUsePaginated).toHaveBeenCalledWith(expect.objectContaining({ enabled: true }))
+
+        await user.click(screen.getByRole('button', { name: 'Create' }))
+
+        expect(screen.getByTestId('entity-form-dialog')).toBeInTheDocument()
+        expect(screen.getByText('Create Page')).toBeInTheDocument()
+        expect(screen.queryByText('Create Entity')).not.toBeInTheDocument()
+        expect(screen.getByText('Hubs')).toBeInTheDocument()
+        expect(screen.getByText('Layouts')).toBeInTheDocument()
+        expect(screen.getByText('ContainerSelectionPanel')).toBeInTheDocument()
+        expect(screen.queryByText('Content')).not.toBeInTheDocument()
+        expect(screen.queryByText('Page content')).not.toBeInTheDocument()
+    })
+
+    it('uses stable localized standard Page labels and skeletons before async data settles', () => {
+        mockEntityTypesQuery.mockReturnValue({
+            data: undefined,
+            error: null,
+            isLoading: true
+        })
+        mockUsePaginated.mockReturnValue({
+            ...mockPaginatedResult,
+            data: [],
+            isLoading: false
+        })
+
+        const { container, rerender } = render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/page/instances']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instances' element={<EntityInstanceListContent />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        expect(screen.getByRole('heading', { name: 'Pages' })).toBeInTheDocument()
+        expect(screen.queryByRole('heading', { name: 'page' })).not.toBeInTheDocument()
+        expect(container.querySelector('.MuiSkeleton-root') ?? screen.queryByTestId('skeleton-grid')).toBeTruthy()
+        expect(screen.queryByText('No pages yet')).not.toBeInTheDocument()
+
+        mockEntityTypesQuery.mockReturnValue({
+            data: {
+                items: [
+                    {
+                        id: 'type-page',
+                        kindKey: 'page',
+                        codename: makeVlc('Page'),
+                        ui: {
+                            iconName: 'IconFileText',
+                            tabs: ['general', 'hubs', 'content', 'layout', 'scripts'],
+                            sidebarSection: 'objects',
+                            nameKey: 'metahubs:pages.title'
+                        },
+                        components: {
+                            blockContent: { enabled: true }
+                        },
+                        config: {}
+                    }
+                ]
+            },
+            error: null,
+            isLoading: false
+        })
+        mockUsePaginated.mockReturnValue({
+            ...mockPaginatedResult,
+            data: [],
+            isLoading: true
+        })
+
+        rerender(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/page/instances']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instances' element={<EntityInstanceListContent />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        expect(screen.getByRole('heading', { name: 'Pages' })).toBeInTheDocument()
+        expect(container.querySelector('.MuiSkeleton-root') ?? screen.queryByTestId('skeleton-grid')).toBeTruthy()
+        expect(screen.queryByText('No pages yet')).not.toBeInTheDocument()
+    })
+
+    it('renders Page actions through the shared CRUD menu and labels tree assignments as Hubs', async () => {
+        mockUseEntityPermissions.mockReturnValue({
+            allowCopy: true,
+            allowDelete: true,
+            allowAttachExistingEntities: true,
+            allowHubNesting: true,
+            isLoading: false
+        })
+        mockEntityTypesQuery.mockReturnValue({
+            data: {
+                items: [
+                    {
+                        id: 'type-page',
+                        kindKey: 'page',
+                        codename: makeVlc('Page'),
+                        ui: {
+                            iconName: 'IconFileText',
+                            tabs: ['general', 'hubs', 'content', 'layout', 'scripts'],
+                            sidebarSection: 'objects',
+                            nameKey: 'metahubs:pages.title'
+                        },
+                        components: {
+                            blockContent: { enabled: true },
+                            treeAssignment: { enabled: true },
+                            layoutConfig: { enabled: true },
+                            scripting: { enabled: true }
+                        },
+                        config: {}
+                    }
+                ]
+            },
+            error: null,
+            isLoading: false
+        })
+        mockPaginatedResult.data = [
+            {
+                id: 'page-1',
+                kind: 'page',
+                codename: makeVlc('learner-home'),
+                name: makeVlc('Learner Home'),
+                description: makeVlc('Page row'),
+                config: {
+                    blockContent: {
+                        format: 'editorjs',
+                        blocks: []
+                    }
+                },
+                version: 1,
+                updatedAt: '2026-04-09T12:00:00.000Z',
+                _mhb_deleted: false
+            }
+        ]
+        mockPaginatedResult.pagination = {
+            currentPage: 1,
+            pageSize: 20,
+            totalItems: 1,
+            totalPages: 1,
+            hasNextPage: false,
+            hasPreviousPage: false,
+            search: ''
+        }
+        mockEntityInstancesQuery.mockReturnValue({
+            data: { items: mockPaginatedResult.data }
+        })
+        mockEntityInstanceDetailQuery.mockReturnValue({
+            data: mockPaginatedResult.data[0],
+            isLoading: false
+        })
+        const user = userEvent.setup()
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/page/instances']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instances' element={<EntityInstanceListContent />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        expect(screen.getByText('Learner Home')).toBeInTheDocument()
+        expect(mockUsePaginated).toHaveBeenCalledWith(expect.objectContaining({ enabled: true }))
+        expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Copy' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
+        expect(screen.getByRole('columnheader', { name: 'Hubs' })).toBeInTheDocument()
+        expect(screen.queryByRole('columnheader', { name: 'Containers' })).not.toBeInTheDocument()
+        expect(screen.getByTestId('entity-instances-pagination')).toHaveStyle({ width: '100%' })
+
+        await user.click(screen.getByRole('button', { name: 'More actions' }))
+
+        const menuItems = screen.getAllByRole('menuitem').map((item) => item.textContent)
+        expect(menuItems).toEqual(['Edit', 'Copy', 'Delete'])
+        expect(screen.queryByRole('menuitem', { name: 'Open content' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('menuitem', { name: 'Edit properties' })).not.toBeInTheDocument()
+    })
+
+    it('keeps Page block content out of the metadata properties form while preserving it in the update payload', async () => {
+        const originalBlockContent = {
+            format: 'editorjs',
+            data: {
+                time: 1,
+                version: '2.31.0',
+                blocks: [{ id: 'intro', type: 'paragraph', data: { text: 'Intro' } }]
+            }
+        }
+        mockEntityTypesQuery.mockReturnValue({
+            data: {
+                items: [
+                    {
+                        id: 'type-page',
+                        kindKey: 'page',
+                        codename: makeVlc('Page'),
+                        ui: {
+                            iconName: 'IconFileText',
+                            tabs: ['general', 'content', 'layout', 'scripts'],
+                            sidebarSection: 'objects',
+                            nameKey: 'metahubs:pages.title'
+                        },
+                        components: {
+                            blockContent: { enabled: true },
+                            layoutConfig: { enabled: true },
+                            scripting: { enabled: true }
+                        },
+                        config: {}
+                    }
+                ]
+            },
+            error: null,
+            isLoading: false
+        })
+        mockPaginatedResult.data = [
+            {
+                id: 'page-1',
+                kind: 'page',
+                codename: makeVlc('learner-home'),
+                name: makeVlc('Learner Home'),
+                description: makeVlc('Page row'),
+                config: {
+                    blockContent: originalBlockContent
+                },
+                version: 7,
+                updatedAt: '2026-04-09T12:00:00.000Z',
+                _mhb_deleted: false
+            }
+        ]
+        mockEntityInstancesQuery.mockReturnValue({
+            data: { items: mockPaginatedResult.data }
+        })
+        mockEntityInstanceDetailQuery.mockReturnValue({
+            data: mockPaginatedResult.data[0],
+            isLoading: false
+        })
+        const user = userEvent.setup()
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/page/instances']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instances' element={<EntityInstanceListContent />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        await user.click(screen.getByRole('button', { name: 'More actions' }))
+        await user.click(screen.getByRole('menuitem', { name: 'Edit' }))
+
+        expect(screen.getByTestId('entity-form-dialog')).toBeInTheDocument()
+        expect(screen.getByTestId('dialog-extra-values')).not.toHaveTextContent('blockContentText')
+
+        await user.click(screen.getByRole('button', { name: 'Save dialog' }))
+
+        expect(mockUpdateEntityInstance).toHaveBeenCalledWith({
+            metahubId: 'metahub-1',
+            entityId: 'page-1',
+            data: expect.objectContaining({
+                expectedVersion: 7,
+                config: expect.objectContaining({
+                    blockContent: originalBlockContent
+                })
+            })
+        })
     })
 
     it('renders the linked-collection authoring surface on the entity route', () => {
@@ -764,7 +1277,7 @@ describe('EntityInstanceList', () => {
         )
     })
 
-    it('shows restore and permanent delete actions for soft-deleted custom entities', () => {
+    it('shows restore and permanent delete actions for soft-deleted custom entities', async () => {
         mockPaginatedResult.data = [
             {
                 id: 'entity-deleted-1',
@@ -784,6 +1297,8 @@ describe('EntityInstanceList', () => {
             data: { items: mockPaginatedResult.data }
         })
 
+        const user = userEvent.setup()
+
         render(
             <MemoryRouter initialEntries={['/metahub/metahub-1/entities/custom.product/instances']}>
                 <Routes>
@@ -792,10 +1307,18 @@ describe('EntityInstanceList', () => {
             </MemoryRouter>
         )
 
-        expect(screen.getByRole('button', { name: 'Restore' })).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: 'Delete permanently' })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Restore' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Delete permanently' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Copy' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: 'More actions' }))
+
+        expect(screen.getByRole('menuitem', { name: 'Restore' })).toBeInTheDocument()
+        expect(screen.getByRole('menuitem', { name: 'Delete permanently' })).toBeInTheDocument()
+        expect(screen.queryByRole('menuitem', { name: 'Copy' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('menuitem', { name: 'Edit' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('menuitem', { name: 'Delete' })).not.toBeInTheDocument()
     })
 })

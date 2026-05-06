@@ -31,7 +31,7 @@ import type { StyledComponent } from '@emotion/styled'
 import type { TableCellProps, TableRowProps } from '@mui/material'
 
 export const StyledTableCell: StyledComponent<TableCellProps & { theme?: Theme }> = styled(TableCell)(({ theme }) => ({
-    borderColor: (theme as any).vars?.palette?.outline ?? alpha(theme.palette.text.primary, 0.08),
+    borderColor: theme.vars?.palette?.outline ?? alpha(theme.palette.text.primary, 0.08),
 
     [`&.${tableCellClasses.head}`]: {
         color: theme.palette.grey[900]
@@ -70,7 +70,6 @@ export interface FlowListTableData {
     updated_at?: string
     updatedAt?: string
     updatedOn?: string
-    [key: string]: any
 }
 
 // Column definition with generic type support
@@ -86,15 +85,16 @@ export interface TableColumn<T extends FlowListTableData> {
 
 export interface FlowListTableProps<T extends FlowListTableData = FlowListTableData> {
     data?: T[]
-    images?: Record<string, any[]>
+    images?: Record<string, string[]>
     isLoading?: boolean
     filterFunction?: (row: T) => boolean
-    updateFlowsApi?: any
-    setError?: (error: any) => void
+    updateFlowsApi?: unknown
+    setError?: (error: unknown) => void
     isAgentCanvas?: boolean
     isUnikTable?: boolean
     renderActions?: (row: T) => React.ReactNode
     getRowLink?: (row: T) => string | undefined
+    onRowClick?: (row: T) => void
     customColumns?: TableColumn<T>[]
     i18nNamespace?: string
     /** Render expansion content below a row. Return null to skip. */
@@ -155,6 +155,8 @@ const getLocalStorageKeyName = (name: string, isAgentCanvas?: boolean, sortState
     return `canvaslist_${sortStateId ? `${sortStateId}_` : ''}${name}`
 }
 
+const getRowValue = <T extends FlowListTableData>(row: T, key: string): unknown => (row as Record<PropertyKey, unknown>)[key]
+
 export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
     data,
     images,
@@ -166,6 +168,7 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
     isUnikTable,
     renderActions,
     getRowLink,
+    onRowClick,
     customColumns,
     i18nNamespace = 'flowList',
     renderRowExpansion,
@@ -192,9 +195,12 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
     getRowSx,
     isRowDragDisabled
 }: FlowListTableProps<T>): React.ReactElement => {
+    void updateFlowsApi
+    void setError
+
     const { t } = useTranslation(i18nNamespace, { i18n })
     const theme = useTheme()
-    const customization = useSelector((state: any) => state.customization)
+    const customization = useSelector((state: { customization?: { isDarkMode?: boolean } }) => state.customization)
 
     const localStorageKeyOrder = getLocalStorageKeyName('order', isAgentCanvas, sortStateId)
     const localStorageKeyOrderBy = getLocalStorageKeyName('orderBy', isAgentCanvas, sortStateId)
@@ -242,10 +248,10 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
               if (activeSortableColumn) {
                   const rawA = activeSortableColumn.sortAccessor
                       ? activeSortableColumn.sortAccessor(a)
-                      : (a as any)?.[activeSortableColumn.id]
+                      : getRowValue(a, activeSortableColumn.id)
                   const rawB = activeSortableColumn.sortAccessor
                       ? activeSortableColumn.sortAccessor(b)
-                      : (b as any)?.[activeSortableColumn.id]
+                      : getRowValue(b, activeSortableColumn.id)
                   const valueA = typeof rawA === 'string' ? rawA.toLowerCase() : rawA ?? ''
                   const valueB = typeof rawB === 'string' ? rawB.toLowerCase() : rawB ?? ''
                   if (valueA < valueB) return order === 'asc' ? -1 : 1
@@ -292,7 +298,7 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
         return `/${isAgentCanvas ? 'agentcanvas' : 'canvas'}/${row.id}`
     }
 
-    const borderColor = (theme as any).vars?.palette?.outline ?? alpha(theme.palette.text.primary, 0.08)
+    const borderColor = theme.vars?.palette?.outline ?? alpha(theme.palette.text.primary, 0.08)
 
     const activeFilter = typeof filterFunction === 'function' ? filterFunction : () => true
     const filteredSortedData = (sortedData || []).filter(activeFilter)
@@ -334,7 +340,7 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                 ...((isDropTarget || isDropTargetInvalid) && {
                     borderWidth: 2,
                     borderStyle: 'dashed',
-                    backgroundColor: (th: any) =>
+                    backgroundColor: (th: Theme) =>
                         isDropTargetInvalid ? alpha(th.palette.error.main, 0.08) : alpha(th.palette.primary.main, 0.04),
                     transition: 'border-color 0.2s, background-color 0.2s',
                     // Prevent horizontal scrollbar jitter when a wider ghost row
@@ -354,7 +360,7 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                 {!(emptyStateMessage && !isLoading && filteredSortedData.length === 0) && (
                     <TableHead
                         sx={{
-                            backgroundColor: customization.isDarkMode ? theme.palette.common.black : theme.palette.grey[100],
+                            backgroundColor: customization?.isDarkMode ? theme.palette.common.black : theme.palette.grey[100],
                             height: compact ? 36 : 56
                         }}
                     >
@@ -545,7 +551,10 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                                 {isUnikTable ? (
                                     <StyledTableCell key='1'>
                                         <Typography sx={{ fontSize: 14 }}>
-                                            {(row as any).spacesCount != null ? (row as any).spacesCount : 0}
+                                            {(() => {
+                                                const spacesCount = getRowValue(row, 'spacesCount')
+                                                return typeof spacesCount === 'number' ? spacesCount : 0
+                                            })()}
                                         </Typography>
                                     </StyledTableCell>
                                 ) : (
@@ -560,8 +569,8 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                                                 }}
                                             >
                                                 &nbsp;
-                                                {(row as any).category &&
-                                                    (row as any).category
+                                                {typeof getRowValue(row, 'category') === 'string' &&
+                                                    String(getRowValue(row, 'category'))
                                                         .split(';')
                                                         .map((tag: string, tagIndex: number) => (
                                                             <Chip key={tagIndex} label={tag} style={{ marginRight: 5, marginBottom: 5 }} />
@@ -580,14 +589,14 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                                                 >
                                                     {images[row.id]
                                                         .slice(0, images[row.id].length > 5 ? 5 : images[row.id].length)
-                                                        .map((img: any) => (
+                                                        .map((img) => (
                                                             <Box
                                                                 key={img}
                                                                 sx={{
                                                                     width: 30,
                                                                     height: 30,
                                                                     borderRadius: '50%',
-                                                                    backgroundColor: customization.isDarkMode
+                                                                    backgroundColor: customization?.isDarkMode
                                                                         ? theme.palette.common.white
                                                                         : theme.palette.grey[300] + 75
                                                                 }}
@@ -726,14 +735,27 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                         const rowPendingStyles = getPendingRowStyles(row)
                         const blockedPendingRowStyle = interactionBlocked ? { cursor: 'wait' as const } : undefined
                         const customRowSx = getRowSx?.(row, index)
+                        const clickableRowStyle = onRowClick && !interactionBlocked ? { cursor: 'pointer' as const } : undefined
+                        const rowClickProps =
+                            onRowClick && !interactionBlocked
+                                ? {
+                                      onClick: () => onRowClick(row)
+                                  }
+                                : undefined
                         const isRowDragDisabledValue = Boolean(isRowDragDisabled?.(row, index))
-                        const mergedRowSx = hasExpansion
+                        const mergedRowSxBase = hasExpansion
                             ? Array.isArray(customRowSx)
                                 ? [{ '& td, & th': { borderBottom: 0 } }, ...customRowSx]
                                 : customRowSx
                                 ? [{ '& td, & th': { borderBottom: 0 } }, customRowSx]
                                 : { '& td, & th': { borderBottom: 0 } }
                             : customRowSx
+                        const mergedRowSx =
+                            clickableRowStyle && mergedRowSxBase
+                                ? Array.isArray(mergedRowSxBase)
+                                    ? [clickableRowStyle, ...mergedRowSxBase]
+                                    : [clickableRowStyle, mergedRowSxBase]
+                                : mergedRowSxBase || clickableRowStyle
 
                         const rowContent = (
                             <React.Fragment key={row.id}>
@@ -753,6 +775,7 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                                                 : mergedRowSx || rowPendingStyles
                                         }
                                         rowStyle={blockedPendingRowStyle}
+                                        {...rowClickProps}
                                         onClickCapture={pendingRowInteractionProps?.onClickCapture}
                                         onMouseDownCapture={pendingRowInteractionProps?.onMouseDownCapture}
                                     >
@@ -761,6 +784,7 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
                                 ) : (
                                     <StyledTableRow
                                         style={blockedPendingRowStyle}
+                                        {...rowClickProps}
                                         onClickCapture={pendingRowInteractionProps?.onClickCapture}
                                         onMouseDownCapture={pendingRowInteractionProps?.onMouseDownCapture}
                                         sx={

@@ -61,3 +61,11 @@ export {
     type NumberValidationRules
 } from './numberValidation'
 export { buildTableConstraintText, type TranslateFn, type TableConstraintParams, type TableConstraintResult } from './tableConstraints'
+export {
+    WorkspacePolicyError,
+    parseWorkspaceModePolicy,
+    resolveWorkspaceModeDecision,
+    assertPublicationWorkspacePolicyTransition,
+    type ResolveWorkspaceModeInput,
+    type PublicationWorkspacePolicyTransitionInput
+} from './workspacePolicy'

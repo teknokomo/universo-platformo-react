@@ -13,6 +13,15 @@ import {
 } from '../optimisticCrud'
 import { makePendingMarkers } from '@universo/utils'
 
+interface TestEntity {
+    id: string
+    name?: string
+    description?: string
+    extra?: string
+    __pending?: boolean
+    __pendingAction?: string
+}
+
 describe('optimisticCrud', () => {
     let queryClient: QueryClient
 
@@ -154,8 +163,9 @@ describe('optimisticCrud', () => {
                 updater: { name: 'updated' }
             })
 
-            const data = queryClient.getQueryData<ListCache>(['test', 'list'])
-            const item = data?.items?.find((i: any) => i.id === '1') as any
+            const data = queryClient.getQueryData<ListCache<TestEntity>>(['test', 'list'])
+            const item = data?.items?.find((i) => i.id === '1')
+            expect(item).toBeDefined()
             expect(item.name).toBe('updated')
             expect(item.description).toBe('desc')
             expect(item.__pending).toBe(true)
@@ -174,7 +184,8 @@ describe('optimisticCrud', () => {
                 detailQueryKey: ['test', 'detail', '1']
             })
 
-            const detail = queryClient.getQueryData(['test', 'detail', '1']) as any
+            const detail = queryClient.getQueryData<TestEntity>(['test', 'detail', '1'])
+            expect(detail).toBeDefined()
             expect(detail.name).toBe('updated')
             expect(detail.extra).toBe('data')
             expect(detail.__pending).toBe(true)
@@ -210,8 +221,9 @@ describe('optimisticCrud', () => {
                 updater: { name: 'updated' }
             })
 
-            const data = queryClient.getQueryData<ListCache>(['test', 'list'])
-            const other = data?.items?.find((i: any) => i.id === '2') as any
+            const data = queryClient.getQueryData<ListCache<TestEntity>>(['test', 'list'])
+            const other = data?.items?.find((i) => i.id === '2')
+            expect(other).toBeDefined()
             expect(other.name).toBe('two')
             expect(other.__pending).toBeUndefined()
         })
@@ -249,9 +261,10 @@ describe('optimisticCrud', () => {
                 strategy: 'fade'
             })
 
-            const data = queryClient.getQueryData<ListCache>(['test', 'list'])
+            const data = queryClient.getQueryData<ListCache<TestEntity>>(['test', 'list'])
             expect(data?.items).toHaveLength(2)
-            const deletedItem = data?.items?.find((i: any) => i.id === '1') as any
+            const deletedItem = data?.items?.find((i) => i.id === '1')
+            expect(deletedItem).toBeDefined()
             expect(deletedItem.__pending).toBe(true)
             expect(deletedItem.__pendingAction).toBe('delete')
         })

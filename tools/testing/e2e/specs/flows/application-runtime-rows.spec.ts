@@ -239,8 +239,7 @@ test('@flow @combined application runtime rows support browser create, edit, cop
         const linkedApplication = await createPublicationLinkedApplication(api, metahub.id, publication.id, {
             name: { en: applicationName },
             namePrimaryLocale: 'en',
-            createApplicationSchema: false,
-            workspacesEnabled: false
+            createApplicationSchema: false
         })
 
         const applicationId = linkedApplication?.application?.id
@@ -269,7 +268,8 @@ test('@flow @combined application runtime rows support browser create, edit, cop
 
         const createRequest = waitForSettledMutationResponse(
             page,
-            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows`),
+            (response) =>
+                response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows`),
             { label: 'Creating runtime row' }
         )
         await createDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -317,7 +317,8 @@ test('@flow @combined application runtime rows support browser create, edit, cop
 
         const copyRequest = waitForSettledMutationResponse(
             page,
-            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows`),
+            (response) =>
+                response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows`),
             { label: 'Copying runtime row' }
         )
         await copyDialog.getByTestId(entityDialogSelectors.submitButton).click()

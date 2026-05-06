@@ -8,7 +8,7 @@ function buildLmsSeedZoneWidgets(): TemplateSeedZoneWidget[] {
             widgetKey: 'menuWidget',
             sortOrder: 3,
             config: enrichConfigWithVlcTimestamps({
-                showTitle: true,
+                showTitle: false,
                 title: {
                     _schema: '1',
                     _primary: 'en',
@@ -22,24 +22,24 @@ function buildLmsSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                 boundTreeEntityId: null,
                 maxPrimaryItems: 6,
                 overflowLabelKey: 'runtime.menu.more',
-                startPage: 'Modules',
+                startPage: 'LearnerHome',
                 workspacePlacement: 'primary',
                 items: [
                     {
-                        id: 'lms-nav-learning',
-                        kind: 'hub',
+                        id: 'lms-nav-home',
+                        kind: 'page',
                         title: {
                             _schema: '1',
                             _primary: 'en',
                             locales: {
-                                en: { content: 'Learning', version: 1, isActive: true },
-                                ru: { content: 'Обучение', version: 1, isActive: true }
+                                en: { content: 'Home', version: 1, isActive: true },
+                                ru: { content: 'Главная', version: 1, isActive: true }
                             }
                         },
-                        icon: 'school',
+                        icon: 'home',
                         href: null,
-                        hubId: 'Learning',
-                        sortOrder: 1,
+                        sectionId: 'LearnerHome',
+                        sortOrder: 0,
                         isActive: true
                     },
                     {
@@ -56,7 +56,7 @@ function buildLmsSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                         icon: 'catalog',
                         href: null,
                         catalogId: 'Modules',
-                        sortOrder: 2,
+                        sortOrder: 1,
                         isActive: true
                     },
                     {
@@ -73,7 +73,7 @@ function buildLmsSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                         icon: 'folder',
                         href: null,
                         catalogId: 'Quizzes',
-                        sortOrder: 3,
+                        sortOrder: 2,
                         isActive: true
                     },
                     {
@@ -90,7 +90,7 @@ function buildLmsSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                         icon: 'tasks',
                         href: null,
                         catalogId: 'Classes',
-                        sortOrder: 4,
+                        sortOrder: 3,
                         isActive: true
                     },
                     {
@@ -101,13 +101,13 @@ function buildLmsSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                             _primary: 'en',
                             locales: {
                                 en: { content: 'Reports', version: 1, isActive: true },
-                                ru: { content: 'Отчеты', version: 1, isActive: true }
+                                ru: { content: 'Отчёты', version: 1, isActive: true }
                             }
                         },
                         icon: 'analytics',
                         href: null,
-                        catalogId: 'ModuleProgress',
-                        sortOrder: 5,
+                        catalogId: 'Reports',
+                        sortOrder: 4,
                         isActive: true
                     }
                 ]
@@ -135,7 +135,13 @@ export const lmsTemplate: MetahubTemplateManifest = {
         tags: ['lms', 'education', 'quiz'],
         icon: 'School'
     },
-    presets: [],
+    presets: [
+        { presetCodename: 'hub', includedByDefault: true },
+        { presetCodename: 'page', includedByDefault: false },
+        { presetCodename: 'catalog', includedByDefault: true },
+        { presetCodename: 'set', includedByDefault: true },
+        { presetCodename: 'enumeration', includedByDefault: true }
+    ],
     seed: {
         layouts: [
             {
@@ -157,6 +163,233 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 kind: 'hub',
                 name: vlc('Learning', 'Обучение'),
                 description: vlc('Root learning navigation hub for LMS resources.', 'Корневой учебный хаб для навигации по ресурсам LMS.')
+            },
+            {
+                codename: 'LmsConfiguration',
+                kind: 'set',
+                name: vlc('LMS Configuration', 'Настройки LMS'),
+                description: vlc(
+                    'Shared constants that drive default LMS behavior across workspaces.',
+                    'Общие константы, которые задают базовое поведение LMS во всех рабочих пространствах.'
+                ),
+                fixedValues: [
+                    {
+                        codename: 'DefaultPassingScore',
+                        dataType: 'NUMBER',
+                        name: vlc('Default Passing Score', 'Проходной балл по умолчанию'),
+                        sortOrder: 1,
+                        value: 80
+                    },
+                    {
+                        codename: 'CertificateValidityDays',
+                        dataType: 'NUMBER',
+                        name: vlc('Certificate Validity Days', 'Срок действия сертификата в днях'),
+                        sortOrder: 2,
+                        value: 365
+                    },
+                    {
+                        codename: 'AutoEnrollEnabled',
+                        dataType: 'BOOLEAN',
+                        name: vlc('Auto Enroll Enabled', 'Автозачисление включено'),
+                        sortOrder: 3,
+                        value: false
+                    },
+                    {
+                        codename: 'SupportEmail',
+                        dataType: 'STRING',
+                        name: vlc('Support Email', 'Email поддержки'),
+                        sortOrder: 4,
+                        value: 'support@example.com'
+                    }
+                ]
+            },
+            {
+                codename: 'LearnerHome',
+                kind: 'page',
+                name: vlc('Welcome', 'Добро пожаловать'),
+                description: vlc(
+                    'Full LMS landing page with structured onboarding content.',
+                    'Полная стартовая страница LMS со структурированным вводным контентом.'
+                ),
+                localizeCodenameFromName: false,
+                hubs: ['Learning'],
+                config: enrichConfigWithVlcTimestamps({
+                    blockContent: {
+                        format: 'editorjs',
+                        version: '2.29.0',
+                        blocks: [
+                            {
+                                id: 'welcome-title',
+                                type: 'header',
+                                data: {
+                                    level: 2,
+                                    text: {
+                                        _schema: '1',
+                                        _primary: 'en',
+                                        locales: {
+                                            en: { content: 'Welcome to your learning portal', version: 1, isActive: true },
+                                            ru: { content: 'Добро пожаловать в учебный портал', version: 1, isActive: true }
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                id: 'welcome-intro',
+                                type: 'paragraph',
+                                data: {
+                                    text: {
+                                        _schema: '1',
+                                        _primary: 'en',
+                                        locales: {
+                                            en: {
+                                                content:
+                                                    'This portal brings together the learning paths, modules, assignments, tests, and progress indicators that learners need every day. Start with your assigned modules, continue from the last opened activity, and use the catalog to find approved materials for independent study.',
+                                                version: 1,
+                                                isActive: true
+                                            },
+                                            ru: {
+                                                content:
+                                                    'Этот портал объединяет учебные траектории, модули, задания, тесты и показатели прогресса, которые нужны учащимся каждый день. Начните с назначенных модулей, продолжите обучение с последнего открытого материала и используйте каталог для самостоятельного изучения утвержденных материалов.',
+                                                version: 1,
+                                                isActive: true
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                id: 'welcome-how-to-start-title',
+                                type: 'header',
+                                data: {
+                                    level: 3,
+                                    text: {
+                                        _schema: '1',
+                                        _primary: 'en',
+                                        locales: {
+                                            en: { content: 'How to start', version: 1, isActive: true },
+                                            ru: { content: 'Как начать', version: 1, isActive: true }
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                id: 'welcome-how-to-start-list',
+                                type: 'list',
+                                data: {
+                                    style: 'unordered',
+                                    items: [
+                                        {
+                                            _schema: '1',
+                                            _primary: 'en',
+                                            locales: {
+                                                en: {
+                                                    content:
+                                                        'Open the catalog to review available courses, modules, and knowledge-base materials.',
+                                                    version: 1,
+                                                    isActive: true
+                                                },
+                                                ru: {
+                                                    content:
+                                                        'Откройте каталог, чтобы посмотреть доступные курсы, модули и материалы базы знаний.',
+                                                    version: 1,
+                                                    isActive: true
+                                                }
+                                            }
+                                        },
+                                        {
+                                            _schema: '1',
+                                            _primary: 'en',
+                                            locales: {
+                                                en: {
+                                                    content:
+                                                        'Use assignments and progress pages to understand what has already been completed and what requires attention.',
+                                                    version: 1,
+                                                    isActive: true
+                                                },
+                                                ru: {
+                                                    content:
+                                                        'Используйте страницы назначений и прогресса, чтобы понимать, что уже выполнено и что требует внимания.',
+                                                    version: 1,
+                                                    isActive: true
+                                                }
+                                            }
+                                        },
+                                        {
+                                            _schema: '1',
+                                            _primary: 'en',
+                                            locales: {
+                                                en: {
+                                                    content:
+                                                        'Complete tests and practical tasks inside modules so that managers can track learning outcomes.',
+                                                    version: 1,
+                                                    isActive: true
+                                                },
+                                                ru: {
+                                                    content:
+                                                        'Проходите тесты и практические задания внутри модулей, чтобы руководители могли отслеживать результаты обучения.',
+                                                    version: 1,
+                                                    isActive: true
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                id: 'welcome-workspaces',
+                                type: 'paragraph',
+                                data: {
+                                    text: {
+                                        _schema: '1',
+                                        _primary: 'en',
+                                        locales: {
+                                            en: {
+                                                content:
+                                                    'Workspaces separate personal learning, team learning, and shared training areas. The main workspace is created automatically, and additional workspaces can be added later when a team needs isolated content, members, and reporting.',
+                                                version: 1,
+                                                isActive: true
+                                            },
+                                            ru: {
+                                                content:
+                                                    'Рабочие пространства разделяют личное обучение, обучение команд и общие учебные области. Основное рабочее пространство создается автоматически, а дополнительные рабочие пространства можно добавить позже, когда команде понадобятся отдельные материалы, участники и отчеты.',
+                                                version: 1,
+                                                isActive: true
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                id: 'welcome-support',
+                                type: 'paragraph',
+                                data: {
+                                    text: {
+                                        _schema: '1',
+                                        _primary: 'en',
+                                        locales: {
+                                            en: {
+                                                content:
+                                                    'If you cannot find an assigned module, check the knowledge section first and then contact the learning administrator. The support address and common LMS rules are stored in the shared configuration set, so they can be updated without changing page content.',
+                                                version: 1,
+                                                isActive: true
+                                            },
+                                            ru: {
+                                                content:
+                                                    'Если назначенный модуль не найден, сначала проверьте раздел знаний, а затем обратитесь к администратору обучения. Адрес поддержки и общие правила LMS хранятся в общем наборе настроек, поэтому их можно обновлять без изменения контента страницы.',
+                                                version: 1,
+                                                isActive: true
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        ]
+                    },
+                    runtime: {
+                        menuVisibility: 'primary',
+                        routeSegment: 'home'
+                    }
+                })
             },
             {
                 codename: 'Classes',
@@ -229,6 +462,103 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         dataType: 'STRING',
                         name: vlc('Guest Session Token', 'Токен гостевой сессии'),
                         sortOrder: 4
+                    }
+                ]
+            },
+            {
+                codename: 'Departments',
+                kind: 'catalog',
+                name: vlc('Departments', 'Подразделения'),
+                description: vlc(
+                    'Organization units used for learner segmentation and reporting.',
+                    'Подразделения для сегментации учащихся и отчетности.'
+                ),
+                attributes: [
+                    {
+                        codename: 'Name',
+                        dataType: 'STRING',
+                        name: vlc('Name', 'Название'),
+                        isRequired: true,
+                        isDisplayAttribute: true,
+                        sortOrder: 1,
+                        validationRules: { maxLength: 255, localized: true, versioned: true }
+                    },
+                    {
+                        codename: 'Code',
+                        dataType: 'STRING',
+                        name: vlc('Code', 'Код'),
+                        sortOrder: 2,
+                        validationRules: { maxLength: 64 }
+                    },
+                    {
+                        codename: 'ParentDepartmentId',
+                        dataType: 'REF',
+                        name: vlc('Parent Department', 'Родительское подразделение'),
+                        sortOrder: 3,
+                        targetEntityCodename: 'Departments',
+                        targetEntityKind: 'catalog'
+                    },
+                    {
+                        codename: 'ManagerEmail',
+                        dataType: 'STRING',
+                        name: vlc('Manager Email', 'Email руководителя'),
+                        sortOrder: 4,
+                        validationRules: { maxLength: 320 }
+                    }
+                ]
+            },
+            {
+                codename: 'LearningTracks',
+                kind: 'catalog',
+                name: vlc('Learning Tracks', 'Учебные треки'),
+                description: vlc(
+                    'Ordered programs that combine modules, quizzes, and assignments.',
+                    'Последовательные программы из модулей, тестов и назначений.'
+                ),
+                attributes: [
+                    {
+                        codename: 'Title',
+                        dataType: 'STRING',
+                        name: vlc('Title', 'Заголовок'),
+                        isRequired: true,
+                        isDisplayAttribute: true,
+                        sortOrder: 1,
+                        validationRules: { maxLength: 500, localized: true, versioned: true }
+                    },
+                    {
+                        codename: 'Description',
+                        dataType: 'STRING',
+                        name: vlc('Description', 'Описание'),
+                        sortOrder: 2,
+                        validationRules: { localized: true, versioned: true }
+                    },
+                    {
+                        codename: 'TrackItems',
+                        dataType: 'TABLE',
+                        name: vlc('Track Items', 'Элементы трека'),
+                        sortOrder: 3,
+                        childAttributes: [
+                            {
+                                codename: 'ModuleId',
+                                dataType: 'REF',
+                                name: vlc('Module', 'Модуль'),
+                                sortOrder: 1,
+                                targetEntityCodename: 'Modules',
+                                targetEntityKind: 'catalog'
+                            },
+                            {
+                                codename: 'Required',
+                                dataType: 'BOOLEAN',
+                                name: vlc('Required', 'Обязательно'),
+                                sortOrder: 2
+                            },
+                            {
+                                codename: 'SortOrder',
+                                dataType: 'NUMBER',
+                                name: vlc('Sort Order', 'Порядок'),
+                                sortOrder: 3
+                            }
+                        ]
                     }
                 ]
             },
@@ -683,6 +1013,201 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 ]
             },
             {
+                codename: 'Assignments',
+                kind: 'catalog',
+                name: vlc('Assignments', 'Назначения'),
+                description: vlc(
+                    'Learning assignments for students, classes, departments, and tracks.',
+                    'Учебные назначения для студентов, классов, подразделений и треков.'
+                ),
+                attributes: [
+                    {
+                        codename: 'Title',
+                        dataType: 'STRING',
+                        name: vlc('Title', 'Заголовок'),
+                        isRequired: true,
+                        isDisplayAttribute: true,
+                        sortOrder: 1,
+                        validationRules: { maxLength: 500, localized: true, versioned: true }
+                    },
+                    {
+                        codename: 'TargetType',
+                        dataType: 'STRING',
+                        name: vlc('Target Type', 'Тип адресата'),
+                        isRequired: true,
+                        sortOrder: 2,
+                        validationRules: { maxLength: 40 }
+                    },
+                    {
+                        codename: 'TargetId',
+                        dataType: 'STRING',
+                        name: vlc('Target ID', 'ID адресата'),
+                        sortOrder: 3
+                    },
+                    {
+                        codename: 'ModuleId',
+                        dataType: 'REF',
+                        name: vlc('Module', 'Модуль'),
+                        sortOrder: 4,
+                        targetEntityCodename: 'Modules',
+                        targetEntityKind: 'catalog'
+                    },
+                    {
+                        codename: 'LearningTrackId',
+                        dataType: 'REF',
+                        name: vlc('Learning Track', 'Учебный трек'),
+                        sortOrder: 5,
+                        targetEntityCodename: 'LearningTracks',
+                        targetEntityKind: 'catalog'
+                    },
+                    {
+                        codename: 'Status',
+                        dataType: 'REF',
+                        name: vlc('Status', 'Статус'),
+                        sortOrder: 6,
+                        targetEntityCodename: 'AssignmentStatus',
+                        targetEntityKind: 'enumeration'
+                    },
+                    {
+                        codename: 'DueAt',
+                        dataType: 'DATE',
+                        name: vlc('Due At', 'Срок'),
+                        sortOrder: 7
+                    }
+                ]
+            },
+            {
+                codename: 'TrainingEvents',
+                kind: 'catalog',
+                name: vlc('Training Events', 'Учебные мероприятия'),
+                description: vlc(
+                    'Instructor-led sessions, webinars, and blended learning events.',
+                    'Очные занятия, вебинары и смешанные учебные мероприятия.'
+                ),
+                attributes: [
+                    {
+                        codename: 'Title',
+                        dataType: 'STRING',
+                        name: vlc('Title', 'Заголовок'),
+                        isRequired: true,
+                        isDisplayAttribute: true,
+                        sortOrder: 1,
+                        validationRules: { maxLength: 500, localized: true, versioned: true }
+                    },
+                    {
+                        codename: 'EventType',
+                        dataType: 'REF',
+                        name: vlc('Event Type', 'Тип мероприятия'),
+                        sortOrder: 2,
+                        targetEntityCodename: 'TrainingEventType',
+                        targetEntityKind: 'enumeration'
+                    },
+                    {
+                        codename: 'StartsAt',
+                        dataType: 'DATE',
+                        name: vlc('Starts At', 'Начало'),
+                        sortOrder: 3
+                    },
+                    {
+                        codename: 'EndsAt',
+                        dataType: 'DATE',
+                        name: vlc('Ends At', 'Окончание'),
+                        sortOrder: 4
+                    },
+                    {
+                        codename: 'Capacity',
+                        dataType: 'NUMBER',
+                        name: vlc('Capacity', 'Вместимость'),
+                        sortOrder: 5,
+                        validationRules: { min: 1 }
+                    }
+                ]
+            },
+            {
+                codename: 'Certificates',
+                kind: 'catalog',
+                name: vlc('Certificates', 'Сертификаты'),
+                description: vlc(
+                    'Issued completion certificates and their lifecycle state.',
+                    'Выданные сертификаты о прохождении и их состояние.'
+                ),
+                attributes: [
+                    {
+                        codename: 'CertificateNumber',
+                        dataType: 'STRING',
+                        name: vlc('Certificate Number', 'Номер сертификата'),
+                        isRequired: true,
+                        isDisplayAttribute: true,
+                        sortOrder: 1,
+                        validationRules: { maxLength: 100 }
+                    },
+                    {
+                        codename: 'StudentId',
+                        dataType: 'REF',
+                        name: vlc('Student', 'Студент'),
+                        sortOrder: 2,
+                        targetEntityCodename: 'Students',
+                        targetEntityKind: 'catalog'
+                    },
+                    {
+                        codename: 'ModuleId',
+                        dataType: 'REF',
+                        name: vlc('Module', 'Модуль'),
+                        sortOrder: 3,
+                        targetEntityCodename: 'Modules',
+                        targetEntityKind: 'catalog'
+                    },
+                    {
+                        codename: 'IssuedAt',
+                        dataType: 'DATE',
+                        name: vlc('Issued At', 'Выдан'),
+                        sortOrder: 4
+                    },
+                    {
+                        codename: 'Status',
+                        dataType: 'REF',
+                        name: vlc('Status', 'Статус'),
+                        sortOrder: 5,
+                        targetEntityCodename: 'CertificateStatus',
+                        targetEntityKind: 'enumeration'
+                    }
+                ]
+            },
+            {
+                codename: 'Reports',
+                kind: 'catalog',
+                name: vlc('Reports', 'Отчеты'),
+                description: vlc(
+                    'Reusable LMS report definitions for administrators and instructors.',
+                    'Переиспользуемые определения отчетов LMS для администраторов и преподавателей.'
+                ),
+                attributes: [
+                    {
+                        codename: 'Name',
+                        dataType: 'STRING',
+                        name: vlc('Name', 'Название'),
+                        isRequired: true,
+                        isDisplayAttribute: true,
+                        sortOrder: 1,
+                        validationRules: { maxLength: 255, localized: true, versioned: true }
+                    },
+                    {
+                        codename: 'ReportType',
+                        dataType: 'REF',
+                        name: vlc('Report Type', 'Тип отчета'),
+                        sortOrder: 2,
+                        targetEntityCodename: 'ReportType',
+                        targetEntityKind: 'enumeration'
+                    },
+                    {
+                        codename: 'Filters',
+                        dataType: 'JSON',
+                        name: vlc('Filters', 'Фильтры'),
+                        sortOrder: 3
+                    }
+                ]
+            },
+            {
                 codename: 'ModuleStatus',
                 kind: 'enumeration',
                 name: vlc('Module Status', 'Статус модуля'),
@@ -705,6 +1230,30 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 kind: 'enumeration',
                 name: vlc('Content Type', 'Тип контента'),
                 description: vlc('Types of content items in modules.', 'Типы элементов контента в модулях.')
+            },
+            {
+                codename: 'AssignmentStatus',
+                kind: 'enumeration',
+                name: vlc('Assignment Status', 'Статус назначения'),
+                description: vlc('Status values for learning assignments.', 'Значения статуса учебных назначений.')
+            },
+            {
+                codename: 'TrainingEventType',
+                kind: 'enumeration',
+                name: vlc('Training Event Type', 'Тип учебного мероприятия'),
+                description: vlc('Types of instructor-led and blended training events.', 'Типы очных и смешанных учебных мероприятий.')
+            },
+            {
+                codename: 'CertificateStatus',
+                kind: 'enumeration',
+                name: vlc('Certificate Status', 'Статус сертификата'),
+                description: vlc('Status values for issued certificates.', 'Значения статуса выданных сертификатов.')
+            },
+            {
+                codename: 'ReportType',
+                kind: 'enumeration',
+                name: vlc('Report Type', 'Тип отчета'),
+                description: vlc('Report categories for LMS analytics.', 'Категории отчетов для аналитики LMS.')
             }
         ],
         optionValues: {
@@ -728,6 +1277,27 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 { codename: 'Image', name: vlc('Image', 'Изображение'), sortOrder: 2 },
                 { codename: 'VideoUrl', name: vlc('Video URL', 'URL видео'), sortOrder: 3 },
                 { codename: 'QuizRef', name: vlc('Quiz Reference', 'Ссылка на тест'), sortOrder: 4 }
+            ],
+            AssignmentStatus: [
+                { codename: 'Draft', name: vlc('Draft', 'Черновик'), sortOrder: 1 },
+                { codename: 'Assigned', name: vlc('Assigned', 'Назначено'), sortOrder: 2, isDefault: true },
+                { codename: 'Completed', name: vlc('Completed', 'Завершено'), sortOrder: 3 },
+                { codename: 'Cancelled', name: vlc('Cancelled', 'Отменено'), sortOrder: 4 }
+            ],
+            TrainingEventType: [
+                { codename: 'Classroom', name: vlc('Classroom', 'Аудиторное занятие'), sortOrder: 1, isDefault: true },
+                { codename: 'Webinar', name: vlc('Webinar', 'Вебинар'), sortOrder: 2 },
+                { codename: 'Blended', name: vlc('Blended', 'Смешанное'), sortOrder: 3 }
+            ],
+            CertificateStatus: [
+                { codename: 'Issued', name: vlc('Issued', 'Выдан'), sortOrder: 1, isDefault: true },
+                { codename: 'Revoked', name: vlc('Revoked', 'Отозван'), sortOrder: 2 },
+                { codename: 'Expired', name: vlc('Expired', 'Истек'), sortOrder: 3 }
+            ],
+            ReportType: [
+                { codename: 'Progress', name: vlc('Progress', 'Прогресс'), sortOrder: 1, isDefault: true },
+                { codename: 'Enrollment', name: vlc('Enrollment', 'Записи'), sortOrder: 2 },
+                { codename: 'QuizResults', name: vlc('Quiz Results', 'Результаты тестов'), sortOrder: 3 }
             ]
         },
         settings: [

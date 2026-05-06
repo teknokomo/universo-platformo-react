@@ -39,6 +39,14 @@ export {
     type ResolvedSystemTableCapabilityOptions,
     type SystemTableName
 } from './systemTables'
+export {
+    hasPhysicalRuntimeTable,
+    isNonPhysicalStandardEntity,
+    isStandardEnumerationKind,
+    isStandardSetKind,
+    resolveSchemaBuiltinEntityKind,
+    type SchemaBuiltinEntityKind
+} from './builtinEntityKinds'
 
 // Locking utilities
 export { uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from './locking'

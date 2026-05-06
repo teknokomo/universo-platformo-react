@@ -1,6 +1,7 @@
 import { qSchemaTable } from '@universo/database'
 import type { DbExecutor, SqlQueryable } from '@universo/utils'
 import { queryMany } from '@universo/utils/database'
+import { isEnabledComponentConfig } from '@universo/types'
 
 import type { EntityTypeService } from '../services/EntityTypeService'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
@@ -8,8 +9,11 @@ import { createEntityMetadataKindSet, resolveEntityMetadataKinds } from '../../s
 
 export type BlockingTreeDependency = {
     id: string
+    kind: string
     name: unknown
-    codename: string
+    codename: unknown
+    typeName?: unknown
+    typeNameKey?: string
 }
 
 export type TreeEntityContext = {
@@ -21,6 +25,9 @@ export type TreeEntityContext = {
     valueGroupKindSet: Set<string>
     optionListKinds: string[]
     optionListKindSet: Set<string>
+    hubAssignableKinds: string[]
+    hubAssignableKindSet: Set<string>
+    hubAssignableTypeByKind: Map<string, { name?: unknown; nameKey?: string }>
     relatedKinds: string[]
 }
 
@@ -29,23 +36,40 @@ export const loadTreeEntityContext = async (
     metahubId: string,
     userId?: string
 ): Promise<TreeEntityContext> => {
-    const [hubKinds, linkedCollectionKinds, valueGroupKinds, optionListKinds] = await Promise.all([
+    const [hubKinds, linkedCollectionKinds, valueGroupKinds, optionListKinds, editableTypes] = await Promise.all([
         resolveEntityMetadataKinds(entityTypeService, metahubId, 'hub', userId),
         resolveEntityMetadataKinds(entityTypeService, metahubId, 'catalog', userId),
         resolveEntityMetadataKinds(entityTypeService, metahubId, 'set', userId),
-        resolveEntityMetadataKinds(entityTypeService, metahubId, 'enumeration', userId)
+        resolveEntityMetadataKinds(entityTypeService, metahubId, 'enumeration', userId),
+        entityTypeService.listEditableTypes(metahubId, userId)
     ])
+    const hubKindSet = createEntityMetadataKindSet(hubKinds)
+    const hubAssignableTypes = editableTypes.filter(
+        (type) => !hubKindSet.has(type.kindKey) && isEnabledComponentConfig(type.components.treeAssignment)
+    )
+    const hubAssignableKinds = [...new Set(hubAssignableTypes.map((type) => type.kindKey))]
+    const hubAssignableTypeByKind = new Map<string, { name?: unknown; nameKey?: string }>()
+
+    for (const type of editableTypes) {
+        hubAssignableTypeByKind.set(type.kindKey, {
+            name: type.presentation?.name ?? type.codename,
+            nameKey: type.ui?.nameKey
+        })
+    }
 
     return {
         hubKinds,
-        hubKindSet: createEntityMetadataKindSet(hubKinds),
+        hubKindSet,
         linkedCollectionKinds,
         linkedCollectionKindSet: createEntityMetadataKindSet(linkedCollectionKinds),
         valueGroupKinds,
         valueGroupKindSet: createEntityMetadataKindSet(valueGroupKinds),
         optionListKinds,
         optionListKindSet: createEntityMetadataKindSet(optionListKinds),
-        relatedKinds: [...new Set([...linkedCollectionKinds, ...valueGroupKinds, ...optionListKinds])]
+        hubAssignableKinds,
+        hubAssignableKindSet: createEntityMetadataKindSet(hubAssignableKinds),
+        hubAssignableTypeByKind,
+        relatedKinds: hubAssignableKinds
     }
 }
 
@@ -71,7 +95,7 @@ export const findBlockingTreeDependencies = async ({
         ? await queryMany<{
               id: string
               kind: string
-              codename: string
+              codename: unknown
               presentation?: { name?: unknown }
           }>(
               db,
@@ -85,36 +109,23 @@ export const findBlockingTreeDependencies = async ({
           )
         : []
 
-    const blockingLinkedCollections: BlockingTreeDependency[] = []
-    const blockingValueGroups: BlockingTreeDependency[] = []
-    const blockingOptionLists: BlockingTreeDependency[] = []
     const blockingChildTreeEntities: BlockingTreeDependency[] = []
+    const blockingRelatedObjects: BlockingTreeDependency[] = []
 
     for (const objectRow of objects) {
-        const mapped: BlockingTreeDependency = {
+        blockingRelatedObjects.push({
             id: objectRow.id,
+            kind: objectRow.kind,
             name: objectRow.presentation?.name,
-            codename: objectRow.codename
-        }
-
-        if (compatibility.linkedCollectionKindSet.has(objectRow.kind)) {
-            blockingLinkedCollections.push(mapped)
-            continue
-        }
-
-        if (compatibility.valueGroupKindSet.has(objectRow.kind)) {
-            blockingValueGroups.push(mapped)
-            continue
-        }
-
-        if (compatibility.optionListKindSet.has(objectRow.kind)) {
-            blockingOptionLists.push(mapped)
-        }
+            codename: objectRow.codename,
+            typeName: compatibility.hubAssignableTypeByKind.get(objectRow.kind)?.name,
+            typeNameKey: compatibility.hubAssignableTypeByKind.get(objectRow.kind)?.nameKey
+        })
     }
 
     const childHubs = await queryMany<{
         id: string
-        codename: string
+        codename: unknown
         presentation?: { name?: unknown }
     }>(
         db,
@@ -127,16 +138,16 @@ export const findBlockingTreeDependencies = async ({
     for (const childHub of childHubs) {
         blockingChildTreeEntities.push({
             id: childHub.id,
+            kind: compatibility.hubKinds[0] ?? 'hub',
             name: childHub.presentation?.name,
-            codename: childHub.codename
+            codename: childHub.codename,
+            typeNameKey: 'metahubs:hubs.title'
         })
     }
 
     return {
-        blockingLinkedCollections,
-        blockingValueGroups,
-        blockingOptionLists,
-        blockingChildTreeEntities
+        blockingChildTreeEntities,
+        blockingRelatedObjects
     }
 }
 

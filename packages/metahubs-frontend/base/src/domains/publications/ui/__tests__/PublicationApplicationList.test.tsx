@@ -240,15 +240,18 @@ describe('PublicationApplicationList', () => {
         })
     })
 
-    it('creates an application from the publication with schema creation enabled', async () => {
+    it('creates an application from the publication and leaves schema creation to connector sync', async () => {
         const user = userEvent.setup()
         renderPage()
 
         await user.click(screen.getByRole('button', { name: 'create' }))
         await user.click(screen.getByRole('button', { name: 'Fill table.name' }))
         await user.click(screen.getByRole('radio', { name: 'Public' }))
-        await user.click(screen.getByRole('checkbox', { name: 'Add workspaces' }))
-        await user.click(screen.getByRole('switch', { name: 'Create application schema' }))
+        expect(
+            screen.getByText(
+                'After the application and connector are created, create the application schema from the connector schema changes dialog.'
+            )
+        ).toBeInTheDocument()
         await user.click(screen.getAllByRole('button', { name: 'create' }).at(-1)!)
 
         await waitFor(() => {
@@ -261,9 +264,8 @@ describe('PublicationApplicationList', () => {
                         description: undefined,
                         namePrimaryLocale: 'en',
                         descriptionPrimaryLocale: undefined,
-                        createApplicationSchema: true,
-                        isPublic: true,
-                        workspacesEnabled: false
+                        createApplicationSchema: false,
+                        isPublic: true
                     }
                 },
                 expect.objectContaining({

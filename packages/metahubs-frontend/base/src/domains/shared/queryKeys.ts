@@ -116,7 +116,13 @@ export const metahubsQueryKeys = {
 
     entitiesList: (
         metahubId: string,
-        params: PaginationParams & { kind: string; locale?: string; includeDeleted?: boolean; onlyDeleted?: boolean }
+        params: PaginationParams & {
+            kind: string
+            locale?: string
+            includeDeleted?: boolean
+            onlyDeleted?: boolean
+            treeEntityId?: string
+        }
     ) => {
         const normalized = {
             kind: params.kind,
@@ -127,7 +133,8 @@ export const metahubsQueryKeys = {
             search: params.search?.trim() || undefined,
             locale: params.locale,
             includeDeleted: params.includeDeleted ?? false,
-            onlyDeleted: params.onlyDeleted ?? false
+            onlyDeleted: params.onlyDeleted ?? false,
+            treeEntityId: params.treeEntityId
         }
         return [...metahubsQueryKeys.entities(metahubId, normalized.kind), 'list', normalized] as const
     },
@@ -226,9 +233,8 @@ export const metahubsQueryKeys = {
     migrationsStatus: (metahubId: string, branchId?: string, cleanupMode: 'keep' | 'dry_run' | 'confirm' = 'keep') =>
         [...metahubsQueryKeys.migrations(metahubId), 'status', branchId ?? 'default', cleanupMode] as const,
 
-    // Blocking linkedCollections for hub deletion (linkedCollections with isRequiredHub=true that would become orphaned)
-    blockingLinkedCollections: (metahubId: string, treeEntityId: string, kindKey?: string | null) =>
-        [...metahubsQueryKeys.treeEntityDetail(metahubId, treeEntityId, kindKey), 'blockingLinkedCollections'] as const,
+    blockingTreeDependencies: (metahubId: string, treeEntityId: string, kindKey?: string | null) =>
+        [...metahubsQueryKeys.treeEntityDetail(metahubId, treeEntityId, kindKey), 'blockingTreeDependencies'] as const,
 
     // Blocking references for catalog deletion (REF fieldDefinitions in other linkedCollections)
     blockingLinkedCollectionReferences: (metahubId: string, linkedCollectionId: string, kindKey?: string | null) =>

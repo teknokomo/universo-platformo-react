@@ -18,6 +18,7 @@ This guide describes the supported workflow for the built-in LMS template and it
 
 The canonical fixture ships a bilingual Learning Portal dataset with these entities:
 
+- `LearnerHome` Page
 - `Classes`
 - `Students`
 - `Modules`
@@ -27,7 +28,7 @@ The canonical fixture ships a bilingual Learning Portal dataset with these entit
 - `AccessLinks`
 - `Enrollments`
 
-It also ships the LMS enumerations, a curated working runtime menu, workspace-aware seeded rows, and multiple guest-access routes.
+It also ships the LMS enumerations, a curated working runtime menu, Editor.js-compatible landing-page blocks, workspace-aware seeded rows, and multiple guest-access routes.
 
 ## 3. Keep The Product Fixture Contract Stable
 
@@ -44,14 +45,21 @@ Do not hand-edit exported snapshot payloads. Update the generator or fixture con
 ## 4. Publish The Imported Or Generated Metahub
 
 1. Create a publication for the LMS metahub.
-2. Add a version.
+2. Add a version with the workspace policy that matches the target runtime.
+   The LMS fixture should normally use `Require workspaces` because learner progress, class data, and public links must stay isolated by workspace.
 3. Sync until the publication becomes ready.
 
 ## 5. Create The Linked Application
 
-When creating the application, enable `workspacesEnabled` and public runtime access.
+Create the application with the required visibility and link it to the LMS publication through a connector.
+Workspace mode is no longer selected in the application create dialog.
 
-After creation, run application schema sync so the linked app can clone the seeded LMS rows into shared workspaces.
+After the connector is linked to the publication, open schema sync:
+
+- `Require workspaces` creates or keeps application workspaces and requires an irreversible acknowledgement.
+- `Optional workspaces` allows the connector schema sync dialog to choose whether workspaces are created.
+
+After sync, the linked app clones the seeded LMS rows into the user's Main workspace when the effective workspace mode is enabled.
 
 ## 6. Do Not Manually Rebuild The Demo Rows
 
@@ -63,7 +71,7 @@ If the dataset must change, update the generator and fixture contract first inst
 
 ![LMS guest result screen](../.gitbook/assets/quiz-tutorial/runtime-quiz.png)
 
-1. Open `/a/:applicationId` and verify that EN and RU authenticated runtime starts from the `Modules` section, has no duplicate `Workspaces` entry, and every visible menu item either opens a real section or a real route.
+1. Open `/a/:applicationId` and verify that EN and RU authenticated runtime starts from the `LearnerHome` Page, has no duplicate `Workspaces` entry, and every visible menu item either opens a real section or a real route.
 2. Open `/public/a/:applicationId/links/:slug` and verify the EN and RU guest-learning flows.
 
 ## Related Reading

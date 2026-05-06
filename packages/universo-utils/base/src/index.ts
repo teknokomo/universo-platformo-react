@@ -218,6 +218,15 @@ export {
     type TableConstraintResult
 } from './validation/tableConstraints'
 
+export {
+    WorkspacePolicyError,
+    parseWorkspaceModePolicy,
+    resolveWorkspaceModeDecision,
+    assertPublicationWorkspacePolicyTransition,
+    type ResolveWorkspaceModeInput,
+    type PublicationWorkspacePolicyTransitionInput
+} from './validation/workspacePolicy'
+
 // Optimistic update utilities (pure TypeScript, no React deps)
 export {
     isPendingEntity,

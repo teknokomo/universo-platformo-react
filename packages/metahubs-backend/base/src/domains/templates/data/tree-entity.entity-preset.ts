@@ -27,7 +27,13 @@ export const hubEntityPreset: EntityTypePresetManifest = {
         ui: HUB_TYPE_UI,
         presentation: {
             name: STANDARD_HUB_NAME,
-            description: STANDARD_HUB_DESCRIPTION
+            description: STANDARD_HUB_DESCRIPTION,
+            dialogTitles: {
+                create: vlc('Create Hub', 'Создать хаб'),
+                edit: vlc('Edit Hub', 'Редактировать хаб'),
+                copy: vlc('Copy Hub', 'Копирование хаба'),
+                delete: vlc('Delete Hub', 'Удалить хаб')
+            }
         },
         config: {}
     },

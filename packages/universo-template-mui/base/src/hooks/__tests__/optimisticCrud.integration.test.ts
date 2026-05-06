@@ -279,11 +279,12 @@ describe('optimisticCrud integration', () => {
             const id2 = generateOptimisticId()
 
             // First create
-            const ctx1 = await applyOptimisticCreate({
+            const firstCreateContext = await applyOptimisticCreate({
                 queryClient,
                 queryKeyPrefix,
                 optimisticEntity: { id: id1, name: 'New 1', ...makePendingMarkers('create') }
             })
+            expect(firstCreateContext.previousSnapshots.length).toBeGreaterThan(0)
 
             // Second create (while first is still "in flight")
             const ctx2 = await applyOptimisticCreate({

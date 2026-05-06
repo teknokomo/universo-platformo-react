@@ -42,6 +42,10 @@ function createMockKnex() {
             insertedRows[table].push(row)
             return this
         }),
+        where: jest.fn().mockReturnThis(),
+        first: jest.fn().mockResolvedValue(undefined),
+        update: jest.fn().mockResolvedValue(1),
+        raw: jest.fn((sql: string) => ({ raw: sql })),
         returning: jest.fn().mockImplementation(function (this: any) {
             const newId = `generated-id-${idCounter++}`
             const table = this._currentTable || '_unknown'
@@ -124,6 +128,233 @@ describe('SnapshotRestoreService', () => {
             data_type: 'STRING'
         })
         expect(mockEnsureCatalogSystemFieldDefinitionsSeed).toHaveBeenCalled()
+    })
+
+    it('updates existing entity type definitions instead of inserting duplicates during snapshot restore', async () => {
+        const { knex, mockBuilder, insertedRows } = createMockKnex()
+        mockBuilder.first.mockResolvedValueOnce({ id: 'existing-page-type' })
+        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+
+        await service.restoreFromSnapshot(
+            'metahub-1',
+            makeMinimalSnapshot({
+                entityTypeDefinitions: {
+                    page: {
+                        id: 'old-page-type',
+                        kindKey: 'page',
+                        codename: 'page',
+                        presentation: { name: { en: 'Pages' }, description: {} },
+                        components: { blockContent: { enabled: true } },
+                        ui: { tabs: ['general'], sidebarSection: 'objects' },
+                        config: {},
+                        published: true
+                    }
+                }
+            } as unknown as Partial<MetahubSnapshot>),
+            'user-1'
+        )
+
+        expect(insertedRows['_mhb_entity_type_definitions']).toBeUndefined()
+        expect(mockBuilder.update).toHaveBeenCalledWith(
+            expect.objectContaining({
+                kind_key: 'page',
+                _upl_version: { raw: '_upl_version + 1' }
+            })
+        )
+    })
+
+    it('normalizes imported Page block content through the shared storage schema', async () => {
+        const { knex, insertedRows } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+
+        await service.restoreFromSnapshot(
+            'metahub-1',
+            makeMinimalSnapshot({
+                entities: {
+                    'old-page-id': {
+                        id: 'old-page-id',
+                        kind: 'page',
+                        codename: 'learner-home',
+                        presentation: { name: { en: 'Learner Home' }, description: {} },
+                        config: {
+                            blockContent: {
+                                time: 1,
+                                version: '2.31.0',
+                                blocks: [
+                                    {
+                                        id: 'welcome-title',
+                                        type: 'header',
+                                        data: { text: 'Welcome', level: 2 }
+                                    }
+                                ]
+                            }
+                        },
+                        fields: [],
+                        hubs: []
+                    }
+                },
+                entityTypeDefinitions: {
+                    page: {
+                        id: 'old-page-type',
+                        kindKey: 'page',
+                        codename: 'page',
+                        presentation: { name: { en: 'Pages' }, description: {} },
+                        components: {
+                            blockContent: {
+                                enabled: true,
+                                storage: 'objectConfig',
+                                defaultFormat: 'editorjs',
+                                supportedFormats: ['editorjs'],
+                                allowedBlockTypes: ['paragraph', 'header'],
+                                maxBlocks: 500
+                            }
+                        },
+                        ui: { tabs: ['general', 'content'], sidebarSection: 'objects', iconName: 'IconFileText', nameKey: 'Pages' },
+                        config: {},
+                        published: true
+                    }
+                }
+            } as unknown as Partial<MetahubSnapshot>),
+            'user-1'
+        )
+
+        expect(insertedRows['_mhb_objects']).toHaveLength(1)
+        expect(insertedRows['_mhb_objects']![0]).toMatchObject({
+            kind: 'page',
+            config: {
+                blockContent: {
+                    format: 'editorjs',
+                    data: {
+                        version: '2.31.0',
+                        blocks: [
+                            {
+                                id: 'welcome-title',
+                                type: 'header',
+                                data: { text: 'Welcome', level: 2 }
+                            }
+                        ]
+                    }
+                }
+            }
+        })
+    })
+
+    it('rejects unsafe imported Page block content before writing objects', async () => {
+        const { knex, insertedRows } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+
+        await expect(
+            service.restoreFromSnapshot(
+                'metahub-1',
+                makeMinimalSnapshot({
+                    entities: {
+                        'old-page-id': {
+                            id: 'old-page-id',
+                            kind: 'page',
+                            codename: 'unsafe-page',
+                            presentation: { name: { en: 'Unsafe Page' }, description: {} },
+                            config: {
+                                blockContent: {
+                                    format: 'editorjs',
+                                    blocks: [
+                                        {
+                                            id: 'unsafe-paragraph',
+                                            type: 'paragraph',
+                                            data: { text: '<script>alert(1)</script>' }
+                                        }
+                                    ]
+                                }
+                            },
+                            fields: [],
+                            hubs: []
+                        }
+                    },
+                    entityTypeDefinitions: {
+                        page: {
+                            id: 'old-page-type',
+                            kindKey: 'page',
+                            codename: 'page',
+                            presentation: { name: { en: 'Pages' }, description: {} },
+                            components: {
+                                blockContent: {
+                                    enabled: true,
+                                    storage: 'objectConfig',
+                                    defaultFormat: 'editorjs',
+                                    supportedFormats: ['editorjs'],
+                                    allowedBlockTypes: ['paragraph'],
+                                    maxBlocks: 500
+                                }
+                            },
+                            ui: { tabs: ['general', 'content'], sidebarSection: 'objects', iconName: 'IconFileText', nameKey: 'Pages' },
+                            config: {},
+                            published: true
+                        }
+                    }
+                } as unknown as Partial<MetahubSnapshot>),
+                'user-1'
+            )
+        ).rejects.toThrow('Invalid imported page block content')
+
+        expect(insertedRows['_mhb_objects']).toBeUndefined()
+    })
+
+    it('rejects imported Page block content that violates Entity-specific block constraints', async () => {
+        const { knex, insertedRows } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+
+        await expect(
+            service.restoreFromSnapshot(
+                'metahub-1',
+                makeMinimalSnapshot({
+                    entities: {
+                        'old-page-id': {
+                            id: 'old-page-id',
+                            kind: 'page',
+                            codename: 'disallowed-page',
+                            presentation: { name: { en: 'Disallowed Page' }, description: {} },
+                            config: {
+                                blockContent: {
+                                    format: 'editorjs',
+                                    blocks: [
+                                        {
+                                            id: 'welcome-title',
+                                            type: 'header',
+                                            data: { text: 'Welcome', level: 2 }
+                                        }
+                                    ]
+                                }
+                            },
+                            fields: [],
+                            hubs: []
+                        }
+                    },
+                    entityTypeDefinitions: {
+                        page: {
+                            id: 'old-page-type',
+                            kindKey: 'page',
+                            codename: 'page',
+                            presentation: { name: { en: 'Pages' }, description: {} },
+                            components: {
+                                blockContent: {
+                                    enabled: true,
+                                    storage: 'objectConfig',
+                                    defaultFormat: 'editorjs',
+                                    supportedFormats: ['editorjs'],
+                                    allowedBlockTypes: ['paragraph'],
+                                    maxBlocks: 500
+                                }
+                            },
+                            ui: { tabs: ['general', 'content'], sidebarSection: 'objects', iconName: 'IconFileText', nameKey: 'Pages' },
+                            config: {},
+                            published: true
+                        }
+                    }
+                } as unknown as Partial<MetahubSnapshot>),
+                'user-1'
+            )
+        ).rejects.toThrow('Invalid imported page block content')
+
+        expect(insertedRows['_mhb_objects']).toBeUndefined()
     })
 
     it('restores a legacy snapshot that omits v3 entity metadata sections', async () => {

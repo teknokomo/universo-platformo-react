@@ -1,6 +1,6 @@
 import Avatar from '@mui/material/Avatar'
 import Chip from '@mui/material/Chip'
-import { GridCellParams, GridRowsProp, GridColDef } from '@mui/x-data-grid'
+import { GridRowsProp, GridColDef, GridRenderCellParams } from '@mui/x-data-grid'
 import { SparkLineChart } from '@mui/x-charts/SparkLineChart'
 
 type SparkLineData = number[]
@@ -20,7 +20,7 @@ function getDaysInMonth(month: number, year: number) {
     return days
 }
 
-function renderSparklineCell(params: GridCellParams<SparkLineData, any>) {
+function renderSparklineCell(params: GridRenderCellParams<Record<string, unknown>, SparkLineData>) {
     const data = getDaysInMonth(4, 2024)
     const { value, colDef } = params
 
@@ -56,7 +56,7 @@ function renderStatus(status: 'Online' | 'Offline') {
     return <Chip label={status} color={colors[status]} size='small' />
 }
 
-export function renderAvatar(params: GridCellParams<{ name: string; color: string }, any, any>) {
+export function renderAvatar(params: GridRenderCellParams<Record<string, unknown>, { name: string; color: string }>) {
     if (params.value == null) {
         return ''
     }
@@ -82,7 +82,7 @@ export const columns: GridColDef[] = [
         headerName: 'Status',
         flex: 0.5,
         minWidth: 80,
-        renderCell: (params) => renderStatus(params.value as any)
+        renderCell: (params) => renderStatus(params.value as 'Online' | 'Offline')
     },
     {
         field: 'users',

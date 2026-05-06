@@ -6,6 +6,7 @@ import { lmsTemplate } from './lms.template'
 import { catalogEntityPreset } from './linked-collection.entity-preset'
 import { fixedValuesLibraryEntityPreset } from './fixed-values-library.entity-preset'
 import { enumerationEntityPreset } from './option-list.entity-preset'
+import { pageEntityPreset } from './page.entity-preset'
 import { hubEntityPreset } from './tree-entity.entity-preset'
 import { setEntityPreset } from './value-group.entity-preset'
 
@@ -18,6 +19,7 @@ export const builtinTemplates: MetahubTemplateManifest[] = [basicTemplate, basic
 export const builtinEntityTypePresets: EntityTypePresetManifest[] = [
     hubEntityPreset,
     catalogEntityPreset,
+    pageEntityPreset,
     setEntityPreset,
     enumerationEntityPreset,
     fixedValuesLibraryEntityPreset

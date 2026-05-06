@@ -1,5 +1,6 @@
 import type { EntityDefinition, SchemaSnapshot } from './types'
 import { resolveFieldColumnName, resolveEntityTableName, generateChildTableName } from './naming'
+import { hasPhysicalRuntimeTable } from './builtinEntityKinds'
 
 export const CURRENT_SCHEMA_SNAPSHOT_VERSION = 2
 
@@ -12,11 +13,13 @@ export const buildSchemaSnapshot = (entities: EntityDefinition[]): SchemaSnapsho
     }
 
     for (const entity of entities) {
-        const entityTableName = resolveEntityTableName(entity)
+        const physicalTableEnabled = hasPhysicalRuntimeTable(entity)
+        const entityTableName = physicalTableEnabled ? resolveEntityTableName(entity) : null
         snapshot.entities[entity.id] = {
             kind: entity.kind,
             codename: entity.codename,
             tableName: entityTableName,
+            physicalTableEnabled,
             fields: {}
         }
 

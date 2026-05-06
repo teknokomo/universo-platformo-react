@@ -95,8 +95,10 @@ type GuestSessionPayload = {
 }
 
 type StoredGuestSessionState = {
+    linkId: string
     secret: string
     expiresAt: string
+    workspaceId?: string | null
 }
 
 const indexByCodename = <T extends { codename: unknown }>(items: T[]) =>
@@ -210,6 +212,15 @@ const encodeGuestSessionToken = (payload: GuestSessionPayload): string => Buffer
 
 const encodeStoredGuestSessionState = (payload: StoredGuestSessionState): string => JSON.stringify(payload)
 
+const isSameSecret = (expected: string, actual: string): boolean => {
+    const expectedBuffer = Buffer.from(expected, 'utf8')
+    const actualBuffer = Buffer.from(actual, 'utf8')
+    return (
+        expectedBuffer.length === actualBuffer.length &&
+        crypto.timingSafeEqual(new Uint8Array(expectedBuffer), new Uint8Array(actualBuffer))
+    )
+}
+
 const decodeStoredGuestSessionState = (value: unknown): StoredGuestSessionState | null => {
     if (typeof value !== 'string' || value.trim().length === 0) {
         return null
@@ -218,11 +229,15 @@ const decodeStoredGuestSessionState = (value: unknown): StoredGuestSessionState 
     try {
         const decoded = JSON.parse(value) as Partial<StoredGuestSessionState>
         if (!decoded || typeof decoded !== 'object') return null
+        if (typeof decoded.linkId !== 'string' || !UUID_REGEX.test(decoded.linkId)) return null
         if (typeof decoded.secret !== 'string' || decoded.secret.trim().length === 0) return null
         if (typeof decoded.expiresAt !== 'string' || Number.isNaN(new Date(decoded.expiresAt).getTime())) return null
+        if (decoded.workspaceId != null && (typeof decoded.workspaceId !== 'string' || !UUID_REGEX.test(decoded.workspaceId))) return null
         return {
+            linkId: decoded.linkId,
             secret: decoded.secret,
-            expiresAt: decoded.expiresAt
+            expiresAt: decoded.expiresAt,
+            workspaceId: decoded.workspaceId ?? null
         }
     } catch {
         return null
@@ -541,9 +556,12 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
 
             const storedState = decodeStoredGuestSessionState(rows[0]?.guest_session_token ?? null)
             const isExpired = !storedState || new Date(storedState.expiresAt).getTime() <= Date.now()
-            const isSecretValid = storedState?.secret === tokenPayload.secret
+            const isTokenBoundToStoredSession =
+                storedState?.linkId === tokenPayload.linkId &&
+                (storedState.workspaceId ?? null) === (tokenPayload.workspaceId ?? null) &&
+                isSameSecret(storedState.secret, tokenPayload.secret)
 
-            if (rows.length > 0 && !isExpired && isSecretValid) {
+            if (rows.length > 0 && !isExpired && isTokenBoundToStoredSession) {
                 return {
                     isValid: true,
                     accessLinkId: tokenPayload.linkId,
@@ -801,7 +819,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                     const insertValues = [
                         studentId,
                         parsed.data.displayName,
-                        encodeStoredGuestSessionState({ secret: sessionSecret, expiresAt })
+                        encodeStoredGuestSessionState({ linkId: link.id, secret: sessionSecret, expiresAt, workspaceId: link.workspaceId })
                     ]
                     const insertPlaceholders = ['$1', '$2', 'true', '$3']
 

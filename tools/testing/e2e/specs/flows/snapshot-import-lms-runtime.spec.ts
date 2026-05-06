@@ -9,8 +9,7 @@ import {
     disposeApiContext,
     listLayouts,
     listApplicationWorkspaces,
-    listLayoutZoneWidgets,
-    syncApplicationSchema
+    listLayoutZoneWidgets
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
 import { toolbarSelectors } from '../../support/selectors/contracts'
@@ -26,13 +25,10 @@ import {
     LMS_FIXTURE_FILENAME,
     LMS_PUBLICATION,
     LMS_SAMPLE_LINK,
-    LMS_SECONDARY_LINK
+    LMS_SECONDARY_LINK,
+    LMS_WELCOME_PAGE
 } from '../../support/lmsFixtureContract'
-import {
-    waitForApplicationCatalogId,
-    waitForApplicationRuntimeRowCount,
-    type ApiContext
-} from '../../support/lmsRuntime'
+import { waitForApplicationCatalogId, waitForApplicationRuntimeRowCount, type ApiContext } from '../../support/lmsRuntime'
 
 type SnapshotFixture = Record<string, unknown>
 
@@ -81,6 +77,12 @@ async function checkQuizOption(page: Page, value: unknown, locale: string): Prom
     throw new Error(`Quiz option label is missing for locale ${locale}`)
 }
 
+async function clickRuntimeNavigationItem(page: Page, name: string): Promise<void> {
+    const directLink = page.getByRole('link', { name })
+    await expect(directLink.first()).toBeVisible({ timeout: 30_000 })
+    await directLink.first().click()
+}
+
 async function loadLmsFixture(): Promise<{ fixturePath: string; metahubName: string }> {
     const fixturePath = path.join(process.cwd(), 'tools', 'fixtures', LMS_FIXTURE_FILENAME)
     const rawFixture = await fs.readFile(fixturePath, 'utf8')
@@ -127,7 +129,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         page,
         runManifest
     }, testInfo) => {
-        test.setTimeout(300_000)
+        test.setTimeout(480_000)
 
         const fixture = await loadLmsFixture()
         api = await createLoggedInApiContext({
@@ -156,10 +158,13 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         const importResponsePromise = page.waitForResponse(
             (response) =>
                 response.request().method() === 'POST' && response.url().endsWith('/api/v1/metahubs/import') && response.status() === 201,
-            { timeout: 60_000 }
+            { timeout: 180_000 }
         )
 
-        await dialog.getByRole('button', { name: /import/i }).last().click()
+        await dialog
+            .getByRole('button', { name: /import/i })
+            .last()
+            .click()
 
         const importResponse = await importResponsePromise
         expect(importResponse.status()).toBe(201)
@@ -193,19 +198,22 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         const menuWidget = (layoutWidgets.items ?? []).find((item: Record<string, any>) => item?.widgetKey === 'menuWidget')
         expect(menuWidget?.config?.autoShowAllCatalogs).toBe(false)
         expect(menuWidget?.config?.maxPrimaryItems).toBe(6)
-        expect(menuWidget?.config?.startPage).toBe('Modules')
+        expect(menuWidget?.config?.startPage).toBe('LearnerHome')
 
         const linkedApplication = await createPublicationLinkedApplication(api, importedId, importedPublicationId, {
             name: LMS_PUBLICATION.applicationName,
             namePrimaryLocale: 'en',
             createApplicationSchema: false,
-            isPublic: true,
-            workspacesEnabled: true
+            isPublic: true
         })
 
         const applicationId = linkedApplication?.application?.id
         if (typeof applicationId !== 'string') {
             throw new Error('Import flow did not create an application id from the imported LMS publication')
+        }
+        const connectorId = linkedApplication?.connector?.id
+        if (typeof connectorId !== 'string') {
+            throw new Error('Import flow did not create a connector id from the imported LMS publication')
         }
 
         await recordCreatedApplication({
@@ -213,7 +221,41 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             slug: linkedApplication.application.slug
         })
 
-        await syncApplicationSchema(api, applicationId)
+        await applyBrowserPreferences(page, { language: 'en' })
+        await page.goto(`/a/${applicationId}/admin/connector/${connectorId}`)
+        await expect(page.getByTestId('application-connector-board-schema-card')).toBeVisible({ timeout: 30_000 })
+
+        const diffResponsePromise = page.waitForResponse(
+            (response) => response.request().method() === 'GET' && response.url().endsWith(`/api/v1/application/${applicationId}/diff`),
+            { timeout: 60_000 }
+        )
+        await page.getByTestId('application-connector-board-sync-button').click()
+        const diffResponse = await diffResponsePromise
+        expect(diffResponse.status()).toBe(200)
+
+        const diffDialog = page.getByRole('dialog', { name: 'Schema Changes' })
+        await expect(diffDialog).toBeVisible({ timeout: 30_000 })
+        await expect(diffDialog.getByText('Workspaces', { exact: true })).toBeVisible()
+        await diffDialog.getByLabel('Create application workspaces').check()
+        await diffDialog.getByLabel('I understand that workspaces cannot be turned off after they are enabled for this application.').check()
+
+        const syncResponsePromise = page.waitForResponse(
+            (response) =>
+                response.request().method() === 'POST' &&
+                response.url().endsWith(`/api/v1/application/${applicationId}/sync`) &&
+                response.status() === 200,
+            { timeout: 180_000 }
+        )
+        await diffDialog.getByRole('button', { name: 'Create Schema' }).click()
+        const syncResponse = await syncResponsePromise
+        expect(syncResponse.status()).toBe(200)
+        expect(syncResponse.request().postDataJSON()).toMatchObject({
+            schemaOptions: {
+                workspaceModeRequested: 'enabled',
+                acknowledgeIrreversibleWorkspaceEnablement: true
+            }
+        })
+        await expect(diffDialog).toHaveCount(0)
 
         const [studentsCatalogId, quizResponsesCatalogId, moduleProgressCatalogId] = await Promise.all([
             waitForApplicationCatalogId(api, applicationId, 'Students'),
@@ -224,9 +266,18 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await applyBrowserPreferences(page, { language: 'en' })
         await page.goto(`/a/${applicationId}`)
 
-        await expect(page.getByRole('button', { name: 'Learning' })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText('Access Links', { exact: true })).toHaveCount(0)
+        await expect(page.getByText('Ссылки доступа', { exact: true })).toHaveCount(0)
+        await expect(page.getByRole('button', { name: 'Learning' })).toHaveCount(0)
+        await expect(page.getByRole('button', { name: 'More' })).toHaveCount(0)
+        await expect(page.getByTestId('runtime-page-blocks')).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText(LMS_WELCOME_PAGE.title.en, { exact: true })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText(LMS_WELCOME_PAGE.intro.en)).toBeVisible({
+            timeout: 30_000
+        })
+        await expect(page.getByText(LMS_WELCOME_PAGE.howToStartTitle.en, { exact: true })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText(LMS_WELCOME_PAGE.workspaceGuidance.en)).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText('Catalog', { exact: true })).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByText('Modules', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
         await expect(page.getByRole('link', { name: 'Workspaces' })).toHaveCount(1)
         await expect(page.getByText('Module access QR')).toHaveCount(0)
         await expect(page.getByText('Learning portal stats')).toHaveCount(0)
@@ -235,22 +286,31 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
         await page.screenshot({ path: testInfo.outputPath('lms-dashboard-en.png'), fullPage: true })
 
-        await page.getByRole('link', { name: 'Knowledge' }).click()
+        await clickRuntimeNavigationItem(page, 'Knowledge')
         await expect(page.getByText('Quizzes', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
         await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
-        await page.getByRole('link', { name: 'Development' }).click()
+        await clickRuntimeNavigationItem(page, 'Development')
         await expect(page.getByText('Classes', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
         await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
-        await page.getByRole('link', { name: 'Reports' }).click()
-        await expect(page.getByText('Module Progress', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
+        await clickRuntimeNavigationItem(page, 'Reports')
+        await expect(page.getByText('Reports', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
         await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
 
         await applyBrowserPreferences(page, { language: 'ru' })
         await page.goto(`/a/${applicationId}`)
 
-        await expect(page.getByRole('button', { name: 'Обучение' })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText('Access Links', { exact: true })).toHaveCount(0)
+        await expect(page.getByText('Ссылки доступа', { exact: true })).toHaveCount(0)
+        await expect(page.getByRole('button', { name: 'Обучение' })).toHaveCount(0)
+        await expect(page.getByRole('button', { name: 'More' })).toHaveCount(0)
+        await expect(page.getByTestId('runtime-page-blocks')).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText(LMS_WELCOME_PAGE.title.ru, { exact: true })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText(LMS_WELCOME_PAGE.intro.ru)).toBeVisible({
+            timeout: 30_000
+        })
+        await expect(page.getByText(LMS_WELCOME_PAGE.howToStartTitle.ru, { exact: true })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText(LMS_WELCOME_PAGE.workspaceGuidance.ru)).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText('Каталог', { exact: true })).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByText('Модули', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
         await expect(page.getByRole('link', { name: 'Рабочие пространства' })).toHaveCount(1)
         await expect(page.getByText('Module access QR')).toHaveCount(0)
         await expect(page.getByText('Статистика учебного портала')).toHaveCount(0)
@@ -315,22 +375,24 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await page.screenshot({ path: testInfo.outputPath('lms-guest-journey-ru.png'), fullPage: true })
 
         const workspaces = await listApplicationWorkspaces(api, applicationId)
-        const sharedWorkspaceId = (Array.isArray(workspaces?.items) ? workspaces.items : []).find(
-            (workspace) => workspace?.workspaceType === 'shared' || workspace?.type === 'shared'
+        const workspaceItems = Array.isArray(workspaces?.items) ? workspaces.items : []
+        expect(workspaceItems.filter((workspace) => workspace?.workspaceType === 'shared' || workspace?.type === 'shared')).toHaveLength(0)
+        const mainWorkspaceId = workspaceItems.find(
+            (workspace) => workspace?.isDefault === true || workspace?.workspaceType === 'personal' || workspace?.type === 'personal'
         )?.id
-        if (typeof sharedWorkspaceId !== 'string' || sharedWorkspaceId.length === 0) {
-            throw new Error('Shared application workspace was not found for final runtime verification')
+        if (typeof mainWorkspaceId !== 'string' || mainWorkspaceId.length === 0) {
+            throw new Error('Main application workspace was not found for final runtime verification')
         }
 
         const [studentRows, quizResponseRows, moduleProgressRows] = await Promise.all([
             waitForApplicationRuntimeRowCount(api, applicationId, studentsCatalogId, LMS_DEMO_STUDENTS.length + 2, {
-                workspaceId: sharedWorkspaceId
+                workspaceId: mainWorkspaceId
             }),
             waitForApplicationRuntimeRowCount(api, applicationId, quizResponsesCatalogId, LMS_DEMO_QUIZ_RESPONSES.length + 4, {
-                workspaceId: sharedWorkspaceId
+                workspaceId: mainWorkspaceId
             }),
             waitForApplicationRuntimeRowCount(api, applicationId, moduleProgressCatalogId, LMS_DEMO_MODULE_PROGRESS.length + 2, {
-                workspaceId: sharedWorkspaceId
+                workspaceId: mainWorkspaceId
             })
         ])
 

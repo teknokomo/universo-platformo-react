@@ -28,6 +28,7 @@ import type { DragEndEvent } from '@universo/template-mui'
 import { EntityFormDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
+import { isEnabledComponentConfig, type VersionedLocalizedContent } from '@universo/types'
 
 import {
     useCreateTreeEntity,
@@ -38,10 +39,11 @@ import {
 } from '../hooks/treeEntityMutations'
 import { useTreeEntityListData } from '../hooks/useTreeEntityListData'
 import { useStandardEntityListState, createEntityCopyCallback } from '../hooks/useStandardEntityListState'
+import { useEntityTypesQuery } from '../../hooks'
+import type { MetahubEntityType } from '../../api'
 import { STORAGE_KEYS } from '../../../../view-preferences/storage'
 import * as hubsApi from '../api/trees'
 import { invalidateTreeEntitiesQueries, metahubsQueryKeys } from '../../../shared'
-import type { VersionedLocalizedContent } from '@universo/types'
 import { TreeEntity, TreeEntityDisplay, TreeEntityLocalizedPayload, getVLCString, toTreeEntityDisplay } from '../../../../types'
 import { isOptimisticLockConflict, extractConflictInfo, isPendingEntity, getPendingAction, type ConflictInfo } from '@universo/utils'
 import { sanitizeCodenameForStyle, normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../../utils/codename'
@@ -64,9 +66,12 @@ import {
     extractResponseMessage
 } from './treeEntityListUtils'
 import { useMetahubPrimaryLocale } from '../../../settings/hooks/useMetahubPrimaryLocale'
-import { buildTreeEntityAuthoringPath, type TreeEntityAuthoringTab } from '../../../shared/entityMetadataRoutePaths'
 
 type GenericFormValues = Record<string, unknown>
+type HubScopedTab = {
+    kindKey: string
+    label: string
+}
 
 type TreeEntityFormFieldsProps = {
     values: GenericFormValues
@@ -163,6 +168,7 @@ export const TreeEntityListContent = () => {
 
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
+    const hubKindKey = kindKey?.trim() || 'hub'
 
     const {
         metahubId,
@@ -184,16 +190,79 @@ export const TreeEntityListContent = () => {
         allowAttachExistingEntities,
         allowHubNesting
     } = useTreeEntityListData()
+    const entityTypesQuery = useEntityTypesQuery(metahubId, {
+        limit: 1000,
+        offset: 0,
+        sortBy: 'codename',
+        sortOrder: 'asc'
+    })
     const buildHubPath = useCallback(
-        (nextTreeEntityId: string, tab: TreeEntityAuthoringTab = 'treeEntities') =>
-            buildTreeEntityAuthoringPath({
-                metahubId,
-                treeEntityId: nextTreeEntityId,
-                kindKey,
-                tab
-            }),
-        [kindKey, metahubId]
+        (nextTreeEntityId: string, targetKindKey = hubKindKey) => {
+            const normalizedMetahubId = metahubId?.trim()
+            const normalizedTreeEntityId = nextTreeEntityId.trim()
+            const normalizedKindKey = targetKindKey.trim() || hubKindKey
+            if (!normalizedMetahubId || !normalizedTreeEntityId) {
+                return ''
+            }
+
+            return `/metahub/${normalizedMetahubId}/entities/${encodeURIComponent(
+                normalizedKindKey
+            )}/instance/${normalizedTreeEntityId}/instances`
+        },
+        [hubKindKey, metahubId]
     )
+    const resolveEntityTypeTabLabel = useCallback(
+        (entityType: MetahubEntityType | undefined, fallbackKey: string, fallbackLabel: string) => {
+            if (!entityType) {
+                return t(fallbackKey, fallbackLabel)
+            }
+
+            const presentationName = entityType.presentation?.name
+            const localizedName = getVLCString(presentationName, preferredVlcLocale) || getVLCString(presentationName, i18n.language) || ''
+            if (localizedName) {
+                return localizedName
+            }
+
+            if (entityType.ui?.nameKey) {
+                return t(entityType.ui.nameKey, { defaultValue: fallbackLabel })
+            }
+
+            return (
+                getVLCString(entityType.codename, preferredVlcLocale) || getVLCString(entityType.codename, i18n.language) || fallbackLabel
+            )
+        },
+        [i18n.language, preferredVlcLocale, t]
+    )
+    const hubScopedTabs = useMemo<HubScopedTab[]>(() => {
+        const entityTypes = entityTypesQuery.data?.items ?? []
+        const hubType = entityTypes.find((entityType) => entityType.kindKey === hubKindKey)
+        const relatedTabs = entityTypes
+            .filter((entityType) => entityType.kindKey !== hubKindKey && isEnabledComponentConfig(entityType.components?.treeAssignment))
+            .sort((a, b) => {
+                const byOrder = (a.ui?.sidebarOrder ?? 1000) - (b.ui?.sidebarOrder ?? 1000)
+                return byOrder !== 0 ? byOrder : a.kindKey.localeCompare(b.kindKey)
+            })
+            .map((entityType) => ({
+                kindKey: entityType.kindKey,
+                label: resolveEntityTypeTabLabel(entityType, entityType.ui?.nameKey ?? 'entities.title', entityType.kindKey)
+            }))
+
+        return [
+            {
+                kindKey: hubKindKey,
+                label: resolveEntityTypeTabLabel(hubType, 'hubs.title', 'Hubs')
+            },
+            ...relatedTabs,
+            {
+                kindKey: 'settings',
+                label: t('settings.title')
+            }
+        ]
+    }, [entityTypesQuery.data?.items, hubKindKey, resolveEntityTypeTabLabel, t])
+    const hubScopedActiveTab = useMemo(() => {
+        const routeTab = hubScopedTabs.some((tab) => tab.kindKey === hubKindKey) ? hubKindKey : hubScopedTabs[0]?.kindKey
+        return routeTab ?? hubKindKey
+    }, [hubKindKey, hubScopedTabs])
 
     const { dialogs, openCreate, openDelete, openConflict, close, view, setView, confirm } = useStandardEntityListState<TreeEntity>(
         STORAGE_KEYS.TREE_ENTITY_DISPLAY_STYLE
@@ -851,10 +920,7 @@ export const TreeEntityListContent = () => {
         setView(nextView as 'card' | 'table')
     }
 
-    const handleHubTabChange = (
-        _event: unknown,
-        tabValue: 'treeEntities' | 'linkedCollections' | 'valueGroups' | 'optionLists' | 'settings'
-    ) => {
+    const handleHubTabChange = (_event: unknown, tabValue: string) => {
         if (!metahubId || !treeEntityId) return
         if (tabValue === 'settings') {
             setEditDialogOpen(true)
@@ -982,7 +1048,7 @@ export const TreeEntityListContent = () => {
                             <>
                                 <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                                     <Tabs
-                                        value='treeEntities'
+                                        value={hubScopedActiveTab}
                                         onChange={handleHubTabChange}
                                         aria-label={t('hubs.title', 'TreeEntities')}
                                         textColor='primary'
@@ -995,11 +1061,9 @@ export const TreeEntityListContent = () => {
                                             }
                                         }}
                                     >
-                                        <Tab value='treeEntities' label={t('hubs.title')} />
-                                        <Tab value='linkedCollections' label={t('catalogs.title')} />
-                                        <Tab value='valueGroups' label={t('sets.title')} />
-                                        <Tab value='optionLists' label={t('enumerations.title')} />
-                                        <Tab value='settings' label={t('settings.title')} />
+                                        {hubScopedTabs.map((tab) => (
+                                            <Tab key={tab.kindKey} value={tab.kindKey} label={tab.label} />
+                                        ))}
                                     </Tabs>
                                 </Box>
                                 {!allowHubNesting && (

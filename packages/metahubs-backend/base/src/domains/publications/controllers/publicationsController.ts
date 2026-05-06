@@ -1,7 +1,14 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
-import { isManagedDynamicSchemaName as isDynamicSchemaName, quoteIdentifier } from '@universo/migrations-core'
-import { localizedContent, OptimisticLockError, buildSnapshotEnvelope, getCodenamePrimary, validateSnapshotEnvelope } from '@universo/utils'
+import {
+    localizedContent,
+    OptimisticLockError,
+    WorkspacePolicyError,
+    assertPublicationWorkspacePolicyTransition,
+    buildSnapshotEnvelope,
+    getCodenamePrimary,
+    validateSnapshotEnvelope
+} from '@universo/utils'
 import { applyRlsContext } from '@universo/auth-backend'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 import { getRequestDbExecutor, type DbExecutor } from '../../../utils'
@@ -29,14 +36,9 @@ import {
 import { SnapshotSerializer, MetahubSnapshot } from '../services/SnapshotSerializer'
 import { getDDLServices, generateSchemaName, uuidToLockKey, acquirePoolAdvisoryLock, releasePoolAdvisoryLock } from '../../ddl'
 import type { SchemaSnapshot, SchemaDiff } from '../../ddl'
-import { createKnexExecutor } from '@universo/database'
-import { runPublishedApplicationRuntimeSync, type PublishedApplicationSnapshot } from '@universo/applications-backend'
-import { ApplicationSchemaStatus } from '@universo/types'
 import type { MetahubSnapshotTransportEnvelope } from '@universo/types'
 import { createLinkedApplication } from '../helpers/createLinkedApplication'
-import { MetahubValidationError, MetahubNotFoundError, MetahubDomainError, MetahubSchemaSyncError } from '../../shared/domainErrors'
-import { TARGET_APP_STRUCTURE_VERSION } from '../../applications/constants'
-import { persistApplicationSchemaSyncState } from '../../applications/services/ApplicationSchemaStateStore'
+import { MetahubNotFoundError } from '../../shared/domainErrors'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubFieldDefinitionsService } from '../../metahubs/services/MetahubFieldDefinitionsService'
@@ -66,13 +68,6 @@ const resolveTemplateVersionLabel = async (exec: SqlQueryable, templateVersionId
     return templateVersion?.versionLabel ?? null
 }
 
-const activeApplicationRowPredicate = (alias?: string): string => {
-    const prefix = alias ? `${alias}.` : ''
-    return `COALESCE(${prefix}_upl_deleted, false) = false AND COALESCE(${prefix}_app_deleted, false) = false`
-}
-
-const getErrorMessage = (error: unknown): string => (error instanceof Error ? error.message : String(error))
-
 const resolveBearerAccessToken = (req: Request): string | null => {
     const headerValue = req.headers.authorization ?? req.headers.Authorization
     if (typeof headerValue !== 'string') return null
@@ -100,238 +95,6 @@ const runCommittedRlsTransaction = async <T>(
     })
 }
 
-const createRlsAwareTransactionExecutor = async (trx: Parameters<typeof createKnexExecutor>[0], accessToken: string) => {
-    const executor = createKnexExecutor(trx)
-
-    await applyRlsContextToExecutor(
-        {
-            query: executor.query,
-            isReleased: () => false
-        },
-        accessToken
-    )
-
-    return executor
-}
-
-const assertApplicationSchemaName = (schemaName: string): void => {
-    if (!schemaName.startsWith('app_') || !isDynamicSchemaName(schemaName)) {
-        throw new MetahubValidationError(`Invalid application schema name: ${schemaName}`)
-    }
-}
-
-const markCreatedApplicationDeleted = async (
-    executor: SqlQueryable,
-    input: { applicationId: string; schemaName: string; userId?: string }
-): Promise<void> => {
-    assertApplicationSchemaName(input.schemaName)
-    await executor.query(`DROP SCHEMA IF EXISTS ${quoteIdentifier(input.schemaName)} CASCADE`)
-
-    await executor.query(
-        `
-    UPDATE applications.cat_connectors
-    SET _upl_deleted = true,
-        _upl_deleted_at = NOW(),
-        _upl_deleted_by = $2,
-        _upl_updated_at = NOW(),
-        _upl_version = COALESCE(_upl_version, 1) + 1
-    WHERE application_id = $1
-      AND ${activeApplicationRowPredicate()}
-    `,
-        [input.applicationId, input.userId ?? null]
-    )
-
-    await executor.query(
-        `
-    UPDATE applications.rel_connector_publications cp
-    SET _upl_deleted = true,
-        _upl_deleted_at = NOW(),
-        _upl_deleted_by = $2,
-        _upl_updated_at = NOW(),
-        _upl_version = COALESCE(cp._upl_version, 1) + 1
-    FROM applications.cat_connectors c
-    WHERE cp.connector_id = c.id
-      AND c.application_id = $1
-      AND ${activeApplicationRowPredicate('cp')}
-    `,
-        [input.applicationId, input.userId ?? null]
-    )
-
-    await executor.query(
-        `
-    UPDATE applications.rel_application_users
-    SET _upl_deleted = true,
-        _upl_deleted_at = NOW(),
-        _upl_deleted_by = $2,
-        _upl_updated_at = NOW(),
-        _upl_version = COALESCE(_upl_version, 1) + 1
-    WHERE application_id = $1
-      AND ${activeApplicationRowPredicate()}
-    `,
-        [input.applicationId, input.userId ?? null]
-    )
-
-    await executor.query(
-        `
-    UPDATE applications.cat_applications
-    SET _upl_deleted = true,
-        _upl_deleted_at = NOW(),
-        _upl_deleted_by = $2,
-        _upl_updated_at = NOW(),
-        _upl_version = COALESCE(_upl_version, 1) + 1
-    WHERE id = $1
-      AND ${activeApplicationRowPredicate()}
-    `,
-        [input.applicationId, input.userId ?? null]
-    )
-}
-
-const markCreatedPublicationVersionDeleted = async (
-    executor: SqlQueryable,
-    input: { publicationVersionId: string; userId?: string }
-): Promise<void> => {
-    const rows = await executor.query<{ id: string }>(
-        `
-    UPDATE metahubs.doc_publication_versions
-    SET _upl_deleted = true,
-        _upl_deleted_at = NOW(),
-        _upl_deleted_by = $2,
-        _app_deleted = true,
-        _app_deleted_at = NOW(),
-        _app_deleted_by = $2,
-        _upl_updated_at = NOW(),
-        _upl_version = COALESCE(_upl_version, 1) + 1
-    WHERE id = $1
-      AND COALESCE(_upl_deleted, false) = false
-      AND COALESCE(_app_deleted, false) = false
-    RETURNING id
-    `,
-        [input.publicationVersionId, input.userId ?? null]
-    )
-
-    if (rows.length > 0) {
-        return
-    }
-
-    const existingRows = await executor.query<{ id: string; uplDeleted: boolean | null; appDeleted: boolean | null }>(
-        `
-    SELECT id,
-           _upl_deleted AS "uplDeleted",
-           _app_deleted AS "appDeleted"
-    FROM metahubs.doc_publication_versions
-    WHERE id = $1
-    LIMIT 1
-    `,
-        [input.publicationVersionId]
-    )
-
-    const existing = existingRows[0]
-    if (existing?.uplDeleted === true && existing?.appDeleted === true) {
-        return
-    }
-
-    throw new MetahubDomainError({
-        message: `Failed to compensate publication version ${input.publicationVersionId}`,
-        statusCode: 500,
-        code: 'PUBLICATION_COMPENSATION_FAILED'
-    })
-}
-
-const markCreatedPublicationDeleted = async (executor: SqlQueryable, input: { publicationId: string; userId?: string }): Promise<void> => {
-    const rows = await executor.query<{ id: string }>(
-        `
-    UPDATE metahubs.doc_publications
-    SET active_version_id = NULL,
-        _upl_deleted = true,
-        _upl_deleted_at = NOW(),
-        _upl_deleted_by = $2,
-        _app_deleted = true,
-        _app_deleted_at = NOW(),
-        _app_deleted_by = $2,
-        _upl_updated_at = NOW(),
-        _upl_version = COALESCE(_upl_version, 1) + 1
-    WHERE id = $1
-      AND COALESCE(_upl_deleted, false) = false
-      AND COALESCE(_app_deleted, false) = false
-    RETURNING id
-    `,
-        [input.publicationId, input.userId ?? null]
-    )
-
-    if (rows.length > 0) {
-        return
-    }
-
-    const existingRows = await executor.query<{ id: string; uplDeleted: boolean | null; appDeleted: boolean | null }>(
-        `
-    SELECT id,
-           _upl_deleted AS "uplDeleted",
-           _app_deleted AS "appDeleted"
-    FROM metahubs.doc_publications
-    WHERE id = $1
-    LIMIT 1
-    `,
-        [input.publicationId]
-    )
-
-    const existing = existingRows[0]
-    if (existing?.uplDeleted === true && existing?.appDeleted === true) {
-        return
-    }
-
-    throw new MetahubDomainError({
-        message: `Failed to compensate publication ${input.publicationId}`,
-        statusCode: 500,
-        code: 'PUBLICATION_COMPENSATION_FAILED'
-    })
-}
-
-const compensateCreatedApplication = async (
-    executor: DbExecutor,
-    accessToken: string,
-    input: { applicationId: string; schemaName: string; userId?: string }
-): Promise<void> => {
-    await runCommittedRlsTransaction(executor, accessToken, async (tx) => {
-        await markCreatedApplicationDeleted(tx, input)
-    })
-}
-
-const compensateCreatedPublication = async (
-    executor: DbExecutor,
-    accessToken: string,
-    input: {
-        publicationId: string
-        publicationVersionId: string
-        linkedApplication?: { applicationId: string; schemaName: string } | null
-        userId?: string
-    }
-): Promise<void> => {
-    await runCommittedRlsTransaction(executor, accessToken, async (tx) => {
-        if (input.linkedApplication) {
-            await markCreatedApplicationDeleted(tx, {
-                applicationId: input.linkedApplication.applicationId,
-                schemaName: input.linkedApplication.schemaName,
-                userId: input.userId
-            })
-        }
-
-        await markCreatedPublicationVersionDeleted(tx, {
-            publicationVersionId: input.publicationVersionId,
-            userId: input.userId
-        })
-        await markCreatedPublicationDeleted(tx, {
-            publicationId: input.publicationId,
-            userId: input.userId
-        })
-    })
-}
-
-const assertSchemaGenerationSucceeded = (result: { success: boolean; errors: string[] }, context: string): void => {
-    if (result.success) return
-    const errorMessage = result.errors.length > 0 ? result.errors.join('; ') : 'Unknown DDL generation failure'
-    throw new MetahubSchemaSyncError(context, new Error(errorMessage))
-}
-
 async function notifyLinkedApplicationsUpdateAvailable(
     exec: SqlQueryable,
     publicationId: string,
@@ -357,7 +120,7 @@ const createPublicationSchema = z
         namePrimaryLocale: z.string().optional(),
         descriptionPrimaryLocale: z.string().optional(),
         autoCreateApplication: z.boolean().optional().default(false),
-        createApplicationSchema: z.boolean().optional().default(false),
+        createApplicationSchema: z.literal(false).optional().default(false),
         versionName: localizedInputSchema.optional(),
         versionDescription: localizedInputSchema.optional(),
         versionNamePrimaryLocale: z.string().optional(),
@@ -368,7 +131,12 @@ const createPublicationSchema = z
         applicationNamePrimaryLocale: z.string().optional(),
         applicationDescriptionPrimaryLocale: z.string().optional(),
         applicationIsPublic: z.boolean().optional(),
-        applicationWorkspacesEnabled: z.boolean().optional()
+        runtimePolicy: z
+            .object({
+                workspaceMode: z.enum(['optional', 'required']).optional().default('optional'),
+                requiredWorkspaceModeAcknowledged: z.boolean().optional()
+            })
+            .optional()
     })
     .strict()
 
@@ -388,7 +156,13 @@ const createVersionSchema = z
         description: localizedInputSchema.optional(),
         namePrimaryLocale: z.string().optional(),
         descriptionPrimaryLocale: z.string().optional(),
-        branchId: z.string().uuid().optional()
+        branchId: z.string().uuid().optional(),
+        runtimePolicy: z
+            .object({
+                workspaceMode: z.enum(['optional', 'required']).optional().default('optional'),
+                requiredWorkspaceModeAcknowledged: z.boolean().optional()
+            })
+            .optional()
     })
     .strict()
 
@@ -413,9 +187,8 @@ const createApplicationForPublicationSchema = z
         description: localizedInputSchema.optional(),
         namePrimaryLocale: z.string().optional(),
         descriptionPrimaryLocale: z.string().optional(),
-        createApplicationSchema: z.boolean().optional().default(false),
-        isPublic: z.boolean().optional(),
-        workspacesEnabled: z.boolean().optional()
+        createApplicationSchema: z.literal(false).optional().default(false),
+        isPublic: z.boolean().optional()
     })
     .strict()
 
@@ -622,7 +395,6 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             namePrimaryLocale,
             descriptionPrimaryLocale,
             autoCreateApplication,
-            createApplicationSchema,
             versionName,
             versionDescription,
             versionNamePrimaryLocale,
@@ -633,8 +405,21 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             applicationNamePrimaryLocale,
             applicationDescriptionPrimaryLocale,
             applicationIsPublic,
-            applicationWorkspacesEnabled
+            runtimePolicy
         } = parsed.data
+        const firstVersionWorkspaceMode = runtimePolicy?.workspaceMode ?? 'optional'
+        try {
+            assertPublicationWorkspacePolicyTransition({
+                previousRequired: false,
+                requested: firstVersionWorkspaceMode,
+                acknowledgementReceived: runtimePolicy?.requiredWorkspaceModeAcknowledged === true
+            })
+        } catch (error) {
+            if (error instanceof WorkspacePolicyError) {
+                return res.status(409).json({ error: error.code, message: error.message })
+            }
+            throw error
+        }
 
         const metahub = await findMetahubById(exec, metahubId)
         if (!metahub) {
@@ -690,7 +475,10 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         const publicStructureVersion = await schemaService.resolvePublicStructureVersion(branch.schemaName, branch.structureVersion)
         const snapshot = await serializer.serializeMetahub(metahubId, {
             structureVersion: publicStructureVersion,
-            templateVersion: templateVersionLabel
+            templateVersion: templateVersionLabel,
+            runtimePolicy: {
+                workspaceMode: firstVersionWorkspaceMode
+            }
         })
 
         await attachLayoutsToSnapshot({ schemaService, snapshot, metahubId, userId })
@@ -731,7 +519,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
                     metahubName: metahub.name,
                     metahubDescription: metahub.description,
                     isPublic: applicationIsPublic === true,
-                    workspacesEnabled: applicationWorkspacesEnabled === true,
+                    workspacesEnabled: firstVersionWorkspaceMode === 'required',
                     userId
                 })
                 applicationData = { application: linked.application, appSchemaName: linked.appSchemaName }
@@ -765,88 +553,6 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
                 applicationData
             }
         })
-
-        if (createApplicationSchema && result.applicationData) {
-            try {
-                const { generator, migrationManager } = getDDLServices()
-                const { runtimeSnapshot, catalogDefs } = buildRuntimeCatalogDefs(serializer, snapshot)
-
-                const genResult = await generator.generateFullSchema(result.applicationData.appSchemaName, catalogDefs, {
-                    recordMigration: true,
-                    migrationDescription: 'initial_schema_from_publication',
-                    migrationManager,
-                    migrationMeta: {
-                        publicationSnapshotHash: snapshotHash,
-                        publicationId: result.publication.id,
-                        publicationVersionId: result.firstVersion.id
-                    },
-                    userId,
-                    publicationSnapshot: snapshot as unknown as Record<string, unknown>,
-                    afterMigrationRecorded: async ({ trx, snapshotAfter, migrationId }) => {
-                        const txExecutor = await createRlsAwareTransactionExecutor(trx, accessToken)
-
-                        await runPublishedApplicationRuntimeSync({
-                            trx,
-                            applicationId: result.applicationData!.application.id,
-                            schemaName: result.applicationData!.appSchemaName,
-                            snapshot: runtimeSnapshot as unknown as PublishedApplicationSnapshot,
-                            entities: catalogDefs,
-                            migrationManager,
-                            migrationId,
-                            userId,
-                            workspacesEnabled: result.applicationData!.application.workspacesEnabled === true
-                        })
-
-                        await persistApplicationSchemaSyncState(txExecutor, {
-                            applicationId: result.applicationData!.application.id,
-                            schemaStatus: ApplicationSchemaStatus.SYNCED,
-                            schemaError: null,
-                            schemaSyncedAt: new Date(),
-                            schemaSnapshot: snapshotAfter as unknown as Record<string, unknown>,
-                            lastSyncedPublicationVersionId: result.firstVersion.id,
-                            appStructureVersion: TARGET_APP_STRUCTURE_VERSION,
-                            userId
-                        })
-                    }
-                })
-
-                assertSchemaGenerationSucceeded(genResult, 'Failed to generate application schema from publication')
-
-                if (genResult.success) {
-                    result.applicationData.application.schemaStatus = ApplicationSchemaStatus.SYNCED
-                    result.applicationData.application.schemaSyncedAt = new Date()
-                    result.applicationData.application.schemaSnapshot = generator.generateSnapshot(catalogDefs) as unknown as Record<
-                        string,
-                        unknown
-                    >
-                    result.applicationData.application.appStructureVersion = TARGET_APP_STRUCTURE_VERSION
-                    result.applicationData.application.lastSyncedPublicationVersionId = result.firstVersion.id
-                }
-            } catch (ddlError) {
-                log.error('DDL schema generation failed; compensating publication creation:', ddlError)
-
-                try {
-                    await compensateCreatedPublication(rootExec, accessToken, {
-                        publicationId: result.publication.id,
-                        publicationVersionId: result.firstVersion.id,
-                        linkedApplication: {
-                            applicationId: result.applicationData.application.id,
-                            schemaName: result.applicationData.appSchemaName
-                        },
-                        userId
-                    })
-                } catch (cleanupError) {
-                    log.error('Publication compensation failed after DDL error:', cleanupError)
-                    throw new MetahubDomainError({
-                        message: `Failed to create publication schema and cleanup also failed: ${getErrorMessage(cleanupError)}`,
-                        statusCode: 500,
-                        code: 'PUBLICATION_COMPENSATION_FAILED'
-                    })
-                }
-
-                throw new MetahubSchemaSyncError('Failed to create publication schema', ddlError instanceof Error ? ddlError : undefined)
-            }
-        }
 
         return res.status(201).json({
             id: result.publication.id,
@@ -1156,8 +862,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             return res.status(404).json({ error: 'Publication not found in this Metahub' })
         }
 
-        const { name, description, namePrimaryLocale, descriptionPrimaryLocale, createApplicationSchema, isPublic, workspacesEnabled } =
-            parsed.data
+        const { name, description, namePrimaryLocale, descriptionPrimaryLocale, isPublic } = parsed.data
 
         const appName =
             name && Object.keys(name).length > 0
@@ -1168,23 +873,6 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
                 ? buildLocalizedContent(sanitizeLocalizedInput(description), descriptionPrimaryLocale || 'en')
                 : publication.description
 
-        let activeVersion: Awaited<ReturnType<typeof findPublicationVersionById>> | null = null
-        if (createApplicationSchema) {
-            if (!publication.activeVersionId) {
-                return res.status(409).json({ error: 'Publication has no active version to build an application schema from' })
-            }
-
-            activeVersion = await findPublicationVersionById(exec, publication.activeVersionId)
-            if (!activeVersion?.snapshotJson) {
-                return res.status(409).json({ error: 'Publication active version has no snapshot to build an application schema from' })
-            }
-
-            const branchId = activeVersion.branchId ?? metahub.defaultBranchId ?? null
-            if (!branchId) {
-                return res.status(400).json({ error: 'Default branch is not configured for application schema generation' })
-            }
-        }
-
         const result = await runCommittedRlsTransaction(rootExec, accessToken, async (tx) => {
             const linked = await createLinkedApplication({
                 exec: tx,
@@ -1194,100 +882,11 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
                 metahubName: metahub.name,
                 metahubDescription: metahub.description ?? null,
                 isPublic: isPublic === true,
-                workspacesEnabled: workspacesEnabled === true,
+                workspacesEnabled: false,
                 userId
             })
             return linked
         })
-
-        if (createApplicationSchema && activeVersion?.snapshotJson) {
-            try {
-                const branchId = activeVersion.branchId ?? metahub.defaultBranchId!
-                const snapshotData = activeVersion.snapshotJson as unknown as MetahubSnapshot
-                const schemaService = new MetahubSchemaService(exec, branchId)
-                const objectsService = new MetahubObjectsService(exec, schemaService)
-                const fieldDefinitionsService = new MetahubFieldDefinitionsService(exec, schemaService)
-                const snapshotSerializer = createSnapshotSerializer({
-                    exec,
-                    schemaService,
-                    objectsService,
-                    fieldDefinitionsService
-                })
-                const { runtimeSnapshot, catalogDefs } = buildRuntimeCatalogDefs(snapshotSerializer, snapshotData)
-
-                const { generator, migrationManager } = getDDLServices()
-                const genResult = await generator.generateFullSchema(result.appSchemaName, catalogDefs, {
-                    recordMigration: true,
-                    migrationDescription: 'initial_schema_from_publication',
-                    migrationManager,
-                    migrationMeta: {
-                        publicationSnapshotHash: activeVersion.snapshotHash,
-                        publicationId: publication.id,
-                        publicationVersionId: activeVersion.id
-                    },
-                    userId,
-                    publicationSnapshot: snapshotData as unknown as Record<string, unknown>,
-                    afterMigrationRecorded: async ({ trx, snapshotAfter, migrationId }) => {
-                        const txExecutor = await createRlsAwareTransactionExecutor(trx, accessToken)
-
-                        await runPublishedApplicationRuntimeSync({
-                            trx,
-                            applicationId: result.application.id,
-                            schemaName: result.appSchemaName,
-                            snapshot: runtimeSnapshot as unknown as PublishedApplicationSnapshot,
-                            entities: catalogDefs,
-                            migrationManager,
-                            migrationId,
-                            userId,
-                            workspacesEnabled: result.application.workspacesEnabled === true
-                        })
-
-                        await persistApplicationSchemaSyncState(txExecutor, {
-                            applicationId: result.application.id,
-                            schemaStatus: ApplicationSchemaStatus.SYNCED,
-                            schemaError: null,
-                            schemaSyncedAt: new Date(),
-                            schemaSnapshot: snapshotAfter as unknown as Record<string, unknown>,
-                            lastSyncedPublicationVersionId: activeVersion.id,
-                            appStructureVersion: TARGET_APP_STRUCTURE_VERSION,
-                            userId
-                        })
-                    }
-                })
-
-                assertSchemaGenerationSucceeded(genResult, 'Failed to generate application schema for linked publication application')
-
-                if (genResult.success) {
-                    result.application.schemaStatus = ApplicationSchemaStatus.SYNCED
-                    result.application.schemaSyncedAt = new Date()
-                    result.application.schemaSnapshot = generator.generateSnapshot(catalogDefs) as unknown as Record<string, unknown>
-                    result.application.appStructureVersion = TARGET_APP_STRUCTURE_VERSION
-                    result.application.lastSyncedPublicationVersionId = activeVersion.id
-                }
-            } catch (ddlError) {
-                log.error('DDL schema generation for new linked application failed; compensating:', ddlError)
-
-                try {
-                    await compensateCreatedApplication(rootExec, accessToken, {
-                        applicationId: result.application.id,
-                        schemaName: result.appSchemaName,
-                        userId
-                    })
-                } catch (cleanupError) {
-                    log.error('Linked application compensation failed after DDL error:', cleanupError)
-                    throw new MetahubDomainError({
-                        message: `Failed to create application schema and cleanup also failed: ${getErrorMessage(cleanupError)}`,
-                        statusCode: 500,
-                        code: 'APPLICATION_COMPENSATION_FAILED'
-                    })
-                }
-
-                throw new MetahubSchemaSyncError(
-                    'Failed to create linked application schema',
-                    ddlError instanceof Error ? ddlError : undefined
-                )
-            }
-        }
 
         return res.status(201).json({
             application: {
@@ -1562,7 +1161,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         if (!parsed.success) {
             return res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() })
         }
-        const { name, description, namePrimaryLocale, descriptionPrimaryLocale, branchId } = parsed.data
+        const { name, description, namePrimaryLocale, descriptionPrimaryLocale, branchId, runtimePolicy } = parsed.data
 
         const metahub = await findMetahubById(exec, metahubId)
         if (!metahub) {
@@ -1600,15 +1199,39 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         })
         const templateVersionLabel = await resolveTemplateVersionLabel(exec, metahub.templateVersionId)
         const publicStructureVersion = await schemaService.resolvePublicStructureVersion(branch.schemaName, branch.structureVersion)
+        const existingVersions = await listPublicationVersions(exec, publicationId)
+        const hasRequiredWorkspaceVersion = existingVersions.some((version) => {
+            const snapshotJson = version.snapshotJson as Record<string, unknown> | null
+            const storedPolicy = snapshotJson?.runtimePolicy
+            return Boolean(
+                storedPolicy && typeof storedPolicy === 'object' && (storedPolicy as Record<string, unknown>).workspaceMode === 'required'
+            )
+        })
+        let requestedWorkspaceMode
+        try {
+            requestedWorkspaceMode = assertPublicationWorkspacePolicyTransition({
+                previousRequired: hasRequiredWorkspaceVersion,
+                requested: runtimePolicy?.workspaceMode ?? 'optional',
+                acknowledgementReceived: runtimePolicy?.requiredWorkspaceModeAcknowledged === true
+            })
+        } catch (error) {
+            if (error instanceof WorkspacePolicyError) {
+                return res.status(409).json({ error: error.code, message: error.message })
+            }
+            throw error
+        }
+
         const snapshot = await serializer.serializeMetahub(metahubId ?? publication.metahubId, {
             structureVersion: publicStructureVersion,
-            templateVersion: templateVersionLabel
+            templateVersion: templateVersionLabel,
+            runtimePolicy: {
+                workspaceMode: requestedWorkspaceMode
+            }
         })
 
         await attachLayoutsToSnapshot({ schemaService, snapshot, metahubId: metahubId ?? publication.metahubId, userId })
         const snapshotHash = serializer.calculateHash(snapshot)
 
-        const existingVersions = await listPublicationVersions(exec, publicationId)
         const lastVersion = existingVersions[0] ?? null
         const nextVersionNumber = (lastVersion?.versionNumber || 0) + 1
         const isDuplicate = lastVersion?.snapshotHash === snapshotHash

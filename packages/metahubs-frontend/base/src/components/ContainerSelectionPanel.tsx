@@ -93,11 +93,17 @@ export const ContainerSelectionPanel = ({
     )
 
     const getDisplayName = (container: TreeEntity): string => {
-        return getVLCString(container.name, uiLocale) || getVLCString(container.name, 'en') || container.codename
+        return (
+            getVLCString(container.name, uiLocale) ||
+            getVLCString(container.name, 'en') ||
+            getVLCString(container.codename, uiLocale) ||
+            getVLCString(container.codename, 'en') ||
+            container.id
+        )
     }
 
     const getCodename = (container: TreeEntity): string => {
-        return container.codename
+        return getVLCString(container.codename, uiLocale) || getVLCString(container.codename, 'en') || container.id
     }
 
     const showRelinkCurrentContainer =

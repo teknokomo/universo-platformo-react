@@ -699,6 +699,7 @@ export class MetahubSchemaService {
                     kind: preset.entityType.kindKey,
                     name: instance.name,
                     description: instance.description,
+                    localizeCodenameFromName: instance.localizeCodenameFromName,
                     config: instance.config,
                     attributes: instance.attributes,
                     fixedValues: instance.fixedValues,

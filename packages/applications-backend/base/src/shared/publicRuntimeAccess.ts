@@ -2,7 +2,6 @@ import type { Response } from 'express'
 import type { DbExecutor } from '@universo/utils'
 import { qSchemaTable } from '@universo/database'
 import { generateChildTableName } from '@universo/schema-ddl'
-import { PUBLIC_SHARED_WORKSPACE_CODENAME } from '../services/applicationWorkspaces'
 import { IDENTIFIER_REGEX, UUID_REGEX, quoteIdentifier, runtimeCodenameTextSql } from './runtimeHelpers'
 
 const ACTIVE_ROW_SQL = '_upl_deleted = false AND _app_deleted = false'
@@ -23,13 +22,10 @@ export const listActivePublicWorkspaceIds = async (executor: DbExecutor, schemaN
         SELECT id
         FROM ${workspacesQt}
         WHERE COALESCE(status, 'active') = 'active'
-          AND workspace_type = 'shared'
-          AND codename = $1
           AND ${ACTIVE_ROW_SQL}
-        ORDER BY _upl_created_at ASC, id ASC
-        LIMIT 1
+        ORDER BY workspace_type ASC, _upl_created_at ASC, id ASC
         `,
-        [PUBLIC_SHARED_WORKSPACE_CODENAME]
+        []
     )
 
     return rows.map((row) => row.id).filter((workspaceId) => UUID_REGEX.test(workspaceId))
@@ -38,8 +34,8 @@ export const listActivePublicWorkspaceIds = async (executor: DbExecutor, schemaN
 /**
  * When workspaces are enabled, RLS policies on catalog tables require
  * workspace_id to match current_setting('app.current_workspace_id').
- * Public runtime must therefore bind itself to a specific resolved workspace
- * instead of using a global first-workspace fallback.
+ * Public runtime must therefore bind itself to each candidate active workspace
+ * while resolving an explicit access-link slug or guest session token.
  */
 export const setPublicWorkspaceContext = async (executor: DbExecutor, schemaName: string, workspaceId: string | null): Promise<boolean> => {
     if (!workspaceId) {

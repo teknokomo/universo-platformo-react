@@ -14,7 +14,7 @@ It is not a hardcoded vertical inside `packages/apps-template-mui`, and the ship
 - Quiz catalogs and quiz-response tracking.
 - Workspace-aware collaboration for teachers or operators inside the same application.
 - Public access links that let a guest enter a name, open a module or quiz, and submit progress without a registered platform account.
-- Curated primary navigation that exposes only the main product sections and moves optional entries into overflow.
+- Curated primary navigation that exposes the main product sections directly in the sidebar.
 
 ## What Stays Out Of Scope For This MVP
 
@@ -39,8 +39,8 @@ It is not a hardcoded vertical inside `packages/apps-template-mui`, and the ship
 
 Authenticated users work in the normal application runtime at `/a/:applicationId`.
 Guests use the public route `/public/a/:applicationId/links/:slug`, enter a display name, receive a guest session token, and continue without platform login.
-When workspaces are enabled, public applications automatically receive a seeded shared `Published` workspace during schema sync.
-The public runtime resolves data through that shared workspace owned by the access link or the current guest session instead of falling back to an unrelated active workspace or exposing personal workspace rows.
+When workspaces are enabled, public applications start with the owner's personal `Main` workspace only.
+The public runtime resolves data through the workspace that owns the access link or the current guest session instead of creating a separate automatic `Published` workspace.
 The browser client keeps guest-session state in session storage for the current tab or browser session rather than as durable shared-device local storage.
 
 ## Verified Browser Surface

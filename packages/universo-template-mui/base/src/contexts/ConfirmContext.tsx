@@ -6,7 +6,7 @@ type ConfirmContextType = [ConfirmState, Dispatch<ConfirmAction>]
 
 const ConfirmContext = createContext<ConfirmContextType>([
     initialState,
-    () => {} // Default dispatch (will be overridden by Provider)
+    () => undefined // Default dispatch (will be overridden by Provider)
 ])
 
 export default ConfirmContext

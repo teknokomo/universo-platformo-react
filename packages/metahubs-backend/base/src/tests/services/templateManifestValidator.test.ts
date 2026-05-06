@@ -1,8 +1,10 @@
 import { basicTemplate } from '../../domains/templates/data/basic.template'
+import { basicDemoTemplate } from '../../domains/templates/data/basic-demo.template'
 import { emptyTemplate } from '../../domains/templates/data/empty.template'
 import { catalogEntityPreset } from '../../domains/templates/data/linked-collection.entity-preset'
 import { lmsTemplate } from '../../domains/templates/data/lms.template'
 import { enumerationEntityPreset } from '../../domains/templates/data/option-list.entity-preset'
+import { pageEntityPreset } from '../../domains/templates/data/page.entity-preset'
 import { hubEntityPreset } from '../../domains/templates/data/tree-entity.entity-preset'
 import { setEntityPreset } from '../../domains/templates/data/value-group.entity-preset'
 import { validateEntityTypePresetManifest, validateTemplateManifest } from '../../domains/templates/services/TemplateManifestValidator'
@@ -28,8 +30,23 @@ describe('TemplateManifestValidator', () => {
 
     it('accepts the built-in hub, set, and enumeration entity presets', () => {
         expect(() => validateEntityTypePresetManifest(cloneTemplate(hubEntityPreset))).not.toThrow()
+        expect(() => validateEntityTypePresetManifest(cloneTemplate(pageEntityPreset))).not.toThrow()
         expect(() => validateEntityTypePresetManifest(cloneTemplate(setEntityPreset))).not.toThrow()
         expect(() => validateEntityTypePresetManifest(cloneTemplate(enumerationEntityPreset))).not.toThrow()
+    })
+
+    it('keeps standard metadata menu order as hubs, pages, catalogs, sets, and enumerations', () => {
+        const orderedKinds = [hubEntityPreset, pageEntityPreset, catalogEntityPreset, setEntityPreset, enumerationEntityPreset]
+            .map((preset) => ({
+                kindKey: preset.entityType.kindKey,
+                sidebarOrder: preset.entityType.ui.sidebarOrder
+            }))
+            .sort((left, right) => Number(left.sidebarOrder ?? 0) - Number(right.sidebarOrder ?? 0))
+            .map((item) => item.kindKey)
+
+        expect(orderedKinds).toEqual(['hub', 'page', 'catalog', 'set', 'enumeration'])
+        expect(basicTemplate.presets?.map((preset) => preset.presetCodename)).toEqual(['hub', 'page', 'catalog', 'set', 'enumeration'])
+        expect(basicDemoTemplate.presets?.map((preset) => preset.presetCodename)).toEqual(['hub', 'page', 'catalog', 'set', 'enumeration'])
     })
 
     it('keeps standard resource surface definitions aligned with component capabilities', () => {
@@ -108,12 +125,12 @@ describe('TemplateManifestValidator', () => {
         expect(widgets.some((widget) => widget.widgetKey === 'moduleViewerWidget')).toBe(false)
         expect(widgets.some((widget) => widget.widgetKey === 'statsViewerWidget')).toBe(false)
         expect(widgets.some((widget) => widget.widgetKey === 'qrCodeWidget')).toBe(false)
-        expect(menuWidget?.config).toEqual(
+        expect(menuWidget?.config).toMatchObject(
             expect.objectContaining({
                 autoShowAllCatalogs: false,
                 maxPrimaryItems: 6,
                 overflowLabelKey: 'runtime.menu.more',
-                startPage: 'Modules',
+                startPage: 'LearnerHome',
                 workspacePlacement: 'primary'
             })
         )
@@ -121,15 +138,18 @@ describe('TemplateManifestValidator', () => {
         expect(menuItems).not.toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'link', href: null })]))
         expect(menuItems).toEqual(
             expect.arrayContaining([
+                expect.objectContaining({ id: 'lms-nav-home', kind: 'page', sectionId: 'LearnerHome' }),
                 expect.objectContaining({ id: 'lms-nav-catalog', kind: 'catalog', catalogId: 'Modules' }),
                 expect.objectContaining({ id: 'lms-nav-knowledge', kind: 'catalog', catalogId: 'Quizzes' }),
                 expect.objectContaining({ id: 'lms-nav-development', kind: 'catalog', catalogId: 'Classes' }),
-                expect.objectContaining({ id: 'lms-nav-reports', kind: 'catalog', catalogId: 'ModuleProgress' })
+                expect.objectContaining({ id: 'lms-nav-reports', kind: 'catalog', catalogId: 'Reports' })
             ])
         )
         expect(entityCodenames).toEqual(
             expect.arrayContaining([
                 'Learning',
+                'LmsConfiguration',
+                'LearnerHome',
                 'Classes',
                 'Students',
                 'Modules',
@@ -141,6 +161,34 @@ describe('TemplateManifestValidator', () => {
                 'QuestionType',
                 'ContentType'
             ])
+        )
+        expect(manifest.presets).toEqual([
+            { presetCodename: 'hub', includedByDefault: true },
+            { presetCodename: 'page', includedByDefault: false },
+            { presetCodename: 'catalog', includedByDefault: true },
+            { presetCodename: 'set', includedByDefault: true },
+            { presetCodename: 'enumeration', includedByDefault: true }
+        ])
+        expect(manifest.seed.entities.find((entity) => entity.codename === 'LearnerHome')).toEqual(
+            expect.objectContaining({
+                kind: 'page',
+                localizeCodenameFromName: false,
+                name: expect.objectContaining({
+                    locales: expect.objectContaining({
+                        en: expect.objectContaining({ content: 'Welcome' }),
+                        ru: expect.objectContaining({ content: 'Добро пожаловать' })
+                    })
+                })
+            })
+        )
+        expect(manifest.seed.entities.find((entity) => entity.codename === 'LmsConfiguration')).toEqual(
+            expect.objectContaining({
+                kind: 'set',
+                fixedValues: expect.arrayContaining([
+                    expect.objectContaining({ codename: 'DefaultPassingScore', value: 80 }),
+                    expect.objectContaining({ codename: 'CertificateValidityDays', value: 365 })
+                ])
+            })
         )
     })
 

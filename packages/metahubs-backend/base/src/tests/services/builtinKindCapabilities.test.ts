@@ -6,8 +6,8 @@ describe('builtinKindCapabilities', () => {
         metahubId: 'metahub-1',
         entityId: 'entity-1',
         userId: 'user-1',
-        exec: {} as never,
-        schemaService: {} as never,
+        exec: { query: jest.fn(async () => []) } as never,
+        schemaService: { ensureSchema: jest.fn(async () => 'mhb_018f8a787b8f7c1da111222233334444_b1') } as never,
         resolvedType: { kindKey: 'catalog', components: {} } as never,
         settingsService: {
             findByKey: jest.fn(async () => null)
@@ -79,6 +79,48 @@ describe('builtinKindCapabilities', () => {
                     code: 'SET_DELETE_BLOCKED_BY_REFERENCES',
                     valueGroupId: 'entity-1',
                     blockingReferences: [{ id: 'const-1' }]
+                }
+            }
+        })
+    })
+
+    it('blocks Page deletion while runtime menu widgets reference it', async () => {
+        const context = {
+            ...createContext(),
+            resolvedType: { kindKey: 'page', components: {} } as never
+        }
+        const query = (context.exec as unknown as { query: jest.Mock }).query
+        query
+            .mockResolvedValueOnce([{ id: 'entity-1', codename: 'LearnerHome' }])
+            .mockResolvedValueOnce([
+                {
+                    source: 'layoutWidget',
+                    layoutId: 'layout-1',
+                    widgetId: 'widget-1',
+                    layoutName: { en: 'Main' },
+                    reference: 'LearnerHome'
+                }
+            ])
+            .mockResolvedValueOnce([])
+
+        const result = await buildBuiltinKindDeletePlan('page', context)
+
+        expect(result).toEqual({
+            policyOutcome: {
+                status: 409,
+                body: {
+                    error: 'Cannot delete page because it is referenced by runtime navigation',
+                    code: 'PAGE_DELETE_BLOCKED_BY_LAYOUT_REFERENCES',
+                    pageId: 'entity-1',
+                    blockingReferences: [
+                        {
+                            source: 'layoutWidget',
+                            layoutId: 'layout-1',
+                            widgetId: 'widget-1',
+                            layoutName: { en: 'Main' },
+                            reference: 'LearnerHome'
+                        }
+                    ]
                 }
             }
         })

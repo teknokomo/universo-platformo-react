@@ -106,8 +106,7 @@ test('@flow @combined application settings persist workspace limits and runtime 
         const linkedApplication = await createPublicationLinkedApplication(api, metahub.id, publication.id, {
             name: { en: `E2E ${runManifest.runId} Limits App` },
             namePrimaryLocale: 'en',
-            createApplicationSchema: false,
-            workspacesEnabled: true
+            createApplicationSchema: false
         })
 
         const applicationId = linkedApplication?.application?.id
@@ -120,7 +119,12 @@ test('@flow @combined application settings persist workspace limits and runtime 
             slug: linkedApplication.application.slug
         })
 
-        await syncApplicationSchema(api, applicationId)
+        await syncApplicationSchema(api, applicationId, {
+            schemaOptions: {
+                workspaceModeRequested: 'enabled',
+                acknowledgeIrreversibleWorkspaceEnablement: true
+            }
+        })
 
         const initialRuntime = await waitForRuntimeState(api, applicationId)
         const catalogId = initialRuntime.catalog?.id

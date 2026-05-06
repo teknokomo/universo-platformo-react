@@ -77,10 +77,33 @@ const LEGACY_COMPATIBLE_ENTITY_LABEL_KEYS: Record<BuiltinEntityKind, string> = {
     catalog: 'catalogs',
     hub: 'hubs',
     set: 'sets',
-    enumeration: 'enumerations'
+    enumeration: 'enumerations',
+    page: 'pages'
+}
+
+const BUILTIN_ENTITY_TITLE_KEYS: Record<BuiltinEntityKind, { key: string; fallback: string }> = {
+    catalog: { key: 'metahubs:catalogs.title', fallback: 'Catalogs' },
+    hub: { key: 'metahubs:hubs.title', fallback: 'Hubs' },
+    set: { key: 'metahubs:sets.title', fallback: 'Sets' },
+    enumeration: { key: 'metahubs:enumerations.title', fallback: 'Enumerations' },
+    page: { key: 'metahubs:pages.title', fallback: 'Pages' }
 }
 
 const truncateEntityBreadcrumbLabel = (value: string): string => (value.length > 36 ? `${value.slice(0, 33)}...` : value)
+
+const tKeySafe = (key: string): string | null => {
+    try {
+        const translated = i18n.t(key)
+        return typeof translated === 'string' && translated.trim().length > 0 ? translated.trim() : null
+    } catch {
+        return null
+    }
+}
+
+const resolveMenuFallbackLabel = (key: string, fallback: string): string => {
+    const translated = tKeySafe(key)
+    return translated && translated !== key ? translated : fallback
+}
 
 const buildEntityInstancesPath = (metahubId: string, kindSegment: string): string =>
     `/metahub/${metahubId}/entities/${kindSegment}/instances`
@@ -106,6 +129,10 @@ const buildEntityInstanceDefaultPath = (
 
     if (legacyCompatibleKind === 'enumeration') {
         return `/metahub/${metahubId}/entities/${kindSegment}/instance/${entityId}/values`
+    }
+
+    if (legacyCompatibleKind === 'page') {
+        return `/metahub/${metahubId}/entities/${kindSegment}/instance/${entityId}/content`
     }
 
     return `/metahub/${metahubId}/entities/${kindSegment}/instance/${entityId}/field-definitions`
@@ -190,8 +217,7 @@ export default function NavbarBreadcrumbs() {
             const response = await client.get<BreadcrumbEntityTypesResponse>(`/metahub/${entityRouteMetahubId}/entity-types`, {
                 params: {
                     limit: 1000,
-                    offset: 0,
-                    search: entityRouteKindKey
+                    offset: 0
                 }
             })
             return response.data
@@ -244,18 +270,26 @@ export default function NavbarBreadcrumbs() {
             : null
     )
     const entityTypeBreadcrumbLabel = (() => {
-        if (entityRouteLegacyCompatibleKind) {
-            return t(LEGACY_COMPATIBLE_ENTITY_LABEL_KEYS[entityRouteLegacyCompatibleKind])
-        }
-
         if (!matchedEntityType) {
-            return entityRouteKindKey ? truncateEntityBreadcrumbLabel(entityRouteKindKey) : null
+            const fallbackLabel = entityRouteLegacyCompatibleKind
+                ? i18n.t(BUILTIN_ENTITY_TITLE_KEYS[entityRouteLegacyCompatibleKind].key, {
+                      defaultValue:
+                          resolveMenuFallbackLabel(
+                              LEGACY_COMPATIBLE_ENTITY_LABEL_KEYS[entityRouteLegacyCompatibleKind],
+                              BUILTIN_ENTITY_TITLE_KEYS[entityRouteLegacyCompatibleKind].fallback
+                          ) || BUILTIN_ENTITY_TITLE_KEYS[entityRouteLegacyCompatibleKind].fallback
+                  })
+                : entityRouteKindKey
+            return fallbackLabel ? truncateEntityBreadcrumbLabel(fallbackLabel) : null
         }
 
         const uiNameKey = typeof matchedEntityType.ui?.nameKey === 'string' ? matchedEntityType.ui.nameKey.trim() : ''
+        const builtinTitleSpec = isBuiltinEntityKind(matchedEntityType.kindKey ?? entityRouteKindKey ?? '')
+            ? BUILTIN_ENTITY_TITLE_KEYS[(matchedEntityType.kindKey ?? entityRouteKindKey) as BuiltinEntityKind]
+            : null
         const translatedUiLabel =
             uiNameKey.length > 0 && isBuiltinEntityKind(matchedEntityType.kindKey ?? entityRouteKindKey ?? '')
-                ? t(uiNameKey, { defaultValue: uiNameKey })
+                ? i18n.t(uiNameKey, { defaultValue: builtinTitleSpec?.fallback ?? uiNameKey })
                 : uiNameKey
         const resolvedLabel =
             extractLocalizedString(matchedEntityType.presentation?.name) ||
@@ -268,14 +302,19 @@ export default function NavbarBreadcrumbs() {
     })()
     const entityRouteDetailQuery = useQuery<BreadcrumbEntityDetail>({
         queryKey:
-            entityRouteMetahubId && entityRouteEntityId && !entityRouteLegacyCompatibleKind
+            entityRouteMetahubId && entityRouteEntityId && (!entityRouteLegacyCompatibleKind || entityRouteLegacyCompatibleKind === 'page')
                 ? ['entities', 'breadcrumbs', entityRouteMetahubId, entityRouteEntityId]
                 : ['entities', 'breadcrumbs', 'missing-detail'],
         queryFn: async () => {
             const response = await client.get<BreadcrumbEntityDetail>(`/metahub/${entityRouteMetahubId}/entity/${entityRouteEntityId}`)
             return response.data
         },
-        enabled: Boolean(entityRouteMetahubId && entityRouteEntityId && !entityRouteLegacyCompatibleKind) && !authLoading,
+        enabled:
+            Boolean(
+                entityRouteMetahubId &&
+                    entityRouteEntityId &&
+                    (!entityRouteLegacyCompatibleKind || entityRouteLegacyCompatibleKind === 'page')
+            ) && !authLoading,
         staleTime: 5 * 60 * 1000,
         retry: 2,
         retryOnMount: true,
@@ -506,6 +545,13 @@ export default function NavbarBreadcrumbs() {
                             } else if (entityRouteLegacyCompatibleKind === 'enumeration') {
                                 if (segments[6] === 'values') {
                                     items.push({ label: t('values'), to: defaultEntityInstancePath })
+                                }
+                            } else if (entityRouteLegacyCompatibleKind === 'page') {
+                                if (segments[6] === 'content') {
+                                    items.push({
+                                        label: i18n.t('metahubs:entities.instances.tabs.content', { defaultValue: 'Content' }),
+                                        to: defaultEntityInstancePath
+                                    })
                                 }
                             } else if (segments[6] === 'attributes') {
                                 items.push({ label: t('attributes'), to: location.pathname })

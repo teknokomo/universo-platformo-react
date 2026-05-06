@@ -14,6 +14,7 @@ import StatCard, { StatCardProps } from './StatCard'
 import type { ZoneWidgetItem, DashboardLayoutConfig } from '../Dashboard'
 import { useDashboardDetails } from '../DashboardDetailsContext'
 import { renderWidget } from './widgetRenderer'
+import PageBlocksView from './PageBlocksView'
 import {
     ViewHeaderMUI,
     ToolbarControls,
@@ -394,6 +395,7 @@ export default function MainGrid({
     const showColumnsContainer = layoutConfig?.showColumnsContainer ?? defaultDashboardLayoutConfig.showColumnsContainer
     const showFooter = layoutConfig?.showFooter ?? defaultDashboardLayoutConfig.showFooter
     const hasCustomDetailsContent = Boolean(details?.content)
+    const hasPageBlocks = (details?.pageBlocks?.length ?? 0) > 0
 
     // Find all columnsContainer widgets in center zone (data-driven rendering, supports multiple)
     const columnsContainerWidgets = showColumnsContainer ? centerWidgets?.filter((w) => w.widgetKey === 'columnsContainer') ?? [] : []
@@ -446,6 +448,8 @@ export default function MainGrid({
 
                     {hasCustomDetailsContent ? (
                         <Box data-testid='dashboard-custom-details-content'>{details?.content}</Box>
+                    ) : hasPageBlocks ? (
+                        <PageBlocksView blocks={details?.pageBlocks ?? []} />
                     ) : (
                         <>
                             {/* Data-driven: columnsContainer(s) from center zone widgets */}

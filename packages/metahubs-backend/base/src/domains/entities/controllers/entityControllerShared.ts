@@ -10,7 +10,15 @@ import {
     normalizeValueGroupCopyOptions
 } from '@universo/utils'
 import { isValidCodenameForStyle, normalizeCodenameForStyle } from '@universo/utils/validation/codename'
-import { isEnabledComponentConfig, isBuiltinEntityKind, type ResolvedEntityType, type BuiltinEntityKind } from '@universo/types'
+import {
+    isEnabledComponentConfig,
+    isBuiltinEntityKind,
+    normalizePageBlockContentForStorage,
+    type BlockContentComponentConfig,
+    type PageBlockContentValidationOptions,
+    type ResolvedEntityType,
+    type BuiltinEntityKind
+} from '@universo/types'
 import { getRequestDbSession } from '@universo/utils/database'
 import { ListQuerySchema } from '../../shared/queryParams'
 import { MetahubConflictError, MetahubValidationError } from '../../shared/domainErrors'
@@ -49,22 +57,23 @@ import type { EntityBehaviorDeleteContext, EntityBehaviorService } from '../serv
 
 export const { buildLocalizedContent, sanitizeLocalizedInput } = localizedContent
 
-export type BuiltinEntityRouteKind = 'hub' | 'catalog' | 'set' | 'enumeration'
+export type BuiltinEntityRouteKind = 'hub' | 'catalog' | 'set' | 'enumeration' | 'page'
 
 export const STANDARD_ENTITY_PARAM_BY_KIND: Record<
     BuiltinEntityRouteKind,
-    'treeEntityId' | 'linkedCollectionId' | 'valueGroupId' | 'optionListId'
+    'treeEntityId' | 'linkedCollectionId' | 'valueGroupId' | 'optionListId' | 'pageId'
 > = {
     hub: 'treeEntityId',
     catalog: 'linkedCollectionId',
     set: 'valueGroupId',
-    enumeration: 'optionListId'
+    enumeration: 'optionListId',
+    page: 'pageId'
 }
 
 export const normalizeLocaleCode = (locale?: string): string => locale?.split('-')[0].split('_')[0].toLowerCase() || 'en'
 export const normalizeRouteKindKey = (value?: string | null): string => (typeof value === 'string' ? value.trim() : '')
 export const isBuiltinEntityRouteKind = (value: string | null | undefined): value is BuiltinEntityRouteKind =>
-    value === 'hub' || value === 'catalog' || value === 'set' || value === 'enumeration'
+    value === 'hub' || value === 'catalog' || value === 'set' || value === 'enumeration' || value === 'page'
 
 export const ensureStandardRouteKindQuery = (req: Request): void => {
     const routeKindKey = normalizeRouteKindKey(req.params.kindKey)
@@ -125,7 +134,8 @@ export const entityListQuerySchema = ListQuerySchema.extend({
     kind: z.string().trim().min(1).max(64),
     locale: z.string().trim().min(2).max(10).optional(),
     includeDeleted: optionalBooleanFromQuery.default(false),
-    onlyDeleted: optionalBooleanFromQuery.default(false)
+    onlyDeleted: optionalBooleanFromQuery.default(false),
+    treeEntityId: z.string().uuid().optional()
 })
 
 export const entityGetQuerySchema = z.object({
@@ -187,6 +197,49 @@ export const copyEntitySchema = z
         }
     })
 
+export const validateEntityConfigForComponents = (
+    resolvedType: ResolvedEntityType,
+    config: Record<string, unknown> | undefined
+): Record<string, unknown> | undefined => {
+    if (!config || typeof config !== 'object' || Array.isArray(config)) {
+        return config
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(config, 'blockContent')) {
+        return config
+    }
+
+    const blockContentComponent = resolvedType.components.blockContent
+    if (!isEnabledComponentConfig(blockContentComponent)) {
+        throw new MetahubValidationError('Block content is not enabled for this entity type', {
+            kind: resolvedType.kindKey,
+            field: 'config.blockContent'
+        })
+    }
+
+    try {
+        return {
+            ...config,
+            blockContent: normalizePageBlockContentForStorage(
+                config.blockContent,
+                buildPageBlockContentValidationOptions(blockContentComponent)
+            )
+        }
+    } catch (error) {
+        throw new MetahubValidationError('Invalid page block content', {
+            field: 'config.blockContent',
+            issues: error instanceof Error ? error.message : error
+        })
+    }
+}
+
+export const buildPageBlockContentValidationOptions = (
+    component: Partial<BlockContentComponentConfig>
+): PageBlockContentValidationOptions => ({
+    allowedBlockTypes: component.allowedBlockTypes,
+    maxBlocks: component.maxBlocks
+})
+
 export const reorderEntitiesSchema = z
     .object({
         kind: z.string().trim().min(1).max(64),
@@ -245,7 +298,8 @@ export const ENTITY_METADATA_LABEL_PLURAL_MAP = {
     catalog: 'catalogs',
     hub: 'hubs',
     set: 'sets',
-    enumeration: 'enumerations'
+    enumeration: 'enumerations',
+    page: 'pages'
 } as const
 
 export type ResolvedTypeWithOptionalConfig = ResolvedEntityType & { config?: Record<string, unknown> | null }

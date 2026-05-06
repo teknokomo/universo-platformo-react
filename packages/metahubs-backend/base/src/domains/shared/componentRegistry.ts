@@ -87,6 +87,13 @@ export const COMPONENT_REGISTRY: Record<keyof ComponentManifest, BackendComponen
         requiresPhysicalTable: false,
         supportedKinds: null
     },
+    blockContent: {
+        key: 'blockContent',
+        tables: ['_mhb_objects'],
+        dependencies: [...COMPONENT_DEPENDENCIES.blockContent],
+        requiresPhysicalTable: false,
+        supportedKinds: ['page']
+    },
     layoutConfig: {
         key: 'layoutConfig',
         tables: ['_mhb_layouts', '_mhb_widgets', '_mhb_catalog_widget_overrides'],

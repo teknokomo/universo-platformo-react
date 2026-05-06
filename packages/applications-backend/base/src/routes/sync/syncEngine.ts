@@ -185,6 +185,7 @@ export async function syncApplicationSchemaFromSource(options: {
                     lastSyncedPublicationVersionId: source.publicationVersionId,
                     appStructureVersion: TARGET_APP_STRUCTURE_VERSION,
                     installedReleaseMetadata,
+                    workspacesEnabled: application.workspacesEnabled,
                     userId
                 })
 
@@ -271,6 +272,7 @@ export async function syncApplicationSchemaFromSource(options: {
                             lastSyncedPublicationVersionId: source.publicationVersionId,
                             appStructureVersion: TARGET_APP_STRUCTURE_VERSION,
                             installedReleaseMetadata,
+                            workspacesEnabled: application.workspacesEnabled,
                             userId
                         })
                     )
@@ -458,6 +460,7 @@ export async function syncApplicationSchemaFromSource(options: {
                     lastSyncedPublicationVersionId: source.publicationVersionId,
                     appStructureVersion: TARGET_APP_STRUCTURE_VERSION,
                     installedReleaseMetadata,
+                    workspacesEnabled: application.workspacesEnabled,
                     userId
                 })
 
@@ -565,6 +568,7 @@ export async function syncApplicationSchemaFromSource(options: {
                         lastSyncedPublicationVersionId: source.publicationVersionId,
                         appStructureVersion: TARGET_APP_STRUCTURE_VERSION,
                         installedReleaseMetadata,
+                        workspacesEnabled: application.workspacesEnabled,
                         userId
                     })
 
@@ -878,9 +882,7 @@ export async function runPublishedApplicationRuntimeSync(options: {
                 schemaName,
                 applicationId,
                 entities,
-                actorUserId: userId,
-                ensurePublicSharedWorkspace: options.isPublic === true,
-                seedPublicSharedWorkspace: false
+                actorUserId: userId
             })
         )
         await runSchemaSyncStep(`runtimeSync:${applicationId}:workspaceSeededElements`, async () =>

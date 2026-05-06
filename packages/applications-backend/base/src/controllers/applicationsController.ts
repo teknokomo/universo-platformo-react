@@ -305,29 +305,29 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
         const userId = resolveUserId(req)
         if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
-        const schema = z.object({
-            name: localizedInputSchema,
-            description: optionalLocalizedInputSchema.optional(),
-            namePrimaryLocale: z.string().optional(),
-            descriptionPrimaryLocale: z.string().optional(),
-            slug: z
-                .string()
-                .min(1)
-                .max(100)
-                .regex(/^[a-z0-9-]+$/, 'Slug must contain only lowercase letters, numbers, and hyphens')
-                .optional(),
-            isPublic: z.boolean().optional(),
-            workspacesEnabled: z.boolean().optional()
-        })
+        const schema = z
+            .object({
+                name: localizedInputSchema,
+                description: optionalLocalizedInputSchema.optional(),
+                namePrimaryLocale: z.string().optional(),
+                descriptionPrimaryLocale: z.string().optional(),
+                slug: z
+                    .string()
+                    .min(1)
+                    .max(100)
+                    .regex(/^[a-z0-9-]+$/, 'Slug must contain only lowercase letters, numbers, and hyphens')
+                    .optional(),
+                isPublic: z.boolean().optional()
+            })
+            .strict()
 
         const result = schema.safeParse(req.body)
         if (!result.success) {
             return res.status(400).json({ error: 'Invalid input', details: result.error.flatten() })
         }
 
-        const { name, description, slug, isPublic, workspacesEnabled, namePrimaryLocale, descriptionPrimaryLocale } = result.data
+        const { name, description, slug, isPublic, namePrimaryLocale, descriptionPrimaryLocale } = result.data
         const resolvedIsPublic = isPublic ?? false
-        const resolvedWorkspacesEnabled = workspacesEnabled ?? false
 
         const sanitizedName = sanitizeLocalizedInput(name)
         if (Object.keys(sanitizedName).length === 0) {
@@ -374,7 +374,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
                 description: descriptionVlc ?? null,
                 slug,
                 isPublic: resolvedIsPublic,
-                workspacesEnabled: resolvedWorkspacesEnabled,
+                workspacesEnabled: false,
                 userId,
                 resolveSchemaName: generateSchemaName,
                 validateSchemaName: (schemaName) =>
@@ -419,23 +419,24 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
 
         await ensureApplicationAccess(ds, userId, applicationId, ['owner', 'admin'])
 
-        const schema = z.object({
-            name: localizedInputSchema.optional(),
-            description: optionalLocalizedInputSchema.optional(),
-            settings: applicationDialogSettingsSchema.optional(),
-            namePrimaryLocale: z.string().optional(),
-            descriptionPrimaryLocale: z.string().optional(),
-            slug: z
-                .string()
-                .min(1)
-                .max(100)
-                .regex(/^[a-z0-9-]+$/, 'Slug must contain only lowercase letters, numbers, and hyphens')
-                .optional(),
-            isPublic: z.boolean().optional(),
-            workspacesEnabled: z.boolean().optional(),
-            copyConnector: z.boolean().optional(),
-            copyAccess: z.boolean().optional().default(false)
-        })
+        const schema = z
+            .object({
+                name: localizedInputSchema.optional(),
+                description: optionalLocalizedInputSchema.optional(),
+                settings: applicationDialogSettingsSchema.optional(),
+                namePrimaryLocale: z.string().optional(),
+                descriptionPrimaryLocale: z.string().optional(),
+                slug: z
+                    .string()
+                    .min(1)
+                    .max(100)
+                    .regex(/^[a-z0-9-]+$/, 'Slug must contain only lowercase letters, numbers, and hyphens')
+                    .optional(),
+                isPublic: z.boolean().optional(),
+                copyConnector: z.boolean().optional(),
+                copyAccess: z.boolean().optional().default(false)
+            })
+            .strict()
 
         const parsed = schema.safeParse(req.body ?? {})
         if (!parsed.success) {
@@ -456,7 +457,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
             return res.status(404).json({ error: 'Application not found' })
         }
         const resolvedIsPublic = parsed.data.isPublic ?? sourceApplication.isPublic
-        const resolvedWorkspacesEnabled = parsed.data.workspacesEnabled ?? sourceApplication.workspacesEnabled
+        const resolvedWorkspacesEnabled = sourceApplication.workspacesEnabled
 
         const requestedName = parsed.data.name
             ? sanitizeLocalizedInput(parsed.data.name)

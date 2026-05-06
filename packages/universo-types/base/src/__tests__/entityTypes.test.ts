@@ -10,7 +10,10 @@ import {
     resolveEntityResourceSurfaceTitle,
     validateEntityResourceSurfacesAgainstComponents,
     validateComponentDependencies,
+    buildEntitySettingKey,
+    METAHUB_SETTINGS_REGISTRY,
     type ComponentManifest,
+    METAHUB_MENU_ITEM_KINDS,
     type MetahubSnapshotFormatVersion
 } from '../index'
 
@@ -20,8 +23,9 @@ describe('entity type contracts', () => {
         expect(isBuiltinEntityKind(MetaEntityKind.SET)).toBe(true)
         expect(isBuiltinEntityKind(MetaEntityKind.ENUMERATION)).toBe(true)
         expect(isBuiltinEntityKind(MetaEntityKind.HUB)).toBe(true)
+        expect(isBuiltinEntityKind(MetaEntityKind.PAGE)).toBe(true)
         expect(isBuiltinEntityKind('custom_registry')).toBe(false)
-        expect(Object.values(BuiltinEntityKinds)).toEqual(['catalog', 'set', 'enumeration', 'hub'])
+        expect(Object.values(BuiltinEntityKinds)).toEqual(['catalog', 'set', 'enumeration', 'hub', 'page'])
         expect(Object.values(BuiltinEntityKinds)).not.toContain('document')
     })
 
@@ -29,6 +33,19 @@ describe('entity type contracts', () => {
         const version: MetahubSnapshotFormatVersion = 3
 
         expect(version).toBe(3)
+    })
+
+    it('exposes Page as a first-class menu item kind', () => {
+        expect(METAHUB_MENU_ITEM_KINDS).toContain('page')
+    })
+
+    it('exposes Page copy and delete settings through the shared entity settings registry', () => {
+        expect(METAHUB_SETTINGS_REGISTRY).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ key: buildEntitySettingKey('page', 'allowCopy'), tab: 'page', defaultValue: true }),
+                expect.objectContaining({ key: buildEntitySettingKey('page', 'allowDelete'), tab: 'page', defaultValue: true })
+            ])
+        )
     })
 
     it('reports missing component dependencies and lists enabled manifest keys', () => {
@@ -44,6 +61,7 @@ describe('entity type contracts', () => {
             actions: { enabled: true },
             events: { enabled: true },
             scripting: false,
+            blockContent: false,
             layoutConfig: false,
             runtimeBehavior: false,
             physicalTable: false
@@ -88,6 +106,7 @@ describe('entity type contracts', () => {
             actions: false,
             events: false,
             scripting: false,
+            blockContent: false,
             layoutConfig: false,
             runtimeBehavior: false,
             physicalTable: false
@@ -139,6 +158,7 @@ describe('entity type contracts', () => {
                     actions: false,
                     events: false,
                     scripting: false,
+                    blockContent: false,
                     layoutConfig: false,
                     runtimeBehavior: false,
                     physicalTable: false

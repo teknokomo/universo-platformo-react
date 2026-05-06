@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
 import type { DbExecutor } from '@universo/utils'
-import { isBuiltinEntityKind } from '@universo/types'
+import { isBuiltinEntityKind, normalizeRuntimePageBlocks, type BuiltinEntityKind } from '@universo/types'
 import {
     normalizeLinkedCollectionRuntimeViewConfig,
     resolveLinkedCollectionLayoutBehaviorConfig,
@@ -92,13 +92,13 @@ const runtimeReorderBodySchema = z.object({
 
 const RUNTIME_STANDARD_KIND_SQL = (kindColumn = 'kind') => `COALESCE(${kindColumn}, '')`
 
-const RUNTIME_CATALOG_FILTER_SQL = `${RUNTIME_STANDARD_KIND_SQL()} NOT IN ('hub', 'set', 'enumeration')`
+const RUNTIME_CATALOG_FILTER_SQL = `${RUNTIME_STANDARD_KIND_SQL()} NOT IN ('hub', 'set', 'enumeration', 'page')`
 
-const resolveRuntimeStandardKind = (kind: unknown): 'catalog' | 'hub' | 'set' | 'enumeration' | null =>
+const resolveRuntimeStandardKind = (kind: unknown): BuiltinEntityKind | null =>
     typeof kind === 'string' && isBuiltinEntityKind(kind) ? kind : null
 
 const isRuntimeCatalogTargetKind = (kind: unknown): kind is string =>
-    typeof kind === 'string' && !['hub', 'set', 'enumeration'].includes(resolveRuntimeStandardKind(kind) ?? '')
+    typeof kind === 'string' && !['hub', 'set', 'enumeration', 'page'].includes(resolveRuntimeStandardKind(kind) ?? '')
 
 const isRuntimeEnumerationKind = (kind: unknown): kind is string =>
     typeof kind === 'string' && resolveRuntimeStandardKind(kind) === 'enumeration'
@@ -585,9 +585,9 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
         const linkedCollections = await manager.query(
             `
-        SELECT id, codename, table_name, presentation, config
+        SELECT id, kind, codename, table_name, presentation, config
         FROM ${schemaIdent}._app_objects
-        WHERE ${RUNTIME_CATALOG_FILTER_SQL}
+        WHERE (${RUNTIME_CATALOG_FILTER_SQL} OR ${RUNTIME_STANDARD_KIND_SQL('kind')} = 'page')
           AND _upl_deleted = false
           AND _app_deleted = false
         ORDER BY ${runtimeCodenameTextSql('codename')} ASC, id ASC
@@ -600,8 +600,9 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
         const typedCatalogs = linkedCollections as Array<{
             id: string
+            kind: string
             codename: unknown
-            table_name: string
+            table_name: string | null
             presentation?: unknown
             config?: Record<string, unknown> | null
         }>
@@ -634,12 +635,16 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             })
         }
 
-        if (!IDENTIFIER_REGEX.test(activeLinkedCollection.table_name)) {
+        const activeLinkedCollectionKind = resolveRuntimeStandardKind(activeLinkedCollection.kind)
+        const isActivePage = activeLinkedCollectionKind === 'page'
+        if (!isActivePage && !IDENTIFIER_REGEX.test(activeLinkedCollection.table_name ?? '')) {
             return res.status(400).json({ error: 'Invalid runtime table name' })
         }
 
-        const attributes = (await manager.query(
-            `
+        const attributes = isActivePage
+            ? []
+            : ((await manager.query(
+                  `
         SELECT id, codename, column_name, data_type, is_required, is_display_attribute,
                presentation, validation_rules, sort_order, ui_config,
                target_object_id, target_object_kind
@@ -651,21 +656,21 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
           AND _app_deleted = false
         ORDER BY sort_order ASC, _upl_created_at ASC NULLS LAST, codename ASC
       `,
-            [activeLinkedCollection.id]
-        )) as Array<{
-            id: string
-            codename: string
-            column_name: string
-            data_type: RuntimeDataType
-            is_required: boolean
-            is_display_attribute?: boolean
-            presentation?: unknown
-            validation_rules?: Record<string, unknown>
-            sort_order?: number
-            ui_config?: Record<string, unknown>
-            target_object_id?: string | null
-            target_object_kind?: string | null
-        }>
+                  [activeLinkedCollection.id]
+              )) as Array<{
+                  id: string
+                  codename: string
+                  column_name: string
+                  data_type: RuntimeDataType
+                  is_required: boolean
+                  is_display_attribute?: boolean
+                  presentation?: unknown
+                  validation_rules?: Record<string, unknown>
+                  sort_order?: number
+                  ui_config?: Record<string, unknown>
+                  target_object_id?: string | null
+                  target_object_kind?: string | null
+              }>)
 
         const safeAttributes = attributes.filter((attr) => IDENTIFIER_REGEX.test(attr.column_name))
 
@@ -875,30 +880,6 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             }
         }
 
-        const dataTableIdent = `${schemaIdent}.${quoteIdentifier(activeLinkedCollection.table_name)}`
-        const activeCatalogRowCondition = buildRuntimeActiveRowCondition(
-            activeLinkedCollection.lifecycleContract,
-            activeLinkedCollection.config,
-            undefined,
-            currentWorkspaceId
-        )
-        // Use physicalAttributes for SQL — TABLE attrs have no physical column in parent table
-        const selectColumns = ['id', ...physicalAttributes.map((attr) => quoteIdentifier(attr.column_name))]
-
-        // Add correlated subqueries for TABLE attributes to include child row counts
-        for (const tAttr of tableAttrs) {
-            const fallbackTabTableName = generateChildTableName(tAttr.id)
-            const tabTableName =
-                typeof tAttr.column_name === 'string' && IDENTIFIER_REGEX.test(tAttr.column_name) ? tAttr.column_name : fallbackTabTableName
-            if (!IDENTIFIER_REGEX.test(tabTableName)) continue
-            const tabTableIdent = `${schemaIdent}.${quoteIdentifier(tabTableName)}`
-            selectColumns.push(
-                `(SELECT COUNT(*)::int FROM ${tabTableIdent} WHERE _tp_parent_id = ${dataTableIdent}.id AND ${activeCatalogRowCondition}) AS ${quoteIdentifier(
-                    tAttr.column_name
-                )}`
-            )
-        }
-
         const { selectedLayout, runtimeConfig: activeLinkedCollectionRuntimeConfig } = await resolveEffectiveLinkedCollectionRuntimeConfig({
             manager,
             schemaName,
@@ -910,56 +891,93 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             activeLinkedCollectionRuntimeConfig.enableRowReordering ? activeLinkedCollectionRuntimeConfig.reorderPersistenceField : null
         )
 
-        const [{ total }] = (await manager.query(
-            `
+        let total = 0
+        let rows: Array<Record<string, unknown> & { id: string }> = []
+        let canPersistRowReordering = false
+
+        if (!isActivePage) {
+            const tableName = activeLinkedCollection.table_name as string
+            const dataTableIdent = `${schemaIdent}.${quoteIdentifier(tableName)}`
+            const activeCatalogRowCondition = buildRuntimeActiveRowCondition(
+                activeLinkedCollection.lifecycleContract,
+                activeLinkedCollection.config,
+                undefined,
+                currentWorkspaceId
+            )
+            // Use physicalAttributes for SQL because TABLE attrs have no physical column in the parent table.
+            const selectColumns = ['id', ...physicalAttributes.map((attr) => quoteIdentifier(attr.column_name))]
+
+            for (const tAttr of tableAttrs) {
+                const fallbackTabTableName = generateChildTableName(tAttr.id)
+                const tabTableName =
+                    typeof tAttr.column_name === 'string' && IDENTIFIER_REGEX.test(tAttr.column_name)
+                        ? tAttr.column_name
+                        : fallbackTabTableName
+                if (!IDENTIFIER_REGEX.test(tabTableName)) continue
+                const tabTableIdent = `${schemaIdent}.${quoteIdentifier(tabTableName)}`
+                selectColumns.push(
+                    `(SELECT COUNT(*)::int FROM ${tabTableIdent} WHERE _tp_parent_id = ${dataTableIdent}.id AND ${activeCatalogRowCondition}) AS ${quoteIdentifier(
+                        tAttr.column_name
+                    )}`
+                )
+            }
+
+            const totalRows = (await manager.query(
+                `
         SELECT COUNT(*)::int AS total
         FROM ${dataTableIdent}
         WHERE ${activeCatalogRowCondition}
       `
-        )) as Array<{ total: number }>
+            )) as Array<{ total: number }>
+            total = typeof totalRows[0]?.total === 'number' ? totalRows[0].total : Number(totalRows[0]?.total) || 0
 
-        const rawRows = (await manager.query(
-            `
+            const rawRows = (await manager.query(
+                `
         SELECT ${selectColumns.join(', ')}
         FROM ${dataTableIdent}
         WHERE ${activeCatalogRowCondition}
         ORDER BY ${buildRuntimeRowsOrderBy(reorderFieldAttr?.column_name ?? null)}
         LIMIT $1 OFFSET $2
       `,
-            [limit, offset]
-        )) as Array<Record<string, unknown>>
+                [limit, offset]
+            )) as Array<Record<string, unknown>>
 
-        const canPersistRowReordering =
-            activeLinkedCollectionRuntimeConfig.enableRowReordering && Boolean(reorderFieldAttr) && offset === 0 && total <= limit
+            canPersistRowReordering =
+                activeLinkedCollectionRuntimeConfig.enableRowReordering && Boolean(reorderFieldAttr) && offset === 0 && total <= limit
 
-        const rows = rawRows.map((row) => {
-            const mappedRow: Record<string, unknown> & { id: string } = {
-                id: String(row.id)
-            }
-
-            for (const attribute of safeAttributes) {
-                // TABLE attributes contain child row counts from subqueries
-                if (attribute.data_type === 'TABLE') {
-                    mappedRow[attribute.column_name] = typeof row[attribute.column_name] === 'number' ? row[attribute.column_name] : 0
-                    continue
+            rows = rawRows.map((row) => {
+                const mappedRow: Record<string, unknown> & { id: string } = {
+                    id: String(row.id)
                 }
-                mappedRow[attribute.column_name] = resolveRuntimeValue(row[attribute.column_name], attribute.data_type, requestedLocale)
-            }
 
-            return mappedRow
-        })
+                for (const attribute of safeAttributes) {
+                    if (attribute.data_type === 'TABLE') {
+                        mappedRow[attribute.column_name] = typeof row[attribute.column_name] === 'number' ? row[attribute.column_name] : 0
+                        continue
+                    }
+                    mappedRow[attribute.column_name] = resolveRuntimeValue(row[attribute.column_name], attribute.data_type, requestedLocale)
+                }
+
+                return mappedRow
+            })
+        }
 
         let workspaceLimit: { maxRows: number | null; currentRows: number; canCreate: boolean } | undefined
-        if (runtimeContext.workspacesEnabled && currentWorkspaceId) {
+        if (!isActivePage && runtimeContext.workspacesEnabled && currentWorkspaceId) {
             const maxRows = await getCatalogWorkspaceLimit(manager, {
                 schemaName,
                 objectId: activeLinkedCollection.id
             })
             const currentRows = await getCatalogWorkspaceUsage(manager, {
                 schemaName,
-                tableName: activeLinkedCollection.table_name,
+                tableName: activeLinkedCollection.table_name as string,
                 workspaceId: currentWorkspaceId,
-                runtimeRowCondition: activeCatalogRowCondition
+                runtimeRowCondition: buildRuntimeActiveRowCondition(
+                    activeLinkedCollection.lifecycleContract,
+                    activeLinkedCollection.config,
+                    undefined,
+                    currentWorkspaceId
+                )
             })
             workspaceLimit = {
                 maxRows,
@@ -1017,6 +1035,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
         const linkedCollectionsForRuntime = runtimeCatalogs.map((catalogRow) => ({
             id: catalogRow.id,
+            kind: resolveRuntimeStandardKind(catalogRow.kind) ?? 'catalog',
             codename: catalogRow.codename,
             tableName: catalogRow.table_name,
             runtimeConfig:
@@ -1151,7 +1170,9 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 `
           SELECT id, kind, codename, presentation, config
           FROM ${schemaIdent}._app_objects
-                    WHERE (${RUNTIME_STANDARD_KIND_SQL('kind')} = 'hub' OR ${RUNTIME_CATALOG_FILTER_SQL})
+                    WHERE (${RUNTIME_STANDARD_KIND_SQL('kind')} = 'hub' OR ${RUNTIME_CATALOG_FILTER_SQL} OR ${RUNTIME_STANDARD_KIND_SQL(
+                    'kind'
+                )} = 'page')
             AND _upl_deleted = false
             AND _app_deleted = false
         `
@@ -1576,8 +1597,10 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
         const activeSectionPayload = {
             id: activeLinkedCollection.id,
+            kind: activeLinkedCollectionKind ?? 'catalog',
             codename: activeLinkedCollection.codename,
             tableName: activeLinkedCollection.table_name,
+            pageBlocks: isActivePage ? normalizeRuntimePageBlocks(activeLinkedCollection.config?.blockContent) : undefined,
             runtimeConfig: {
                 ...activeLinkedCollectionRuntimeConfig,
                 enableRowReordering: canPersistRowReordering

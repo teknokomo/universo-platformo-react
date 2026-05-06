@@ -1,9 +1,6 @@
 import { Checkbox, FormControlLabel, Stack, Typography } from '@mui/material'
-import EditIcon from '@mui/icons-material/Edit'
-import DeleteIcon from '@mui/icons-material/Delete'
-import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
-import { notifyError } from '@universo/template-mui'
+import { createCopyActionIcon, createDeleteActionIcon, createEditActionIcon, notifyError } from '@universo/template-mui'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
 import type { VersionedLocalizedContent } from '@universo/types'
 import { normalizeLinkedCollectionCopyOptions } from '@universo/utils'
@@ -460,7 +457,7 @@ const linkedCollectionActions: readonly ActionDescriptor<LinkedCollectionDisplay
     {
         id: 'edit',
         labelKey: 'common:actions.edit',
-        icon: <EditIcon />,
+        icon: createEditActionIcon(),
         order: 10,
         dialog: {
             loader: async () => {
@@ -537,7 +534,7 @@ const linkedCollectionActions: readonly ActionDescriptor<LinkedCollectionDisplay
     {
         id: 'copy',
         labelKey: 'common:actions.copy',
-        icon: <ContentCopyIcon />,
+        icon: createCopyActionIcon(),
         order: 11,
         dialog: {
             loader: async () => {
@@ -642,7 +639,7 @@ const linkedCollectionActions: readonly ActionDescriptor<LinkedCollectionDisplay
     {
         id: 'delete',
         labelKey: 'common:actions.delete',
-        icon: <DeleteIcon />,
+        icon: createDeleteActionIcon(),
         tone: 'danger',
         order: 100,
         group: 'danger',

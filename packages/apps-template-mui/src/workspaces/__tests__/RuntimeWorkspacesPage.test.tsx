@@ -133,19 +133,22 @@ vi.mock('@universo/template-mui', () => ({
         onClick,
         footerStartContent,
         footerEndContent,
-        headerAction
+        headerAction,
+        titleEndContent
     }: {
         data: { id: string; name?: string; displayName?: string; description?: string }
         onClick?: () => void
         footerStartContent?: ReactNode
         footerEndContent?: ReactNode
         headerAction?: ReactNode
+        titleEndContent?: ReactNode
     }) => (
         <article>
             {headerAction}
             <button type='button' onClick={onClick}>
                 {data.displayName ?? data.name ?? data.id}
             </button>
+            {titleEndContent}
             <span>{data.description}</span>
             {footerStartContent}
             {footerEndContent}
@@ -385,6 +388,8 @@ describe('RuntimeWorkspacesPage', () => {
         expect(await screen.findByRole('heading', { name: 'Workspaces' })).toBeInTheDocument()
         expect(await screen.findByRole('button', { name: 'Class A' })).toBeInTheDocument()
         expect(screen.getAllByRole('button', { name: 'Workspace actions' })).toHaveLength(2)
+        expect(screen.getByLabelText('Default')).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Set default' })).not.toBeInTheDocument()
         expect(screen.getByTestId('runtime-workspaces-card-view')).toBeInTheDocument()
         expect(screen.queryByText('owner@example.com')).not.toBeInTheDocument()
         expect(apiMocks.fetchRuntimeWorkspaceMembers).not.toHaveBeenCalled()
@@ -420,6 +425,16 @@ describe('RuntimeWorkspacesPage', () => {
     it('opens workspace actions and supports edit, copy, and delete flows', async () => {
         renderPage()
         await screen.findByRole('button', { name: 'Class A' })
+
+        fireEvent.click(screen.getAllByRole('button', { name: 'Workspace actions' })[1])
+        fireEvent.click(await screen.findByRole('menuitem', { name: 'Set default' }))
+        await waitFor(() => {
+            expect(apiMocks.updateDefaultRuntimeWorkspace).toHaveBeenCalledWith({
+                apiBaseUrl: '/api/v1',
+                applicationId: 'app-1',
+                workspaceId: 'ws-shared'
+            })
+        })
 
         fireEvent.click(screen.getAllByRole('button', { name: 'Workspace actions' })[1])
         fireEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))

@@ -94,7 +94,7 @@ const renderMenu = (
         ...render(
             <ThemeProvider theme={theme}>
                 <QueryClientProvider client={queryClient}>
-                    <MemoryRouter initialEntries={[path]}>
+                    <MemoryRouter initialEntries={[path]} future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
                         <MenuContent />
                     </MemoryRouter>
                 </QueryClientProvider>

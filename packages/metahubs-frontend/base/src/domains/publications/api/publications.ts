@@ -1,5 +1,5 @@
 import { apiClient } from '../../shared'
-import type { VersionedLocalizedContent } from '@universo/types'
+import type { VersionedLocalizedContent, WorkspaceModePolicy } from '@universo/types'
 import type { SimpleLocalizedInput } from '@universo/utils/vlc'
 import type { PublicationSchemaStatus } from '../../../types'
 
@@ -51,7 +51,6 @@ export interface CreatePublicationPayload {
     descriptionPrimaryLocale?: string
     autoCreateApplication?: boolean
     applicationIsPublic?: boolean
-    applicationWorkspacesEnabled?: boolean
     applicationName?: SimpleLocalizedInput
     applicationDescription?: SimpleLocalizedInput
     applicationNamePrimaryLocale?: string
@@ -61,6 +60,10 @@ export interface CreatePublicationPayload {
     versionNamePrimaryLocale?: string
     versionDescriptionPrimaryLocale?: string
     versionBranchId?: string
+    runtimePolicy?: {
+        workspaceMode?: WorkspaceModePolicy
+        requiredWorkspaceModeAcknowledged?: boolean
+    }
 }
 
 /**

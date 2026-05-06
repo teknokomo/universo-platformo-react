@@ -116,6 +116,7 @@ const seedEntitySchema = z.object({
     kind: entityKindKeySchema,
     name: vlcSchema,
     description: vlcSchema.optional(),
+    localizeCodenameFromName: z.boolean().optional(),
     config: z.record(z.unknown()).optional(),
     attributes: z.array(seedAttributeSchema).optional(),
     fixedValues: z.array(seedFixedValueSchema).optional(),
@@ -140,6 +141,7 @@ const presetDefaultInstanceSchema = z.object({
     codename: z.string().min(1).max(100),
     name: vlcSchema,
     description: vlcSchema.optional(),
+    localizeCodenameFromName: z.boolean().optional(),
     config: z.record(z.unknown()).optional(),
     attributes: z.array(seedAttributeSchema).optional(),
     fixedValues: z.array(seedFixedValueSchema).optional(),
@@ -192,6 +194,16 @@ const componentManifestSchema = z.object({
     actions: z.union([componentConfigSchema, z.literal(false)]),
     events: z.union([componentConfigSchema, z.literal(false)]),
     scripting: z.union([componentConfigSchema, z.literal(false)]),
+    blockContent: z.union([
+        componentConfigSchema.extend({
+            storage: z.enum(['objectConfig', 'recordJsonb']),
+            defaultFormat: z.literal('editorjs'),
+            supportedFormats: z.array(z.string().min(1)).min(1),
+            allowedBlockTypes: z.array(z.string().regex(/^[a-z][a-z0-9_-]{0,63}$/)).min(1),
+            maxBlocks: z.number().int().positive().max(5000)
+        }),
+        z.literal(false)
+    ]),
     layoutConfig: z.union([componentConfigSchema, z.literal(false)]),
     runtimeBehavior: z.union([componentConfigSchema, z.literal(false)]),
     physicalTable: z.union([componentConfigSchema.extend({ prefix: z.string().min(1) }), z.literal(false)])

@@ -226,15 +226,22 @@ async function openEntityDialog(page: Page, dialogName: string): Promise<Locator
     return dialog
 }
 
-async function waitForListEntity<T extends { id?: string }>(loader: () => Promise<ListPayload<T>>, expectedId: string, label: string): Promise<T> {
+async function waitForListEntity<T extends { id?: string }>(
+    loader: () => Promise<ListPayload<T>>,
+    expectedId: string,
+    label: string
+): Promise<T> {
     let matched: T | undefined
 
     await expect
-        .poll(async () => {
-            const payload = await loader()
-            matched = payload.items?.find((item) => item.id === expectedId)
-            return Boolean(matched?.id)
-        }, { message: `Waiting for ${label} ${expectedId} to appear` })
+        .poll(
+            async () => {
+                const payload = await loader()
+                matched = payload.items?.find((item) => item.id === expectedId)
+                return Boolean(matched?.id)
+            },
+            { message: `Waiting for ${label} ${expectedId} to appear` }
+        )
         .toBe(true)
 
     if (!matched) {
@@ -246,10 +253,13 @@ async function waitForListEntity<T extends { id?: string }>(loader: () => Promis
 
 async function waitForEntityAbsence<T extends { id?: string }>(loader: () => Promise<ListPayload<T>>, expectedId: string, label: string) {
     await expect
-        .poll(async () => {
-            const payload = await loader()
-            return payload.items?.some((item) => item.id === expectedId) ?? false
-        }, { message: `Waiting for ${label} ${expectedId} to disappear` })
+        .poll(
+            async () => {
+                const payload = await loader()
+                return payload.items?.some((item) => item.id === expectedId) ?? false
+            },
+            { message: `Waiting for ${label} ${expectedId} to disappear` }
+        )
         .toBe(false)
 }
 
@@ -257,11 +267,14 @@ async function waitForFirstEntityId<T extends { id?: string }>(loader: () => Pro
     let firstId: string | undefined
 
     await expect
-        .poll(async () => {
-            const payload = await loader()
-            firstId = payload.items?.[0]?.id
-            return typeof firstId === 'string'
-        }, { message: `Waiting for first ${label} id` })
+        .poll(
+            async () => {
+                const payload = await loader()
+                firstId = payload.items?.[0]?.id
+                return typeof firstId === 'string'
+            },
+            { message: `Waiting for first ${label} id` }
+        )
         .toBe(true)
 
     if (!firstId) {
@@ -317,10 +330,13 @@ async function waitForRuntimeState(api: ApiContext, applicationId: string, catal
     let runtimeState: RuntimeState | null = null
 
     await expect
-        .poll(async () => {
-            runtimeState = (await getApplicationRuntime(api, applicationId, { catalogId })) as RuntimeState
-            return typeof runtimeState?.catalog?.id === 'string' && Array.isArray(runtimeState?.columns)
-        }, { timeout: 60_000, message: `Waiting for runtime catalog ${catalogId} in application ${applicationId}` })
+        .poll(
+            async () => {
+                runtimeState = (await getApplicationRuntime(api, applicationId, { catalogId })) as RuntimeState
+                return typeof runtimeState?.catalog?.id === 'string' && Array.isArray(runtimeState?.columns)
+            },
+            { timeout: 60_000, message: `Waiting for runtime catalog ${catalogId} in application ${applicationId}` }
+        )
         .toBe(true)
 
     if (!runtimeState?.catalog?.id) {
@@ -367,9 +383,7 @@ async function expectEmbeddedCommonControlsAlignedEnd(page: Page) {
     const controlsRegion = page.locator(`[data-testid="${viewHeaderSelectors.controlsRegion}"]:visible`).first()
     await expect(controlsRegion).toBeVisible()
     await expect
-        .poll(async () =>
-            controlsRegion.evaluate((element) => Number.parseFloat(window.getComputedStyle(element).marginLeft || '0'))
-        )
+        .poll(async () => controlsRegion.evaluate((element) => Number.parseFloat(window.getComputedStyle(element).marginLeft || '0')))
         .toBeGreaterThan(0)
 }
 
@@ -383,7 +397,8 @@ async function createRuntimeRowViaBrowser(page: Page, applicationId: string, lab
 
     const createResponse = waitForSettledMutationResponse(
         page,
-        (response) => response.request().method() === 'POST' && response.url().includes(`/api/v1/applications/${applicationId}/runtime/rows`),
+        (response) =>
+            response.request().method() === 'POST' && response.url().includes(`/api/v1/applications/${applicationId}/runtime/rows`),
         { label: 'Creating runtime row' }
     )
     await createDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -420,7 +435,8 @@ async function createSharedLibraryScriptThroughBrowser(
         (request) => request.method() === 'POST' && request.url().endsWith(`/api/v1/metahub/${metahubId}/scripts`)
     )
     const createResponse = page.waitForResponse(
-        (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahubId}/scripts`) && response.ok()
+        (response) =>
+            response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahubId}/scripts`) && response.ok()
     )
 
     await page.getByRole('button', { name: 'Create script', exact: true }).click()
@@ -457,7 +473,8 @@ async function createImportedWidgetScriptThroughBrowser(page: Page, metahubId: s
         (request) => request.method() === 'POST' && request.url().endsWith(`/api/v1/metahub/${metahubId}/scripts`)
     )
     const createResponse = page.waitForResponse(
-        (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahubId}/scripts`) && response.ok()
+        (response) =>
+            response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahubId}/scripts`) && response.ok()
     )
 
     await dialog.getByRole('button', { name: 'Create script', exact: true }).click()
@@ -465,7 +482,7 @@ async function createImportedWidgetScriptThroughBrowser(page: Page, metahubId: s
     const requestPayload = (await createRequest).postDataJSON()
     expect(requestPayload?.attachedToKind).toBe('metahub')
     expect(requestPayload?.moduleRole).toBe('widget')
-    expect(String(requestPayload?.sourceCode ?? '')).toContain("@shared/quiz-shared")
+    expect(String(requestPayload?.sourceCode ?? '')).toContain('@shared/quiz-shared')
 
     const createdScript = await (await createResponse).json()
     expect(createdScript?.codename?.locales?.en?.content).toBe(scriptCodename)
@@ -527,7 +544,8 @@ async function configureQuizWidgetThroughBrowser(page: Page, api: ApiContext, me
 
     const saveResponse = waitForSettledMutationResponse(
         page,
-        (response) => response.request().method() === 'PUT' && response.url().includes(`/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget`),
+        (response) =>
+            response.request().method() === 'PUT' && response.url().includes(`/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget`),
         { label: 'Saving layout widget' }
     )
     await dialog.getByRole('button', { name: 'Save', exact: true }).click()
@@ -583,10 +601,7 @@ test('@flow Common shared entities merge, exclusion, publication, and runtime st
             () => listLinkedCollections(api, metahub.id, { limit: 100, offset: 0 }),
             'catalog'
         )
-        const enumerationId = await waitForFirstEntityId(
-            () => listOptionLists(api, metahub.id, { limit: 100, offset: 0 }),
-            'enumeration'
-        )
+        const enumerationId = await waitForFirstEntityId(() => listOptionLists(api, metahub.id, { limit: 100, offset: 0 }), 'enumeration')
         const setId = await waitForFirstEntityId(() => listValueGroups(api, metahub.id, { limit: 100, offset: 0 }), 'set')
 
         const excludedCatalog = await createLinkedCollection(api, metahub.id, {
@@ -791,8 +806,7 @@ test('@flow Common shared entities merge, exclusion, publication, and runtime st
         const linkedApplication = await createPublicationLinkedApplication(api, metahub.id, publication.id, {
             name: { en: `E2E ${runManifest.runId} Shared Common App` },
             namePrimaryLocale: 'en',
-            createApplicationSchema: false,
-            workspacesEnabled: false
+            createApplicationSchema: false
         })
 
         const applicationId = linkedApplication?.application?.id
@@ -910,8 +924,7 @@ test('@flow Common shared library scripts publish into runtime consumers without
         const linkedApplication = await createPublicationLinkedApplication(api, metahub.id, publication.id, {
             name: { en: `E2E ${runManifest.runId} Shared Script App` },
             namePrimaryLocale: 'en',
-            createApplicationSchema: false,
-            workspacesEnabled: false
+            createApplicationSchema: false
         })
 
         const applicationId = linkedApplication?.application?.id

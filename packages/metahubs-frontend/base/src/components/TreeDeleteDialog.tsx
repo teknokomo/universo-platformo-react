@@ -6,13 +6,6 @@ import type { TreeEntity } from '../types'
 import { getVLCString } from '../types'
 import { getBlockingTreeDependencies, type BlockingTreeDependency } from '../domains/entities/presets/api/trees'
 import { metahubsQueryKeys } from '../domains/shared'
-import {
-    buildLinkedCollectionAuthoringPath,
-    buildOptionListAuthoringPath,
-    buildTreeEntityAuthoringPath,
-    buildValueGroupAuthoringPath,
-    resolveEntityChildKindKey
-} from '../domains/shared/entityMetadataRoutePaths'
 
 export interface TreeDeleteDialogProps {
     open: boolean
@@ -25,19 +18,10 @@ export interface TreeDeleteDialogProps {
     kindKey?: string
 }
 
-type BlockingGroup = 'linkedCollection' | 'optionList' | 'valueGroup' | 'treeEntity'
-
 interface BlockingTreeRow extends BlockingTreeDependency {
     displayName: string
-    group: BlockingGroup
+    typeLabel: string
     linkUrl: string
-}
-
-const GROUP_I18N_MAP: Record<BlockingGroup, { key: string; fallback: string }> = {
-    linkedCollection: { key: 'hubs.deleteDialog.sections.catalogs', fallback: 'Catalog' },
-    optionList: { key: 'hubs.deleteDialog.sections.enumerations', fallback: 'Enumeration' },
-    valueGroup: { key: 'hubs.deleteDialog.sections.sets', fallback: 'Set' },
-    treeEntity: { key: 'hubs.deleteDialog.sections.hubs', fallback: 'Hub' }
 }
 
 export const TreeDeleteDialog = ({
@@ -53,52 +37,45 @@ export const TreeDeleteDialog = ({
     const { t } = useTranslation('metahubs')
     const treeEntityId = hub?.id ?? ''
 
-    const catalogKindKey = resolveEntityChildKindKey({ routeKindKey: kindKey, childObjectKind: 'catalog' })
-    const setKindKey = resolveEntityChildKindKey({ routeKindKey: kindKey, childObjectKind: 'set' })
-    const enumerationKindKey = resolveEntityChildKindKey({ routeKindKey: kindKey, childObjectKind: 'enumeration' })
-    const hubKindKey = resolveEntityChildKindKey({ routeKindKey: kindKey, childObjectKind: 'hub' })
-
     const resolveDisplayName = useCallback(
         (entity: BlockingTreeDependency) =>
-            getVLCString(entity.name, uiLocale) || getVLCString(entity.name, 'en') || entity.codename || '—',
+            getVLCString(entity.name, uiLocale) ||
+            getVLCString(entity.name, 'en') ||
+            getVLCString(entity.codename, uiLocale) ||
+            getVLCString(entity.codename, 'en') ||
+            '—',
         [uiLocale]
+    )
+    const resolveTypeLabel = useCallback(
+        (entity: BlockingTreeDependency) => {
+            const translated = entity.typeNameKey ? t(entity.typeNameKey, { defaultValue: entity.kind }) : ''
+            return (
+                (typeof translated === 'string' ? translated : '') ||
+                getVLCString(entity.typeName, uiLocale) ||
+                getVLCString(entity.typeName, 'en') ||
+                entity.kind
+            )
+        },
+        [t, uiLocale]
+    )
+    const buildEntityListPath = useCallback(
+        (entity: BlockingTreeDependency) =>
+            entity.kind === (kindKey ?? 'hub')
+                ? `/metahub/${metahubId}/entities/${encodeURIComponent(entity.kind)}/instance/${entity.id}/instances`
+                : `/metahub/${metahubId}/entities/${encodeURIComponent(entity.kind)}/instances`,
+        [kindKey, metahubId]
     )
 
     const fetchBlockingEntities = useCallback(async () => {
         const data = await getBlockingTreeDependencies(metahubId, treeEntityId)
-        const blockingEntities: BlockingTreeRow[] = [
-            ...data.blockingLinkedCollections.map((e) => ({
-                ...e,
-                displayName: resolveDisplayName(e),
-                group: 'linkedCollection' as const,
-                linkUrl: buildLinkedCollectionAuthoringPath({
-                    metahubId,
-                    linkedCollectionId: e.id,
-                    kindKey: catalogKindKey,
-                    tab: 'fieldDefinitions'
-                })
-            })),
-            ...data.blockingOptionLists.map((e) => ({
-                ...e,
-                displayName: resolveDisplayName(e),
-                group: 'optionList' as const,
-                linkUrl: buildOptionListAuthoringPath({ metahubId, optionListId: e.id, kindKey: enumerationKindKey })
-            })),
-            ...data.blockingValueGroups.map((e) => ({
-                ...e,
-                displayName: resolveDisplayName(e),
-                group: 'valueGroup' as const,
-                linkUrl: buildValueGroupAuthoringPath({ metahubId, valueGroupId: e.id, kindKey: setKindKey })
-            })),
-            ...data.blockingChildTreeEntities.map((e) => ({
-                ...e,
-                displayName: resolveDisplayName(e),
-                group: 'treeEntity' as const,
-                linkUrl: buildTreeEntityAuthoringPath({ metahubId, treeEntityId: e.id, kindKey: hubKindKey, tab: 'treeEntities' })
-            }))
-        ]
+        const blockingEntities: BlockingTreeRow[] = [...data.blockingRelatedObjects, ...data.blockingChildTreeEntities].map((entity) => ({
+            ...entity,
+            displayName: resolveDisplayName(entity),
+            typeLabel: resolveTypeLabel(entity),
+            linkUrl: buildEntityListPath(entity)
+        }))
         return { blockingEntities }
-    }, [metahubId, treeEntityId, resolveDisplayName, catalogKindKey, setKindKey, enumerationKindKey, hubKindKey])
+    }, [buildEntityListPath, metahubId, resolveDisplayName, resolveTypeLabel, treeEntityId])
 
     const labels: BlockingEntitiesDeleteDialogLabels = useMemo(
         () => ({
@@ -113,7 +90,7 @@ export const TreeDeleteDialog = ({
             ),
             resolutionHint: t(
                 'hubs.deleteDialog.resolutionHint',
-                'To delete this hub, first re-link child hubs and add another hub to these catalogs, sets, and enumerations, or disable the required hub option.'
+                'To delete this hub, first re-link child hubs and add another hub to the listed entities, or disable the required hub option.'
             ),
             fetchError: t('hubs.deleteDialog.fetchError', 'Failed to check for blocking entities'),
             cancelButton: t('common:actions.cancel', 'Cancel'),
@@ -136,10 +113,7 @@ export const TreeDeleteDialog = ({
                 id: 'group',
                 label: t('table.type', 'Type'),
                 width: 150,
-                render: (row) => {
-                    const groupInfo = GROUP_I18N_MAP[row.group]
-                    return <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>{t(groupInfo.key, groupInfo.fallback)}</Typography>
-                }
+                render: (row) => <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>{row.typeLabel}</Typography>
             },
             {
                 id: 'name',
@@ -153,19 +127,19 @@ export const TreeDeleteDialog = ({
                 align: 'left',
                 render: (row) => (
                     <Typography variant='body2' color='text.secondary' fontFamily='monospace' noWrap>
-                        {row.codename}
+                        {getVLCString(row.codename, uiLocale) || getVLCString(row.codename, 'en') || row.id}
                     </Typography>
                 )
             }
         ],
-        [t]
+        [t, uiLocale]
     )
 
     return (
         <BlockingEntitiesDeleteDialog<TreeEntity, BlockingTreeRow>
             open={open}
             entity={hub}
-            queryKey={metahubsQueryKeys.blockingLinkedCollections(metahubId, treeEntityId)}
+            queryKey={metahubsQueryKeys.blockingTreeDependencies(metahubId, treeEntityId)}
             fetchBlockingEntities={fetchBlockingEntities}
             onClose={onClose}
             onConfirm={onConfirm}

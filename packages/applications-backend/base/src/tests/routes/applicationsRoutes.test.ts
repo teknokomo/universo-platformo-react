@@ -869,7 +869,7 @@ describe('Applications Routes', () => {
             expect(response.body.error).toContain('slug')
         })
 
-        it('should allow public application without workspaces when explicitly requested', async () => {
+        it('should create public application shells without workspaces until connector schema sync enables them', async () => {
             const { dataSource } = buildDataSource()
             ;(dataSource.query as jest.Mock).mockResolvedValueOnce([])
             ;(dataSource.manager.query as jest.Mock)
@@ -903,8 +903,7 @@ describe('Applications Routes', () => {
                 .post('/applications')
                 .send({
                     name: 'Public Application',
-                    isPublic: true,
-                    workspacesEnabled: false
+                    isPublic: true
                 })
                 .expect(201)
 
@@ -912,6 +911,22 @@ describe('Applications Routes', () => {
                 isPublic: true,
                 workspacesEnabled: false
             })
+        })
+
+        it('should reject legacy workspace mode input during application creation', async () => {
+            const { dataSource } = buildDataSource()
+            const app = buildApp(dataSource)
+
+            const response = await request(app)
+                .post('/applications')
+                .send({
+                    name: 'Public Application',
+                    isPublic: true,
+                    workspacesEnabled: true
+                })
+                .expect(400)
+
+            expect(response.body.details).toHaveProperty('formErrors')
         })
     })
 
@@ -1033,7 +1048,6 @@ describe('Applications Routes', () => {
                 .send({
                     name: { en: 'Source App (copy)' },
                     copyConnector: true,
-                    createSchema: false,
                     copyAccess: true
                 })
                 .expect(201)
@@ -1099,7 +1113,6 @@ describe('Applications Routes', () => {
                 .send({
                     name: { en: 'Source App (copy)' },
                     copyConnector: false,
-                    createSchema: false,
                     copyAccess: false
                 })
                 .expect(201)
@@ -1153,7 +1166,6 @@ describe('Applications Routes', () => {
                 .send({
                     name: { en: 'Source App (copy)' },
                     copyConnector: false,
-                    createSchema: false,
                     copyAccess: false
                 })
                 .expect(201)
@@ -1224,7 +1236,6 @@ describe('Applications Routes', () => {
                 .send({
                     name: { en: 'Source App (copy)' },
                     copyConnector: false,
-                    createSchema: false,
                     copyAccess: false
                 })
                 .expect(201)
@@ -1238,7 +1249,7 @@ describe('Applications Routes', () => {
             expect(insertCalls[1][1][4]).toBe('source-app-copy-2')
         })
 
-        it('should ignore legacy createSchema flag and still copy without connectors when copyConnector=false', async () => {
+        it('should reject legacy createSchema input on backend copy route', async () => {
             const { dataSource } = buildDataSource()
 
             configureCopyQueries(dataSource, {
@@ -1272,14 +1283,10 @@ describe('Applications Routes', () => {
                     copyConnector: false,
                     createSchema: true
                 })
-                .expect(201)
+                .expect(400)
 
-            expect(response.body.id).toBe('018f8a78-7b8f-7c1d-a111-222233334449')
-            expect(
-                (dataSource.manager.query as jest.Mock).mock.calls.some(([sql]: [string]) =>
-                    sql.includes('INSERT INTO applications.cat_connectors (')
-                )
-            ).toBe(false)
+            expect(response.body.error).toBe('Invalid input')
+            expect(mockCloneSchemaWithExecutor).not.toHaveBeenCalled()
         })
     })
 

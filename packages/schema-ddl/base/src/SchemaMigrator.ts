@@ -9,7 +9,7 @@ import type { SchemaDiff, SchemaChange } from './diff'
 import type { EntityDefinition, FieldDefinition, MigrationResult, SchemaSnapshot } from './types'
 import { SchemaGenerator } from './SchemaGenerator'
 import { MigrationManager, generateMigrationName } from './MigrationManager'
-import { isStandardEnumerationKind, isStandardSetKind } from './builtinEntityKinds'
+import { hasPhysicalRuntimeTable, isStandardEnumerationKind, isStandardSetKind } from './builtinEntityKinds'
 
 /**
  * Options for applying changes with migration recording
@@ -339,6 +339,9 @@ export class SchemaMigrator {
                 } else {
                     if (!targetEntity) {
                         console.warn(`[SchemaMigrator] Target entity ${targetEntityId ?? change.newValue} not found for FK`)
+                        return
+                    }
+                    if (!hasPhysicalRuntimeTable(targetEntity)) {
                         return
                     }
                     targetTableName = resolveEntityTableName(targetEntity)

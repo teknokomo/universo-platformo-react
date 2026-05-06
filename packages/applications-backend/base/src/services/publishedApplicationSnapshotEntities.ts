@@ -327,14 +327,18 @@ export const resolveExecutablePayloadEntities = (snapshot: PublishedApplicationS
         .map((entity) => {
             const entityConfig = isRecord(entity.config) ? entity.config : {}
             const normalizedSnapshotFields = rewriteDuplicatedFieldIdsForEntity(entity.id, entity.fields ?? [], duplicatedFieldIds)
+            const physicalTableName =
+                typeof entity.tableName === 'string' && entity.tableName.trim().length > 0
+                    ? entity.tableName
+                    : typeof entity.physicalTableName === 'string' && entity.physicalTableName.trim().length > 0
+                    ? entity.physicalTableName
+                    : undefined
             const normalizedEntity: EntityDefinition = {
                 ...entity,
                 codename: resolveSnapshotCodenameText(entity.codename) ?? '',
-                ...(typeof entity.tableName === 'string' && entity.tableName.trim().length > 0
-                    ? { physicalTableName: entity.tableName }
-                    : typeof entity.physicalTableName === 'string' && entity.physicalTableName.trim().length > 0
-                    ? { physicalTableName: entity.physicalTableName }
-                    : {}),
+                physicalTableEnabled:
+                    typeof entity.physicalTableEnabled === 'boolean' ? entity.physicalTableEnabled : Boolean(physicalTableName),
+                ...(physicalTableName ? { physicalTableName } : {}),
                 config: {
                     ...entityConfig,
                     ...(snapshotSystemFields?.[entity.id] ? { systemFields: snapshotSystemFields[entity.id] } : {})

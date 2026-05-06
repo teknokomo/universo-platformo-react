@@ -39,12 +39,21 @@ export function getRateLimiters(): { read: RateLimitRequestHandler; write: RateL
 export function createApplicationsServiceRoutes(
     ensureAuth: RequestHandler,
     getDbExecutor: () => DbExecutor,
-    loadPublishedPublicationRuntimeSource: LoadPublishedPublicationRuntimeSource
+    loadPublishedPublicationRuntimeSource: LoadPublishedPublicationRuntimeSource,
+    options: {
+        /**
+         * Schema sync performs long-running DDL and manages its own explicit
+         * transaction boundaries. It must not be wrapped in the request RLS
+         * transaction used by regular CRUD/runtime routes.
+         */
+        syncEnsureAuth?: RequestHandler
+    } = {}
 ): Router {
     const router = Router()
 
     const { read, write } = getRateLimiters()
     const loadPublishedApplicationSyncContext = createLoadPublishedApplicationSyncContext(loadPublishedPublicationRuntimeSource)
+    const syncEnsureAuth = options.syncEnsureAuth ?? ensureAuth
 
     // Core applications CRUD
     router.use('/applications', createApplicationsRoutes(ensureAuth, getDbExecutor, read, write))
@@ -53,7 +62,7 @@ export function createApplicationsServiceRoutes(
     router.use('/', createPublicApplicationsRoutes(getDbExecutor, read, write))
 
     // Application runtime schema sync and diff
-    router.use('/', createApplicationSyncRoutes(ensureAuth, getDbExecutor, loadPublishedApplicationSyncContext, read, write))
+    router.use('/', createApplicationSyncRoutes(syncEnsureAuth, getDbExecutor, loadPublishedApplicationSyncContext, read, write))
 
     // Connectors routes
     router.use('/', createConnectorsRoutes(ensureAuth, getDbExecutor, read, write))

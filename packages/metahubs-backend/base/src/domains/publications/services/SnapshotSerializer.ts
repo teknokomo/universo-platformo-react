@@ -11,6 +11,7 @@ import {
     type EntityKind,
     type EntityTypeUIConfig,
     type EnumerationValueDefinition,
+    type MetahubRuntimePolicySnapshot,
     type MetahubScriptDefinition,
     type MetahubSnapshotVersionEnvelope,
     type SharedBehavior,
@@ -38,7 +39,7 @@ import { createLogger } from '../../../utils/logger'
 
 const log = createLogger('SnapshotSerializer')
 
-const resolveEntityMetadataKind = (kind: unknown, config?: unknown): 'catalog' | 'hub' | 'set' | 'enumeration' | null =>
+const resolveEntityMetadataKind = (kind: unknown, config?: unknown): 'catalog' | 'hub' | 'set' | 'enumeration' | 'page' | null =>
     typeof kind === 'string' && isBuiltinEntityKind(kind) ? kind : null
 
 export type SnapshotCodenameValue = VersionedLocalizedContent<string> | string
@@ -108,6 +109,7 @@ export interface MetahubSnapshot {
      * NOTE: This represents the DEFAULT layout config for backward/forward compatibility.
      */
     layoutConfig?: Record<string, unknown>
+    runtimePolicy?: MetahubRuntimePolicySnapshot
 }
 
 export interface MetahubLayoutSnapshot {
@@ -635,7 +637,11 @@ export class SnapshotSerializer {
      * after this method to inject layout and zone-widget information into the
      * snapshot before it is persisted or published.
      */
-    async serializeMetahub(metahubId: string, versionEnvelope?: Partial<MetahubSnapshotVersionEnvelope>): Promise<MetahubSnapshot> {
+    async serializeMetahub(
+        metahubId: string,
+        options?: Partial<MetahubSnapshotVersionEnvelope> & { runtimePolicy?: MetahubRuntimePolicySnapshot }
+    ): Promise<MetahubSnapshot> {
+        const { runtimePolicy, ...versionEnvelope } = options ?? {}
         const { typeByKind, entityTypeDefinitions } = await this.loadSnapshotTypeDefinitions(metahubId)
         const objectKinds = [...typeByKind.keys()].filter((kind) => {
             const definition = typeByKind.get(kind)
@@ -882,7 +888,8 @@ export class SnapshotSerializer {
             sharedOptionValues: sharedOptionValues.length > 0 ? sharedOptionValues : undefined,
             sharedEntityOverrides: sharedEntityOverrides.length > 0 ? sharedEntityOverrides : undefined,
             systemFields: Object.keys(systemFieldsByObject).length > 0 ? systemFieldsByObject : undefined,
-            scripts: publishedScripts.length > 0 ? publishedScripts : undefined
+            scripts: publishedScripts.length > 0 ? publishedScripts : undefined,
+            runtimePolicy
         }
     }
 
@@ -959,14 +966,16 @@ export class SnapshotSerializer {
             const definition = snapshot.entityTypeDefinitions?.[entity.kind]
             const physicalTableConfig =
                 definition && isEnabledComponentConfig(definition.components.physicalTable) ? definition.components.physicalTable : null
+            const explicitPhysicalTableName = entity.tableName ?? entity.physicalTableName
+            const physicalTableEnabled = Boolean(physicalTableConfig || explicitPhysicalTableName)
 
             return {
                 ...entity,
                 id: entity.id,
+                physicalTableEnabled,
                 physicalTablePrefix: physicalTableConfig?.prefix,
                 physicalTableName:
-                    entity.tableName ??
-                    entity.physicalTableName ??
+                    explicitPhysicalTableName ??
                     (physicalTableConfig ? generateTableName(entity.id, entity.kind, physicalTableConfig.prefix) : undefined),
                 codename: getCodenameText(entity.codename),
                 config: {

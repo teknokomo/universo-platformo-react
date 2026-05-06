@@ -424,7 +424,7 @@ describe('SchemaGenerator', () => {
             expect(operations.indexOf('_app_attributes.del')).toBeLessThan(operations.indexOf('_app_attributes.insert'))
         })
 
-        it('stores generated table_name for hub metadata rows', async () => {
+        it('stores null table_name for nonphysical hub metadata rows', async () => {
             const operations: string[] = []
             const objectsTable = createTableMock('_app_objects', operations)
             const attributesTable = createTableMock('_app_attributes', operations)
@@ -467,7 +467,7 @@ describe('SchemaGenerator', () => {
             expect(Array.isArray(insertedRows)).toBe(true)
             expect(insertedRows).toHaveLength(1)
             expect(insertedRows[0]?.kind).toBe('hub')
-            expect(insertedRows[0]?.table_name).toBe(generateTableName('hub-1', 'hub'))
+            expect(insertedRows[0]?.table_name).toBeNull()
         })
 
         it('passes capability gates to ensureSystemTables during metadata sync', async () => {

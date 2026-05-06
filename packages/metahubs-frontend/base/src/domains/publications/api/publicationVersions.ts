@@ -1,5 +1,5 @@
 import { apiClient } from '../../shared'
-import type { VersionedLocalizedContent } from '@universo/types'
+import type { VersionedLocalizedContent, WorkspaceModePolicy } from '@universo/types'
 import type { SimpleLocalizedInput } from '@universo/utils/vlc'
 
 /**
@@ -32,6 +32,10 @@ export interface CreateVersionPayload {
     description?: SimpleLocalizedInput
     descriptionPrimaryLocale?: string
     branchId?: string
+    runtimePolicy?: {
+        workspaceMode?: WorkspaceModePolicy
+        requiredWorkspaceModeAcknowledged?: boolean
+    }
 }
 
 /**

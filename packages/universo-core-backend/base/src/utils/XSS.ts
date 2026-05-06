@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express'
+import type { CorsOptions } from 'cors'
 import sanitizeHtml from 'sanitize-html'
 
 export function sanitizeMiddleware(req: Request, res: Response, next: NextFunction): void {
@@ -24,7 +25,7 @@ export function getAllowedCorsOrigins(): string {
     return process.env.CORS_ORIGINS ?? '*'
 }
 
-export function getCorsOptions(): any {
+export function getCorsOptions(): CorsOptions {
     const allowedOriginsStr = getAllowedCorsOrigins() // Reads process.env.CORS_ORIGINS ?? '*'
     const allowedOriginsArr = allowedOriginsStr === '*' ? ['*'] : allowedOriginsStr.split(',').map((origin) => origin.trim())
 

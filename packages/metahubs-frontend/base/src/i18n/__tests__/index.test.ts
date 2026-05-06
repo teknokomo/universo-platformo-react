@@ -17,4 +17,12 @@ describe('metahubs i18n consolidation', () => {
 
         expect(translations.fieldDefinitions?.title).toBe('Атрибуты')
     })
+
+    it('keeps Pages translations inside the consolidated metahubs namespace', () => {
+        const translations = getMetahubsTranslations('ru') as {
+            pages?: { title?: string }
+        }
+
+        expect(translations.pages?.title).toBe('Страницы')
+    })
 })
