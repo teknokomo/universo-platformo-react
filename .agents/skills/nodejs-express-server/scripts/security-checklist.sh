@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-OUTPUT="${{1:-/dev/stdout}}"
+OUTPUT="${1:-/dev/stdout}"
 
 cat > "$OUTPUT" << 'CHECKLIST'
 # Security Review Checklist

@@ -95,11 +95,8 @@ form.addEventListener('submit', (e) => {
   if (firstError) {
     e.preventDefault();
     firstError.focus();
-
-    const errorSummary = document.getElementById('error-summary');
-    errorSummary.textContent =
-      `${errors.length} errors found. Please fix them and try again.`;
-    errorSummary.focus();
+    // For a more robust implementation, you could also add an error summary
+    // at the top of the form and focus that instead.
   }
 });
 ```

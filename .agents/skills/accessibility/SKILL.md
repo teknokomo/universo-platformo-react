@@ -389,7 +389,7 @@ Use `aria-live` regions to announce dynamic content changes without moving focus
 npx lighthouse https://example.com --only-categories=accessibility
 
 # axe-core
-npm install @axe-core/cli -g
+pnpm add -g @axe-core/cli
 axe https://example.com
 ```
 

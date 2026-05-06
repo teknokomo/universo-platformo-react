@@ -320,6 +320,7 @@ import { UnauthorizedError } from "../utils/errors";
 interface JWTPayload {
   userId: string;
   email: string;
+  roles: string[];
 }
 
 declare global {
