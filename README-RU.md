@@ -6,7 +6,7 @@
 
 # Universo Platformo React
 
-[![Version](https://img.shields.io/badge/version-0.62.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
+[![Version](https://img.shields.io/badge/version-0.63.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
 [![License: Omsk Open License](https://img.shields.io/badge/license-Omsk%20Open%20License-green)](LICENSE.md)
 
 **Внимание, пожалуйста, прочитайте это внимательно.**
@@ -63,7 +63,7 @@ Universo Platformo React — это текущая эталонная реали
 
 ## Текущий статус
 
-**Текущая версия**: 0.62.0-alpha (май 2026). Проект остаётся в альфа-стадии и готовится к более стабильной бета-фазе.
+**Текущая версия**: 0.63.0-alpha (май 2026). Проект остаётся в альфа-стадии и готовится к более стабильной бета-фазе.
 
 ## Технологический стек
 
@@ -168,9 +168,11 @@ Universo Platformo разрабатывается на нескольких те
         BOOTSTRAP_SUPERUSER_ENABLED=true
         BOOTSTRAP_SUPERUSER_EMAIL=demo-admin@example.com
         BOOTSTRAP_SUPERUSER_PASSWORD=ChangeMe_123456!
+        NODE_ENV=development
         ```
     - `SERVICE_ROLE_KEY` обязателен для server-side provisioning-задач, включая стартовый bootstrap суперпользователя и создание пользователей из админ-панели.
     - `BOOTSTRAP_SUPERUSER_EMAIL` и `BOOTSTRAP_SUPERUSER_PASSWORD` являются demo credentials только для первого локального bootstrap. Перед любым реальным развёртыванием обязательно замените их.
+    - `NODE_ENV=development` включает функции разработки, такие как сброс базы данных. Никогда не используйте в production.
     - При необходимости создайте `.env` в `packages/universo-core-frontend/base` для UI-специфичных настроек, например `VITE_PORT`.
 
 4. Соберите workspace.
@@ -184,6 +186,14 @@ Universo Platformo разрабатывается на нескольких те
     ```bash
     pnpm start
     ```
+
+    Для полного сброса (чистая сборка + полный сброс базы данных), используйте:
+
+    ```bash
+    pnpm start:allclean
+    ```
+
+    > **Предупреждение**: `start:allclean` выполняет полный сброс базы данных, удаляя все данные. Используйте только в development-окружениях.
 
 6. Откройте [http://localhost:3000](http://localhost:3000).
 

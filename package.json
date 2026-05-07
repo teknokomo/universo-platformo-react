@@ -1,6 +1,6 @@
 {
     "name": "universo-platformo-react",
-    "version": "upr-0.62.0-alpha",
+    "version": "upr-0.63.0-alpha",
     "private": true,
     "packageManager": "pnpm@10.33.2",
     "homepage": "https://universo.pro",
@@ -26,6 +26,8 @@
         "start": "run-script-os",
         "start:windows": "cd packages/universo-core-backend/base/bin && run start",
         "start:default": "cd packages/universo-core-backend/base/bin && ./run start",
+        "start:clean": "pnpm clean:all && pnpm install && pnpm build && pnpm start",
+        "start:allclean": "pnpm clean:all && pnpm install && pnpm build && pnpm start --reset-db",
         "start-worker": "run-script-os",
         "start-worker:windows": "cd packages/universo-core-backend/base/bin && run worker",
         "start-worker:default": "cd packages/universo-core-backend/base/bin && ./run worker",

@@ -42,6 +42,7 @@ import errorHandlerMiddleware from './middlewares/errors'
 import { API_WHITELIST_URLS, isGlobalMigrationCatalogEnabled, parsePositiveInt, resolveRateLimitKey } from '@universo/utils'
 import 'global-agent/bootstrap'
 import { bootstrapStartupSuperuser } from './bootstrap/bootstrapSuperuser'
+import { executeStartupFullReset } from './bootstrap/startupReset'
 import { createSupabaseAdminClient } from './utils/supabaseAdmin'
 
 const parseSameSite = (value?: string): boolean | 'lax' | 'strict' | 'none' => {
@@ -79,6 +80,10 @@ export class App {
 
     async initDatabase() {
         try {
+            // Check for forced reset via CLI flag (--reset-db)
+            const forceReset = process.env._FORCE_DATABASE_RESET === 'true'
+            await executeStartupFullReset(forceReset ? { force: true } : undefined)
+
             logger.info('📦 [server]: Knex is initializing...')
             await assertIsolatedVmRuntimeAvailable()
             logger.info('[server]: Scripting runtime compatibility verified')
