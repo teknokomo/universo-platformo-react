@@ -224,28 +224,44 @@ interface AuthUserDeleteResult {
     message?: string
 }
 
-async function deleteAllAuthUsers(config: StartupResetEnabledConfig): Promise<AuthUserDeleteResult[]> {
+async function deleteAllAuthUsers(
+    config: StartupResetEnabledConfig,
+    authUsers: { id: string; email: string }[]
+): Promise<AuthUserDeleteResult[]> {
     const supabaseAdmin = createSupabaseAdminClient(config.supabaseUrl, config.serviceRoleKey)
-
-    // Read auth users via SQL (inside the advisory lock transaction)
-    // We already have them from inspectDatabaseState, but we need to re-read
-    // because the SQL query runs in the transaction context
-    const poolExec = getPoolExecutor()
-    const authUsers = await readAuthUsers(poolExec)
 
     const results: AuthUserDeleteResult[] = []
 
-    for (const user of authUsers) {
-        try {
-            const { error } = await supabaseAdmin.auth.admin.deleteUser(user.id)
-            if (error) {
-                throw error
-            }
-            results.push({ userId: user.id, email: user.email, status: 'deleted' })
-        } catch (error) {
-            const message = error instanceof Error ? error.message : String(error)
-            results.push({ userId: user.id, email: user.email, status: 'failed', message })
-            logger.error(`[startup-reset]: Failed to delete auth user ${user.email}`, { error: message })
+    // Process users in batches to respect Supabase rate limits (bucket of ~30 requests)
+    // Using sequential processing with small delays to avoid 429 errors
+    const BATCH_SIZE = 10
+    const BATCH_DELAY_MS = 100
+
+    for (let i = 0; i < authUsers.length; i += BATCH_SIZE) {
+        const batch = authUsers.slice(i, i + BATCH_SIZE)
+
+        // Process batch in parallel (within rate limit tolerance)
+        const batchResults = await Promise.all(
+            batch.map(async (user) => {
+                try {
+                    const { error } = await supabaseAdmin.auth.admin.deleteUser(user.id)
+                    if (error) {
+                        throw error
+                    }
+                    return { userId: user.id, email: user.email, status: 'deleted' as const }
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : String(error)
+                    logger.error(`[startup-reset]: Failed to delete auth user ${user.email}`, { error: message })
+                    return { userId: user.id, email: user.email, status: 'failed' as const, message }
+                }
+            })
+        )
+
+        results.push(...batchResults)
+
+        // Add delay between batches to respect rate limits
+        if (i + BATCH_SIZE < authUsers.length) {
+            await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS))
         }
     }
 
@@ -317,7 +333,7 @@ export async function executeStartupFullReset(
 
             const dropResults = await dropProjectSchemas(tx, beforeState.ownedSchemas, fixedProjectSchemas)
 
-            const deleteResults = await deleteAllAuthUsers(config)
+            const deleteResults = await deleteAllAuthUsers(config, beforeState.authUsers)
 
             await tx.query('CREATE SCHEMA IF NOT EXISTS public')
 

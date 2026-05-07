@@ -80,7 +80,6 @@ describe('startupReset', () => {
 
         // Default: all SQL queries return empty arrays (no schemas, no users)
         mockTx.query.mockResolvedValue([])
-        mockPoolExec.query.mockResolvedValue([])
     })
 
     afterAll(() => {
@@ -183,8 +182,7 @@ describe('startupReset', () => {
                 return Promise.resolve([])
             })
 
-            // Auth users for deleteAllAuthUsers (uses poolExec)
-            mockPoolExec.query.mockResolvedValue([])
+            // Auth users returned via tx.query (auth.users SQL)
             mockSupabaseAdmin.auth.admin.deleteUser.mockResolvedValue({ error: null })
 
             const result = await executeStartupFullReset()
@@ -204,12 +202,25 @@ describe('startupReset', () => {
         })
 
         it('deletes auth users via Supabase Admin API', async () => {
-            // No schemas in tx, but auth users exist via poolExec
-            mockTx.query.mockResolvedValue([])
-            mockPoolExec.query.mockResolvedValue([
-                { id: 'user-1', email: 'a@test.com' },
-                { id: 'user-2', email: 'b@test.com' }
-            ])
+            // Track how many times auth.users was queried
+            let authUsersQueryCount = 0
+
+            // Auth users returned via tx.query (auth.users SQL)
+            mockTx.query.mockImplementation((sql) => {
+                if (sql.includes('auth.users')) {
+                    authUsersQueryCount++
+                    // First query = beforeState (return users)
+                    // Second query = afterState (return empty, simulating successful deletion)
+                    if (authUsersQueryCount === 1) {
+                        return Promise.resolve([
+                            { id: 'user-1', email: 'a@test.com' },
+                            { id: 'user-2', email: 'b@test.com' }
+                        ])
+                    }
+                    return Promise.resolve([])
+                }
+                return Promise.resolve([])
+            })
 
             await executeStartupFullReset()
 
@@ -235,7 +246,6 @@ describe('startupReset', () => {
                 if (sql.includes('auth.users')) return Promise.resolve([])
                 return Promise.resolve([])
             })
-            mockPoolExec.query.mockResolvedValue([])
 
             const result = await executeStartupFullReset()
 
@@ -270,7 +280,6 @@ describe('startupReset', () => {
                 }
                 return Promise.resolve([])
             })
-            mockPoolExec.query.mockResolvedValue([])
 
             await expect(executeStartupFullReset()).rejects.toThrow('Startup reset incomplete')
         })
@@ -285,7 +294,6 @@ describe('startupReset', () => {
             process.env.SERVICE_ROLE_KEY = 'test-key'
 
             mockTx.query.mockResolvedValue([])
-            mockPoolExec.query.mockResolvedValue([])
         })
 
         it('executes reset when force=true even if env var is false', async () => {
@@ -349,7 +357,6 @@ describe('startupReset', () => {
                 if (sql.includes('auth.users')) return Promise.resolve([])
                 return Promise.resolve([])
             })
-            mockPoolExec.query.mockResolvedValue([])
             mockSupabaseAdmin.auth.admin.deleteUser.mockResolvedValue({ error: null })
 
             const result = await executeStartupFullReset({ force: true })
