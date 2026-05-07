@@ -9,8 +9,37 @@
 **The table below MUST remain at the top of this file. All new progress entries should be added BELOW this table.**
 | Release | Date | Codename | Highlights |
 | ------------ | ---------- | -------------- | ------------------------------ |
-| 0.62.0-alpha | 2026-05-06 | 0.62.0 Alpha — 2026-05-06 | Node.js 22 migration, isolated-vm 6.x upgrade, autoskills support |
+| 0.62.0-alpha | 2026-05-06 | 0.62.0 Alpha — 2026-05-06 | Node.js 22 migration, isolated-vm 6.x upgrade, autoskills support, startup DB reset |
 | 0.61.0-alpha | 2026-04-29 | 0.61.0 Alpha — 2026-04-30 | Harden data-driven entity resource surfaces |
+
+---
+
+## Completed: Startup Supabase Full Reset (2026-05-07)
+
+> Goal: Enable runtime-configurable full Supabase database reset at platform startup via `.env` configuration.
+
+### Summary
+
+Implemented `FULL_DATABASE_RESET` environment variable that performs a complete database reset (drops all project-owned schemas, deletes all Supabase auth users) before platform initialization. Reuses the proven E2E cleanup algorithm adapted for the TypeScript/DbExecutor stack.
+
+### Changes Made
+
+**New module:** `packages/universo-core-backend/base/src/bootstrap/startupReset.ts`
+- Config parsing with `FULL_DATABASE_RESET` env var (off by default)
+- Production guard (`NODE_ENV=production` blocks execution)
+- Advisory lock via `withAdvisoryLock` + `getPoolExecutor()` (same pattern as `bootstrapSuperuser.ts`)
+- Schema discovery from `registeredSystemAppDefinitions` + dynamic schema detection
+- Safe schema drop with `quoteIdentifier`, validation regex, infrastructure protection
+- Auth user deletion via `supabaseAdmin.auth.admin.deleteUser()`
+- Post-reset verification with residue detection
+
+**Integration:** `packages/universo-core-backend/base/src/index.ts` — `executeStartupFullReset()` called before migrations in `initDatabase()`
+
+**Environment:** `.env.example` / `.env` — "DANGER ZONE" block with `FULL_DATABASE_RESET`
+
+**Tests:** 14 new tests (13 in `startupReset.test.ts`, 1 in `App.initDatabase.test.ts`)
+
+**Documentation:** `docs/en/` and `docs/ru/getting-started/configuration.md` — "Danger Zone" section
 
 ---
 

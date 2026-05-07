@@ -6,6 +6,25 @@
 
 ## Current Task Ledger (Canonical)
 
+## Completed: start:allclean Command Implementation (2026-05-07)
+
+> All phases implemented and verified. The `start:allclean` command performs a complete platform reset with database cleanup via `--reset-db` CLI flag.
+
+**Implementation summary:**
+- Added `force` parameter to `executeStartupFullReset()` for bypassing env var check
+- Added `--reset-db` CLI flag to `start.ts` command
+- Added `start:allclean` script to root `package.json`
+- Added `NODE_ENV=development` to `.env` and `.env.example`
+- Updated documentation (EN/RU)
+- All 21 unit tests pass
+- Full build passes (30 packages)
+
+---
+
+## Completed: Startup Supabase Full Reset (2026-05-07)
+
+> All phases implemented and QA-verified. See progress.md for details.
+
 ## Active: Node.js 22 Migration (2026-05-06)
 
 > Goal: Migrate project from Node.js 20 to Node.js 22.6.0+ to enable autoskills tool support.

@@ -6,7 +6,7 @@
 
 # Universo Platformo React
 
-[![Version](https://img.shields.io/badge/version-0.62.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
+[![Version](https://img.shields.io/badge/version-0.63.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
 [![License: Omsk Open License](https://img.shields.io/badge/license-Omsk%20Open%20License-green)](LICENSE.md)
 
 **Attention, please read this carefully.**
@@ -63,7 +63,7 @@ Website: [https://universo.pro](https://universo.pro)
 
 ## Current Status
 
-**Current version**: 0.62.0-alpha (May 2026). The project remains in alpha and is being prepared for a more stable beta phase.
+**Current version**: 0.63.0-alpha (May 2026). The project remains in alpha and is being prepared for a more stable beta phase.
 
 ## Tech Stack
 
@@ -168,9 +168,11 @@ Each implementation shares the same strategic direction, and the high-level abst
         BOOTSTRAP_SUPERUSER_ENABLED=true
         BOOTSTRAP_SUPERUSER_EMAIL=demo-admin@example.com
         BOOTSTRAP_SUPERUSER_PASSWORD=ChangeMe_123456!
+        NODE_ENV=development
         ```
     - `SERVICE_ROLE_KEY` is required for server-side provisioning tasks such as startup superuser bootstrap and admin-side user creation.
     - `BOOTSTRAP_SUPERUSER_EMAIL` and `BOOTSTRAP_SUPERUSER_PASSWORD` are demo credentials for first local bootstrap only. Change both before any real deployment.
+    - `NODE_ENV=development` enables development features like database reset. Never use in production.
     - Optionally create `.env` in `packages/universo-core-frontend/base` for UI-specific settings such as `VITE_PORT`.
 
 4. Build the workspace.
@@ -184,6 +186,14 @@ Each implementation shares the same strategic direction, and the high-level abst
     ```bash
     pnpm start
     ```
+
+    For a complete reset (clean build + full database reset), use:
+
+    ```bash
+    pnpm start:allclean
+    ```
+
+    > **Warning**: `start:allclean` performs a complete database reset, deleting all data. Only use in development environments.
 
 6. Open [http://localhost:3000](http://localhost:3000).
 

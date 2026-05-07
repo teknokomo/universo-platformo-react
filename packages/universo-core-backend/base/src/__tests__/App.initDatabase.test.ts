@@ -76,6 +76,7 @@ const mockBootstrapStartupSuperuser = jest.fn().mockResolvedValue({
     enabled: false,
     status: 'disabled'
 })
+const mockExecuteStartupFullReset = jest.fn().mockResolvedValue({ enabled: false, status: 'disabled' })
 const mockKnex = { tag: 'knex' }
 const mockGetKnex = jest.fn(() => mockKnex)
 const mockDestroyKnex = jest.fn().mockResolvedValue(undefined)
@@ -104,6 +105,14 @@ jest.mock('../routes', () => ({
 jest.mock('../bootstrap/bootstrapSuperuser', () => ({
     bootstrapStartupSuperuser: (...args: unknown[]) => mockBootstrapStartupSuperuser(...args)
 }))
+
+jest.mock(
+    '../bootstrap/startupReset',
+    () => ({
+        executeStartupFullReset: (...args: unknown[]) => mockExecuteStartupFullReset(...args)
+    }),
+    { virtual: true }
+)
 
 jest.mock('../middlewares/errors', () => ({
     __esModule: true,
@@ -266,6 +275,10 @@ describe('App.initDatabase', () => {
             enabled: false,
             status: 'disabled'
         })
+        mockExecuteStartupFullReset.mockResolvedValue({
+            enabled: false,
+            status: 'disabled'
+        })
     })
 
     it('initializes database and runs unified platform migrations', async () => {
@@ -273,6 +286,10 @@ describe('App.initDatabase', () => {
 
         await app.initDatabase()
 
+        expect(mockExecuteStartupFullReset).toHaveBeenCalledTimes(1)
+        expect(mockAssertIsolatedVmRuntimeAvailable.mock.invocationCallOrder[0]).toBeGreaterThan(
+            mockExecuteStartupFullReset.mock.invocationCallOrder[0]
+        )
         expect(mockAssertIsolatedVmRuntimeAvailable).toHaveBeenCalledTimes(1)
         expect(mockValidateRegisteredPlatformMigrations.mock.invocationCallOrder[0]).toBeGreaterThan(
             mockAssertIsolatedVmRuntimeAvailable.mock.invocationCallOrder[0]
@@ -511,5 +528,56 @@ describe('App.initDatabase', () => {
         expect(mockSyncRegisteredPlatformDefinitionsToCatalog).not.toHaveBeenCalled()
         expect(mockLogger.info).toHaveBeenCalledWith('[server]: Global migration catalog is disabled; skipping catalog definition sync')
         expect(mockDestroyKnex).not.toHaveBeenCalled()
+    })
+
+    it('fails fast when startup full reset throws', async () => {
+        mockExecuteStartupFullReset.mockRejectedValueOnce(new Error('reset failed'))
+        const app = new App()
+
+        await expect(app.initDatabase()).rejects.toThrow('reset failed')
+
+        expect(mockAssertIsolatedVmRuntimeAvailable).not.toHaveBeenCalled()
+        expect(mockRunRegisteredPlatformPreludeMigrations).not.toHaveBeenCalled()
+        expect(mockDestroyKnex).toHaveBeenCalledTimes(1)
+        expect(mockLogger.error).toHaveBeenCalledWith('❌ [server]: Error during database initialization:', expect.any(Error))
+    })
+
+    it('passes force=true when _FORCE_DATABASE_RESET env is set', async () => {
+        process.env._FORCE_DATABASE_RESET = 'true'
+        process.env.FULL_DATABASE_RESET = 'false'
+
+        mockExecuteStartupFullReset.mockResolvedValueOnce({
+            enabled: true,
+            executedAt: '2026-05-07T00:00:00.000Z',
+            droppedSchemas: [],
+            deletedAuthUsers: [],
+            before: { schemaCount: 0, authUserCount: 0 },
+            after: { schemaCount: 0, authUserCount: 0 }
+        })
+
+        const app = new App()
+        await app.initDatabase()
+
+        expect(mockExecuteStartupFullReset).toHaveBeenCalledWith({ force: true })
+    })
+
+    it('does not pass force when _FORCE_DATABASE_RESET env is not set', async () => {
+        delete process.env._FORCE_DATABASE_RESET
+        process.env.FULL_DATABASE_RESET = 'false'
+
+        const app = new App()
+        await app.initDatabase()
+
+        expect(mockExecuteStartupFullReset).toHaveBeenCalledWith(undefined)
+    })
+
+    it('does not pass force when _FORCE_DATABASE_RESET env is false', async () => {
+        process.env._FORCE_DATABASE_RESET = 'false'
+        process.env.FULL_DATABASE_RESET = 'false'
+
+        const app = new App()
+        await app.initDatabase()
+
+        expect(mockExecuteStartupFullReset).toHaveBeenCalledWith(undefined)
     })
 })
