@@ -1,5 +1,6 @@
 import type { CatalogRecordBehavior, ScriptPostingMovement } from '@universo/types'
 import type { DbExecutor } from '@universo/utils'
+import { z } from 'zod'
 import { UpdateFailure } from '../shared/runtimeHelpers'
 import { RuntimeLedgerService } from './runtimeLedgersService'
 
@@ -16,6 +17,22 @@ const MAX_MOVEMENTS_PER_POST = 50
 const MAX_FACTS_PER_MOVEMENT = 100
 const LEDGER_CODENAME_PATTERN = /^[A-Za-z0-9_.-]{1,120}$/
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+const storedPostingFactSchema = z
+    .object({
+        id: z.string().regex(UUID_PATTERN),
+        idempotent: z.boolean().optional()
+    })
+    .strict()
+
+const storedPostingMovementSchema = z
+    .object({
+        ledgerCodename: z.string().trim().regex(LEDGER_CODENAME_PATTERN),
+        facts: z.array(storedPostingFactSchema).min(1).max(MAX_FACTS_PER_MOVEMENT)
+    })
+    .strict()
+
+const storedPostingMovementsSchema = z.array(storedPostingMovementSchema).max(MAX_MOVEMENTS_PER_POST)
 
 const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
     Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -204,58 +221,38 @@ export class RuntimePostingMovementService {
         if (value === null || value === undefined) {
             return []
         }
-        if (!Array.isArray(value)) {
+        const parsed = storedPostingMovementsSchema.safeParse(value)
+        if (!parsed.success) {
+            const firstIssue = parsed.error.issues[0]
+            const message = this.formatStoredMovementValidationError(firstIssue?.path ?? [])
             throw new UpdateFailure(409, {
-                error: 'Stored posting movements are invalid',
+                error: message,
                 code: 'POSTING_REVERSAL_INVALID'
             })
         }
 
-        return value.map((movement) => {
-            if (!isPlainRecord(movement)) {
-                throw new UpdateFailure(409, {
-                    error: 'Stored posting movement is invalid',
-                    code: 'POSTING_REVERSAL_INVALID'
-                })
+        return parsed.data.map((movement) => ({
+            ledgerCodename: movement.ledgerCodename,
+            facts: movement.facts.map((fact) => ({
+                id: fact.id,
+                idempotent: fact.idempotent === true
+            }))
+        }))
+    }
+
+    private formatStoredMovementValidationError(path: Array<string | number>): string {
+        if (path.length === 0) {
+            return 'Stored posting movements are invalid'
+        }
+        if (path.includes('ledgerCodename')) {
+            return 'Stored posting movement ledgerCodename is invalid'
+        }
+        if (path.includes('facts')) {
+            if (path.includes('id')) {
+                return 'Stored posting movement fact id is invalid'
             }
-
-            const ledgerCodename = typeof movement.ledgerCodename === 'string' ? movement.ledgerCodename.trim() : ''
-            if (!LEDGER_CODENAME_PATTERN.test(ledgerCodename)) {
-                throw new UpdateFailure(409, {
-                    error: 'Stored posting movement ledgerCodename is invalid',
-                    code: 'POSTING_REVERSAL_INVALID'
-                })
-            }
-
-            if (!Array.isArray(movement.facts)) {
-                throw new UpdateFailure(409, {
-                    error: 'Stored posting movement facts are invalid',
-                    code: 'POSTING_REVERSAL_INVALID'
-                })
-            }
-
-            const facts = movement.facts.map((fact) => {
-                if (!isPlainRecord(fact) || typeof fact.id !== 'string' || !UUID_PATTERN.test(fact.id)) {
-                    throw new UpdateFailure(409, {
-                        error: 'Stored posting movement fact id is invalid',
-                        code: 'POSTING_REVERSAL_INVALID'
-                    })
-                }
-
-                return {
-                    id: fact.id,
-                    idempotent: fact.idempotent === true
-                }
-            })
-
-            if (facts.length === 0) {
-                throw new UpdateFailure(409, {
-                    error: 'Stored posting movement facts must not be empty',
-                    code: 'POSTING_REVERSAL_INVALID'
-                })
-            }
-
-            return { ledgerCodename, facts }
-        })
+            return 'Stored posting movement facts are invalid'
+        }
+        return 'Stored posting movement is invalid'
     }
 }

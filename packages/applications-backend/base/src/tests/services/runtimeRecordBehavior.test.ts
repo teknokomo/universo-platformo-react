@@ -244,6 +244,48 @@ describe('runtimeRecordBehavior', () => {
         expect(update.setClauses).toContain('_app_posting_batch_id = public.uuid_generate_v7()')
     })
 
+    it('builds initial record system fields for transactional create flows', async () => {
+        const { executor } = createMockDbExecutor()
+        executor.query.mockResolvedValue([{ last_number: '7' }])
+        const service = new RuntimeRecordCommandService()
+
+        const columnValues = await service.buildInitialCreateColumnValues({
+            columnValues: [{ column: 'name', value: 'Enrollment' }],
+            behavior: normalizeRuntimeRecordBehavior({
+                recordBehavior: {
+                    mode: 'transactional',
+                    numbering: {
+                        enabled: true,
+                        scope: 'workspace',
+                        periodicity: 'month',
+                        prefix: 'ENR-',
+                        minLength: 4
+                    },
+                    effectiveDate: {
+                        enabled: true,
+                        defaultToNow: true
+                    },
+                    posting: {
+                        mode: 'manual'
+                    }
+                }
+            }),
+            manager: executor,
+            schemaIdent: '"app_schema"',
+            objectId: 'object-1',
+            currentWorkspaceId: 'workspace-1',
+            currentUserId: 'user-1',
+            date: new Date('2026-05-07T00:00:00.000Z')
+        })
+
+        expect(columnValues).toEqual([
+            { column: 'name', value: 'Enrollment' },
+            { column: '_app_record_number', value: 'ENR-0007' },
+            { column: '_app_record_date', value: new Date('2026-05-07T00:00:00.000Z') },
+            { column: '_app_record_state', value: 'draft' }
+        ])
+    })
+
     it('rejects invalid command transitions through RuntimeRecordCommandService before mutation planning', () => {
         const service = new RuntimeRecordCommandService()
 

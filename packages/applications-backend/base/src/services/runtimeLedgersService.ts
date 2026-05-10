@@ -1,5 +1,6 @@
 import {
     DEFAULT_LEDGER_CONFIG,
+    normalizeLedgerConfig,
     normalizeLedgerConfigFromConfig,
     type LedgerConfig,
     type LedgerProjectionDefinition,
@@ -101,17 +102,7 @@ const normalizeOffset = (value: number | undefined): number => {
 const readLedgerConfig = (config: Record<string, unknown> | null | undefined): LedgerConfig | null =>
     normalizeLedgerConfigFromConfig(config)
 
-const resolveLedgerConfig = (config: LedgerConfig | null): LedgerConfig => ({
-    ...DEFAULT_LEDGER_CONFIG,
-    ...(config ?? {}),
-    idempotency: {
-        ...DEFAULT_LEDGER_CONFIG.idempotency,
-        ...(config?.idempotency ?? {})
-    },
-    fieldRoles: config?.fieldRoles ?? DEFAULT_LEDGER_CONFIG.fieldRoles,
-    projections: config?.projections ?? DEFAULT_LEDGER_CONFIG.projections,
-    registrarKinds: config?.registrarKinds ?? DEFAULT_LEDGER_CONFIG.registrarKinds
-})
+const resolveLedgerConfig = (config: LedgerConfig | null): LedgerConfig => normalizeLedgerConfig(config ?? DEFAULT_LEDGER_CONFIG)
 
 const assertLedgerWriteAllowed = (
     config: LedgerConfig | null,

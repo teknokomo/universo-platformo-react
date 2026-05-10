@@ -3,6 +3,7 @@ import type { DbExecutor } from '@universo/utils'
 import { UpdateFailure } from '../shared/runtimeHelpers'
 
 export type RuntimeRecordCommand = 'post' | 'unpost' | 'void'
+export type RuntimeRecordCreateColumnValue = { column: string; value: unknown }
 
 export const normalizeRuntimeRecordBehavior = (config: Record<string, unknown> | null | undefined): CatalogRecordBehavior =>
     normalizeCatalogRecordBehaviorFromConfig(config)
@@ -101,6 +102,47 @@ export class RuntimeNumberingService {
 
 export class RuntimeRecordCommandService {
     constructor(private readonly numberingService = new RuntimeNumberingService()) {}
+
+    async buildInitialCreateColumnValues(params: {
+        columnValues: readonly RuntimeRecordCreateColumnValue[]
+        behavior: CatalogRecordBehavior
+        manager: DbExecutor
+        schemaIdent: string
+        objectId: string
+        currentWorkspaceId: string | null
+        currentUserId: string | null
+        date?: Date
+    }): Promise<RuntimeRecordCreateColumnValue[]> {
+        const createColumnValues = [...params.columnValues]
+
+        if (!isRuntimeRecordBehaviorEnabled(params.behavior)) {
+            return createColumnValues
+        }
+
+        const recordDate = params.date ?? new Date()
+        if (params.behavior.numbering.enabled && !createColumnValues.some((item) => item.column === '_app_record_number')) {
+            const recordNumber = await this.numberingService.allocate({
+                manager: params.manager,
+                schemaIdent: params.schemaIdent,
+                objectId: params.objectId,
+                behavior: params.behavior,
+                currentWorkspaceId: params.currentWorkspaceId,
+                currentUserId: params.currentUserId,
+                date: recordDate
+            })
+            createColumnValues.push({ column: '_app_record_number', value: recordNumber })
+        }
+
+        if (params.behavior.effectiveDate.enabled && params.behavior.effectiveDate.defaultToNow) {
+            createColumnValues.push({ column: '_app_record_date', value: recordDate })
+        }
+
+        if (params.behavior.lifecycle.enabled || params.behavior.posting.mode !== 'disabled') {
+            createColumnValues.push({ column: '_app_record_state', value: 'draft' })
+        }
+
+        return createColumnValues
+    }
 
     assertCommandAllowed(command: RuntimeRecordCommand, previousRow: Record<string, unknown>): string {
         const state = typeof previousRow._app_record_state === 'string' ? previousRow._app_record_state : 'draft'

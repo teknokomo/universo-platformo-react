@@ -3411,13 +3411,14 @@ describe('Applications Routes', () => {
             nextRow?: Record<string, unknown>
         ) => {
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
-                    return [
-                        {
-                            id: runtimeLinkedCollectionId,
-                            codename: 'documents',
-                            table_name: 'documents',
-                            config: recordBehaviorConfig
+	                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+	                    return [
+	                        {
+	                            id: runtimeLinkedCollectionId,
+	                            kind: 'catalog',
+	                            codename: 'documents',
+	                            table_name: 'documents',
+	                            config: recordBehaviorConfig
                         }
                     ]
                 }
@@ -3517,7 +3518,11 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects') && sql.includes("config->'components'->'ledgerSchema'")) {
+	                if (
+	                    sql.includes('FROM "app_runtime_test"._app_objects') &&
+	                    sql.includes("config->'components'->'ledgerSchema'") &&
+	                    !sql.includes('AND NOT')
+	                ) {
                     return [
                         {
                             id: '018f8a78-7b8f-7c1d-a111-222233334576',
@@ -3537,11 +3542,12 @@ describe('Applications Routes', () => {
                 }
                 if (sql.includes('FROM "app_runtime_test"._app_objects')) {
                     return [
-                        {
-                            id: runtimeLinkedCollectionId,
-                            codename: 'documents',
-                            table_name: 'documents',
-                            config: recordBehaviorWithLedgerConfig
+	                        {
+	                            id: runtimeLinkedCollectionId,
+	                            kind: 'catalog',
+	                            codename: 'documents',
+	                            table_name: 'documents',
+	                            config: recordBehaviorWithLedgerConfig
                         }
                     ]
                 }
@@ -3625,7 +3631,11 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects') && sql.includes("config->'components'->'ledgerSchema'")) {
+	                if (
+	                    sql.includes('FROM "app_runtime_test"._app_objects') &&
+	                    sql.includes("config->'components'->'ledgerSchema'") &&
+	                    !sql.includes('AND NOT')
+	                ) {
                     return [
                         {
                             id: '018f8a78-7b8f-7c1d-a111-222233334576',
@@ -3654,11 +3664,12 @@ describe('Applications Routes', () => {
                 }
                 if (sql.includes('FROM "app_runtime_test"._app_objects')) {
                     return [
-                        {
-                            id: runtimeLinkedCollectionId,
-                            codename: 'documents',
-                            table_name: 'documents',
-                            config: recordBehaviorWithLedgerConfig
+	                        {
+	                            id: runtimeLinkedCollectionId,
+	                            kind: 'catalog',
+	                            codename: 'documents',
+	                            table_name: 'documents',
+	                            config: recordBehaviorWithLedgerConfig
                         }
                     ]
                 }
@@ -3783,7 +3794,11 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM "app_runtime_test"._app_objects') && sql.includes("config->'components'->'ledgerSchema'")) {
+	                if (
+	                    sql.includes('FROM "app_runtime_test"._app_objects') &&
+	                    sql.includes("config->'components'->'ledgerSchema'") &&
+	                    !sql.includes('AND NOT')
+	                ) {
                     return [
                         {
                             id: '018f8a78-7b8f-7c1d-a111-222233334576',
@@ -3803,11 +3818,12 @@ describe('Applications Routes', () => {
                 }
                 if (sql.includes('FROM "app_runtime_test"._app_objects')) {
                     return [
-                        {
-                            id: runtimeLinkedCollectionId,
-                            codename: 'documents',
-                            table_name: 'documents',
-                            config: recordBehaviorWithLedgerConfig
+	                        {
+	                            id: runtimeLinkedCollectionId,
+	                            kind: 'catalog',
+	                            codename: 'documents',
+	                            table_name: 'documents',
+	                            config: recordBehaviorWithLedgerConfig
                         }
                     ]
                 }

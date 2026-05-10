@@ -20,7 +20,6 @@ import {
 import { generateChildTableName } from '@universo/schema-ddl'
 import { getCatalogWorkspaceLimit, getCatalogWorkspaceUsage, enforceCatalogWorkspaceLimit } from '../services/applicationWorkspaces'
 import {
-    allocateRuntimeRecordNumber,
     assertRuntimeRecordMutable,
     isRuntimeRecordBehaviorEnabled,
     normalizeRuntimeRecordBehavior,
@@ -776,6 +775,10 @@ const dispatchRuntimeLifecycle = async (params: {
 }
 
 type RuntimeLifecycleDispatchRequest = Omit<Parameters<typeof dispatchRuntimeLifecycle>[0], 'manager'>
+type RuntimePostingMovementWriteResult = {
+    postingMovements: Array<{ ledgerCodename: string; facts: Array<{ id: string; idempotent?: boolean }> }>
+    postingReversals: Array<{ ledgerCodename: string; facts: Array<{ id: string }> }>
+}
 
 const dispatchRuntimeLifecycleAfterCommit = (manager: DbExecutor, request: RuntimeLifecycleDispatchRequest | null) => {
     if (!request) return
@@ -796,6 +799,66 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
     const query = createQueryHelper(getDbExecutor)
     const recordCommandService = new RuntimeRecordCommandService()
     const postingMovementService = new RuntimePostingMovementService()
+
+    const resolveRecordCommandEventPrefix = (command: 'post' | 'unpost' | 'void'): 'Post' | 'Unpost' | 'Void' => {
+        if (command === 'post') return 'Post'
+        if (command === 'unpost') return 'Unpost'
+        return 'Void'
+    }
+
+    const runPostingMovementWrites = async (params: {
+        command: 'post' | 'unpost' | 'void'
+        executor: DbExecutor
+        schemaName: string
+        registrarKind: string
+        behavior: ReturnType<typeof normalizeRuntimeRecordBehavior>
+        currentWorkspaceId: string | null
+        currentUserId: string
+        beforeLifecycleResults: unknown[]
+        storedMovements: unknown
+    }): Promise<RuntimePostingMovementWriteResult> => {
+        if (params.command === 'post') {
+            return {
+                postingMovements: await postingMovementService.appendMovements({
+                    executor: params.executor,
+                    schemaName: params.schemaName,
+                    registrarKind: params.registrarKind,
+                    behavior: params.behavior,
+                    currentWorkspaceId: params.currentWorkspaceId,
+                    currentUserId: params.currentUserId,
+                    results: params.beforeLifecycleResults
+                }),
+                postingReversals: []
+            }
+        }
+
+        return {
+            postingMovements: [],
+            postingReversals: await postingMovementService.reversePostedMovements({
+                executor: params.executor,
+                schemaName: params.schemaName,
+                registrarKind: params.registrarKind,
+                currentWorkspaceId: params.currentWorkspaceId,
+                currentUserId: params.currentUserId,
+                storedMovements: params.storedMovements
+            })
+        }
+    }
+
+    const buildRecordCommandResponse = (
+        command: 'post' | 'unpost' | 'void',
+        row: Record<string, unknown>,
+        movementResult: RuntimePostingMovementWriteResult
+    ): Record<string, unknown> => ({
+        id: String(row.id),
+        status: command === 'post' ? 'posted' : command === 'unpost' ? 'unposted' : 'voided',
+        recordState: row._app_record_state ?? null,
+        recordNumber: row._app_record_number ?? null,
+        postedAt: row._app_posted_at ?? null,
+        postingBatchId: row._app_posting_batch_id ?? null,
+        postingMovements: movementResult.postingMovements,
+        postingReversals: movementResult.postingReversals
+    })
 
     // ============ GET RUNTIME TABLE ============
     const getRuntime = async (req: Request, res: Response) => {
@@ -2940,28 +3003,15 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 }
             })
 
-            const createColumnValues = [...columnValues]
-            if (isRuntimeRecordBehaviorEnabled(recordBehavior)) {
-                const recordDate = new Date()
-                if (recordBehavior.numbering.enabled && !createColumnValues.some((item) => item.column === '_app_record_number')) {
-                    const recordNumber = await allocateRuntimeRecordNumber({
-                        manager: mgr,
-                        schemaIdent: ctx.schemaIdent,
-                        objectId: linkedCollection.id,
-                        behavior: recordBehavior,
-                        currentWorkspaceId: ctx.currentWorkspaceId,
-                        currentUserId: ctx.userId,
-                        date: recordDate
-                    })
-                    createColumnValues.push({ column: '_app_record_number', value: recordNumber })
-                }
-                if (recordBehavior.effectiveDate.enabled && recordBehavior.effectiveDate.defaultToNow) {
-                    createColumnValues.push({ column: '_app_record_date', value: recordDate })
-                }
-                if (recordBehavior.lifecycle.enabled || recordBehavior.posting.mode !== 'disabled') {
-                    createColumnValues.push({ column: '_app_record_state', value: 'draft' })
-                }
-            }
+            const createColumnValues = await recordCommandService.buildInitialCreateColumnValues({
+                columnValues,
+                behavior: recordBehavior,
+                manager: mgr,
+                schemaIdent: ctx.schemaIdent,
+                objectId: linkedCollection.id,
+                currentWorkspaceId: ctx.currentWorkspaceId,
+                currentUserId: ctx.userId
+            })
 
             const colNames = createColumnValues.map((cv) => quoteIdentifier(cv.column))
             const placeholders = createColumnValues.map((_, i) => `$${i + 1}`)
@@ -3374,7 +3424,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             ctx.currentWorkspaceId
         )
 
-        const eventPrefix = command === 'post' ? 'Post' : command === 'unpost' ? 'Unpost' : 'Void'
+        const eventPrefix = resolveRecordCommandEventPrefix(command)
         let afterLifecycleRequest: RuntimeLifecycleDispatchRequest | null = null
         let responsePayload: Record<string, unknown> | null = null
 
@@ -3427,29 +3477,17 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                         }
                     })) ?? []
 
-                let postingMovements: Array<{ ledgerCodename: string; facts: Array<{ id: string; idempotent?: boolean }> }> = []
-                let postingReversals: Array<{ ledgerCodename: string; facts: Array<{ id: string }> }> = []
-
-                if (command === 'post') {
-                    postingMovements = await postingMovementService.appendMovements({
-                        executor: txManager,
-                        schemaName: ctx.schemaName,
-                        registrarKind,
-                        behavior,
-                        currentWorkspaceId: ctx.currentWorkspaceId,
-                        currentUserId: ctx.userId,
-                        results: beforeLifecycleResults
-                    })
-                } else {
-                    postingReversals = await postingMovementService.reversePostedMovements({
-                        executor: txManager,
-                        schemaName: ctx.schemaName,
-                        registrarKind,
-                        currentWorkspaceId: ctx.currentWorkspaceId,
-                        currentUserId: ctx.userId,
-                        storedMovements: previousRow._app_posting_movements
-                    })
-                }
+                const movementResult = await runPostingMovementWrites({
+                    command,
+                    executor: txManager,
+                    schemaName: ctx.schemaName,
+                    registrarKind,
+                    behavior,
+                    currentWorkspaceId: ctx.currentWorkspaceId,
+                    currentUserId: ctx.userId,
+                    beforeLifecycleResults,
+                    storedMovements: previousRow._app_posting_movements
+                })
 
                 const { setClauses, values } = await recordCommandService.buildUpdate({
                     command,
@@ -3464,7 +3502,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 })
 
                 if (command === 'post') {
-                    values.push(JSON.stringify(postingMovements))
+                    values.push(JSON.stringify(movementResult.postingMovements))
                     setClauses.push(`_app_posting_movements = $${values.length}::jsonb`)
                 } else {
                     setClauses.push('_app_posting_movements = NULL')
@@ -3487,8 +3525,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     throw new UpdateFailure(404, { error: 'Row not found' })
                 }
 
-                nextRow._app_posting_movements = command === 'post' ? postingMovements : []
-                nextRow._app_posting_reversals = postingReversals
+                nextRow._app_posting_movements = movementResult.postingMovements
+                nextRow._app_posting_reversals = movementResult.postingReversals
 
                 afterLifecycleRequest = {
                     applicationId,
@@ -3504,16 +3542,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                         metadata: { command }
                     }
                 }
-                responsePayload = {
-                    id: String(nextRow.id),
-                    status: command === 'post' ? 'posted' : command === 'unpost' ? 'unposted' : 'voided',
-                    recordState: nextRow._app_record_state ?? null,
-                    recordNumber: nextRow._app_record_number ?? null,
-                    postedAt: nextRow._app_posted_at ?? null,
-                    postingBatchId: nextRow._app_posting_batch_id ?? null,
-                    postingMovements: nextRow._app_posting_movements ?? [],
-                    postingReversals: nextRow._app_posting_reversals ?? []
-                }
+                responsePayload = buildRecordCommandResponse(command, nextRow, movementResult)
             })
         } catch (error) {
             if (error instanceof UpdateFailure) {
