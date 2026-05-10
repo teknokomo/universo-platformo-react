@@ -1,4 +1,4 @@
-import type { EntityTypePresetManifest } from '@universo/types'
+import { DEFAULT_CATALOG_RECORD_BEHAVIOR, type EntityTypePresetManifest } from '@universo/types'
 import {
     CATALOG_DEFAULT_INSTANCES,
     CATALOG_TYPE_COMPONENTS,
@@ -35,7 +35,9 @@ export const catalogEntityPreset: EntityTypePresetManifest = {
                 delete: vlc('Delete Catalog', 'Удалить каталог')
             }
         },
-        config: {}
+        config: {
+            recordBehavior: DEFAULT_CATALOG_RECORD_BEHAVIOR
+        }
     },
     defaultInstances: CATALOG_DEFAULT_INSTANCES
 }

@@ -1,6 +1,81 @@
 import type { MetahubTemplateManifest, TemplateSeedZoneWidget } from '@universo/types'
 import { vlc, enrichConfigWithVlcTimestamps } from './basic.template'
 
+type LmsTemplateEntity = NonNullable<MetahubTemplateManifest['seed']['entities']>[number]
+
+const LMS_PUBLIC_GUEST_RUNTIME_CONFIG = {
+    objects: {
+        accessLinks: 'AccessLinks',
+        participants: 'Students',
+        assessments: 'Quizzes',
+        contentNodes: 'Modules',
+        assessmentResponses: 'QuizResponses',
+        contentProgress: 'ModuleProgress'
+    },
+    fields: {
+        accessLink: {
+            slug: 'Slug',
+            targetType: 'TargetType',
+            targetId: 'TargetId',
+            isActive: 'IsActive',
+            expiresAt: 'ExpiresAt',
+            maxUses: 'MaxUses',
+            useCount: 'UseCount',
+            title: 'LinkTitle',
+            classId: 'LinkClassId'
+        },
+        participant: {
+            displayName: 'DisplayName',
+            isGuest: 'IsGuest',
+            guestSessionToken: 'GuestSessionToken'
+        },
+        contentNode: {
+            title: 'Title',
+            description: 'Description',
+            contentItems: 'ContentItems'
+        },
+        contentPart: {
+            itemType: 'ItemType',
+            itemTitle: 'ItemTitle',
+            itemContent: 'ItemContent',
+            quizId: 'QuizId',
+            sortOrder: 'SortOrder'
+        },
+        assessment: {
+            title: 'Title',
+            description: 'Description',
+            passingScorePercent: 'PassingScorePercent',
+            questions: 'Questions'
+        },
+        assessmentQuestion: {
+            prompt: 'Prompt',
+            description: 'QuestionDescription',
+            questionType: 'QuestionType',
+            explanation: 'Explanation',
+            sortOrder: 'SortOrder',
+            options: 'Options'
+        },
+        assessmentResponse: {
+            studentId: 'StudentId',
+            quizId: 'QuizId',
+            questionId: 'QuestionId',
+            selectedOptionIds: 'SelectedOptionIds',
+            isCorrect: 'IsCorrect',
+            attemptNumber: 'AttemptNumber',
+            submittedAt: 'SubmittedAt'
+        },
+        contentProgress: {
+            studentId: 'ProgressStudentId',
+            moduleId: 'ModuleId',
+            status: 'ProgressStatus',
+            progressPercent: 'ProgressPercent',
+            startedAt: 'StartedAt',
+            completedAt: 'CompletedAt',
+            lastAccessedItemIndex: 'LastAccessedItemIndex'
+        }
+    }
+} as const
+
 function buildLmsSeedZoneWidgets(): TemplateSeedZoneWidget[] {
     return [
         {
@@ -115,10 +190,740 @@ function buildLmsSeedZoneWidgets(): TemplateSeedZoneWidget[] {
         },
         { zone: 'top' as const, widgetKey: 'appNavbar', sortOrder: 1 },
         { zone: 'top' as const, widgetKey: 'header', sortOrder: 2 },
+        {
+            zone: 'center' as const,
+            widgetKey: 'overviewCards',
+            sortOrder: 4,
+            config: {
+                cards: [
+                    {
+                        title: vlc('Learners', 'Учащиеся'),
+                        value: '0',
+                        interval: vlc('All workspaces', 'Все рабочие пространства'),
+                        trend: 'neutral',
+                        datasource: {
+                            kind: 'metric',
+                            metricKey: 'records.count',
+                            params: { sectionCodename: 'Students' }
+                        }
+                    },
+                    {
+                        title: vlc('Modules', 'Модули'),
+                        value: '0',
+                        interval: vlc('Published catalog', 'Опубликованный каталог'),
+                        trend: 'neutral',
+                        datasource: {
+                            kind: 'metric',
+                            metricKey: 'records.count',
+                            params: { sectionCodename: 'Modules' }
+                        }
+                    },
+                    {
+                        title: vlc('Enrollments', 'Назначения'),
+                        value: '0',
+                        interval: vlc('Training records', 'Учебные записи'),
+                        trend: 'neutral',
+                        datasource: {
+                            kind: 'metric',
+                            metricKey: 'records.count',
+                            params: { sectionCodename: 'Enrollments' }
+                        }
+                    },
+                    {
+                        title: vlc('Certificates', 'Сертификаты'),
+                        value: '0',
+                        interval: vlc('Issued facts', 'Факты выдачи'),
+                        trend: 'neutral',
+                        datasource: {
+                            kind: 'metric',
+                            metricKey: 'records.count',
+                            params: { sectionCodename: 'CertificateIssues' }
+                        }
+                    }
+                ]
+            }
+        },
         { zone: 'center' as const, widgetKey: 'detailsTitle', sortOrder: 5 },
-        { zone: 'center' as const, widgetKey: 'detailsTable', sortOrder: 7 }
+        {
+            zone: 'center' as const,
+            widgetKey: 'sessionsChart',
+            sortOrder: 6,
+            config: {
+                title: vlc('Department Progress', 'Прогресс подразделений'),
+                interval: vlc('By module progress records', 'По записям прогресса модулей'),
+                datasource: {
+                    kind: 'records.list',
+                    sectionCodename: 'ModuleProgress',
+                    query: {
+                        sort: [{ field: 'CompletedAt', direction: 'asc' }]
+                    }
+                },
+                xField: 'DepartmentId',
+                maxRows: 12,
+                series: [{ field: 'ProgressPercent', label: vlc('Progress %', 'Прогресс %'), area: true }]
+            }
+        },
+        {
+            zone: 'center' as const,
+            widgetKey: 'pageViewsChart',
+            sortOrder: 7,
+            config: {
+                title: vlc('Assignment Scores', 'Оценки заданий'),
+                interval: vlc('Latest submissions', 'Последние отправки'),
+                datasource: {
+                    kind: 'records.list',
+                    sectionCodename: 'AssignmentSubmissions',
+                    query: {
+                        sort: [{ field: 'SubmittedAt', direction: 'asc' }]
+                    }
+                },
+                xField: 'SubmittedAt',
+                maxRows: 12,
+                series: [{ field: 'Score', label: vlc('Score', 'Балл') }]
+            }
+        },
+        {
+            zone: 'center' as const,
+            widgetKey: 'columnsContainer',
+            sortOrder: 8,
+            config: {
+                columns: [
+                    {
+                        id: 'lms-progress-report',
+                        width: 4,
+                        widgets: [
+                            {
+                                id: 'lms-progress-table',
+                                widgetKey: 'detailsTable',
+                                sortOrder: 1,
+                                config: {
+                                    datasource: {
+                                        kind: 'records.list',
+                                        sectionCodename: 'ModuleProgress',
+                                        query: {
+                                            sort: [{ field: 'CompletedAt', direction: 'desc' }]
+                                        }
+                                    },
+                                    showViewToggle: true
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        id: 'lms-track-report',
+                        width: 4,
+                        widgets: [
+                            {
+                                id: 'lms-track-table',
+                                widgetKey: 'detailsTable',
+                                sortOrder: 1,
+                                config: {
+                                    datasource: {
+                                        kind: 'records.list',
+                                        sectionCodename: 'LearningTracks',
+                                        query: {
+                                            sort: [{ field: 'Title', direction: 'asc' }]
+                                        }
+                                    },
+                                    showViewToggle: true
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        id: 'lms-enrollment-history',
+                        width: 4,
+                        widgets: [
+                            {
+                                id: 'lms-enrollment-table',
+                                widgetKey: 'detailsTable',
+                                sortOrder: 1,
+                                config: {
+                                    datasource: {
+                                        kind: 'records.list',
+                                        sectionCodename: 'Enrollments',
+                                        query: {
+                                            sort: [{ field: 'EnrolledAt', direction: 'desc' }]
+                                        }
+                                    },
+                                    showViewToggle: true
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        { zone: 'center' as const, widgetKey: 'detailsTable', sortOrder: 9 }
     ]
 }
+
+const buildEditorText = (en: string, ru: string) => ({
+    _schema: '1',
+    _primary: 'en',
+    locales: {
+        en: { content: en, version: 1, isActive: true },
+        ru: { content: ru, version: 1, isActive: true }
+    }
+})
+
+const buildEditorHeaderBlock = (id: string, level: number, en: string, ru: string) => ({
+    id,
+    type: 'header',
+    data: {
+        level,
+        text: buildEditorText(en, ru)
+    }
+})
+
+const buildEditorParagraphBlock = (id: string, en: string, ru: string) => ({
+    id,
+    type: 'paragraph',
+    data: {
+        text: buildEditorText(en, ru)
+    }
+})
+
+const buildLmsPageEntity = ({
+    codename,
+    nameEn,
+    nameRu,
+    descriptionEn,
+    descriptionRu,
+    routeSegment,
+    blocks
+}: {
+    codename: string
+    nameEn: string
+    nameRu: string
+    descriptionEn: string
+    descriptionRu: string
+    routeSegment: string
+    blocks: Array<Record<string, unknown>>
+}): LmsTemplateEntity => ({
+    codename,
+    kind: 'page',
+    name: vlc(nameEn, nameRu),
+    description: vlc(descriptionEn, descriptionRu),
+    localizeCodenameFromName: false,
+    hubs: ['Learning'],
+    config: enrichConfigWithVlcTimestamps({
+        blockContent: {
+            format: 'editorjs',
+            version: '2.29.0',
+            blocks
+        },
+        runtime: {
+            menuVisibility: 'secondary',
+            routeSegment
+        }
+    })
+})
+
+const buildLmsBalanceLedger = ({
+    codename,
+    nameEn,
+    nameRu,
+    descriptionEn,
+    descriptionRu,
+    subjectEn,
+    subjectRu,
+    resourceCodename,
+    resourceEn,
+    resourceRu,
+    aggregate
+}: {
+    codename: string
+    nameEn: string
+    nameRu: string
+    descriptionEn: string
+    descriptionRu: string
+    subjectEn: string
+    subjectRu: string
+    resourceCodename: string
+    resourceEn: string
+    resourceRu: string
+    aggregate: 'sum' | 'latest'
+}): LmsTemplateEntity => ({
+    codename,
+    kind: 'catalog',
+    name: vlc(nameEn, nameRu),
+    description: vlc(descriptionEn, descriptionRu),
+    hubs: ['Learning'],
+    config: {
+        ledger: {
+            mode: 'balance',
+            mutationPolicy: 'appendOnly',
+            periodicity: 'instant',
+            sourcePolicy: 'registrar',
+            registrarKinds: ['catalog'],
+            fieldRoles: [
+                { fieldCodename: 'Learner', role: 'dimension', required: true },
+                { fieldCodename: 'Subject', role: 'dimension', required: true },
+                { fieldCodename: resourceCodename, role: 'resource', aggregate, required: true },
+                { fieldCodename: 'Status', role: 'attribute' },
+                { fieldCodename: 'OccurredAt', role: 'attribute' },
+                { fieldCodename: 'SourceObjectId', role: 'attribute' },
+                { fieldCodename: 'SourceRowId', role: 'attribute' },
+                { fieldCodename: 'SourceLineId', role: 'attribute' }
+            ],
+            projections: [
+                {
+                    codename: `${codename}ByLearner`,
+                    kind: aggregate === 'latest' ? 'latest' : 'balance',
+                    dimensions: ['Learner', 'Subject'],
+                    resources: [resourceCodename],
+                    period: 'none'
+                }
+            ],
+            idempotency: {
+                keyFields: ['source_object_id', 'source_row_id', 'source_line_id']
+            }
+        }
+    },
+    attributes: [
+        { codename: 'Learner', dataType: 'STRING', name: vlc('Learner', 'Учащийся'), sortOrder: 1, isRequired: true },
+        { codename: 'Subject', dataType: 'STRING', name: vlc(subjectEn, subjectRu), sortOrder: 2, isRequired: true },
+        { codename: resourceCodename, dataType: 'NUMBER', name: vlc(resourceEn, resourceRu), sortOrder: 3, isRequired: true },
+        { codename: 'Status', dataType: 'STRING', name: vlc('Status', 'Статус'), sortOrder: 4 },
+        {
+            codename: 'OccurredAt',
+            dataType: 'DATE',
+            name: vlc('Occurred At', 'Дата события'),
+            sortOrder: 5,
+            validationRules: { dateComposition: 'datetime' }
+        },
+        { codename: 'SourceObjectId', dataType: 'STRING', name: vlc('Source Object ID', 'ID объекта-источника'), sortOrder: 6 },
+        { codename: 'SourceRowId', dataType: 'STRING', name: vlc('Source Row ID', 'ID строки-источника'), sortOrder: 7 },
+        { codename: 'SourceLineId', dataType: 'STRING', name: vlc('Source Line ID', 'ID строки движения'), sortOrder: 8 }
+    ]
+})
+
+const LMS_ADDITIONAL_LEDGER_ENTITIES: LmsTemplateEntity[] = [
+    buildLmsBalanceLedger({
+        codename: 'LearningActivityLedger',
+        nameEn: 'Learning Activity Ledger',
+        nameRu: 'Регистр учебной активности',
+        descriptionEn: 'Append-only activity facts for runtime learning events.',
+        descriptionRu: 'Неизменяемые факты активности для событий обучения в runtime.',
+        subjectEn: 'Activity Subject',
+        subjectRu: 'Предмет активности',
+        resourceCodename: 'ActivityCount',
+        resourceEn: 'Activity Count',
+        resourceRu: 'Количество активностей',
+        aggregate: 'sum'
+    }),
+    buildLmsBalanceLedger({
+        codename: 'EnrollmentLedger',
+        nameEn: 'Enrollment Ledger',
+        nameRu: 'Регистр записей на обучение',
+        descriptionEn: 'Append-only enrollment facts by learner and learning item.',
+        descriptionRu: 'Неизменяемые факты записей на обучение по учащемуся и учебному элементу.',
+        subjectEn: 'Enrollment Subject',
+        subjectRu: 'Предмет записи',
+        resourceCodename: 'EnrollmentDelta',
+        resourceEn: 'Enrollment Delta',
+        resourceRu: 'Изменение записи',
+        aggregate: 'sum'
+    }),
+    buildLmsBalanceLedger({
+        codename: 'AttendanceLedger',
+        nameEn: 'Attendance Ledger',
+        nameRu: 'Регистр посещаемости',
+        descriptionEn: 'Append-only attendance facts for instructor-led and blended training.',
+        descriptionRu: 'Неизменяемые факты посещаемости для очного и смешанного обучения.',
+        subjectEn: 'Training Event',
+        subjectRu: 'Учебное мероприятие',
+        resourceCodename: 'AttendanceDelta',
+        resourceEn: 'Attendance Delta',
+        resourceRu: 'Изменение посещаемости',
+        aggregate: 'sum'
+    }),
+    buildLmsBalanceLedger({
+        codename: 'CertificateLedger',
+        nameEn: 'Certificate Ledger',
+        nameRu: 'Регистр сертификатов',
+        descriptionEn: 'Append-only certificate issue and revocation facts.',
+        descriptionRu: 'Неизменяемые факты выдачи и отзыва сертификатов.',
+        subjectEn: 'Certificate',
+        subjectRu: 'Сертификат',
+        resourceCodename: 'CertificateDelta',
+        resourceEn: 'Certificate Delta',
+        resourceRu: 'Изменение сертификата',
+        aggregate: 'sum'
+    }),
+    buildLmsBalanceLedger({
+        codename: 'PointsLedger',
+        nameEn: 'Points Ledger',
+        nameRu: 'Регистр баллов',
+        descriptionEn: 'Append-only gamification and learning points facts.',
+        descriptionRu: 'Неизменяемые факты баллов обучения и геймификации.',
+        subjectEn: 'Points Source',
+        subjectRu: 'Источник баллов',
+        resourceCodename: 'PointsDelta',
+        resourceEn: 'Points Delta',
+        resourceRu: 'Изменение баллов',
+        aggregate: 'sum'
+    }),
+    buildLmsBalanceLedger({
+        codename: 'NotificationLedger',
+        nameEn: 'Notification Ledger',
+        nameRu: 'Регистр уведомлений',
+        descriptionEn: 'Append-only notification delivery facts for learning workflows.',
+        descriptionRu: 'Неизменяемые факты доставки уведомлений для учебных процессов.',
+        subjectEn: 'Notification',
+        subjectRu: 'Уведомление',
+        resourceCodename: 'NotificationCount',
+        resourceEn: 'Notification Count',
+        resourceRu: 'Количество уведомлений',
+        aggregate: 'sum'
+    })
+]
+
+const buildTransactionalCatalogConfig = ({
+    prefix,
+    effectiveDateField,
+    stateField,
+    states = [],
+    targetLedgers = []
+}: {
+    prefix: string
+    effectiveDateField: string
+    stateField?: string
+    states?: Array<{ codename: string; title: string; isInitial?: boolean; isFinal?: boolean }>
+    targetLedgers?: string[]
+}) => ({
+    recordBehavior: {
+        mode: 'transactional',
+        numbering: {
+            enabled: true,
+            scope: 'workspace',
+            periodicity: 'year',
+            prefix,
+            minLength: 6
+        },
+        effectiveDate: {
+            enabled: true,
+            fieldCodename: effectiveDateField,
+            defaultToNow: true
+        },
+        lifecycle: {
+            enabled: Boolean(stateField && states.length > 0),
+            ...(stateField ? { stateFieldCodename: stateField } : {}),
+            states
+        },
+        posting: {
+            mode: 'manual',
+            targetLedgers
+        },
+        immutability: 'posted'
+    }
+})
+
+const LMS_ENROLLMENT_POSTING_SCRIPT_SOURCE = `import { ExtensionScript, OnEvent } from '@universo/extension-sdk'
+
+const readRecordValue = (record, ...keys) => {
+    if (!record || typeof record !== 'object') {
+        return null
+    }
+
+    for (const key of keys) {
+        if (Object.prototype.hasOwnProperty.call(record, key)) {
+            return record[key]
+        }
+    }
+
+    return null
+}
+
+const toNumber = (value, fallback = 0) => {
+    const numeric = typeof value === 'number' ? value : Number(value)
+    return Number.isFinite(numeric) ? numeric : fallback
+}
+
+export default class EnrollmentPostingScript extends ExtensionScript {
+    @OnEvent('beforePost')
+    async buildProgressMovement(payload) {
+        const row = payload?.previousRow ?? {}
+        const rowId = typeof row.id === 'string' ? row.id : 'unknown'
+        const entityCodename = typeof payload?.entityCodename === 'string' ? payload.entityCodename : 'Enrollments'
+        const learner = readRecordValue(row, 'EnrollmentStudentId', 'enrollment_student_id')
+        const learningItem = readRecordValue(row, 'ModuleIdRef', 'module_id_ref')
+        const status = readRecordValue(row, 'EnrollmentStatus', 'enrollment_status')
+        const occurredAt =
+            readRecordValue(row, 'CompletedAt', 'completed_at') ?? readRecordValue(row, 'EnrolledAt', 'enrolled_at') ?? new Date().toISOString()
+
+        return {
+            movements: [
+                {
+                    ledgerCodename: 'ProgressLedger',
+                    facts: [
+                        {
+                            data: {
+                                Learner: learner ? String(learner) : rowId,
+                                LearningItem: learningItem ? String(learningItem) : entityCodename,
+                                ProgressDelta: toNumber(readRecordValue(row, 'Score', 'score'), 1),
+                                Status: status ? String(status) : 'posted',
+                                OccurredAt: occurredAt,
+                                SourceObjectId: entityCodename,
+                                SourceRowId: rowId,
+                                SourceLineId: 'enrollment-progress'
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}
+`
+
+const LMS_AUTO_ENROLLMENT_SCRIPT_SOURCE = `import { ExtensionScript, OnEvent } from '@universo/extension-sdk'
+
+const readRecordValue = (record, ...keys) => {
+    if (!record || typeof record !== 'object') {
+        return null
+    }
+
+    for (const key of keys) {
+        if (Object.prototype.hasOwnProperty.call(record, key)) {
+            return record[key]
+        }
+    }
+
+    return null
+}
+
+export default class AutoEnrollmentRuleScript extends ExtensionScript {
+    @OnEvent('afterCreate')
+    async enrollStudent(payload) {
+        const row = payload?.currentRow ?? {}
+        const studentId = readRecordValue(row, 'id', 'Id')
+        const classId = readRecordValue(row, 'ClassId', 'class_id')
+
+        if (!studentId || !classId) {
+            return null
+        }
+
+        const existing = await this.ctx.records.list('Enrollments', {
+            EnrollmentStudentId: String(studentId),
+            ClassId: String(classId),
+            limit: 1
+        })
+
+        if (Array.isArray(existing) && existing.length > 0) {
+            return { skipped: true }
+        }
+
+        await this.ctx.records.create('Enrollments', {
+            EnrollmentStudentId: String(studentId),
+            ClassId: String(classId),
+            ModuleIdRef: 'default',
+            EnrollmentStatus: 'Active',
+            EnrolledAt: new Date().toISOString()
+        })
+
+        return { created: true }
+    }
+}
+`
+
+const LMS_QUIZ_ATTEMPT_POSTING_SCRIPT_SOURCE = `import { ExtensionScript, OnEvent } from '@universo/extension-sdk'
+
+const readRecordValue = (record, ...keys) => {
+    if (!record || typeof record !== 'object') {
+        return null
+    }
+
+    for (const key of keys) {
+        if (Object.prototype.hasOwnProperty.call(record, key)) {
+            return record[key]
+        }
+    }
+
+    return null
+}
+
+const toNumber = (value, fallback = 0) => {
+    const numeric = typeof value === 'number' ? value : Number(value)
+    return Number.isFinite(numeric) ? numeric : fallback
+}
+
+export default class QuizAttemptPostingScript extends ExtensionScript {
+    @OnEvent('beforePost')
+    async buildQuizAttemptMovements(payload) {
+        const row = payload?.previousRow ?? {}
+        const rowId = typeof row.id === 'string' ? row.id : 'unknown'
+        const learner = readRecordValue(row, 'StudentId', 'student_id') ?? rowId
+        const quiz = readRecordValue(row, 'QuizId', 'quiz_id') ?? 'quiz'
+        const occurredAt = readRecordValue(row, 'SubmittedAt', 'submitted_at') ?? new Date().toISOString()
+
+        return {
+            movements: [
+                {
+                    ledgerCodename: 'ScoreLedger',
+                    facts: [
+                        {
+                            data: {
+                                Learner: String(learner),
+                                Assessment: String(quiz),
+                                Score: toNumber(readRecordValue(row, 'Score', 'score'), 0),
+                                Passed: Boolean(readRecordValue(row, 'Passed', 'passed')),
+                                OccurredAt: occurredAt,
+                                SourceObjectId: 'QuizAttempts',
+                                SourceRowId: rowId,
+                                SourceLineId: 'quiz-attempt-score'
+                            }
+                        }
+                    ]
+                },
+                {
+                    ledgerCodename: 'LearningActivityLedger',
+                    facts: [
+                        {
+                            data: {
+                                Learner: String(learner),
+                                Subject: String(quiz),
+                                ActivityDelta: 1,
+                                Status: String(readRecordValue(row, 'Status', 'status') ?? 'submitted'),
+                                OccurredAt: occurredAt,
+                                SourceObjectId: 'QuizAttempts',
+                                SourceRowId: rowId,
+                                SourceLineId: 'quiz-attempt-activity'
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}
+`
+
+const LMS_MODULE_COMPLETION_POSTING_SCRIPT_SOURCE = `import { ExtensionScript, OnEvent } from '@universo/extension-sdk'
+
+const readRecordValue = (record, ...keys) => {
+    if (!record || typeof record !== 'object') {
+        return null
+    }
+
+    for (const key of keys) {
+        if (Object.prototype.hasOwnProperty.call(record, key)) {
+            return record[key]
+        }
+    }
+
+    return null
+}
+
+const toNumber = (value, fallback = 0) => {
+    const numeric = typeof value === 'number' ? value : Number(value)
+    return Number.isFinite(numeric) ? numeric : fallback
+}
+
+export default class ModuleCompletionPostingScript extends ExtensionScript {
+    @OnEvent('beforePost')
+    async buildModuleProgressMovement(payload) {
+        const row = payload?.previousRow ?? {}
+        const rowId = typeof row.id === 'string' ? row.id : 'unknown'
+        const learner = readRecordValue(row, 'ProgressStudentId', 'progress_student_id') ?? rowId
+        const moduleId = readRecordValue(row, 'ModuleId', 'module_id') ?? 'module'
+        const occurredAt =
+            readRecordValue(row, 'CompletedAt', 'completed_at') ?? readRecordValue(row, 'StartedAt', 'started_at') ?? new Date().toISOString()
+
+        return {
+            movements: [
+                {
+                    ledgerCodename: 'ProgressLedger',
+                    facts: [
+                        {
+                            data: {
+                                Learner: String(learner),
+                                LearningItem: String(moduleId),
+                                ProgressDelta: toNumber(readRecordValue(row, 'ProgressPercent', 'progress_percent'), 0),
+                                Status: String(readRecordValue(row, 'ProgressStatus', 'progress_status') ?? 'posted'),
+                                OccurredAt: occurredAt,
+                                SourceObjectId: 'ModuleProgress',
+                                SourceRowId: rowId,
+                                SourceLineId: 'module-progress'
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}
+`
+
+const LMS_CERTIFICATE_ISSUE_POSTING_SCRIPT_SOURCE = `import { ExtensionScript, OnEvent } from '@universo/extension-sdk'
+
+const readRecordValue = (record, ...keys) => {
+    if (!record || typeof record !== 'object') {
+        return null
+    }
+
+    for (const key of keys) {
+        if (Object.prototype.hasOwnProperty.call(record, key)) {
+            return record[key]
+        }
+    }
+
+    return null
+}
+
+export default class CertificateIssuePostingScript extends ExtensionScript {
+    @OnEvent('beforePost')
+    async buildCertificateMovements(payload) {
+        const row = payload?.previousRow ?? {}
+        const rowId = typeof row.id === 'string' ? row.id : 'unknown'
+        const learner = readRecordValue(row, 'StudentId', 'student_id') ?? rowId
+        const certificate = readRecordValue(row, 'CertificateNumber', 'certificate_number') ?? readRecordValue(row, 'CertificateId', 'certificate_id') ?? rowId
+        const occurredAt = readRecordValue(row, 'IssuedAt', 'issued_at') ?? new Date().toISOString()
+        const status = String(readRecordValue(row, 'Status', 'status') ?? 'Issued')
+        const certificateDelta = status === 'Revoked' || status === 'Expired' ? -1 : 1
+
+        return {
+            movements: [
+                {
+                    ledgerCodename: 'CertificateLedger',
+                    facts: [
+                        {
+                            data: {
+                                Learner: String(learner),
+                                Subject: String(certificate),
+                                CertificateDelta: certificateDelta,
+                                Status: status,
+                                OccurredAt: occurredAt,
+                                SourceObjectId: 'CertificateIssues',
+                                SourceRowId: rowId,
+                                SourceLineId: 'certificate-issue'
+                            }
+                        }
+                    ]
+                },
+                {
+                    ledgerCodename: 'NotificationLedger',
+                    facts: [
+                        {
+                            data: {
+                                Learner: String(learner),
+                                Subject: String(certificate),
+                                NotificationCount: 1,
+                                Status: status,
+                                OccurredAt: occurredAt,
+                                SourceObjectId: 'CertificateIssues',
+                                SourceRowId: rowId,
+                                SourceLineId: 'certificate-notification'
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}
+`
 
 export const lmsTemplate: MetahubTemplateManifest = {
     $schema: 'metahub-template/v1',
@@ -199,7 +1004,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         dataType: 'STRING',
                         name: vlc('Support Email', 'Email поддержки'),
                         sortOrder: 4,
-                        value: 'support@example.com'
+                        value: ''
                     }
                 ]
             },
@@ -391,6 +1196,228 @@ export const lmsTemplate: MetahubTemplateManifest = {
                     }
                 })
             },
+            buildLmsPageEntity({
+                codename: 'CourseOverview',
+                nameEn: 'Course Overview',
+                nameRu: 'Обзор курса',
+                descriptionEn: 'Reusable course overview page for published LMS workspaces.',
+                descriptionRu: 'Переиспользуемая страница обзора курса для опубликованных LMS-пространств.',
+                routeSegment: 'course-overview',
+                blocks: [
+                    buildEditorHeaderBlock('course-overview-title', 2, 'Course overview', 'Обзор курса'),
+                    buildEditorParagraphBlock(
+                        'course-overview-purpose',
+                        'Use this page to present the learning goal, target audience, prerequisites, completion rules, and expected outcomes for a course or learning track.',
+                        'Используйте эту страницу, чтобы описать учебную цель, аудиторию, предварительные требования, правила завершения и ожидаемые результаты курса или учебного трека.'
+                    ),
+                    buildEditorHeaderBlock('course-overview-path-title', 3, 'Learning path', 'Учебная траектория'),
+                    buildEditorParagraphBlock(
+                        'course-overview-path',
+                        'Course structure should be driven by Modules, Learning Tracks, Assignments, Quizzes, and transactional progress records. The page stays informational while completion state is calculated from Catalog rows and Ledgers.',
+                        'Структура курса должна задаваться модулями, учебными треками, назначениями, тестами и транзакционными записями прогресса. Страница остается информационной, а состояние прохождения рассчитывается по строкам каталогов и регистрам.'
+                    )
+                ]
+            }),
+            buildLmsPageEntity({
+                codename: 'KnowledgeArticle',
+                nameEn: 'Knowledge Article',
+                nameRu: 'Статья базы знаний',
+                descriptionEn: 'Reusable knowledge-base article page for learning materials.',
+                descriptionRu: 'Переиспользуемая статья базы знаний для учебных материалов.',
+                routeSegment: 'knowledge-article',
+                blocks: [
+                    buildEditorHeaderBlock('knowledge-article-title', 2, 'Knowledge article', 'Статья базы знаний'),
+                    buildEditorParagraphBlock(
+                        'knowledge-article-summary',
+                        'Use this page for reference material that supports modules, assignments, and instructor-led events. Keep facts, examples, and source links in the article, and keep operational state in Catalogs and Ledgers.',
+                        'Используйте эту страницу для справочных материалов, которые поддерживают модули, задания и учебные мероприятия. Факты, примеры и ссылки на источники храните в статье, а операционное состояние — в каталогах и регистрах.'
+                    ),
+                    buildEditorHeaderBlock('knowledge-article-maintenance-title', 3, 'Maintenance', 'Сопровождение'),
+                    buildEditorParagraphBlock(
+                        'knowledge-article-maintenance',
+                        'Versioned localized content makes it possible to update the article without changing learner progress, assignment history, or certificate facts.',
+                        'Версионируемый локализованный контент позволяет обновлять статью без изменения прогресса учащихся, истории назначений или фактов сертификатов.'
+                    )
+                ]
+            }),
+            buildLmsPageEntity({
+                codename: 'AssignmentInstructions',
+                nameEn: 'Assignment Instructions',
+                nameRu: 'Инструкции к заданию',
+                descriptionEn: 'Reusable instructions page for practical LMS assignments.',
+                descriptionRu: 'Переиспользуемая страница инструкций для практических заданий LMS.',
+                routeSegment: 'assignment-instructions',
+                blocks: [
+                    buildEditorHeaderBlock('assignment-instructions-title', 2, 'Assignment instructions', 'Инструкции к заданию'),
+                    buildEditorParagraphBlock(
+                        'assignment-instructions-rules',
+                        'Describe the expected deliverable, due-date policy, review criteria, allowed file formats, and resubmission rules. Individual submissions are stored in AssignmentSubmissions and posted to the configured Ledgers.',
+                        'Опишите ожидаемый результат, правила срока сдачи, критерии проверки, допустимые форматы файлов и правила повторной отправки. Индивидуальные сдачи хранятся в AssignmentSubmissions и проводятся в настроенные регистры.'
+                    ),
+                    buildEditorHeaderBlock('assignment-instructions-review-title', 3, 'Review result', 'Результат проверки'),
+                    buildEditorParagraphBlock(
+                        'assignment-instructions-review',
+                        'Reviewers should record status, score, and feedback on the submission record so reports and dashboards can use the same generic datasource and Ledger model.',
+                        'Проверяющие должны фиксировать статус, балл и обратную связь в записи сдачи, чтобы отчеты и панели использовали одну и ту же универсальную модель источников данных и регистров.'
+                    )
+                ]
+            }),
+            buildLmsPageEntity({
+                codename: 'CertificatePolicy',
+                nameEn: 'Certificate Policy',
+                nameRu: 'Правила сертификатов',
+                descriptionEn: 'Reusable certificate policy page for completion and revocation rules.',
+                descriptionRu: 'Переиспользуемая страница правил сертификатов для завершения и отзыва.',
+                routeSegment: 'certificate-policy',
+                blocks: [
+                    buildEditorHeaderBlock('certificate-policy-title', 2, 'Certificate policy', 'Правила сертификатов'),
+                    buildEditorParagraphBlock(
+                        'certificate-policy-eligibility',
+                        'Certificates should be issued only after required modules, assignments, and quiz attempts meet the configured completion thresholds. The policy text explains the rule; CertificateIssues and CertificateLedger store the auditable facts.',
+                        'Сертификаты следует выдавать только после того, как обязательные модули, задания и попытки тестов достигли настроенных порогов завершения. Текст правил объясняет условие, а CertificateIssues и CertificateLedger хранят проверяемые факты.'
+                    ),
+                    buildEditorHeaderBlock('certificate-policy-lifecycle-title', 3, 'Lifecycle', 'Жизненный цикл'),
+                    buildEditorParagraphBlock(
+                        'certificate-policy-lifecycle',
+                        'Issue, expiration, and revocation should be represented as transactional records so workspace administrators can audit changes without editing historical completion data.',
+                        'Выдача, истечение срока и отзыв должны представляться транзакционными записями, чтобы администраторы пространства могли проверять изменения без редактирования исторических данных завершения.'
+                    )
+                ]
+            }),
+            {
+                codename: 'ProgressLedger',
+                kind: 'catalog',
+                name: vlc('Progress Ledger', 'Регистр прогресса'),
+                description: vlc(
+                    'Append-only progress facts by learner and learning item.',
+                    'Неизменяемые факты прогресса по учащемуся и учебному элементу.'
+                ),
+                hubs: ['Learning'],
+                config: {
+                    ledger: {
+                        mode: 'balance',
+                        mutationPolicy: 'appendOnly',
+                        periodicity: 'instant',
+                        sourcePolicy: 'registrar',
+                        registrarKinds: ['catalog'],
+                        fieldRoles: [
+                            { fieldCodename: 'Learner', role: 'dimension', required: true },
+                            { fieldCodename: 'LearningItem', role: 'dimension', required: true },
+                            { fieldCodename: 'ProgressDelta', role: 'resource', aggregate: 'sum', required: true },
+                            { fieldCodename: 'Status', role: 'attribute' },
+                            { fieldCodename: 'OccurredAt', role: 'attribute' },
+                            { fieldCodename: 'SourceObjectId', role: 'attribute' },
+                            { fieldCodename: 'SourceRowId', role: 'attribute' },
+                            { fieldCodename: 'SourceLineId', role: 'attribute' }
+                        ],
+                        projections: [
+                            {
+                                codename: 'ProgressByLearner',
+                                kind: 'balance',
+                                dimensions: ['Learner', 'LearningItem'],
+                                resources: ['ProgressDelta'],
+                                period: 'none'
+                            }
+                        ],
+                        idempotency: {
+                            keyFields: ['source_object_id', 'source_row_id', 'source_line_id']
+                        }
+                    }
+                },
+                attributes: [
+                    { codename: 'Learner', dataType: 'STRING', name: vlc('Learner', 'Учащийся'), sortOrder: 1, isRequired: true },
+                    {
+                        codename: 'LearningItem',
+                        dataType: 'STRING',
+                        name: vlc('Learning Item', 'Учебный элемент'),
+                        sortOrder: 2,
+                        isRequired: true
+                    },
+                    {
+                        codename: 'ProgressDelta',
+                        dataType: 'NUMBER',
+                        name: vlc('Progress Delta', 'Изменение прогресса'),
+                        sortOrder: 3,
+                        isRequired: true
+                    },
+                    { codename: 'Status', dataType: 'STRING', name: vlc('Status', 'Статус'), sortOrder: 4 },
+                    {
+                        codename: 'OccurredAt',
+                        dataType: 'DATE',
+                        name: vlc('Occurred At', 'Дата события'),
+                        sortOrder: 5,
+                        validationRules: { dateComposition: 'datetime' }
+                    },
+                    { codename: 'SourceObjectId', dataType: 'STRING', name: vlc('Source Object ID', 'ID объекта-источника'), sortOrder: 6 },
+                    { codename: 'SourceRowId', dataType: 'STRING', name: vlc('Source Row ID', 'ID строки-источника'), sortOrder: 7 },
+                    {
+                        codename: 'SourceLineId',
+                        dataType: 'STRING',
+                        name: vlc('Source Line ID', 'ID строки движения'),
+                        sortOrder: 8
+                    }
+                ]
+            },
+            {
+                codename: 'ScoreLedger',
+                kind: 'catalog',
+                name: vlc('Score Ledger', 'Регистр оценок'),
+                description: vlc('Append-only quiz and assignment score facts.', 'Неизменяемые факты оценок тестов и заданий.'),
+                hubs: ['Learning'],
+                config: {
+                    ledger: {
+                        mode: 'balance',
+                        mutationPolicy: 'appendOnly',
+                        periodicity: 'instant',
+                        sourcePolicy: 'registrar',
+                        registrarKinds: ['catalog'],
+                        fieldRoles: [
+                            { fieldCodename: 'Learner', role: 'dimension', required: true },
+                            { fieldCodename: 'Assessment', role: 'dimension', required: true },
+                            { fieldCodename: 'Score', role: 'resource', aggregate: 'latest', required: true },
+                            { fieldCodename: 'Passed', role: 'attribute' },
+                            { fieldCodename: 'OccurredAt', role: 'attribute' },
+                            { fieldCodename: 'SourceObjectId', role: 'attribute' },
+                            { fieldCodename: 'SourceRowId', role: 'attribute' },
+                            { fieldCodename: 'SourceLineId', role: 'attribute' }
+                        ],
+                        projections: [
+                            {
+                                codename: 'LatestScoreByAssessment',
+                                kind: 'latest',
+                                dimensions: ['Learner', 'Assessment'],
+                                resources: ['Score'],
+                                period: 'none'
+                            }
+                        ],
+                        idempotency: {
+                            keyFields: ['source_object_id', 'source_row_id', 'source_line_id']
+                        }
+                    }
+                },
+                attributes: [
+                    { codename: 'Learner', dataType: 'STRING', name: vlc('Learner', 'Учащийся'), sortOrder: 1, isRequired: true },
+                    { codename: 'Assessment', dataType: 'STRING', name: vlc('Assessment', 'Оценивание'), sortOrder: 2, isRequired: true },
+                    { codename: 'Score', dataType: 'NUMBER', name: vlc('Score', 'Балл'), sortOrder: 3, isRequired: true },
+                    { codename: 'Passed', dataType: 'BOOLEAN', name: vlc('Passed', 'Пройдено'), sortOrder: 4 },
+                    {
+                        codename: 'OccurredAt',
+                        dataType: 'DATE',
+                        name: vlc('Occurred At', 'Дата события'),
+                        sortOrder: 5,
+                        validationRules: { dateComposition: 'datetime' }
+                    },
+                    { codename: 'SourceObjectId', dataType: 'STRING', name: vlc('Source Object ID', 'ID объекта-источника'), sortOrder: 6 },
+                    { codename: 'SourceRowId', dataType: 'STRING', name: vlc('Source Row ID', 'ID строки-источника'), sortOrder: 7 },
+                    {
+                        codename: 'SourceLineId',
+                        dataType: 'STRING',
+                        name: vlc('Source Line ID', 'ID строки движения'),
+                        sortOrder: 8
+                    }
+                ]
+            },
+            ...LMS_ADDITIONAL_LEDGER_ENTITIES,
             {
                 codename: 'Classes',
                 kind: 'catalog',
@@ -458,10 +1485,18 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         sortOrder: 3
                     },
                     {
+                        codename: 'DepartmentId',
+                        dataType: 'REF',
+                        name: vlc('Department', 'Подразделение'),
+                        sortOrder: 4,
+                        targetEntityCodename: 'Departments',
+                        targetEntityKind: 'catalog'
+                    },
+                    {
                         codename: 'GuestSessionToken',
                         dataType: 'STRING',
                         name: vlc('Guest Session Token', 'Токен гостевой сессии'),
-                        sortOrder: 4
+                        sortOrder: 5
                     }
                 ]
             },
@@ -763,6 +1798,11 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 kind: 'catalog',
                 name: vlc('Quiz Responses', 'Ответы на тесты'),
                 description: vlc('Individual quiz answer records for scoring.', 'Записи ответов на тесты для подсчёта баллов.'),
+                config: buildTransactionalCatalogConfig({
+                    prefix: 'QAR-',
+                    effectiveDateField: 'SubmittedAt',
+                    targetLedgers: ['ScoreLedger']
+                }),
                 attributes: [
                     {
                         codename: 'StudentId',
@@ -817,10 +1857,104 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 ]
             },
             {
+                codename: 'QuizAttempts',
+                kind: 'catalog',
+                name: vlc('Quiz Attempts', 'Попытки тестов'),
+                description: vlc(
+                    'Submitted quiz attempts with score and pass/fail state.',
+                    'Отправленные попытки тестов с баллом и состоянием прохождения.'
+                ),
+                config: buildTransactionalCatalogConfig({
+                    prefix: 'QAT-',
+                    effectiveDateField: 'SubmittedAt',
+                    stateField: 'Status',
+                    states: [
+                        { codename: 'Started', title: 'Started', isInitial: true },
+                        { codename: 'Submitted', title: 'Submitted' },
+                        { codename: 'Passed', title: 'Passed', isFinal: true },
+                        { codename: 'Failed', title: 'Failed', isFinal: true }
+                    ],
+                    targetLedgers: ['ScoreLedger', 'LearningActivityLedger']
+                }),
+                attributes: [
+                    {
+                        codename: 'StudentId',
+                        dataType: 'REF',
+                        name: vlc('Student', 'Студент'),
+                        isRequired: true,
+                        sortOrder: 1,
+                        targetEntityCodename: 'Students',
+                        targetEntityKind: 'catalog'
+                    },
+                    {
+                        codename: 'QuizId',
+                        dataType: 'REF',
+                        name: vlc('Quiz', 'Тест'),
+                        isRequired: true,
+                        sortOrder: 2,
+                        targetEntityCodename: 'Quizzes',
+                        targetEntityKind: 'catalog'
+                    },
+                    {
+                        codename: 'AttemptNumber',
+                        dataType: 'NUMBER',
+                        name: vlc('Attempt Number', 'Номер попытки'),
+                        isRequired: true,
+                        sortOrder: 3,
+                        validationRules: { min: 1 }
+                    },
+                    {
+                        codename: 'StartedAt',
+                        dataType: 'DATE',
+                        name: vlc('Started At', 'Начато'),
+                        sortOrder: 4
+                    },
+                    {
+                        codename: 'SubmittedAt',
+                        dataType: 'DATE',
+                        name: vlc('Submitted At', 'Отправлено'),
+                        isRequired: true,
+                        sortOrder: 5
+                    },
+                    {
+                        codename: 'Score',
+                        dataType: 'NUMBER',
+                        name: vlc('Score', 'Балл'),
+                        sortOrder: 6,
+                        validationRules: { min: 0 }
+                    },
+                    {
+                        codename: 'Passed',
+                        dataType: 'BOOLEAN',
+                        name: vlc('Passed', 'Пройдено'),
+                        sortOrder: 7
+                    },
+                    {
+                        codename: 'Status',
+                        dataType: 'STRING',
+                        name: vlc('Status', 'Статус'),
+                        isRequired: true,
+                        sortOrder: 8,
+                        validationRules: { maxLength: 30 }
+                    }
+                ]
+            },
+            {
                 codename: 'ModuleProgress',
                 kind: 'catalog',
                 name: vlc('Module Progress', 'Прогресс по модулям'),
                 description: vlc('Per-student module completion tracking.', 'Отслеживание прохождения модулей по студентам.'),
+                config: buildTransactionalCatalogConfig({
+                    prefix: 'MPR-',
+                    effectiveDateField: 'CompletedAt',
+                    stateField: 'ProgressStatus',
+                    states: [
+                        { codename: 'NotStarted', title: 'Not Started', isInitial: true },
+                        { codename: 'InProgress', title: 'In Progress' },
+                        { codename: 'Completed', title: 'Completed', isFinal: true }
+                    ],
+                    targetLedgers: ['ProgressLedger']
+                }),
                 attributes: [
                     {
                         codename: 'ProgressStudentId',
@@ -841,37 +1975,45 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         targetEntityKind: 'catalog'
                     },
                     {
+                        codename: 'DepartmentId',
+                        dataType: 'REF',
+                        name: vlc('Department', 'Подразделение'),
+                        sortOrder: 3,
+                        targetEntityCodename: 'Departments',
+                        targetEntityKind: 'catalog'
+                    },
+                    {
                         codename: 'ProgressStatus',
                         dataType: 'STRING',
                         name: vlc('Status', 'Статус'),
                         isRequired: true,
-                        sortOrder: 3,
+                        sortOrder: 4,
                         validationRules: { maxLength: 30 }
                     },
                     {
                         codename: 'ProgressPercent',
                         dataType: 'NUMBER',
                         name: vlc('Progress %', 'Прогресс %'),
-                        sortOrder: 4,
+                        sortOrder: 5,
                         validationRules: { min: 0, max: 100 }
                     },
                     {
                         codename: 'StartedAt',
                         dataType: 'DATE',
                         name: vlc('Started At', 'Начато'),
-                        sortOrder: 5
+                        sortOrder: 6
                     },
                     {
                         codename: 'CompletedAt',
                         dataType: 'DATE',
                         name: vlc('Completed At', 'Завершено'),
-                        sortOrder: 6
+                        sortOrder: 7
                     },
                     {
                         codename: 'LastAccessedItemIndex',
                         dataType: 'NUMBER',
                         name: vlc('Last Accessed Item', 'Последний элемент'),
-                        sortOrder: 7
+                        sortOrder: 8
                     }
                 ]
             },
@@ -956,6 +2098,38 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 kind: 'catalog',
                 name: vlc('Enrollments', 'Записи'),
                 description: vlc('Class-student-module enrollment bridge.', 'Связь класс-студент-модуль.'),
+                config: {
+                    recordBehavior: {
+                        mode: 'transactional',
+                        numbering: {
+                            enabled: true,
+                            scope: 'workspace',
+                            periodicity: 'year',
+                            prefix: 'ENR-',
+                            minLength: 6
+                        },
+                        effectiveDate: {
+                            enabled: true,
+                            fieldCodename: 'EnrolledAt',
+                            defaultToNow: true
+                        },
+                        lifecycle: {
+                            enabled: true,
+                            stateFieldCodename: 'EnrollmentStatus',
+                            states: [
+                                { codename: 'Invited', title: 'Invited', isInitial: true },
+                                { codename: 'Active', title: 'Active' },
+                                { codename: 'Completed', title: 'Completed', isFinal: true }
+                            ]
+                        },
+                        posting: {
+                            mode: 'manual',
+                            targetLedgers: ['ProgressLedger'],
+                            scriptCodename: 'EnrollmentPostingScript'
+                        },
+                        immutability: 'posted'
+                    }
+                },
                 attributes: [
                     {
                         codename: 'EnrollmentStudentId',
@@ -1020,6 +2194,18 @@ export const lmsTemplate: MetahubTemplateManifest = {
                     'Learning assignments for students, classes, departments, and tracks.',
                     'Учебные назначения для студентов, классов, подразделений и треков.'
                 ),
+                config: buildTransactionalCatalogConfig({
+                    prefix: 'ASN-',
+                    effectiveDateField: 'DueAt',
+                    stateField: 'Status',
+                    states: [
+                        { codename: 'Draft', title: 'Draft', isInitial: true },
+                        { codename: 'Assigned', title: 'Assigned' },
+                        { codename: 'Completed', title: 'Completed', isFinal: true },
+                        { codename: 'Cancelled', title: 'Cancelled', isFinal: true }
+                    ],
+                    targetLedgers: ['LearningActivityLedger']
+                }),
                 attributes: [
                     {
                         codename: 'Title',
@@ -1077,6 +2263,83 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 ]
             },
             {
+                codename: 'AssignmentSubmissions',
+                kind: 'catalog',
+                name: vlc('Assignment Submissions', 'Сдачи заданий'),
+                description: vlc(
+                    'Student assignment submissions with review state and score.',
+                    'Сдачи заданий студентами со статусом проверки и баллом.'
+                ),
+                config: buildTransactionalCatalogConfig({
+                    prefix: 'SUB-',
+                    effectiveDateField: 'SubmittedAt',
+                    stateField: 'Status',
+                    states: [
+                        { codename: 'Submitted', title: 'Submitted', isInitial: true },
+                        { codename: 'InReview', title: 'In Review' },
+                        { codename: 'Accepted', title: 'Accepted', isFinal: true },
+                        { codename: 'Rejected', title: 'Rejected', isFinal: true }
+                    ],
+                    targetLedgers: ['ScoreLedger', 'LearningActivityLedger']
+                }),
+                attributes: [
+                    {
+                        codename: 'AssignmentId',
+                        dataType: 'REF',
+                        name: vlc('Assignment', 'Назначение'),
+                        isRequired: true,
+                        sortOrder: 1,
+                        targetEntityCodename: 'Assignments',
+                        targetEntityKind: 'catalog'
+                    },
+                    {
+                        codename: 'StudentId',
+                        dataType: 'REF',
+                        name: vlc('Student', 'Студент'),
+                        isRequired: true,
+                        sortOrder: 2,
+                        targetEntityCodename: 'Students',
+                        targetEntityKind: 'catalog'
+                    },
+                    {
+                        codename: 'SubmittedAt',
+                        dataType: 'DATE',
+                        name: vlc('Submitted At', 'Отправлено'),
+                        isRequired: true,
+                        sortOrder: 3
+                    },
+                    {
+                        codename: 'Status',
+                        dataType: 'STRING',
+                        name: vlc('Status', 'Статус'),
+                        isRequired: true,
+                        sortOrder: 4,
+                        validationRules: { maxLength: 30 }
+                    },
+                    {
+                        codename: 'Score',
+                        dataType: 'NUMBER',
+                        name: vlc('Score', 'Балл'),
+                        sortOrder: 5,
+                        validationRules: { min: 0 }
+                    },
+                    {
+                        codename: 'ReviewerId',
+                        dataType: 'STRING',
+                        name: vlc('Reviewer ID', 'ID проверяющего'),
+                        sortOrder: 6,
+                        validationRules: { maxLength: 100 }
+                    },
+                    {
+                        codename: 'Feedback',
+                        dataType: 'STRING',
+                        name: vlc('Feedback', 'Обратная связь'),
+                        sortOrder: 7,
+                        validationRules: { localized: true, versioned: true }
+                    }
+                ]
+            },
+            {
                 codename: 'TrainingEvents',
                 kind: 'catalog',
                 name: vlc('Training Events', 'Учебные мероприятия'),
@@ -1084,6 +2347,11 @@ export const lmsTemplate: MetahubTemplateManifest = {
                     'Instructor-led sessions, webinars, and blended learning events.',
                     'Очные занятия, вебинары и смешанные учебные мероприятия.'
                 ),
+                config: buildTransactionalCatalogConfig({
+                    prefix: 'TRN-',
+                    effectiveDateField: 'StartsAt',
+                    targetLedgers: ['AttendanceLedger']
+                }),
                 attributes: [
                     {
                         codename: 'Title',
@@ -1124,6 +2392,69 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 ]
             },
             {
+                codename: 'TrainingAttendance',
+                kind: 'catalog',
+                name: vlc('Training Attendance', 'Посещаемость мероприятий'),
+                description: vlc(
+                    'Attendance facts for instructor-led sessions and webinars.',
+                    'Факты посещаемости очных занятий и вебинаров.'
+                ),
+                config: buildTransactionalCatalogConfig({
+                    prefix: 'ATT-',
+                    effectiveDateField: 'CheckedInAt',
+                    stateField: 'Status',
+                    states: [
+                        { codename: 'Registered', title: 'Registered', isInitial: true },
+                        { codename: 'Attended', title: 'Attended', isFinal: true },
+                        { codename: 'Absent', title: 'Absent', isFinal: true },
+                        { codename: 'Excused', title: 'Excused', isFinal: true }
+                    ],
+                    targetLedgers: ['AttendanceLedger', 'LearningActivityLedger']
+                }),
+                attributes: [
+                    {
+                        codename: 'TrainingEventId',
+                        dataType: 'REF',
+                        name: vlc('Training Event', 'Учебное мероприятие'),
+                        isRequired: true,
+                        sortOrder: 1,
+                        targetEntityCodename: 'TrainingEvents',
+                        targetEntityKind: 'catalog'
+                    },
+                    {
+                        codename: 'StudentId',
+                        dataType: 'REF',
+                        name: vlc('Student', 'Студент'),
+                        isRequired: true,
+                        sortOrder: 2,
+                        targetEntityCodename: 'Students',
+                        targetEntityKind: 'catalog'
+                    },
+                    {
+                        codename: 'CheckedInAt',
+                        dataType: 'DATE',
+                        name: vlc('Checked In At', 'Отметка посещения'),
+                        isRequired: true,
+                        sortOrder: 3
+                    },
+                    {
+                        codename: 'Status',
+                        dataType: 'STRING',
+                        name: vlc('Status', 'Статус'),
+                        isRequired: true,
+                        sortOrder: 4,
+                        validationRules: { maxLength: 30 }
+                    },
+                    {
+                        codename: 'DurationMinutes',
+                        dataType: 'NUMBER',
+                        name: vlc('Duration Minutes', 'Длительность в минутах'),
+                        sortOrder: 5,
+                        validationRules: { min: 0 }
+                    }
+                ]
+            },
+            {
                 codename: 'Certificates',
                 kind: 'catalog',
                 name: vlc('Certificates', 'Сертификаты'),
@@ -1131,6 +2462,17 @@ export const lmsTemplate: MetahubTemplateManifest = {
                     'Issued completion certificates and their lifecycle state.',
                     'Выданные сертификаты о прохождении и их состояние.'
                 ),
+                config: buildTransactionalCatalogConfig({
+                    prefix: 'CRT-',
+                    effectiveDateField: 'IssuedAt',
+                    stateField: 'Status',
+                    states: [
+                        { codename: 'Issued', title: 'Issued', isInitial: true },
+                        { codename: 'Revoked', title: 'Revoked', isFinal: true },
+                        { codename: 'Expired', title: 'Expired', isFinal: true }
+                    ],
+                    targetLedgers: ['CertificateLedger']
+                }),
                 attributes: [
                     {
                         codename: 'CertificateNumber',
@@ -1168,6 +2510,79 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         dataType: 'REF',
                         name: vlc('Status', 'Статус'),
                         sortOrder: 5,
+                        targetEntityCodename: 'CertificateStatus',
+                        targetEntityKind: 'enumeration'
+                    }
+                ]
+            },
+            {
+                codename: 'CertificateIssues',
+                kind: 'catalog',
+                name: vlc('Certificate Issues', 'Выдачи сертификатов'),
+                description: vlc(
+                    'Certificate issue and revocation events posted to the certificate ledger.',
+                    'События выдачи и отзыва сертификатов, проводимые в регистр сертификатов.'
+                ),
+                config: buildTransactionalCatalogConfig({
+                    prefix: 'CIS-',
+                    effectiveDateField: 'IssuedAt',
+                    stateField: 'Status',
+                    states: [
+                        { codename: 'Issued', title: 'Issued', isInitial: true },
+                        { codename: 'Revoked', title: 'Revoked', isFinal: true },
+                        { codename: 'Expired', title: 'Expired', isFinal: true }
+                    ],
+                    targetLedgers: ['CertificateLedger', 'NotificationLedger']
+                }),
+                attributes: [
+                    {
+                        codename: 'CertificateId',
+                        dataType: 'REF',
+                        name: vlc('Certificate', 'Сертификат'),
+                        isRequired: true,
+                        sortOrder: 1,
+                        targetEntityCodename: 'Certificates',
+                        targetEntityKind: 'catalog'
+                    },
+                    {
+                        codename: 'CertificateNumber',
+                        dataType: 'STRING',
+                        name: vlc('Certificate Number', 'Номер сертификата'),
+                        isRequired: true,
+                        isDisplayAttribute: true,
+                        sortOrder: 2,
+                        validationRules: { maxLength: 100 }
+                    },
+                    {
+                        codename: 'StudentId',
+                        dataType: 'REF',
+                        name: vlc('Student', 'Студент'),
+                        isRequired: true,
+                        sortOrder: 3,
+                        targetEntityCodename: 'Students',
+                        targetEntityKind: 'catalog'
+                    },
+                    {
+                        codename: 'ModuleId',
+                        dataType: 'REF',
+                        name: vlc('Module', 'Модуль'),
+                        sortOrder: 4,
+                        targetEntityCodename: 'Modules',
+                        targetEntityKind: 'catalog'
+                    },
+                    {
+                        codename: 'IssuedAt',
+                        dataType: 'DATE',
+                        name: vlc('Issued At', 'Выдан'),
+                        isRequired: true,
+                        sortOrder: 5
+                    },
+                    {
+                        codename: 'Status',
+                        dataType: 'REF',
+                        name: vlc('Status', 'Статус'),
+                        isRequired: true,
+                        sortOrder: 6,
                         targetEntityCodename: 'CertificateStatus',
                         targetEntityKind: 'enumeration'
                     }
@@ -1300,6 +2715,83 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 { codename: 'QuizResults', name: vlc('Quiz Results', 'Результаты тестов'), sortOrder: 3 }
             ]
         },
+        scripts: [
+            {
+                codename: 'AutoEnrollmentRuleScript',
+                name: vlc('Auto Enrollment Rule Script', 'Скрипт правила автозачисления'),
+                description: vlc(
+                    'Creates an enrollment for a new student when the student record carries enough assignment context.',
+                    'Создает запись на обучение для нового студента, если запись студента содержит достаточный контекст назначения.'
+                ),
+                attachedToKind: 'catalog',
+                attachedToEntityCodename: 'Students',
+                moduleRole: 'lifecycle',
+                sourceKind: 'embedded',
+                sdkApiVersion: '1.0.0',
+                capabilities: ['records.read', 'records.write', 'metadata.read', 'lifecycle'],
+                sourceCode: LMS_AUTO_ENROLLMENT_SCRIPT_SOURCE
+            },
+            {
+                codename: 'EnrollmentPostingScript',
+                name: vlc('Enrollment Posting Script', 'Скрипт проведения записи'),
+                description: vlc(
+                    'Posts enrollment records into the generic Progress Ledger.',
+                    'Проводит записи на обучение в универсальный регистр прогресса.'
+                ),
+                attachedToKind: 'catalog',
+                attachedToEntityCodename: 'Enrollments',
+                moduleRole: 'lifecycle',
+                sourceKind: 'embedded',
+                sdkApiVersion: '1.0.0',
+                capabilities: ['records.read', 'metadata.read', 'lifecycle', 'posting', 'ledger.write'],
+                sourceCode: LMS_ENROLLMENT_POSTING_SCRIPT_SOURCE
+            },
+            {
+                codename: 'QuizAttemptPostingScript',
+                name: vlc('Quiz Attempt Posting Script', 'Скрипт проведения попытки теста'),
+                description: vlc(
+                    'Posts quiz attempt records into score and learning activity Ledgers.',
+                    'Проводит попытки тестов в регистры оценок и учебной активности.'
+                ),
+                attachedToKind: 'catalog',
+                attachedToEntityCodename: 'QuizAttempts',
+                moduleRole: 'lifecycle',
+                sourceKind: 'embedded',
+                sdkApiVersion: '1.0.0',
+                capabilities: ['records.read', 'metadata.read', 'lifecycle', 'posting', 'ledger.write'],
+                sourceCode: LMS_QUIZ_ATTEMPT_POSTING_SCRIPT_SOURCE
+            },
+            {
+                codename: 'ModuleCompletionPostingScript',
+                name: vlc('Module Completion Posting Script', 'Скрипт проведения завершения модуля'),
+                description: vlc(
+                    'Posts module completion progress records into the progress Ledger.',
+                    'Проводит записи прогресса модулей в регистр прогресса.'
+                ),
+                attachedToKind: 'catalog',
+                attachedToEntityCodename: 'ModuleProgress',
+                moduleRole: 'lifecycle',
+                sourceKind: 'embedded',
+                sdkApiVersion: '1.0.0',
+                capabilities: ['records.read', 'metadata.read', 'lifecycle', 'posting', 'ledger.write'],
+                sourceCode: LMS_MODULE_COMPLETION_POSTING_SCRIPT_SOURCE
+            },
+            {
+                codename: 'CertificateIssuePostingScript',
+                name: vlc('Certificate Issue Posting Script', 'Скрипт проведения выдачи сертификата'),
+                description: vlc(
+                    'Posts certificate issue records into certificate and notification Ledgers.',
+                    'Проводит выдачи сертификатов в регистры сертификатов и уведомлений.'
+                ),
+                attachedToKind: 'catalog',
+                attachedToEntityCodename: 'CertificateIssues',
+                moduleRole: 'lifecycle',
+                sourceKind: 'embedded',
+                sdkApiVersion: '1.0.0',
+                capabilities: ['records.read', 'metadata.read', 'lifecycle', 'posting', 'ledger.write'],
+                sourceCode: LMS_CERTIFICATE_ISSUE_POSTING_SCRIPT_SOURCE
+            }
+        ],
         settings: [
             { key: 'general.language', value: { _value: 'system' } },
             { key: 'general.timezone', value: { _value: 'UTC' } },
@@ -1309,6 +2801,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
             { key: 'general.codenameAutoConvertMixedAlphabets', value: { _value: true } },
             { key: 'general.codenameAutoReformat', value: { _value: true } },
             { key: 'general.codenameRequireReformat', value: { _value: true } },
+            { key: 'application.publicRuntime.guest', value: { _value: LMS_PUBLIC_GUEST_RUNTIME_CONFIG } },
             { key: 'entity.catalog.allowAttributeCopy', value: { _value: true } },
             { key: 'entity.catalog.allowAttributeDelete', value: { _value: true } },
             { key: 'entity.catalog.allowDeleteLastDisplayAttribute', value: { _value: true } }

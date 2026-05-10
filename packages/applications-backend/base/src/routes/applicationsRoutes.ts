@@ -5,6 +5,7 @@ import { asyncHandler } from '../shared/asyncHandler'
 import { createApplicationsController } from '../controllers/applicationsController'
 import { createRuntimeRowsController } from '../controllers/runtimeRowsController'
 import { createRuntimeChildRowsController } from '../controllers/runtimeChildRowsController'
+import { createRuntimeLedgersController } from '../controllers/runtimeLedgersController'
 import { createRuntimeScriptsController } from '../controllers/runtimeScriptsController'
 import { createRuntimeWorkspaceController } from '../controllers/runtimeWorkspaceController'
 import { createApplicationLayoutsController } from '../controllers/applicationLayoutsController'
@@ -21,6 +22,7 @@ export function createApplicationsRoutes(
     const app = createApplicationsController(getDbExecutor)
     const runtime = createRuntimeRowsController(getDbExecutor)
     const childRows = createRuntimeChildRowsController(getDbExecutor)
+    const ledgers = createRuntimeLedgersController(getDbExecutor)
     const runtimeScripts = createRuntimeScriptsController(getDbExecutor)
     const workspace = createRuntimeWorkspaceController(getDbExecutor)
     const layouts = createApplicationLayoutsController(getDbExecutor)
@@ -69,12 +71,27 @@ export function createApplicationsRoutes(
     router.post('/:applicationId/runtime/rows', writeLimiter, asyncHandler(runtime.createRow))
     router.post('/:applicationId/runtime/rows/reorder', writeLimiter, asyncHandler(runtime.reorderRows))
     router.post('/:applicationId/runtime/rows/:rowId/copy', writeLimiter, asyncHandler(runtime.copyRow))
+    router.post('/:applicationId/runtime/rows/:rowId/post', writeLimiter, asyncHandler(runtime.postRow))
+    router.post('/:applicationId/runtime/rows/:rowId/unpost', writeLimiter, asyncHandler(runtime.unpostRow))
+    router.post('/:applicationId/runtime/rows/:rowId/void', writeLimiter, asyncHandler(runtime.voidRow))
     router.patch('/:applicationId/runtime/rows/:rowId', writeLimiter, asyncHandler(runtime.bulkUpdateRow))
     router.patch('/:applicationId/runtime/:rowId', writeLimiter, asyncHandler(runtime.updateCell))
     router.delete('/:applicationId/runtime/rows/:rowId', writeLimiter, asyncHandler(runtime.deleteRow))
     router.get('/:applicationId/runtime/scripts', readLimiter, asyncHandler(runtimeScripts.listScripts))
     router.get('/:applicationId/runtime/scripts/:scriptId/client', readLimiter, asyncHandler(runtimeScripts.getClientBundle))
     router.post('/:applicationId/runtime/scripts/:scriptId/call', writeLimiter, asyncHandler(runtimeScripts.callMethod))
+    router.get('/:applicationId/runtime/ledgers', readLimiter, asyncHandler(ledgers.listLedgers))
+    router.get('/:applicationId/runtime/ledgers/:ledgerId/facts', readLimiter, asyncHandler(ledgers.listFacts))
+    router.patch('/:applicationId/runtime/ledgers/:ledgerId/facts/:factId', writeLimiter, asyncHandler(ledgers.updateFact))
+    router.delete('/:applicationId/runtime/ledgers/:ledgerId/facts/:factId', writeLimiter, asyncHandler(ledgers.deleteFact))
+    router.post('/:applicationId/runtime/ledgers/:ledgerId/facts/reverse', writeLimiter, asyncHandler(ledgers.reverseFacts))
+    router.post('/:applicationId/runtime/ledgers/:ledgerId/facts', writeLimiter, asyncHandler(ledgers.appendFacts))
+    router.post('/:applicationId/runtime/ledgers/:ledgerId/query', writeLimiter, asyncHandler(ledgers.queryProjection))
+    router.get(
+        '/:applicationId/runtime/ledgers/:ledgerId/projections/:projectionCodename',
+        readLimiter,
+        asyncHandler(ledgers.getProjection)
+    )
 
     // ── Runtime workspaces ──
     router.get('/:applicationId/runtime/workspaces', readLimiter, asyncHandler(workspace.listWorkspaces))

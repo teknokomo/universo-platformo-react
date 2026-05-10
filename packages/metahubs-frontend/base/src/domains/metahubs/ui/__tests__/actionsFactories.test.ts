@@ -111,6 +111,31 @@ describe('Metahubs page action factories', () => {
         expect(scriptsTab.content.props.attachedToId).toBeNull()
     })
 
+    it('Metahub dialog guards tolerate uninitialized form values', async () => {
+        const mod = await import('../MetahubActions')
+
+        const descriptors = asDialogDescriptors(mod.default)
+        const edit = descriptors.find((d) => d.id === 'edit')
+        expect(edit?.dialog?.buildProps).toBeTypeOf('function')
+
+        const props = edit!.dialog!.buildProps!({
+            entity: { id: 'metahub-1', name: 'Metahub 1', codename: 'MetahubOne' },
+            metahubMap: new Map(),
+            uiLocale: 'ru',
+            t: (key: string, fallback?: string) => fallback ?? key
+        })
+
+        expect(() => props.canSave(undefined)).not.toThrow()
+        expect(props.canSave(undefined)).toBe(false)
+        expect(() => props.validate(undefined)).not.toThrow()
+        expect(props.validate(undefined)).toEqual(
+            expect.objectContaining({
+                nameVlc: 'Name is required',
+                codename: 'Codename is required'
+            })
+        )
+    })
+
     it('TreeEntityActions exports edit/copy/delete descriptors for localized forms', async () => {
         const mod = await import('../../../entities/presets/ui/TreeEntityActions')
 

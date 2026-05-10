@@ -8,6 +8,14 @@ import { createSettingsRoutes } from '../../domains/settings/routes/settingsRout
 
 const mockEnsureMetahubAccess = jest.fn()
 const mockEnsureSchema = jest.fn(async () => 'mhb_test_schema')
+const mockListEntityTypes = jest.fn(async () => [
+    { kindKey: 'hub' },
+    { kindKey: 'page' },
+    { kindKey: 'catalog' },
+    { kindKey: 'set' },
+    { kindKey: 'enumeration' },
+    { kindKey: 'ledger' }
+])
 
 jest.mock('../../domains/shared/guards', () => ({
     __esModule: true,
@@ -18,6 +26,13 @@ jest.mock('../../domains/metahubs/services/MetahubSchemaService', () => ({
     __esModule: true,
     MetahubSchemaService: jest.fn().mockImplementation(() => ({
         ensureSchema: (...args: unknown[]) => mockEnsureSchema(...args)
+    }))
+}))
+
+jest.mock('../../domains/entities/services/EntityTypeService', () => ({
+    __esModule: true,
+    EntityTypeService: jest.fn().mockImplementation(() => ({
+        listTypes: (...args: unknown[]) => mockListEntityTypes(...args)
     }))
 }))
 
@@ -67,6 +82,14 @@ describe('Settings Routes', () => {
         jest.clearAllMocks()
         mockEnsureMetahubAccess.mockResolvedValue({ metahubId: 'metahub-1' })
         mockEnsureSchema.mockResolvedValue('mhb_test_schema')
+        mockListEntityTypes.mockResolvedValue([
+            { kindKey: 'hub' },
+            { kindKey: 'page' },
+            { kindKey: 'catalog' },
+            { kindKey: 'set' },
+            { kindKey: 'enumeration' },
+            { kindKey: 'ledger' }
+        ])
         mockSettingsService.findAll.mockResolvedValue([])
         mockSettingsService.hasHubNesting.mockResolvedValue(false)
     })

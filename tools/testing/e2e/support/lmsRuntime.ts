@@ -7,6 +7,8 @@ import {
     createPublicationLinkedApplication,
     createPublicationVersion,
     getApplicationRuntime,
+    listRuntimeLedgerFacts,
+    listRuntimeLedgers,
     listLayouts,
     listLinkedCollections,
     listOptionLists,
@@ -128,6 +130,49 @@ export async function waitForApplicationCatalogId(api: ApiContext, applicationId
         .toBeTruthy()
 
     return String(catalogId)
+}
+
+export async function waitForApplicationLedgerId(api: ApiContext, applicationId: string, expectedName: string) {
+    let ledgerId: string | null = null
+
+    await expect
+        .poll(
+            async () => {
+                const response = await listRuntimeLedgers(api, applicationId)
+                ledgerId = findNamedItem(response.ledgers ?? [], expectedName)?.id ?? null
+                return ledgerId
+            },
+            { timeout: 30_000, intervals: [500, 1_000, 2_000] }
+        )
+        .toBeTruthy()
+
+    return String(ledgerId)
+}
+
+export async function waitForApplicationLedgerFactCount(
+    api: ApiContext,
+    applicationId: string,
+    ledgerId: string,
+    expectedCount: number,
+    params: { workspaceId?: string } = {}
+) {
+    let facts: Array<Record<string, unknown>> = []
+
+    await expect
+        .poll(
+            async () => {
+                const response = await listRuntimeLedgerFacts(api, applicationId, ledgerId, {
+                    limit: Math.max(expectedCount, 1),
+                    ...params
+                })
+                facts = Array.isArray(response.rows) ? response.rows : []
+                return facts.length
+            },
+            { timeout: 30_000, intervals: [500, 1_000, 2_000] }
+        )
+        .toBe(expectedCount)
+
+    return facts
 }
 
 export async function waitForApplicationRuntimeRow(api: ApiContext, applicationId: string, catalogId: string, rowId: string) {

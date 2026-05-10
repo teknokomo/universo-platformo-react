@@ -516,14 +516,18 @@ export async function copyWorkspace(
             actorUserId: input.actorUserId
         })
 
+        const objectsTable = qSchemaTable(input.schemaName, '_app_objects')
         const scopedTables = await tx.query<{ table_name: string }>(
             `
-            SELECT table_name
-            FROM information_schema.columns
-            WHERE table_schema = $1
-              AND column_name = 'workspace_id'
-              AND (table_name LIKE 'cat\\_%' ESCAPE '\\' OR table_name LIKE 'tbl\\_%' ESCAPE '\\')
-            ORDER BY table_name ASC
+            SELECT DISTINCT c.table_name
+            FROM information_schema.columns c
+            INNER JOIN ${objectsTable} o ON o.table_name = c.table_name
+            WHERE c.table_schema = $1
+              AND c.column_name = 'workspace_id'
+              AND o.table_name IS NOT NULL
+              AND o._upl_deleted = false
+              AND o._app_deleted = false
+            ORDER BY c.table_name ASC
         `,
             [input.schemaName]
         )

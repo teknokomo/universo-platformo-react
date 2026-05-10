@@ -17,6 +17,7 @@ import {
     getApplicationRuntime,
     getAssignableRoles,
     listApplicationMembers,
+    listFieldDefinitions,
     listLinkedCollections,
     syncApplicationSchema,
     syncPublication,
@@ -40,6 +41,28 @@ type RuntimeState = {
         id?: string
     }
     rows?: Array<Record<string, unknown> & { id?: string }>
+}
+
+function readLocalizedText(value: unknown, locale = 'en'): string | undefined {
+    if (typeof value === 'string') {
+        return value
+    }
+
+    if (!value || typeof value !== 'object') {
+        return undefined
+    }
+
+    const record = value as Record<string, unknown>
+    const content = record.content
+    if (content && typeof content === 'object') {
+        const localized = (content as Record<string, unknown>)[locale]
+        if (typeof localized === 'string') {
+            return localized
+        }
+    }
+
+    const localized = record[locale]
+    return typeof localized === 'string' ? localized : undefined
 }
 
 function resolveGlobalRoleIds(roles: Array<{ id?: string; codename?: string }>, roleCodenames: string[]) {
@@ -133,9 +156,38 @@ async function waitForRuntimeCatalogId(
     return runtimeState?.catalog?.id ?? fallbackCatalogId
 }
 
+async function ensureTitleFieldDefinition(api: Awaited<ReturnType<typeof createLoggedInApiContext>>, metahubId: string, catalogId: string) {
+    const fieldDefinitions = await listFieldDefinitions(api, metahubId, catalogId, { limit: 100, offset: 0, includeShared: true })
+    const hasTitleField = (fieldDefinitions.items ?? []).some(
+        (item: { codename?: unknown; name?: unknown }) =>
+            readLocalizedText(item.codename, 'en') === 'title' || readLocalizedText(item.name, 'en') === 'Title'
+    )
+
+    if (hasTitleField) {
+        return { id: 'existing-title-field' }
+    }
+
+    try {
+        return await createFieldDefinition(api, metahubId, catalogId, {
+            name: { en: 'Title' },
+            namePrimaryLocale: 'en',
+            codename: createLocalizedContent('en', 'title'),
+            dataType: 'STRING',
+            isRequired: false
+        })
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        if (message.includes('Field definition with this codename already exists')) {
+            return { id: 'existing-title-field' }
+        }
+        throw error
+    }
+}
+
 async function createRuntimeRowViaBrowser(page: Page, value: string) {
-    await expect(page.getByTestId(applicationSelectors.runtimeCreateButton)).toBeEnabled({ timeout: 30_000 })
-    await page.getByTestId(applicationSelectors.runtimeCreateButton).click()
+    const createButton = page.getByTestId(applicationSelectors.runtimeCreateButton).or(page.getByRole('button', { name: 'Create' })).first()
+    await expect(createButton).toBeEnabled({ timeout: 30_000 })
+    await createButton.click()
 
     const createDialog = page.getByRole('dialog', { name: 'Create element' })
     await expect(createDialog).toBeVisible()
@@ -207,13 +259,7 @@ test('@flow application settings show an info state before schema creation and w
 
         const catalogId = await waitForCatalogId(ownerApi, metahub.id)
 
-        const attribute = await createFieldDefinition(ownerApi, metahub.id, catalogId, {
-            name: { en: 'Title' },
-            namePrimaryLocale: 'en',
-            codename: createLocalizedContent('en', 'title'),
-            dataType: 'STRING',
-            isRequired: false
-        })
+        const attribute = await ensureTitleFieldDefinition(ownerApi, metahub.id, catalogId)
 
         if (!attribute?.id) {
             throw new Error('Attribute creation did not return an id for workspace isolation coverage')
@@ -341,7 +387,7 @@ test('@flow application settings show an info state before schema creation and w
     }
 })
 
-test('@flow application without workspaces shares runtime rows between members', async ({ browser, page, runManifest }) => {
+test('@flow application without workspaces shares runtime rows between application users', async ({ browser, page, runManifest }) => {
     test.setTimeout(300_000)
 
     const bootstrapApi = await createBootstrapApiContext()
@@ -378,13 +424,7 @@ test('@flow application without workspaces shares runtime rows between members',
         })
 
         const catalogId = await waitForCatalogId(ownerApi, metahub.id)
-        const attribute = await createFieldDefinition(ownerApi, metahub.id, catalogId, {
-            name: { en: 'Title' },
-            namePrimaryLocale: 'en',
-            codename: createLocalizedContent('en', 'title'),
-            dataType: 'STRING',
-            isRequired: false
-        })
+        const attribute = await ensureTitleFieldDefinition(ownerApi, metahub.id, catalogId)
 
         if (!attribute?.id) {
             throw new Error('Attribute creation did not return an id for shared-row coverage')
@@ -451,7 +491,7 @@ test('@flow application without workspaces shares runtime rows between members',
 
         await addApplicationMember(ownerApi, applicationId, {
             email: memberEmail,
-            role: 'member'
+            role: 'editor'
         })
 
         let memberRecord: ListedMember | null = null

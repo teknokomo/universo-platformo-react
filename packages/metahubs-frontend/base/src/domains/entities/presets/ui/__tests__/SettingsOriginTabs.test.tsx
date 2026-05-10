@@ -4,15 +4,25 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 
 const mockLayoutList = vi.fn()
+const mockCreateScriptsTab = vi.fn((props: Record<string, unknown>) => ({
+    id: 'scripts',
+    label: 'Scripts',
+    content: <div data-testid='scripts-tab' data-attached-kind={String(props.attachedToKind)} />
+}))
 
-vi.mock('../../../layouts/ui/LayoutList', () => ({
+vi.mock('../../../../layouts/ui/LayoutList', () => ({
     default: (props: Record<string, unknown>) => {
         mockLayoutList(props)
         return <div data-testid='catalog-layout-list' />
     }
 }))
 
+vi.mock('../../../../scripts/ui/EntityScriptsTab', () => ({
+    createScriptsTab: (props: Record<string, unknown>) => mockCreateScriptsTab(props)
+}))
+
 import {
+    default as linkedCollectionActions,
     buildFormTabs as buildLinkedCollectionFormTabs,
     type LinkedCollectionActionContext,
     type LinkedCollectionDisplayWithContainer
@@ -47,7 +57,10 @@ const renderWithProviders = (content: React.ReactNode) => {
     )
 }
 
-const createLinkedCollectionContext = (metahubId: string | null): LinkedCollectionActionContext => ({
+const createLinkedCollectionContext = (
+    metahubId: string | null,
+    overrides: Partial<LinkedCollectionActionContext> = {}
+): LinkedCollectionActionContext => ({
     entity: {
         id: 'catalog-1',
         metahubId: metahubId ?? 'metahub-1',
@@ -62,7 +75,8 @@ const createLinkedCollectionContext = (metahubId: string | null): LinkedCollecti
     uiLocale: 'en',
     catalogMap: new Map(),
     currentTreeEntityId: 'hub-1',
-    metahubId
+    metahubId,
+    ...overrides
 })
 
 const createValueGroupContext = (metahubId: string | null): ValueGroupActionContext => ({
@@ -104,6 +118,7 @@ const createOptionListContext = (metahubId: string | null): OptionListActionCont
 describe('Settings-origin shared form tabs', () => {
     beforeEach(() => {
         mockLayoutList.mockReset()
+        mockCreateScriptsTab.mockClear()
     })
 
     it('renders the catalog layout manager and scripts tab when the edit context carries metahubId', () => {
@@ -123,7 +138,13 @@ describe('Settings-origin shared form tabs', () => {
         const layoutTab = tabs.find((tab) => tab.id === 'layout')
         renderWithProviders(layoutTab?.content)
 
-        expect(screen.getByTestId('skeleton-grid')).toBeInTheDocument()
+        expect(screen.getByTestId('catalog-layout-list')).toBeInTheDocument()
+        expect(mockLayoutList).toHaveBeenCalledWith(
+            expect.objectContaining({
+                linkedCollectionId: 'catalog-1',
+                metahubId: 'metahub-1'
+            })
+        )
     })
 
     it('still renders the catalog layout manager when metahubId is available on the edited entity', () => {
@@ -143,7 +164,96 @@ describe('Settings-origin shared form tabs', () => {
         const layoutTab = tabs.find((tab) => tab.id === 'layout')
         renderWithProviders(layoutTab?.content)
 
-        expect(screen.getByTestId('skeleton-grid')).toBeInTheDocument()
+        expect(screen.getByTestId('catalog-layout-list')).toBeInTheDocument()
+        expect(mockLayoutList).toHaveBeenCalledWith(
+            expect.objectContaining({
+                linkedCollectionId: 'catalog-1',
+                metahubId: 'metahub-1'
+            })
+        )
+    })
+
+    it('uses the active linked-collection kind for scripts tabs instead of the base catalog kind', () => {
+        const tabs = buildLinkedCollectionFormTabs(
+            createLinkedCollectionContext('metahub-1', {
+                routeKindKey: 'documentCatalog',
+                entityKind: 'catalog'
+            }),
+            [baseHub] as never[],
+            'catalog-1'
+        )({
+            values: {},
+            setValue: vi.fn(),
+            isLoading: false,
+            errors: {}
+        })
+
+        expect(tabs.map((tab) => tab.id)).toContain('scripts')
+        expect(mockCreateScriptsTab).toHaveBeenCalledWith(
+            expect.objectContaining({
+                attachedToKind: 'documentCatalog',
+                attachedToId: 'catalog-1',
+                metahubId: 'metahub-1'
+            })
+        )
+    })
+
+    it('preserves edited record behavior in the linked-collection copy payload config', async () => {
+        const copyEntity = vi.fn()
+        const context = createLinkedCollectionContext('metahub-1', {
+            recordBehaviorEnabled: true,
+            api: {
+                copyEntity
+            } as LinkedCollectionActionContext['api']
+        })
+        const copyAction = linkedCollectionActions.find((action) => action.id === 'copy')
+        const props = copyAction?.dialog?.buildProps?.(context) as
+            | {
+                  onSave?: (values: Record<string, unknown>) => Promise<void>
+              }
+            | undefined
+
+        await props?.onSave?.({
+            nameVlc: {
+                _schema: 'v1',
+                _primary: 'en',
+                locales: { en: { content: 'Enrollment copy' } }
+            },
+            codename: {
+                _schema: 'v1',
+                _primary: 'en',
+                locales: { en: { content: 'EnrollmentCopy' } }
+            },
+            treeEntityIds: ['hub-1'],
+            copyFieldDefinitions: true,
+            copyRecords: false,
+            recordBehavior: {
+                mode: 'transactional',
+                posting: {
+                    mode: 'manual',
+                    targetLedgers: ['ProgressLedger'],
+                    scriptCodename: 'EnrollmentPostingScript'
+                }
+            }
+        })
+
+        expect(copyEntity).toHaveBeenCalledWith(
+            'catalog-1',
+            expect.objectContaining({
+                config: {
+                    recordBehavior: expect.objectContaining({
+                        mode: 'transactional',
+                        posting: expect.objectContaining({
+                            mode: 'manual',
+                            targetLedgers: ['ProgressLedger'],
+                            scriptCodename: 'EnrollmentPostingScript'
+                        })
+                    })
+                },
+                copyFieldDefinitions: true,
+                copyRecords: false
+            })
+        )
     })
 
     it('includes scripts tabs for set and enumeration edit contexts when metahubId is present', () => {

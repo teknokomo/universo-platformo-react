@@ -187,6 +187,13 @@ export const createClientScriptContext = (params: {
             update: async () => denyCapability('records.write'),
             delete: async () => denyCapability('records.write')
         },
+        ledger: {
+            list: async () => denyCapability('ledger.read'),
+            facts: async () => denyCapability('ledger.read'),
+            query: async () => denyCapability('ledger.read'),
+            append: async () => denyCapability('ledger.write'),
+            reverse: async () => denyCapability('ledger.write')
+        },
         metadata: {
             getAttachedEntity: hasScriptCapability(params.script.manifest, 'metadata.read')
                 ? async () => ({

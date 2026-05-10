@@ -3,9 +3,14 @@ import type { SystemTableCapabilityOptions } from '@universo/migrations-core'
 import {
     FieldDefinitionDataType,
     DASHBOARD_LAYOUT_WIDGETS,
+    isCatalogRecordBehaviorEnabled,
+    isLedgerSchemaCapableEntity,
+    normalizeCatalogRecordBehaviorFromConfig,
     getPhysicalDataType,
     formatPhysicalType,
+    type ComponentManifest,
     type ApplicationLifecycleContract,
+    type CatalogRecordBehavior,
     type VersionedLocalizedContent
 } from '@universo/types'
 import type { FieldDefinitionValidationRules } from '@universo/types'
@@ -25,6 +30,7 @@ const SINGLE_INSTANCE_DASHBOARD_WIDGET_KEYS = DASHBOARD_LAYOUT_WIDGETS.filter((w
     (widget) => widget.key
 )
 const quoteSqlStringLiteral = (value: string): string => `'${value.replace(/'/g, "''")}'`
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 
 const createCodenameVLC = (primaryLocale: string, codename: string): VersionedLocalizedContent<string> => {
     const timestamp = new Date(0).toISOString()
@@ -167,6 +173,67 @@ export class SchemaGenerator {
 
     private static resolvePlatformSystemFieldsContract(entity: EntityDefinition) {
         return resolvePlatformSystemFieldsContractFromConfig((entity as { config?: Record<string, unknown> }).config)
+    }
+
+    private static resolveRecordBehavior(entity: EntityDefinition): CatalogRecordBehavior {
+        const config = (entity as { config?: Record<string, unknown> }).config
+        return normalizeCatalogRecordBehaviorFromConfig(config)
+    }
+
+    private static isRecordBehaviorEnabled(behavior: CatalogRecordBehavior): boolean {
+        return isCatalogRecordBehaviorEnabled(behavior)
+    }
+
+    private static applyRecordBehaviorColumns(table: Knex.CreateTableBuilder, behavior: CatalogRecordBehavior): void {
+        if (!SchemaGenerator.isRecordBehaviorEnabled(behavior)) {
+            return
+        }
+
+        table.string('_app_record_number', 64).nullable()
+        table.timestamp('_app_record_date', { useTz: true }).nullable()
+        table.string('_app_record_state', 32).notNullable().defaultTo('draft')
+        table.timestamp('_app_posted_at', { useTz: true }).nullable()
+        table.uuid('_app_posted_by').nullable()
+        table.uuid('_app_posting_batch_id').nullable()
+        table.jsonb('_app_posting_movements').nullable()
+        table.timestamp('_app_voided_at', { useTz: true }).nullable()
+        table.uuid('_app_voided_by').nullable()
+    }
+
+    private static resolveRuntimeComponents(entity: EntityDefinition): ComponentManifest | undefined {
+        if (entity.components) {
+            return entity.components
+        }
+
+        const config = (entity as { config?: Record<string, unknown> }).config
+        if (isRecord(config?.components)) {
+            return config.components as unknown as ComponentManifest
+        }
+
+        return undefined
+    }
+
+    private static isLedgerEntity(entity: EntityDefinition): boolean {
+        const components = SchemaGenerator.resolveRuntimeComponents(entity)
+        return isLedgerSchemaCapableEntity(components)
+    }
+
+    private static buildRuntimeObjectConfig(entity: EntityDefinition): Record<string, unknown> {
+        const config = (entity as { config?: Record<string, unknown> }).config ?? {}
+        const components = SchemaGenerator.resolveRuntimeComponents(entity)
+
+        if (!components) {
+            return config
+        }
+
+        return {
+            ...config,
+            components
+        }
+    }
+
+    private static applyLedgerSystemColumns(table: Knex.CreateTableBuilder): void {
+        table.uuid('_app_reversal_of_fact_id').nullable()
     }
 
     private static applyConfigurablePlatformSystemColumns(
@@ -406,6 +473,7 @@ export class SchemaGenerator {
         const tableName = resolveEntityTableName(entity)
         const lifecycleContract = SchemaGenerator.resolveLifecycleContract(entity)
         const platformContract = SchemaGenerator.resolvePlatformSystemFieldsContract(entity)
+        const recordBehavior = SchemaGenerator.resolveRecordBehavior(entity)
         console.log(`[SchemaGenerator] Creating table: ${schemaName}.${tableName} (entity: ${entity.codename})`)
 
         const knex = trx ?? this.knex
@@ -439,6 +507,10 @@ export class SchemaGenerator {
             table.text('_upl_locked_reason').nullable()
 
             SchemaGenerator.applyApplicationLifecycleColumns(table, lifecycleContract)
+            SchemaGenerator.applyRecordBehaviorColumns(table, recordBehavior)
+            if (SchemaGenerator.isLedgerEntity(entity)) {
+                SchemaGenerator.applyLedgerSystemColumns(table)
+            }
         })
 
         // Create indexes for system fields
@@ -450,6 +522,26 @@ export class SchemaGenerator {
             `)
         }
         await this.createApplicationLifecycleIndexes(schemaName, tableName, lifecycleContract, trx)
+        if (SchemaGenerator.isRecordBehaviorEnabled(recordBehavior)) {
+            await knex.raw(`
+                CREATE INDEX IF NOT EXISTS idx_${tableName}_record_state
+                ON "${schemaName}"."${tableName}" (_app_record_state)
+            `)
+            await knex.raw(`
+                CREATE INDEX IF NOT EXISTS idx_${tableName}_posted_at
+                ON "${schemaName}"."${tableName}" (_app_posted_at)
+                WHERE _app_posted_at IS NOT NULL
+            `)
+        }
+        if (SchemaGenerator.isLedgerEntity(entity)) {
+            await knex.raw(`
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_${tableName}_reversal_of_fact
+                ON "${schemaName}"."${tableName}" (_app_reversal_of_fact_id)
+                WHERE _app_reversal_of_fact_id IS NOT NULL
+                  AND _upl_deleted = false
+                  AND _app_deleted = false
+            `)
+        }
 
         console.log(`[SchemaGenerator] Table ${schemaName}.${tableName} created`)
     }
@@ -852,6 +944,30 @@ export class SchemaGenerator {
                 table.unique(['name'])
             })
             console.log(`[SchemaGenerator] _app_migrations created`)
+        }
+
+        const hasRecordCounters = await knex.schema.withSchema(schemaName).hasTable('_app_record_counters')
+        console.log(`[SchemaGenerator] _app_record_counters exists: ${hasRecordCounters}`)
+
+        if (!hasRecordCounters) {
+            console.log(`[SchemaGenerator] Creating _app_record_counters...`)
+            await knex.schema.withSchema(schemaName).createTable('_app_record_counters', (table) => {
+                table.uuid('id').primary().defaultTo(knex.raw('public.uuid_generate_v7()'))
+                table.uuid('object_id').notNullable().references('id').inTable(`${schemaName}._app_objects`).onDelete('CASCADE')
+                table.string('scope_key', 128).notNullable()
+                table.string('period_key', 32).notNullable()
+                table.string('prefix', 64).notNullable().defaultTo('')
+                table.specificType('last_number', 'BIGINT').notNullable().defaultTo(0)
+
+                table.timestamp('_upl_created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+                table.uuid('_upl_created_by').nullable()
+                table.timestamp('_upl_updated_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+                table.uuid('_upl_updated_by').nullable()
+                table.integer('_upl_version').notNullable().defaultTo(1)
+
+                table.unique(['object_id', 'scope_key', 'period_key', 'prefix'])
+            })
+            console.log(`[SchemaGenerator] _app_record_counters created`)
         }
 
         const hasSettings = await knex.schema.withSchema(schemaName).hasTable('_app_settings')
@@ -1321,7 +1437,7 @@ export class SchemaGenerator {
             codename: createCodenameVLC('en', entity.codename),
             table_name: hasPhysicalRuntimeTable(entity) ? resolveEntityTableName(entity) : null,
             presentation: entity.presentation,
-            config: (entity as { config?: Record<string, unknown> }).config ?? {},
+            config: SchemaGenerator.buildRuntimeObjectConfig(entity),
             _upl_created_at: knex.fn.now(),
             _upl_created_by: userId,
             _upl_updated_at: knex.fn.now(),

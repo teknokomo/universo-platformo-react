@@ -78,7 +78,8 @@ const LEGACY_COMPATIBLE_ENTITY_LABEL_KEYS: Record<BuiltinEntityKind, string> = {
     hub: 'hubs',
     set: 'sets',
     enumeration: 'enumerations',
-    page: 'pages'
+    page: 'pages',
+    ledger: 'ledgers'
 }
 
 const BUILTIN_ENTITY_TITLE_KEYS: Record<BuiltinEntityKind, { key: string; fallback: string }> = {
@@ -86,7 +87,8 @@ const BUILTIN_ENTITY_TITLE_KEYS: Record<BuiltinEntityKind, { key: string; fallba
     hub: { key: 'metahubs:hubs.title', fallback: 'Hubs' },
     set: { key: 'metahubs:sets.title', fallback: 'Sets' },
     enumeration: { key: 'metahubs:enumerations.title', fallback: 'Enumerations' },
-    page: { key: 'metahubs:pages.title', fallback: 'Pages' }
+    page: { key: 'metahubs:pages.title', fallback: 'Pages' },
+    ledger: { key: 'metahubs:ledgers.title', fallback: 'Ledgers' }
 }
 
 const truncateEntityBreadcrumbLabel = (value: string): string => (value.length > 36 ? `${value.slice(0, 33)}...` : value)

@@ -18,7 +18,7 @@ import { useTranslation } from 'react-i18next'
 import AppMainLayout from '../layouts/AppMainLayout'
 
 const PUBLIC_CSRF_STORAGE_KEY_PREFIX = 'apps-template-mui:public-csrf'
-const GUEST_STUDENT_ID_HEADER = 'X-Guest-Student-Id'
+const GUEST_PARTICIPANT_ID_HEADER = 'X-Guest-Participant-Id'
 const GUEST_SESSION_TOKEN_HEADER = 'X-Guest-Session-Token'
 
 const getPublicCsrfStorageKey = (applicationId?: string) =>
@@ -65,7 +65,8 @@ const resolveGuestRuntimeLocale = (fallbackLocale: string) => {
 }
 
 type GuestSession = {
-    studentId: string
+    participantId: string
+    studentId?: string
     sessionToken: string
 }
 
@@ -100,6 +101,25 @@ type GuestRuntimeQuiz = {
 }
 
 type GuestRuntimePayload = GuestRuntimeModule | GuestRuntimeQuiz
+
+const normalizeGuestSession = (value: unknown): GuestSession | null => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return null
+    }
+
+    const raw = value as Partial<GuestSession>
+    const participantId = typeof raw.participantId === 'string' ? raw.participantId : typeof raw.studentId === 'string' ? raw.studentId : ''
+    const sessionToken = typeof raw.sessionToken === 'string' ? raw.sessionToken : ''
+    if (!participantId || !sessionToken) {
+        return null
+    }
+
+    return {
+        participantId,
+        studentId: typeof raw.studentId === 'string' ? raw.studentId : participantId,
+        sessionToken
+    }
+}
 
 export interface GuestAppProps {
     applicationId?: string
@@ -178,8 +198,8 @@ export default function GuestApp(props: GuestAppProps) {
         try {
             const stored = window.sessionStorage.getItem(storageKey)
             if (!stored) return
-            const parsed = JSON.parse(stored) as GuestSession
-            if (parsed.studentId && parsed.sessionToken) {
+            const parsed = normalizeGuestSession(JSON.parse(stored))
+            if (parsed) {
                 setSession(parsed)
             }
         } catch {
@@ -223,7 +243,11 @@ export default function GuestApp(props: GuestAppProps) {
             if (!response.ok) {
                 throw new Error(t('guest.errors.sessionCreate', 'Failed to create guest session.'))
             }
-            return (await response.json()) as GuestSession
+            const payload = normalizeGuestSession(await response.json())
+            if (!payload) {
+                throw new Error(t('guest.errors.sessionCreate', 'Failed to create guest session.'))
+            }
+            return payload
         },
         onSuccess: (nextSession) => {
             setSession(nextSession)
@@ -236,8 +260,8 @@ export default function GuestApp(props: GuestAppProps) {
     })
 
     const runtimeQuery = useQuery({
-        queryKey: ['guest-runtime', applicationId, slug, locale, session?.studentId ?? null, activeQuizId],
-        enabled: Boolean(applicationId && slug && linkQuery.data && session?.studentId && session?.sessionToken),
+        queryKey: ['guest-runtime', applicationId, slug, locale, session?.participantId ?? null, activeQuizId],
+        enabled: Boolean(applicationId && slug && linkQuery.data && session?.participantId && session?.sessionToken),
         queryFn: async () => {
             const params = new URLSearchParams({ slug, locale })
             if (activeQuizId) {
@@ -245,8 +269,8 @@ export default function GuestApp(props: GuestAppProps) {
                 params.set('targetId', activeQuizId)
             }
             const headers = new Headers()
-            if (session?.studentId && session?.sessionToken) {
-                headers.set(GUEST_STUDENT_ID_HEADER, session.studentId)
+            if (session?.participantId && session?.sessionToken) {
+                headers.set(GUEST_PARTICIPANT_ID_HEADER, session.participantId)
                 headers.set(GUEST_SESSION_TOKEN_HEADER, session.sessionToken)
             }
             const response = await fetch(`${apiBaseUrl}/public/a/${applicationId}/runtime?${params.toString()}`, {
@@ -266,9 +290,9 @@ export default function GuestApp(props: GuestAppProps) {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    studentId: session.studentId,
+                    participantId: session.participantId,
                     sessionToken: session.sessionToken,
-                    moduleId: input.moduleId,
+                    contentNodeId: input.moduleId,
                     progressPercent: input.progressPercent,
                     lastAccessedItemIndex: input.lastAccessedItemIndex,
                     status: input.status
@@ -293,9 +317,9 @@ export default function GuestApp(props: GuestAppProps) {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    studentId: session.studentId,
+                    participantId: session.participantId,
                     sessionToken: session.sessionToken,
-                    quizId,
+                    assessmentId: quizId,
                     answers
                 })
             })

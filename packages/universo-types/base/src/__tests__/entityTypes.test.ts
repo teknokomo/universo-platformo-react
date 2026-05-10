@@ -6,8 +6,10 @@ import {
     getEnabledComponentKeys,
     getDefaultEntityResourceSurfaceDefinition,
     isBuiltinEntityKind,
+    isLedgerSchemaCapableEntity,
     normalizeEntityResourceSurfaceDefinitions,
     resolveEntityResourceSurfaceTitle,
+    supportsLedgerSchema,
     validateEntityResourceSurfacesAgainstComponents,
     validateComponentDependencies,
     buildEntitySettingKey,
@@ -24,8 +26,9 @@ describe('entity type contracts', () => {
         expect(isBuiltinEntityKind(MetaEntityKind.ENUMERATION)).toBe(true)
         expect(isBuiltinEntityKind(MetaEntityKind.HUB)).toBe(true)
         expect(isBuiltinEntityKind(MetaEntityKind.PAGE)).toBe(true)
+        expect(isBuiltinEntityKind(MetaEntityKind.LEDGER)).toBe(true)
         expect(isBuiltinEntityKind('custom_registry')).toBe(false)
-        expect(Object.values(BuiltinEntityKinds)).toEqual(['catalog', 'set', 'enumeration', 'hub', 'page'])
+        expect(Object.values(BuiltinEntityKinds)).toEqual(['catalog', 'set', 'enumeration', 'hub', 'page', 'ledger'])
         expect(Object.values(BuiltinEntityKinds)).not.toContain('document')
     })
 
@@ -48,13 +51,23 @@ describe('entity type contracts', () => {
         )
     })
 
+    it('exposes Ledger as a first-class menu item kind and settings tab', () => {
+        expect(METAHUB_MENU_ITEM_KINDS).toContain('ledger')
+        expect(METAHUB_SETTINGS_REGISTRY).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ key: buildEntitySettingKey('ledger', 'allowCopy'), tab: 'ledger', defaultValue: true }),
+                expect.objectContaining({ key: buildEntitySettingKey('ledger', 'allowDelete'), tab: 'ledger', defaultValue: true })
+            ])
+        )
+    })
+
     it('reports missing component dependencies and lists enabled manifest keys', () => {
         const manifest: ComponentManifest = {
             dataSchema: { enabled: true },
             records: { enabled: true },
             treeAssignment: false,
             optionValues: false,
-            constants: false,
+            fixedValues: false,
             hierarchy: false,
             nestedCollections: false,
             relations: false,
@@ -64,11 +77,48 @@ describe('entity type contracts', () => {
             blockContent: false,
             layoutConfig: false,
             runtimeBehavior: false,
-            physicalTable: false
+            physicalTable: false,
+            identityFields: false,
+            recordLifecycle: false,
+            posting: false,
+            ledgerSchema: false
         }
 
         expect(validateComponentDependencies(manifest)).toEqual([])
         expect(getEnabledComponentKeys(manifest)).toEqual(expect.arrayContaining(['dataSchema', 'records', 'actions', 'events']))
+    })
+
+    it('treats ledgerSchema as a generic component capability, not as a kind name', () => {
+        const manifest: ComponentManifest = {
+            dataSchema: { enabled: true },
+            records: { enabled: true },
+            treeAssignment: false,
+            optionValues: false,
+            fixedValues: false,
+            hierarchy: false,
+            nestedCollections: false,
+            relations: false,
+            actions: false,
+            events: false,
+            scripting: false,
+            blockContent: false,
+            layoutConfig: false,
+            runtimeBehavior: false,
+            physicalTable: { enabled: true, prefix: 'cat' },
+            identityFields: { enabled: true },
+            recordLifecycle: { enabled: true },
+            posting: false,
+            ledgerSchema: {
+                enabled: true,
+                allowProjections: true,
+                allowRegistrarPolicy: true,
+                allowManualFacts: false,
+                allowedModes: ['facts', 'balance']
+            }
+        }
+
+        expect(supportsLedgerSchema(manifest)).toBe(true)
+        expect(isLedgerSchemaCapableEntity(manifest)).toBe(true)
     })
 
     it('normalizes and validates resource surface contracts', () => {

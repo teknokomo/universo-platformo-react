@@ -76,6 +76,11 @@ type RuntimeExecutionContext = {
     records: {
         list: (entityCodename: string, filters?: Record<string, unknown>) => Promise<unknown>
     }
+    ledger: {
+        list: () => Promise<unknown>
+        append: (ledgerCodename: string, facts: Array<{ data: Record<string, unknown> }>) => Promise<unknown>
+        reverse: (ledgerCodename: string, factIds: string[]) => Promise<unknown>
+    }
     metadata: {
         getAttachedEntity: () => Promise<unknown>
     }
@@ -215,11 +220,76 @@ describe('RuntimeScriptsService', () => {
         })
 
         await expect(context.records.list('orders')).rejects.toThrow('Script capability "records.read" is not enabled for this module')
+        await expect(context.ledger.list()).rejects.toThrow('Script capability "ledger.read" is not enabled for this module')
+        await expect(context.ledger.append('ProgressLedger', [])).rejects.toThrow(
+            'Script capability "ledger.write" is not enabled for this module'
+        )
+        await expect(context.ledger.reverse('ProgressLedger', ['fact-1'])).rejects.toThrow(
+            'Script capability "ledger.write" is not enabled for this module'
+        )
         await expect(context.metadata.getAttachedEntity()).rejects.toThrow(
             'Script capability "metadata.read" is not enabled for this module'
         )
         await expect(context.callServerMethod('submit', [])).rejects.toThrow(
             'Script capability "rpc.client" is not enabled for this module'
+        )
+    })
+
+    it('exposes ledger append only when ledger.write is declared', async () => {
+        const { executor } = createMockDbExecutor()
+        const ledgers = {
+            appendFacts: jest.fn().mockResolvedValue([{ id: 'fact-1' }]),
+            reverseFacts: jest.fn().mockResolvedValue([{ id: 'fact-2' }]),
+            listLedgers: jest.fn(),
+            listFacts: jest.fn(),
+            queryProjection: jest.fn()
+        }
+        const service = new RuntimeScriptsService(engine as never, ledgers as never)
+        const context = (
+            service as never as {
+                createExecutionContext: (params: Record<string, unknown>) => RuntimeExecutionContext
+            }
+        ).createExecutionContext({
+            executor,
+            applicationId: 'application-1',
+            schemaName: 'app_runtime_test',
+            script: createScriptDefinition({
+                manifest: {
+                    className: 'PostingScript',
+                    sdkApiVersion: '1.0.0',
+                    moduleRole: 'lifecycle',
+                    sourceKind: 'embedded',
+                    capabilities: ['ledger.write'],
+                    methods: [{ name: 'afterPost', target: 'server', eventName: 'afterPost' }]
+                }
+            }),
+            currentWorkspaceId: 'workspace-1',
+            currentUserId: 'user-1',
+            permissions: null
+        })
+
+        await expect(context.ledger.append('ProgressLedger', [{ data: { Learner: 'student-1' } }])).resolves.toEqual([{ id: 'fact-1' }])
+        expect(ledgers.appendFacts).toHaveBeenCalledWith(
+            expect.objectContaining({
+                executor,
+                schemaName: 'app_runtime_test',
+                ledgerCodename: 'ProgressLedger',
+                currentWorkspaceId: 'workspace-1',
+                currentUserId: 'user-1',
+                facts: [{ data: { Learner: 'student-1' } }]
+            })
+        )
+
+        await expect(context.ledger.reverse('ProgressLedger', ['fact-1'])).resolves.toEqual([{ id: 'fact-2' }])
+        expect(ledgers.reverseFacts).toHaveBeenCalledWith(
+            expect.objectContaining({
+                executor,
+                schemaName: 'app_runtime_test',
+                ledgerCodename: 'ProgressLedger',
+                currentWorkspaceId: 'workspace-1',
+                currentUserId: 'user-1',
+                factIds: ['fact-1']
+            })
         )
     })
 

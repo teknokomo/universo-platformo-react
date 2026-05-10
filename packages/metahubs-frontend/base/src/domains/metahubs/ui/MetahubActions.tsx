@@ -22,9 +22,12 @@ const DEFAULT_CC: CodenameConfig = {
     autoReformat: true,
     requireReformat: true
 }
-const _cc = (values: Record<string, unknown>): CodenameConfig => (values._codenameConfig as CodenameConfig) || DEFAULT_CC
+const _cc = (values?: Record<string, unknown> | null): CodenameConfig =>
+    (values?._codenameConfig as CodenameConfig | undefined) || DEFAULT_CC
 
 type GenericFormValues = Record<string, unknown>
+
+const ensureFormValues = (values?: GenericFormValues | null): GenericFormValues => values ?? {}
 
 type EditTabArgs = {
     values: GenericFormValues
@@ -125,7 +128,8 @@ const buildCopyInitialValues = (ctx: ActionContext<MetahubDisplay, MetahubLocali
     }
 }
 
-const validateMetahubForm = (ctx: ActionContext<MetahubDisplay, MetahubLocalizedPayload>, values: GenericFormValues) => {
+const validateMetahubForm = (ctx: ActionContext<MetahubDisplay, MetahubLocalizedPayload>, rawValues?: GenericFormValues | null) => {
+    const values = ensureFormValues(rawValues)
     const cc = _cc(values)
     const errors: Record<string, string> = {}
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
@@ -144,7 +148,8 @@ const validateMetahubForm = (ctx: ActionContext<MetahubDisplay, MetahubLocalized
     return Object.keys(errors).length > 0 ? errors : null
 }
 
-const canSaveMetahubForm = (values: GenericFormValues) => {
+const canSaveMetahubForm = (rawValues?: GenericFormValues | null) => {
+    const values = ensureFormValues(rawValues)
     const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
@@ -159,7 +164,8 @@ const canSaveMetahubForm = (values: GenericFormValues) => {
     )
 }
 
-const toPayload = (values: GenericFormValues): MetahubLocalizedPayload => {
+const toPayload = (rawValues?: GenericFormValues | null): MetahubLocalizedPayload => {
+    const values = ensureFormValues(rawValues)
     const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
@@ -198,15 +204,16 @@ const MetahubEditFields = ({
     uiLocale?: string
     editingEntityId?: string | null
 }) => {
+    const formValues = ensureFormValues(values)
     const fieldErrors = errors ?? {}
     const codenameConfig = useCodenameConfig()
     useEffect(() => {
         setValue('_codenameConfig', codenameConfig)
     }, [codenameConfig, setValue])
-    const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
-    const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
-    const codename = (values.codename as VersionedLocalizedContent<string> | null | undefined) ?? null
-    const codenameTouched = Boolean(values.codenameTouched)
+    const nameVlc = formValues.nameVlc as VersionedLocalizedContent<string> | null | undefined
+    const descriptionVlc = formValues.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
+    const codename = (formValues.codename as VersionedLocalizedContent<string> | null | undefined) ?? null
+    const codenameTouched = Boolean(formValues.codenameTouched)
     const deriveCodename = useCallback(
         (nameContent: string) =>
             sanitizeCodenameForStyle(
@@ -233,7 +240,7 @@ const MetahubEditFields = ({
                 label={t('common:fields.name')}
                 required
                 disabled={isLoading}
-                value={values.nameVlc ?? null}
+                value={formValues.nameVlc ?? null}
                 onChange={(next) => setValue('nameVlc', next)}
                 error={fieldErrors.nameVlc || null}
                 helperText={fieldErrors.nameVlc}
@@ -250,7 +257,7 @@ const MetahubEditFields = ({
                 rows={2}
             />
             <TemplateSelector
-                value={values.templateId}
+                value={formValues.templateId}
                 onChange={ignoreTemplateChange} // Read-only in edit mode
                 disabled
             />
@@ -278,7 +285,8 @@ const buildEditTabs = (
     { values, setValue, isLoading, errors }: EditTabArgs,
     options?: { includeCopyOptions?: boolean; editingEntityId?: string | null }
 ) => {
-    const storageMode = values.storageMode ?? 'main_db'
+    const formValues = ensureFormValues(values)
+    const storageMode = formValues.storageMode ?? 'main_db'
 
     const tabs = [
         {
@@ -286,7 +294,7 @@ const buildEditTabs = (
             label: ctx.t('tabs.general'),
             content: (
                 <MetahubEditFields
-                    values={values}
+                    values={formValues}
                     setValue={setValue}
                     isLoading={isLoading}
                     errors={errors}
@@ -331,7 +339,7 @@ const buildEditTabs = (
                     <FormControlLabel
                         control={
                             <Checkbox
-                                checked={Boolean(values.copyDefaultBranchOnly ?? true)}
+                                checked={Boolean(formValues.copyDefaultBranchOnly ?? true)}
                                 onChange={(event) => setValue('copyDefaultBranchOnly', event.target.checked)}
                                 disabled={isLoading}
                             />
@@ -341,7 +349,7 @@ const buildEditTabs = (
                     <FormControlLabel
                         control={
                             <Checkbox
-                                checked={Boolean(values.copyAccess ?? false)}
+                                checked={Boolean(formValues.copyAccess ?? false)}
                                 onChange={(event) => setValue('copyAccess', event.target.checked)}
                                 disabled={isLoading}
                             />

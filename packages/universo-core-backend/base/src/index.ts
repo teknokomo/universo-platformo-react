@@ -20,7 +20,7 @@ import {
     type VerifiedSupabaseJwtClaims
 } from '@universo/auth-backend'
 import { createGlobalAccessService } from '@universo/admin-backend'
-import { initializeRateLimiters as initializeMetahubsRateLimiters } from '@universo/metahubs-backend'
+import { initializeRateLimiters as initializeMetahubsRateLimiters, seedTemplates } from '@universo/metahubs-backend'
 import { getKnex, destroyKnex, checkDatabaseHealth, registerGracefulShutdown, getPoolExecutor } from '@universo/database'
 import { initializeRateLimiters as initializeApplicationsRateLimiters } from '@universo/applications-backend'
 import { assertIsolatedVmRuntimeAvailable } from '@universo/scripting-engine'
@@ -165,6 +165,17 @@ export class App {
             } else {
                 logger.info('[server]: Global migration catalog is disabled; skipping catalog definition sync')
             }
+
+            await seedTemplates(getPoolExecutor(), {
+                logger: {
+                    info(message: string, ...meta: unknown[]) {
+                        logger.info(message, meta.length > 0 ? { meta } : undefined)
+                    },
+                    error(message: string, ...meta: unknown[]) {
+                        logger.error(message, meta.length > 0 ? { meta } : undefined)
+                    }
+                }
+            })
 
             await bootstrapStartupSuperuser()
 

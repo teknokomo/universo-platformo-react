@@ -3076,6 +3076,380 @@ paths:
             schema:
               $ref: "#/components/schemas/GenericObject"
       security: *a1
+  /applications/{applicationId}/runtime/ledgers:
+    get:
+      tags:
+        - Applications
+      summary: GET /applications/{applicationId}/runtime/ledgers
+      description: Auto-generated from
+        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_get_applications_applicationId_runtime_ledgers
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+  /applications/{applicationId}/runtime/ledgers/{ledgerId}/facts:
+    get:
+      tags:
+        - Applications
+      summary: GET /applications/{applicationId}/runtime/ledgers/{ledgerId}/facts
+      description: Auto-generated from
+        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_get_applications_applicationId_runtime_ledgers_ledgerId_facts
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: ledgerId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ledgerId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+    post:
+      tags:
+        - Applications
+      summary: POST /applications/{applicationId}/runtime/ledgers/{ledgerId}/facts
+      description: Auto-generated from
+        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_post_applications_applicationId_runtime_ledgers_ledgerId_facts
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: ledgerId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ledgerId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "201":
+          $ref: "#/components/responses/CreatedSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
+  /applications/{applicationId}/runtime/ledgers/{ledgerId}/facts/{factId}:
+    patch:
+      tags:
+        - Applications
+      summary: PATCH
+        /applications/{applicationId}/runtime/ledgers/{ledgerId}/facts/{factId}
+      description: Auto-generated from
+        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_patch_applications_applicationId_runtime_ledgers_ledgerId_facts_factId
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: ledgerId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ledgerId path parameter.
+        - name: factId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: factId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
+    delete:
+      tags:
+        - Applications
+      summary: DELETE
+        /applications/{applicationId}/runtime/ledgers/{ledgerId}/facts/{factId}
+      description: Auto-generated from
+        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_delete_applications_applicationId_runtime_ledgers_ledgerId_facts_factId
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: ledgerId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ledgerId path parameter.
+        - name: factId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: factId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+  /applications/{applicationId}/runtime/ledgers/{ledgerId}/facts/reverse:
+    post:
+      tags:
+        - Applications
+      summary: POST
+        /applications/{applicationId}/runtime/ledgers/{ledgerId}/facts/reverse
+      description: Auto-generated from
+        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_post_applications_applicationId_runtime_ledgers_ledgerId_facts_reverse
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: ledgerId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ledgerId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "201":
+          $ref: "#/components/responses/CreatedSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
+  /applications/{applicationId}/runtime/ledgers/{ledgerId}/projections/{projectionCodename}:
+    get:
+      tags:
+        - Applications
+      summary: GET
+        /applications/{applicationId}/runtime/ledgers/{ledgerId}/projections/{projectionCodename}
+      description: Auto-generated from
+        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_get_applications_applicationId_runtime_ledgers_ledgerId_projections_projectionCodename
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: ledgerId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ledgerId path parameter.
+        - name: projectionCodename
+          in: path
+          required: true
+          schema:
+            type: string
+          description: projectionCodename path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+  /applications/{applicationId}/runtime/ledgers/{ledgerId}/query:
+    post:
+      tags:
+        - Applications
+      summary: POST /applications/{applicationId}/runtime/ledgers/{ledgerId}/query
+      description: Auto-generated from
+        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_post_applications_applicationId_runtime_ledgers_ledgerId_query
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: ledgerId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ledgerId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "201":
+          $ref: "#/components/responses/CreatedSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
   /applications/{applicationId}/runtime/rows:
     post:
       tags:
@@ -3538,6 +3912,153 @@ paths:
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Applications_post_applications_applicationId_runtime_rows_rowId_copy
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: rowId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: rowId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "201":
+          $ref: "#/components/responses/CreatedSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
+  /applications/{applicationId}/runtime/rows/{rowId}/post:
+    post:
+      tags:
+        - Applications
+      summary: POST /applications/{applicationId}/runtime/rows/{rowId}/post
+      description: Auto-generated from
+        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_post_applications_applicationId_runtime_rows_rowId_post
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: rowId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: rowId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "201":
+          $ref: "#/components/responses/CreatedSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
+  /applications/{applicationId}/runtime/rows/{rowId}/unpost:
+    post:
+      tags:
+        - Applications
+      summary: POST /applications/{applicationId}/runtime/rows/{rowId}/unpost
+      description: Auto-generated from
+        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_post_applications_applicationId_runtime_rows_rowId_unpost
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: rowId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: rowId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "201":
+          $ref: "#/components/responses/CreatedSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
+  /applications/{applicationId}/runtime/rows/{rowId}/void:
+    post:
+      tags:
+        - Applications
+      summary: POST /applications/{applicationId}/runtime/rows/{rowId}/void
+      description: Auto-generated from
+        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_post_applications_applicationId_runtime_rows_rowId_void
       parameters:
         - name: applicationId
           in: path

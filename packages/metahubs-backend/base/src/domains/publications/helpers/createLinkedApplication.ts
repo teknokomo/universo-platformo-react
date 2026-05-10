@@ -24,6 +24,7 @@ export interface CreateLinkedApplicationOpts {
     metahubDescription?: VersionedLocalizedContent<string> | null
     isPublic?: boolean
     workspacesEnabled?: boolean
+    settings?: Record<string, unknown> | null
     userId: string
 }
 
@@ -57,6 +58,7 @@ export async function createLinkedApplication(opts: CreateLinkedApplicationOpts)
         metahubDescription,
         isPublic,
         workspacesEnabled,
+        settings,
         userId
     } = opts
 
@@ -66,6 +68,7 @@ export async function createLinkedApplication(opts: CreateLinkedApplicationOpts)
         description: publicationDescription ?? undefined,
         isPublic,
         workspacesEnabled,
+        settings,
         userId
     })
 

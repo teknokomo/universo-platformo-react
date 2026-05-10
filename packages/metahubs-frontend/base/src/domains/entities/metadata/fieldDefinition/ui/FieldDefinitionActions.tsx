@@ -28,9 +28,12 @@ const DEFAULT_CC: CodenameConfig = {
     autoReformat: true,
     requireReformat: true
 }
-const _cc = (values: Record<string, unknown>): CodenameConfig => (values._codenameConfig as CodenameConfig) || DEFAULT_CC
+const _cc = (values?: Record<string, unknown> | null): CodenameConfig =>
+    (values?._codenameConfig as CodenameConfig | undefined) || DEFAULT_CC
 
 type GenericFormValues = Record<string, unknown>
+
+const ensureFormValues = (values?: GenericFormValues | null): GenericFormValues => values ?? {}
 
 type AttributeContextExtras = {
     metahubId?: string
@@ -115,7 +118,11 @@ const buildInitialValues = (ctx: ActionContext<FieldDefinitionDisplay, FieldDefi
     }
 }
 
-const validateAttributeForm = (ctx: ActionContext<FieldDefinitionDisplay, FieldDefinitionLocalizedPayload>, values: GenericFormValues) => {
+const validateAttributeForm = (
+    ctx: ActionContext<FieldDefinitionDisplay, FieldDefinitionLocalizedPayload>,
+    rawValues?: GenericFormValues | null
+) => {
+    const values = ensureFormValues(rawValues)
     const cc = _cc(values)
     const errors: Record<string, string> = {}
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
@@ -160,7 +167,8 @@ const validateAttributeForm = (ctx: ActionContext<FieldDefinitionDisplay, FieldD
     return Object.keys(errors).length > 0 ? errors : null
 }
 
-const canSaveAttributeForm = (values: GenericFormValues) => {
+const canSaveAttributeForm = (rawValues?: GenericFormValues | null) => {
+    const values = ensureFormValues(rawValues)
     const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
@@ -234,7 +242,8 @@ const sanitizeAttributeUiConfig = (
     return nextUiConfig
 }
 
-const toPayload = (values: GenericFormValues): FieldDefinitionLocalizedPayload & Record<string, unknown> => {
+const toPayload = (rawValues?: GenericFormValues | null): FieldDefinitionLocalizedPayload & Record<string, unknown> => {
+    const values = ensureFormValues(rawValues)
     const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined

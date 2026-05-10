@@ -96,6 +96,24 @@
             "workspaceModeReadOnly": "Workspace mode is selected during connector schema sync according to the publication version policy and cannot be turned off after runtime workspaces are enabled.",
             "sectionLinksEnabled": "Section-specific links",
             "sectionLinksEnabledDescription": "Give every application menu section its own browser URL based on the section identifier.",
+            "dashboardDefaultMode": "Runtime dashboard default",
+            "dashboardDefaultModeDescription": "Choose how the published application resolves the initial dashboard section.",
+            "dashboardDefaultModes": {
+                "layout-default": "Layout default",
+                "first-menu-item": "First menu item"
+            },
+            "datasourceExecutionPolicy": "Datasource execution",
+            "datasourceExecutionPolicyDescription": "Control whether layout datasources are always scoped to the active runtime workspace.",
+            "datasourceExecutionPolicies": {
+                "workspace-scoped": "Workspace scoped",
+                "layout-only": "Layout only"
+            },
+            "workspaceOpenBehavior": "Workspace opening",
+            "workspaceOpenBehaviorDescription": "Choose which workspace should open first when users enter the published application.",
+            "workspaceOpenBehaviors": {
+                "last-used": "Last used workspace",
+                "default-workspace": "Default workspace"
+            },
             "dialogActionTooltips": {
                 "resetSize": "Reset dialog size",
                 "expand": "Expand dialog",
@@ -167,6 +185,40 @@
             "widgetBehaviorEditor": {
                 "title": "Widget behavior",
                 "description": "Configure how inherited layouts can override this widget."
+            },
+            "datasource": {
+                "title": "Datasource",
+                "kind": "Datasource",
+                "currentSection": "Current runtime section",
+                "recordsList": "Records list",
+                "ledgerFacts": "Ledger facts",
+                "ledgerProjection": "Ledger projection",
+                "metric": "Metric",
+                "sectionId": "Section ID",
+                "sectionCodename": "Section codename",
+                "search": "Initial search",
+                "xField": "X-axis field",
+                "seriesField": "Series field",
+                "seriesLabel": "Series label",
+                "maxRows": "Max rows",
+                "overviewCards": "Overview card metrics",
+                "overviewCard": "Card",
+                "cardTitle": "Card title",
+                "cardValue": "Fallback value",
+                "cardInterval": "Interval",
+                "cardTrend": "Trend",
+                "cardSectionId": "Metric section ID",
+                "cardSectionCodename": "Metric section codename",
+                "cardSearch": "Metric search",
+                "trend": {
+                    "up": "Up",
+                    "down": "Down",
+                    "neutral": "Neutral"
+                },
+                "ledgerId": "Ledger ID",
+                "ledgerCodename": "Ledger codename",
+                "projectionCodename": "Projection codename",
+                "metricKey": "Metric key"
             },
             "columnsEditor": {
                 "title": "Columns container",
@@ -372,10 +424,21 @@
             "deleteConfirmTitle": "Delete element?",
             "deleteConfirmDescription": "This element will be permanently deleted. This action cannot be undone.",
             "deleting": "Deleting...",
+            "postRecord": "Post",
+            "unpostRecord": "Unpost",
+            "voidRecord": "Void",
+            "recordPosted": "Record posted.",
+            "recordUnposted": "Record unposted.",
+            "recordVoided": "Record voided.",
+            "recordStateDraft": "Draft",
+            "recordStatePosted": "Posted",
+            "recordStateVoided": "Voided",
+            "recordStateUnknown": "State",
             "errorCreate": "Create failed: {{message}}",
             "errorUpdate": "Update failed: {{message}}",
             "errorDelete": "Delete failed: {{message}}",
             "errorCopy": "Copy failed: {{message}}",
+            "errorRecordCommand": "Record command failed: {{message}}",
             "errorSchemaChanged": "Schema has changed since this form was opened. Please close and try again.",
             "workspaceLimitReached": "The workspace limit for this section has been reached ({{current}} / {{max}})."
         }

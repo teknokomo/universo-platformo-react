@@ -20,6 +20,8 @@
 - 📦 **Protocol Versioning** - Protocol version control
 - 📋 **Strict Typing** - Full TypeScript support
 - 🔄 **Backward Compatibility** - Version compatibility preservation
+- 🧾 **Record Behavior Types** - Shared Catalog numbering, lifecycle, and posting contracts
+- 📊 **Ledger Types** - Shared append-only Ledger configuration, field roles, source policies, and projections
 
 ## Description
 
@@ -30,6 +32,8 @@ Base protocol types and ECS domain types for Universo Platformo.
 - Networking DTO (Intent/Ack/Snapshot/Delta/Event)
 - Error codes
 - Protocol version
+- Metahub entity component manifests
+- Catalog `recordBehavior` and Ledger configuration contracts
 
 ### Out of scope:
 - UPDL design-time types
@@ -40,6 +44,15 @@ Base protocol types and ECS domain types for Universo Platformo.
 - **Do not rename** existing fields or change their semantics
 - **Only add new fields** as optional to preserve backward compatibility
 - **Extend** component and event unions by adding new keys
+
+## Catalog And Ledger Contracts
+
+`common/recordBehavior` defines the shared metadata contract that turns a standard Catalog into a reference, transactional, or hybrid collection.
+It covers identity fields, atomic numbering, effective dates, lifecycle states, posting target ledgers, and posted-row immutability.
+
+`common/ledgers` defines the standard Ledger configuration.
+The code-facing kind is `ledger`; the Russian UI label is "Регистры".
+Ledgers classify ordinary field definitions through `fieldRoles` and use source policies to distinguish manual writes from registrar-owned posting writes.
 
 ## Install (workspace)
 

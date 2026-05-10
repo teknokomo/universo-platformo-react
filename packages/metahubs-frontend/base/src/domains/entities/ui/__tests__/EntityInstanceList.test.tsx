@@ -72,6 +72,8 @@ const mockUseMetahubHubs = vi.fn()
 const mockUseMetahubDetails = vi.fn()
 const mockUseEntityPermissions = vi.fn()
 const mockUsePaginated = vi.fn()
+const mockUseQuery = vi.fn()
+const mockUseQueries = vi.fn()
 const mockCreateEntityInstance = vi.fn()
 const mockUpdateEntityInstance = vi.fn()
 const mockCopyEntityInstance = vi.fn()
@@ -137,6 +139,10 @@ type BaseEntityMenuProps<TEntity> = {
 type ViewHeaderProps = {
     title: string
     description?: string
+    search?: boolean
+    searchPlaceholder?: string
+    searchValue?: string
+    onSearchChange?: React.ChangeEventHandler<HTMLInputElement>
     children?: React.ReactNode
 }
 
@@ -159,6 +165,8 @@ type EntityFormDialogProps = {
     initialExtraValues?: Record<string, unknown>
     title?: string
     onSave?: (values: Record<string, unknown>) => Promise<void> | void
+    canSave?: (values: Record<string, unknown>) => boolean
+    validate?: (values: Record<string, unknown>) => Record<string, string> | null
 }
 
 vi.mock('react-i18next', () => ({
@@ -170,11 +178,22 @@ vi.mock('react-i18next', () => ({
                 'metahubs:pages.editDialog.title': 'Edit Page',
                 'metahubs:pages.copyTitle': 'Copy Page',
                 'metahubs:pages.deleteDialog.title': 'Delete Page',
+                'metahubs:ledgers.title': 'Ledgers',
+                'ledgers.empty': 'No ledgers yet',
+                'ledgers.searchPlaceholder': 'Search ledgers...',
+                'ledgers.fieldDefinitions.emptyTitle': 'This ledger has no attributes yet',
+                'ledgers.fieldDefinitions.emptyDescription':
+                    'Create ledger dimensions, resources, or properties through the shared attribute list.',
                 'hubs.title': 'Hubs',
                 'catalogs.tabs.layout': 'Layouts',
                 'pages.empty': 'No pages yet',
                 'pages.emptyDescription': 'Create the first page to configure structured application content',
                 'pages.searchPlaceholder': 'Search pages...',
+                'entities.instances.tabs.fieldDefinitions': 'Attributes',
+                'entities.instances.fieldDefinitions.emptyTitle': 'No attributes yet',
+                'entities.instances.fieldDefinitions.emptyDescription':
+                    'Create the first attribute to define the data shape for this entity.',
+                'fieldDefinitions.searchPlaceholder': 'Search attributes...',
                 'entities.instances.tabs.content': 'Content',
                 'common:actions.more': 'More actions',
                 'common:actions.copy': 'Copy',
@@ -206,12 +225,8 @@ vi.mock('@universo/i18n', () => ({
 }))
 
 vi.mock('@tanstack/react-query', () => ({
-    useQuery: () => ({
-        data: undefined,
-        isLoading: false,
-        isError: false,
-        error: null
-    }),
+    useQuery: (...args: unknown[]) => mockUseQuery(...args),
+    useQueries: (...args: unknown[]) => mockUseQueries(...args),
     useMutation: () => ({
         mutate: vi.fn(),
         mutateAsync: vi.fn(),
@@ -321,10 +336,13 @@ vi.mock('@universo/template-mui', async (importOriginal) => {
                 ) : null}
             </div>
         ),
-        ViewHeaderMUI: ({ title, description, children }: ViewHeaderProps) => (
+        ViewHeaderMUI: ({ title, description, search, searchPlaceholder, searchValue, onSearchChange, children }: ViewHeaderProps) => (
             <div>
                 <h1>{title}</h1>
                 {description ? <p>{description}</p> : null}
+                {search ? (
+                    <input aria-label='search' placeholder={searchPlaceholder} value={searchValue ?? ''} onChange={onSearchChange} />
+                ) : null}
                 {children}
             </div>
         ),
@@ -362,28 +380,35 @@ vi.mock('../api', () => ({
 }))
 
 vi.mock('@universo/template-mui/components/dialogs', () => ({
-    EntityFormDialog: ({ open, tabs, initialExtraValues, title, onSave }: EntityFormDialogProps) =>
-        open ? (
+    EntityFormDialog: ({ open, tabs, initialExtraValues, title, onSave, canSave, validate }: EntityFormDialogProps) => {
+        if (!open) return null
+        const values = initialExtraValues ?? {}
+        const errors = validate?.(values) ?? {}
+        const saveAllowed = canSave ? canSave(values) : true
+
+        return (
             <div data-testid='entity-form-dialog'>
                 <div>{title}</div>
-                <pre data-testid='dialog-extra-values'>{JSON.stringify(initialExtraValues ?? {})}</pre>
+                <pre data-testid='dialog-extra-values'>{JSON.stringify(values)}</pre>
+                <pre data-testid='dialog-validation-errors'>{JSON.stringify(errors)}</pre>
                 <div data-testid='dialog-description'>
                     {((initialExtraValues?.descriptionVlc as { locales?: { en?: { content?: string } } } | undefined)?.locales?.en
                         ?.content as string | undefined) ?? ''}
                 </div>
                 {tabs
-                    ? tabs({ values: initialExtraValues ?? {}, setValue: vi.fn(), isLoading: false, errors: {} }).map((tab) => (
+                    ? tabs({ values, setValue: vi.fn(), isLoading: false, errors }).map((tab) => (
                           <div key={tab.id}>
                               <span>{tab.label}</span>
                               {tab.content}
                           </div>
                       ))
                     : null}
-                <button type='button' onClick={() => onSave?.(initialExtraValues ?? {})}>
+                <button type='button' disabled={!saveAllowed} onClick={() => onSave?.(values)}>
                     Save dialog
                 </button>
             </div>
-        ) : null,
+        )
+    },
     ConfirmDeleteDialog: () => null,
     ConflictResolutionDialog: () => null
 }))
@@ -400,7 +425,13 @@ vi.mock('../../../shared/ui/GeneralTabFields', () => ({
 }))
 
 vi.mock('../metadata/fieldDefinition/ui/FieldDefinitionList', () => ({
-    FieldDefinitionListContent: () => <div>FieldDefinitionListContent</div>
+    FieldDefinitionListContent: ({ emptyTitle, emptyDescription }: { emptyTitle?: string; emptyDescription?: string }) => (
+        <div>
+            <div>FieldDefinitionListContent</div>
+            {emptyTitle ? <div>{emptyTitle}</div> : null}
+            {emptyDescription ? <div>{emptyDescription}</div> : null}
+        </div>
+    )
 }))
 
 vi.mock('../../../layouts/ui/LayoutList', () => ({
@@ -495,6 +526,22 @@ describe('EntityInstanceList', () => {
             isLoading: false
         })
         mockUsePaginated.mockReturnValue(mockPaginatedResult)
+        mockUseQuery.mockReturnValue({
+            data: undefined,
+            isLoading: false,
+            isSuccess: false,
+            isError: false,
+            error: null
+        })
+        mockUseQueries.mockImplementation((options: { queries?: unknown[] }) =>
+            (options.queries ?? []).map(() => ({
+                data: undefined,
+                isLoading: false,
+                isSuccess: false,
+                isError: false,
+                error: null
+            }))
+        )
 
         mockUseEntityPermissions.mockReturnValue({
             allowCopy: true,
@@ -630,6 +677,131 @@ describe('EntityInstanceList', () => {
         expect(screen.getByText('Events')).toBeInTheDocument()
     })
 
+    it('exposes record behavior as a generic entity tab and persists normalized config on save', async () => {
+        mockEntityTypesQuery.mockReturnValue({
+            data: {
+                items: [
+                    {
+                        id: 'type-document',
+                        kindKey: 'custom.document',
+                        codename: makeVlc('CustomDocument'),
+                        ui: {
+                            iconName: 'IconFileInvoice',
+                            tabs: ['general', 'behavior', 'scripts'],
+                            sidebarSection: 'objects',
+                            nameKey: 'Documents'
+                        },
+                        components: {
+                            records: { enabled: true },
+                            identityFields: { enabled: true, allowNumber: true, allowEffectiveDate: true },
+                            recordLifecycle: { enabled: true, allowCustomStates: true },
+                            posting: { enabled: true, allowManualPosting: true, allowAutomaticPosting: true },
+                            scripting: { enabled: true },
+                            dataSchema: { enabled: true },
+                            physicalTable: { enabled: true }
+                        }
+                    }
+                ]
+            },
+            error: null,
+            isLoading: false
+        })
+        const documentEntity = {
+            id: 'document-1',
+            kind: 'custom.document',
+            codename: makeVlc('enrollment-document'),
+            name: makeVlc('Enrollment Document'),
+            description: makeVlc('Transactional document'),
+            config: {
+                recordBehavior: {
+                    mode: 'transactional',
+                    numbering: {
+                        enabled: true,
+                        prefix: 'ENR-',
+                        minLength: 6,
+                        scope: 'workspace',
+                        periodicity: 'year'
+                    },
+                    effectiveDate: {
+                        enabled: true,
+                        fieldCodename: 'StartedAt',
+                        defaultToNow: true
+                    },
+                    lifecycle: {
+                        enabled: true,
+                        stateFieldCodename: 'Status',
+                        states: [{ codename: 'Draft', title: 'Draft', isInitial: true }]
+                    },
+                    posting: {
+                        mode: 'manual',
+                        targetLedgers: ['ProgressLedger'],
+                        scriptCodename: 'EnrollmentPostingScript'
+                    },
+                    immutability: 'posted'
+                },
+                sortOrder: 1
+            },
+            sortOrder: 1,
+            version: 2,
+            updatedAt: '2026-04-09T12:00:00.000Z',
+            _mhb_deleted: false
+        }
+        mockPaginatedResult.data = [documentEntity]
+        mockEntityInstancesQuery.mockReturnValue({
+            data: { items: mockPaginatedResult.data }
+        })
+        mockEntityInstanceDetailQuery.mockReturnValue({
+            data: documentEntity,
+            isLoading: false
+        })
+        mockUpdateEntityInstance.mockResolvedValue(documentEntity)
+        const user = userEvent.setup()
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/custom.document/instances']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instances' element={<EntityInstanceListContent />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        await user.click(screen.getByRole('button', { name: 'More actions' }))
+        await user.click(screen.getByRole('menuitem', { name: 'Edit' }))
+
+        expect(screen.getByText('Behavior')).toBeInTheDocument()
+        expect(screen.getAllByText('Record mode').length).toBeGreaterThan(0)
+        expect(screen.getAllByText('Posting').length).toBeGreaterThan(0)
+        expect(screen.getAllByDisplayValue('ENR-').length).toBeGreaterThan(0)
+
+        await user.click(screen.getByRole('button', { name: 'Save dialog' }))
+
+        expect(mockUpdateEntityInstance).toHaveBeenCalledWith(
+            expect.objectContaining({
+                metahubId: 'metahub-1',
+                entityId: 'document-1',
+                data: expect.objectContaining({
+                    config: expect.objectContaining({
+                        sortOrder: 1,
+                        recordBehavior: expect.objectContaining({
+                            mode: 'transactional',
+                            numbering: expect.objectContaining({ enabled: true, prefix: 'ENR-', minLength: 6 }),
+                            lifecycle: expect.objectContaining({
+                                enabled: true,
+                                states: [expect.objectContaining({ codename: 'Draft', isInitial: true })]
+                            }),
+                            posting: expect.objectContaining({
+                                mode: 'manual',
+                                targetLedgers: ['ProgressLedger'],
+                                scriptCodename: 'EnrollmentPostingScript'
+                            }),
+                            immutability: 'posted'
+                        })
+                    })
+                })
+            })
+        )
+    })
+
     it('hydrates the list-view edit dialog from the entity detail query when table rows omit raw payloads', async () => {
         const user = userEvent.setup()
 
@@ -714,6 +886,253 @@ describe('EntityInstanceList', () => {
         await user.click(screen.getByRole('button', { name: 'Learner Home' }))
 
         expect(screen.getByText('Content route opened')).toBeInTheDocument()
+    })
+
+    it('uses Ledger collection labels and opens the shared field-definition surface from list rows', async () => {
+        mockEntityTypesQuery.mockReturnValue({
+            data: {
+                items: [
+                    {
+                        id: 'type-ledger',
+                        kindKey: 'ledger',
+                        codename: makeVlc('Ledger'),
+                        ui: {
+                            iconName: 'IconDatabase',
+                            tabs: ['general', 'hubs', 'layout', 'scripts'],
+                            sidebarSection: 'objects',
+                            nameKey: 'metahubs:ledgers.title',
+                            resourceSurfaces: [
+                                {
+                                    key: 'fieldDefinitions',
+                                    capability: 'dataSchema',
+                                    routeSegment: 'field-definitions',
+                                    fallbackTitle: 'Attributes'
+                                }
+                            ]
+                        },
+                        components: {
+                            dataSchema: { enabled: true },
+                            treeAssignment: { enabled: true },
+                            layoutConfig: { enabled: true },
+                            scripting: { enabled: true }
+                        },
+                        config: {}
+                    }
+                ]
+            },
+            error: null,
+            isLoading: false
+        })
+        mockPaginatedResult.data = [
+            {
+                id: 'ledger-1',
+                kind: 'ledger',
+                codename: makeVlc('ProgressLedger'),
+                name: makeVlc('Progress Ledger'),
+                description: makeVlc('Ledger row'),
+                config: {},
+                version: 1,
+                updatedAt: '2026-04-09T12:00:00.000Z',
+                _mhb_deleted: false
+            }
+        ]
+        mockEntityInstancesQuery.mockReturnValue({
+            data: { items: mockPaginatedResult.data }
+        })
+        const user = userEvent.setup()
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/ledger/instances']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instances' element={<EntityInstanceListContent />} />
+                    <Route
+                        path='/metahub/:metahubId/entities/:kindKey/instance/:entityId/field-definitions'
+                        element={<div>Ledger fields route opened</div>}
+                    />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        expect(screen.getByRole('heading', { name: 'Ledgers' })).toBeInTheDocument()
+        expect(screen.getByLabelText('search')).toHaveAttribute('placeholder', 'Search ledgers...')
+
+        await user.click(screen.getByRole('button', { name: 'Progress Ledger' }))
+
+        expect(screen.getByText('Ledger fields route opened')).toBeInTheDocument()
+    })
+
+    it('renders Ledger field definitions through the shared localized attributes tab', async () => {
+        mockEntityTypesQuery.mockReturnValue({
+            data: {
+                items: [
+                    {
+                        id: 'type-ledger',
+                        kindKey: 'ledger',
+                        codename: makeVlc('Ledger'),
+                        ui: {
+                            iconName: 'IconDatabase',
+                            tabs: ['general', 'hubs', 'layout', 'scripts'],
+                            sidebarSection: 'objects',
+                            nameKey: 'metahubs:ledgers.title',
+                            resourceSurfaces: [
+                                {
+                                    key: 'fieldDefinitions',
+                                    capability: 'dataSchema',
+                                    routeSegment: 'field-definitions',
+                                    fallbackTitle: 'Attributes'
+                                }
+                            ]
+                        },
+                        components: {
+                            dataSchema: { enabled: true },
+                            treeAssignment: { enabled: true },
+                            layoutConfig: { enabled: true },
+                            scripting: { enabled: true }
+                        },
+                        config: {}
+                    }
+                ]
+            },
+            error: null,
+            isLoading: false
+        })
+        mockPaginatedResult.data = [
+            {
+                id: 'ledger-1',
+                kind: 'ledger',
+                codename: makeVlc('ProgressLedger'),
+                name: makeVlc('Progress Ledger'),
+                description: makeVlc('Ledger row'),
+                config: {},
+                version: 1,
+                updatedAt: '2026-04-09T12:00:00.000Z',
+                _mhb_deleted: false
+            }
+        ]
+        mockEntityInstancesQuery.mockReturnValue({
+            data: { items: mockPaginatedResult.data }
+        })
+        mockEntityInstanceDetailQuery.mockReturnValue({
+            data: mockPaginatedResult.data[0],
+            isLoading: false
+        })
+        const user = userEvent.setup()
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/ledger/instances']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instances' element={<EntityInstanceListContent />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        await user.click(screen.getByRole('button', { name: 'More actions' }))
+        await user.click(screen.getByRole('menuitem', { name: 'Edit' }))
+
+        expect(screen.getByText('Attributes')).toBeInTheDocument()
+        expect(screen.queryByText('No fieldDefinitions')).not.toBeInTheDocument()
+        expect(screen.queryByText('Create the first attribute to define the schema for this custom entity kind.')).not.toBeInTheDocument()
+    })
+
+    it('blocks Ledger schema saves when field roles reference invalid field definitions', async () => {
+        mockEntityTypesQuery.mockReturnValue({
+            data: {
+                items: [
+                    {
+                        id: 'type-ledger',
+                        kindKey: 'ledger',
+                        codename: makeVlc('Ledger'),
+                        ui: {
+                            iconName: 'IconDatabase',
+                            tabs: ['general', 'ledgerSchema'],
+                            sidebarSection: 'objects',
+                            nameKey: 'metahubs:ledgers.title'
+                        },
+                        components: {
+                            dataSchema: { enabled: true },
+                            physicalTable: { enabled: true },
+                            ledgerSchema: { enabled: true }
+                        },
+                        config: {}
+                    }
+                ]
+            },
+            error: null,
+            isLoading: false
+        })
+        const ledgerEntity = {
+            id: 'ledger-1',
+            kind: 'ledger',
+            codename: makeVlc('ProgressLedger'),
+            name: makeVlc('Progress Ledger'),
+            description: makeVlc('Ledger row'),
+            config: {
+                ledger: {
+                    mode: 'balance',
+                    mutationPolicy: 'appendOnly',
+                    sourcePolicy: 'both',
+                    fieldRoles: [{ fieldCodename: 'ProgressDelta', role: 'resource', aggregate: 'sum' }],
+                    projections: [],
+                    idempotency: { keyFields: [] }
+                }
+            },
+            version: 1,
+            updatedAt: '2026-04-09T12:00:00.000Z',
+            _mhb_deleted: false
+        }
+        mockPaginatedResult.data = [ledgerEntity]
+        mockEntityInstancesQuery.mockReturnValue({
+            data: { items: mockPaginatedResult.data }
+        })
+        mockEntityInstanceDetailQuery.mockReturnValue({
+            data: ledgerEntity,
+            isLoading: false
+        })
+        mockUseQuery.mockImplementation((options: { queryKey?: unknown[] }) => {
+            const queryKey = options?.queryKey ?? []
+            if (queryKey.includes('fieldDefinitions')) {
+                return {
+                    data: {
+                        items: [
+                            {
+                                id: 'field-progress-delta',
+                                codename: 'ProgressDelta',
+                                dataType: 'STRING',
+                                name: makeVlc('Progress Delta')
+                            }
+                        ]
+                    },
+                    isLoading: false,
+                    isSuccess: true,
+                    isError: false,
+                    error: null
+                }
+            }
+
+            return {
+                data: undefined,
+                isLoading: false,
+                isSuccess: false,
+                isError: false,
+                error: null
+            }
+        })
+        const user = userEvent.setup()
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/ledger/instances']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instances' element={<EntityInstanceListContent />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        await user.click(screen.getByRole('button', { name: 'More actions' }))
+        await user.click(screen.getByRole('menuitem', { name: 'Edit' }))
+
+        expect(screen.getByText('Ledger schema')).toBeInTheDocument()
+        expect(screen.getByTestId('dialog-validation-errors')).toHaveTextContent('ledgerFieldRoles')
+        expect(screen.getByRole('button', { name: 'Save dialog' })).toBeDisabled()
     })
 
     it('renders the standard Page collection without generic entity-owned copy or deleted filters', async () => {

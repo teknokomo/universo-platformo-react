@@ -31,6 +31,8 @@ export type BranchFormValues = {
 
 export type GenericFormValues = Record<string, unknown>
 
+const ensureFormValues = (values?: GenericFormValues | null): GenericFormValues => values ?? {}
+
 export type BranchMenuBaseContext = {
     t: (key: string, options?: unknown) => string
 } & Record<string, unknown>
@@ -74,8 +76,8 @@ const DEFAULT_CC: CodenameConfig = {
     requireReformat: true
 }
 
-export const getCodenameConfigFromValues = (values: GenericFormValues): CodenameConfig =>
-    (values._codenameConfig as CodenameConfig) || DEFAULT_CC
+export const getCodenameConfigFromValues = (values?: GenericFormValues | null): CodenameConfig =>
+    (values?._codenameConfig as CodenameConfig | undefined) || DEFAULT_CC
 
 // ---- Action descriptor helpers ----
 
@@ -157,7 +159,11 @@ export const buildCopyInitialValues = (ctx: ActionContext<MetahubBranchDisplay, 
     }
 }
 
-export const validateBranchForm = (ctx: ActionContext<MetahubBranchDisplay, BranchLocalizedPayload>, values: GenericFormValues) => {
+export const validateBranchForm = (
+    ctx: ActionContext<MetahubBranchDisplay, BranchLocalizedPayload>,
+    rawValues?: GenericFormValues | null
+) => {
+    const values = ensureFormValues(rawValues)
     const cc = getCodenameConfigFromValues(values)
     const errors: Record<string, string> = {}
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
@@ -176,7 +182,8 @@ export const validateBranchForm = (ctx: ActionContext<MetahubBranchDisplay, Bran
     return Object.keys(errors).length > 0 ? errors : null
 }
 
-export const canSaveBranchForm = (values: GenericFormValues) => {
+export const canSaveBranchForm = (rawValues?: GenericFormValues | null) => {
+    const values = ensureFormValues(rawValues)
     const cc = getCodenameConfigFromValues(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
@@ -191,7 +198,8 @@ export const canSaveBranchForm = (values: GenericFormValues) => {
     )
 }
 
-export const toPayload = (values: GenericFormValues): BranchLocalizedPayload => {
+export const toPayload = (rawValues?: GenericFormValues | null): BranchLocalizedPayload => {
+    const values = ensureFormValues(rawValues)
     const cc = getCodenameConfigFromValues(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined

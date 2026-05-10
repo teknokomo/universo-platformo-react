@@ -21,7 +21,8 @@ const DEFAULT_CC: CodenameConfig = {
     autoReformat: true,
     requireReformat: true
 }
-const _cc = (values: Record<string, unknown>): CodenameConfig => (values._codenameConfig as CodenameConfig) || DEFAULT_CC
+const _cc = (values?: Record<string, unknown> | null): CodenameConfig =>
+    (values?._codenameConfig as CodenameConfig | undefined) || DEFAULT_CC
 const DIALOG_SAVE_CANCEL = { __dialogCancelled: true } as const
 
 import {
@@ -43,6 +44,7 @@ export interface OptionListDisplayWithContainer extends OptionListDisplay {
 }
 
 export type OptionListFormValues = Record<string, unknown>
+const ensureFormValues = (values?: OptionListFormValues | null): OptionListFormValues => values ?? {}
 export type OptionListFormSetValue = (name: string, value: unknown) => void
 export type OptionListActionContext = ActionContext<OptionListDisplayWithContainer, OptionListLocalizedPayload> & {
     treeEntities?: TreeEntity[]
@@ -149,7 +151,8 @@ const buildCopyInitialValues = (ctx: ActionContext<OptionListDisplayWithContaine
     }
 }
 
-const getOptionListCopyOptions = (values: Record<string, unknown>) => {
+const getOptionListCopyOptions = (rawValues?: Record<string, unknown> | null) => {
+    const values = ensureFormValues(rawValues)
     return normalizeOptionListCopyOptions({
         copyOptionValues: values.copyOptionValues as boolean | undefined
     })
@@ -157,8 +160,9 @@ const getOptionListCopyOptions = (values: Record<string, unknown>) => {
 
 export const validateOptionListForm = (
     ctx: ActionContext<OptionListDisplayWithContainer, OptionListLocalizedPayload>,
-    values: OptionListFormValues
+    rawValues?: OptionListFormValues | null
 ) => {
+    const values = ensureFormValues(rawValues)
     const cc = _cc(values)
     const errors: Record<string, string> = {}
 
@@ -187,7 +191,8 @@ export const validateOptionListForm = (
     return Object.keys(errors).length > 0 ? errors : null
 }
 
-export const canSaveOptionListForm = (values: OptionListFormValues) => {
+export const canSaveOptionListForm = (rawValues?: OptionListFormValues | null) => {
+    const values = ensureFormValues(rawValues)
     const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
@@ -209,8 +214,9 @@ export const canSaveOptionListForm = (values: OptionListFormValues) => {
 }
 
 export const toPayload = (
-    values: OptionListFormValues
+    rawValues?: OptionListFormValues | null
 ): OptionListLocalizedPayload & { treeEntityIds?: string[]; isSingleHub?: boolean; isRequiredHub?: boolean } => {
+    const values = ensureFormValues(rawValues)
     const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined

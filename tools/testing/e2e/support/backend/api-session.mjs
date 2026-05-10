@@ -1656,6 +1656,52 @@ export async function createRuntimeRow(api, applicationId, payload) {
     return response.json()
 }
 
+export async function postRuntimeRow(api, applicationId, rowId, payload = {}) {
+    const response = await sendWithCsrf(api, 'POST', `/api/v1/applications/${applicationId}/runtime/rows/${rowId}/post`, payload)
+    if (!response.ok) {
+        throw await buildError(response, `Posting runtime row ${rowId} in application ${applicationId}`)
+    }
+
+    return response.json()
+}
+
+export async function unpostRuntimeRow(api, applicationId, rowId, payload = {}) {
+    const response = await sendWithCsrf(api, 'POST', `/api/v1/applications/${applicationId}/runtime/rows/${rowId}/unpost`, payload)
+    if (!response.ok) {
+        throw await buildError(response, `Unposting runtime row ${rowId} in application ${applicationId}`)
+    }
+
+    return response.json()
+}
+
+export async function listRuntimeLedgers(api, applicationId) {
+    const response = await fetchFromApi(api, `/api/v1/applications/${applicationId}/runtime/ledgers`, { method: 'GET' })
+    if (!response.ok) {
+        throw await buildError(response, `Listing runtime ledgers in application ${applicationId}`)
+    }
+
+    return response.json()
+}
+
+export async function listRuntimeLedgerFacts(api, applicationId, ledgerId, params = {}) {
+    const query = new URLSearchParams()
+    for (const [key, value] of Object.entries(params)) {
+        if (value === undefined || value === null || value === '') {
+            continue
+        }
+        query.set(key, String(value))
+    }
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+    const response = await fetchFromApi(api, `/api/v1/applications/${applicationId}/runtime/ledgers/${ledgerId}/facts${suffix}`, {
+        method: 'GET'
+    })
+    if (!response.ok) {
+        throw await buildError(response, `Listing runtime ledger facts for ${ledgerId} in application ${applicationId}`)
+    }
+
+    return response.json()
+}
+
 export async function deleteSupabaseAuthUser(userId) {
     loadE2eEnvironment()
 

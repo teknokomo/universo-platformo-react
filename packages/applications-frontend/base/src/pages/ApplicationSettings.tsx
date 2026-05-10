@@ -26,7 +26,7 @@ import { TemplateMainCard as MainCard, ViewHeaderMUI as ViewHeader, PAGE_CONTENT
 import { useApplicationDetails } from '../api/useApplicationDetails'
 import { applicationsQueryKeys } from '../api/queryKeys'
 import { getApplicationWorkspaceLimits, updateApplication, updateApplicationWorkspaceLimits } from '../api/applications'
-import { DEFAULT_APPLICATION_DIALOG_SETTINGS } from '../settings/dialogSettings'
+import { DEFAULT_APPLICATION_DIALOG_SETTINGS, sanitizeApplicationDialogSettingsForSave } from '../settings/dialogSettings'
 import { toApplicationDisplay, type ApplicationDialogSettings, type ApplicationWorkspaceLimitItem, type SchemaStatus } from '../types'
 
 type SettingsTab = 'general' | 'limits'
@@ -118,7 +118,7 @@ const ApplicationSettings = () => {
         mutationKey: ['applications', 'settings', 'general', 'update'],
         mutationFn: async (input: { settings: ApplicationDialogSettings; isPublic?: boolean }) => {
             const response = await updateApplication(applicationId!, {
-                settings: input.settings,
+                settings: sanitizeApplicationDialogSettingsForSave(input.settings),
                 ...(input.isPublic !== undefined ? { isPublic: input.isPublic } : {}),
                 expectedVersion: applicationQuery.data?.version ?? 1
             })
@@ -399,6 +399,118 @@ const ApplicationSettings = () => {
                                         </MenuItem>
                                         <MenuItem value='backdrop-close'>
                                             {t('settings.dialogCloseBehaviors.backdrop-close', 'Non-modal windows')}
+                                        </MenuItem>
+                                    </Select>
+                                </FormControl>
+                            </Box>
+
+                            <Box
+                                data-testid='application-setting-dashboardDefaultMode'
+                                sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
+                            >
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    <Typography variant='subtitle2'>
+                                        {t('settings.dashboardDefaultMode', 'Runtime dashboard default')}
+                                    </Typography>
+                                    <Typography variant='body2' color='text.secondary'>
+                                        {t(
+                                            'settings.dashboardDefaultModeDescription',
+                                            'Choose how the published application resolves the initial dashboard section.'
+                                        )}
+                                    </Typography>
+                                </Box>
+                                <FormControl size='small' sx={{ minWidth: 250 }}>
+                                    <InputLabel>{t('settings.dashboardDefaultMode', 'Runtime dashboard default')}</InputLabel>
+                                    <Select
+                                        value={effectiveGeneralSettings.dashboardDefaultMode}
+                                        label={t('settings.dashboardDefaultMode', 'Runtime dashboard default')}
+                                        onChange={(event) =>
+                                            setGeneralChanges((prev) => ({
+                                                ...prev,
+                                                dashboardDefaultMode: event.target
+                                                    .value as ApplicationDialogSettings['dashboardDefaultMode']
+                                            }))
+                                        }
+                                    >
+                                        <MenuItem value='layout-default'>
+                                            {t('settings.dashboardDefaultModes.layout-default', 'Layout default')}
+                                        </MenuItem>
+                                        <MenuItem value='first-menu-item'>
+                                            {t('settings.dashboardDefaultModes.first-menu-item', 'First menu item')}
+                                        </MenuItem>
+                                    </Select>
+                                </FormControl>
+                            </Box>
+
+                            <Box
+                                data-testid='application-setting-datasourceExecutionPolicy'
+                                sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
+                            >
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    <Typography variant='subtitle2'>
+                                        {t('settings.datasourceExecutionPolicy', 'Datasource execution')}
+                                    </Typography>
+                                    <Typography variant='body2' color='text.secondary'>
+                                        {t(
+                                            'settings.datasourceExecutionPolicyDescription',
+                                            'Control whether layout datasources are always scoped to the active runtime workspace.'
+                                        )}
+                                    </Typography>
+                                </Box>
+                                <FormControl size='small' sx={{ minWidth: 250 }}>
+                                    <InputLabel>{t('settings.datasourceExecutionPolicy', 'Datasource execution')}</InputLabel>
+                                    <Select
+                                        value={effectiveGeneralSettings.datasourceExecutionPolicy}
+                                        label={t('settings.datasourceExecutionPolicy', 'Datasource execution')}
+                                        onChange={(event) =>
+                                            setGeneralChanges((prev) => ({
+                                                ...prev,
+                                                datasourceExecutionPolicy: event.target
+                                                    .value as ApplicationDialogSettings['datasourceExecutionPolicy']
+                                            }))
+                                        }
+                                    >
+                                        <MenuItem value='workspace-scoped'>
+                                            {t('settings.datasourceExecutionPolicies.workspace-scoped', 'Workspace scoped')}
+                                        </MenuItem>
+                                        <MenuItem value='layout-only'>
+                                            {t('settings.datasourceExecutionPolicies.layout-only', 'Layout only')}
+                                        </MenuItem>
+                                    </Select>
+                                </FormControl>
+                            </Box>
+
+                            <Box
+                                data-testid='application-setting-workspaceOpenBehavior'
+                                sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
+                            >
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    <Typography variant='subtitle2'>{t('settings.workspaceOpenBehavior', 'Workspace opening')}</Typography>
+                                    <Typography variant='body2' color='text.secondary'>
+                                        {t(
+                                            'settings.workspaceOpenBehaviorDescription',
+                                            'Choose which workspace should open first when users enter the published application.'
+                                        )}
+                                    </Typography>
+                                </Box>
+                                <FormControl size='small' sx={{ minWidth: 250 }}>
+                                    <InputLabel>{t('settings.workspaceOpenBehavior', 'Workspace opening')}</InputLabel>
+                                    <Select
+                                        value={effectiveGeneralSettings.workspaceOpenBehavior}
+                                        label={t('settings.workspaceOpenBehavior', 'Workspace opening')}
+                                        onChange={(event) =>
+                                            setGeneralChanges((prev) => ({
+                                                ...prev,
+                                                workspaceOpenBehavior: event.target
+                                                    .value as ApplicationDialogSettings['workspaceOpenBehavior']
+                                            }))
+                                        }
+                                    >
+                                        <MenuItem value='last-used'>
+                                            {t('settings.workspaceOpenBehaviors.last-used', 'Last used workspace')}
+                                        </MenuItem>
+                                        <MenuItem value='default-workspace'>
+                                            {t('settings.workspaceOpenBehaviors.default-workspace', 'Default workspace')}
                                         </MenuItem>
                                     </Select>
                                 </FormControl>

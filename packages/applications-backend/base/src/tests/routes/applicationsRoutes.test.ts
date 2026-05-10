@@ -297,7 +297,13 @@ describe('Applications Routes', () => {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
-                            codename: 'orders',
+                            codename: {
+                                _primary: 'en',
+                                locales: {
+                                    en: { content: 'orders' },
+                                    ru: { content: 'orders_ru' }
+                                }
+                            },
                             table_name: 'orders',
                             presentation: null,
                             config: null
@@ -345,6 +351,201 @@ describe('Applications Routes', () => {
                 createContent: false,
                 editContent: false,
                 deleteContent: false
+            })
+        })
+
+        it('applies runtime search, sort, and filters only through declared attributes', async () => {
+            const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334472'
+            const runtimeLinkedCollectionId = '018f8a78-7b8f-7c1d-a111-222233334473'
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+            const listQueries: Array<{ sql: string; params?: unknown[] }> = []
+
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test',
+                workspacesEnabled: false
+            })
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                applicationId: runtimeApplicationId,
+                userId: 'test-user-id',
+                role: 'member'
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [
+                        {
+                            id: runtimeLinkedCollectionId,
+                            kind: 'catalog',
+                            codename: 'orders',
+                            table_name: 'orders',
+                            presentation: null,
+                            config: null
+                        }
+                    ]
+                }
+
+                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                    return [
+                        {
+                            id: '018f8a78-7b8f-7c1d-a111-222233334474',
+                            codename: 'Name',
+                            column_name: 'name',
+                            data_type: 'STRING',
+                            is_required: false,
+                            is_display_attribute: true,
+                            presentation: null,
+                            validation_rules: null,
+                            sort_order: 1,
+                            ui_config: null,
+                            target_object_id: null,
+                            target_object_kind: null
+                        },
+                        {
+                            id: '018f8a78-7b8f-7c1d-a111-222233334475',
+                            codename: 'Score',
+                            column_name: 'score',
+                            data_type: 'NUMBER',
+                            is_required: false,
+                            is_display_attribute: false,
+                            presentation: null,
+                            validation_rules: null,
+                            sort_order: 2,
+                            ui_config: null,
+                            target_object_id: null,
+                            target_object_kind: null
+                        },
+                        {
+                            id: '018f8a78-7b8f-7c1d-a111-22223333448c',
+                            codename: {
+                                _primary: 'en',
+                                locales: {
+                                    en: { content: 'CompletedAt' },
+                                    ru: { content: 'Завершено' }
+                                }
+                            },
+                            column_name: 'completed_at',
+                            data_type: 'DATETIME',
+                            is_required: false,
+                            is_display_attribute: false,
+                            presentation: null,
+                            validation_rules: null,
+                            sort_order: 3,
+                            ui_config: null,
+                            target_object_id: null,
+                            target_object_kind: null
+                        }
+                    ]
+                }
+
+                if (sql.includes('COUNT(*)::int AS total')) {
+                    listQueries.push({ sql, params })
+                    return [{ total: 1 }]
+                }
+
+                if (sql.includes('SELECT id') && sql.includes('FROM "app_runtime_test"."orders"')) {
+                    listQueries.push({ sql, params })
+                    return [{ id: 'row-1', name: 'Alice Example', score: '95' }]
+                }
+
+                if (sql.includes('FROM information_schema.tables')) {
+                    return [{ exists: false, settingsExists: false, zoneWidgetsExists: false }]
+                }
+
+                return []
+            })
+
+            const app = buildApp(dataSource)
+
+            const response = await request(app)
+                .get(`/applications/${runtimeApplicationId}/runtime`)
+                .query({
+                    linkedCollectionId: runtimeLinkedCollectionId,
+                    search: 'Alice%',
+                    sort: JSON.stringify([
+                        { field: 'CompletedAt', direction: 'asc' },
+                        { field: 'score', direction: 'desc' }
+                    ]),
+                    filters: JSON.stringify([
+                        { field: 'name', operator: 'contains', value: 'Alice%' },
+                        { field: 'score', operator: 'greaterThanOrEqual', value: '80' }
+                    ])
+                })
+                .expect(200)
+
+            expect(response.body.rows).toEqual([expect.objectContaining({ id: 'row-1', name: 'Alice Example', score: 95 })])
+            const dataQuery = listQueries.find((entry) => entry.sql.includes('ORDER BY'))
+            expect(dataQuery?.sql).toContain('"completed_at" ASC NULLS LAST')
+            expect(dataQuery?.sql).toContain('"score" DESC NULLS LAST')
+            expect(dataQuery?.params).toEqual(expect.arrayContaining(['%Alice\\%%', 80, 100, 0]))
+        })
+
+        it('rejects runtime list sort and filter fields that are not declared attributes', async () => {
+            const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334476'
+            const runtimeLinkedCollectionId = '018f8a78-7b8f-7c1d-a111-222233334477'
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test',
+                workspacesEnabled: false
+            })
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                applicationId: runtimeApplicationId,
+                userId: 'test-user-id',
+                role: 'member'
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [
+                        {
+                            id: runtimeLinkedCollectionId,
+                            kind: 'catalog',
+                            codename: 'orders',
+                            table_name: 'orders',
+                            presentation: null,
+                            config: null
+                        }
+                    ]
+                }
+
+                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                    return [
+                        {
+                            id: '018f8a78-7b8f-7c1d-a111-222233334478',
+                            codename: 'Name',
+                            column_name: 'name',
+                            data_type: 'STRING',
+                            is_required: false,
+                            is_display_attribute: true,
+                            presentation: null,
+                            validation_rules: null,
+                            sort_order: 1,
+                            ui_config: null,
+                            target_object_id: null,
+                            target_object_kind: null
+                        }
+                    ]
+                }
+
+                return []
+            })
+
+            const app = buildApp(dataSource)
+
+            const response = await request(app)
+                .get(`/applications/${runtimeApplicationId}/runtime`)
+                .query({
+                    linkedCollectionId: runtimeLinkedCollectionId,
+                    sort: JSON.stringify([{ field: 'bad;drop', direction: 'asc' }]),
+                    filters: JSON.stringify([{ field: 'payload', operator: 'contains', value: 'ignored' }])
+                })
+                .expect(400)
+
+            expect(response.body).toMatchObject({
+                error: 'Runtime list query references unknown or unsupported fields',
+                fields: ['bad;drop', 'payload']
             })
         })
     })
@@ -966,7 +1167,7 @@ describe('Applications Routes', () => {
             const copiedApplication = options.copiedApplication ?? buildCopiedApplicationRow(options.generatedId)
 
             ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM applications.rel_application_users')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM applications.rel_application_users')) {
                     return [
                         {
                             id: 'membership-id',
@@ -1365,7 +1566,7 @@ describe('Applications Routes', () => {
                 role: 'owner'
             })
             ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('FROM applications.rel_application_users')) {
+                if (sql.includes('SELECT *') && sql.includes('FROM applications.rel_application_users')) {
                     return [
                         {
                             id: 'membership-id',
@@ -1436,10 +1637,138 @@ describe('Applications Routes', () => {
 
             const app = buildApp(dataSource)
 
-            const response = await request(app).patch('/applications/application-1').send({ name: 'New Name' }).expect(200)
+            const response = await request(app)
+                .patch('/applications/application-1')
+                .send({
+                    name: 'New Name',
+                    settings: {
+                        dashboardDefaultMode: 'first-menu-item',
+                        datasourceExecutionPolicy: 'layout-only',
+                        workspaceOpenBehavior: 'default-workspace'
+                    }
+                })
+                .expect(200)
 
             expect(response.body.name).toMatchObject({
                 _primary: 'en'
+            })
+        })
+
+        it('preserves server-managed public runtime settings when generic settings are saved', async () => {
+            const { dataSource, applicationUserRepo } = buildDataSource()
+            applicationUserRepo.findOne.mockResolvedValue({
+                user_id: 'test-user-id',
+                role: 'owner'
+            })
+
+            const existingPublicRuntime = {
+                guest: {
+                    objects: { students: 'Students' },
+                    fields: { student: { displayName: 'DisplayName' } }
+                }
+            }
+            let savedSettings: Record<string, unknown> | null = null
+
+            ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('SELECT *') && sql.includes('FROM applications.rel_application_users')) {
+                    return [
+                        {
+                            id: 'membership-id',
+                            userId: 'test-user-id',
+                            applicationId: 'application-1',
+                            role: 'owner',
+                            _uplCreatedAt: new Date()
+                        }
+                    ]
+                }
+
+                if (sql.includes('UPDATE applications.cat_applications')) {
+                    savedSettings = JSON.parse(String(params?.[0] ?? '{}'))
+
+                    return [
+                        {
+                            id: 'application-1',
+                            name: {
+                                _schema: 'v1',
+                                _primary: 'en',
+                                locales: { en: { content: 'Existing App' } }
+                            },
+                            description: null,
+                            settings: savedSettings,
+                            slug: 'test-app',
+                            isPublic: false,
+                            workspacesEnabled: false,
+                            schemaName: 'app_123',
+                            schemaStatus: 'draft',
+                            schemaSyncedAt: null,
+                            schemaError: null,
+                            version: 2,
+                            createdAt: new Date(),
+                            updatedAt: new Date(),
+                            updatedBy: 'test-user-id'
+                        }
+                    ]
+                }
+
+                return [
+                    {
+                        id: 'application-1',
+                        name: {
+                            _schema: 'v1',
+                            _primary: 'en',
+                            locales: { en: { content: 'Existing App' } }
+                        },
+                        description: null,
+                        settings: {
+                            publicRuntime: existingPublicRuntime
+                        },
+                        slug: 'test-app',
+                        isPublic: false,
+                        workspacesEnabled: false,
+                        schemaName: 'app_123',
+                        schemaStatus: 'draft',
+                        schemaSyncedAt: null,
+                        schemaError: null,
+                        version: 1,
+                        createdAt: new Date(),
+                        updatedAt: new Date(),
+                        updatedBy: 'test-user-id',
+                        connectorsCount: 0,
+                        membersCount: 1
+                    }
+                ]
+            })
+
+            const app = buildApp(dataSource)
+
+            const response = await request(app)
+                .patch('/applications/application-1')
+                .send({
+                    settings: {
+                        dashboardDefaultMode: 'first-menu-item',
+                        datasourceExecutionPolicy: 'layout-only',
+                        workspaceOpenBehavior: 'default-workspace',
+                        publicRuntime: {
+                            guest: {
+                                objects: { students: 'TamperedStudents' }
+                            }
+                        }
+                    }
+                })
+                .expect(200)
+
+            expect(savedSettings).toEqual({
+                dashboardDefaultMode: 'first-menu-item',
+                datasourceExecutionPolicy: 'layout-only',
+                workspaceOpenBehavior: 'default-workspace',
+                publicRuntime: existingPublicRuntime
+            })
+            expect(response.body.settings).not.toMatchObject({
+                publicRuntime: {
+                    guest: {
+                        objects: { students: 'TamperedStudents' }
+                    }
+                }
             })
         })
 
@@ -3016,6 +3345,937 @@ describe('Applications Routes', () => {
         })
     })
 
+    describe('Runtime record command contract', () => {
+        const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334570'
+        const runtimeLinkedCollectionId = '018f8a78-7b8f-7c1d-a111-222233334571'
+        const runtimeRowId = '018f8a78-7b8f-7c1d-a111-222233334572'
+        const runtimeAttributeId = '018f8a78-7b8f-7c1d-a111-222233334573'
+        const runtimeChildRowId = '018f8a78-7b8f-7c1d-a111-222233334574'
+
+        const recordBehaviorConfig = {
+            recordBehavior: {
+                mode: 'transactional',
+                numbering: {
+                    enabled: true,
+                    scope: 'workspace',
+                    periodicity: 'none',
+                    prefix: 'DOC-',
+                    minLength: 4
+                },
+                effectiveDate: {
+                    enabled: true,
+                    defaultToNow: true
+                },
+                lifecycle: {
+                    enabled: true,
+                    states: []
+                },
+                posting: {
+                    mode: 'manual',
+                    targetLedgers: []
+                },
+                immutability: 'posted'
+            }
+        }
+        const recordBehaviorWithLedgerConfig = {
+            recordBehavior: {
+                ...recordBehaviorConfig.recordBehavior,
+                posting: {
+                    mode: 'manual',
+                    targetLedgers: ['ProgressLedger']
+                }
+            }
+        }
+
+        const mockRuntimeApplication = (
+            applicationRepo: ReturnType<typeof buildDataSource>['applicationRepo'],
+            applicationUserRepo: ReturnType<typeof buildDataSource>['applicationUserRepo'],
+            role: 'owner' | 'admin' | 'editor' | 'member',
+            workspacesEnabled = false
+        ) => {
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test',
+                workspacesEnabled
+            })
+        }
+
+        const mockRecordCatalogQueries = (
+            dataSource: ReturnType<typeof buildDataSource>['dataSource'],
+            previousRow: Record<string, unknown>,
+            nextRow?: Record<string, unknown>
+        ) => {
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+	                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+	                    return [
+	                        {
+	                            id: runtimeLinkedCollectionId,
+	                            kind: 'catalog',
+	                            codename: 'documents',
+	                            table_name: 'documents',
+	                            config: recordBehaviorConfig
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."documents"')) {
+                    return [previousRow]
+                }
+                if (sql.includes('INSERT INTO "app_runtime_test"._app_record_counters')) {
+                    return [{ last_number: '7' }]
+                }
+                if (sql.includes('UPDATE "app_runtime_test"."documents"')) {
+                    return [
+                        nextRow ?? {
+                            ...previousRow,
+                            _app_record_state: 'posted',
+                            _app_record_number: previousRow._app_record_number ?? 'DOC-0007',
+                            _app_posted_at: new Date('2026-05-08T00:00:00.000Z'),
+                            _app_posting_batch_id: '018f8a78-7b8f-7c1d-a111-222233334575'
+                        }
+                    ]
+                }
+                return []
+            })
+        }
+
+        it('posts draft records with atomic numbering and posting metadata', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeScriptsService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            mockRecordCatalogQueries(dataSource, {
+                id: runtimeRowId,
+                _upl_locked: false,
+                _upl_version: 1,
+                _app_record_state: 'draft',
+                _app_record_number: null
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/post`)
+                .send({ linkedCollectionId: runtimeLinkedCollectionId, expectedVersion: 1 })
+                .expect(200)
+
+            expect(response.body).toMatchObject({
+                id: runtimeRowId,
+                status: 'posted',
+                recordState: 'posted',
+                recordNumber: 'DOC-0007'
+            })
+
+            const counterCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
+                String(call[0]).includes('INSERT INTO "app_runtime_test"._app_record_counters')
+            )
+            expect(counterCall?.[1]).toEqual([
+                runtimeLinkedCollectionId,
+                'workspace:00000000-0000-0000-0000-000000000000',
+                'all',
+                'DOC-',
+                'test-user-id'
+            ])
+
+            const updateCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
+                String(call[0]).includes('UPDATE "app_runtime_test"."documents"')
+            )
+            expect(String(updateCall?.[0])).toContain('_app_record_state = $3')
+            expect(String(updateCall?.[0])).toContain('_app_posting_batch_id = public.uuid_generate_v7()')
+            expect(dispatchLifecycleEventSpy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    payload: expect.objectContaining({ eventName: 'beforePost' })
+                })
+            )
+            expect(dispatchLifecycleEventSpy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    payload: expect.objectContaining({ eventName: 'afterPost' })
+                })
+            )
+        })
+
+        it('appends declarative posting movements before afterPost runs', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+            const dispatchLifecycleEventSpy = jest
+                .spyOn(RuntimeScriptsService.prototype, 'dispatchLifecycleEvent')
+                .mockImplementation(async (params) =>
+                    params.payload.eventName === 'beforePost'
+                        ? [
+                              {
+                                  movements: [
+                                      {
+                                          ledgerCodename: 'ProgressLedger',
+                                          facts: [{ data: { Learner: 'student-1', ProgressDelta: 10 } }]
+                                      }
+                                  ]
+                              }
+                          ]
+                        : []
+                )
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+	                if (
+	                    sql.includes('FROM "app_runtime_test"._app_objects') &&
+	                    sql.includes("config->'components'->'ledgerSchema'") &&
+	                    !sql.includes('AND NOT')
+	                ) {
+                    return [
+                        {
+                            id: '018f8a78-7b8f-7c1d-a111-222233334576',
+                            kind: 'ledger',
+                            codename: { _primary: 'en', locales: { en: { content: 'ProgressLedger' } } },
+                            table_name: 'led_progress',
+                            config: {
+                                components: {
+                                    dataSchema: { enabled: true },
+                                    physicalTable: { enabled: true },
+                                    ledgerSchema: { enabled: true }
+                                },
+                                ledger: { fieldRoles: [], projections: [], idempotency: { keyFields: [] } }
+                            }
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [
+	                        {
+	                            id: runtimeLinkedCollectionId,
+	                            kind: 'catalog',
+	                            codename: 'documents',
+	                            table_name: 'documents',
+	                            config: recordBehaviorWithLedgerConfig
+                        }
+                    ]
+                }
+                if (sql.includes('information_schema.columns')) {
+                    return [{ column_name: '_app_reversal_of_fact_id' }]
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                    return [
+                        {
+                            id: 'ledger-learner',
+                            codename: 'Learner',
+                            column_name: 'learner',
+                            data_type: 'STRING',
+                            is_required: true,
+                            validation_rules: {}
+                        },
+                        {
+                            id: 'ledger-progress',
+                            codename: 'ProgressDelta',
+                            column_name: 'progress_delta',
+                            data_type: 'NUMBER',
+                            is_required: true,
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."documents"')) {
+                    return [{ id: runtimeRowId, _upl_locked: false, _upl_version: 1, _app_record_state: 'draft' }]
+                }
+                if (sql.includes('INSERT INTO "app_runtime_test"._app_record_counters')) {
+                    return [{ last_number: '8' }]
+                }
+                if (sql.includes('UPDATE "app_runtime_test"."documents"')) {
+                    return [
+                        {
+                            id: runtimeRowId,
+                            _app_record_state: 'posted',
+                            _app_record_number: 'DOC-0008',
+                            _app_posted_at: new Date('2026-05-08T00:00:00.000Z'),
+                            _app_posting_batch_id: '018f8a78-7b8f-7c1d-a111-222233334577'
+                        }
+                    ]
+                }
+                if (sql.includes('INSERT INTO "app_runtime_test"."led_progress"')) {
+                    return [{ id: '018f8a78-7b8f-7c1d-a111-222233334578' }]
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/post`)
+                .send({ linkedCollectionId: runtimeLinkedCollectionId })
+                .expect(200)
+
+            expect(response.body.postingMovements).toEqual([
+                {
+                    ledgerCodename: 'ProgressLedger',
+                    facts: [{ id: '018f8a78-7b8f-7c1d-a111-222233334578' }]
+                }
+            ])
+            const ledgerInsertCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
+                String(call[0]).includes('INSERT INTO "app_runtime_test"."led_progress"')
+            )
+            expect(ledgerInsertCall?.[1]).toEqual(['student-1', 10, 'test-user-id', 'test-user-id'])
+
+            const afterPostCallIndex = dispatchLifecycleEventSpy.mock.calls.findIndex((call) => call[0].payload.eventName === 'afterPost')
+            expect(afterPostCallIndex).toBeGreaterThan(-1)
+            expect(dispatchLifecycleEventSpy.mock.invocationCallOrder[afterPostCallIndex]).toBeGreaterThan(
+                (dataSource.manager.query as jest.Mock).mock.invocationCallOrder[
+                    (dataSource.manager.query as jest.Mock).mock.calls.indexOf(ledgerInsertCall)
+                ]
+            )
+        })
+
+        it('reverses persisted posting movements before unposting a posted record', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeScriptsService.prototype, 'dispatchLifecycleEvent').mockResolvedValue([])
+            const sourceFactId = '018f8a78-7b8f-7c1d-a111-222233334579'
+            const reversedFactId = '018f8a78-7b8f-7c1d-a111-222233334580'
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+	                if (
+	                    sql.includes('FROM "app_runtime_test"._app_objects') &&
+	                    sql.includes("config->'components'->'ledgerSchema'") &&
+	                    !sql.includes('AND NOT')
+	                ) {
+                    return [
+                        {
+                            id: '018f8a78-7b8f-7c1d-a111-222233334576',
+                            kind: 'ledger',
+                            codename: { _primary: 'en', locales: { en: { content: 'ProgressLedger' } } },
+                            table_name: 'led_progress',
+                            config: {
+                                components: {
+                                    dataSchema: { enabled: true },
+                                    physicalTable: { enabled: true },
+                                    ledgerSchema: { enabled: true }
+                                },
+                                ledger: {
+                                    sourcePolicy: 'registrar',
+                                    registrarKinds: ['catalog'],
+                                    fieldRoles: [
+                                        { fieldCodename: 'Learner', role: 'dimension' },
+                                        { fieldCodename: 'ProgressDelta', role: 'resource', aggregate: 'sum' }
+                                    ],
+                                    projections: [],
+                                    idempotency: { keyFields: [] }
+                                }
+                            }
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [
+	                        {
+	                            id: runtimeLinkedCollectionId,
+	                            kind: 'catalog',
+	                            codename: 'documents',
+	                            table_name: 'documents',
+	                            config: recordBehaviorWithLedgerConfig
+                        }
+                    ]
+                }
+                if (sql.includes('information_schema.columns')) {
+                    return [{ column_name: '_app_reversal_of_fact_id' }]
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                    return [
+                        {
+                            id: 'ledger-learner',
+                            codename: 'Learner',
+                            column_name: 'learner',
+                            data_type: 'STRING',
+                            is_required: true,
+                            validation_rules: {}
+                        },
+                        {
+                            id: 'ledger-progress',
+                            codename: 'ProgressDelta',
+                            column_name: 'progress_delta',
+                            data_type: 'NUMBER',
+                            is_required: true,
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."documents"')) {
+                    return [
+                        {
+                            id: runtimeRowId,
+                            _upl_locked: false,
+                            _upl_version: 3,
+                            _app_record_state: 'posted',
+                            _app_posting_movements: [
+                                {
+                                    ledgerCodename: 'ProgressLedger',
+                                    facts: [{ id: sourceFactId }]
+                                }
+                            ]
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."led_progress"')) {
+                    return [{ id: sourceFactId, learner: 'student-1', progress_delta: '10' }]
+                }
+                if (sql.includes('INSERT INTO "app_runtime_test"."led_progress"')) {
+                    return [{ id: reversedFactId }]
+                }
+                if (sql.includes('UPDATE "app_runtime_test"."documents"')) {
+                    return [
+                        {
+                            id: runtimeRowId,
+                            _app_record_state: 'draft',
+                            _app_record_number: 'DOC-0008',
+                            _app_posted_at: null,
+                            _app_posting_batch_id: null,
+                            _app_posting_movements: null
+                        }
+                    ]
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/unpost`)
+                .send({ linkedCollectionId: runtimeLinkedCollectionId, expectedVersion: 3 })
+                .expect(200)
+
+            expect(response.body).toMatchObject({
+                id: runtimeRowId,
+                status: 'unposted',
+                recordState: 'draft',
+                postingMovements: [],
+                postingReversals: [
+                    {
+                        ledgerCodename: 'ProgressLedger',
+                        facts: [{ id: reversedFactId }]
+                    }
+                ]
+            })
+
+            const ledgerInsertCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
+                String(call[0]).includes('INSERT INTO "app_runtime_test"."led_progress"')
+            )
+            expect(ledgerInsertCall?.[1]).toEqual(['student-1', -10, 'test-user-id', 'test-user-id', sourceFactId])
+
+            const updateCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
+                String(call[0]).includes('UPDATE "app_runtime_test"."documents"')
+            )
+            expect(String(updateCall?.[0])).toContain('_app_posting_movements = NULL')
+
+            const afterUnpostCallIndex = dispatchLifecycleEventSpy.mock.calls.findIndex(
+                (call) => call[0].payload.eventName === 'afterUnpost'
+            )
+            expect(afterUnpostCallIndex).toBeGreaterThan(-1)
+            expect(dispatchLifecycleEventSpy.mock.invocationCallOrder[afterUnpostCallIndex]).toBeGreaterThan(
+                (dataSource.manager.query as jest.Mock).mock.invocationCallOrder[
+                    (dataSource.manager.query as jest.Mock).mock.calls.indexOf(ledgerInsertCall)
+                ]
+            )
+        })
+
+        it('fails closed when declarative posting movements contain invalid ledger fields', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+            const dispatchLifecycleEventSpy = jest
+                .spyOn(RuntimeScriptsService.prototype, 'dispatchLifecycleEvent')
+                .mockImplementation(async (params) =>
+                    params.payload.eventName === 'beforePost'
+                        ? [
+                              {
+                                  movements: [
+                                      {
+                                          ledgerCodename: 'ProgressLedger',
+                                          facts: [{ data: { Unexpected: true } }]
+                                      }
+                                  ]
+                              }
+                          ]
+                        : []
+                )
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+	                if (
+	                    sql.includes('FROM "app_runtime_test"._app_objects') &&
+	                    sql.includes("config->'components'->'ledgerSchema'") &&
+	                    !sql.includes('AND NOT')
+	                ) {
+                    return [
+                        {
+                            id: '018f8a78-7b8f-7c1d-a111-222233334576',
+                            kind: 'ledger',
+                            codename: { _primary: 'en', locales: { en: { content: 'ProgressLedger' } } },
+                            table_name: 'led_progress',
+                            config: {
+                                components: {
+                                    dataSchema: { enabled: true },
+                                    physicalTable: { enabled: true },
+                                    ledgerSchema: { enabled: true }
+                                },
+                                ledger: { fieldRoles: [], projections: [], idempotency: { keyFields: [] } }
+                            }
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [
+	                        {
+	                            id: runtimeLinkedCollectionId,
+	                            kind: 'catalog',
+	                            codename: 'documents',
+	                            table_name: 'documents',
+	                            config: recordBehaviorWithLedgerConfig
+                        }
+                    ]
+                }
+                if (sql.includes('information_schema.columns')) {
+                    return []
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                    return [
+                        {
+                            id: 'ledger-learner',
+                            codename: 'Learner',
+                            column_name: 'learner',
+                            data_type: 'STRING',
+                            is_required: true,
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."documents"')) {
+                    return [{ id: runtimeRowId, _upl_locked: false, _upl_version: 1, _app_record_state: 'draft' }]
+                }
+                if (sql.includes('INSERT INTO "app_runtime_test"._app_record_counters')) {
+                    return [{ last_number: '9' }]
+                }
+                if (sql.includes('UPDATE "app_runtime_test"."documents"')) {
+                    return [
+                        {
+                            id: runtimeRowId,
+                            _app_record_state: 'posted',
+                            _app_record_number: 'DOC-0009'
+                        }
+                    ]
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/post`)
+                .send({ linkedCollectionId: runtimeLinkedCollectionId })
+                .expect(409)
+
+            expect(response.body).toMatchObject({
+                code: 'POSTING_MOVEMENT_INVALID',
+                ledgerCodename: 'ProgressLedger'
+            })
+            expect(response.body.error).toContain('Ledger fact contains an unknown field: Unexpected')
+            expect(dispatchLifecycleEventSpy.mock.calls.some((call) => call[0].payload.eventName === 'afterPost')).toBe(false)
+            expect(
+                (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
+                    String(call[0]).includes('INSERT INTO "app_runtime_test"."led_progress"')
+                )
+            ).toBeUndefined()
+        })
+
+        it.each([
+            ['post', 'posted', 'RECORD_ALREADY_POSTED'],
+            ['post', 'voided', 'RECORD_VOIDED'],
+            ['unpost', 'draft', 'RECORD_NOT_POSTED'],
+            ['void', 'voided', 'RECORD_ALREADY_VOIDED']
+        ] as const)('rejects invalid %s transition from %s state', async (command, state, code) => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            mockRecordCatalogQueries(dataSource, {
+                id: runtimeRowId,
+                _upl_locked: false,
+                _upl_version: 1,
+                _app_record_state: state
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/${command}`)
+                .send({ linkedCollectionId: runtimeLinkedCollectionId })
+                .expect(409)
+
+            expect(response.body.code).toBe(code)
+            const updateCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
+                String(call[0]).includes('UPDATE "app_runtime_test"."documents"')
+            )
+            expect(updateCall).toBeUndefined()
+        })
+
+        it('rejects record commands before touching runtime tables when edit permissions are unavailable', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'member')
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/post`)
+                .send({ linkedCollectionId: runtimeLinkedCollectionId })
+                .expect(403)
+
+            expect(response.body).toEqual({ error: 'Insufficient permissions for this action' })
+            expect(dataSource.manager.query).not.toHaveBeenCalled()
+        })
+
+        it('blocks parent row updates and deletes when posted rows are immutable', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [
+                        {
+                            id: runtimeLinkedCollectionId,
+                            codename: 'documents',
+                            table_name: 'documents',
+                            config: recordBehaviorConfig
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                    return [
+                        {
+                            id: 'title-attr',
+                            codename: 'title',
+                            column_name: 'title',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."documents"')) {
+                    return [{ id: runtimeRowId, _upl_locked: false, _app_record_state: 'posted' }]
+                }
+                if (sql.includes('UPDATE "app_runtime_test"."documents"')) {
+                    throw new Error('posted rows must not be updated')
+                }
+                if (sql.includes('DELETE FROM "app_runtime_test"."documents"')) {
+                    throw new Error('posted rows must not be deleted')
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            const updateResponse = await request(app)
+                .patch(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}`)
+                .send({
+                    linkedCollectionId: runtimeLinkedCollectionId,
+                    data: { title: 'Blocked update' }
+                })
+                .expect(409)
+            expect(updateResponse.body).toMatchObject({ code: 'RECORD_IMMUTABLE', state: 'posted' })
+
+            const deleteResponse = await request(app)
+                .delete(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}`)
+                .query({ linkedCollectionId: runtimeLinkedCollectionId })
+                .expect(409)
+            expect(deleteResponse.body).toMatchObject({ code: 'RECORD_IMMUTABLE', state: 'posted' })
+        })
+
+        it('blocks tabular edits when the parent record is posted and immutable', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [
+                        {
+                            id: runtimeLinkedCollectionId,
+                            codename: 'documents',
+                            table_name: 'documents',
+                            config: recordBehaviorConfig
+                        }
+                    ]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeAttributeId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_attribute_id = $1')) {
+                    return [
+                        {
+                            id: 'child-title',
+                            codename: 'title',
+                            column_name: 'title',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."documents"')) {
+                    return [{ id: runtimeRowId, _upl_locked: false, _app_record_state: 'posted' }]
+                }
+                if (sql.includes('UPDATE "app_runtime_test"."items"')) {
+                    throw new Error('posted parent child rows must not be updated')
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .patch(
+                    `/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/tabular/${runtimeAttributeId}/${runtimeChildRowId}`
+                )
+                .query({ linkedCollectionId: runtimeLinkedCollectionId })
+                .send({ data: { title: 'Blocked child edit' } })
+                .expect(409)
+
+            expect(response.body).toMatchObject({ code: 'RECORD_IMMUTABLE', state: 'posted' })
+        })
+    })
+
+    describe('Runtime ledger permission contract', () => {
+        const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334590'
+        const runtimeLedgerId = '018f8a78-7b8f-7c1d-a111-222233334591'
+        const runtimeFactId = '018f8a78-7b8f-7c1d-a111-222233334592'
+
+        const mockRuntimeApplication = (
+            applicationRepo: ReturnType<typeof buildDataSource>['applicationRepo'],
+            applicationUserRepo: ReturnType<typeof buildDataSource>['applicationUserRepo'],
+            role: 'owner' | 'admin' | 'editor' | 'member'
+        ) => {
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_runtime_test',
+                workspacesEnabled: false
+            })
+        }
+
+        it.each([
+            ['append', 'facts', { facts: [{ data: { Learner: 'student-1', ProgressDelta: 10 } }] }],
+            ['reverse', 'facts/reverse', { factIds: [runtimeFactId] }]
+        ] as const)(
+            'rejects ledger %s before touching runtime tables when create permissions are unavailable',
+            async (_label, path, body) => {
+                const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+                mockRuntimeApplication(applicationRepo, applicationUserRepo, 'member')
+
+                const app = buildApp(dataSource)
+                const response = await request(app)
+                    .post(`/applications/${runtimeApplicationId}/runtime/ledgers/${runtimeLedgerId}/${path}`)
+                    .send(body)
+                    .expect(403)
+
+                expect(response.body).toEqual({ error: 'Insufficient permissions for this action' })
+                expect(dataSource.manager.query).not.toHaveBeenCalled()
+            }
+        )
+
+        it.each(['patch', 'delete'] as const)(
+            'rejects ledger fact %s before touching runtime tables when mutation permissions are unavailable',
+            async (method) => {
+                const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+                mockRuntimeApplication(applicationRepo, applicationUserRepo, 'member')
+
+                const app = buildApp(dataSource)
+                const requestBuilder =
+                    method === 'patch'
+                        ? request(app)
+                              .patch(`/applications/${runtimeApplicationId}/runtime/ledgers/${runtimeLedgerId}/facts/${runtimeFactId}`)
+                              .send({ data: { ProgressDelta: 15 } })
+                        : request(app).delete(
+                              `/applications/${runtimeApplicationId}/runtime/ledgers/${runtimeLedgerId}/facts/${runtimeFactId}`
+                          )
+                const response = await requestBuilder.expect(403)
+
+                expect(response.body).toEqual({ error: 'Insufficient permissions for this action' })
+                expect(dataSource.manager.query).not.toHaveBeenCalled()
+            }
+        )
+
+        it('rejects direct manual writes to registrar-only ledgers for privileged users', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [
+                        {
+                            id: runtimeLedgerId,
+                            kind: 'ledger',
+                            codename: { _primary: 'en', locales: { en: { content: 'ProgressLedger' } } },
+                            table_name: 'led_progress',
+                            config: {
+                                ledger: {
+                                    sourcePolicy: 'registrar',
+                                    registrarKinds: ['catalog'],
+                                    fieldRoles: [],
+                                    projections: [],
+                                    idempotency: { keyFields: [] }
+                                }
+                            }
+                        }
+                    ]
+                }
+                if (sql.includes('information_schema.columns') || sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                    return []
+                }
+                if (sql.includes('INSERT INTO "app_runtime_test"."led_progress"')) {
+                    throw new Error('registrar-only ledger must not accept manual inserts')
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/ledgers/${runtimeLedgerId}/facts`)
+                .send({ facts: [{ data: { Learner: 'student-1', ProgressDelta: 10 } }] })
+                .expect(403)
+
+            expect(response.body).toMatchObject({
+                code: 'LEDGER_REGISTRAR_ONLY'
+            })
+            expect(
+                (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
+                    String(call[0]).includes('INSERT INTO "app_runtime_test"."led_progress"')
+                )
+            ).toBeUndefined()
+        })
+
+        it('returns controlled validation errors for direct ledger append payloads with invalid field values', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [
+                        {
+                            id: runtimeLedgerId,
+                            kind: 'ledger',
+                            codename: { _primary: 'en', locales: { en: { content: 'ProgressLedger' } } },
+                            table_name: 'led_progress',
+                            config: {
+                                ledger: {
+                                    sourcePolicy: 'manual',
+                                    mutationPolicy: 'appendOnly',
+                                    fieldRoles: [{ fieldCodename: 'ProgressDelta', role: 'resource', aggregate: 'sum', required: true }],
+                                    projections: [],
+                                    registrarKinds: [],
+                                    idempotency: { keyFields: [] }
+                                }
+                            }
+                        }
+                    ]
+                }
+                if (sql.includes('information_schema.columns')) {
+                    return []
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                    return [
+                        {
+                            id: 'ledger-learner',
+                            codename: 'Learner',
+                            column_name: 'learner',
+                            data_type: 'STRING',
+                            is_required: true,
+                            validation_rules: {}
+                        },
+                        {
+                            id: 'ledger-progress',
+                            codename: 'ProgressDelta',
+                            column_name: 'progress_delta',
+                            data_type: 'NUMBER',
+                            is_required: true,
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('INSERT INTO "app_runtime_test"."led_progress"')) {
+                    throw new Error('invalid ledger append payload must not be inserted')
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/ledgers/${runtimeLedgerId}/facts`)
+                .send({ facts: [{ data: { Learner: 'student-1', ProgressDelta: 'not-a-number' } }] })
+                .expect(400)
+
+            expect(response.body).toMatchObject({
+                code: 'LEDGER_FACT_FIELD_VALUE_INVALID',
+                field: 'ProgressDelta'
+            })
+            expect(
+                (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
+                    String(call[0]).includes('INSERT INTO "app_runtime_test"."led_progress"')
+                )
+            ).toBeUndefined()
+        })
+
+        it('rejects direct fact updates for append-only manual ledgers without scanning writable columns', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [
+                        {
+                            id: runtimeLedgerId,
+                            kind: 'ledger',
+                            codename: { _primary: 'en', locales: { en: { content: 'ProgressLedger' } } },
+                            table_name: 'led_progress',
+                            config: {
+                                ledger: {
+                                    sourcePolicy: 'manual',
+                                    mutationPolicy: 'appendOnly',
+                                    registrarKinds: [],
+                                    fieldRoles: [],
+                                    projections: [],
+                                    idempotency: { keyFields: [] }
+                                }
+                            }
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                    throw new Error('append-only ledger updates must not inspect writable columns')
+                }
+                if (sql.includes('UPDATE "app_runtime_test"."led_progress"')) {
+                    throw new Error('append-only ledger must not accept direct updates')
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .patch(`/applications/${runtimeApplicationId}/runtime/ledgers/${runtimeLedgerId}/facts/${runtimeFactId}`)
+                .send({ data: { ProgressDelta: 15 } })
+                .expect(409)
+
+            expect(response.body).toMatchObject({
+                code: 'LEDGER_APPEND_ONLY'
+            })
+            expect(
+                (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
+                    String(call[0]).includes('UPDATE "app_runtime_test"."led_progress"')
+                )
+            ).toBeUndefined()
+        })
+    })
+
     describe('Runtime tabular copy permission contract', () => {
         const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334560'
         const runtimeLinkedCollectionId = '018f8a78-7b8f-7c1d-a111-222233334561'
@@ -3205,7 +4465,10 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('SELECT id, _upl_locked') && sql.includes('FROM "app_runtime_test"."orders"')) {
+                if (
+                    sql.includes('FROM "app_runtime_test"."orders"') &&
+                    (sql.includes('SELECT id, _upl_locked') || sql.includes('SELECT *'))
+                ) {
                     return [{ id: runtimeRecordId, _upl_locked: false }]
                 }
                 if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."items"')) {

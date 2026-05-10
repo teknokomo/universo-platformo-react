@@ -339,6 +339,7 @@ export interface LinkedCollectionEntity {
     isSingleHub: boolean
     isRequiredHub: boolean
     sortOrder: number
+    config?: Record<string, unknown> | null
     createdAt: string
     updatedAt: string
     version?: number
@@ -359,6 +360,7 @@ export interface LinkedCollectionDisplay {
     isSingleHub: boolean
     isRequiredHub: boolean
     sortOrder: number
+    config?: Record<string, unknown> | null
     createdAt: string
     updatedAt: string
     treeEntities?: Array<{ id: string; name: string; codename: string }>
@@ -668,6 +670,7 @@ export interface LinkedCollectionLocalizedPayload {
     isSingleHub?: boolean
     isRequiredHub?: boolean
     treeEntityIds?: string[]
+    recordBehavior?: Record<string, unknown>
 }
 
 /** Payload for creating/updating Set. */

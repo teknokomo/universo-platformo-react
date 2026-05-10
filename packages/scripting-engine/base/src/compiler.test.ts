@@ -44,6 +44,23 @@ export default class SharedScript extends ExtensionScript {
 }
 `
 
+const POSTING_LIFECYCLE_SOURCE = `import { ExtensionScript, OnEvent } from '@universo/extension-sdk'
+
+export default class EnrollmentPostingScript extends ExtensionScript {
+    @OnEvent('beforePost')
+    async buildMovements(payload) {
+        return {
+            movements: [
+                {
+                    ledgerCodename: 'ProgressLedger',
+                    facts: [{ data: { Learner: payload.previousRow?.learner, ProgressDelta: 1 } }]
+                }
+            ]
+        }
+    }
+}
+`
+
 const SAFE_SERVER_ONLY_QUIZ_SOURCE = `import { ExtensionScript, AtClient, AtServer } from '@universo/extension-sdk'
 
 const QUESTION_BANK = [
@@ -119,6 +136,26 @@ describe('compileScriptSource', () => {
         expect(artifact.manifest.methods).toEqual([{ name: 'ping', target: 'server_and_client', eventName: null }])
         expect(artifact.serverBundle).toContain('async ping()')
         expect(artifact.clientBundle).toContain('async ping()')
+    })
+
+    it('keeps posting lifecycle capabilities and beforePost handlers in the manifest', async () => {
+        const artifact = await compileScriptSource(
+            createInput(POSTING_LIFECYCLE_SOURCE, {
+                moduleRole: 'lifecycle',
+                capabilities: ['records.read', 'metadata.read', 'lifecycle', 'posting', 'ledger.read', 'ledger.write']
+            })
+        )
+
+        expect(artifact.manifest.capabilities).toEqual([
+            'records.read',
+            'metadata.read',
+            'lifecycle',
+            'posting',
+            'ledger.read',
+            'ledger.write'
+        ])
+        expect(artifact.manifest.methods).toEqual([{ name: 'buildMovements', target: 'server', eventName: 'beforePost' }])
+        expect(artifact.serverBundle).toContain('ProgressLedger')
     })
 
     it('rejects unsupported sdkApiVersion values', async () => {

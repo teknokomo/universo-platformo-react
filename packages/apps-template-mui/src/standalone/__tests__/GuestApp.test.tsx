@@ -219,7 +219,7 @@ describe('GuestApp', () => {
     it('refetches runtime only after the guest session is created', async () => {
         let runtimeRequestCount = 0
         const runtimeUrls: string[] = []
-        const runtimeHeaders: Array<{ studentId: string | null; sessionToken: string | null }> = []
+        const runtimeHeaders: Array<{ participantId: string | null; sessionToken: string | null }> = []
 
         vi.stubGlobal(
             'fetch',
@@ -262,7 +262,7 @@ describe('GuestApp', () => {
                     runtimeUrls.push(url)
                     const headers = new Headers(init?.headers)
                     runtimeHeaders.push({
-                        studentId: headers.get('X-Guest-Student-Id'),
+                        participantId: headers.get('X-Guest-Participant-Id'),
                         sessionToken: headers.get('X-Guest-Session-Token')
                     })
                     return {
@@ -309,9 +309,10 @@ describe('GuestApp', () => {
 
         expect(runtimeRequestCount).toBe(1)
         expect(runtimeUrls[0]).not.toContain('studentId=student-1')
+        expect(runtimeUrls[0]).not.toContain('participantId=student-1')
         expect(runtimeUrls[0]).not.toContain('sessionToken=token-1')
         expect(runtimeHeaders[0]).toEqual({
-            studentId: 'student-1',
+            participantId: 'student-1',
             sessionToken: 'token-1'
         })
     })

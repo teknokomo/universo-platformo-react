@@ -5,7 +5,10 @@ import {
     SHARED_POOL_TO_ENTITY_KIND,
     SHARED_POOL_TO_TARGET_KIND,
     isEnabledComponentConfig,
+    normalizeLedgerConfigFromConfig,
     normalizePageBlockContentForStorage,
+    supportsLedgerSchema,
+    validateLedgerConfigReferences,
     type BlockContentComponentConfig,
     type PageBlockContentValidationOptions,
     type SharedEntityKind,
@@ -14,6 +17,7 @@ import {
 import type {
     MetahubEntityTypeDefinitionSnapshot,
     MetahubSnapshot,
+    MetahubSettingSnapshot,
     MetaEntitySnapshot,
     MetaFieldSnapshot
 } from '../../publications/services/SnapshotSerializer'
@@ -39,6 +43,11 @@ type SharedEntityIdMaps = Record<SharedEntityKind, Map<string, string>>
 const getScriptCodenameText = (codename: SnapshotScript['codename']): string => getCodenamePrimary(codename) ?? '[unknown]'
 
 const getEntityCodenameText = (codename: MetaEntitySnapshot['codename']): string => {
+    if (typeof codename === 'string') return codename
+    return getCodenamePrimary(codename) ?? '[unknown]'
+}
+
+const getFieldCodenameText = (codename: MetaFieldSnapshot['codename']): string => {
     if (typeof codename === 'string') return codename
     return getCodenamePrimary(codename) ?? '[unknown]'
 }
@@ -81,7 +90,65 @@ export class SnapshotRestoreService {
             const actionIdMap = await this.restoreActions(trx, snapshot, entityIdMap, scriptIdMap, userId)
             await this.restoreEventBindings(trx, snapshot, entityIdMap, actionIdMap, userId)
             await this.restoreLayouts(trx, snapshot, entityIdMap, userId)
+            await this.restoreSettings(trx, snapshot, userId)
         })
+    }
+
+    private async restoreSettings(qb: Knex.Transaction, snapshot: MetahubSnapshot, userId: string): Promise<void> {
+        const settings = (snapshot.settings ?? []).filter(
+            (setting): setting is MetahubSettingSnapshot =>
+                typeof setting?.key === 'string' &&
+                setting.key.trim().length > 0 &&
+                Boolean(setting.value) &&
+                typeof setting.value === 'object' &&
+                !Array.isArray(setting.value)
+        )
+        if (settings.length === 0) {
+            return
+        }
+
+        const now = new Date()
+        for (const setting of settings) {
+            const row = {
+                key: setting.key.trim(),
+                value: toJsonbValue(setting.value),
+                _upl_updated_at: now,
+                _upl_updated_by: userId,
+                _mhb_deleted: false,
+                _mhb_deleted_at: null,
+                _mhb_deleted_by: null,
+                _upl_deleted: false,
+                _upl_deleted_at: null,
+                _upl_deleted_by: null
+            }
+            const existing = await qb.withSchema(this.schemaName).from('_mhb_settings').where({ key: row.key }).first<{ id: string }>()
+
+            if (existing?.id) {
+                await qb
+                    .withSchema(this.schemaName)
+                    .from('_mhb_settings')
+                    .where({ id: existing.id })
+                    .update({
+                        ...row,
+                        _upl_version: qb.raw('COALESCE(_upl_version, 1) + 1')
+                    })
+                continue
+            }
+
+            await qb
+                .withSchema(this.schemaName)
+                .from('_mhb_settings')
+                .insert({
+                    ...row,
+                    _upl_created_at: now,
+                    _upl_created_by: userId,
+                    _upl_version: 1,
+                    _upl_archived: false,
+                    _upl_locked: false,
+                    _mhb_published: true,
+                    _mhb_archived: false
+                })
+        }
     }
 
     private async restoreEntityTypeDefinitions(qb: Knex.Transaction, snapshot: MetahubSnapshot, userId: string): Promise<void> {
@@ -449,6 +516,34 @@ export class SnapshotRestoreService {
                     codename: entityCodenameText,
                     field: 'config.blockContent',
                     issues: error instanceof Error ? error.message : error
+                })
+            }
+        }
+
+        if (Object.prototype.hasOwnProperty.call(config, 'ledger')) {
+            const definition = entityTypeDefinitions?.[entity.kind]
+            if (!definition || !supportsLedgerSchema(definition.components)) {
+                throw new MetahubValidationError('Ledger schema config is not enabled for imported entity type', {
+                    kind: entity.kind,
+                    codename: entityCodenameText,
+                    field: 'config.ledger'
+                })
+            }
+
+            const referenceErrors = validateLedgerConfigReferences({
+                config: normalizeLedgerConfigFromConfig(config),
+                fields: (entity.fields ?? []).map((field) => ({
+                    codename: getFieldCodenameText(field.codename),
+                    dataType: field.dataType
+                }))
+            })
+
+            if (referenceErrors.length > 0) {
+                throw new MetahubValidationError('Ledger schema config contains invalid field references', {
+                    kind: entity.kind,
+                    codename: entityCodenameText,
+                    field: 'config.ledger',
+                    errors: referenceErrors
                 })
             }
         }

@@ -137,6 +137,25 @@ const seedEnumerationValueSchema = z.object({
     isDefault: z.boolean().optional()
 })
 
+const seedScriptSchema = z.object({
+    codename: z.string().min(1).max(100),
+    name: vlcSchema,
+    description: vlcSchema.optional(),
+    attachedToKind: entityKindKeySchema.or(z.literal('metahub')).or(z.literal('general')),
+    attachedToEntityCodename: z.string().min(1).max(100).optional(),
+    moduleRole: z.enum(['module', 'lifecycle', 'widget', 'library']),
+    sourceKind: z.enum(['embedded', 'external', 'visual']).optional(),
+    sdkApiVersion: z.string().optional(),
+    sourceCode: z.string().min(1),
+    capabilities: z
+        .array(
+            z.enum(['records.read', 'records.write', 'metadata.read', 'rpc.client', 'lifecycle', 'posting', 'ledger.read', 'ledger.write'])
+        )
+        .optional(),
+    isActive: z.boolean().optional(),
+    config: z.record(z.unknown()).optional()
+})
+
 const presetDefaultInstanceSchema = z.object({
     codename: z.string().min(1).max(100),
     name: vlcSchema,
@@ -156,7 +175,8 @@ const seedSchema = z.object({
     settings: z.array(seedSettingSchema).optional(),
     entities: z.array(seedEntitySchema).optional(),
     elements: z.record(z.array(seedElementSchema)).optional(),
-    optionValues: z.record(z.array(seedEnumerationValueSchema)).optional()
+    optionValues: z.record(z.array(seedEnumerationValueSchema)).optional(),
+    scripts: z.array(seedScriptSchema).optional()
 })
 
 const templateMetaSchema = z.object({
@@ -206,7 +226,44 @@ const componentManifestSchema = z.object({
     ]),
     layoutConfig: z.union([componentConfigSchema, z.literal(false)]),
     runtimeBehavior: z.union([componentConfigSchema, z.literal(false)]),
-    physicalTable: z.union([componentConfigSchema.extend({ prefix: z.string().min(1) }), z.literal(false)])
+    physicalTable: z.union([componentConfigSchema.extend({ prefix: z.string().min(1) }), z.literal(false)]),
+    identityFields: z
+        .union([
+            componentConfigSchema.extend({
+                allowNumber: z.boolean().optional(),
+                allowEffectiveDate: z.boolean().optional()
+            }),
+            z.literal(false)
+        ])
+        .optional(),
+    recordLifecycle: z
+        .union([
+            componentConfigSchema.extend({
+                allowCustomStates: z.boolean().optional()
+            }),
+            z.literal(false)
+        ])
+        .optional(),
+    posting: z
+        .union([
+            componentConfigSchema.extend({
+                allowManualPosting: z.boolean().optional(),
+                allowAutomaticPosting: z.boolean().optional()
+            }),
+            z.literal(false)
+        ])
+        .optional(),
+    ledgerSchema: z
+        .union([
+            componentConfigSchema.extend({
+                allowProjections: z.boolean().optional(),
+                allowRegistrarPolicy: z.boolean().optional(),
+                allowManualFacts: z.boolean().optional(),
+                allowedModes: z.array(z.enum(['facts', 'balance', 'accounting', 'calculation'])).optional()
+            }),
+            z.literal(false)
+        ])
+        .optional()
 })
 
 const entityTypeUiSchema = z.object({
@@ -420,6 +477,41 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
                 })
             }
             seenValueCodenames.add(value.codename)
+        }
+    }
+
+    const scripts = manifest.seed.scripts ?? []
+    const scriptKeySet = new Set<string>()
+    for (let index = 0; index < scripts.length; index += 1) {
+        const script = scripts[index]
+        const scopeKey = `${script.attachedToKind}:${script.attachedToEntityCodename ?? ''}:${script.moduleRole}:${script.codename}`
+        if (scriptKeySet.has(scopeKey)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['seed', 'scripts', index, 'codename'],
+                message: `Duplicate script identity: ${scopeKey}`
+            })
+        }
+        scriptKeySet.add(scopeKey)
+
+        if (script.attachedToKind !== 'metahub' && script.attachedToKind !== 'general') {
+            const targetCodename = script.attachedToEntityCodename
+            if (!targetCodename) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['seed', 'scripts', index, 'attachedToEntityCodename'],
+                    message: `Script attached to ${script.attachedToKind} must declare attachedToEntityCodename`
+                })
+                continue
+            }
+
+            if (!entityByKindCodename.has(`${script.attachedToKind}:${targetCodename}`)) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['seed', 'scripts', index, 'attachedToEntityCodename'],
+                    message: `Script references unknown ${script.attachedToKind} entity codename: ${targetCodename}`
+                })
+            }
         }
     }
 

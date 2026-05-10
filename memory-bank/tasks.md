@@ -6,18 +6,616 @@
 
 ## Current Task Ledger (Canonical)
 
+## Active: LMS Fixture Workspace Policy And Sync Regression Closure (2026-05-10)
+
+> Goal: make the product LMS snapshot require application Workspaces, preserve that policy through snapshot import, regenerate the fixture from the Playwright generator, and keep optional no-Workspace sync behavior guarded.
+> Status: completed and recorded in progress.md.
+
+-   [x] Add an explicit required Workspace runtime policy to the LMS product snapshot generator and fixture contract.
+-   [x] Preserve imported snapshot runtime policy when creating the canonical publication/version during metahub import.
+-   [x] Adjust browser flow coverage for required Workspace policy during imported LMS schema sync.
+-   [x] Regenerate `tools/fixtures/metahubs-lms-app-snapshot.json` through the product Playwright generator.
+-   [x] Run focused backend, contract, and Playwright validation and record progress.
+
+## Completed: Generic Posting Registrar Kind QA Closure (2026-05-10)
+
+> Goal: close the QA findings that left Catalog-specific posting semantics in the runtime posting movement path.
+> Status: completed and recorded in progress.md.
+
+-   [x] Pass posting registrar kind from runtime Entity metadata instead of hardcoding Catalog in `RuntimePostingMovementService`.
+-   [x] Replace remaining Catalog-specific runtime posting error text with neutral record-collection wording.
+-   [x] Add focused backend regression coverage for non-Catalog registrar kinds.
+-   [x] Run targeted backend validation and record the completed evidence.
+
+## Completed: Catalog-Backed Ledger Schema Templates (2026-05-10)
+
+> Goal: make Catalogs the default universal Entity type for directory, document, and ledger-like behavior while keeping standalone Ledgers as optional entity type presets.
+> Status: completed and recorded in progress.md.
+
+-   [x] Enable `ledgerSchema` in the standard Catalog entity type contract and expose it through shared Entity constructor UI.
+-   [x] Remove default Ledger seeding from `basic`, `basic-demo`, and LMS metahub templates while keeping the Ledger preset available for manual use.
+-   [x] Convert LMS ledger-like objects to Catalog instances with `config.ledger` instead of standalone `kind: ledger` objects.
+-   [x] Replace remaining Catalog/Ledger option hardcoding in linked collection dialogs with component-capability discovery.
+-   [x] Keep registrar-only Catalog-backed ledger objects out of ordinary published runtime CRUD and workspace seed flows.
+-   [x] Regenerate `tools/fixtures/metahubs-lms-app-snapshot.json` through the product Playwright generator.
+-   [x] Run focused backend/frontend/runtime validation and record the final evidence.
+
+## Completed: Ledger Schema QA Closure (2026-05-10)
+
+> Goal: close the implementation QA findings for generic Ledger schema support without legacy kind fallbacks, uncontrolled runtime errors, or untested Ledger authoring UI.
+> Status: completed and recorded in progress.md.
+
+-   [x] Return controlled runtime API errors for invalid, missing, or unavailable Ledger ids.
+-   [x] Enforce full `config.ledger` reference validation in Entity authoring and publication/import boundaries.
+-   [x] Remove remaining Ledger `kind === 'ledger'` compatibility fallbacks from schema/runtime/workspace/script gates.
+-   [x] Add focused tests for component-only Ledger capability gates and Ledger config reference validation.
+-   [x] Add browser coverage for the `Схема регистра` authoring tab and persistence flow.
+-   [x] Run targeted tests, lint/build checks, regenerate the LMS snapshot when needed, and record progress.
+
+## Active: Generic Ledger Schema Entity Constructor Implementation (2026-05-10)
+
+> Goal: implement the QA-refined `ledgerSchema` plan so Ledger behavior is driven by the generic Entity constructor component contract, supports future hybrid Catalog-like entities, and remains safe in published runtime applications.
+> Status: completed and recorded in progress.md.
+
+-   [x] Harden shared Ledger config and component capability contracts in `@universo/types`.
+-   [x] Replace Ledger kind-only backend/schema/runtime gates with component-capability checks and safe published runtime metadata.
+-   [x] Add generic metahub UI for `config.ledger` through the existing Entity dialog and shared field-definition surfaces.
+-   [x] Extend application widget datasource editing and `apps-template-mui` runtime widgets for `ledger.facts`, `ledger.projection`, and real metric datasource behavior.
+-   [x] Update standard templates, LMS template, fixture contract, and regenerate the LMS snapshot only through the product Playwright generator.
+-   [x] Add focused unit, backend, frontend, schema, and Playwright coverage.
+-   [x] Update GitBook docs and package README notes for generic Ledgers and hybrid Catalog/Ledger configurations.
+-   [x] Run targeted validation and record progress.
+
+## Completed: Linked Collection Record Behavior QA Fixes (2026-05-09)
+
+> Goal: close the QA findings in the standard linked-collection Catalog preset without adding Catalog-only UI or breaking the generic Entity constructor contract.
+> Status: completed and recorded in progress.md.
+
+-   [x] Preserve edited `recordBehavior` values when copying a linked collection.
+-   [x] Use the active linked-collection `kindKey` for script attachment queries and tabs instead of hardcoded `catalog`.
+-   [x] Add focused regression coverage for copy payload behavior and non-catalog linked-collection script attachment kind.
+-   [x] Run targeted lint/tests and record the completed validation.
+
+## Active: Catalog Record Behavior QA Closure (2026-05-09)
+
+> Goal: close the QA findings for the generic Catalog record behavior UI without adding Catalog-only interfaces or LMS-specific shortcuts.
+> Status: completed and recorded in progress.md.
+
+-   [x] Avoid MUI out-of-range select warnings when saved behavior references fields, scripts, or ledgers whose option lists have not loaded yet.
+-   [x] Fetch Ledger options for the behavior tab only while a create/edit/copy entity dialog is open.
+-   [x] Add browser E2E coverage for the RU Catalog `Поведение` authoring flow, including save/reopen persistence and screenshots.
+-   [x] Run focused frontend/build/Playwright validation and update progress notes.
+
+## Active: Entity-Driven Catalog Record Behavior UI (2026-05-09)
+
+> Goal: expose the existing record behavior runtime contract through the generic Entities constructor, update standard Catalog templates, localize script capabilities, and prove the flow with focused tests.
+> Status: completed and recorded in progress.md.
+
+-   [x] Add shared `recordBehavior` validation and normalization in `@universo/types`, then reuse it in runtime consumers.
+-   [x] Add `behavior` as a structured entity authoring tab driven by entity type components, not Catalog hardcode.
+-   [x] Implement a generic `RecordBehaviorFields` dialog section and persist `config.recordBehavior` without dropping unrelated config.
+-   [x] Fix script capability i18n for `posting`, `ledger.read`, and `ledger.write`.
+-   [x] Update standard Catalog template contracts, fixture contract checks, and documentation.
+-   [x] Add focused unit/component tests and run targeted validation.
+
+## Completed: LMS Runtime Datasource QA Closure (2026-05-09)
+
+> Goal: close the stopped follow-up implementation by proving the generated LMS snapshot and published app runtime path with strict browser/runtime issue checks.
+> Status: completed and recorded in progress.md.
+
+-   [x] Re-run the LMS snapshot import/runtime Playwright flow from the product fixture path.
+-   [x] Keep `tools/fixtures/metahubs-lms-app-snapshot.json` generated from the product Playwright generator rather than manually edited.
+-   [x] Pass locale, sections, and linked collections through the integrated application runtime dashboard details provider.
+-   [x] Localize MUI Charts no-data overlays for configured runtime chart widgets.
+-   [x] Pass runtime search/sort/filter parameters through the production frontend adapter and API wrapper.
+-   [x] Fix backend runtime datasource sort/filter validation for localized attribute codenames.
+-   [x] Run focused unit/build validation and the full LMS browser flow.
+
+## Completed: LMS Runtime UX QA Remediation (2026-05-09)
+
+> Goal: close the user-reported LMS runtime QA findings without adding LMS-specific UI or diverging from the shared Entity and MUI template surfaces.
+> Status: completed and recorded in progress.md.
+
+-   [x] Restore Ledger collection localization and shared search labels in the metahub Entity list.
+-   [x] Make Ledger cards/table rows open the shared internal field-definition surface.
+-   [x] Localize the shared field-definition tab and empty states for Ledgers and generic entity kinds.
+-   [x] Prevent configured runtime dashboard chart widgets from falling back to demo data when datasources are empty.
+-   [x] Localize LMS dashboard widget labels through generic localized widget config.
+-   [x] Add focused frontend regressions and run targeted validation.
+-   [x] Update progress notes after validation.
+
+## Completed: LMS QA Final Debt Closure (2026-05-08)
+
+> Goal: close the last QA findings from the LMS Catalog/Ledger implementation without changing the generic Entity architecture or adding LMS-specific UI.
+> Status: completed and recorded in progress.md.
+
+-   [x] Return controlled Ledger API validation errors for direct append/projection/update payloads.
+-   [x] Add focused backend regressions for invalid Ledger fact and projection values.
+-   [x] Remove newly identified TypeScript suppression and stale task-comment debt from touched template/UI surfaces.
+-   [x] Run targeted backend/frontend tests and lint checks.
+-   [x] Update progress notes after validation.
+
+## Completed: LMS QA Debt Closure (2026-05-08)
+
+> Goal: close the remaining QA findings from the LMS Catalog/Ledger implementation without changing the established Entity architecture or adding LMS-only UI.
+> Status: completed and recorded in progress.md.
+
+-   [x] Add neutral public guest API payload/session aliases while preserving existing LMS-shaped payload compatibility.
+-   [x] Bound public guest assessment answer payloads at the Zod boundary.
+-   [x] Return controlled Ledger projection API errors instead of uncaught generic errors.
+-   [x] Make `manualEditable` Ledger mutation policy observable and enforced through focused update/delete fact endpoints.
+-   [x] Add focused regression tests and run targeted lint/build/E2E validation.
+-   [x] Update progress notes after validation.
+
+## Completed: LMS QA Final Remediation (2026-05-08)
+
+> Goal: close the remaining QA findings after the LMS Catalog/Ledger implementation and keep the final runtime path generic, secure, and testable.
+> Status: completed and recorded in progress.md.
+
+-   [x] Accept a neutral public guest runtime configuration contract while keeping legacy LMS-shaped snapshots readable.
+-   [x] Remove the Ledger information-schema compatibility probe now that tests can model real column rows.
+-   [x] Add browser-flow security assertions for registrar-only Ledger writes and public guest edge cases.
+-   [x] Reduce test warning noise in the newly touched metahub settings tab tests.
+-   [x] Run focused backend/frontend/Playwright validation, docs checks, build, and update progress notes.
+
+## Completed: LMS QA Blocker Closure (2026-05-08)
+
+> Goal: close the QA blockers found after the LMS Catalog/Ledger implementation and re-prove the browser import/runtime path.
+> Status: completed and recorded in progress.md.
+
+-   [x] Preserve server-managed public runtime application settings when generic settings are saved.
+-   [x] Store public guest session secrets as hashes instead of raw bearer secrets.
+-   [x] Make the LMS snapshot import Playwright flow robust against CSRF retry races and visible import loading states.
+-   [x] Add focused regression tests for the settings and guest-session contracts.
+-   [x] Run targeted backend/frontend/Playwright validation and update progress notes.
+
+## Completed: LMS QA Follow-up Hardening (2026-05-08)
+
+> Goal: close the remaining non-blocking QA findings from the LMS Catalog/Ledger implementation.
+> Status: completed and recorded in progress.md.
+
+-   [x] Move public guest runtime bindings from LMS-shaped backend defaults to explicit application settings seeded from the LMS metahub.
+-   [x] Add system-level Ledger reversal idempotency that does not require a string business idempotency field.
+-   [x] Add Playwright browser console/pageerror/API-response failure checks to the LMS snapshot flow.
+-   [x] Reset section-scoped runtime sort/filter state when switching published application sections.
+-   [x] Reduce newly touched lint/type issues and run focused validation.
+-   [x] Update progress notes after validation.
+
+## Completed: LMS QA Remediation Hardening (2026-05-08)
+
+> Goal: close the remaining QA findings from the LMS Catalog/Ledger implementation without adding LMS-specific UI or unsafe runtime shortcuts.
+> Status: completed and recorded in progress.md.
+
+-   [x] Add database-level Ledger idempotency protection for generated runtime schemas.
+-   [x] Make posting movement reversal fail closed when stored movement metadata is malformed or incomplete.
+-   [x] Extend browser E2E coverage so LMS posting and unposting are executed through the runtime row action UI.
+-   [x] Add visual/geometry assertions for the LMS runtime dashboard and workspace template surfaces.
+-   [x] Reconcile the implementation plan checklist with the QA-remediated state.
+-   [x] Run focused backend, schema, frontend, docs, and Playwright validation.
+
+## Completed: LMS QA Remediation Completion (2026-05-08)
+
+> Goal: remove the remaining QA blockers around Ledger policies, posting reversals, LMS runtime hardcoding, browser proof, and plan traceability.
+> Status: completed and recorded in progress.md.
+
+-   [x] Enforce Ledger mutation/source policies for direct API calls and script contexts.
+-   [x] Add generic posting reversal metadata so unpost and void can compensate prior ledger movements instead of leaving stale facts.
+-   [x] Replace hardcoded LMS guest runtime bindings with generic access-flow configuration where feasible without adding LMS-specific UI.
+-   [x] Add focused backend tests for policy enforcement, post/unpost/void ledger compensation, and idempotent fact behavior.
+-   [x] Extend browser/runtime proof for record command and ledger compensation paths.
+-   [x] Close EN/RU GitBook guide coverage for transactional Catalogs and Ledgers.
+-   [x] Update plan/progress documentation with completed evidence and remaining constraints.
+
+## Completed: LMS Phase 10 Validation Closure (2026-05-08)
+
+> Goal: close the broad validation debt found during the LMS Catalog/Ledger implementation QA pass.
+> Status: completed and recorded in progress.md.
+
+-   [x] Run full package tests for `@universo/schema-ddl`, `@universo/applications-backend`, `@universo/metahubs-backend`, `@universo/metahubs-frontend`, and `@universo/apps-template-mui`.
+-   [x] Fix stale release-bundle, metahub import, LMS template seed, and settings-route test contracts introduced by the Ledger and richer LMS model.
+-   [x] Confirm docs i18n alignment, root build, generator Playwright flow, LMS import/runtime Playwright flow, and direct LMS fixture contract.
+-   [x] Preserve existing generic UI and route contracts: Ledgers continue through shared Entity list/detail surfaces and LMS widgets use generic datasource configs.
+
+## Completed: LMS Fixture Generator And Import Proof (2026-05-08)
+
+> Goal: close the Phase 8 and Phase 9 LMS product-fixture gaps with a regenerated canonical snapshot and browser proof.
+> Status: completed and recorded in progress.md.
+
+-   [x] Enforce equal EN/RU breadth for LMS demo quiz questions, answers, and module content in the fixture contract.
+-   [x] Align script attachment validation with the exported snapshot contract.
+-   [x] Regenerate `tools/fixtures/metahubs-lms-app-snapshot.json` through the Playwright generator.
+-   [x] Prove the regenerated fixture through the browser import/runtime flow, including public guest rows and ledger facts.
+-   [x] Update the implementation plan and progress notes.
+
+## Completed: LMS Generic Widget Datasources (2026-05-08)
+
+> Goal: close the Phase 8 generic widget configuration gap by wiring LMS dashboard widgets through existing generic widget keys and runtime datasource contracts.
+> Status: completed and recorded in progress.md.
+
+### Phase 1: Generic Datasource Contract
+
+-   [x] Add codename-based datasource target fields for template-authored widget configs.
+-   [x] Resolve datasource codenames to runtime section ids in published app widgets.
+-   [x] Add focused runtime widget tests for codename datasource targets.
+
+### Phase 2: LMS Template Widgets
+
+-   [x] Configure LMS `overviewCards`, chart widgets, and report/table widgets using existing generic widget keys.
+-   [x] Extend template and fixture-contract checks for generic widget datasource config.
+-   [x] Update the implementation plan and progress notes.
+
+### Phase 3: Validation
+
+-   [x] Run focused types, apps-template, metahubs validation and whitespace checks.
+
+## Completed: LMS Placeholder Configuration Cleanup (2026-05-08)
+
+> Goal: remove placeholder external support-domain data from the LMS template while preserving the generic configuration Set.
+> Status: completed and recorded in progress.md.
+
+-   [x] Replace the default support email placeholder with an empty configurable value.
+-   [x] Add a template regression check for the non-placeholder default.
+-   [x] Update the implementation plan and progress notes.
+-   [x] Run focused metahubs validation and whitespace checks.
+
+## Completed: LMS Lifecycle Script Seeds (2026-05-08)
+
+> Goal: close the Phase 8 script gap by seeding generic lifecycle/posting scripts for LMS workflows through the existing extension SDK contract.
+> Status: completed and recorded in progress.md.
+
+### Phase 1: Template Model
+
+-   [x] Add auto-enrollment, quiz attempt posting, module completion posting, and certificate issue posting scripts.
+-   [x] Attach scripts to standard Catalog entities and keep declared capabilities minimal.
+-   [x] Mark `ModuleProgress` transactional so module completion posting uses the same generic record behavior path.
+
+### Phase 2: Validation And Memory
+
+-   [x] Extend template and fixture-contract checks for required LMS scripts.
+-   [x] Update the implementation plan and progress notes.
+-   [x] Run focused metahubs validation and whitespace checks.
+
+## Completed: LMS Bilingual Page Entities (2026-05-08)
+
+> Goal: close the Phase 8 page-content gap by adding reusable bilingual Page entities to the LMS template without custom UI or LMS-only runtime behavior.
+> Status: completed and recorded in progress.md.
+
+### Phase 1: Template Model
+
+-   [x] Add reusable LMS page helpers for localized Editor.js content.
+-   [x] Add `CourseOverview`, `KnowledgeArticle`, `AssignmentInstructions`, and `CertificatePolicy` Page entities.
+
+### Phase 2: Validation And Memory
+
+-   [x] Extend template and fixture-contract checks for the new Page entities.
+-   [x] Update the implementation plan and progress notes.
+-   [x] Run focused metahubs validation and whitespace checks.
+
+## Completed: LMS Transactional Event Catalogs (2026-05-08)
+
+> Goal: close the Phase 8 product-model gap by adding separate document-like LMS event catalogs as complements to the current catalogs, using only generic Catalog record behavior and Ledger posting metadata.
+> Status: completed and recorded in progress.md.
+
+### Phase 1: Template Model
+
+-   [x] Add `QuizAttempts`, `AssignmentSubmissions`, `TrainingAttendance`, and `CertificateIssues` to the LMS template.
+-   [x] Mark the new event catalogs as transactional and connect them to generic target Ledgers.
+
+### Phase 2: Validation And Memory
+
+-   [x] Extend template and fixture-contract checks so the richer LMS snapshot cannot regress.
+-   [x] Update the implementation plan and progress notes.
+-   [x] Run focused metahubs validation and whitespace checks.
+
+## Completed: LMS Transactional Catalog Behavior (2026-05-08)
+
+> Goal: advance Phase 8 by marking document-like LMS catalogs as transactional with generic record behavior metadata.
+> Status: completed and recorded in progress.md.
+
+### Phase 1: Template Model
+
+-   [x] Add reusable transactional catalog config helper to the LMS template.
+-   [x] Mark `QuizResponses`, `Assignments`, `TrainingEvents`, `Certificates`, and `Enrollments` as transactional catalogs.
+-   [x] Keep posting declarations generic and Ledger-target based.
+
+### Phase 2: Validation
+
+-   [x] Extend template and fixture-contract checks for transactional record behavior.
+-   [x] Run focused metahubs template tests, build, and lint.
+
+## Completed: LMS Additional Ledger Definitions (2026-05-08)
+
+> Goal: advance Phase 8 by adding the missing generic Ledger entities required by the richer LMS product model.
+> Status: completed and recorded in progress.md.
+
+### Phase 1: Template Model
+
+-   [x] Add generic additional LMS Ledger entities through a reusable template helper.
+-   [x] Keep Ledger configs append-only, idempotent, and projection-ready.
+-   [x] Extend template and fixture-contract checks for the additional Ledger codenames.
+
+### Phase 2: Validation
+
+-   [x] Run focused metahubs template tests, build, and lint.
+
+## Completed: LMS Generic Runtime Policy Settings (2026-05-08)
+
+> Goal: close Phase 7 application settings gaps with generic runtime policy fields, strict backend validation, frontend defaults, EN/RU i18n, and focused tests.
+> Status: completed and recorded in progress.md.
+
+### Phase 1: Shared Settings Contract
+
+-   [x] Add generic runtime dashboard, datasource, and workspace policy fields to `ApplicationDialogSettings`.
+-   [x] Add matching frontend defaults and strict backend Zod validation.
+
+### Phase 2: Settings UI
+
+-   [x] Add a generic runtime behavior section to `ApplicationSettings.tsx` using existing MUI settings rows.
+-   [x] Add EN/RU i18n keys without LMS-specific wording.
+
+### Phase 3: Tests And Validation
+
+-   [x] Add focused frontend settings tests for saving the new policy fields.
+-   [x] Run affected frontend/backend tests, build, lint, and whitespace validation.
+
+## Completed: LMS Overview Cards Metric Authoring (2026-05-08)
+
+> Goal: close the remaining Phase 7 widget authoring gap for `overviewCards` without adding a new LMS-specific interface or replacing the existing shared behavior editor pattern.
+> Status: completed and recorded in progress.md.
+
+### Phase 1: Existing Editor Extension
+
+-   [x] Add compact multi-card metric controls to `ApplicationWidgetBehaviorEditorDialog`.
+-   [x] Normalize saved overview card configs to the implemented `records.count` metric contract only.
+-   [x] Add EN/RU i18n keys for the generic overview-card datasource controls.
+
+### Phase 2: Tests And Validation
+
+-   [x] Add focused frontend tests for multi-card metric authoring.
+-   [x] Run affected package tests, build, lint, and whitespace validation.
+
+## Completed: LMS Chart Datasource QA Remediation (2026-05-08)
+
+> Goal: close the QA gap where chart widget contracts were typed but still rendered only static demo data, while preserving existing dashboard components and avoiding LMS-specific widgets.
+> Status: completed and recorded in progress.md.
+
+### Phase 1: Runtime Chart Consumption
+
+-   [x] Reuse existing MUI chart cards and pass optional runtime props instead of creating new LMS chart components.
+-   [x] Resolve `records.list` datasource rows through the existing runtime list API.
+-   [x] Map configured `xField` and numeric series fields into chart props with safe numeric coercion.
+
+### Phase 2: Contract And Tests
+
+-   [x] Add shared type tests for chart datasource schema acceptance and unsupported datasource rejection.
+-   [x] Add runtime tests proving chart rows are fetched and passed into the existing chart components.
+-   [x] Add shared behavior editor tests for chart datasource authoring through `EntityFormDialog`.
+-   [x] Run affected package test/build/lint checks and whitespace validation.
+
+## Completed: LMS Generic Metric Widgets (2026-05-08)
+
+> Goal: continue Phase 7 by letting existing dashboard card/stat surfaces consume generic metric datasources without adding LMS-specific widgets or a new dashboard style.
+> Status: completed and recorded in progress.md.
+
+### Phase 1: Shared Widget Contract
+
+-   [x] Add typed config for metric-backed stat/overview cards in `@universo/types`.
+-   [x] Keep the config generic enough for non-LMS apps and compatible with existing `metric` datasource descriptors.
+
+### Phase 2: Runtime Consumption
+
+-   [x] Render metric-backed stat cards through existing MUI `StatCard`/overview layout primitives.
+-   [x] Resolve safe `records.count` metrics through the existing runtime records API instead of creating an LMS endpoint.
+
+### Phase 3: Tests And Validation
+
+-   [x] Add focused runtime tests for metric-backed card rendering.
+-   [x] Run affected package test/build/lint checks and whitespace validation.
+
+## Completed: LMS Details Table Datasource Authoring (2026-05-08)
+
+> Goal: continue Phase 7 by letting application admins configure generic `detailsTable` datasources through the existing ApplicationLayouts widget editor and rendering `records.list` datasources in the published app without LMS-specific widgets.
+> Status: completed and recorded in progress.md.
+
+### Phase 1: Existing Editor Extension
+
+-   [x] Extend `ApplicationWidgetBehaviorEditorDialog` for `detailsTable` datasource settings.
+-   [x] Keep the editor based on `EntityFormDialog` and shared MUI controls, without adding a new standalone UI surface.
+
+### Phase 2: Runtime Consumption
+
+-   [x] Render `detailsTable` with a `records.list` datasource through the existing `CustomizedDataGrid`.
+-   [x] Preserve current active-section behavior when no datasource descriptor is configured.
+
+### Phase 3: Tests And Validation
+
+-   [x] Add focused frontend tests for datasource editing and runtime rendering.
+-   [x] Run affected package test/build/lint checks and whitespace validation.
+
+## Completed: LMS Generic Runtime Datasource Tables (2026-05-08)
+
+> Goal: continue Phase 7 by adding generic datasource descriptors and wiring server-side search/sort/filter through the existing detailsTable runtime path without new LMS-specific widgets.
+> Status: completed and recorded in progress.md.
+
+### Phase 1: Shared Contract
+
+-   [x] Add generic runtime datasource descriptor schemas in `@universo/types`.
+-   [x] Extend the existing `detailsTable` widget config schema with an optional datasource descriptor.
+
+### Phase 2: Runtime Rows API
+
+-   [x] Extend the authenticated runtime list endpoint with validated server-side search, sort, and filter query models.
+-   [x] Keep SQL schema-qualified, parameterized, and restricted to declared runtime attributes.
+
+### Phase 3: Existing MUI Runtime Table
+
+-   [x] Extend `CrudDataAdapter.fetchList(...)` and `fetchAppData(...)` with generic list query params.
+-   [x] Wire `CustomizedDataGrid` and `detailsTable` to server-side sort/filter/search using existing components.
+
+### Phase 4: Validation
+
+-   [x] Add focused backend and frontend tests for the new generic table query path.
+-   [x] Run affected package lint/build/test checks and whitespace validation.
+
+## Completed: LMS Posting Movement E2E Proof (2026-05-08)
+
+> Goal: finish Phase 6 by proving that a metahub-authored LMS posting script can post an enrollment record and create generic Ledger facts in the published application runtime.
+> Status: completed and recorded in progress.md.
+
+### Phase 1: Fixture Contract
+
+-   [x] Add an LMS template posting lifecycle script without introducing LMS-specific runtime code.
+-   [x] Declare the Enrollment catalog target Ledger through generic record behavior metadata.
+-   [x] Extend the LMS fixture contract so the snapshot must contain the posting script and target Ledger declaration.
+
+### Phase 2: Runtime Flow
+
+-   [x] Add reusable E2E runtime API helpers for record posting and Ledger fact lookup.
+-   [x] Extend the existing LMS import flow with a posting proof after schema sync.
+-   [x] Keep the proof API-level and generic, reusing the existing browser import/sync flow and published app runtime setup.
+
+### Phase 3: Validation
+
+-   [x] Regenerate or normalize the LMS fixture snapshot from the updated template.
+-   [x] Run focused contract, Playwright, lint, and build checks that cover the changed files.
+
+## Active: LMS Posting Movement Contract (2026-05-08)
+
+> Goal: continue Phase 6 by adding a safe declarative posting movement contract for lifecycle scripts and applying movements through generic Ledger runtime services in the active transaction.
+
+### Phase 1: Contract And Runtime Application
+
+-   [x] Add shared posting movement return types for lifecycle scripts.
+-   [x] Add backend movement validation that accepts only declared target ledgers and structured fact data.
+-   [x] Apply valid movements through runtime Ledger append inside the posting transaction.
+-   [x] Keep beforePost fail-closed and afterPost after transaction commit.
+
+### Phase 2: Tests And Validation
+
+-   [x] Add focused unit tests for valid movements, undeclared ledgers, invalid payloads, and invalid Ledger fields.
+-   [x] Add route tests proving movement failures abort record posting and afterPost does not run before commit.
+-   [x] Run focused backend tests, affected package lint/build, and whitespace validation.
+
+## Active: LMS Ledger Runtime Services (2026-05-08)
+
+> Goal: close Phase 5 runtime Ledger services with generic append-only facts, safe projections, idempotent append, reversals, script SDK access, and permission tests.
+
+### Phase 1: Runtime Service And Routes
+
+-   [x] Create `RuntimeLedgerService` with metadata, fact listing, projection query, append, and reversal operations.
+-   [x] Add HTTP routes for ledger metadata, facts, projection queries, append, and reverse.
+-   [x] Keep Ledger runtime APIs separate from generic row CRUD sections.
+
+### Phase 2: Safety Contracts
+
+-   [x] Restrict projection filters, dimensions, and resources to declared metadata fields.
+-   [x] Keep all projection and fact queries parameterized and schema-qualified.
+-   [x] Add idempotency checks scoped to the active workspace when workspace columns exist.
+-   [x] Implement reversal as append-only compensating facts instead of updates to existing facts.
+
+### Phase 3: Script SDK And Validation
+
+-   [x] Expose `ctx.ledger.reverse()` behind `ledger.write`.
+-   [x] Add `ledger.reverse()` to design-time and client-side fail-closed script contexts.
+-   [x] Add focused tests for append-only behavior, idempotency, reversal, workspace isolation, aggregation, invalid fields, and permission failures.
+-   [x] Run focused backend tests, backend lint/build, extension SDK lint/build, metahubs/apps-template package validation, and whitespace validation.
+
+## Active: LMS Runtime Record Command Backend Hardening (2026-05-08)
+
+> Goal: close the remaining Phase 4 backend QA coverage for transactional Catalog record commands without changing public UI contracts or adding LMS-specific runtime behavior.
+
+### Phase 1: Numbering And State Transition Tests
+
+-   [x] Add focused tests for concurrent record number allocation.
+-   [x] Add focused tests for global and workspace-scoped numbering keys.
+-   [x] Add focused tests for invalid post/unpost/void transitions.
+
+### Phase 2: Immutability And Permission Tests
+
+-   [x] Add focused tests for posted-row immutability on update/delete and tabular edits.
+-   [x] Add focused tests for edit permission failures on record commands.
+
+### Phase 3: Validation
+
+-   [x] Run focused backend record behavior/controller tests.
+-   [x] Run backend build and whitespace validation.
+
+## Active: LMS Runtime Record Commands UI (2026-05-08)
+
+> Goal: continue the LMS platform plan by exposing generic record lifecycle commands in the published application runtime with existing apps-template MUI components, shared metadata, and focused tests.
+
+### Phase 1: Runtime Metadata Contract
+
+-   [x] Expose record behavior and record system state in runtime list responses.
+-   [x] Keep the response generic for all record-enabled Catalog-like entities, with no LMS-specific fields.
+
+### Phase 2: Published App UI
+
+-   [x] Add reusable runtime record state chip/action helpers in `@universo/apps-template-mui`.
+-   [x] Render post/unpost/void row actions through the existing details table/action column pattern.
+-   [x] Invalidate runtime queries after successful commands and surface API errors through the existing snackbar path.
+
+### Phase 3: Validation
+
+-   [x] Add focused frontend tests for command visibility, disabled states, and mutation calls.
+-   [x] Run focused apps-template tests/build and whitespace validation.
+
+## Active: LMS Catalog And Ledger Platform Expansion (2026-05-07)
+
+> Goal: implement the QA-reviewed LMS platform plan by extending Catalog behavior, adding the standard Ledger entity kind, keeping shared Entity UI reuse, and preparing the runtime/snapshot/testing path without LMS-specific runtime forks.
+
+### Phase 1: Shared Type And Standard Kind Foundation
+
+-   [x] Add shared Catalog record behavior and Ledger contracts in `@universo/types`.
+-   [x] Extend the Entity component manifest and dependency validation for identity, lifecycle, posting, and ledger capabilities.
+-   [x] Add `ledger` to built-in entity kinds, entity settings/surfaces, menu kinds, script attachment kinds, and schema DDL built-in helpers.
+-   [x] Update standard kind tests and shared type tests.
+
+### Phase 2: Standard Presets And Metahub Authoring Routing
+
+-   [x] Add the standard Ledger type definition and preset metadata.
+-   [x] Extend the standard Catalog preset with default record behavior config.
+-   [x] Route Ledgers through the shared generic Entity instance UI and update standard route tests.
+-   [x] Add EN/RU i18n labels for Ledgers and shared dialog titles.
+
+### Phase 3: Snapshot And LMS Fixture Contract
+
+-   [x] Ensure record behavior and ledger config round-trip through template, publication, snapshot, and restore paths.
+-   [x] Extend the LMS template with Ledger objects and transactional Catalog behavior.
+-   [x] Expand the LMS fixture contract assertions.
+-   [x] Regenerate `tools/fixtures/metahubs-lms-app-snapshot.json` through the official Playwright generator.
+
+### Phase 4: Runtime Commands, Ledgers, Widgets, And Docs
+
+-   [x] Add runtime numbering/posting service contracts and fail-closed validation.
+-   [x] Add runtime ledger metadata/query service contracts and generic datasource plumbing.
+-   [x] Keep widgets generic and avoid LMS-specific runtime widgets or Ledger-specific authoring pages.
+-   [x] Update package READMEs and GitBook docs.
+
+### Validation
+
+-   [x] Run focused type/unit tests for affected packages.
+-   [x] Run focused frontend route tests.
+-   [x] Run full `pnpm run build:e2e`.
+-   [x] Run LMS Playwright snapshot generator.
+-   [x] Run runtime Ledger service and script bridge tests.
+-   [x] Run runtime record behavior numbering/immutability tests.
+-   [x] Run schema DDL system-table and generator tests.
+-   [x] Run `git diff --check`.
+
 ## Completed: start:allclean Command Implementation (2026-05-07)
 
 > All phases implemented and verified. The `start:allclean` command performs a complete platform reset with database cleanup via `--reset-db` CLI flag.
 
 **Implementation summary:**
-- Added `force` parameter to `executeStartupFullReset()` for bypassing env var check
-- Added `--reset-db` CLI flag to `start.ts` command
-- Added `start:allclean` script to root `package.json`
-- Added `NODE_ENV=development` to `.env` and `.env.example`
-- Updated documentation (EN/RU)
-- All 21 unit tests pass
-- Full build passes (30 packages)
+
+-   Added `force` parameter to `executeStartupFullReset()` for bypassing env var check
+-   Added `--reset-db` CLI flag to `start.ts` command
+-   Added `start:allclean` script to root `package.json`
+-   Added `NODE_ENV=development` to `.env` and `.env.example`
+-   Updated documentation (EN/RU)
+-   All 21 unit tests pass
+-   Full build passes (30 packages)
 
 ---
 
@@ -32,76 +630,81 @@
 ### Critical Finding from QA
 
 **isolated-vm version incompatibility discovered:**
-- Current: isolated-vm@5.0.4 (requires Node.js >=18.0.0, does NOT support Node.js 22)
-- Required: isolated-vm@6.x (requires Node.js >=22.0.0, mandatory for Node.js 22)
+
+-   Current: isolated-vm@5.0.4 (requires Node.js >=18.0.0, does NOT support Node.js 22)
+-   Required: isolated-vm@6.x (requires Node.js >=22.0.0, mandatory for Node.js 22)
 
 **Migration sequence must be:**
+
 1. First upgrade isolated-vm to 6.x on Node.js 20
 2. Verify all tests pass
 3. Then migrate to Node.js 22
 
 ### Phase 1: Preparation and Risk Assessment
 
-- [x] Step 1.1: Create comprehensive dependency audit for Node.js 22 compatibility
-- [x] Step 1.2: Review isolated-vm 6.x CHANGELOG for breaking changes
-- [x] Step 1.3: Audit AWS SDK dependencies compatibility
+-   [x] Step 1.1: Create comprehensive dependency audit for Node.js 22 compatibility
+-   [x] Step 1.2: Review isolated-vm 6.x CHANGELOG for breaking changes
+-   [x] Step 1.3: Audit AWS SDK dependencies compatibility
 
 ### Phase 2: Local Development Migration
 
-- [x] Step 2.1: Update package.json engines field to >=22.6.0
-- [x] Step 2.2: Create .nvmrc file at project root with "22"
-- [x] Step 2.3: Verify server startup scripts have --no-node-snapshot flag
-- [x] Step 2.4: Install Node.js 22 locally via nvm ✅ DONE by user
-- [x] Step 2.5: Upgrade isolated-vm from 5.0.4 to 6.1.2
-- [x] Step 2.6: Clean install with new Node.js version ✅ DONE by user
+-   [x] Step 2.1: Update package.json engines field to >=22.6.0
+-   [x] Step 2.2: Create .nvmrc file at project root with "22"
+-   [x] Step 2.3: Verify server startup scripts have --no-node-snapshot flag
+-   [x] Step 2.4: Install Node.js 22 locally via nvm ✅ DONE by user
+-   [x] Step 2.5: Upgrade isolated-vm from 5.0.4 to 6.1.2
+-   [x] Step 2.6: Clean install with new Node.js version ✅ DONE by user
 
 ### Phase 3: Build and Test Validation
 
-- [x] Step 3.1: Run full build (pnpm build) ✅ PASSED (3m1s)
-- [x] Step 3.2: Run linting (pnpm lint) ✅ PASSED (scripting-engine fixed)
-- [x] Step 3.3: Run unit tests (pnpm test:vitest) ✅ PASSED (911 tests, 173s)
-- [ ] Step 3.4: Run E2E smoke tests (pnpm test:e2e:smoke)
-- [ ] Step 3.5: Run Playwright flow tests (pnpm test:e2e:flows)
-- [x] Step 3.6: Verify scripting engine runtime (pnpm benchmark) ✅ PASSED (mean: 1.47ms, p95: 2.16ms)
+-   [x] Step 3.1: Run full build (pnpm build) ✅ PASSED (3m1s)
+-   [x] Step 3.2: Run linting (pnpm lint) ✅ PASSED (scripting-engine fixed)
+-   [x] Step 3.3: Run unit tests (pnpm test:vitest) ✅ PASSED (911 tests, 173s)
+-   [ ] Step 3.4: Run E2E smoke tests (pnpm test:e2e:smoke)
+-   [ ] Step 3.5: Run Playwright flow tests (pnpm test:e2e:flows)
+-   [x] Step 3.6: Verify scripting engine runtime (pnpm benchmark) ✅ PASSED (mean: 1.47ms, p95: 2.16ms)
 
 ### Validation Summary (2026-05-07)
 
 **Completed validations:**
-- ✅ Build: All 30 packages built successfully
-- ✅ Lint: Fixed prettier formatting in scripting-engine, all lint checks pass
-- ✅ Unit tests: 911 tests passed across 161 test files
-- ✅ Scripting engine: isolated-vm 6.x works correctly with Node.js 22
-- ✅ autoskills: Tool runs successfully, detected 8 technologies, 14 skills available
+
+-   ✅ Build: All 30 packages built successfully
+-   ✅ Lint: Fixed prettier formatting in scripting-engine, all lint checks pass
+-   ✅ Unit tests: 911 tests passed across 161 test files
+-   ✅ Scripting engine: isolated-vm 6.x works correctly with Node.js 22
+-   ✅ autoskills: Tool runs successfully, detected 8 technologies, 14 skills available
 
 **Code changes made:**
-- Fixed prettier formatting in `packages/scripting-engine/base/src/runtime.ts`
-- Fixed prettier formatting in `packages/scripting-engine/base/src/compiler.ts`
-- Fixed prettier formatting in `packages/scripting-engine/base/src/index.ts`
-- Fixed prettier formatting in `packages/scripting-engine/base/src/runtime.test.ts`
-- Fixed no-useless-escape error in `runtime.ts` (line 438)
+
+-   Fixed prettier formatting in `packages/scripting-engine/base/src/runtime.ts`
+-   Fixed prettier formatting in `packages/scripting-engine/base/src/compiler.ts`
+-   Fixed prettier formatting in `packages/scripting-engine/base/src/index.ts`
+-   Fixed prettier formatting in `packages/scripting-engine/base/src/runtime.test.ts`
+-   Fixed no-useless-escape error in `runtime.ts` (line 438)
 
 **Remaining:**
-- E2E tests (require running server, user should run manually)
-- CI/CD verification (push to test branch)
+
+-   E2E tests (require running server, user should run manually)
+-   CI/CD verification (push to test branch)
 
 ### Phase 4: CI/CD Pipeline Update
 
-- [x] Step 4.1: Update GitHub Actions workflow to Node.js 22.x
-- [x] Step 4.2: Update pnpm version in CI if needed (no change required)
-- [ ] Step 4.3: Verify CI build passes (USER ACTION: push to test branch)
+-   [x] Step 4.1: Update GitHub Actions workflow to Node.js 22.x
+-   [x] Step 4.2: Update pnpm version in CI if needed (no change required)
+-   [ ] Step 4.3: Verify CI build passes (USER ACTION: push to test branch)
 
 ### Phase 5: Production Deployment Preparation
 
-- [x] Step 5.1: Update deployment documentation (migration guide created)
-- [ ] Step 5.2: Create deployment checklist (environment-specific)
-- [ ] Step 5.3: Staging environment test (environment-specific)
+-   [x] Step 5.1: Update deployment documentation (migration guide created)
+-   [ ] Step 5.2: Create deployment checklist (environment-specific)
+-   [ ] Step 5.3: Staging environment test (environment-specific)
 
 ### Phase 6: Documentation and Knowledge Transfer
 
-- [x] Step 6.1: Update tech.md steering file with Node.js 22 requirements
-- [x] Step 6.2: Update README.md prerequisites section
-- [x] Step 6.3: Update memory-bank/techContext.md
-- [x] Step 6.4: Create migration guide for developers
+-   [x] Step 6.1: Update tech.md steering file with Node.js 22 requirements
+-   [x] Step 6.2: Update README.md prerequisites section
+-   [x] Step 6.3: Update memory-bank/techContext.md
+-   [x] Step 6.4: Create migration guide for developers
 
 ---
 
@@ -1083,3 +1686,11 @@ All phases of the entity-first final migration completed:
 -   When one open active item closes, record the durable outcome in `progress.md` first and then update this ledger
 -   `tasks.md` should remain the operational checklist, not a second full progress log
 -   Do not reopen the 2026-04-13+ QA remediation waves unless fresh failing evidence appears
+
+## Active: Workspace Policy QA Remediation (2026-05-10)
+
+-   [x] Make snapshot import fail closed for invalid `runtimePolicy.workspaceMode`
+-   [x] Stabilize the non-workspace application Playwright regression after default catalog seed changes
+-   [x] Run focused backend tests for metahub import and application sync
+-   [x] Run Playwright proof for LMS required-workspace import/sync and generic non-workspace runtime sharing
+-   [x] Record the completed remediation in `memory-bank/progress.md`

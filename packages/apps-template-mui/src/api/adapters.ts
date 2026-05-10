@@ -1,4 +1,13 @@
-import { fetchAppData, fetchAppRow, createAppRow, updateAppRow, deleteAppRow, copyAppRow, fetchTabularRows } from './api'
+import {
+    fetchAppData,
+    fetchAppRow,
+    createAppRow,
+    updateAppRow,
+    deleteAppRow,
+    copyAppRow,
+    fetchTabularRows,
+    runAppRecordCommand
+} from './api'
 import { appQueryKeys } from './mutations'
 import type { CrudDataAdapter } from './types'
 
@@ -14,8 +23,8 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
     return {
         queryKeyPrefix: appQueryKeys.list(applicationId),
 
-        fetchList: ({ limit, offset, locale, linkedCollectionId, sectionId }) =>
-            fetchAppData({ apiBaseUrl, applicationId, limit, offset, locale, linkedCollectionId, sectionId }),
+        fetchList: ({ limit, offset, locale, linkedCollectionId, sectionId, search, sort, filters }) =>
+            fetchAppData({ apiBaseUrl, applicationId, limit, offset, locale, linkedCollectionId, sectionId, search, sort, filters }),
 
         fetchRow: (rowId, linkedCollectionId) =>
             fetchAppRow({ apiBaseUrl, applicationId, rowId, linkedCollectionId, sectionId: linkedCollectionId }),
@@ -51,6 +60,17 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
                 linkedCollectionId: data?.linkedCollectionId,
                 sectionId: data?.sectionId ?? data?.linkedCollectionId,
                 copyChildTables: data?.copyChildTables
+            }),
+
+        recordCommand: (rowId, command, data) =>
+            runAppRecordCommand({
+                apiBaseUrl,
+                applicationId,
+                rowId,
+                command,
+                linkedCollectionId: data?.linkedCollectionId,
+                sectionId: data?.sectionId ?? data?.linkedCollectionId,
+                expectedVersion: data?.expectedVersion
             })
     }
 }

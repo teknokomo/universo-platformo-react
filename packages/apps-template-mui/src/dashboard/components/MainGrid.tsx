@@ -1,17 +1,25 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import Grid from '@mui/material/Grid'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import type { GridColDef } from '@mui/x-data-grid'
 import { useTranslation } from 'react-i18next'
-import { defaultDashboardLayoutConfig } from '@universo/types'
+import {
+    defaultDashboardLayoutConfig,
+    overviewCardsWidgetConfigSchema,
+    recordsSeriesChartWidgetConfigSchema,
+    type RecordsSeriesChartWidgetConfig,
+    type StatCardWidgetConfig
+} from '@universo/types'
+import { fetchAppData, fetchRuntimeLedgerProjection } from '../../api/api'
 import Copyright from '../internals/components/Copyright'
 import CustomizedDataGrid from './CustomizedDataGrid'
 import HighlightedCard from './HighlightedCard'
 import PageViewsBarChart from './PageViewsBarChart'
 import SessionsChart from './SessionsChart'
 import StatCard, { StatCardProps } from './StatCard'
-import type { ZoneWidgetItem, DashboardLayoutConfig } from '../Dashboard'
+import type { ZoneWidgetItem, DashboardLayoutConfig, DashboardDetailsSlot } from '../Dashboard'
 import { useDashboardDetails } from '../DashboardDetailsContext'
 import { renderWidget } from './widgetRenderer'
 import PageBlocksView from './PageBlocksView'
@@ -31,7 +39,10 @@ import {
 
 const noopSetSort = () => undefined
 
-const data: StatCardProps[] = [
+const DEFAULT_SPARKLINE_DATA = Array.from({ length: 30 }, () => 0)
+const EMPTY_RECORDS_SERIES_CHART_CONFIG: RecordsSeriesChartWidgetConfig = {}
+
+const DEFAULT_STAT_CARDS: StatCardProps[] = [
     {
         title: 'Users',
         value: '14k',
@@ -63,6 +74,285 @@ const data: StatCardProps[] = [
         ]
     }
 ]
+
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
+
+const readStringParam = (params: Record<string, unknown> | undefined, key: string): string | undefined => {
+    const value = params?.[key]
+    return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+const hasTextValue = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0
+
+const normalizeLocaleCode = (locale: string | undefined): string => (locale ? locale.split(/[-_]/)[0].toLowerCase() : 'en')
+
+const readLocalizedConfigText = (value: unknown, locale: string | undefined): string | undefined => {
+    if (typeof value === 'string') {
+        return value.trim() || undefined
+    }
+    if (!isRecord(value)) {
+        return undefined
+    }
+
+    const normalizedLocale = normalizeLocaleCode(locale)
+    const locales = isRecord(value.locales) ? value.locales : undefined
+    if (locales) {
+        const preferred = isRecord(locales[normalizedLocale]) ? locales[normalizedLocale].content : undefined
+        if (hasTextValue(preferred)) {
+            return preferred.trim()
+        }
+
+        const primaryLocale = typeof value._primary === 'string' ? normalizeLocaleCode(value._primary) : undefined
+        const primary = primaryLocale && isRecord(locales[primaryLocale]) ? locales[primaryLocale].content : undefined
+        if (hasTextValue(primary)) {
+            return primary.trim()
+        }
+
+        for (const entry of Object.values(locales)) {
+            const content = isRecord(entry) ? entry.content : undefined
+            if (hasTextValue(content)) {
+                return content.trim()
+            }
+        }
+    }
+
+    const directPreferred = value[normalizedLocale]
+    if (hasTextValue(directPreferred)) {
+        return directPreferred.trim()
+    }
+
+    return undefined
+}
+
+const findRuntimeSectionIdByCodename = (details: DashboardDetailsSlot | undefined, codename: string | undefined): string | undefined => {
+    if (!details || !codename) return undefined
+    const normalized = codename.trim()
+    return (
+        details.sections?.find((section) => section.codename === normalized)?.id ??
+        details.linkedCollections?.find((section) => section.codename === normalized)?.id ??
+        undefined
+    )
+}
+
+const formatMetricValue = (value: number, locale: string): string =>
+    new Intl.NumberFormat(locale || 'en', {
+        notation: 'compact',
+        maximumFractionDigits: 1
+    }).format(value)
+
+const readOptionalId = (value: string | null | undefined): string | undefined => (value?.trim() ? value.trim() : undefined)
+
+const toFiniteNumber = (value: unknown): number => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+    if (typeof value === 'string' && value.trim()) {
+        const parsed = Number(value)
+        return Number.isFinite(parsed) ? parsed : 0
+    }
+    return 0
+}
+
+const toChartTrendLabel = (trend: RecordsSeriesChartWidgetConfig['trend'] | undefined): string | undefined => {
+    if (trend === 'up') return '+0%'
+    if (trend === 'down') return '-0%'
+    if (trend === 'neutral') return '0%'
+    return undefined
+}
+
+const getChartNoDataText = (locale: string): string =>
+    normalizeLocaleCode(locale) === 'ru' ? 'Нет данных для отображения' : 'No data to display'
+
+const toStatCardProps = (config: StatCardWidgetConfig, fallback: StatCardProps, locale: string | undefined): StatCardProps => ({
+    title: readLocalizedConfigText(config.title, locale) ?? fallback.title,
+    value: config.value ?? fallback.value,
+    interval: readLocalizedConfigText(config.interval, locale) ?? fallback.interval,
+    trend: config.trend ?? fallback.trend,
+    data: config.data?.length ? config.data : fallback.data?.length ? fallback.data : DEFAULT_SPARKLINE_DATA
+})
+
+function RuntimeStatCard({ config, fallback }: { config: StatCardWidgetConfig; fallback: StatCardProps }) {
+    const details = useDashboardDetails()
+    const base = toStatCardProps(config, fallback, details?.locale)
+    const datasource = config.datasource
+    const params = isRecord(datasource?.params) ? datasource.params : undefined
+    const explicitTargetSectionId =
+        readStringParam(params, 'sectionId') ??
+        readStringParam(params, 'linkedCollectionId') ??
+        findRuntimeSectionIdByCodename(
+            details,
+            readStringParam(params, 'sectionCodename') ?? readStringParam(params, 'linkedCollectionCodename')
+        )
+    const hasExplicitTarget =
+        hasTextValue(params?.sectionId) ||
+        hasTextValue(params?.linkedCollectionId) ||
+        hasTextValue(params?.sectionCodename) ||
+        hasTextValue(params?.linkedCollectionCodename)
+    const targetSectionId =
+        explicitTargetSectionId ?? (!hasExplicitTarget ? details?.sectionId ?? details?.linkedCollectionId ?? undefined : undefined)
+    const search = readStringParam(params, 'search')
+    const metricQuery = useQuery({
+        queryKey: [
+            ...(details?.runtimeQueryKeyPrefix ?? []),
+            'metric',
+            datasource?.metricKey,
+            { targetSectionId, search, locale: details?.locale ?? 'en' }
+        ],
+        queryFn: () =>
+            fetchAppData({
+                apiBaseUrl: details!.apiBaseUrl!,
+                applicationId: details!.applicationId!,
+                locale: details?.locale ?? 'en',
+                limit: 1,
+                offset: 0,
+                linkedCollectionId: targetSectionId,
+                sectionId: targetSectionId,
+                search
+            }),
+        enabled: Boolean(
+            datasource?.kind === 'metric' && datasource.metricKey === 'records.count' && details?.apiBaseUrl && details?.applicationId
+        ),
+        placeholderData: (previous) => previous
+    })
+
+    const value =
+        datasource?.kind === 'metric' && datasource.metricKey === 'records.count' && metricQuery.data
+            ? formatMetricValue(metricQuery.data.pagination.total, details?.locale ?? 'en')
+            : base.value
+
+    return <StatCard {...base} value={value} />
+}
+
+function RuntimeRecordsSeriesChart({ config, variant }: { config: RecordsSeriesChartWidgetConfig; variant: 'sessions' | 'pageViews' }) {
+    const details = useDashboardDetails()
+    const datasource = config.datasource
+    const recordsDatasource = datasource?.kind === 'records.list' ? datasource : null
+    const ledgerProjectionDatasource = datasource?.kind === 'ledger.projection' ? datasource : null
+    const explicitTargetSectionId =
+        readOptionalId(recordsDatasource?.sectionId) ??
+        readOptionalId(recordsDatasource?.linkedCollectionId) ??
+        findRuntimeSectionIdByCodename(
+            details,
+            recordsDatasource?.sectionCodename ?? recordsDatasource?.linkedCollectionCodename ?? undefined
+        )
+    const hasExplicitTarget =
+        hasTextValue(recordsDatasource?.sectionId) ||
+        hasTextValue(recordsDatasource?.linkedCollectionId) ||
+        hasTextValue(recordsDatasource?.sectionCodename) ||
+        hasTextValue(recordsDatasource?.linkedCollectionCodename)
+    const targetSectionId =
+        explicitTargetSectionId ?? (!hasExplicitTarget ? details?.sectionId ?? details?.linkedCollectionId ?? undefined : undefined)
+    const configuredSeries = config.series ?? []
+    const canFetchRecordSeries = Boolean(
+        recordsDatasource &&
+            config.xField &&
+            configuredSeries.length > 0 &&
+            targetSectionId &&
+            details?.apiBaseUrl &&
+            details?.applicationId
+    )
+    const canFetchLedgerProjectionSeries = Boolean(
+        ledgerProjectionDatasource &&
+            config.xField &&
+            configuredSeries.length > 0 &&
+            (ledgerProjectionDatasource.ledgerId || ledgerProjectionDatasource.ledgerCodename) &&
+            ledgerProjectionDatasource.projectionCodename &&
+            details?.apiBaseUrl &&
+            details?.applicationId
+    )
+    const canFetchRuntimeSeries = canFetchRecordSeries || canFetchLedgerProjectionSeries
+    const listQuery = recordsDatasource?.query
+    const seriesQuery = useQuery({
+        queryKey: [
+            ...(details?.runtimeQueryKeyPrefix ?? []),
+            'runtime-series-chart',
+            variant,
+            {
+                datasource,
+                targetSectionId,
+                xField: config.xField,
+                maxRows: config.maxRows ?? 30,
+                series: configuredSeries,
+                query: listQuery,
+                locale: details?.locale ?? 'en'
+            }
+        ],
+        queryFn: async () => {
+            if (ledgerProjectionDatasource) {
+                const result = await fetchRuntimeLedgerProjection({
+                    apiBaseUrl: details!.apiBaseUrl!,
+                    applicationId: details!.applicationId!,
+                    ledgerId: ledgerProjectionDatasource.ledgerId,
+                    ledgerCodename: ledgerProjectionDatasource.ledgerCodename,
+                    projectionCodename: ledgerProjectionDatasource.projectionCodename,
+                    filters: ledgerProjectionDatasource.filters,
+                    limit: config.maxRows ?? 30,
+                    offset: 0
+                })
+                return { rows: result.rows }
+            }
+
+            return fetchAppData({
+                apiBaseUrl: details!.apiBaseUrl!,
+                applicationId: details!.applicationId!,
+                locale: details?.locale ?? 'en',
+                limit: config.maxRows ?? 30,
+                offset: 0,
+                linkedCollectionId: targetSectionId,
+                sectionId: targetSectionId,
+                search: listQuery?.search,
+                sort: listQuery?.sort,
+                filters: listQuery?.filters
+            })
+        },
+        enabled: canFetchRuntimeSeries,
+        placeholderData: (previous) => previous
+    })
+
+    const rows = seriesQuery.data?.rows ?? []
+    const hasRuntimeSeries = canFetchRuntimeSeries && rows.length > 0 && Boolean(config.xField)
+    const shouldSuppressDemoSeries = Boolean(
+        (recordsDatasource || ledgerProjectionDatasource) && config.xField && configuredSeries.length > 0
+    )
+    const locale = details?.locale ?? 'en'
+    const xAxisData = hasRuntimeSeries ? rows.map((row) => String(row[config.xField!] ?? '')) : shouldSuppressDemoSeries ? [] : undefined
+    const series = hasRuntimeSeries
+        ? configuredSeries.map((item) => ({
+              id: item.id ?? item.field,
+              label: readLocalizedConfigText(item.label, locale) ?? item.field,
+              data: rows.map((row) => toFiniteNumber(row[item.field])),
+              stack: item.stack,
+              area: item.area
+          }))
+        : shouldSuppressDemoSeries
+        ? configuredSeries.map((item) => ({
+              id: item.id ?? item.field,
+              label: readLocalizedConfigText(item.label, locale) ?? item.field,
+              data: [],
+              stack: item.stack,
+              area: item.area
+          }))
+        : undefined
+    const computedValue =
+        hasRuntimeSeries && series?.[0]?.data.length
+            ? formatMetricValue(
+                  series[0].data.reduce((sum, value) => sum + value, 0),
+                  locale
+              )
+            : shouldSuppressDemoSeries
+            ? '0'
+            : undefined
+    const commonProps = {
+        title: readLocalizedConfigText(config.title, locale),
+        value: config.value ?? computedValue,
+        interval: readLocalizedConfigText(config.interval, locale),
+        trend: config.trend,
+        trendLabel: toChartTrendLabel(config.trend),
+        noDataText: getChartNoDataText(locale),
+        xAxisData,
+        series
+    }
+
+    return variant === 'sessions' ? <SessionsChart {...commonProps} /> : <PageViewsBarChart {...commonProps} />
+}
 
 export interface MainGridLayoutConfig {
     showOverviewTitle?: boolean
@@ -159,7 +449,7 @@ function EnhancedDetailsSection({ layoutConfig, showTitle = true }: { layoutConf
     const details = useDashboardDetails()
     const { t } = useTranslation('apps')
     const [viewMode, setViewMode] = useViewPreference('app-details-view', (layoutConfig?.defaultViewMode as 'table' | 'card') ?? 'table')
-    const [search, setSearch] = useState('')
+    const [localSearch, setLocalSearch] = useState('')
     const [orderedRows, setOrderedRows] = useState<RuntimeDetailsRow[]>(() => (details?.rows as RuntimeDetailsRow[] | undefined) ?? [])
     const [clientPage, setClientPage] = useState(0)
     const [clientPageSize, setClientPageSize] = useState(details?.paginationModel?.pageSize ?? 20)
@@ -173,14 +463,23 @@ function EnhancedDetailsSection({ layoutConfig, showTitle = true }: { layoutConf
     }, [details?.paginationModel?.pageSize])
 
     const searchMode = details?.searchMode ?? 'page-local'
+    const search = searchMode === 'server' ? details?.searchValue ?? '' : localSearch
+    const handleSearchChange = (value: string) => {
+        if (searchMode === 'server') {
+            details?.onSearchValueChange?.(value)
+            return
+        }
+        setLocalSearch(value)
+    }
     const filteredRows = useMemo(() => {
         const rows = orderedRows
+        if (searchMode === 'server') return rows
         if (!search.trim()) return rows
         const lower = search.toLowerCase()
         return rows.filter((row) => Object.values(row).some((val) => getSearchableText(val).toLowerCase().includes(lower)))
-    }, [orderedRows, search])
+    }, [orderedRows, search, searchMode])
 
-    const isClientFiltered = search.trim().length > 0
+    const isClientFiltered = searchMode !== 'server' && search.trim().length > 0
     const baseCanPersistRowReorder = Boolean(layoutConfig?.enableRowReordering && details?.rowReorder?.onReorder)
     const knownRowCount = details?.rowCount ?? orderedRows.length
     const hasCompleteDatasetLoaded = knownRowCount <= orderedRows.length
@@ -213,13 +512,16 @@ function EnhancedDetailsSection({ layoutConfig, showTitle = true }: { layoutConf
     const totalItems = isClientFiltered ? filteredRows.length : details?.rowCount ?? filteredRows.length
     const visibleRows = useMemo(() => {
         if (viewMode === 'card') {
+            if (!isClientFiltered && details?.rowCount !== undefined) {
+                return filteredRows
+            }
             return paginateRows(filteredRows, page, pageSize)
         }
         if (canPersistRowReorder) {
             return filteredRows
         }
         return isClientFiltered ? paginateRows(filteredRows, page, pageSize) : filteredRows
-    }, [canPersistRowReorder, filteredRows, isClientFiltered, page, pageSize, viewMode])
+    }, [canPersistRowReorder, details?.rowCount, filteredRows, isClientFiltered, page, pageSize, viewMode])
     const flowListColumns = useMemo(() => buildFlowListColumns(details?.columns ?? [], orderedRows), [details?.columns, orderedRows])
     const gridPaginationModel = isClientFiltered ? { page: clientPage, pageSize: clientPageSize } : details?.paginationModel
     const showHeader = Boolean(details?.actions || layoutConfig?.showFilterBar || layoutConfig?.showViewToggle || headerTitle)
@@ -255,7 +557,7 @@ function EnhancedDetailsSection({ layoutConfig, showTitle = true }: { layoutConf
             }
             details?.onPaginationModelChange?.({ page: Math.max(0, page - 1), pageSize })
         },
-        setSearch: (s: string) => setSearch(s),
+        setSearch: (s: string) => handleSearchChange(s),
         setSort: noopSetSort,
         setPageSize: (size: number) => {
             if (isClientFiltered) {
@@ -299,7 +601,7 @@ function EnhancedDetailsSection({ layoutConfig, showTitle = true }: { layoutConf
                         title={headerTitle}
                         search={layoutConfig?.showFilterBar}
                         searchValue={search}
-                        onSearchChange={(e) => setSearch(e.target.value)}
+                        onSearchChange={(e) => handleSearchChange(e.target.value)}
                     >
                         <ToolbarControls
                             viewToggleEnabled={layoutConfig?.showViewToggle}
@@ -367,6 +669,10 @@ function EnhancedDetailsSection({ layoutConfig, showTitle = true }: { layoutConf
                         }
                         details?.onPaginationModelChange?.(model)
                     }}
+                    sortModel={details?.sortModel}
+                    onSortModelChange={details?.onSortModelChange}
+                    filterModel={details?.filterModel}
+                    onFilterModelChange={details?.onFilterModelChange}
                     pageSizeOptions={details?.pageSizeOptions}
                     localeText={details?.localeText}
                     rowHeight={layoutConfig?.rowHeight}
@@ -399,8 +705,37 @@ export default function MainGrid({
 
     // Find all columnsContainer widgets in center zone (data-driven rendering, supports multiple)
     const columnsContainerWidgets = showColumnsContainer ? centerWidgets?.filter((w) => w.widgetKey === 'columnsContainer') ?? [] : []
+    const overviewCardsWidget = centerWidgets?.find((widget) => widget.widgetKey === 'overviewCards')
+    const parsedOverviewCards = overviewCardsWidgetConfigSchema.safeParse(overviewCardsWidget?.config ?? {})
+    const sessionsChartWidget = centerWidgets?.find((widget) => widget.widgetKey === 'sessionsChart')
+    const parsedSessionsChart = recordsSeriesChartWidgetConfigSchema.safeParse(sessionsChartWidget?.config ?? {})
+    const sessionsChartConfig = parsedSessionsChart.success ? parsedSessionsChart.data : EMPTY_RECORDS_SERIES_CHART_CONFIG
+    const pageViewsChartWidget = centerWidgets?.find((widget) => widget.widgetKey === 'pageViewsChart')
+    const parsedPageViewsChart = recordsSeriesChartWidgetConfigSchema.safeParse(pageViewsChartWidget?.config ?? {})
+    const pageViewsChartConfig = parsedPageViewsChart.success ? parsedPageViewsChart.data : EMPTY_RECORDS_SERIES_CHART_CONFIG
+    const overviewCards =
+        parsedOverviewCards.success && parsedOverviewCards.data.cards?.length
+            ? parsedOverviewCards.data.cards
+            : DEFAULT_STAT_CARDS.map((card) => ({
+                  title: card.title,
+                  value: card.value,
+                  interval: card.interval,
+                  trend: card.trend,
+                  data: card.data
+              }))
     const standaloneCenterWidgets =
-        centerWidgets?.filter((widget) => !['columnsContainer', 'detailsTable', 'detailsTitle'].includes(widget.widgetKey)) ?? []
+        centerWidgets?.filter(
+            (widget) =>
+                ![
+                    'columnsContainer',
+                    'detailsTable',
+                    'detailsTitle',
+                    'overviewTitle',
+                    'overviewCards',
+                    'sessionsChart',
+                    'pageViewsChart'
+                ].includes(widget.widgetKey)
+        ) ?? []
     const showCenterContent =
         hasCustomDetailsContent || showDetailsTitle || showColumnsContainer || showDetailsTable || standaloneCenterWidgets.length > 0
 
@@ -417,24 +752,26 @@ export default function MainGrid({
                     <Grid container spacing={2} columns={12} sx={{ mb: (theme) => theme.spacing(2) }}>
                         {showOverviewCards && (
                             <>
-                                {data.map((card, index) => (
+                                {overviewCards.map((card, index) => (
                                     <Grid key={index} size={{ xs: 12, sm: 6, lg: 3 }}>
-                                        <StatCard {...card} />
+                                        <RuntimeStatCard config={card} fallback={DEFAULT_STAT_CARDS[index] ?? DEFAULT_STAT_CARDS[0]} />
                                     </Grid>
                                 ))}
-                                <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-                                    <HighlightedCard />
-                                </Grid>
+                                {parsedOverviewCards.success && parsedOverviewCards.data.cards?.length ? null : (
+                                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+                                        <HighlightedCard />
+                                    </Grid>
+                                )}
                             </>
                         )}
                         {showSessionsChart && (
                             <Grid size={{ xs: 12, md: 6 }}>
-                                <SessionsChart />
+                                <RuntimeRecordsSeriesChart config={sessionsChartConfig} variant='sessions' />
                             </Grid>
                         )}
                         {showPageViewsChart && (
                             <Grid size={{ xs: 12, md: 6 }}>
-                                <PageViewsBarChart />
+                                <RuntimeRecordsSeriesChart config={pageViewsChartConfig} variant='pageViews' />
                             </Grid>
                         )}
                     </Grid>

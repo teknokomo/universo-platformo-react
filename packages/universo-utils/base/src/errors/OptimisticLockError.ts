@@ -13,6 +13,7 @@ export interface ConflictInfo {
         | 'catalog'
         | 'set'
         | 'page'
+        | 'ledger'
         | 'document'
         | 'enumeration'
         | 'enumeration_value'

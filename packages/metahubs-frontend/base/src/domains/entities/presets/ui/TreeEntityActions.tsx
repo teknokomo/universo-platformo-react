@@ -22,7 +22,8 @@ const DEFAULT_CC: CodenameConfig = {
     autoReformat: true,
     requireReformat: true
 }
-const _cc = (values: Record<string, unknown>): CodenameConfig => (values._codenameConfig as CodenameConfig) || DEFAULT_CC
+const _cc = (values?: Record<string, unknown> | null): CodenameConfig =>
+    (values?._codenameConfig as CodenameConfig | undefined) || DEFAULT_CC
 const DIALOG_SAVE_CANCEL = { __dialogCancelled: true } as const
 
 import {
@@ -36,6 +37,7 @@ import { CodenameField, ContainerParentSelectionPanel } from '../../../../compon
 import { createScriptsTab } from '../../../scripts/ui/EntityScriptsTab'
 
 export type TreeEntityFormValues = Record<string, unknown>
+const ensureFormValues = (values?: TreeEntityFormValues | null): TreeEntityFormValues => values ?? {}
 export type TreeEntityFormSetValue = (name: string, value: unknown) => void
 export type TreeEntityDialogTabArgs = {
     values: TreeEntityFormValues
@@ -130,7 +132,8 @@ const buildCopyInitialValues = (ctx: ActionContext<TreeEntityDisplay, TreeEntity
     }
 }
 
-const getTreeEntityCopyOptions = (values: Record<string, unknown>) => {
+const getTreeEntityCopyOptions = (rawValues?: Record<string, unknown> | null) => {
+    const values = ensureFormValues(rawValues)
     return normalizeTreeEntityCopyOptions({
         copyAllRelations: values.copyAllRelations as boolean | undefined,
         copyLinkedCollectionRelations: values.copyLinkedCollectionRelations as boolean | undefined,
@@ -161,7 +164,11 @@ const toggleTreeEntityCopyChild = (
     setValue('copyAllRelations', nextOptions.copyAllRelations)
 }
 
-export const validateTreeEntityForm = (ctx: ActionContext<TreeEntityDisplay, TreeEntityLocalizedPayload>, values: TreeEntityFormValues) => {
+export const validateTreeEntityForm = (
+    ctx: ActionContext<TreeEntityDisplay, TreeEntityLocalizedPayload>,
+    rawValues?: TreeEntityFormValues | null
+) => {
+    const values = ensureFormValues(rawValues)
     const cc = _cc(values)
     const errors: Record<string, string> = {}
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
@@ -180,7 +187,8 @@ export const validateTreeEntityForm = (ctx: ActionContext<TreeEntityDisplay, Tre
     return Object.keys(errors).length > 0 ? errors : null
 }
 
-export const canSaveTreeEntityForm = (values: TreeEntityFormValues) => {
+export const canSaveTreeEntityForm = (rawValues?: TreeEntityFormValues | null) => {
+    const values = ensureFormValues(rawValues)
     const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
@@ -195,7 +203,8 @@ export const canSaveTreeEntityForm = (values: TreeEntityFormValues) => {
     )
 }
 
-export const toPayload = (values: TreeEntityFormValues): TreeEntityLocalizedPayload => {
+export const toPayload = (rawValues?: TreeEntityFormValues | null): TreeEntityLocalizedPayload => {
+    const values = ensureFormValues(rawValues)
     const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined

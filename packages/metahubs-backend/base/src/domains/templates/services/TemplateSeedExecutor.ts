@@ -4,12 +4,14 @@ import type {
     TemplateSeedLayout,
     TemplateSeedZoneWidget,
     TemplateSeedElement,
+    TemplateSeedScript,
     DashboardLayoutWidgetKey,
     DashboardLayoutZone,
     CodenameAlphabet,
     CodenameStyle,
     VersionedLocalizedContent
 } from '@universo/types'
+import { compileScriptSource } from '@universo/scripting-engine'
 import { normalizeCodenameForStyle } from '@universo/utils/validation/codename'
 import { buildDashboardLayoutConfig } from '../../shared'
 import { toJsonbValue } from '../../shared/jsonb'
@@ -137,6 +139,7 @@ export class TemplateSeedExecutor {
     async apply(seed: MetahubTemplateSeed): Promise<void> {
         await this.knex.transaction(async (trx) => {
             const codenameConfig = resolveTemplateSeedCodenameConfig(seed.settings)
+            let entityIdMap = new Map<string, string>()
 
             // 1. Create layouts (generate UUID→codename map)
             const layoutIdMap = await this.createLayouts(trx, seed.layouts)
@@ -151,7 +154,7 @@ export class TemplateSeedExecutor {
 
             // 4. Create entities (catalogs, hubs, documents) if any
             if (seed.entities?.length) {
-                const entityIdMap = await this.createEntities(trx, seed.entities, codenameConfig)
+                entityIdMap = await this.createEntities(trx, seed.entities, codenameConfig)
 
                 if (seed.optionValues) {
                     await this.createOptionValues(trx, seed.optionValues, entityIdMap)
@@ -161,6 +164,10 @@ export class TemplateSeedExecutor {
                 if (seed.elements) {
                     await this.createElements(trx, seed.elements, entityIdMap)
                 }
+            }
+
+            if (seed.scripts?.length) {
+                await this.createScripts(trx, seed.scripts, entityIdMap)
             }
         })
     }
@@ -803,6 +810,88 @@ export class TemplateSeedExecutor {
                     _mhb_deleted: false
                 })
             }
+        }
+    }
+
+    private async createScripts(qb: Knex, scripts: TemplateSeedScript[], entityIdMap: Map<string, string>): Promise<void> {
+        const now = new Date()
+
+        for (const script of scripts) {
+            const attachedToId =
+                script.attachedToKind === 'metahub' || script.attachedToKind === 'general'
+                    ? null
+                    : script.attachedToEntityCodename
+                    ? resolveEntityIdByCodename(entityIdMap, script.attachedToEntityCodename, script.attachedToKind)
+                    : null
+
+            if (script.attachedToKind !== 'metahub' && script.attachedToKind !== 'general' && !attachedToId) {
+                log.warn(
+                    `Script target ${script.attachedToKind}:${script.attachedToEntityCodename ?? '[missing]'} not found, skipping ${
+                        script.codename
+                    }`
+                )
+                continue
+            }
+
+            const existing = await qb
+                .withSchema(this.schemaName)
+                .from('_mhb_scripts')
+                .where({
+                    attached_to_kind: script.attachedToKind,
+                    attached_to_id: attachedToId,
+                    module_role: script.moduleRole,
+                    _upl_deleted: false,
+                    _mhb_deleted: false
+                })
+                .whereRaw(`${codenamePrimaryTextSql('codename')} = ?`, [script.codename])
+                .first()
+
+            if (existing) {
+                continue
+            }
+
+            const artifact = await compileScriptSource({
+                codename: script.codename,
+                sourceCode: script.sourceCode,
+                sdkApiVersion: script.sdkApiVersion,
+                moduleRole: script.moduleRole,
+                sourceKind: script.sourceKind,
+                capabilities: script.capabilities
+            })
+
+            await qb
+                .withSchema(this.schemaName)
+                .into('_mhb_scripts')
+                .insert({
+                    codename: ensureCodenameValue(script.codename),
+                    presentation: {
+                        name: script.name,
+                        description: script.description ?? null
+                    },
+                    attached_to_kind: script.attachedToKind,
+                    attached_to_id: attachedToId,
+                    module_role: artifact.manifest.moduleRole,
+                    source_kind: artifact.manifest.sourceKind,
+                    sdk_api_version: artifact.manifest.sdkApiVersion,
+                    source_code: script.sourceCode,
+                    manifest: artifact.manifest,
+                    server_bundle: artifact.serverBundle,
+                    client_bundle: artifact.clientBundle,
+                    checksum: artifact.checksum,
+                    is_active: script.isActive !== false,
+                    config: script.config ?? {},
+                    _upl_created_at: now,
+                    _upl_created_by: null,
+                    _upl_updated_at: now,
+                    _upl_updated_by: null,
+                    _upl_version: 1,
+                    _upl_archived: false,
+                    _upl_deleted: false,
+                    _upl_locked: false,
+                    _mhb_published: true,
+                    _mhb_archived: false,
+                    _mhb_deleted: false
+                })
         }
     }
 }

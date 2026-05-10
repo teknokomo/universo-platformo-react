@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
+import { createHash } from 'node:crypto'
 
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
@@ -9,6 +10,8 @@ import { createPublicApplicationsRoutes } from '../../routes/publicApplicationsR
 
 type QueryScope = 'root' | 'tx'
 type QueryHandler = (sql: string, params: unknown[], scope: QueryScope) => unknown[] | undefined
+
+const hashGuestSecret = (secret: string): string => createHash('sha256').update(secret, 'utf8').digest('hex')
 
 const mockRateLimiter: RateLimitRequestHandler = ((_req: Request, _res: Response, next: NextFunction) => {
     next()
@@ -71,6 +74,83 @@ const localizedTextVlc = (en: string, ru: string) => ({
     }
 })
 
+const publicGuestRuntimeSettings = {
+    publicRuntime: {
+        guest: {
+            objects: {
+                accessLinks: 'AccessLinks',
+                participants: 'Students',
+                assessments: 'Quizzes',
+                contentNodes: 'Modules',
+                assessmentResponses: 'QuizResponses',
+                contentProgress: 'ModuleProgress'
+            },
+            fields: {
+                accessLink: {
+                    slug: 'Slug',
+                    targetType: 'TargetType',
+                    targetId: 'TargetId',
+                    isActive: 'IsActive',
+                    expiresAt: 'ExpiresAt',
+                    maxUses: 'MaxUses',
+                    useCount: 'UseCount',
+                    title: 'LinkTitle',
+                    classId: 'LinkClassId'
+                },
+                participant: {
+                    displayName: 'DisplayName',
+                    isGuest: 'IsGuest',
+                    guestSessionToken: 'GuestSessionToken'
+                },
+                contentNode: {
+                    title: 'Title',
+                    description: 'Description',
+                    contentItems: 'ContentItems'
+                },
+                contentPart: {
+                    itemType: 'ItemType',
+                    itemTitle: 'ItemTitle',
+                    itemContent: 'ItemContent',
+                    quizId: 'QuizId',
+                    sortOrder: 'SortOrder'
+                },
+                assessment: {
+                    title: 'Title',
+                    description: 'Description',
+                    passingScorePercent: 'PassingScorePercent',
+                    questions: 'Questions'
+                },
+                assessmentQuestion: {
+                    prompt: 'Prompt',
+                    description: 'QuestionDescription',
+                    questionType: 'QuestionType',
+                    explanation: 'Explanation',
+                    sortOrder: 'SortOrder',
+                    options: 'Options'
+                },
+                assessmentResponse: {
+                    studentId: 'StudentId',
+                    quizId: 'QuizId',
+                    questionId: 'QuestionId',
+                    selectedOptionIds: 'SelectedOptionIds',
+                    isCorrect: 'IsCorrect',
+                    attemptNumber: 'AttemptNumber',
+                    submittedAt: 'SubmittedAt'
+                },
+                contentProgress: {
+                    studentId: 'ProgressStudentId',
+                    moduleId: 'ModuleId',
+                    status: 'ProgressStatus',
+                    progressPercent: 'ProgressPercent',
+                    startedAt: 'StartedAt',
+                    completedAt: 'CompletedAt',
+                    lastAccessedItemIndex: 'LastAccessedItemIndex'
+                }
+            }
+        }
+    }
+}
+
 describe('Public Applications Routes', () => {
     const applicationId = '2a15af4d-54ef-4b65-b5fd-8274d0d1de1b'
     const schemaName = 'app_018f8a787b8f7c1da111222233334442'
@@ -88,7 +168,16 @@ describe('Public Applications Routes', () => {
         (handler: QueryHandler, applicationOverrides: Record<string, unknown> = {}): QueryHandler =>
         (sql, params, scope) => {
             if (sql.includes('FROM applications.cat_applications')) {
-                return [{ id: 'application-1', schemaName, isPublic: true, workspacesEnabled: false, ...applicationOverrides }]
+                return [
+                    {
+                        id: 'application-1',
+                        schemaName,
+                        isPublic: true,
+                        workspacesEnabled: false,
+                        settings: publicGuestRuntimeSettings,
+                        ...applicationOverrides
+                    }
+                ]
             }
             return handler(sql, params, scope)
         }
@@ -503,6 +592,90 @@ describe('Public Applications Routes', () => {
         await request(app).get(`/public/a/${applicationId}/links/demo-module`).expect(403)
     })
 
+    it('rejects expired access links', async () => {
+        const dataSource = buildDataSource(
+            withPublicApplication((sql) => {
+                if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
+                    return [{ id: 'object-1', codename: 'AccessLinks', kind: 'catalog', table_name: 'access_links_table' }]
+                }
+                if (sql.includes(`FROM "${schemaName}"."_app_attributes"`)) {
+                    return [
+                        { id: 'attr-1', codename: 'Slug', column_name: 'slug', data_type: 'STRING', parent_attribute_id: null },
+                        {
+                            id: 'attr-2',
+                            codename: 'TargetType',
+                            column_name: 'target_type',
+                            data_type: 'STRING',
+                            parent_attribute_id: null
+                        },
+                        { id: 'attr-3', codename: 'TargetId', column_name: 'target_id', data_type: 'STRING', parent_attribute_id: null },
+                        { id: 'attr-4', codename: 'IsActive', column_name: 'is_active', data_type: 'BOOLEAN', parent_attribute_id: null },
+                        { id: 'attr-5', codename: 'ExpiresAt', column_name: 'expires_at', data_type: 'DATETIME', parent_attribute_id: null }
+                    ]
+                }
+                if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
+                    return [
+                        {
+                            id: accessLinkId,
+                            slug: 'demo-module',
+                            target_type: 'module',
+                            target_id: moduleId,
+                            is_active: true,
+                            expires_at: '2000-01-01T00:00:00.000Z'
+                        }
+                    ]
+                }
+                return undefined
+            })
+        )
+
+        const app = buildApp(dataSource)
+        await request(app).get(`/public/a/${applicationId}/links/demo-module`).expect(403)
+    })
+
+    it('rejects exhausted access links before creating a guest session', async () => {
+        const dataSource = buildDataSource(
+            withPublicApplication((sql) => {
+                if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
+                    return [{ id: 'object-1', codename: 'AccessLinks', kind: 'catalog', table_name: 'access_links_table' }]
+                }
+                if (sql.includes(`FROM "${schemaName}"."_app_attributes"`)) {
+                    return [
+                        { id: 'attr-1', codename: 'Slug', column_name: 'slug', data_type: 'STRING', parent_attribute_id: null },
+                        {
+                            id: 'attr-2',
+                            codename: 'TargetType',
+                            column_name: 'target_type',
+                            data_type: 'STRING',
+                            parent_attribute_id: null
+                        },
+                        { id: 'attr-3', codename: 'TargetId', column_name: 'target_id', data_type: 'STRING', parent_attribute_id: null },
+                        { id: 'attr-4', codename: 'IsActive', column_name: 'is_active', data_type: 'BOOLEAN', parent_attribute_id: null },
+                        { id: 'attr-5', codename: 'UseCount', column_name: 'use_count', data_type: 'NUMBER', parent_attribute_id: null },
+                        { id: 'attr-6', codename: 'MaxUses', column_name: 'max_uses', data_type: 'NUMBER', parent_attribute_id: null }
+                    ]
+                }
+                if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
+                    return [
+                        {
+                            id: accessLinkId,
+                            slug: 'demo-module',
+                            target_type: 'module',
+                            target_id: moduleId,
+                            is_active: true,
+                            max_uses: 1,
+                            use_count: 1
+                        }
+                    ]
+                }
+                return undefined
+            })
+        )
+
+        const app = buildApp(dataSource)
+        await request(app).post(`/public/a/${applicationId}/guest-session`).send({ displayName: 'Guest Learner', accessLinkId }).expect(403)
+    })
+
     it('requires an accessLinkId to create a guest session', async () => {
         const dataSource = buildDataSource(withPublicApplication(() => undefined))
         const app = buildApp(dataSource)
@@ -510,7 +683,7 @@ describe('Public Applications Routes', () => {
         await request(app).post(`/public/a/${applicationId}/guest-session`).send({ displayName: 'Guest Learner' }).expect(400)
     })
 
-    it('creates a guest session for an active link and stores only the secret token server-side', async () => {
+    it('creates a guest session for an active link and stores only a secret hash server-side', async () => {
         let persistedState: unknown = null
 
         const dataSource = buildDataSource(
@@ -613,18 +786,21 @@ describe('Public Applications Routes', () => {
             .send({ displayName: 'Guest Learner', accessLinkId })
             .expect(201)
 
+        expect(response.body.participantId).toEqual(expect.any(String))
         expect(response.body.studentId).toEqual(expect.any(String))
+        expect(response.body.participantId).toBe(response.body.studentId)
         expect(response.body.sessionToken).toEqual(expect.any(String))
         expect(typeof persistedState).toBe('string')
         expect(persistedState).not.toBe(response.body.sessionToken)
         expect(JSON.parse(String(persistedState))).toEqual(
             expect.objectContaining({
                 linkId: accessLinkId,
-                secret: expect.any(String),
+                secretHash: expect.stringMatching(/^[a-f0-9]{64}$/),
                 expiresAt: expect.any(String),
                 workspaceId: null
             })
         )
+        expect(JSON.parse(String(persistedState))).not.toEqual(expect.objectContaining({ secret: expect.any(String) }))
     })
 
     it('includes the resolved workspace id inside guest session transport tokens for workspace-enabled apps', async () => {
@@ -910,7 +1086,7 @@ describe('Public Applications Routes', () => {
                                       id: studentId,
                                       guest_session_token: JSON.stringify({
                                           linkId: accessLinkId,
-                                          secret: 'guest-secret',
+                                          secretHash: hashGuestSecret('guest-secret'),
                                           expiresAt: '2099-01-01T00:00:00.000Z',
                                           workspaceId: workspaceId2
                                       })
@@ -959,7 +1135,7 @@ describe('Public Applications Routes', () => {
         const app = buildApp(dataSource)
         const response = await request(app)
             .get(`/public/a/${applicationId}/runtime?slug=demo-module`)
-            .set('X-Guest-Student-Id', studentId)
+            .set('X-Guest-Participant-Id', studentId)
             .set('X-Guest-Session-Token', sessionToken)
             .expect(200)
 
@@ -1024,7 +1200,7 @@ describe('Public Applications Routes', () => {
                             id: studentId,
                             guest_session_token: JSON.stringify({
                                 linkId: accessLinkId,
-                                secret: 'guest-secret',
+                                secretHash: hashGuestSecret('guest-secret'),
                                 expiresAt: '2099-01-01T00:00:00.000Z',
                                 workspaceId: null
                             })
@@ -1042,6 +1218,51 @@ describe('Public Applications Routes', () => {
             .set('X-Guest-Student-Id', studentId)
             .set('X-Guest-Session-Token', sessionToken)
             .expect(403)
+    })
+
+    it('rejects oversized guest assessment answer payloads before touching runtime storage', async () => {
+        const dataSource = buildDataSource(withPublicApplication(() => undefined))
+        const app = buildApp(dataSource)
+        const answers = Object.fromEntries(
+            Array.from({ length: 201 }, (_value, index) => [
+                `018f8a78-7b8f-7c1d-a111-22223333${String(5000 + index).padStart(4, '0')}`,
+                ['018f8a78-7b8f-7c1d-a111-222233334999']
+            ])
+        )
+
+        const response = await request(app)
+            .post(`/public/a/${applicationId}/runtime/guest-submit`)
+            .send({
+                participantId: 'af8a5659-4155-4681-aa2f-a7605809cbf0',
+                sessionToken: 'session-token',
+                assessmentId: quizId,
+                answers
+            })
+            .expect(400)
+
+        expect(response.body).toMatchObject({ error: 'Invalid request body' })
+        expect(JSON.stringify(response.body.details)).toContain('answers')
+    })
+
+    it('rejects mismatched legacy guest aliases at the request boundary', async () => {
+        const dataSource = buildDataSource(withPublicApplication(() => undefined))
+        const app = buildApp(dataSource)
+
+        const response = await request(app)
+            .post(`/public/a/${applicationId}/runtime/guest-progress`)
+            .send({
+                participantId: 'af8a5659-4155-4681-aa2f-a7605809cbf0',
+                studentId: 'bf8a5659-4155-4681-aa2f-a7605809cbf0',
+                sessionToken: 'session-token',
+                contentNodeId: moduleId,
+                progressPercent: 50,
+                lastAccessedItemIndex: 1,
+                status: 'in_progress'
+            })
+            .expect(400)
+
+        expect(response.body).toMatchObject({ error: 'Invalid request body' })
+        expect(JSON.stringify(response.body.details)).toContain('studentId')
     })
 
     it('rejects direct runtime access without a slug', async () => {

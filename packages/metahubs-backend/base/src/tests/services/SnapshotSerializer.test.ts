@@ -27,6 +27,81 @@ const createCodenameVlc = (primary: string, secondary?: string) => ({
 })
 
 describe('SnapshotSerializer system field propagation', () => {
+    it('rejects ledger snapshot publication when config references non-existing fields', async () => {
+        const objectsService = {
+            findAllByKind: jest.fn(async (_metahubId: string, kind: string) => {
+                if (kind === 'ledger') {
+                    return [
+                        {
+                            id: 'ledger-1',
+                            kind: 'ledger',
+                            codename: createCodenameVlc('ProgressLedger'),
+                            table_name: 'led_progress',
+                            presentation: { name: { en: 'Progress Ledger' }, description: {} },
+                            config: {
+                                ledger: {
+                                    fieldRoles: [{ fieldCodename: 'MissingField', role: 'dimension' }],
+                                    projections: [],
+                                    idempotency: { keyFields: [] }
+                                }
+                            }
+                        }
+                    ]
+                }
+                return []
+            })
+        }
+        const fieldDefinitionsService = {
+            findAllFlatForSnapshot: jest.fn(async () => []),
+            getObjectSystemFieldsSnapshot: jest.fn(async () => null),
+            listObjectSystemFieldDefinitions: jest.fn(async () => [])
+        }
+        const entityTypeService = {
+            listTypes: jest.fn(async () => [
+                {
+                    id: 'type-ledger',
+                    kindKey: 'ledger',
+                    codename: createCodenameVlc('ledger'),
+                    presentation: { name: { en: 'Ledgers' }, description: {} },
+                    components: {
+                        dataSchema: { enabled: true },
+                        physicalTable: { enabled: true, prefix: 'led' },
+                        ledgerSchema: { enabled: true }
+                    },
+                    ui: {
+                        iconName: 'IconDatabase',
+                        tabs: ['general', 'ledgerSchema'],
+                        sidebarSection: 'objects',
+                        nameKey: 'metahubs:ledgers.title'
+                    },
+                    config: {},
+                    published: true
+                }
+            ])
+        }
+
+        const serializer = new SnapshotSerializer(
+            objectsService as never,
+            fieldDefinitionsService as never,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            entityTypeService as never
+        )
+
+        await expect(serializer.serializeMetahub('metahub-1')).rejects.toMatchObject({
+            message: 'Ledger schema config contains invalid field references',
+            details: {
+                field: 'config.ledger',
+                errors: [expect.objectContaining({ code: 'FIELD_NOT_FOUND' })]
+            }
+        })
+    })
+
     it('serializes dedicated systemFields and keeps runtime business fields separate', async () => {
         const objectsService = {
             findAllByKind: jest.fn(async (_metahubId: string, kind: string) => {
@@ -502,21 +577,24 @@ describe('SnapshotSerializer system field propagation', () => {
 
         const snapshot = await serializer.serializeMetahub('metahub-1')
 
-        expect(snapshot.entities['set-1']).toEqual(
-            expect.objectContaining({
-                id: 'set-1',
-                kind: 'custom.value-group',
-                config: {
-                    classification: 'design-time',
-                    displayMode: 'chips',
-                    compatibility: {
-                        legacyObjectKind: 'set',
-                        lifecycleMode: 'legacy',
-                        scope: 'workspace'
+        expect(snapshot.entities['set-1']).toMatchObject({
+            id: 'set-1',
+            kind: 'custom.value-group',
+            config: {
+                classification: 'design-time',
+                displayMode: 'chips',
+                compatibility: {
+                    legacyObjectKind: 'set',
+                    lifecycleMode: 'legacy',
+                    scope: 'workspace'
+                },
+                components: expect.objectContaining({
+                    fixedValues: {
+                        enabled: true
                     }
-                }
-            })
-        )
+                })
+            }
+        })
     })
 
     it('serializes custom entity definitions and nested action/event metadata in snapshot v3', async () => {

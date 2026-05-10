@@ -335,6 +335,137 @@ describe('ApplicationSettings', () => {
         })
     })
 
+    it('saves generic runtime policy settings through the general settings form', async () => {
+        const queryClient = new QueryClient({
+            defaultOptions: {
+                queries: { retry: false },
+                mutations: { retry: false }
+            }
+        })
+        const i18n = getI18nInstance()
+
+        render(
+            <I18nextProvider i18n={i18n}>
+                <SnackbarProvider>
+                    <QueryClientProvider client={queryClient}>
+                        <MemoryRouter initialEntries={['/applications/app-1/settings']}>
+                            <Routes>
+                                <Route path='/applications/:applicationId/settings' element={<ApplicationSettings />} />
+                            </Routes>
+                        </MemoryRouter>
+                    </QueryClientProvider>
+                </SnackbarProvider>
+            </I18nextProvider>
+        )
+
+        await userEvent.click(within(screen.getByTestId('application-setting-dashboardDefaultMode')).getByRole('combobox'))
+        await userEvent.click(screen.getByRole('option', { name: 'First menu item' }))
+        await userEvent.click(within(screen.getByTestId('application-setting-datasourceExecutionPolicy')).getByRole('combobox'))
+        await userEvent.click(screen.getByRole('option', { name: 'Layout only' }))
+        await userEvent.click(within(screen.getByTestId('application-setting-workspaceOpenBehavior')).getByRole('combobox'))
+        await userEvent.click(screen.getByRole('option', { name: 'Default workspace' }))
+        await userEvent.click(screen.getByTestId('application-settings-general-save'))
+
+        await waitFor(() => {
+            expect(mockedUpdateApplication).toHaveBeenCalledWith(
+                'app-1',
+                expect.objectContaining({
+                    expectedVersion: 1,
+                    settings: expect.objectContaining({
+                        dashboardDefaultMode: 'first-menu-item',
+                        datasourceExecutionPolicy: 'layout-only',
+                        workspaceOpenBehavior: 'default-workspace'
+                    })
+                })
+            )
+        })
+    })
+
+    it('does not send server-managed public runtime settings from the general settings form', async () => {
+        mockedUseApplicationDetails.mockReturnValue({
+            data: {
+                id: 'app-1',
+                name: {
+                    _schema: 'v1',
+                    _primary: 'en',
+                    locales: {
+                        en: { content: 'Workspace Demo' }
+                    }
+                },
+                description: null,
+                slug: 'workspace-demo',
+                isPublic: false,
+                workspacesEnabled: true,
+                schemaName: 'app_workspace_demo',
+                schemaStatus: 'synced',
+                schemaSyncedAt: null,
+                schemaError: null,
+                connectorsCount: 0,
+                membersCount: 1,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                version: 5,
+                settings: {
+                    dialogSizePreset: 'medium',
+                    dialogAllowFullscreen: true,
+                    dialogAllowResize: true,
+                    dialogCloseBehavior: 'strict-modal',
+                    sectionLinksEnabled: true,
+                    dashboardDefaultMode: 'layout-default',
+                    datasourceExecutionPolicy: 'workspace-scoped',
+                    workspaceOpenBehavior: 'last-used',
+                    publicRuntime: {
+                        guest: {
+                            objects: { students: 'Students' }
+                        }
+                    }
+                }
+            } as never,
+            isLoading: false,
+            isError: false
+        } as never)
+
+        const queryClient = new QueryClient({
+            defaultOptions: {
+                queries: { retry: false },
+                mutations: { retry: false }
+            }
+        })
+        const i18n = getI18nInstance()
+
+        render(
+            <I18nextProvider i18n={i18n}>
+                <SnackbarProvider>
+                    <QueryClientProvider client={queryClient}>
+                        <MemoryRouter initialEntries={['/applications/app-1/settings']}>
+                            <Routes>
+                                <Route path='/applications/:applicationId/settings' element={<ApplicationSettings />} />
+                            </Routes>
+                        </MemoryRouter>
+                    </QueryClientProvider>
+                </SnackbarProvider>
+            </I18nextProvider>
+        )
+
+        const sectionLinksSwitch = within(screen.getByTestId('application-setting-sectionLinksEnabled')).getByRole(
+            'switch'
+        ) as HTMLInputElement
+        await userEvent.click(sectionLinksSwitch)
+        await userEvent.click(screen.getByTestId('application-settings-general-save'))
+
+        await waitFor(() => {
+            expect(mockedUpdateApplication).toHaveBeenCalledWith(
+                'app-1',
+                expect.objectContaining({
+                    expectedVersion: 5,
+                    settings: expect.not.objectContaining({
+                        publicRuntime: expect.anything()
+                    })
+                })
+            )
+        })
+    })
+
     it('does not load limits while schema provisioning is still pending', async () => {
         mockedUseApplicationDetails.mockReturnValue({
             data: {

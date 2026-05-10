@@ -7,6 +7,7 @@ import {
     TreeEntityRef
 } from '../../../../types'
 import type { LinkedCollectionCopyOptions, VersionedLocalizedContent } from '@universo/types'
+import { normalizeCatalogRecordBehavior, normalizeLedgerConfig } from '@universo/types'
 
 type EntityInstancePaginationParams = PaginationParams & { kindKey?: string }
 
@@ -26,13 +27,17 @@ const buildLinkedCollectionConfig = (params: {
     treeEntityIds?: string[]
     isSingleHub?: boolean
     isRequiredHub?: boolean
+    recordBehavior?: unknown
+    ledgerConfig?: unknown | null
 }) => {
-    const { sortOrder, treeEntityIds, isSingleHub, isRequiredHub } = params
+    const { sortOrder, treeEntityIds, isSingleHub, isRequiredHub, recordBehavior, ledgerConfig } = params
     const config: Record<string, unknown> = {
         ...(sortOrder !== undefined ? { sortOrder } : {}),
         ...(treeEntityIds !== undefined ? { hubs: treeEntityIds } : {}),
         ...(isSingleHub !== undefined ? { isSingleHub } : {}),
-        ...(isRequiredHub !== undefined ? { isRequiredHub } : {})
+        ...(isRequiredHub !== undefined ? { isRequiredHub } : {}),
+        ...(recordBehavior !== undefined ? { recordBehavior: normalizeCatalogRecordBehavior(recordBehavior) } : {}),
+        ...(ledgerConfig !== undefined && ledgerConfig !== null ? { ledger: normalizeLedgerConfig(ledgerConfig) } : {})
     }
 
     return Object.keys(config).length > 0 ? config : undefined
@@ -170,15 +175,23 @@ export const createLinkedCollectionAtMetahub = (
         treeEntityIds?: string[]
         isSingleHub?: boolean
         isRequiredHub?: boolean
+        ledgerConfig?: unknown | null
         kindKey?: string
     }
 ) => {
-    const { kindKey, sortOrder, treeEntityIds, isSingleHub, isRequiredHub, ...payload } = data
+    const { kindKey, sortOrder, treeEntityIds, isSingleHub, isRequiredHub, recordBehavior, ledgerConfig, ...payload } = data
 
     return apiClient.post<LinkedCollectionEntity>(buildLinkedCollectionInstancesPath(metahubId, kindKey), {
         ...payload,
         kind: resolveCatalogKindKey(kindKey),
-        config: buildLinkedCollectionConfig({ sortOrder, treeEntityIds, isSingleHub, isRequiredHub })
+        config: buildLinkedCollectionConfig({
+            sortOrder,
+            treeEntityIds,
+            isSingleHub,
+            isRequiredHub,
+            recordBehavior,
+            ledgerConfig
+        })
     })
 }
 
@@ -188,7 +201,7 @@ export const createLinkedCollectionAtMetahub = (
 export const createLinkedCollection = (
     metahubId: string,
     treeEntityId: string,
-    data: LinkedCollectionLocalizedPayload & { sortOrder?: number; kindKey?: string }
+    data: LinkedCollectionLocalizedPayload & { sortOrder?: number; ledgerConfig?: unknown | null; kindKey?: string }
 ) =>
     apiClient.post<LinkedCollectionEntity>(
         `${buildContainerScopedLinkedCollectionPath(metahubId, treeEntityId, data.kindKey)}/instances`,
@@ -196,6 +209,7 @@ export const createLinkedCollection = (
     )
 
 export type LinkedCollectionCopyInput = LinkedCollectionLocalizedPayload & {
+    config?: Record<string, unknown>
     copyFieldDefinitions?: LinkedCollectionCopyOptions['copyFieldDefinitions']
     copyRecords?: LinkedCollectionCopyOptions['copyRecords']
 }
@@ -228,7 +242,12 @@ export const updateLinkedCollection = (
     metahubId: string,
     treeEntityId: string,
     linkedCollectionId: string,
-    data: Partial<LinkedCollectionLocalizedPayload> & { sortOrder?: number; expectedVersion?: number; kindKey?: string }
+    data: Partial<LinkedCollectionLocalizedPayload> & {
+        sortOrder?: number
+        ledgerConfig?: unknown | null
+        expectedVersion?: number
+        kindKey?: string
+    }
 ) =>
     apiClient.patch<LinkedCollectionEntity>(
         `${buildContainerScopedLinkedCollectionPath(metahubId, treeEntityId, data.kindKey)}/instance/${linkedCollectionId}`,
@@ -247,15 +266,16 @@ export const updateLinkedCollectionAtMetahub = (
         treeEntityIds?: string[]
         isSingleHub?: boolean
         isRequiredHub?: boolean
+        ledgerConfig?: unknown | null
         expectedVersion?: number
         kindKey?: string
     }
 ) => {
-    const { kindKey, sortOrder, treeEntityIds, isSingleHub, isRequiredHub, ...payload } = data
+    const { kindKey, sortOrder, treeEntityIds, isSingleHub, isRequiredHub, recordBehavior, ledgerConfig, ...payload } = data
 
     return apiClient.patch<LinkedCollectionEntity>(buildLinkedCollectionInstancePath(metahubId, linkedCollectionId, kindKey), {
         ...payload,
-        config: buildLinkedCollectionConfig({ sortOrder, treeEntityIds, isSingleHub, isRequiredHub })
+        config: buildLinkedCollectionConfig({ sortOrder, treeEntityIds, isSingleHub, isRequiredHub, recordBehavior, ledgerConfig })
     })
 }
 

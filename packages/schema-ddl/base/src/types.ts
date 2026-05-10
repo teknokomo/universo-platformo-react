@@ -1,4 +1,11 @@
-import type { FieldDefinitionDataType, EntityKind, MetaEntityDefinition, MetaFieldDefinition, MetaPresentation } from '@universo/types'
+import type {
+    ComponentManifest,
+    FieldDefinitionDataType,
+    EntityKind,
+    MetaEntityDefinition,
+    MetaFieldDefinition,
+    MetaPresentation
+} from '@universo/types'
 
 export type RuntimeEntityKind = EntityKind | 'enumeration' | 'relation' | 'settings'
 
@@ -17,6 +24,7 @@ export interface EntityDefinition extends Omit<MetaEntityDefinition, 'kind' | 'f
     physicalTableName?: string
     physicalTablePrefix?: string | null
     config?: Record<string, unknown>
+    components?: ComponentManifest
 }
 
 export interface SchemaFieldSnapshot {

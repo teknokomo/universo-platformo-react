@@ -481,7 +481,10 @@ const ApplicationRuntime = () => {
             sectionCodename: activeRuntimeSection?.codename ?? null,
             linkedCollectionId: currentSectionId ?? null,
             linkedCollectionCodename: activeRuntimeSection?.codename ?? null,
+            sections: state.appData?.sections ?? [],
+            linkedCollections: state.appData?.linkedCollections ?? [],
             apiBaseUrl: '/api/v1',
+            locale: i18n.language,
             currentWorkspaceId: state.appData?.currentWorkspaceId ?? null,
             runtimeQueryKeyPrefix: adapter?.queryKeyPrefix,
             workspacesEnabled: state.appData?.workspacesEnabled ?? false,
@@ -524,7 +527,10 @@ const ApplicationRuntime = () => {
             state.setPaginationModel,
             state.pageSizeOptions,
             state.localeText,
+            state.appData?.sections,
+            state.appData?.linkedCollections,
             createActions,
+            i18n.language,
             navigate,
             pageSurfaceContent,
             adapter?.queryKeyPrefix,
@@ -677,7 +683,14 @@ const ApplicationRuntime = () => {
                         labels={{
                             editText: t('app.edit', 'Edit'),
                             copyText: t('app.copy', 'Copy'),
-                            deleteText: t('app.delete', 'Delete')
+                            deleteText: t('app.delete', 'Delete'),
+                            postText: t('app.postRecord', 'Post'),
+                            unpostText: t('app.unpostRecord', 'Unpost'),
+                            voidText: t('app.voidRecord', 'Void'),
+                            stateDraftText: t('app.recordStateDraft', 'Draft'),
+                            statePostedText: t('app.recordStatePosted', 'Posted'),
+                            stateVoidedText: t('app.recordStateVoided', 'Voided'),
+                            stateUnknownText: t('app.recordStateUnknown', 'State')
                         }}
                     />
                 </>

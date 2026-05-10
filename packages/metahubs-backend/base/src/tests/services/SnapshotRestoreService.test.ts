@@ -130,6 +130,57 @@ describe('SnapshotRestoreService', () => {
         expect(mockEnsureCatalogSystemFieldDefinitionsSeed).toHaveBeenCalled()
     })
 
+    it('rejects imported ledger configs with invalid field references before restoring entities', async () => {
+        const { knex, insertedRows } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+        const snapshot = makeMinimalSnapshot({
+            entities: {
+                'old-ledger-id': {
+                    kind: 'ledger',
+                    codename: 'ProgressLedger',
+                    presentation: { name: { en: 'Progress Ledger' }, description: {} },
+                    config: {
+                        ledger: {
+                            fieldRoles: [{ fieldCodename: 'MissingField', role: 'dimension' }],
+                            projections: [],
+                            idempotency: { keyFields: [] }
+                        }
+                    },
+                    fields: []
+                }
+            },
+            entityTypeDefinitions: {
+                ledger: {
+                    id: 'type-ledger',
+                    kindKey: 'ledger',
+                    codename: 'ledger',
+                    presentation: { name: { en: 'Ledgers' }, description: {} },
+                    components: {
+                        dataSchema: { enabled: true },
+                        physicalTable: { enabled: true },
+                        ledgerSchema: { enabled: true }
+                    },
+                    ui: {
+                        iconName: 'IconDatabase',
+                        tabs: ['general', 'ledgerSchema'],
+                        sidebarSection: 'objects',
+                        nameKey: 'metahubs:ledgers.title'
+                    },
+                    config: {}
+                }
+            }
+        })
+
+        await expect(service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')).rejects.toMatchObject({
+            message: 'Ledger schema config contains invalid field references',
+            details: {
+                field: 'config.ledger',
+                errors: [expect.objectContaining({ code: 'FIELD_NOT_FOUND' })]
+            }
+        })
+        expect(insertedRows['_mhb_objects']).toBeUndefined()
+    })
+
     it('updates existing entity type definitions instead of inserting duplicates during snapshot restore', async () => {
         const { knex, mockBuilder, insertedRows } = createMockKnex()
         mockBuilder.first.mockResolvedValueOnce({ id: 'existing-page-type' })

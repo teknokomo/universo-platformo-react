@@ -3,7 +3,14 @@ import { z } from 'zod'
 import { isSuperuser, getGlobalRoleCodename } from '@universo/admin-backend'
 import { applyRlsContext } from '@universo/auth-backend'
 import { getPoolExecutor } from '@universo/database'
-import { activeAppRowCondition, buildSnapshotEnvelope, getCodenamePrimary, validateSnapshotEnvelope } from '@universo/utils'
+import {
+    activeAppRowCondition,
+    buildSnapshotEnvelope,
+    getCodenamePrimary,
+    parseWorkspaceModePolicy,
+    validateSnapshotEnvelope,
+    WorkspacePolicyError
+} from '@universo/utils'
 import {
     findMetahubById,
     findMetahubByCodename,
@@ -36,7 +43,7 @@ import {
 import { activeMetahubRowCondition } from '../../../persistence/metahubsQueryHelpers'
 import { ensureMetahubAccess, ROLE_PERMISSIONS, assertNotOwner, MetahubRole } from '../../shared/guards'
 import { resolveUserId } from '../../shared/routeAuth'
-import type { VersionedLocalizedContent } from '@universo/types'
+import { type MetahubRuntimePolicySnapshot, type VersionedLocalizedContent } from '@universo/types'
 import { validateListQuery } from '../../shared/queryParams'
 import { sanitizeLocalizedInput, buildLocalizedContent, ensureVLC } from '@universo/utils/vlc'
 import { normalizeCodenameForStyle, isValidCodenameForStyle } from '@universo/utils/validation/codename'
@@ -64,6 +71,7 @@ import { MetahubRecordsService } from '../services/MetahubRecordsService'
 import { MetahubOptionValuesService } from '../services/MetahubOptionValuesService'
 import { MetahubFixedValuesService } from '../services/MetahubFixedValuesService'
 import { MetahubScriptsService } from '../../scripts/services/MetahubScriptsService'
+import { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
 import { EntityTypeService } from '../../entities/services/EntityTypeService'
 import { ActionService } from '../../entities/services/ActionService'
 import { EventBindingService } from '../../entities/services/EventBindingService'
@@ -1876,6 +1884,31 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             return res.status(400).json({ error: 'Invalid snapshot envelope', details: message })
         }
 
+        let importedRuntimePolicy: MetahubRuntimePolicySnapshot | undefined
+        const rawRuntimePolicy = (envelope.snapshot as { runtimePolicy?: unknown }).runtimePolicy
+        if (rawRuntimePolicy !== undefined && rawRuntimePolicy !== null) {
+            if (typeof rawRuntimePolicy !== 'object' || Array.isArray(rawRuntimePolicy)) {
+                return res.status(400).json({
+                    error: 'Invalid snapshot envelope',
+                    details: 'Invalid runtimePolicy: expected an object'
+                })
+            }
+
+            try {
+                importedRuntimePolicy = {
+                    workspaceMode: parseWorkspaceModePolicy((rawRuntimePolicy as { workspaceMode?: unknown }).workspaceMode)
+                }
+            } catch (error) {
+                if (error instanceof WorkspacePolicyError) {
+                    return res.status(400).json({
+                        error: 'Invalid snapshot envelope',
+                        details: error.message
+                    })
+                }
+                throw error
+            }
+        }
+
         const { exec } = getServices(req)
         const accessToken = resolveBearerAccessToken(req)
         const rootExec = getPoolExecutor()
@@ -1938,7 +1971,8 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                         page: false,
                         catalog: false,
                         set: false,
-                        enumeration: false
+                        enumeration: false,
+                        ledger: false
                     }
                 }
             })
@@ -1982,7 +2016,6 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                     versionEnvelope?: { structureVersion?: string; templateVersion?: string }
                 }
             )?.versionEnvelope
-
             const schemaService = new MetahubSchemaService(exec, freshMetahub.defaultBranchId)
             await schemaService.rewriteBaselineMigrationVersion(branch.schemaName, importedVersionEnvelope?.structureVersion)
 
@@ -2008,7 +2041,8 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                 new SharedEntityOverridesService(exec, schemaService),
                 entityTypeService,
                 actionService,
-                eventBindingService
+                eventBindingService,
+                new MetahubSettingsService(exec, schemaService)
             )
             const canonicalPublicationSnapshot = await serializer.serializeMetahub(metahub.id, {
                 structureVersion:
@@ -2016,7 +2050,8 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                         ? importedVersionEnvelope.structureVersion
                         : await schemaService.resolvePublicStructureVersion(branch.schemaName, branch.structureVersion),
                 templateVersion:
-                    typeof importedVersionEnvelope?.templateVersion === 'string' ? importedVersionEnvelope.templateVersion : undefined
+                    typeof importedVersionEnvelope?.templateVersion === 'string' ? importedVersionEnvelope.templateVersion : undefined,
+                ...(importedRuntimePolicy ? { runtimePolicy: importedRuntimePolicy } : {})
             })
             await attachLayoutsToSnapshot({
                 schemaService,
@@ -2158,7 +2193,8 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             new SharedEntityOverridesService(exec, schemaService),
             entityTypeService,
             actionService,
-            eventBindingService
+            eventBindingService,
+            new MetahubSettingsService(exec, schemaService)
         )
 
         const publicStructureVersion = await schemaService.resolvePublicStructureVersion(branch.schemaName, branch.structureVersion)

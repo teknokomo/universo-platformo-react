@@ -87,12 +87,47 @@ describe('applications-frontend api wrappers', () => {
         api.deleteApplication('m1')
         expect(del).toHaveBeenCalledWith('/applications/m1')
 
+        await api.getApplicationRuntime('app-1', {
+            limit: 25,
+            offset: 50,
+            locale: 'ru',
+            sectionId: 'section-1',
+            search: 'course',
+            sort: [{ field: 'name', direction: 'asc' }],
+            filters: [{ field: 'status', operator: 'equals', value: 'active' }]
+        })
+        expect(get).toHaveBeenCalledWith('/applications/app-1/runtime', {
+            params: {
+                limit: 25,
+                offset: 50,
+                locale: 'ru',
+                linkedCollectionId: 'section-1',
+                search: 'course',
+                sort: JSON.stringify([{ field: 'name', direction: 'asc' }]),
+                filters: JSON.stringify([{ field: 'status', operator: 'equals', value: 'active' }])
+            }
+        })
+
         api.copyApplication('m1', { name: { en: 'Copy Name' }, copyConnector: true, createSchema: false, copyAccess: true })
         expect(post).toHaveBeenCalledWith('/applications/m1/copy', {
             name: { en: 'Copy Name' },
             copyConnector: true,
             copyAccess: true
         })
+
+        post.mockResolvedValueOnce({ data: { id: 'row-1', _app_record_state: 'posted' } })
+        const postedRow = await api.runApplicationRuntimeRecordCommand({
+            applicationId: 'app-1',
+            rowId: 'row-1',
+            command: 'post',
+            linkedCollectionId: 'catalog-1',
+            expectedVersion: 7
+        })
+        expect(post).toHaveBeenCalledWith('/applications/app-1/runtime/rows/row-1/post', {
+            linkedCollectionId: 'catalog-1',
+            expectedVersion: 7
+        })
+        expect(postedRow).toEqual({ id: 'row-1', _app_record_state: 'posted' })
 
         const members = await api.listApplicationMembers('m1', { limit: 10, offset: 0, sortBy: 'updated', sortOrder: 'desc', search: 'a' })
         expect(get).toHaveBeenCalledWith('/applications/m1/members', {

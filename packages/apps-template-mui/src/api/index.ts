@@ -4,15 +4,26 @@ export {
     createAppRow,
     updateAppRow,
     deleteAppRow,
+    runAppRecordCommand,
+    fetchRuntimeLedgers,
+    fetchRuntimeLedgerFacts,
+    fetchRuntimeLedgerProjection,
     appDataResponseSchema,
     dashboardLayoutConfigSchema
 } from './api'
-export type { AppDataResponse, ApplicationRuntimeResponse, DashboardLayoutConfig } from './api'
+export type {
+    AppDataResponse,
+    ApplicationRuntimeResponse,
+    DashboardLayoutConfig,
+    RuntimeLedgerFactsResponse,
+    RuntimeLedgerMetadataResponse,
+    RuntimeLedgerProjectionResponse
+} from './api'
 
 export { appQueryKeys, runtimeKeys, useAppRow, useCreateAppRow, useUpdateAppRow, useDeleteAppRow } from './mutations'
 
 // Adapter pattern
-export type { CrudDataAdapter, CellRendererOverrides } from './types'
+export type { CrudDataAdapter, CellRendererOverrides, RuntimeRecordCommand } from './types'
 export { createStandaloneAdapter } from './adapters'
 
 // Tabular part (TABLE attribute) adapter

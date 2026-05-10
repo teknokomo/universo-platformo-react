@@ -329,6 +329,30 @@ describe('EntityScriptsTab', () => {
         })
     })
 
+    it('renders posting and ledger capability labels through the shared i18n map', async () => {
+        mocks.list.mockResolvedValue([
+            createScriptRecord({
+                manifest: {
+                    className: 'PostingScript',
+                    sdkApiVersion: '1.0.0',
+                    moduleRole: 'module',
+                    sourceKind: 'embedded',
+                    capabilities: ['posting', 'ledger.read', 'ledger.write'],
+                    methods: []
+                }
+            })
+        ])
+
+        renderTab(<EntityScriptsTab metahubId='metahub-1' attachedToKind='catalog' attachedToId='catalog-1' t={translate} />)
+
+        await waitFor(() => expect(screen.getByText('Run posting handlers')).toBeInTheDocument())
+        expect(screen.getByText('Read ledgers')).toBeInTheDocument()
+        expect(screen.getByText('Write ledgers')).toBeInTheDocument()
+        expect(screen.queryByText('posting')).not.toBeInTheDocument()
+        expect(screen.queryByText('ledger.read')).not.toBeInTheDocument()
+        expect(screen.queryByText('ledger.write')).not.toBeInTheDocument()
+    })
+
     it('submits delete requests for existing scripts and refetches the list', async () => {
         const user = userEvent.setup()
 

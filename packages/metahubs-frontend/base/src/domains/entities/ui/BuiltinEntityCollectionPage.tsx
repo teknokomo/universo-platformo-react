@@ -12,7 +12,8 @@ const standardEntityCollectionViews: Record<BuiltinEntityKind, () => JSX.Element
     hub: TreeEntityListContent,
     set: ValueGroupListContent,
     enumeration: OptionListContent,
-    page: EntityInstanceListContent
+    page: EntityInstanceListContent,
+    ledger: EntityInstanceListContent
 }
 
 const renderStandardEntityCollection = (kindKey: BuiltinEntityKind | null) => {

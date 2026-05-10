@@ -21,6 +21,13 @@ All primary LMS concepts are represented as ordinary metahub entities.
 | `AccessLinks`    | Guest-access routing records                                                       |
 | `Enrollments`    | Class-student-module bridge                                                        |
 
+## Operational Ledgers
+
+| Ledger           | Purpose                                                                                         |
+| ---------------- | ----------------------------------------------------------------------------------------------- |
+| `ProgressLedger` | Append-oriented learning progress movements keyed by learner, module, workspace, and attempt    |
+| `ScoreLedger`    | Append-oriented quiz and assessment score movements with score, max score, and percent measures |
+
 ## Supporting Enumerations
 
 | Enumeration        | Purpose                                   |
@@ -35,6 +42,8 @@ All primary LMS concepts are represented as ordinary metahub entities.
 -   Quiz options are stored in a JSON field inside each question row.
 -   `TABLE` fields are used for module content items and quiz questions.
 -   `LearnerHome` is a Page, not a physical runtime table. Its content is carried by metadata blocks and rendered by the shared dashboard details surface.
+-   `ProgressLedger` and `ScoreLedger` are standard Ledger entities, not LMS-specific services. They use the shared Ledger configuration block for dimensions, resources, measures, period fields, and projections.
+-   Transactional LMS catalogs use the shared Catalog `behavior` tab for numbering, effective dates, lifecycle states, posting targets, and posting scripts. The LMS fixture stores these settings in `config.recordBehavior`.
 -   Access links are ordinary runtime rows rather than a separate routing subsystem.
 -   Guest sessions create student rows in the same application schema so progress and quiz statistics remain queryable together.
 

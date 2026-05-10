@@ -1,5 +1,12 @@
 import { z } from 'zod'
-import { linkedCollectionRuntimeViewConfigSchema, dashboardLayoutConfigSchema, runtimePageBlockSchema } from '@universo/types'
+import type { RuntimeDatasourceFilter, RuntimeDatasourceSort } from '@universo/types'
+import {
+    catalogRecordBehaviorSchema,
+    linkedCollectionRuntimeViewConfigSchema,
+    dashboardLayoutConfigSchema,
+    runtimePageBlockSchema
+} from '@universo/types'
+import type { RuntimeRecordCommand } from './types'
 
 export type { DashboardLayoutConfig } from '@universo/types'
 
@@ -134,6 +141,7 @@ export const appDataResponseSchema = z.object({
             tableName: z.string().nullable(),
             name: z.string(),
             runtimeConfig: linkedCollectionRuntimeViewConfigSchema.optional(),
+            recordBehavior: catalogRecordBehaviorSchema.optional(),
             pageBlocks: z.array(runtimePageBlockSchema).optional()
         })
         .optional(),
@@ -144,6 +152,7 @@ export const appDataResponseSchema = z.object({
         tableName: z.string().nullable(),
         name: z.string(),
         runtimeConfig: linkedCollectionRuntimeViewConfigSchema.optional(),
+        recordBehavior: catalogRecordBehaviorSchema.optional(),
         pageBlocks: z.array(runtimePageBlockSchema).optional()
     }),
     sections: z
@@ -154,7 +163,8 @@ export const appDataResponseSchema = z.object({
                 codename: z.string(),
                 tableName: z.string().nullable(),
                 name: z.string(),
-                runtimeConfig: linkedCollectionRuntimeViewConfigSchema.optional()
+                runtimeConfig: linkedCollectionRuntimeViewConfigSchema.optional(),
+                recordBehavior: catalogRecordBehaviorSchema.optional()
             })
         )
         .optional()
@@ -167,7 +177,8 @@ export const appDataResponseSchema = z.object({
                 codename: z.string(),
                 tableName: z.string().nullable(),
                 name: z.string(),
-                runtimeConfig: linkedCollectionRuntimeViewConfigSchema.optional()
+                runtimeConfig: linkedCollectionRuntimeViewConfigSchema.optional(),
+                recordBehavior: catalogRecordBehaviorSchema.optional()
             })
         )
         .optional()
@@ -365,6 +376,52 @@ export type AppDataResponse = z.infer<typeof appDataResponseSchema>
 /** @deprecated Use AppDataResponse instead */
 export type ApplicationRuntimeResponse = AppDataResponse
 
+const runtimeLedgerMetadataSchema = z.object({
+    id: z.string(),
+    codename: z.string(),
+    presentation: z.unknown().optional(),
+    fields: z
+        .array(
+            z.object({
+                codename: z.string(),
+                dataType: z.string().optional(),
+                role: z.string().nullable().optional()
+            })
+        )
+        .optional()
+        .default([])
+})
+
+const runtimeLedgerListResponseSchema = z.object({
+    ledgers: z.array(runtimeLedgerMetadataSchema).optional().default([])
+})
+
+const runtimeLedgerFactsResponseSchema = z.object({
+    rows: z
+        .array(
+            z.object({
+                id: z.string(),
+                createdAt: z.unknown().optional(),
+                data: z.record(z.unknown()).optional().default({})
+            })
+        )
+        .optional()
+        .default([]),
+    limit: z.number().optional().default(100),
+    offset: z.number().optional().default(0)
+})
+
+const runtimeLedgerProjectionResponseSchema = z.object({
+    projection: z.record(z.unknown()).optional().default({}),
+    rows: z.array(z.record(z.unknown())).optional().default([]),
+    limit: z.number().optional().default(100),
+    offset: z.number().optional().default(0)
+})
+
+export type RuntimeLedgerMetadataResponse = z.infer<typeof runtimeLedgerMetadataSchema>
+export type RuntimeLedgerFactsResponse = z.infer<typeof runtimeLedgerFactsResponseSchema>
+export type RuntimeLedgerProjectionResponse = z.infer<typeof runtimeLedgerProjectionResponseSchema>
+
 export async function fetchAppData(options: {
     apiBaseUrl: string
     applicationId: string
@@ -373,8 +430,11 @@ export async function fetchAppData(options: {
     locale: string
     linkedCollectionId?: string
     sectionId?: string
+    search?: string
+    sort?: RuntimeDatasourceSort[]
+    filters?: RuntimeDatasourceFilter[]
 }): Promise<AppDataResponse> {
-    const { apiBaseUrl, applicationId, limit, offset, locale, linkedCollectionId, sectionId } = options
+    const { apiBaseUrl, applicationId, limit, offset, locale, linkedCollectionId, sectionId, search, sort, filters } = options
     const resolvedSectionId = sectionId ?? linkedCollectionId
     const normalizedBase = apiBaseUrl.replace(/\/$/, '')
     const runtimePath = `${normalizedBase}/applications/${applicationId}/runtime`
@@ -386,6 +446,15 @@ export async function fetchAppData(options: {
     if (resolvedSectionId) {
         url.searchParams.set('linkedCollectionId', resolvedSectionId)
     }
+    if (search?.trim()) {
+        url.searchParams.set('search', search.trim())
+    }
+    if (sort?.length) {
+        url.searchParams.set('sort', JSON.stringify(sort))
+    }
+    if (filters?.length) {
+        url.searchParams.set('filters', JSON.stringify(filters))
+    }
 
     const res = await fetch(url.toString(), { credentials: 'include' })
     if (!res.ok) {
@@ -396,6 +465,107 @@ export async function fetchAppData(options: {
     const parsed = appDataResponseSchema.safeParse(json)
     if (!parsed.success) {
         throw new Error('App data API response validation failed')
+    }
+    return parsed.data
+}
+
+export async function fetchRuntimeLedgers(options: {
+    apiBaseUrl: string
+    applicationId: string
+}): Promise<RuntimeLedgerMetadataResponse[]> {
+    const { apiBaseUrl, applicationId } = options
+    const normalizedBase = apiBaseUrl.replace(/\/$/, '')
+    const url = buildApiUrl(normalizedBase, `/applications/${applicationId}/runtime/ledgers`)
+
+    const res = await fetch(url, { credentials: 'include' })
+    if (!res.ok) {
+        throw new Error(await extractErrorMessage(res, 'Ledger metadata API request failed'))
+    }
+
+    const parsed = runtimeLedgerListResponseSchema.safeParse(await res.json())
+    if (!parsed.success) {
+        throw new Error('Ledger metadata API response validation failed')
+    }
+    return parsed.data.ledgers
+}
+
+async function resolveRuntimeLedgerId(options: {
+    apiBaseUrl: string
+    applicationId: string
+    ledgerId?: string | null
+    ledgerCodename?: string | null
+}): Promise<string> {
+    if (options.ledgerId?.trim()) {
+        return options.ledgerId.trim()
+    }
+
+    const ledgerCodename = options.ledgerCodename?.trim()
+    if (!ledgerCodename) {
+        throw new Error('Ledger datasource requires ledgerId or ledgerCodename')
+    }
+
+    const ledgers = await fetchRuntimeLedgers(options)
+    const ledger = ledgers.find((item) => item.codename === ledgerCodename)
+    if (!ledger) {
+        throw new Error(`Ledger datasource target was not found: ${ledgerCodename}`)
+    }
+    return ledger.id
+}
+
+export async function fetchRuntimeLedgerFacts(options: {
+    apiBaseUrl: string
+    applicationId: string
+    ledgerId?: string | null
+    ledgerCodename?: string | null
+    limit: number
+    offset: number
+}): Promise<RuntimeLedgerFactsResponse> {
+    const { apiBaseUrl, applicationId, limit, offset } = options
+    const ledgerId = await resolveRuntimeLedgerId(options)
+    const normalizedBase = apiBaseUrl.replace(/\/$/, '')
+    const url = new URL(buildApiUrl(normalizedBase, `/applications/${applicationId}/runtime/ledgers/${ledgerId}/facts`))
+    url.searchParams.set('limit', String(limit))
+    url.searchParams.set('offset', String(offset))
+
+    const res = await fetch(url.toString(), { credentials: 'include' })
+    if (!res.ok) {
+        throw new Error(await extractErrorMessage(res, 'Ledger facts API request failed'))
+    }
+
+    const parsed = runtimeLedgerFactsResponseSchema.safeParse(await res.json())
+    if (!parsed.success) {
+        throw new Error('Ledger facts API response validation failed')
+    }
+    return parsed.data
+}
+
+export async function fetchRuntimeLedgerProjection(options: {
+    apiBaseUrl: string
+    applicationId: string
+    ledgerId?: string | null
+    ledgerCodename?: string | null
+    projectionCodename: string
+    filters?: Record<string, unknown>
+    limit: number
+    offset: number
+}): Promise<RuntimeLedgerProjectionResponse> {
+    const { apiBaseUrl, applicationId, projectionCodename, filters, limit, offset } = options
+    const ledgerId = await resolveRuntimeLedgerId(options)
+    const normalizedBase = apiBaseUrl.replace(/\/$/, '')
+    const url = buildApiUrl(normalizedBase, `/applications/${applicationId}/runtime/ledgers/${ledgerId}/query`)
+
+    const res = await fetchWithCsrf(apiBaseUrl, url.toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectionCodename, filters, limit, offset })
+    })
+    if (!res.ok) {
+        throw new Error(await extractErrorMessage(res, 'Ledger projection API request failed'))
+    }
+
+    const parsed = runtimeLedgerProjectionResponseSchema.safeParse(await res.json())
+    if (!parsed.success) {
+        throw new Error('Ledger projection API response validation failed')
     }
     return parsed.data
 }
@@ -523,6 +693,33 @@ export async function copyAppRow(options: {
     })
     if (!res.ok) {
         throw new Error(await extractErrorMessage(res, 'Copy row failed'))
+    }
+    return res.json()
+}
+
+export async function runAppRecordCommand(options: {
+    apiBaseUrl: string
+    applicationId: string
+    rowId: string
+    command: RuntimeRecordCommand
+    linkedCollectionId?: string
+    sectionId?: string
+    expectedVersion?: number
+}): Promise<Record<string, unknown>> {
+    const { apiBaseUrl, applicationId, rowId, command, linkedCollectionId, sectionId, expectedVersion } = options
+    const resolvedSectionId = sectionId ?? linkedCollectionId
+    const url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}/${command}`)
+    const body: Record<string, unknown> = {}
+    if (resolvedSectionId) body.linkedCollectionId = resolvedSectionId
+    if (typeof expectedVersion === 'number') body.expectedVersion = expectedVersion
+
+    const res = await fetchWithCsrf(apiBaseUrl, url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    })
+    if (!res.ok) {
+        throw new Error(await extractErrorMessage(res, 'Record command failed'))
     }
     return res.json()
 }

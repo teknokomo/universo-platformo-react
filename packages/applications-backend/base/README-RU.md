@@ -19,7 +19,11 @@
 
 - Управлять applications, connectors, memberships и publication links.
 - Управлять макетами на стороне приложения, включая lineage metahub, application-owned copies, defaults, activation и activity виджетов.
+- Владеть transactional Catalog commands для `recordBehavior`: атомарная нумерация записей, переходы `post` / `unpost` / `void`, lifecycle hooks и проверки неизменяемости опубликованных записей.
+- Применять declarative `beforePost` script movements через generic Ledger service внутри posting transaction.
+- Экспортировать generic runtime Ledger metadata, fact append/reversal, fact listing и projection query routes для стандартных `ledger` entities, не превращая Регистры в обычные row-CRUD sections.
 - Выполнять опубликованные runtime scripts через fail-closed server bridge, который переиспользует runtime row helpers, workspace context и permission maps.
+- Экспортировать `ctx.ledger` для runtime scripts только при объявленных capabilities `ledger.read` или `ledger.write`.
 - Экспортировать runtime sync, diff и release-bundle routes для managed application schemas.
 - Сохранять schema sync state в `applications.cat_applications` через SQL-first stores.
 - Хранить runtime release metadata в той же центральной sync-state surface.
@@ -46,6 +50,7 @@
 
 - `createApplicationsRoutes(...)` монтирует CRUD, connector, membership и runtime-sync routes.
 - Route surface теперь включает public join/leave flows и settings endpoints для per-workspace catalog limits.
+- Runtime Ledger endpoints монтируются под `/applications/:applicationId/runtime/ledgers` и держат append/reverse/query behavior отдельно от generic Catalog row CRUD.
 - Application layout endpoints монтируются под `/applications/:applicationId/layouts` и `/applications/:applicationId/layout-scopes`.
 - `initializeRateLimiters()` подготавливает package-level rate limiting до создания routes.
 - Persistence helpers в `src/services/` и `src/persistence/` образуют SQL-first write/read seams.

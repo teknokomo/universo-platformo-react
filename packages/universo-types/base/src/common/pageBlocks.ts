@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-const UNSAFE_CONTROL_CHAR_RE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/
+const UNSAFE_CONTROL_CHAR_RE = new RegExp(String.raw`[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]`)
 const HTML_TAG_RE = /<\/?[a-z][\s\S]*>/i
 
 export const SUPPORTED_PAGE_BLOCK_TYPES = ['paragraph', 'header', 'list', 'quote', 'table', 'image', 'embed', 'delimiter'] as const
@@ -429,10 +429,7 @@ export function adaptEditorJsBlock(raw: unknown): RuntimePageBlock {
     }
 }
 
-export function normalizeEditorJsOutputData(
-    value: unknown,
-    options?: PageBlockContentValidationOptions
-): PageBlockContent {
+export function normalizeEditorJsOutputData(value: unknown, options?: PageBlockContentValidationOptions): PageBlockContent {
     const output = asRecord(value)
     if (!output || !Array.isArray(output.blocks)) {
         throw new Error('Editor.js output must include a blocks array.')
@@ -442,9 +439,7 @@ export function normalizeEditorJsOutputData(
         pageBlockContentSchema.parse({
             format: 'editorjs',
             data: {
-                ...(typeof output.time === 'number' && Number.isFinite(output.time)
-                    ? { time: Math.max(0, Math.trunc(output.time)) }
-                    : {}),
+                ...(typeof output.time === 'number' && Number.isFinite(output.time) ? { time: Math.max(0, Math.trunc(output.time)) } : {}),
                 ...(typeof output.version === 'string' ? { version: output.version } : {}),
                 blocks: output.blocks.map(adaptEditorJsBlock)
             }
@@ -484,10 +479,7 @@ function normalizeAllowedBlockTypeSet(allowedBlockTypes: unknown): Set<string> |
     return new Set(normalized)
 }
 
-export function enforcePageBlockContentConstraints(
-    value: PageBlockContent,
-    options?: PageBlockContentValidationOptions
-): PageBlockContent {
+export function enforcePageBlockContentConstraints(value: PageBlockContent, options?: PageBlockContentValidationOptions): PageBlockContent {
     const blocks = getPageBlockContentBlocks(value)
     const allowedBlockTypeSet = normalizeAllowedBlockTypeSet(options?.allowedBlockTypes)
 
@@ -509,10 +501,7 @@ export function enforcePageBlockContentConstraints(
     return value
 }
 
-export function normalizePageBlockContentForStorage(
-    value: unknown,
-    options?: PageBlockContentValidationOptions
-): PageBlockContent {
+export function normalizePageBlockContentForStorage(value: unknown, options?: PageBlockContentValidationOptions): PageBlockContent {
     const parsed = pageBlockContentSchema.safeParse(value)
     if (parsed.success) {
         return enforcePageBlockContentConstraints(parsed.data, options)
