@@ -1,7 +1,16 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
 import type { DbExecutor } from '@universo/utils'
-import { isBuiltinEntityKind, normalizeRuntimePageBlocks, type BuiltinEntityKind } from '@universo/types'
+import { escapeLikeWildcards } from '@universo/utils'
+import {
+    isBuiltinEntityKind,
+    normalizeRuntimePageBlocks,
+    runtimeDatasourceFilterSchema,
+    runtimeDatasourceSortSchema,
+    type BuiltinEntityKind,
+    type RuntimeDatasourceFilter,
+    type RuntimeDatasourceSort
+} from '@universo/types'
 import {
     normalizeLinkedCollectionRuntimeViewConfig,
     resolveLinkedCollectionLayoutBehaviorConfig,
@@ -10,7 +19,15 @@ import {
 } from '@universo/utils'
 import { generateChildTableName } from '@universo/schema-ddl'
 import { getCatalogWorkspaceLimit, getCatalogWorkspaceUsage, enforceCatalogWorkspaceLimit } from '../services/applicationWorkspaces'
+import {
+    allocateRuntimeRecordNumber,
+    assertRuntimeRecordMutable,
+    isRuntimeRecordBehaviorEnabled,
+    normalizeRuntimeRecordBehavior,
+    RuntimeRecordCommandService
+} from '../services/runtimeRecordBehavior'
 import { RuntimeScriptsService } from '../services/runtimeScriptsService'
+import { RuntimePostingMovementService } from '../services/runtimePostingMovements'
 import type { RolePermission } from '../routes/guards'
 import {
     UpdateFailure,
@@ -55,11 +72,26 @@ import {
 // Zod schemas
 // ---------------------------------------------------------------------------
 
+const parseJsonQueryValue = (value: unknown): unknown => {
+    if (typeof value !== 'string') {
+        return value
+    }
+
+    try {
+        return JSON.parse(value)
+    } catch {
+        return value
+    }
+}
+
 const runtimeQuerySchema = z.object({
     limit: z.coerce.number().int().positive().max(10000).default(100),
     offset: z.coerce.number().int().min(0).default(0),
     locale: z.string().optional(),
-    linkedCollectionId: z.string().uuid().optional()
+    linkedCollectionId: z.string().uuid().optional(),
+    search: z.string().trim().max(200).optional(),
+    sort: z.preprocess(parseJsonQueryValue, z.array(runtimeDatasourceSortSchema).max(5).optional()),
+    filters: z.preprocess(parseJsonQueryValue, z.array(runtimeDatasourceFilterSchema).max(20).optional())
 })
 
 const runtimeUpdateBodySchema = z.object({
@@ -90,15 +122,39 @@ const runtimeReorderBodySchema = z.object({
     orderedRowIds: z.array(z.string().uuid()).min(1).max(1000)
 })
 
+const runtimeRecordCommandBodySchema = z.object({
+    linkedCollectionId: z.string().uuid().optional(),
+    expectedVersion: z.number().int().positive().optional()
+})
+
+const RUNTIME_RECORD_SYSTEM_FIELDS = [
+    '_app_record_number',
+    '_app_record_date',
+    '_app_record_state',
+    '_app_posted_at',
+    '_app_posted_by',
+    '_app_posting_batch_id',
+    '_app_posting_movements',
+    '_app_voided_at',
+    '_app_voided_by'
+] as const
+
 const RUNTIME_STANDARD_KIND_SQL = (kindColumn = 'kind') => `COALESCE(${kindColumn}, '')`
 
-const RUNTIME_CATALOG_FILTER_SQL = `${RUNTIME_STANDARD_KIND_SQL()} NOT IN ('hub', 'set', 'enumeration', 'page')`
+const RUNTIME_REGISTRAR_LEDGER_SQL = (configColumn = 'config') => `(
+    COALESCE((${configColumn}->'components'->'ledgerSchema'->>'enabled')::boolean, false) = true
+    AND jsonb_typeof(${configColumn}->'ledger') = 'object'
+    AND COALESCE(${configColumn}->'ledger'->>'sourcePolicy', '') = 'registrar'
+)`
+
+const RUNTIME_CATALOG_FILTER_SQL = `(${RUNTIME_STANDARD_KIND_SQL()} NOT IN ('hub', 'set', 'enumeration', 'page', 'ledger')
+    AND NOT ${RUNTIME_REGISTRAR_LEDGER_SQL()})`
 
 const resolveRuntimeStandardKind = (kind: unknown): BuiltinEntityKind | null =>
     typeof kind === 'string' && isBuiltinEntityKind(kind) ? kind : null
 
 const isRuntimeCatalogTargetKind = (kind: unknown): kind is string =>
-    typeof kind === 'string' && !['hub', 'set', 'enumeration', 'page'].includes(resolveRuntimeStandardKind(kind) ?? '')
+    typeof kind === 'string' && !['hub', 'set', 'enumeration', 'page', 'ledger'].includes(resolveRuntimeStandardKind(kind) ?? '')
 
 const isRuntimeEnumerationKind = (kind: unknown): kind is string =>
     typeof kind === 'string' && resolveRuntimeStandardKind(kind) === 'enumeration'
@@ -142,7 +198,7 @@ export const partitionRuntimeMenuItems = <T>(
 const resolveRuntimeLinkedCollection = async (manager: DbExecutor, schemaIdent: string, requestedLinkedCollectionId?: string) => {
     const linkedCollections = (await manager.query(
         `
-      SELECT id, codename, table_name, config
+      SELECT id, kind, codename, table_name, config
       FROM ${schemaIdent}._app_objects
     WHERE ${RUNTIME_CATALOG_FILTER_SQL}
         AND _upl_deleted = false
@@ -151,12 +207,13 @@ const resolveRuntimeLinkedCollection = async (manager: DbExecutor, schemaIdent: 
     `
     )) as Array<{
         id: string
+        kind: string | null
         codename: unknown
         table_name: string
         config?: Record<string, unknown> | null
     }>
 
-    if (linkedCollections.length === 0) return { linkedCollection: null, attrs: [], error: 'No catalogs available' } as const
+    if (linkedCollections.length === 0) return { linkedCollection: null, attrs: [], error: 'No record collections available' } as const
 
     const selectedLinkedCollection =
         (requestedLinkedCollectionId ? linkedCollections.find((c) => c.id === requestedLinkedCollectionId) : undefined) ??
@@ -167,7 +224,7 @@ const resolveRuntimeLinkedCollection = async (manager: DbExecutor, schemaIdent: 
               lifecycleContract: resolveApplicationLifecycleContractFromConfig(selectedLinkedCollection.config)
           }
         : null
-    if (!linkedCollection) return { linkedCollection: null, attrs: [], error: 'Catalog not found' } as const
+    if (!linkedCollection) return { linkedCollection: null, attrs: [], error: 'Record collection not found' } as const
     if (!IDENTIFIER_REGEX.test(linkedCollection.table_name))
         return { linkedCollection: null, attrs: [], error: 'Invalid table name' } as const
 
@@ -225,6 +282,174 @@ const buildRuntimeRowsOrderBy = (reorderColumnName: string | null) => {
     }
 
     return `${quoteIdentifier(reorderColumnName)} ASC NULLS LAST, _upl_created_at ASC NULLS LAST, id ASC`
+}
+
+const normalizeRuntimeListFieldKey = (value: unknown) =>
+    (typeof value === 'string' ? value : resolveRuntimeCodenameText(value)).trim().toLowerCase()
+
+const findRuntimeListAttribute = (attrs: Array<{ codename: unknown; column_name: string; data_type: RuntimeDataType }>, field: string) => {
+    const target = normalizeRuntimeListFieldKey(field)
+    if (!target) return null
+
+    return attrs.find((attr) => attr.column_name.toLowerCase() === target || normalizeRuntimeListFieldKey(attr.codename) === target) ?? null
+}
+
+const buildRuntimeListSearchClause = (
+    attrs: Array<{ column_name: string; data_type: RuntimeDataType }>,
+    search: string | undefined,
+    values: unknown[]
+) => {
+    const query = search?.trim()
+    if (!query) return null
+
+    const searchableAttrs = attrs.filter((attr) => attr.data_type !== 'TABLE' && attr.data_type !== 'JSON')
+    if (searchableAttrs.length === 0) return null
+
+    values.push(`%${escapeLikeWildcards(query)}%`)
+    const placeholder = `$${values.length}`
+    return `(${searchableAttrs.map((attr) => `${quoteIdentifier(attr.column_name)}::text ILIKE ${placeholder} ESCAPE '\\'`).join(' OR ')})`
+}
+
+const normalizeRuntimeFilterValue = (attr: { data_type: RuntimeDataType }, rawValue: unknown): unknown => {
+    if (rawValue === null || rawValue === undefined) return rawValue
+
+    if (attr.data_type === 'NUMBER') {
+        const numeric = typeof rawValue === 'number' ? rawValue : Number(rawValue)
+        return Number.isFinite(numeric) ? numeric : undefined
+    }
+
+    if (attr.data_type === 'BOOLEAN') {
+        if (typeof rawValue === 'boolean') return rawValue
+        if (typeof rawValue === 'string') {
+            const normalized = rawValue.trim().toLowerCase()
+            if (normalized === 'true') return true
+            if (normalized === 'false') return false
+        }
+        return undefined
+    }
+
+    return rawValue
+}
+
+const buildRuntimeListFilterClause = (
+    attr: { column_name: string; data_type: RuntimeDataType },
+    filter: RuntimeDatasourceFilter,
+    values: unknown[]
+) => {
+    const columnSql = quoteIdentifier(attr.column_name)
+
+    if (filter.operator === 'isEmpty') {
+        return `(${columnSql} IS NULL OR ${columnSql}::text = '')`
+    }
+    if (filter.operator === 'isNotEmpty') {
+        return `(${columnSql} IS NOT NULL AND ${columnSql}::text <> '')`
+    }
+
+    const normalizedValue = normalizeRuntimeFilterValue(attr, filter.value)
+    if (normalizedValue === undefined || normalizedValue === null || normalizedValue === '') {
+        return null
+    }
+
+    const addValue = (value: unknown) => {
+        values.push(value)
+        return `$${values.length}`
+    }
+
+    if (filter.operator === 'contains') {
+        return `${columnSql}::text ILIKE ${addValue(`%${escapeLikeWildcards(String(normalizedValue))}%`)} ESCAPE '\\'`
+    }
+    if (filter.operator === 'startsWith') {
+        return `${columnSql}::text ILIKE ${addValue(`${escapeLikeWildcards(String(normalizedValue))}%`)} ESCAPE '\\'`
+    }
+    if (filter.operator === 'endsWith') {
+        return `${columnSql}::text ILIKE ${addValue(`%${escapeLikeWildcards(String(normalizedValue))}`)} ESCAPE '\\'`
+    }
+
+    const comparableOperators: Record<RuntimeDatasourceFilter['operator'], string | undefined> = {
+        contains: undefined,
+        equals: '=',
+        startsWith: undefined,
+        endsWith: undefined,
+        isEmpty: undefined,
+        isNotEmpty: undefined,
+        greaterThan: '>',
+        greaterThanOrEqual: '>=',
+        lessThan: '<',
+        lessThanOrEqual: '<='
+    }
+
+    const sqlOperator = comparableOperators[filter.operator]
+    if (!sqlOperator) return null
+
+    return `${columnSql} ${sqlOperator} ${addValue(normalizedValue)}`
+}
+
+const buildRuntimeListClauses = (params: {
+    activeCondition: string
+    attrs: Array<{ codename: unknown; column_name: string; data_type: RuntimeDataType }>
+    search?: string
+    sort?: RuntimeDatasourceSort[]
+    filters?: RuntimeDatasourceFilter[]
+    fallbackOrderBy: string
+}) => {
+    const values: unknown[] = []
+    const whereClauses = [params.activeCondition]
+    const searchClause = buildRuntimeListSearchClause(params.attrs, params.search, values)
+    if (searchClause) {
+        whereClauses.push(searchClause)
+    }
+
+    for (const filter of params.filters ?? []) {
+        const attr = findRuntimeListAttribute(params.attrs, filter.field)
+        if (!attr || attr.data_type === 'TABLE' || attr.data_type === 'JSON') {
+            continue
+        }
+        const filterClause = buildRuntimeListFilterClause(attr, filter, values)
+        if (filterClause) {
+            whereClauses.push(filterClause)
+        }
+    }
+
+    const orderClauses: string[] = []
+    for (const sort of params.sort ?? []) {
+        const attr = findRuntimeListAttribute(params.attrs, sort.field)
+        if (!attr || attr.data_type === 'TABLE' || attr.data_type === 'JSON') {
+            continue
+        }
+        orderClauses.push(`${quoteIdentifier(attr.column_name)} ${sort.direction.toUpperCase()} NULLS LAST`)
+    }
+    orderClauses.push(params.fallbackOrderBy)
+
+    return {
+        whereSql: whereClauses.join(' AND '),
+        orderBySql: orderClauses.join(', '),
+        values
+    }
+}
+
+const findUnsupportedRuntimeListFields = (
+    attrs: Array<{ codename: unknown; column_name: string; data_type: RuntimeDataType }>,
+    sort?: RuntimeDatasourceSort[],
+    filters?: RuntimeDatasourceFilter[]
+) => {
+    const unsupported = new Set<string>()
+    const isSupported = (field: string) => {
+        const attr = findRuntimeListAttribute(attrs, field)
+        return Boolean(attr && attr.data_type !== 'TABLE' && attr.data_type !== 'JSON')
+    }
+
+    for (const sortItem of sort ?? []) {
+        if (!isSupported(sortItem.field)) {
+            unsupported.add(sortItem.field)
+        }
+    }
+    for (const filterItem of filters ?? []) {
+        if (!isSupported(filterItem.field)) {
+            unsupported.add(filterItem.field)
+        }
+    }
+
+    return Array.from(unsupported)
 }
 
 const runtimeSystemTableExists = async (manager: DbExecutor, schemaName: string, tableName: string) => {
@@ -521,15 +746,21 @@ const dispatchRuntimeLifecycle = async (params: {
             | 'afterDelete'
             | 'beforeCopy'
             | 'afterCopy'
+            | 'beforePost'
+            | 'afterPost'
+            | 'beforeUnpost'
+            | 'afterUnpost'
+            | 'beforeVoid'
+            | 'afterVoid'
         row?: Record<string, unknown> | null
         previousRow?: Record<string, unknown> | null
         patch?: Record<string, unknown> | null
         metadata?: Record<string, unknown>
     }
-}) => {
+}): Promise<unknown[]> => {
     const scriptsService = new RuntimeScriptsService()
 
-    await scriptsService.dispatchLifecycleEvent({
+    return scriptsService.dispatchLifecycleEvent({
         executor: params.manager,
         applicationId: params.applicationId,
         schemaName: params.schemaName,
@@ -563,6 +794,8 @@ const dispatchRuntimeLifecycleAfterCommit = (manager: DbExecutor, request: Runti
 
 export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
     const query = createQueryHelper(getDbExecutor)
+    const recordCommandService = new RuntimeRecordCommandService()
+    const postingMovementService = new RuntimePostingMovementService()
 
     // ============ GET RUNTIME TABLE ============
     const getRuntime = async (req: Request, res: Response) => {
@@ -573,7 +806,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             return res.status(400).json({ error: 'Invalid query', details: parsedQuery.error.flatten() })
         }
 
-        const { limit, offset, locale } = parsedQuery.data
+        const { limit, offset, locale, search, sort, filters } = parsedQuery.data
         const requestedLocale = normalizeLocale(locale)
         const requestedLinkedCollectionId = parsedQuery.data.linkedCollectionId ?? null
         const runtimeContext = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
@@ -640,6 +873,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         if (!isActivePage && !IDENTIFIER_REGEX.test(activeLinkedCollection.table_name ?? '')) {
             return res.status(400).json({ error: 'Invalid runtime table name' })
         }
+        const activeRecordBehavior = normalizeRuntimeRecordBehavior(activeLinkedCollection.config)
+        const activeRecordBehaviorEnabled = !isActivePage && isRuntimeRecordBehaviorEnabled(activeRecordBehavior)
 
         const attributes = isActivePage
             ? []
@@ -904,8 +1139,27 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 undefined,
                 currentWorkspaceId
             )
+            const unsupportedListFields = findUnsupportedRuntimeListFields(physicalAttributes, sort, filters)
+            if (unsupportedListFields.length > 0) {
+                return res.status(400).json({
+                    error: 'Runtime list query references unknown or unsupported fields',
+                    fields: unsupportedListFields
+                })
+            }
+            const runtimeListClauses = buildRuntimeListClauses({
+                activeCondition: activeCatalogRowCondition,
+                attrs: physicalAttributes,
+                search,
+                sort,
+                filters,
+                fallbackOrderBy: buildRuntimeRowsOrderBy(reorderFieldAttr?.column_name ?? null)
+            })
             // Use physicalAttributes for SQL because TABLE attrs have no physical column in the parent table.
-            const selectColumns = ['id', ...physicalAttributes.map((attr) => quoteIdentifier(attr.column_name))]
+            const selectColumns = [
+                'id',
+                ...(activeRecordBehaviorEnabled ? RUNTIME_RECORD_SYSTEM_FIELDS.map((field) => quoteIdentifier(field)) : []),
+                ...physicalAttributes.map((attr) => quoteIdentifier(attr.column_name))
+            ]
 
             for (const tAttr of tableAttrs) {
                 const fallbackTabTableName = generateChildTableName(tAttr.id)
@@ -926,28 +1180,41 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 `
         SELECT COUNT(*)::int AS total
         FROM ${dataTableIdent}
-        WHERE ${activeCatalogRowCondition}
-      `
+        WHERE ${runtimeListClauses.whereSql}
+      `,
+                runtimeListClauses.values
             )) as Array<{ total: number }>
             total = typeof totalRows[0]?.total === 'number' ? totalRows[0].total : Number(totalRows[0]?.total) || 0
 
+            const pageValues = [...runtimeListClauses.values, limit, offset]
             const rawRows = (await manager.query(
                 `
         SELECT ${selectColumns.join(', ')}
         FROM ${dataTableIdent}
-        WHERE ${activeCatalogRowCondition}
-        ORDER BY ${buildRuntimeRowsOrderBy(reorderFieldAttr?.column_name ?? null)}
-        LIMIT $1 OFFSET $2
+        WHERE ${runtimeListClauses.whereSql}
+        ORDER BY ${runtimeListClauses.orderBySql}
+        LIMIT $${runtimeListClauses.values.length + 1} OFFSET $${runtimeListClauses.values.length + 2}
       `,
-                [limit, offset]
+                pageValues
             )) as Array<Record<string, unknown>>
 
+            const hasRuntimeListModifiers = Boolean(search?.trim() || sort?.length || filters?.length)
             canPersistRowReordering =
-                activeLinkedCollectionRuntimeConfig.enableRowReordering && Boolean(reorderFieldAttr) && offset === 0 && total <= limit
+                activeLinkedCollectionRuntimeConfig.enableRowReordering &&
+                Boolean(reorderFieldAttr) &&
+                offset === 0 &&
+                total <= limit &&
+                !hasRuntimeListModifiers
 
             rows = rawRows.map((row) => {
                 const mappedRow: Record<string, unknown> & { id: string } = {
                     id: String(row.id)
+                }
+
+                if (activeRecordBehaviorEnabled) {
+                    for (const field of RUNTIME_RECORD_SYSTEM_FIELDS) {
+                        mappedRow[field] = row[field] ?? null
+                    }
                 }
 
                 for (const attribute of safeAttributes) {
@@ -1036,12 +1303,14 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         const linkedCollectionsForRuntime = runtimeCatalogs.map((catalogRow) => ({
             id: catalogRow.id,
             kind: resolveRuntimeStandardKind(catalogRow.kind) ?? 'catalog',
-            codename: catalogRow.codename,
+            codename: resolveRuntimeCodenameText(catalogRow.codename),
             tableName: catalogRow.table_name,
             runtimeConfig:
                 catalogRow.id === activeLinkedCollection.id
                     ? activeLinkedCollectionRuntimeConfig
                     : normalizeLinkedCollectionRuntimeViewConfig(undefined),
+            recordBehavior:
+                resolveRuntimeStandardKind(catalogRow.kind) === 'page' ? undefined : normalizeRuntimeRecordBehavior(catalogRow.config),
             name: resolvePresentationName(catalogRow.presentation, requestedLocale, resolveRuntimeCodenameText(catalogRow.codename))
         }))
 
@@ -1598,13 +1867,14 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         const activeSectionPayload = {
             id: activeLinkedCollection.id,
             kind: activeLinkedCollectionKind ?? 'catalog',
-            codename: activeLinkedCollection.codename,
+            codename: resolveRuntimeCodenameText(activeLinkedCollection.codename),
             tableName: activeLinkedCollection.table_name,
             pageBlocks: isActivePage ? normalizeRuntimePageBlocks(activeLinkedCollection.config?.blockContent) : undefined,
             runtimeConfig: {
                 ...activeLinkedCollectionRuntimeConfig,
                 enableRowReordering: canPersistRowReordering
             },
+            recordBehavior: isActivePage ? undefined : activeRecordBehavior,
             name: resolvePresentationName(
                 activeLinkedCollection.presentation,
                 requestedLocale,
@@ -1752,6 +2022,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 if (previousRow._upl_locked) {
                     throw new UpdateFailure(423, { error: 'Record is locked' })
                 }
+                assertRuntimeRecordMutable(linkedCollection.config, previousRow)
 
                 await dispatchRuntimeLifecycle({
                     manager: txManager,
@@ -2274,6 +2545,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                         error: 'Record is locked'
                     })
                 }
+                assertRuntimeRecordMutable(linkedCollection.config, previousRow)
 
                 await dispatchRuntimeLifecycle({
                     manager: txManager,
@@ -2454,27 +2726,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             })
         }
 
-        const colNames = columnValues.map((cv) => quoteIdentifier(cv.column))
-        const placeholders = columnValues.map((_, i) => `$${i + 1}`)
-        const insertValues = columnValues.map((cv) => cv.value)
-
-        if (ctx.workspacesEnabled && ctx.currentWorkspaceId) {
-            colNames.push(quoteIdentifier('workspace_id'))
-            placeholders.push(`$${insertValues.length + 1}`)
-            insertValues.push(ctx.currentWorkspaceId)
-        }
-
-        if (ctx.userId) {
-            colNames.push('_upl_created_by')
-            placeholders.push(`$${insertValues.length + 1}`)
-            insertValues.push(ctx.userId)
-        }
-
-        const insertSql =
-            colNames.length > 0
-                ? `INSERT INTO ${dataTableIdent} (${colNames.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING id`
-                : `INSERT INTO ${dataTableIdent} DEFAULT VALUES RETURNING id`
         const touchedAttributeIds = collectTouchedAttributeIds(attrs, data)
+        const recordBehavior = normalizeRuntimeRecordBehavior(linkedCollection.config)
 
         // Collect TABLE-type data from request body for child row insertion
         const tableAttrsForCreate = attrs.filter((a) => a.data_type === 'TABLE')
@@ -2687,6 +2940,49 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 }
             })
 
+            const createColumnValues = [...columnValues]
+            if (isRuntimeRecordBehaviorEnabled(recordBehavior)) {
+                const recordDate = new Date()
+                if (recordBehavior.numbering.enabled && !createColumnValues.some((item) => item.column === '_app_record_number')) {
+                    const recordNumber = await allocateRuntimeRecordNumber({
+                        manager: mgr,
+                        schemaIdent: ctx.schemaIdent,
+                        objectId: linkedCollection.id,
+                        behavior: recordBehavior,
+                        currentWorkspaceId: ctx.currentWorkspaceId,
+                        currentUserId: ctx.userId,
+                        date: recordDate
+                    })
+                    createColumnValues.push({ column: '_app_record_number', value: recordNumber })
+                }
+                if (recordBehavior.effectiveDate.enabled && recordBehavior.effectiveDate.defaultToNow) {
+                    createColumnValues.push({ column: '_app_record_date', value: recordDate })
+                }
+                if (recordBehavior.lifecycle.enabled || recordBehavior.posting.mode !== 'disabled') {
+                    createColumnValues.push({ column: '_app_record_state', value: 'draft' })
+                }
+            }
+
+            const colNames = createColumnValues.map((cv) => quoteIdentifier(cv.column))
+            const placeholders = createColumnValues.map((_, i) => `$${i + 1}`)
+            const insertValues = createColumnValues.map((cv) => cv.value)
+
+            if (ctx.workspacesEnabled && ctx.currentWorkspaceId) {
+                colNames.push(quoteIdentifier('workspace_id'))
+                placeholders.push(`$${insertValues.length + 1}`)
+                insertValues.push(ctx.currentWorkspaceId)
+            }
+
+            if (ctx.userId) {
+                colNames.push('_upl_created_by')
+                placeholders.push(`$${insertValues.length + 1}`)
+                insertValues.push(ctx.userId)
+            }
+
+            const insertSql =
+                colNames.length > 0
+                    ? `INSERT INTO ${dataTableIdent} (${colNames.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING id`
+                    : `INSERT INTO ${dataTableIdent} DEFAULT VALUES RETURNING id`
             const [inserted] = (await mgr.query(insertSql, insertValues)) as Array<{ id: string }>
             const parentId = inserted.id
 
@@ -2831,6 +3127,14 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         if (sourceRows.length === 0) return res.status(404).json({ error: 'Row not found' })
         if (sourceRows[0]._upl_locked) return res.status(423).json({ error: 'Record is locked' })
         const sourceRow = sourceRows[0]
+        try {
+            assertRuntimeRecordMutable(linkedCollection.config, sourceRow)
+        } catch (error) {
+            if (error instanceof UpdateFailure) {
+                return res.status(error.statusCode).json(error.body)
+            }
+            throw error
+        }
 
         const insertColumns = nonTableAttrs.map((attr) => quoteIdentifier(attr.column_name))
         const insertValuesArr = nonTableAttrs.map((attr) =>
@@ -3028,6 +3332,204 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         }
     }
 
+    const runRecordStateCommand = async (req: Request, res: Response, command: 'post' | 'unpost' | 'void') => {
+        const { applicationId, rowId } = req.params
+        if (!UUID_REGEX.test(rowId)) return res.status(400).json({ error: 'Invalid row ID format' })
+
+        const parsedBody = runtimeRecordCommandBodySchema.safeParse(req.body ?? {})
+        if (!parsedBody.success) {
+            return res.status(400).json({ error: 'Invalid body', details: parsedBody.error.flatten() })
+        }
+
+        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
+        if (!ctx) return
+        if (!ensureRuntimePermission(res, ctx, 'editContent')) return
+        if (!ctx.userId) return res.status(401).json({ error: 'Current user is required' })
+
+        const { linkedCollection, error: linkedCollectionError } = await resolveRuntimeLinkedCollection(
+            ctx.manager,
+            ctx.schemaIdent,
+            parsedBody.data.linkedCollectionId
+        )
+        if (!linkedCollection) return res.status(404).json({ error: linkedCollectionError })
+
+        const behavior = normalizeRuntimeRecordBehavior(linkedCollection.config)
+        if (!isRuntimeRecordBehaviorEnabled(behavior) || behavior.posting.mode === 'disabled') {
+            return res.status(409).json({ error: 'Record posting is disabled for this record collection', code: 'POSTING_DISABLED' })
+        }
+
+        const registrarKind = typeof linkedCollection.kind === 'string' ? linkedCollection.kind.trim() : ''
+        if (!registrarKind) {
+            return res.status(409).json({
+                error: 'Record posting registrar kind is not available',
+                code: 'POSTING_REGISTRAR_KIND_UNAVAILABLE'
+            })
+        }
+
+        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(linkedCollection.table_name)}`
+        const runtimeRowCondition = buildRuntimeActiveRowCondition(
+            linkedCollection.lifecycleContract,
+            linkedCollection.config,
+            undefined,
+            ctx.currentWorkspaceId
+        )
+
+        const eventPrefix = command === 'post' ? 'Post' : command === 'unpost' ? 'Unpost' : 'Void'
+        let afterLifecycleRequest: RuntimeLifecycleDispatchRequest | null = null
+        let responsePayload: Record<string, unknown> | null = null
+
+        try {
+            await ctx.manager.transaction(async (txManager) => {
+                const rows = (await txManager.query(
+                    `
+            SELECT *
+            FROM ${dataTableIdent}
+            WHERE id = $1
+              AND ${runtimeRowCondition}
+            FOR UPDATE
+            LIMIT 1
+          `,
+                    [rowId]
+                )) as Array<Record<string, unknown>>
+                const previousRow = rows[0]
+                if (!previousRow?.id) {
+                    throw new UpdateFailure(404, { error: 'Row not found' })
+                }
+                if (previousRow._upl_locked) {
+                    throw new UpdateFailure(423, { error: 'Record is locked' })
+                }
+                if (
+                    parsedBody.data.expectedVersion !== undefined &&
+                    Number(previousRow._upl_version ?? 1) !== parsedBody.data.expectedVersion
+                ) {
+                    throw new UpdateFailure(409, {
+                        error: 'Version mismatch',
+                        expectedVersion: parsedBody.data.expectedVersion,
+                        actualVersion: Number(previousRow._upl_version ?? 1)
+                    })
+                }
+
+                recordCommandService.assertCommandAllowed(command, previousRow)
+
+                const beforeLifecycleResults =
+                    (await dispatchRuntimeLifecycle({
+                        manager: txManager,
+                        applicationId,
+                        schemaName: ctx.schemaName,
+                        linkedCollection,
+                        currentWorkspaceId: ctx.currentWorkspaceId,
+                        currentUserId: ctx.userId,
+                        permissions: ctx.permissions,
+                        payload: {
+                            eventName: `before${eventPrefix}` as 'beforePost' | 'beforeUnpost' | 'beforeVoid',
+                            previousRow,
+                            metadata: { command }
+                        }
+                    })) ?? []
+
+                let postingMovements: Array<{ ledgerCodename: string; facts: Array<{ id: string; idempotent?: boolean }> }> = []
+                let postingReversals: Array<{ ledgerCodename: string; facts: Array<{ id: string }> }> = []
+
+                if (command === 'post') {
+                    postingMovements = await postingMovementService.appendMovements({
+                        executor: txManager,
+                        schemaName: ctx.schemaName,
+                        registrarKind,
+                        behavior,
+                        currentWorkspaceId: ctx.currentWorkspaceId,
+                        currentUserId: ctx.userId,
+                        results: beforeLifecycleResults
+                    })
+                } else {
+                    postingReversals = await postingMovementService.reversePostedMovements({
+                        executor: txManager,
+                        schemaName: ctx.schemaName,
+                        registrarKind,
+                        currentWorkspaceId: ctx.currentWorkspaceId,
+                        currentUserId: ctx.userId,
+                        storedMovements: previousRow._app_posting_movements
+                    })
+                }
+
+                const { setClauses, values } = await recordCommandService.buildUpdate({
+                    command,
+                    previousRow,
+                    behavior,
+                    manager: txManager,
+                    schemaIdent: ctx.schemaIdent,
+                    objectId: linkedCollection.id,
+                    rowId,
+                    currentWorkspaceId: ctx.currentWorkspaceId,
+                    currentUserId: ctx.userId
+                })
+
+                if (command === 'post') {
+                    values.push(JSON.stringify(postingMovements))
+                    setClauses.push(`_app_posting_movements = $${values.length}::jsonb`)
+                } else {
+                    setClauses.push('_app_posting_movements = NULL')
+                }
+
+                const updatedRows = (await txManager.query(
+                    `
+            UPDATE ${dataTableIdent}
+            SET ${setClauses.join(', ')}
+            WHERE id = $1
+              AND ${runtimeRowCondition}
+              AND COALESCE(_upl_locked, false) = false
+            RETURNING *
+          `,
+                    values
+                )) as Array<Record<string, unknown>>
+
+                const nextRow = updatedRows[0]
+                if (!nextRow?.id) {
+                    throw new UpdateFailure(404, { error: 'Row not found' })
+                }
+
+                nextRow._app_posting_movements = command === 'post' ? postingMovements : []
+                nextRow._app_posting_reversals = postingReversals
+
+                afterLifecycleRequest = {
+                    applicationId,
+                    schemaName: ctx.schemaName,
+                    linkedCollection,
+                    currentWorkspaceId: ctx.currentWorkspaceId,
+                    currentUserId: ctx.userId,
+                    permissions: ctx.permissions,
+                    payload: {
+                        eventName: `after${eventPrefix}` as 'afterPost' | 'afterUnpost' | 'afterVoid',
+                        row: nextRow,
+                        previousRow,
+                        metadata: { command }
+                    }
+                }
+                responsePayload = {
+                    id: String(nextRow.id),
+                    status: command === 'post' ? 'posted' : command === 'unpost' ? 'unposted' : 'voided',
+                    recordState: nextRow._app_record_state ?? null,
+                    recordNumber: nextRow._app_record_number ?? null,
+                    postedAt: nextRow._app_posted_at ?? null,
+                    postingBatchId: nextRow._app_posting_batch_id ?? null,
+                    postingMovements: nextRow._app_posting_movements ?? [],
+                    postingReversals: nextRow._app_posting_reversals ?? []
+                }
+            })
+        } catch (error) {
+            if (error instanceof UpdateFailure) {
+                return res.status(error.statusCode).json(error.body)
+            }
+            throw error
+        }
+
+        dispatchRuntimeLifecycleAfterCommit(ctx.manager, afterLifecycleRequest)
+        return res.json(responsePayload ?? { id: rowId, status: command })
+    }
+
+    const postRow = async (req: Request, res: Response) => runRecordStateCommand(req, res, 'post')
+    const unpostRow = async (req: Request, res: Response) => runRecordStateCommand(req, res, 'unpost')
+    const voidRow = async (req: Request, res: Response) => runRecordStateCommand(req, res, 'void')
+
     // ============ GET SINGLE ROW (raw for edit) ============
     const getRow = async (req: Request, res: Response) => {
         const { applicationId, rowId } = req.params
@@ -3122,6 +3624,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     error: 'Record is locked'
                 })
             }
+            assertRuntimeRecordMutable(linkedCollection.config, sourceRow)
 
             await dispatchRuntimeLifecycle({
                 manager: mgr,
@@ -3319,6 +3822,9 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         bulkUpdateRow,
         createRow,
         copyRow,
+        postRow,
+        unpostRow,
+        voidRow,
         getRow,
         deleteRow,
         reorderRows

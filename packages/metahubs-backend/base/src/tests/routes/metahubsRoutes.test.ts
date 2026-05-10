@@ -1720,6 +1720,22 @@ describe('Metahubs Routes', () => {
             expect(res.body.details).toContain('hash mismatch')
         })
 
+        it('should return 400 on invalid imported runtime policy', async () => {
+            const envelope = makeTestEnvelope({
+                runtimePolicy: {
+                    workspaceMode: 'disabled'
+                }
+            })
+
+            const app = buildApp()
+            const res = await request(app).post('/metahubs/import').send(envelope).expect(400)
+            expect(res.body).toMatchObject({
+                error: 'Invalid snapshot envelope'
+            })
+            expect(res.body.details).toContain('Unsupported workspace mode policy')
+            expect(mockCreateMetahub).not.toHaveBeenCalled()
+        })
+
         it.skip('should return 413 if content-length exceeds max file size (Express body parser waits for declared bytes)', async () => {
             // The defense-in-depth Content-Length check runs after Express body parsing.
             // Setting Content-Length > actual body causes Express to hang waiting for bytes.
@@ -1809,7 +1825,8 @@ describe('Metahubs Routes', () => {
                             page: false,
                             catalog: false,
                             set: false,
-                            enumeration: false
+                            enumeration: false,
+                            ledger: false
                         }
                     }
                 })
@@ -1854,6 +1871,65 @@ describe('Metahubs Routes', () => {
                 version: { id: 'version-1', versionNumber: 7 }
             })
             expect(mockCreatePublicationVersion).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ versionNumber: 7 }))
+        })
+
+        it('preserves imported snapshot runtime policy in the canonical publication version', async () => {
+            const metahubRow = {
+                id: 'new-metahub-id',
+                name: createLocalizedContent('en', 'Test Metahub'),
+                codename: testCodenameVlc('test-codename-imported'),
+                defaultBranchId: 'branch-main'
+            }
+
+            const envelope = makeTestEnvelope({
+                runtimePolicy: {
+                    workspaceMode: 'required'
+                }
+            })
+
+            mockCreateMetahub.mockResolvedValueOnce(metahubRow)
+            mockFindMetahubById.mockResolvedValueOnce(metahubRow)
+            mockFindBranchByIdAndMetahub.mockResolvedValueOnce({
+                id: 'branch-main',
+                schemaName: 'test_schema',
+                metahubId: 'new-metahub-id'
+            })
+            mockSerializeMetahub.mockImplementationOnce(async (_metahubId: string, options: Record<string, unknown>) => ({
+                version: 1,
+                generatedAt: '2026-04-04T00:00:00.000Z',
+                metahubId: 'new-metahub-id',
+                entities: {},
+                runtimePolicy: options.runtimePolicy
+            }))
+            mockCreatePublication.mockResolvedValueOnce({ id: 'pub-1' })
+            mockCreatePublicationVersion.mockResolvedValueOnce({ id: 'version-1', versionNumber: 1 })
+
+            mockExec.transaction.mockImplementation(async (cb: any) => {
+                const tx = { query: jest.fn(async () => []), transaction: jest.fn(), isReleased: () => false }
+                return cb(tx)
+            })
+
+            const app = buildApp()
+            await request(app).post('/metahubs/import').send(envelope).expect(201)
+
+            expect(mockSerializeMetahub).toHaveBeenCalledWith(
+                'new-metahub-id',
+                expect.objectContaining({
+                    runtimePolicy: {
+                        workspaceMode: 'required'
+                    }
+                })
+            )
+            expect(mockCreatePublicationVersion).toHaveBeenCalledWith(
+                expect.anything(),
+                expect.objectContaining({
+                    snapshotJson: expect.objectContaining({
+                        runtimePolicy: {
+                            workspaceMode: 'required'
+                        }
+                    })
+                })
+            )
         })
 
         it('rewrites the imported baseline migration row to the snapshot structureVersion', async () => {

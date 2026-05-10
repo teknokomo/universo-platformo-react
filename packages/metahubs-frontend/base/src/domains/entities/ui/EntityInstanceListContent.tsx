@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Alert, Box, Checkbox, Chip, FormControlLabel, Skeleton, Stack, Tab, Tabs, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useCommonTranslations } from '@universo/i18n'
@@ -29,16 +29,33 @@ import {
 } from '@universo/template-mui'
 import type { ActionDescriptor } from '@universo/template-mui'
 import { ConfirmDeleteDialog, ConflictResolutionDialog, EntityFormDialog, type TabConfig } from '@universo/template-mui/components/dialogs'
-import { isEnabledComponentConfig, type VersionedLocalizedContent } from '@universo/types'
+import {
+    DEFAULT_CATALOG_RECORD_BEHAVIOR,
+    DEFAULT_LEDGER_CONFIG,
+    isEnabledComponentConfig,
+    normalizeCatalogRecordBehavior,
+    normalizeCatalogRecordBehaviorFromConfig,
+    normalizeLedgerConfig,
+    normalizeLedgerConfigFromConfig,
+    resolveEntityResourceSurfaceTitle,
+    supportsLedgerSchema,
+    supportsRecordBehavior,
+    validateLedgerConfigReferences,
+    type BuiltinEntityKind,
+    type CatalogRecordBehavior,
+    type LedgerConfig,
+    type VersionedLocalizedContent
+} from '@universo/types'
 import { extractConflictInfo, isOptimisticLockConflict, type ConflictInfo } from '@universo/utils'
 
 import { ExistingCodenamesProvider, ContainerSelectionPanel } from '../../../components'
 import { STORAGE_KEYS } from '../../../view-preferences/storage'
 import { useViewPreference } from '../../../hooks/useViewPreference'
-import { getVLCString, type Metahub } from '../../../types'
+import { getVLCString, type FieldDefinition, type Metahub } from '../../../types'
 import { ensureLocalizedContent, extractLocalizedInput, getLocalizedContentText, hasPrimaryContent } from '../../../utils/localizedInput'
 import { isValidCodenameForStyle, normalizeCodenameForStyle } from '../../../utils/codename'
 import { FieldDefinitionListContent } from '../metadata/fieldDefinition/ui/FieldDefinitionList'
+import * as fieldDefinitionsApi from '../metadata/fieldDefinition/api'
 import { useTreeEntities } from '../../entities/presets/hooks/useTreeEntities'
 import LayoutList from '../../layouts/ui/LayoutList'
 import { useMetahubDetails } from '../../metahubs/hooks'
@@ -48,6 +65,7 @@ import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryL
 import { invalidateEntitiesQueries, metahubsQueryKeys } from '../../shared'
 import GeneralTabFields from '../../shared/ui/GeneralTabFields'
 import { createScriptsTab } from '../../scripts/ui/EntityScriptsTab'
+import { scriptsApi } from '../../scripts/api/scriptsApi'
 import { createEntityActionsTab, createEntityEventsTab } from './EntityAutomationTab'
 import { LinkedCollectionDeleteDialog } from '../../../components'
 import type { MetahubEntityInstance, UpdateEntityInstancePayload } from '../api'
@@ -63,6 +81,9 @@ import {
     useRestoreEntityInstance,
     useUpdateEntityInstance
 } from '../hooks'
+import RecordBehaviorFields from './RecordBehaviorFields'
+import type { RecordBehaviorOption } from './RecordBehaviorFields'
+import LedgerSchemaFields from './LedgerSchemaFields'
 import type { EntityInstanceDisplayRow, EntityInstanceFormValues, UiTranslate } from './entityInstanceListHelpers'
 import {
     DIALOG_SAVE_CANCEL,
@@ -80,6 +101,153 @@ import {
     resolveEntityTypeName,
     toStrictLocalizedRecord
 } from './entityInstanceListHelpers'
+
+const GENERIC_STANDARD_ENTITY_KINDS = new Set<BuiltinEntityKind>(['page', 'ledger'])
+const STANDARD_COLLECTION_I18N_PREFIX_BY_KIND: Partial<Record<BuiltinEntityKind, string>> = {
+    page: 'pages',
+    ledger: 'ledgers'
+}
+const PAGE_CONTENT_ROUTE_SEGMENT = 'content'
+const FALLBACK_DATA_SCHEMA_ROUTE_SEGMENT = 'field-definitions'
+
+const isRecordValue = (value: unknown): value is Record<string, unknown> =>
+    Boolean(value && typeof value === 'object' && !Array.isArray(value))
+
+const getRecordBehaviorFormValue = (value: unknown): CatalogRecordBehavior => normalizeCatalogRecordBehavior(value)
+const getLedgerConfigFormValue = (value: unknown): LedgerConfig => normalizeLedgerConfig(value)
+const hasLedgerConfig = (config: unknown): boolean => isRecordValue(config) && isRecordValue(config.ledger)
+
+const toRecordBehaviorOption = (entity: MetahubEntityInstance, uiLocale: string): RecordBehaviorOption => {
+    const codename = getLocalizedContentText(entity.codename, uiLocale, entity.id) || entity.id
+    const label = getLocalizedContentText(entity.name, uiLocale, codename) || codename
+    return { codename, label }
+}
+
+const fieldDefinitionToRecordBehaviorOption = (field: FieldDefinition, uiLocale: string): RecordBehaviorOption => {
+    const codename = resolveFieldDefinitionCodename(field, uiLocale)
+    const label = getLocalizedContentText(field.name, uiLocale, codename) || codename
+    return { codename, label }
+}
+
+const resolveFieldDefinitionCodename = (field: FieldDefinition, uiLocale: string): string => {
+    const codename = field.codename as unknown
+    if (typeof codename === 'string') {
+        return codename || field.id
+    }
+    return getLocalizedContentText(field.codename, uiLocale, getVLCString(field.codename, 'en') || field.id) || field.id
+}
+
+const scriptToRecordBehaviorOption = (
+    script: Awaited<ReturnType<typeof scriptsApi.list>>[number],
+    uiLocale: string
+): RecordBehaviorOption => {
+    const codename = getLocalizedContentText(script.codename, uiLocale, script.id) || script.id
+    const label = getLocalizedContentText(script.presentation?.name, uiLocale, codename) || codename
+    return { codename, label }
+}
+
+const entityTypeToOption = (kindKey: string, label: string): RecordBehaviorOption => ({ codename: kindKey, label })
+
+const validateRecordBehaviorValue = (
+    behavior: CatalogRecordBehavior,
+    t: (key: string, options?: Record<string, unknown> | string) => string
+): Record<string, string> => {
+    const errors: Record<string, string> = {}
+
+    if (
+        (behavior.mode === 'transactional' || behavior.mode === 'hybrid') &&
+        behavior.posting.mode !== 'disabled' &&
+        behavior.posting.targetLedgers.length === 0
+    ) {
+        errors.recordBehaviorPosting = t(
+            'entities.recordBehavior.validation.targetLedgerRequired',
+            'Select at least one target Ledger for enabled posting.'
+        )
+    }
+
+    if (behavior.posting.mode !== 'disabled' && behavior.lifecycle.enabled && !behavior.lifecycle.states.some((state) => state.isInitial)) {
+        errors.recordBehaviorLifecycle = t(
+            'entities.recordBehavior.validation.initialStateRequired',
+            'Lifecycle-enabled posting requires one initial state.'
+        )
+    }
+
+    if (
+        behavior.numbering.enabled &&
+        behavior.numbering.minLength !== undefined &&
+        (!Number.isInteger(behavior.numbering.minLength) || behavior.numbering.minLength < 1 || behavior.numbering.minLength > 32)
+    ) {
+        errors.recordBehaviorMinLength = t(
+            'entities.recordBehavior.validation.minLength',
+            'Minimum length must be an integer from 1 to 32.'
+        )
+    }
+
+    const stateCodenames = behavior.lifecycle.states.map((state) => state.codename.trim()).filter(Boolean)
+    if (new Set(stateCodenames).size !== stateCodenames.length) {
+        errors.recordBehaviorLifecycle = t(
+            'entities.recordBehavior.validation.stateCodenamesUnique',
+            'Lifecycle state codenames must be unique.'
+        )
+    }
+
+    return errors
+}
+
+const validateLedgerConfigValue = (
+    config: LedgerConfig,
+    fields: Array<{ codename: string; dataType: FieldDefinition['dataType'] }> | null,
+    t: (key: string, options?: Record<string, unknown> | string) => string
+): Record<string, string> => {
+    const errors: Record<string, string> = {}
+    const referenceErrors = fields ? validateLedgerConfigReferences({ config, fields }) : []
+    const hasReferenceError = (code: (typeof referenceErrors)[number]['code']) => referenceErrors.some((error) => error.code === code)
+    const fieldRoleKeys = config.fieldRoles.map((role) => role.fieldCodename.trim().toLowerCase()).filter(Boolean)
+    const projectionKeys = config.projections.map((projection) => projection.codename.trim().toLowerCase()).filter(Boolean)
+
+    if (hasReferenceError('DUPLICATE_FIELD_ROLE') || new Set(fieldRoleKeys).size !== fieldRoleKeys.length) {
+        errors.ledgerFieldRoles = t('entities.ledgerSchema.validation.fieldRolesUnique', 'Field roles must be unique.')
+    }
+    if (hasReferenceError('DUPLICATE_PROJECTION_CODENAME') || new Set(projectionKeys).size !== projectionKeys.length) {
+        errors.ledgerConfig = t('entities.ledgerSchema.validation.projectionsUnique', 'Projection codenames must be unique.')
+    }
+    if (referenceErrors.some((error) => error.code === 'FIELD_NOT_FOUND' || error.code === 'RESOURCE_REQUIRES_NUMBER')) {
+        errors.ledgerFieldRoles =
+            errors.ledgerFieldRoles ||
+            t(
+                'entities.ledgerSchema.validation.fieldRolesInvalid',
+                'Field roles must reference existing fields, and aggregated resources must use numeric fields.'
+            )
+    }
+    if (
+        referenceErrors.some(
+            (error) =>
+                error.code === 'PROJECTION_FIELD_NOT_FOUND' ||
+                error.code === 'PROJECTION_RESOURCE_NOT_CONFIGURED' ||
+                error.code === 'PROJECTION_DIMENSION_NOT_CONFIGURED'
+        )
+    ) {
+        errors.ledgerConfig =
+            errors.ledgerConfig ||
+            t(
+                'entities.ledgerSchema.validation.projectionsInvalid',
+                'Projections must reference existing fields configured as dimensions or resources.'
+            )
+    }
+    if (hasReferenceError('IDEMPOTENCY_FIELD_NOT_FOUND')) {
+        errors.ledgerIdempotency = t(
+            'entities.ledgerSchema.validation.idempotencyInvalid',
+            'Idempotency fields must reference existing fields.'
+        )
+    }
+    if (hasReferenceError('EFFECTIVE_DATE_FIELD_NOT_FOUND')) {
+        errors.ledgerConfig =
+            errors.ledgerConfig ||
+            t('entities.ledgerSchema.validation.effectiveDateInvalid', 'Effective date field must reference an existing field.')
+    }
+
+    return errors
+}
 
 const LinkedCollectionCopyOptionsTab = ({
     values,
@@ -141,6 +309,7 @@ const EntityInstanceListContent = () => {
     const codenameConfig = useCodenameConfig()
     const { t } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
+    const translateResourceSurfaceTitle = useCallback((key: string, fallback?: string) => t(key, { defaultValue: fallback }), [t])
     const translate = useCallback<UiTranslate>(
         (key, options) => {
             if (typeof options === 'string') {
@@ -238,7 +407,8 @@ const EntityInstanceListContent = () => {
     const isEntityMetadataSurface = entityMetadataKind !== null
     const usesLinkedCollectionAuthoring = entityMetadataKind === 'catalog'
     const usesPageAuthoring = entityMetadataKind === 'page'
-    const usesGenericEntityAuthoring = isHubScoped || !isEntityMetadataSurface || usesPageAuthoring
+    const usesGenericEntityAuthoring =
+        isHubScoped || !isEntityMetadataSurface || (entityMetadataKind ? GENERIC_STANDARD_ENTITY_KINDS.has(entityMetadataKind) : false)
     const canEditLinkedCollectionInstances = resolvedPermissions?.editContent === true
     const canDeleteLinkedCollectionInstances = resolvedPermissions?.deleteContent === true
     const canManageEntityInstances = usesLinkedCollectionAuthoring
@@ -280,13 +450,45 @@ const EntityInstanceListContent = () => {
     const showLayoutTab = Boolean(
         entityType && isEnabledComponentConfig(entityType.components?.layoutConfig) && requestedTabs.has('layout')
     )
+    const hasRecordBehaviorConfig = Boolean(isRecordValue(entityType?.config) && isRecordValue(entityType.config.recordBehavior))
+    const showBehaviorTab = Boolean(
+        entityType && supportsRecordBehavior(entityType.components) && (requestedTabs.has('behavior') || hasRecordBehaviorConfig)
+    )
+    const showLedgerSchemaTab = Boolean(
+        entityType && supportsLedgerSchema(entityType.components) && (requestedTabs.has('ledgerSchema') || hasLedgerConfig(entityType.config))
+    )
     const showScriptsTab = Boolean(entityType && isEnabledComponentConfig(entityType.components?.scripting) && requestedTabs.has('scripts'))
     const showActionsTab = Boolean(entityType && isEnabledComponentConfig(entityType.components?.actions))
     const showEventsTab = Boolean(entityType && isEnabledComponentConfig(entityType.components?.events))
     const showPageBlocksTab = Boolean(entityType && isEnabledComponentConfig(entityType.components?.blockContent))
+    const dataSchemaSurface = entityType?.ui.resourceSurfaces?.find((surface) => surface.capability === 'dataSchema') ?? null
     const contentRouteBase =
         metahubId && resolvedKindKey ? `/metahub/${metahubId}/entities/${encodeURIComponent(resolvedKindKey)}/instance` : ''
-    const standardCollectionI18nPrefix = entityMetadataKind === 'page' ? 'pages' : null
+    const standardCollectionI18nPrefix = entityMetadataKind ? STANDARD_COLLECTION_I18N_PREFIX_BY_KIND[entityMetadataKind] ?? null : null
+    const standardCollectionRouteSegment =
+        entityMetadataKind === 'page' || (!entityMetadataKind && showPageBlocksTab)
+            ? PAGE_CONTENT_ROUTE_SEGMENT
+            : entityMetadataKind === 'ledger'
+            ? dataSchemaSurface?.routeSegment || FALLBACK_DATA_SCHEMA_ROUTE_SEGMENT
+            : null
+    const canOpenStandardCollectionRow = Boolean(standardCollectionRouteSegment)
+    const fieldDefinitionsTabLabel = dataSchemaSurface
+        ? resolveEntityResourceSurfaceTitle(dataSchemaSurface, {
+              locale: preferredVlcLocale,
+              translate: translateResourceSurfaceTitle
+          })
+        : t('entities.instances.tabs.fieldDefinitions', 'Attributes')
+    const defaultFieldDefinitionsEmptyTitle = t('entities.instances.fieldDefinitions.emptyTitle', 'No field definitions')
+    const defaultFieldDefinitionsEmptyDescription = t(
+        'entities.instances.fieldDefinitions.emptyDescription',
+        'Create the first attribute to define the schema for this entity kind.'
+    )
+    const fieldDefinitionsEmptyTitle = standardCollectionI18nPrefix
+        ? t(`${standardCollectionI18nPrefix}.fieldDefinitions.emptyTitle`, defaultFieldDefinitionsEmptyTitle)
+        : defaultFieldDefinitionsEmptyTitle
+    const fieldDefinitionsEmptyDescription = standardCollectionI18nPrefix
+        ? t(`${standardCollectionI18nPrefix}.fieldDefinitions.emptyDescription`, defaultFieldDefinitionsEmptyDescription)
+        : defaultFieldDefinitionsEmptyDescription
 
     const paginationResult = usePaginated<MetahubEntityInstance, 'updated' | 'sortOrder'>({
         queryKeyFn: (params) =>
@@ -379,16 +581,129 @@ const EntityInstanceListContent = () => {
 
     const editDialogEntity = editEntityDetailQuery.data ?? dialogs.edit.item
     const copyDialogEntity = copyEntityDetailQuery.data ?? dialogs.copy.item
+    const behaviorDialogOpen = dialogs.create.open || dialogs.edit.open || dialogs.copy.open
+    const behaviorDialogEntityId = editDialogEntity?.id ?? copyDialogEntity?.id ?? null
+    const behaviorAttachedToKind = resolvedKindKey
+    const ledgerCapableKindKeys = useMemo(
+        () =>
+            (entityTypesQuery.data?.items ?? [])
+                .filter((type) => supportsLedgerSchema(type.components))
+                .map((type) => type.kindKey)
+                .sort((left, right) => left.localeCompare(right)),
+        [entityTypesQuery.data?.items]
+    )
+    const behaviorLedgerQueries = useQueries({
+        queries: ledgerCapableKindKeys.map((kindKey) => ({
+            queryKey:
+                metahubId && showBehaviorTab && behaviorDialogOpen
+                    ? metahubsQueryKeys.entitiesList(metahubId, {
+                          kind: kindKey,
+                          limit: 1000,
+                          offset: 0,
+                          sortBy: 'codename',
+                          sortOrder: 'asc',
+                          locale: preferredVlcLocale
+                      })
+                    : ['metahubs', 'recordBehavior', 'ledgerCandidates', 'empty', kindKey],
+            queryFn: () =>
+                entitiesApi.listEntityInstances(metahubId!, {
+                    kind: kindKey,
+                    limit: 1000,
+                    offset: 0,
+                    sortBy: 'codename',
+                    sortOrder: 'asc',
+                    locale: preferredVlcLocale
+                }),
+            enabled: Boolean(metahubId && showBehaviorTab && behaviorDialogOpen),
+            staleTime: 30 * 1000
+        }))
+    })
+    const behaviorLedgerOptions = useMemo(
+        () =>
+            behaviorLedgerQueries
+                .flatMap((query) => query.data?.items ?? [])
+                .filter((entity) => hasLedgerConfig(entity.config))
+                .map((entity) => toRecordBehaviorOption(entity, preferredVlcLocale)),
+        [behaviorLedgerQueries, preferredVlcLocale]
+    )
+    const behaviorFieldDefinitionsQuery = useQuery({
+        queryKey:
+            metahubId && behaviorDialogEntityId && resolvedKindKey
+                ? ['metahubs', metahubId, 'recordBehavior', resolvedKindKey, behaviorDialogEntityId, 'fieldDefinitions']
+                : ['metahubs', 'recordBehavior', 'fieldDefinitions', 'empty'],
+        queryFn: () =>
+            fieldDefinitionsApi.listFieldDefinitionsDirect(metahubId!, behaviorDialogEntityId!, {
+                kindKey: resolvedKindKey,
+                limit: 1000,
+                offset: 0,
+                sortBy: 'sortOrder',
+                sortOrder: 'asc',
+                locale: preferredVlcLocale,
+                scope: 'business'
+            }),
+        enabled: Boolean((showBehaviorTab || showLedgerSchemaTab) && metahubId && behaviorDialogEntityId && resolvedKindKey),
+        staleTime: 30 * 1000
+    })
+    const behaviorScriptsQuery = useQuery({
+        queryKey:
+            metahubId && behaviorDialogEntityId
+                ? ['metahubs', metahubId, 'recordBehavior', behaviorAttachedToKind, behaviorDialogEntityId, 'scripts']
+                : ['metahubs', 'recordBehavior', 'scripts', 'empty'],
+        queryFn: () =>
+            scriptsApi.list(metahubId!, {
+                attachedToKind: behaviorAttachedToKind,
+                attachedToId: behaviorDialogEntityId
+            }),
+        enabled: Boolean(showBehaviorTab && metahubId && behaviorDialogEntityId && behaviorAttachedToKind),
+        staleTime: 30 * 1000
+    })
+    const behaviorFieldOptions = useMemo(
+        () =>
+            (behaviorFieldDefinitionsQuery.data?.items ?? []).map((field) =>
+                fieldDefinitionToRecordBehaviorOption(field, preferredVlcLocale)
+            ),
+        [behaviorFieldDefinitionsQuery.data?.items, preferredVlcLocale]
+    )
+    const ledgerReferenceFields = useMemo(
+        () =>
+            behaviorFieldDefinitionsQuery.isSuccess
+                ? (behaviorFieldDefinitionsQuery.data?.items ?? []).map((field) => ({
+                      codename: resolveFieldDefinitionCodename(field, preferredVlcLocale),
+                      dataType: field.dataType
+                  }))
+                : null,
+        [behaviorFieldDefinitionsQuery.data?.items, behaviorFieldDefinitionsQuery.isSuccess, preferredVlcLocale]
+    )
+    const behaviorScriptOptions = useMemo(
+        () => (behaviorScriptsQuery.data ?? []).map((script) => scriptToRecordBehaviorOption(script, preferredVlcLocale)),
+        [behaviorScriptsQuery.data, preferredVlcLocale]
+    )
+    const ledgerEntityKindOptions = useMemo(
+        () =>
+            (entityTypesQuery.data?.items ?? []).map((type) =>
+                entityTypeToOption(type.kindKey, resolveEntityTypeName(type, preferredVlcLocale, translate, type.kindKey))
+            ),
+        [entityTypesQuery.data?.items, preferredVlcLocale, translate]
+    )
 
     const createInitialValues = useMemo(() => {
-        const initial = buildInitialFormValues(preferredVlcLocale, null)
+        const initial = {
+            ...buildInitialFormValues(preferredVlcLocale, null),
+            recordBehavior:
+                showBehaviorTab && entityType?.config
+                    ? normalizeCatalogRecordBehaviorFromConfig(entityType.config)
+                    : DEFAULT_CATALOG_RECORD_BEHAVIOR,
+            ledgerSchemaEnabled: showLedgerSchemaTab && hasLedgerConfig(entityType?.config),
+            ledgerConfig:
+                showLedgerSchemaTab && entityType?.config ? normalizeLedgerConfigFromConfig(entityType.config) : DEFAULT_LEDGER_CONFIG
+        }
         return treeEntityId && showHubsTab
             ? {
                   ...initial,
                   treeEntityIds: [treeEntityId]
               }
             : initial
-    }, [preferredVlcLocale, showHubsTab, treeEntityId])
+    }, [entityType?.config, preferredVlcLocale, showBehaviorTab, showHubsTab, showLedgerSchemaTab, treeEntityId])
     const editInitialValues = useMemo(
         () => buildInitialFormValues(preferredVlcLocale, editDialogEntity),
         [editDialogEntity, preferredVlcLocale]
@@ -475,9 +790,28 @@ const EntityInstanceListContent = () => {
                 }
             }
 
+            if (showBehaviorTab) {
+                Object.assign(errors, validateRecordBehaviorValue(getRecordBehaviorFormValue(values.recordBehavior), t))
+            }
+
+            if (showLedgerSchemaTab && values.ledgerSchemaEnabled === true) {
+                Object.assign(errors, validateLedgerConfigValue(getLedgerConfigFormValue(values.ledgerConfig), ledgerReferenceFields, t))
+            }
+
             return Object.keys(errors).length > 0 ? errors : null
         },
-        [codenameConfig.allowMixed, codenameConfig.alphabet, codenameConfig.style, preferredVlcLocale, showHubsTab, t, tc]
+        [
+            codenameConfig.allowMixed,
+            codenameConfig.alphabet,
+            codenameConfig.style,
+            preferredVlcLocale,
+            showBehaviorTab,
+            showHubsTab,
+            showLedgerSchemaTab,
+            ledgerReferenceFields,
+            t,
+            tc
+        ]
     )
 
     const canSaveEntityForm = useCallback(
@@ -493,15 +827,34 @@ const EntityInstanceListContent = () => {
             const isRequiredHub = Boolean(values.isRequiredHub)
             const isSingleHub = Boolean(values.isSingleHub)
             const hubsValid = !showHubsTab || ((!isRequiredHub || treeEntityIds.length > 0) && (!isSingleHub || treeEntityIds.length <= 1))
+            const behaviorValid =
+                !showBehaviorTab ||
+                Object.keys(validateRecordBehaviorValue(getRecordBehaviorFormValue(values.recordBehavior), t)).length === 0
+            const ledgerValid =
+                !showLedgerSchemaTab ||
+                values.ledgerSchemaEnabled !== true ||
+                Object.keys(validateLedgerConfigValue(getLedgerConfigFormValue(values.ledgerConfig), ledgerReferenceFields, t)).length === 0
             return (
                 !values._hasCodenameDuplicate &&
                 hubsValid &&
+                behaviorValid &&
+                ledgerValid &&
                 hasPrimaryContent(nameVlc) &&
                 Boolean(normalizedCodename) &&
                 isValidCodenameForStyle(normalizedCodename, codenameConfig.style, codenameConfig.alphabet, codenameConfig.allowMixed)
             )
         },
-        [codenameConfig.allowMixed, codenameConfig.alphabet, codenameConfig.style, preferredVlcLocale, showHubsTab]
+        [
+            codenameConfig.allowMixed,
+            codenameConfig.alphabet,
+            codenameConfig.style,
+            preferredVlcLocale,
+            showBehaviorTab,
+            showHubsTab,
+            showLedgerSchemaTab,
+            ledgerReferenceFields,
+            t
+        ]
     )
 
     const buildConfigPayload = useCallback(
@@ -527,13 +880,25 @@ const EntityInstanceListContent = () => {
                 nextConfig.isRequiredHub = Boolean(values.isRequiredHub)
             }
 
+            if (showBehaviorTab) {
+                nextConfig.recordBehavior = normalizeCatalogRecordBehavior(values.recordBehavior)
+            }
+
+            if (showLedgerSchemaTab) {
+                if (values.ledgerSchemaEnabled === true) {
+                    nextConfig.ledger = normalizeLedgerConfig(values.ledgerConfig)
+                } else {
+                    delete nextConfig.ledger
+                }
+            }
+
             if (Object.keys(nextConfig).length === 0) {
                 return preserveBaseConfig && hasBaseConfig ? nextConfig : undefined
             }
 
             return nextConfig
         },
-        [showHubsTab]
+        [showBehaviorTab, showHubsTab, showLedgerSchemaTab]
     )
 
     const buildEntityPayload = useCallback(
@@ -583,8 +948,8 @@ const EntityInstanceListContent = () => {
                 }
             })
 
-            if (showPageBlocksTab && created?.id) {
-                navigate(`${contentRouteBase}/${created.id}/content`)
+            if (standardCollectionRouteSegment && created?.id) {
+                navigate(`${contentRouteBase}/${created.id}/${standardCollectionRouteSegment}`)
             }
         },
         [
@@ -595,7 +960,7 @@ const EntityInstanceListContent = () => {
             metahubId,
             navigate,
             resolvedKindKey,
-            showPageBlocksTab
+            standardCollectionRouteSegment
         ]
     )
 
@@ -784,10 +1149,10 @@ const EntityInstanceListContent = () => {
     const handleOpenContentRow = useCallback(
         (row: Pick<EntityInstanceDisplayRow, 'id' | 'raw'>) => {
             const entity = resolveDisplayEntity(row)
-            if (!entity || !contentRouteBase) return
-            navigate(`${contentRouteBase}/${entity.id}/content`)
+            if (!entity || !contentRouteBase || !standardCollectionRouteSegment) return
+            navigate(`${contentRouteBase}/${entity.id}/${standardCollectionRouteSegment}`)
         },
-        [contentRouteBase, navigate, resolveDisplayEntity]
+        [contentRouteBase, navigate, resolveDisplayEntity, standardCollectionRouteSegment]
     )
 
     const handleOpenCopyRow = useCallback(
@@ -872,6 +1237,64 @@ const EntityInstanceListContent = () => {
                 }
             ]
 
+            if (showBehaviorTab && entityType) {
+                tabs.push({
+                    id: 'behavior',
+                    label: t('entities.instances.tabs.behavior', 'Behavior'),
+                    content: (
+                        <RecordBehaviorFields
+                            value={getRecordBehaviorFormValue(values.recordBehavior)}
+                            onChange={(nextValue) => setValue('recordBehavior', nextValue)}
+                            disabled={isLoading}
+                            components={entityType.components}
+                            fieldOptions={options.mode === 'create' ? [] : behaviorFieldOptions}
+                            ledgerOptions={behaviorLedgerOptions}
+                            scriptOptions={options.mode === 'create' ? [] : behaviorScriptOptions}
+                            errors={errors}
+                        />
+                    )
+                })
+            }
+
+            if (showLedgerSchemaTab && entityType) {
+                tabs.push({
+                    id: 'ledgerSchema',
+                    label: t('entities.instances.tabs.ledgerSchema', 'Ledger schema'),
+                    content: (
+                        <Stack spacing={2}>
+                            <FormControlLabel
+                                control={
+                                    <Checkbox
+                                        checked={values.ledgerSchemaEnabled === true}
+                                        onChange={(event) => setValue('ledgerSchemaEnabled', event.target.checked)}
+                                        disabled={isLoading}
+                                    />
+                                }
+                                label={t('entities.ledgerSchema.enabled', 'Use this entity as a ledger')}
+                            />
+                            {values.ledgerSchemaEnabled === true ? (
+                                <LedgerSchemaFields
+                                    value={getLedgerConfigFormValue(values.ledgerConfig)}
+                                    onChange={(nextValue) => setValue('ledgerConfig', nextValue)}
+                                    disabled={isLoading}
+                                    components={entityType.components}
+                                    fieldOptions={options.mode === 'create' ? [] : behaviorFieldOptions}
+                                    entityKindOptions={ledgerEntityKindOptions}
+                                    errors={errors}
+                                />
+                            ) : (
+                                <Typography variant='body2' color='text.secondary'>
+                                    {t(
+                                        'entities.ledgerSchema.disabledDescription',
+                                        'Enable ledger schema when this entity should store append-only facts, dimensions, resources, and projections.'
+                                    )}
+                                </Typography>
+                            )}
+                        </Stack>
+                    )
+                })
+            }
+
             if (showHubsTab) {
                 const treeEntityIds = Array.isArray(values.treeEntityIds)
                     ? values.treeEntityIds.filter((value): value is string => typeof value === 'string')
@@ -901,17 +1324,14 @@ const EntityInstanceListContent = () => {
             if (options.mode === 'edit' && options.entityId && showAttributesTab) {
                 tabs.push({
                     id: 'fieldDefinitions',
-                    label: t('entities.instances.tabs.fieldDefinitions', 'Attributes'),
+                    label: fieldDefinitionsTabLabel,
                     content: (
                         <FieldDefinitionListContent
                             metahubId={metahubId}
                             linkedCollectionId={options.entityId}
                             title={null}
-                            emptyTitle={t('entities.instances.fieldDefinitions.emptyTitle', 'No fieldDefinitions')}
-                            emptyDescription={t(
-                                'entities.instances.fieldDefinitions.emptyDescription',
-                                'Create the first attribute to define the schema for this custom entity kind.'
-                            )}
+                            emptyTitle={fieldDefinitionsEmptyTitle}
+                            emptyDescription={fieldDefinitionsEmptyDescription}
                             renderPageShell={false}
                             showCatalogTabs={false}
                             showSettingsTab={false}
@@ -966,7 +1386,7 @@ const EntityInstanceListContent = () => {
                     createScriptsTab({
                         t: translate,
                         metahubId,
-                        attachedToKind: usesLinkedCollectionAuthoring ? 'catalog' : resolvedKindKey,
+                        attachedToKind: resolvedKindKey,
                         attachedToId: options.entityId
                     })
                 )
@@ -978,7 +1398,7 @@ const EntityInstanceListContent = () => {
                         t: translate,
                         metahubId,
                         entityId: options.entityId,
-                        attachedToKind: usesLinkedCollectionAuthoring ? 'catalog' : resolvedKindKey
+                        attachedToKind: resolvedKindKey
                     })
                 )
             }
@@ -989,7 +1409,7 @@ const EntityInstanceListContent = () => {
                         t: translate,
                         metahubId,
                         entityId: options.entityId,
-                        attachedToKind: usesLinkedCollectionAuthoring ? 'catalog' : resolvedKindKey
+                        attachedToKind: resolvedKindKey
                     })
                 )
             }
@@ -1006,6 +1426,14 @@ const EntityInstanceListContent = () => {
         },
         [
             containerSelectionLabels,
+            behaviorFieldOptions,
+            behaviorLedgerOptions,
+            behaviorScriptOptions,
+            ledgerEntityKindOptions,
+            fieldDefinitionsEmptyDescription,
+            fieldDefinitionsEmptyTitle,
+            fieldDefinitionsTabLabel,
+            entityType,
             treeEntities,
             usesLinkedCollectionAuthoring,
             metahubId,
@@ -1013,9 +1441,11 @@ const EntityInstanceListContent = () => {
             resolvedKindKey,
             showAttributesTab,
             showActionsTab,
+            showBehaviorTab,
             showEventsTab,
             showHubsTab,
             showLayoutTab,
+            showLedgerSchemaTab,
             showPageBlocksTab,
             showScriptsTab,
             t,
@@ -1418,7 +1848,7 @@ const EntityInstanceListContent = () => {
                                 <ItemCard
                                     key={row.id}
                                     data={{ name: row.name, description: row.description }}
-                                    onClick={!row.isDeleted && showPageBlocksTab ? () => handleOpenContentRow(row) : undefined}
+                                    onClick={!row.isDeleted && canOpenStandardCollectionRow ? () => handleOpenContentRow(row) : undefined}
                                     headerAction={renderEntityActionMenu(row)}
                                     footerStartContent={
                                         <Stack direction='row' spacing={0.5} useFlexGap flexWrap='wrap'>
@@ -1448,7 +1878,7 @@ const EntityInstanceListContent = () => {
                                 customColumns={columns}
                                 i18nNamespace='flowList'
                                 renderActions={renderEntityActionMenu}
-                                onRowClick={showPageBlocksTab ? (row) => handleOpenContentRow(row) : undefined}
+                                onRowClick={canOpenStandardCollectionRow ? (row) => handleOpenContentRow(row) : undefined}
                                 initialOrder='desc'
                                 initialOrderBy='updatedAt'
                                 getRowSx={(row) => (row.isDeleted ? { backgroundColor: (theme) => theme.palette.action.hover } : undefined)}

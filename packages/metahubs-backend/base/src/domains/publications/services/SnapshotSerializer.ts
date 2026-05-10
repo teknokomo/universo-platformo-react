@@ -6,6 +6,9 @@ import {
     SHARED_OBJECT_KINDS,
     isBuiltinEntityKind,
     isEnabledComponentConfig,
+    normalizeLedgerConfigFromConfig,
+    supportsLedgerSchema,
+    validateLedgerConfigReferences,
     type CatalogSystemFieldsSnapshot,
     type ComponentManifest,
     type EntityKind,
@@ -35,31 +38,40 @@ import { getCodenameText } from '../../shared/codename'
 import { buildMergedSharedEntityList, type SharedEntityListItem } from '../../shared/mergedSharedEntityList'
 import { SharedContainerService } from '../../shared/services/SharedContainerService'
 import { SharedEntityOverridesService, type SharedEntityOverrideRow } from '../../shared/services/SharedEntityOverridesService'
+import { MetahubValidationError } from '../../shared/domainErrors'
 import { createLogger } from '../../../utils/logger'
 
 const log = createLogger('SnapshotSerializer')
 
-const resolveEntityMetadataKind = (kind: unknown, config?: unknown): 'catalog' | 'hub' | 'set' | 'enumeration' | 'page' | null =>
+const resolveEntityMetadataKind = (kind: unknown, config?: unknown): 'catalog' | 'hub' | 'set' | 'enumeration' | 'page' | 'ledger' | null =>
     typeof kind === 'string' && isBuiltinEntityKind(kind) ? kind : null
 
 export type SnapshotCodenameValue = VersionedLocalizedContent<string> | string
 
-const mergeEntitySnapshotConfig = (definitionConfig: unknown, entityConfig: unknown): Record<string, unknown> => {
+const mergeEntitySnapshotConfig = (
+    definitionConfig: unknown,
+    entityConfig: unknown,
+    definitionComponents?: unknown
+): Record<string, unknown> => {
     const baseDefinitionConfig = ensureRecord(definitionConfig)
     const baseEntityConfig = ensureRecord(entityConfig)
+    const componentContract = ensureRecord(definitionComponents)
     const definitionCompatibility = ensureRecord(baseDefinitionConfig.compatibility)
     const entityCompatibility = ensureRecord(baseEntityConfig.compatibility)
+    const components = Object.keys(componentContract).length > 0 ? { components: componentContract } : {}
 
     if (Object.keys(definitionCompatibility).length === 0 && Object.keys(entityCompatibility).length === 0) {
         return {
             ...baseDefinitionConfig,
-            ...baseEntityConfig
+            ...baseEntityConfig,
+            ...components
         }
     }
 
     return {
         ...baseDefinitionConfig,
         ...baseEntityConfig,
+        ...components,
         compatibility: {
             ...definitionCompatibility,
             ...entityCompatibility
@@ -98,6 +110,7 @@ export interface MetahubSnapshot {
      */
     layoutZoneWidgets?: MetahubLayoutZoneWidgetSnapshot[]
     catalogLayoutWidgetOverrides?: MetahubCatalogLayoutWidgetOverrideSnapshot[]
+    settings?: MetahubSettingSnapshot[]
     /**
      * Default layout id (must reference one of `layouts` when present).
      */
@@ -110,6 +123,11 @@ export interface MetahubSnapshot {
      */
     layoutConfig?: Record<string, unknown>
     runtimePolicy?: MetahubRuntimePolicySnapshot
+}
+
+export interface MetahubSettingSnapshot {
+    key: string
+    value: Record<string, unknown>
 }
 
 export interface MetahubLayoutSnapshot {
@@ -292,7 +310,10 @@ export class SnapshotSerializer {
         private readonly sharedEntityOverridesService?: SharedEntityOverridesService,
         private readonly entityTypeService?: EntityTypeService,
         private readonly actionService?: ActionService,
-        private readonly eventBindingService?: EventBindingService
+        private readonly eventBindingService?: EventBindingService,
+        private readonly settingsService?: {
+            findAll(metahubId: string): Promise<Array<{ key: string; value: unknown }>>
+        }
     ) {}
 
     private static toSnapshotCodenameValue(value: unknown): SnapshotCodenameValue {
@@ -359,6 +380,33 @@ export class SnapshotSerializer {
 
             return fieldDef
         })
+    }
+
+    private static validateLedgerSnapshotConfig(entity: MetaEntitySnapshot, definition: { components: ComponentManifest }): void {
+        if (
+            !supportsLedgerSchema(definition.components) ||
+            !entity.config ||
+            !Object.prototype.hasOwnProperty.call(entity.config, 'ledger')
+        ) {
+            return
+        }
+
+        const referenceErrors = validateLedgerConfigReferences({
+            config: normalizeLedgerConfigFromConfig(entity.config),
+            fields: entity.fields.map((field) => ({
+                codename: getCodenameText(field.codename),
+                dataType: field.dataType
+            }))
+        })
+
+        if (referenceErrors.length > 0) {
+            throw new MetahubValidationError('Ledger schema config contains invalid field references', {
+                field: 'config.ledger',
+                entityId: entity.id,
+                kind: entity.kind,
+                errors: referenceErrors
+            })
+        }
     }
 
     private static mapFixedValueSnapshots(fixedValues: SnapshotFixedValueRecord[], fallbackObjectId: string): MetaFixedValueSnapshot[] {
@@ -680,6 +728,14 @@ export class SnapshotSerializer {
                   config: script.config
               }))
             : []
+        const settings = this.settingsService
+            ? (await this.settingsService.findAll(metahubId))
+                  .filter((setting) => typeof setting.key === 'string' && setting.value && typeof setting.value === 'object')
+                  .map<MetahubSettingSnapshot>((setting) => ({
+                      key: setting.key,
+                      value: setting.value as Record<string, unknown>
+                  }))
+            : []
 
         const elementObjectIds = serializedObjects
             .filter(({ kind, object }) => {
@@ -770,10 +826,14 @@ export class SnapshotSerializer {
                     name: hubName,
                     description: hubDescription
                 },
-                config: mergeEntitySnapshotConfig(hubDefinition?.config, {
-                    sortOrder: (hub.sort_order as number) ?? 0,
-                    parentTreeEntityId: typeof hub.parent_hub_id === 'string' ? hub.parent_hub_id : null
-                }),
+                config: mergeEntitySnapshotConfig(
+                    hubDefinition?.config,
+                    {
+                        sortOrder: (hub.sort_order as number) ?? 0,
+                        parentTreeEntityId: typeof hub.parent_hub_id === 'string' ? hub.parent_hub_id : null
+                    },
+                    hubDefinition?.components
+                ),
                 fields: [],
                 hubs: []
             }
@@ -812,7 +872,7 @@ export class SnapshotSerializer {
                     name: (objectPresentation.name ?? {}) as MetaEntitySnapshot['presentation']['name'],
                     description: (objectPresentation.description ?? {}) as MetaEntitySnapshot['presentation']['description']
                 },
-                config: mergeEntitySnapshotConfig(definition.config, object.config),
+                config: mergeEntitySnapshotConfig(definition.config, object.config, definition.components),
                 fields: [],
                 hubs: treeEntityIds
             }
@@ -866,6 +926,7 @@ export class SnapshotSerializer {
                 }
             }
 
+            SnapshotSerializer.validateLedgerSnapshotConfig(entitySnapshot, definition)
             entities[object.id] = entitySnapshot
         }
 
@@ -889,6 +950,7 @@ export class SnapshotSerializer {
             sharedEntityOverrides: sharedEntityOverrides.length > 0 ? sharedEntityOverrides : undefined,
             systemFields: Object.keys(systemFieldsByObject).length > 0 ? systemFieldsByObject : undefined,
             scripts: publishedScripts.length > 0 ? publishedScripts : undefined,
+            settings: settings.length > 0 ? settings : undefined,
             runtimePolicy
         }
     }

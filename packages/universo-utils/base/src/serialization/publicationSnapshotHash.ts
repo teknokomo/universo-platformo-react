@@ -31,6 +31,7 @@ export interface PublicationSnapshotHashInput {
     catalogLayoutWidgetOverrides?: unknown
     defaultLayoutId?: unknown
     layoutConfig?: unknown
+    settings?: unknown
 }
 
 export interface NormalizePublicationSnapshotForHashOptions {
@@ -475,6 +476,13 @@ export const normalizePublicationSnapshotForHash = (
               })
               .sort((left, right) => compareStrings(left.entityId, right.entityId))
         : []
+    const settings = asArray<SnapshotRecord>(snapshot.settings)
+        .map((setting) => ({
+            key: typeof setting.key === 'string' ? setting.key : '',
+            value: setting.value && typeof setting.value === 'object' ? setting.value : {}
+        }))
+        .filter((setting) => setting.key.length > 0)
+        .sort((left, right) => compareStrings(left.key, right.key))
 
     return {
         version: snapshot.version,
@@ -496,6 +504,7 @@ export const normalizePublicationSnapshotForHash = (
         layoutZoneWidgets,
         catalogLayoutWidgetOverrides,
         defaultLayoutId: snapshot.defaultLayoutId ?? null,
-        layoutConfig: snapshot.layoutConfig ?? {}
+        layoutConfig: snapshot.layoutConfig ?? {},
+        settings
     }
 }

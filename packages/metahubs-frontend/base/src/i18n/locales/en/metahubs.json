@@ -193,7 +193,10 @@
                 "recordsWrite": "Write records",
                 "metadataRead": "Read metadata",
                 "rpcClient": "Call server methods from client code",
-                "lifecycle": "Receive lifecycle events"
+                "lifecycle": "Receive lifecycle events",
+                "posting": "Run posting handlers",
+                "ledgerRead": "Read ledgers",
+                "ledgerWrite": "Write ledgers"
             },
             "guidance": {
                 "title": "Authoring guidance",
@@ -621,6 +624,8 @@
         },
         "tabOptions": {
             "general": "General",
+            "behavior": "Behavior",
+            "treeEntities": "Hubs",
             "layout": "Layout",
             "scripts": "Scripts"
         },
@@ -664,10 +669,108 @@
             "physicalTableHelper": "Creates a dedicated runtime table for publication and application sync pipelines.",
             "tablePrefix": "Table prefix",
             "tablePrefixHelper": "Prefix used when the runtime DDL pipeline generates a physical table name.",
+            "identityFields": "Identity fields",
+            "identityFieldsHelper": "Enables system record number and effective date settings for entity instances.",
+            "allowRecordNumber": "Allow record number",
+            "allowEffectiveDate": "Allow effective date",
+            "recordLifecycle": "Record lifecycle",
+            "recordLifecycleHelper": "Enables lifecycle states for transactional or hybrid entity records.",
+            "allowCustomStates": "Allow custom states",
+            "posting": "Posting",
+            "postingHelper": "Enables record posting settings and ledger movement scripts.",
+            "allowManualPosting": "Allow manual posting",
+            "allowAutomaticPosting": "Allow automatic posting",
+            "ledgerSchema": "Ledger schema",
+            "ledgerSchemaHelper": "Enables append-only ledger schema settings and projection metadata.",
+            "allowLedgerProjections": "Allow projections",
+            "allowLedgerRegistrarPolicy": "Allow registrar policy",
+            "allowLedgerManualFacts": "Allow manual facts",
             "optionValues": "Enumeration values",
             "optionValuesHelper": "Keeps the type compatible with enumeration-style value registries.",
             "fixedValues": "Constants",
             "fixedValuesHelper": "Keeps the type compatible with set-style constant registries."
+        },
+        "recordBehavior": {
+            "defaultStateTitle": "State {{index}}",
+            "options": {
+                "none": "Not selected",
+                "configured": "configured"
+            },
+            "mode": {
+                "title": "Record mode",
+                "label": "Record mode",
+                "helper": "Choose whether records act as references, transactional documents, or a hybrid collection.",
+                "options": {
+                    "reference": "Reference",
+                    "transactional": "Transactional",
+                    "hybrid": "Hybrid"
+                }
+            },
+            "identity": {
+                "title": "Identity fields"
+            },
+            "numbering": {
+                "enabled": "Enable record numbering",
+                "prefix": "Prefix",
+                "minLength": "Minimum length",
+                "scope": "Scope",
+                "scopeOptions": {
+                    "global": "Global",
+                    "workspace": "Workspace"
+                },
+                "periodicity": "Periodicity",
+                "periodicityOptions": {
+                    "none": "None",
+                    "day": "Day",
+                    "month": "Month",
+                    "quarter": "Quarter",
+                    "year": "Year"
+                }
+            },
+            "effectiveDate": {
+                "enabled": "Enable effective date",
+                "field": "Date field",
+                "defaultToNow": "Default to current time"
+            },
+            "fieldOptionsCreateHint": "Field-bound options can be selected after attributes are created.",
+            "lifecycle": {
+                "title": "Lifecycle",
+                "enabled": "Enable lifecycle states",
+                "field": "State field",
+                "stateCodename": "State codename",
+                "stateTitle": "State title",
+                "initial": "Initial",
+                "final": "Final",
+                "addState": "Add state"
+            },
+            "posting": {
+                "title": "Posting",
+                "mode": "Posting mode",
+                "modeOptions": {
+                    "disabled": "Disabled",
+                    "manual": "Manual",
+                    "automatic": "Automatic"
+                },
+                "targetLedgers": "Target ledgers",
+                "script": "Posting script",
+                "noLedgers": "Create a Ledger entity before selecting targets.",
+                "noScripts": "Attach a lifecycle script after the entity is created."
+            },
+            "immutability": {
+                "title": "Immutability",
+                "label": "Immutability",
+                "options": {
+                    "none": "None",
+                    "posted": "Posted records",
+                    "final": "Final records"
+                }
+            },
+            "validation": {
+                "targetLedgerRequired": "Select at least one target Ledger for enabled posting.",
+                "initialStateRequired": "Lifecycle-enabled posting requires one initial state.",
+                "minLength": "Minimum length must be an integer from 1 to 32.",
+                "stateCodenamesUnique": "Lifecycle state codenames must be unique."
+            }
         },
         "createDialog": {
             "title": "Create Entity"
@@ -764,6 +867,9 @@
             },
             "tabs": {
                 "containers": "Containers",
+                "behavior": "Behavior",
+                "ledgerSchema": "Ledger schema",
+                "fieldDefinitions": "Attributes",
                 "content": "Content",
                 "actions": "Actions",
                 "events": "Events"
@@ -788,6 +894,10 @@
             "layouts": {
                 "emptyTitle": "No layouts",
                 "createHint": "Individual layouts can be configured after this entity is created."
+            },
+            "fieldDefinitions": {
+                "emptyTitle": "No attributes yet",
+                "emptyDescription": "Create the first attribute to define the data shape for this entity."
             },
             "automation": {
                 "actions": {
@@ -912,6 +1022,108 @@
                 "saveError": "Failed to save content",
                 "saving": "Saving...",
                 "validationInvalid": "The editor content is not valid."
+            }
+        },
+        "ledgerSchema": {
+            "enabled": "Use this entity as a ledger",
+            "disabledDescription": "Enable ledger schema when this entity should store append-only facts, dimensions, resources, and projections.",
+            "fieldOptionsCreateHint": "Create fields first, then reopen this tab to select them from a list.",
+            "mode": {
+                "title": "Ledger mode",
+                "label": "Ledger mode",
+                "options": {
+                    "facts": "Facts",
+                    "balance": "Balance",
+                    "accounting": "Accounting",
+                    "calculation": "Calculation"
+                }
+            },
+            "mutationPolicy": {
+                "label": "Mutation policy",
+                "options": {
+                    "appendOnly": "Append only",
+                    "reversalOnly": "Reversal only",
+                    "manualEditable": "Manual editable"
+                }
+            },
+            "sourcePolicy": {
+                "label": "Source policy",
+                "options": {
+                    "registrar": "Registrar only",
+                    "manual": "Manual",
+                    "both": "Mixed",
+                    "mixed": "Mixed"
+                }
+            },
+            "period": {
+                "title": "Period"
+            },
+            "periodicity": {
+                "label": "Periodicity",
+                "options": {
+                    "none": "None",
+                    "day": "Day",
+                    "month": "Month",
+                    "quarter": "Quarter",
+                    "year": "Year"
+                }
+            },
+            "effectiveDateField": {
+                "label": "Effective date field"
+            },
+            "registrars": {
+                "title": "Registrars",
+                "label": "Registrar kinds"
+            },
+            "fieldRoles": {
+                "title": "Field roles",
+                "add": "Add role",
+                "empty": "No field roles configured.",
+                "field": "Field",
+                "role": "Role",
+                "required": "Required",
+                "aggregate": "Aggregate",
+                "roleOptions": {
+                    "dimension": "Dimension",
+                    "resource": "Resource",
+                    "attribute": "Attribute"
+                },
+                "aggregateOptions": {
+                    "sum": "Sum",
+                    "count": "Count",
+                    "min": "Minimum",
+                    "max": "Maximum",
+                    "latest": "Latest"
+                }
+            },
+            "projections": {
+                "title": "Projections",
+                "add": "Add projection",
+                "empty": "No projections configured.",
+                "codename": "Codename",
+                "kind": "Kind",
+                "kindOptions": {
+                    "balance": "Balance",
+                    "turnover": "Turnover",
+                    "latest": "Latest"
+                },
+                "dimensions": "Dimensions",
+                "resources": "Resources",
+                "csvHelper": "Comma-separated field codenames"
+            },
+            "idempotency": {
+                "title": "Idempotency",
+                "keyFields": "Key fields"
+            },
+            "validation": {
+                "invalid": "Ledger schema settings are invalid.",
+                "referencesInvalid": "Ledger schema references unknown or incompatible field definitions.",
+                "fieldRolesUnique": "Field roles must be unique.",
+                "fieldRolesInvalid": "Field roles must reference existing fields, and aggregated resources must use numeric fields.",
+                "projectionsUnique": "Projection codenames must be unique.",
+                "projectionsInvalid": "Projections must reference existing fields configured as dimensions or resources.",
+                "idempotencyInvalid": "Idempotency fields must reference existing fields.",
+                "effectiveDateInvalid": "Effective date field must reference an existing field."
             }
         }
     },
@@ -1236,6 +1448,33 @@
         "copyTitle": "Copy Page",
         "copySuccess": "Page copied",
         "copyError": "Failed to copy page"
+    },
+    "ledgers": {
+        "title": "Ledgers",
+        "allTitle": "Ledgers",
+        "description": "Append-only fact stores with dimensions, resources, and projections",
+        "searchPlaceholder": "Search ledgers...",
+        "empty": "No ledgers yet",
+        "emptyDescription": "Create the first ledger to store facts and power reports",
+        "noSearchResults": "No ledgers found",
+        "noSearchResultsHint": "Try a different search query",
+        "createDialog": {
+            "title": "Create Ledger"
+        },
+        "editDialog": {
+            "title": "Edit Ledger"
+        },
+        "deleteDialog": {
+            "title": "Delete Ledger"
+        },
+        "editTitle": "Edit Ledger",
+        "copyTitle": "Copy Ledger",
+        "copySuccess": "Ledger copied",
+        "copyError": "Failed to copy ledger",
+        "fieldDefinitions": {
+            "emptyTitle": "This ledger has no attributes yet",
+            "emptyDescription": "Create ledger dimensions, resources, or properties through the shared attribute list."
+        }
     },
     "sets": {
         "title": "Sets",

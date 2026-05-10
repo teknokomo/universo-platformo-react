@@ -11,6 +11,7 @@ const ENTITY_TABLE_PREFIX: Record<string, string> = {
     catalog: 'cat',
     set: 'set',
     enumeration: 'enum',
+    ledger: 'led',
     hub: 'hub',
     document: 'doc',
     relation: 'rel',

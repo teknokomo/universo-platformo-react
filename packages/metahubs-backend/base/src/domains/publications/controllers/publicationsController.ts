@@ -47,6 +47,7 @@ import { MetahubTreeEntitiesService } from '../../metahubs/services/MetahubTreeE
 import { MetahubOptionValuesService } from '../../metahubs/services/MetahubOptionValuesService'
 import { MetahubFixedValuesService } from '../../metahubs/services/MetahubFixedValuesService'
 import { MetahubScriptsService } from '../../scripts/services/MetahubScriptsService'
+import { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
 import { EntityTypeService } from '../../entities/services/EntityTypeService'
 import { ActionService } from '../../entities/services/ActionService'
 import { EventBindingService } from '../../entities/services/EventBindingService'
@@ -57,6 +58,7 @@ import { attachLayoutsToSnapshot } from '../../shared/snapshotLayouts'
 import { createLogger } from '../../../utils/logger'
 
 const log = createLogger('Publications')
+const PUBLIC_GUEST_RUNTIME_SETTING_KEY = 'application.publicRuntime.guest'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -82,6 +84,16 @@ const applyRlsContextToExecutor = async (executor: Pick<DbExecutor, 'query' | 'i
         },
         accessToken
     )
+}
+
+const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
+    Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
+const unwrapSettingValue = (value: unknown): unknown => {
+    if (isPlainRecord(value) && Object.prototype.hasOwnProperty.call(value, '_value')) {
+        return value._value
+    }
+    return value
 }
 
 const runCommittedRlsTransaction = async <T>(
@@ -238,8 +250,28 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             sharedEntityOverridesService,
             entityTypeService,
             actionService,
-            eventBindingService
+            eventBindingService,
+            new MetahubSettingsService(params.exec, params.schemaService)
         )
+    }
+
+    const loadLinkedApplicationSettings = async (
+        exec: DbExecutor,
+        schemaService: MetahubSchemaService,
+        metahubId: string,
+        userId: string
+    ): Promise<Record<string, unknown>> => {
+        const settingsService = new MetahubSettingsService(exec, schemaService)
+        const guestRuntimeSetting = await settingsService.findByKey(metahubId, PUBLIC_GUEST_RUNTIME_SETTING_KEY, userId)
+        const guestRuntimeConfig = unwrapSettingValue(guestRuntimeSetting?.value)
+        if (!isPlainRecord(guestRuntimeConfig)) {
+            return {}
+        }
+        return {
+            publicRuntime: {
+                guest: guestRuntimeConfig
+            }
+        }
     }
 
     const buildRuntimeCatalogDefs = (serializer: SnapshotSerializer, snapshot: MetahubSnapshot) => {
@@ -460,6 +492,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         const optionValuesService = new MetahubOptionValuesService(exec, schemaService)
         const fixedValuesService = new MetahubFixedValuesService(exec, schemaService)
         const scriptsService = new MetahubScriptsService(exec, schemaService)
+        const linkedApplicationSettings = await loadLinkedApplicationSettings(exec, schemaService, metahubId, userId)
         const serializer = createSnapshotSerializer({
             exec,
             schemaService,
@@ -520,6 +553,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
                     metahubDescription: metahub.description,
                     isPublic: applicationIsPublic === true,
                     workspacesEnabled: firstVersionWorkspaceMode === 'required',
+                    settings: linkedApplicationSettings,
                     userId
                 })
                 applicationData = { application: linked.application, appSchemaName: linked.appSchemaName }
@@ -863,6 +897,8 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         }
 
         const { name, description, namePrimaryLocale, descriptionPrimaryLocale, isPublic } = parsed.data
+        const schemaService = new MetahubSchemaService(exec)
+        const linkedApplicationSettings = await loadLinkedApplicationSettings(exec, schemaService, metahubId, userId)
 
         const appName =
             name && Object.keys(name).length > 0
@@ -883,6 +919,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
                 metahubDescription: metahub.description ?? null,
                 isPublic: isPublic === true,
                 workspacesEnabled: false,
+                settings: linkedApplicationSettings,
                 userId
             })
             return linked

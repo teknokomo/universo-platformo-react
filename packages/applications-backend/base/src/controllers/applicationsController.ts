@@ -150,6 +150,9 @@ const applicationDialogSettingsSchema = z
         dialogAllowResize: z.boolean().optional(),
         dialogCloseBehavior: z.enum(['strict-modal', 'backdrop-close']).optional(),
         sectionLinksEnabled: z.boolean().optional(),
+        dashboardDefaultMode: z.enum(['layout-default', 'first-menu-item']).optional(),
+        datasourceExecutionPolicy: z.enum(['workspace-scoped', 'layout-only']).optional(),
+        workspaceOpenBehavior: z.enum(['last-used', 'default-workspace']).optional(),
         applicationLayouts: z
             .object({
                 readRoles: z
@@ -161,6 +164,37 @@ const applicationDialogSettingsSchema = z
             .optional()
     })
     .strict()
+
+const applicationSettingsUpdateSchema = applicationDialogSettingsSchema
+    .extend({
+        publicRuntime: z.unknown().optional(),
+        guestRuntime: z.unknown().optional()
+    })
+    .strict()
+
+const SERVER_MANAGED_APPLICATION_SETTING_KEYS = ['publicRuntime', 'guestRuntime'] as const
+
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
+
+const mergeApplicationSettingsForUpdate = (
+    currentSettings: Record<string, unknown> | null | undefined,
+    requestedSettings: Record<string, unknown>
+): Record<string, unknown> => {
+    const nextSettings: Record<string, unknown> = { ...requestedSettings }
+    for (const key of SERVER_MANAGED_APPLICATION_SETTING_KEYS) {
+        delete nextSettings[key]
+    }
+
+    if (isRecord(currentSettings)) {
+        for (const key of SERVER_MANAGED_APPLICATION_SETTING_KEYS) {
+            if (Object.prototype.hasOwnProperty.call(currentSettings, key)) {
+                nextSettings[key] = currentSettings[key]
+            }
+        }
+    }
+
+    return nextSettings
+}
 
 // ---------------------------------------------------------------------------
 // Controller factory
@@ -423,7 +457,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
             .object({
                 name: localizedInputSchema.optional(),
                 description: optionalLocalizedInputSchema.optional(),
-                settings: applicationDialogSettingsSchema.optional(),
+                settings: applicationSettingsUpdateSchema.optional(),
                 namePrimaryLocale: z.string().optional(),
                 descriptionPrimaryLocale: z.string().optional(),
                 slug: z
@@ -627,7 +661,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
         const schema = z.object({
             name: localizedInputSchema.optional(),
             description: optionalLocalizedInputSchema.optional(),
-            settings: applicationDialogSettingsSchema.optional(),
+            settings: applicationSettingsUpdateSchema.optional(),
             namePrimaryLocale: z.string().optional(),
             descriptionPrimaryLocale: z.string().optional(),
             slug: z
@@ -726,7 +760,8 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
             nextSlug = slug ?? null
         }
 
-        const nextSettings = settings !== undefined ? settings : application.settings ?? {}
+        const nextSettings =
+            settings !== undefined ? mergeApplicationSettingsForUpdate(application.settings ?? {}, settings) : application.settings ?? {}
 
         let saved = await updateApplication(
             {

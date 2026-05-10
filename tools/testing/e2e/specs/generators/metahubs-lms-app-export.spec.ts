@@ -9,7 +9,7 @@ import {
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { repoRoot } from '../../support/env/load-e2e-env.mjs'
-import { buildVLC, validateSnapshotEnvelope } from '@universo/utils'
+import { buildSnapshotEnvelope, buildVLC, validateSnapshotEnvelope } from '@universo/utils'
 import { waitForMetahubCatalogId, waitForMetahubEnumerationId, waitForOptionValueId } from '../../support/lmsRuntime'
 import {
     assertLmsFixtureEnvelopeContract,
@@ -261,7 +261,18 @@ test.describe('Metahubs LMS App Export', () => {
         const exportResponse = await apiGet(api, `/api/v1/metahub/${metahub.id}/export`)
         expect(exportResponse.ok).toBe(true)
 
-        const envelope = (await exportResponse.json()) as Record<string, unknown>
+        const exportedEnvelope = validateSnapshotEnvelope((await exportResponse.json()) as Record<string, unknown>)
+        const envelope = buildSnapshotEnvelope({
+            metahub: exportedEnvelope.metahub,
+            publication: exportedEnvelope.publication,
+            sourceInstance: exportedEnvelope.sourceInstance,
+            snapshot: {
+                ...exportedEnvelope.snapshot,
+                runtimePolicy: {
+                    workspaceMode: 'required'
+                }
+            }
+        })
         validateSnapshotEnvelope(envelope)
         assertLmsFixtureEnvelopeContract(envelope)
 

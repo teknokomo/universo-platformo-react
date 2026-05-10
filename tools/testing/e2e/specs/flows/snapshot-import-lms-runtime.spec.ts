@@ -1,20 +1,30 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import type { Page } from '@playwright/test'
+import type { Locator, Page, Response } from '@playwright/test'
 import { expect, test } from '../../fixtures/test'
+import { waitForSettledMutationResponse } from '../../support/browser/network'
 import { applyBrowserPreferences } from '../../support/browser/preferences'
 import {
     createLoggedInApiContext,
     createPublicationLinkedApplication,
     disposeApiContext,
+    listLinkedCollections,
+    listMetahubEntityTypes,
     listLayouts,
     listApplicationWorkspaces,
-    listLayoutZoneWidgets
+    listLayoutZoneWidgets,
+    sendWithCsrf
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
-import { toolbarSelectors } from '../../support/selectors/contracts'
+import {
+    buildEntityMenuItemSelector,
+    buildEntityMenuTriggerSelector,
+    entityDialogSelectors,
+    toolbarSelectors
+} from '../../support/selectors/contracts'
 import {
     assertLmsFixtureEnvelopeContract,
+    LMS_DEMO_ENROLLMENTS,
     LMS_DEMO_MODULE,
     LMS_DEMO_MODULE_PROGRESS,
     LMS_DEMO_MODULES,
@@ -28,9 +38,22 @@ import {
     LMS_SECONDARY_LINK,
     LMS_WELCOME_PAGE
 } from '../../support/lmsFixtureContract'
-import { waitForApplicationCatalogId, waitForApplicationRuntimeRowCount, type ApiContext } from '../../support/lmsRuntime'
+import {
+    waitForApplicationCatalogId,
+    waitForApplicationLedgerFactCount,
+    waitForApplicationLedgerId,
+    waitForApplicationRuntimeRowCount,
+    type ApiContext
+} from '../../support/lmsRuntime'
 
 type SnapshotFixture = Record<string, unknown>
+type BrowserRuntimeIssue = {
+    source: 'console' | 'pageerror' | 'response'
+    text: string
+    method?: string
+    status?: number
+    url?: string
+}
 
 function readLocalizedText(value: unknown, locale = 'en'): string | undefined {
     if (typeof value === 'string') {
@@ -83,6 +106,168 @@ async function clickRuntimeNavigationItem(page: Page, name: string): Promise<voi
     await directLink.first().click()
 }
 
+async function assertNoHorizontalOverflow(page: Page, label: string): Promise<void> {
+    const overflowPx = await page.evaluate(() => Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth))
+    expect(overflowPx, `${label} must not create horizontal page overflow`).toBeLessThanOrEqual(1)
+}
+
+async function assertElementFitsViewport(page: Page, testId: string, label: string): Promise<void> {
+    const box = await page.getByTestId(testId).boundingBox()
+    expect(box, `${label} must be rendered`).not.toBeNull()
+    if (!box) return
+
+    const viewport = page.viewportSize()
+    expect(viewport, `${label} requires a viewport`).not.toBeNull()
+    if (!viewport) return
+
+    expect(box.x, `${label} must start inside the viewport`).toBeGreaterThanOrEqual(0)
+    expect(box.x + box.width, `${label} must fit inside the viewport`).toBeLessThanOrEqual(viewport.width + 1)
+}
+
+function watchBrowserRuntimeIssues(page: Page): BrowserRuntimeIssue[] {
+    const issues: BrowserRuntimeIssue[] = []
+    page.on('console', (message) => {
+        if (message.type() !== 'error') return
+        if (message.text().startsWith('Failed to load resource:')) return
+        issues.push({
+            source: 'console',
+            text: message.text()
+        })
+    })
+    page.on('pageerror', (error) => {
+        issues.push({
+            source: 'pageerror',
+            text: error.message
+        })
+    })
+    page.on('response', (response) => {
+        const status = response.status()
+        const responseUrl = response.url()
+        if (!responseUrl.includes('/api/')) return
+        const method = response.request().method()
+
+        if (status < 400) {
+            const transientCsrfIndex = issues.findIndex(
+                (issue) => issue.source === 'response' && issue.status === 419 && issue.method === method && issue.url === responseUrl
+            )
+            if (transientCsrfIndex >= 0) {
+                issues.splice(transientCsrfIndex, 1)
+            }
+            return
+        }
+
+        issues.push({
+            source: 'response',
+            text: `HTTP ${status} ${method} ${responseUrl}`,
+            method,
+            status,
+            url: responseUrl
+        })
+    })
+    return issues
+}
+
+function expectNoBrowserRuntimeIssues(issues: BrowserRuntimeIssue[], label: string): void {
+    expect(
+        issues,
+        `${label} produced browser runtime issues:\n${issues.map((issue) => `[${issue.source}] ${issue.text}`).join('\n')}`
+    ).toEqual([])
+}
+
+async function runRuntimeRecordCommandFromRow(page: Page, rowId: string, command: 'post' | 'unpost'): Promise<void> {
+    const trigger = page.getByTestId(`grid-row-actions-trigger-${rowId}`)
+    await expect(trigger).toBeVisible({ timeout: 30_000 })
+    await trigger.click()
+
+    const commandItemByTestId = page.getByTestId(`runtime-record-command-${command}`).first()
+    const commandItem =
+        (await commandItemByTestId.count()) > 0
+            ? commandItemByTestId
+            : page
+                  .getByRole('menuitem', {
+                      name: command === 'post' ? /^(post|провести|опубликовать)$/i : /^(unpost|отменить проведение|распровести)$/i
+                  })
+                  .first()
+    await expect(commandItem).toBeVisible({ timeout: 30_000 })
+    const commandResponsePromise = page.waitForResponse(
+        (response) =>
+            response.request().method() === 'POST' && response.url().includes(`/runtime/rows/${encodeURIComponent(rowId)}/${command}`),
+        { timeout: 30_000 }
+    )
+    await commandItem.click()
+    const commandResponse = await commandResponsePromise
+    expect(commandResponse.ok(), `${command} runtime record command must succeed`).toBe(true)
+    await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
+}
+
+async function submitSnapshotImportDialog(page: Page, dialog: Locator): Promise<Response> {
+    const importButton = dialog.getByRole('button', { name: /import/i }).last()
+    const pendingResponses: Response[] = []
+    const pendingWaiters: Array<(response: Response) => void> = []
+    const onResponse = (response: Response) => {
+        if (response.request().method() !== 'POST' || !response.url().endsWith('/api/v1/metahubs/import')) {
+            return
+        }
+        const waiter = pendingWaiters.shift()
+        if (waiter) {
+            waiter(response)
+            return
+        }
+        pendingResponses.push(response)
+    }
+    const waitForNextImportResponse = (timeoutMs: number): Promise<Response> => {
+        const queued = pendingResponses.shift()
+        if (queued) {
+            return Promise.resolve(queued)
+        }
+        return new Promise((resolve, reject) => {
+            let timeout: ReturnType<typeof setTimeout>
+            const waiter = (response: Response) => {
+                clearTimeout(timeout)
+                resolve(response)
+            }
+            timeout = setTimeout(() => {
+                const index = pendingWaiters.indexOf(waiter)
+                if (index >= 0) {
+                    pendingWaiters.splice(index, 1)
+                }
+                reject(new Error(`Timed out waiting for metahub import response after ${timeoutMs}ms`))
+            }, timeoutMs)
+            pendingWaiters.push(waiter)
+        })
+    }
+
+    page.on('response', onResponse)
+    try {
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+            await importButton.click()
+            let response = await waitForNextImportResponse(180_000)
+
+            for (let retryAttempt = 0; retryAttempt < 3; retryAttempt += 1) {
+                if (response.status() === 201) return response
+
+                const bodyText = await response.text().catch(() => '')
+                if (response.status() === 419 && /csrf/i.test(bodyText)) {
+                    await page.evaluate(() => window.sessionStorage.removeItem('up.auth.csrf'))
+                    const automaticRetryResponse = await waitForNextImportResponse(180_000).catch(() => null)
+                    if (automaticRetryResponse) {
+                        response = automaticRetryResponse
+                        continue
+                    }
+                    await expect(importButton).toBeEnabled({ timeout: 15_000 })
+                    break
+                }
+
+                throw new Error(`Snapshot import failed with HTTP ${response.status()}: ${bodyText.slice(0, 500)}`)
+            }
+        }
+    } finally {
+        page.off('response', onResponse)
+    }
+
+    throw new Error('Snapshot import did not return HTTP 201 after CSRF retry')
+}
+
 async function loadLmsFixture(): Promise<{ fixturePath: string; metahubName: string }> {
     const fixturePath = path.join(process.cwd(), 'tools', 'fixtures', LMS_FIXTURE_FILENAME)
     const rawFixture = await fs.readFile(fixturePath, 'utf8')
@@ -96,6 +281,30 @@ async function loadLmsFixture(): Promise<{ fixturePath: string; metahubName: str
     }
 
     return { fixturePath, metahubName }
+}
+
+async function findEntityInstanceIdByCodename(api: ApiContext, metahubId: string, kindKey: string, codename: string): Promise<string> {
+    const payload = await listLinkedCollections(api, metahubId, { kindKey, limit: 200, offset: 0 })
+    const entity = (payload?.items ?? []).find((item: Record<string, unknown>) => readLocalizedText(item?.codename, 'en') === codename)
+    if (!entity || typeof entity.id !== 'string') {
+        throw new Error(`Entity ${kindKey}/${codename} was not found in imported LMS metahub ${metahubId}`)
+    }
+
+    return entity.id
+}
+
+async function findCatalogIdByCodename(api: ApiContext, metahubId: string, codename: string): Promise<string> {
+    return findEntityInstanceIdByCodename(api, metahubId, 'catalog', codename)
+}
+
+async function findEntityTypeIdByKind(api: ApiContext, metahubId: string, kindKey: string): Promise<string> {
+    const payload = await listMetahubEntityTypes(api, metahubId, { limit: 100, offset: 0 })
+    const entityType = (payload?.items ?? []).find((item: Record<string, unknown>) => item?.kindKey === kindKey)
+    if (!entityType || typeof entityType.id !== 'string') {
+        throw new Error(`Entity type ${kindKey} was not found in imported LMS metahub ${metahubId}`)
+    }
+
+    return entityType.id
 }
 
 async function waitForLayoutId(api: ApiContext, metahubId: string) {
@@ -116,6 +325,51 @@ async function waitForLayoutId(api: ApiContext, metahubId: string) {
     return layoutId
 }
 
+async function expectPublicRuntimeSecurityEdges(page: Page, applicationId: string): Promise<void> {
+    const linkResponse = await page.request.get(`/api/v1/public/a/${applicationId}/links/${LMS_SAMPLE_LINK.slug}`)
+    expect(linkResponse.status()).toBe(200)
+    const linkBody = await linkResponse.json()
+    const targetId = typeof linkBody?.targetId === 'string' ? linkBody.targetId : ''
+    expect(targetId).toMatch(/^[0-9a-f-]{36}$/i)
+
+    const missingSlugResponse = await page.request.get(`/api/v1/public/a/${applicationId}/runtime?targetType=content&targetId=${targetId}`)
+    expect(missingSlugResponse.status()).toBe(400)
+
+    const foreignTargetResponse = await page.request.get(
+        `/api/v1/public/a/${applicationId}/runtime?slug=${encodeURIComponent(
+            LMS_SAMPLE_LINK.slug
+        )}&targetType=assessment&targetId=018f8a78-7b8f-7c1d-a111-222233334777`
+    )
+    expect(foreignTargetResponse.status()).toBe(403)
+}
+
+async function expectRegistrarOnlyLedgerRejectsManualWrite(
+    api: ApiContext,
+    applicationId: string,
+    ledgerId: string,
+    workspaceId: string
+): Promise<void> {
+    const response = await sendWithCsrf(
+        api,
+        'POST',
+        `/api/v1/applications/${applicationId}/runtime/ledgers/${ledgerId}/facts?workspaceId=${workspaceId}`,
+        {
+            facts: [
+                {
+                    data: {
+                        SourceRowId: 'manual-probe',
+                        SourceLineId: 'manual-probe',
+                        ProgressDelta: 1
+                    }
+                }
+            ]
+        }
+    )
+    expect(response.status).toBe(403)
+    const body = await response.json()
+    expect(body).toMatchObject({ code: 'LEDGER_REGISTRAR_ONLY' })
+}
+
 test.describe('LMS Snapshot Import Runtime Flow', () => {
     let api: ApiContext
 
@@ -129,7 +383,8 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         page,
         runManifest
     }, testInfo) => {
-        test.setTimeout(480_000)
+        test.setTimeout(720_000)
+        const browserIssues = watchBrowserRuntimeIssues(page)
 
         const fixture = await loadLmsFixture()
         api = await createLoggedInApiContext({
@@ -155,18 +410,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await dialog.locator('input[type="file"]').setInputFiles(fixture.fixturePath)
         await expect(dialog.getByText(LMS_FIXTURE_FILENAME)).toBeVisible()
 
-        const importResponsePromise = page.waitForResponse(
-            (response) =>
-                response.request().method() === 'POST' && response.url().endsWith('/api/v1/metahubs/import') && response.status() === 201,
-            { timeout: 180_000 }
-        )
-
-        await dialog
-            .getByRole('button', { name: /import/i })
-            .last()
-            .click()
-
-        const importResponse = await importResponsePromise
+        const importResponse = await submitSnapshotImportDialog(page, dialog)
         expect(importResponse.status()).toBe(201)
 
         const importBody = await importResponse.json()
@@ -199,6 +443,149 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         expect(menuWidget?.config?.autoShowAllCatalogs).toBe(false)
         expect(menuWidget?.config?.maxPrimaryItems).toBe(6)
         expect(menuWidget?.config?.startPage).toBe('LearnerHome')
+
+        await applyBrowserPreferences(page, { language: 'ru' })
+        await page.goto(`/metahub/${importedId}/entities/catalog/instances`)
+        await expect(page.getByRole('heading', { name: 'Каталоги' })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByPlaceholder(/Поиск каталогов/i)).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByRole('heading', { name: 'Ledgers' })).toHaveCount(0)
+
+        const metahubProgressLedgerId = await findEntityInstanceIdByCodename(api, importedId, 'catalog', 'ProgressLedger')
+        await page.getByTestId(buildEntityMenuTriggerSelector('catalog', metahubProgressLedgerId)).click()
+        await page.getByTestId(buildEntityMenuItemSelector('catalog', 'edit', metahubProgressLedgerId)).click()
+        let progressLedgerDialog = page.getByRole('dialog', { name: /Редактировать каталог/i })
+        await expect(progressLedgerDialog).toBeVisible({ timeout: 30_000 })
+        await progressLedgerDialog.getByRole('tab', { name: 'Схема регистра' }).click()
+        await expect(progressLedgerDialog.getByLabel('Режим регистра')).toContainText('Остатки')
+        await expect(progressLedgerDialog.getByLabel('Политика изменений')).toContainText('Только добавление')
+        await expect(progressLedgerDialog.getByLabel('Политика источника')).toContainText('Только регистратор')
+        await expect(progressLedgerDialog.getByText('Роли полей')).toBeVisible()
+        await expect(progressLedgerDialog.getByText('Проекции')).toBeVisible()
+        await progressLedgerDialog.screenshot({ path: testInfo.outputPath('metahub-ledger-progress-schema-before-save-ru.png') })
+        await progressLedgerDialog.getByLabel('Периодичность').click()
+        await page.getByRole('option', { name: 'Месяц' }).click()
+
+        const ledgerSchemaSaveResponse = waitForSettledMutationResponse(
+            page,
+            (response) =>
+                response.request().method() === 'PATCH' &&
+                response.url().endsWith(
+                    `/api/v1/metahub/${importedId}/entities/catalog/instance/${metahubProgressLedgerId}`
+                ),
+            { label: 'Saving LMS Progress ledger schema periodicity' }
+        )
+        await progressLedgerDialog.getByTestId(entityDialogSelectors.submitButton).click()
+        expect((await ledgerSchemaSaveResponse).ok()).toBe(true)
+        await expect(progressLedgerDialog).toHaveCount(0)
+
+        await page.getByTestId(buildEntityMenuTriggerSelector('catalog', metahubProgressLedgerId)).click()
+        await page.getByTestId(buildEntityMenuItemSelector('catalog', 'edit', metahubProgressLedgerId)).click()
+        progressLedgerDialog = page.getByRole('dialog', { name: /Редактировать каталог/i })
+        await expect(progressLedgerDialog).toBeVisible({ timeout: 30_000 })
+        await progressLedgerDialog.getByRole('tab', { name: 'Схема регистра' }).click()
+        await expect(progressLedgerDialog.getByLabel('Периодичность')).toContainText('Месяц')
+        await progressLedgerDialog.screenshot({ path: testInfo.outputPath('metahub-ledger-progress-schema-reopened-ru.png') })
+        await progressLedgerDialog.getByLabel('Периодичность').click()
+        await page.getByRole('option', { name: 'Нет' }).click()
+        const ledgerSchemaRestoreResponse = waitForSettledMutationResponse(
+            page,
+            (response) =>
+                response.request().method() === 'PATCH' &&
+                response.url().endsWith(
+                    `/api/v1/metahub/${importedId}/entities/catalog/instance/${metahubProgressLedgerId}`
+                ),
+            { label: 'Restoring LMS Progress ledger schema periodicity' }
+        )
+        await progressLedgerDialog.getByTestId(entityDialogSelectors.submitButton).click()
+        expect((await ledgerSchemaRestoreResponse).ok()).toBe(true)
+        await expect(progressLedgerDialog).toHaveCount(0)
+
+        const progressLedgerCell = page.getByText('Регистр прогресса', { exact: true }).first()
+        await expect(progressLedgerCell).toBeVisible({ timeout: 30_000 })
+        await progressLedgerCell.click()
+        await expect(page).toHaveURL(/\/entities\/catalog\/instance\/[0-9a-f-]+\/field-definitions$/i)
+
+        const catalogTypeId = await findEntityTypeIdByKind(api, importedId, 'catalog')
+        await page.goto(`/metahub/${importedId}/entities`)
+        await expect(page.getByTestId(buildEntityMenuTriggerSelector('entity-type', catalogTypeId))).toBeVisible({ timeout: 30_000 })
+        await page.getByTestId(buildEntityMenuTriggerSelector('entity-type', catalogTypeId)).click()
+        await page.getByTestId(buildEntityMenuItemSelector('entity-type', 'edit', catalogTypeId)).click()
+
+        const catalogTypeDialog = page.getByRole('dialog', { name: /Редактировать сущность|Edit Entity/i })
+        await expect(catalogTypeDialog).toBeVisible({ timeout: 30_000 })
+        await expect(catalogTypeDialog.getByRole('checkbox', { name: 'Поведение' })).toBeChecked()
+        await expect(catalogTypeDialog.getByLabel('Дополнительные вкладки')).toHaveValue(/hubs/)
+        await catalogTypeDialog.getByRole('tab', { name: 'Компоненты' }).click()
+        await expect(catalogTypeDialog.getByLabel('Схема данных')).toBeChecked()
+        await expect(catalogTypeDialog.getByLabel('Скрипты')).toBeChecked()
+        await expect(catalogTypeDialog.getByLabel('Runtime-поведение')).toBeChecked()
+        await expect(catalogTypeDialog.getByLabel('Физическая таблица')).toBeChecked()
+        await catalogTypeDialog.screenshot({ path: testInfo.outputPath('metahub-catalog-type-behavior-components-ru.png') })
+        await catalogTypeDialog.getByTestId(entityDialogSelectors.cancelButton).click()
+        await expect(catalogTypeDialog).toHaveCount(0)
+
+        const enrollmentCatalogId = await findCatalogIdByCodename(api, importedId, 'Enrollments')
+        await page.goto(`/metahub/${importedId}/entities/catalog/instances`)
+        await expect(page.getByRole('heading', { name: 'Каталоги' })).toBeVisible({ timeout: 30_000 })
+
+        await page
+            .getByRole('button', { name: /создать/i })
+            .last()
+            .click()
+        const createCatalogDialog = page.getByRole('dialog', { name: /Создать каталог/i })
+        await expect(createCatalogDialog).toBeVisible({ timeout: 30_000 })
+        await createCatalogDialog.getByRole('tab', { name: 'Поведение' }).click()
+        await expect(createCatalogDialog.getByLabel('Режим записей')).toContainText('Справочник')
+        await expect(createCatalogDialog.getByLabel('Включить нумерацию записей')).not.toBeChecked()
+        await expect(createCatalogDialog.getByLabel('Включить дату действия')).not.toBeChecked()
+        await expect(createCatalogDialog.getByLabel('Префикс')).toHaveCount(0)
+        await createCatalogDialog.screenshot({ path: testInfo.outputPath('metahub-catalog-create-behavior-defaults-ru.png') })
+        await createCatalogDialog.getByTestId(entityDialogSelectors.cancelButton).click()
+        await expect(createCatalogDialog).toHaveCount(0)
+
+        await page.getByTestId(buildEntityMenuTriggerSelector('catalog', enrollmentCatalogId)).click()
+        await page.getByTestId(buildEntityMenuItemSelector('catalog', 'edit', enrollmentCatalogId)).click()
+        let enrollmentDialog = page.getByRole('dialog', { name: /Редактировать каталог/i })
+        await expect(enrollmentDialog).toBeVisible({ timeout: 30_000 })
+        await enrollmentDialog.getByRole('tab', { name: 'Поведение' }).click()
+        await expect(enrollmentDialog.getByLabel('Режим записей')).toContainText('Транзакционный')
+        await expect(enrollmentDialog.getByLabel('Префикс')).toHaveValue('ENR-')
+        await expect(enrollmentDialog.getByText(/Регистр прогресса|ProgressLedger/).first()).toBeVisible({ timeout: 30_000 })
+        await expect(enrollmentDialog.getByText(/Enrollment Posting Script|EnrollmentPostingScript/).first()).toBeVisible({
+            timeout: 30_000
+        })
+        await enrollmentDialog.screenshot({ path: testInfo.outputPath('metahub-catalog-enrollments-behavior-before-save-ru.png') })
+        await enrollmentDialog.getByLabel('Префикс').fill('ENR-QA-')
+
+        const behaviorSaveResponse = waitForSettledMutationResponse(
+            page,
+            (response) =>
+                response.request().method() === 'PATCH' &&
+                response.url().endsWith(`/api/v1/metahub/${importedId}/entities/catalog/instance/${enrollmentCatalogId}`),
+            { label: 'Saving LMS Enrollment behavior prefix' }
+        )
+        await enrollmentDialog.getByTestId(entityDialogSelectors.submitButton).click()
+        expect((await behaviorSaveResponse).ok()).toBe(true)
+        await expect(enrollmentDialog).toHaveCount(0)
+
+        await page.getByTestId(buildEntityMenuTriggerSelector('catalog', enrollmentCatalogId)).click()
+        await page.getByTestId(buildEntityMenuItemSelector('catalog', 'edit', enrollmentCatalogId)).click()
+        enrollmentDialog = page.getByRole('dialog', { name: /Редактировать каталог/i })
+        await expect(enrollmentDialog).toBeVisible({ timeout: 30_000 })
+        await enrollmentDialog.getByRole('tab', { name: 'Поведение' }).click()
+        await expect(enrollmentDialog.getByLabel('Префикс')).toHaveValue('ENR-QA-')
+        await enrollmentDialog.screenshot({ path: testInfo.outputPath('metahub-catalog-enrollments-behavior-reopened-ru.png') })
+        await enrollmentDialog.getByLabel('Префикс').fill('ENR-')
+        const behaviorRestoreResponse = waitForSettledMutationResponse(
+            page,
+            (response) =>
+                response.request().method() === 'PATCH' &&
+                response.url().endsWith(`/api/v1/metahub/${importedId}/entities/catalog/instance/${enrollmentCatalogId}`),
+            { label: 'Restoring LMS Enrollment behavior prefix' }
+        )
+        await enrollmentDialog.getByTestId(entityDialogSelectors.submitButton).click()
+        expect((await behaviorRestoreResponse).ok()).toBe(true)
+        await expect(enrollmentDialog).toHaveCount(0)
 
         const linkedApplication = await createPublicationLinkedApplication(api, importedId, importedPublicationId, {
             name: LMS_PUBLICATION.applicationName,
@@ -235,16 +622,18 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
 
         const diffDialog = page.getByRole('dialog', { name: 'Schema Changes' })
         await expect(diffDialog).toBeVisible({ timeout: 30_000 })
-        await expect(diffDialog.getByText('Workspaces', { exact: true })).toBeVisible()
-        await diffDialog.getByLabel('Create application workspaces').check()
-        await diffDialog.getByLabel('I understand that workspaces cannot be turned off after they are enabled for this application.').check()
+        await expect(diffDialog.getByText('This publication version requires application workspaces.')).toBeVisible()
+        await expect(diffDialog.getByText('Workspaces', { exact: true })).toHaveCount(0)
+        await diffDialog
+            .getByLabel('I understand that workspaces cannot be turned off after they are enabled for this application.')
+            .check()
 
-        const syncResponsePromise = page.waitForResponse(
+        const syncResponsePromise = waitForSettledMutationResponse(
+            page,
             (response) =>
                 response.request().method() === 'POST' &&
-                response.url().endsWith(`/api/v1/application/${applicationId}/sync`) &&
-                response.status() === 200,
-            { timeout: 180_000 }
+                response.url().endsWith(`/api/v1/application/${applicationId}/sync`),
+            { label: 'Creating imported LMS application schema with workspaces', timeout: 420_000 }
         )
         await diffDialog.getByRole('button', { name: 'Create Schema' }).click()
         const syncResponse = await syncResponsePromise
@@ -257,11 +646,14 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         })
         await expect(diffDialog).toHaveCount(0)
 
-        const [studentsCatalogId, quizResponsesCatalogId, moduleProgressCatalogId] = await Promise.all([
-            waitForApplicationCatalogId(api, applicationId, 'Students'),
-            waitForApplicationCatalogId(api, applicationId, 'Quiz Responses'),
-            waitForApplicationCatalogId(api, applicationId, 'Module Progress')
-        ])
+        const [studentsCatalogId, quizResponsesCatalogId, moduleProgressCatalogId, enrollmentsCatalogId, progressLedgerId] =
+            await Promise.all([
+                waitForApplicationCatalogId(api, applicationId, 'Students'),
+                waitForApplicationCatalogId(api, applicationId, 'Quiz Responses'),
+                waitForApplicationCatalogId(api, applicationId, 'Module Progress'),
+                waitForApplicationCatalogId(api, applicationId, 'Enrollments'),
+                waitForApplicationLedgerId(api, applicationId, 'ProgressLedger')
+            ])
 
         await applyBrowserPreferences(page, { language: 'en' })
         await page.goto(`/a/${applicationId}`)
@@ -278,13 +670,27 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await expect(page.getByText(LMS_WELCOME_PAGE.howToStartTitle.en, { exact: true })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText(LMS_WELCOME_PAGE.workspaceGuidance.en)).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText('Catalog', { exact: true })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText('Learners', { exact: true })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText('Department Progress', { exact: true })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText('Assignment Scores', { exact: true })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByRole('link', { name: 'Workspaces' })).toHaveCount(1)
         await expect(page.getByText('Module access QR')).toHaveCount(0)
         await expect(page.getByText('Learning portal stats')).toHaveCount(0)
         await expect(page.getByText('Dashboard preview of the canonical learning lesson')).toHaveCount(0)
         await expect(page.getByRole('button', { name: 'Copy link' })).toHaveCount(0)
         await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
+        await assertNoHorizontalOverflow(page, 'LMS dashboard')
+        await assertElementFitsViewport(page, 'runtime-page-blocks', 'LMS dashboard page block surface')
         await page.screenshot({ path: testInfo.outputPath('lms-dashboard-en.png'), fullPage: true })
+
+        await page.getByRole('link', { name: 'Workspaces' }).first().click()
+        await expect(page.getByTestId('runtime-workspaces-page')).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByTestId('runtime-workspaces-card-view')).toBeVisible({ timeout: 30_000 })
+        await assertNoHorizontalOverflow(page, 'LMS workspaces page')
+        await assertElementFitsViewport(page, 'runtime-workspaces-card-view', 'LMS workspaces card surface')
+        await page.screenshot({ path: testInfo.outputPath('lms-workspaces-en.png'), fullPage: true })
+        await page.goto(`/a/${applicationId}`)
+        await expect(page.getByTestId('runtime-page-blocks')).toBeVisible({ timeout: 30_000 })
 
         await clickRuntimeNavigationItem(page, 'Knowledge')
         await expect(page.getByText('Quizzes', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
@@ -311,6 +717,12 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await expect(page.getByText(LMS_WELCOME_PAGE.howToStartTitle.ru, { exact: true })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText(LMS_WELCOME_PAGE.workspaceGuidance.ru)).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText('Каталог', { exact: true })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText('Учащиеся', { exact: true })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText('Прогресс подразделений', { exact: true })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText('Оценки заданий', { exact: true })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText('Нет данных для отображения', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText('Learners', { exact: true })).toHaveCount(0)
+        await expect(page.getByText('No data to display', { exact: true })).toHaveCount(0)
         await expect(page.getByRole('link', { name: 'Рабочие пространства' })).toHaveCount(1)
         await expect(page.getByText('Module access QR')).toHaveCount(0)
         await expect(page.getByText('Статистика учебного портала')).toHaveCount(0)
@@ -384,6 +796,53 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             throw new Error('Main application workspace was not found for final runtime verification')
         }
 
+        await expectPublicRuntimeSecurityEdges(page, applicationId)
+        await expectRegistrarOnlyLedgerRejectsManualWrite(api, applicationId, progressLedgerId, mainWorkspaceId)
+
+        const enrollmentRows = await waitForApplicationRuntimeRowCount(
+            api,
+            applicationId,
+            enrollmentsCatalogId,
+            LMS_DEMO_ENROLLMENTS.length,
+            {
+                workspaceId: mainWorkspaceId
+            }
+        )
+        const enrollmentToPost = enrollmentRows.find((row) => row?._app_record_state !== 'posted') ?? enrollmentRows[0]
+        if (typeof enrollmentToPost?.id !== 'string') {
+            throw new Error('LMS posting proof could not find an enrollment runtime row')
+        }
+
+        await page.goto(`/a/${applicationId}/${encodeURIComponent(enrollmentsCatalogId)}`)
+        await expect(page.getByTestId(`grid-row-actions-trigger-${enrollmentToPost.id}`)).toBeVisible({ timeout: 30_000 })
+        await runRuntimeRecordCommandFromRow(page, enrollmentToPost.id, 'post')
+
+        const progressFacts = await waitForApplicationLedgerFactCount(api, applicationId, progressLedgerId, 1, {
+            workspaceId: mainWorkspaceId
+        })
+        expect(progressFacts[0]?.data).toMatchObject({
+            SourceRowId: enrollmentToPost.id,
+            SourceLineId: 'enrollment-progress'
+        })
+        const postedProgressDelta = Number(progressFacts[0]?.data?.ProgressDelta ?? 0)
+        expect(Number.isFinite(postedProgressDelta)).toBe(true)
+
+        await runRuntimeRecordCommandFromRow(page, enrollmentToPost.id, 'unpost')
+
+        const compensatedProgressFacts = await waitForApplicationLedgerFactCount(api, applicationId, progressLedgerId, 2, {
+            workspaceId: mainWorkspaceId
+        })
+        const progressDeltas = compensatedProgressFacts
+            .map((fact) => Number(fact?.data?.ProgressDelta ?? 0))
+            .sort((left, right) => left - right)
+        expect(progressDeltas.every(Number.isFinite)).toBe(true)
+        expect(progressDeltas.reduce((sum, delta) => sum + delta, 0)).toBeCloseTo(0)
+        if (postedProgressDelta !== 0) {
+            expect(progressDeltas).toEqual([-postedProgressDelta, postedProgressDelta].sort((left, right) => left - right))
+        } else {
+            expect(progressDeltas.every((delta) => delta === 0)).toBe(true)
+        }
+
         const [studentRows, quizResponseRows, moduleProgressRows] = await Promise.all([
             waitForApplicationRuntimeRowCount(api, applicationId, studentsCatalogId, LMS_DEMO_STUDENTS.length + 2, {
                 workspaceId: mainWorkspaceId
@@ -399,5 +858,6 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         expect(studentRows).toHaveLength(LMS_DEMO_STUDENTS.length + 2)
         expect(quizResponseRows).toHaveLength(LMS_DEMO_QUIZ_RESPONSES.length + 4)
         expect(moduleProgressRows).toHaveLength(LMS_DEMO_MODULE_PROGRESS.length + 2)
+        expectNoBrowserRuntimeIssues(browserIssues, 'LMS snapshot runtime flow')
     })
 })

@@ -5,8 +5,10 @@ import { catalogEntityPreset } from '../../domains/templates/data/linked-collect
 import { lmsTemplate } from '../../domains/templates/data/lms.template'
 import { enumerationEntityPreset } from '../../domains/templates/data/option-list.entity-preset'
 import { pageEntityPreset } from '../../domains/templates/data/page.entity-preset'
+import { ledgerEntityPreset } from '../../domains/templates/data/ledger.entity-preset'
 import { hubEntityPreset } from '../../domains/templates/data/tree-entity.entity-preset'
 import { setEntityPreset } from '../../domains/templates/data/value-group.entity-preset'
+import { parseApplicationLayoutWidgetConfig } from '@universo/types'
 import { validateEntityTypePresetManifest, validateTemplateManifest } from '../../domains/templates/services/TemplateManifestValidator'
 
 const cloneTemplate = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
@@ -28,6 +30,26 @@ describe('TemplateManifestValidator', () => {
         expect(() => validateEntityTypePresetManifest(cloneTemplate(catalogEntityPreset))).not.toThrow()
     })
 
+    it('preserves record behavior component flags in the built-in catalog entity preset', () => {
+        const validated = validateEntityTypePresetManifest(cloneTemplate(catalogEntityPreset))
+
+        expect(validated.entityType.ui.tabs).toContain('behavior')
+        expect(validated.entityType.components.identityFields).toEqual({
+            enabled: true,
+            allowNumber: true,
+            allowEffectiveDate: true
+        })
+        expect(validated.entityType.components.recordLifecycle).toEqual({
+            enabled: true,
+            allowCustomStates: true
+        })
+        expect(validated.entityType.components.posting).toEqual({
+            enabled: true,
+            allowManualPosting: true,
+            allowAutomaticPosting: true
+        })
+    })
+
     it('accepts the built-in hub, set, and enumeration entity presets', () => {
         expect(() => validateEntityTypePresetManifest(cloneTemplate(hubEntityPreset))).not.toThrow()
         expect(() => validateEntityTypePresetManifest(cloneTemplate(pageEntityPreset))).not.toThrow()
@@ -35,8 +57,15 @@ describe('TemplateManifestValidator', () => {
         expect(() => validateEntityTypePresetManifest(cloneTemplate(enumerationEntityPreset))).not.toThrow()
     })
 
-    it('keeps standard metadata menu order as hubs, pages, catalogs, sets, and enumerations', () => {
-        const orderedKinds = [hubEntityPreset, pageEntityPreset, catalogEntityPreset, setEntityPreset, enumerationEntityPreset]
+    it('keeps standard metadata menu order and excludes optional ledgers from default starter templates', () => {
+        const orderedKinds = [
+            hubEntityPreset,
+            pageEntityPreset,
+            catalogEntityPreset,
+            setEntityPreset,
+            enumerationEntityPreset,
+            ledgerEntityPreset
+        ]
             .map((preset) => ({
                 kindKey: preset.entityType.kindKey,
                 sidebarOrder: preset.entityType.ui.sidebarOrder
@@ -44,9 +73,21 @@ describe('TemplateManifestValidator', () => {
             .sort((left, right) => Number(left.sidebarOrder ?? 0) - Number(right.sidebarOrder ?? 0))
             .map((item) => item.kindKey)
 
-        expect(orderedKinds).toEqual(['hub', 'page', 'catalog', 'set', 'enumeration'])
-        expect(basicTemplate.presets?.map((preset) => preset.presetCodename)).toEqual(['hub', 'page', 'catalog', 'set', 'enumeration'])
-        expect(basicDemoTemplate.presets?.map((preset) => preset.presetCodename)).toEqual(['hub', 'page', 'catalog', 'set', 'enumeration'])
+        expect(orderedKinds).toEqual(['hub', 'page', 'catalog', 'set', 'enumeration', 'ledger'])
+        expect(basicTemplate.presets?.map((preset) => preset.presetCodename)).toEqual([
+            'hub',
+            'page',
+            'catalog',
+            'set',
+            'enumeration'
+        ])
+        expect(basicDemoTemplate.presets?.map((preset) => preset.presetCodename)).toEqual([
+            'hub',
+            'page',
+            'catalog',
+            'set',
+            'enumeration'
+        ])
     })
 
     it('keeps standard resource surface definitions aligned with component capabilities', () => {
@@ -120,11 +161,25 @@ describe('TemplateManifestValidator', () => {
         const manifest = cloneTemplate(lmsTemplate)
         const widgets = manifest.seed.layoutZoneWidgets.main ?? []
         const entityCodenames = manifest.seed.entities.map((entity) => entity.codename)
+        const entityByCodename = new Map(manifest.seed.entities.map((entity) => [entity.codename, entity]))
         const menuWidget = widgets.find((widget) => widget.widgetKey === 'menuWidget')
 
         expect(widgets.some((widget) => widget.widgetKey === 'moduleViewerWidget')).toBe(false)
         expect(widgets.some((widget) => widget.widgetKey === 'statsViewerWidget')).toBe(false)
         expect(widgets.some((widget) => widget.widgetKey === 'qrCodeWidget')).toBe(false)
+        expect(widgets).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ zone: 'center', widgetKey: 'overviewCards' }),
+                expect.objectContaining({ zone: 'center', widgetKey: 'sessionsChart' }),
+                expect.objectContaining({ zone: 'center', widgetKey: 'pageViewsChart' }),
+                expect.objectContaining({ zone: 'center', widgetKey: 'columnsContainer' })
+            ])
+        )
+        for (const widget of widgets.filter((item) =>
+            ['overviewCards', 'sessionsChart', 'pageViewsChart', 'columnsContainer'].includes(item.widgetKey)
+        )) {
+            expect(() => parseApplicationLayoutWidgetConfig(widget.widgetKey, widget.config ?? {})).not.toThrow()
+        }
         expect(menuWidget?.config).toMatchObject(
             expect.objectContaining({
                 autoShowAllCatalogs: false,
@@ -150,13 +205,29 @@ describe('TemplateManifestValidator', () => {
                 'Learning',
                 'LmsConfiguration',
                 'LearnerHome',
+                'CourseOverview',
+                'KnowledgeArticle',
+                'AssignmentInstructions',
+                'CertificatePolicy',
                 'Classes',
                 'Students',
                 'Modules',
                 'Quizzes',
                 'QuizResponses',
+                'QuizAttempts',
+                'LearningActivityLedger',
+                'ProgressLedger',
+                'ScoreLedger',
+                'EnrollmentLedger',
+                'AttendanceLedger',
+                'CertificateLedger',
+                'PointsLedger',
+                'NotificationLedger',
                 'ModuleProgress',
                 'AccessLinks',
+                'AssignmentSubmissions',
+                'TrainingAttendance',
+                'CertificateIssues',
                 'ModuleStatus',
                 'QuestionType',
                 'ContentType'
@@ -169,6 +240,65 @@ describe('TemplateManifestValidator', () => {
             { presetCodename: 'set', includedByDefault: true },
             { presetCodename: 'enumeration', includedByDefault: true }
         ])
+        for (const codename of [
+            'QuizResponses',
+            'QuizAttempts',
+            'ModuleProgress',
+            'Assignments',
+            'AssignmentSubmissions',
+            'TrainingEvents',
+            'TrainingAttendance',
+            'Certificates',
+            'CertificateIssues',
+            'Enrollments'
+        ]) {
+            expect(entityByCodename.get(codename)?.config?.recordBehavior).toEqual(
+                expect.objectContaining({
+                    mode: 'transactional',
+                    numbering: expect.objectContaining({ enabled: true }),
+                    posting: expect.objectContaining({ mode: 'manual' })
+                })
+            )
+        }
+        expect(manifest.seed.scripts).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    codename: 'AutoEnrollmentRuleScript',
+                    attachedToKind: 'catalog',
+                    attachedToEntityCodename: 'Students',
+                    moduleRole: 'lifecycle',
+                    capabilities: expect.arrayContaining(['records.read', 'records.write', 'lifecycle'])
+                }),
+                expect.objectContaining({
+                    codename: 'EnrollmentPostingScript',
+                    attachedToKind: 'catalog',
+                    attachedToEntityCodename: 'Enrollments',
+                    moduleRole: 'lifecycle',
+                    capabilities: expect.arrayContaining(['lifecycle', 'posting', 'ledger.write'])
+                }),
+                expect.objectContaining({
+                    codename: 'QuizAttemptPostingScript',
+                    attachedToKind: 'catalog',
+                    attachedToEntityCodename: 'QuizAttempts',
+                    moduleRole: 'lifecycle',
+                    capabilities: expect.arrayContaining(['lifecycle', 'posting', 'ledger.write'])
+                }),
+                expect.objectContaining({
+                    codename: 'ModuleCompletionPostingScript',
+                    attachedToKind: 'catalog',
+                    attachedToEntityCodename: 'ModuleProgress',
+                    moduleRole: 'lifecycle',
+                    capabilities: expect.arrayContaining(['lifecycle', 'posting', 'ledger.write'])
+                }),
+                expect.objectContaining({
+                    codename: 'CertificateIssuePostingScript',
+                    attachedToKind: 'catalog',
+                    attachedToEntityCodename: 'CertificateIssues',
+                    moduleRole: 'lifecycle',
+                    capabilities: expect.arrayContaining(['lifecycle', 'posting', 'ledger.write'])
+                })
+            ])
+        )
         expect(manifest.seed.entities.find((entity) => entity.codename === 'LearnerHome')).toEqual(
             expect.objectContaining({
                 kind: 'page',
@@ -181,12 +311,34 @@ describe('TemplateManifestValidator', () => {
                 })
             })
         )
+        for (const codename of ['CourseOverview', 'KnowledgeArticle', 'AssignmentInstructions', 'CertificatePolicy']) {
+            const pageEntity = entityByCodename.get(codename)
+            expect(pageEntity).toEqual(
+                expect.objectContaining({
+                    kind: 'page',
+                    localizeCodenameFromName: false
+                })
+            )
+            expect(pageEntity?.config).toMatchObject({
+                blockContent: expect.objectContaining({
+                    format: 'editorjs',
+                    blocks: expect.arrayContaining([
+                        expect.objectContaining({ type: 'header' }),
+                        expect.objectContaining({ type: 'paragraph' })
+                    ])
+                }),
+                runtime: expect.objectContaining({
+                    menuVisibility: 'secondary'
+                })
+            })
+        }
         expect(manifest.seed.entities.find((entity) => entity.codename === 'LmsConfiguration')).toEqual(
             expect.objectContaining({
                 kind: 'set',
                 fixedValues: expect.arrayContaining([
                     expect.objectContaining({ codename: 'DefaultPassingScore', value: 80 }),
-                    expect.objectContaining({ codename: 'CertificateValidityDays', value: 365 })
+                    expect.objectContaining({ codename: 'CertificateValidityDays', value: 365 }),
+                    expect.objectContaining({ codename: 'SupportEmail', value: '' })
                 ])
             })
         )

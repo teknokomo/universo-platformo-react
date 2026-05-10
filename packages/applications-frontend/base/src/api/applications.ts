@@ -10,8 +10,11 @@ import type {
     ApplicationLayoutWidgetConfigMutation,
     ApplicationLayoutWidgetMoveMutation,
     ApplicationLayoutWidgetMutation,
-    ApplicationLayoutWidgetToggleMutation
+    ApplicationLayoutWidgetToggleMutation,
+    RuntimeDatasourceFilter,
+    RuntimeDatasourceSort
 } from '@universo/types'
+import type { RuntimeRecordCommand } from '@universo/apps-template-mui'
 import {
     Application,
     ApplicationMember,
@@ -104,7 +107,16 @@ export const leaveApplication = (id: string) => apiClient.post<{ status: 'left' 
 
 export const getApplicationRuntime = async (
     applicationId: string,
-    params?: { limit?: number; offset?: number; locale?: string; linkedCollectionId?: string; sectionId?: string }
+    params?: {
+        limit?: number
+        offset?: number
+        locale?: string
+        linkedCollectionId?: string
+        sectionId?: string
+        search?: string
+        sort?: RuntimeDatasourceSort[]
+        filters?: RuntimeDatasourceFilter[]
+    }
 ): Promise<ApplicationRuntimeResponse> => {
     const resolvedSectionId = params?.sectionId ?? params?.linkedCollectionId
     const response = await apiClient.get<ApplicationRuntimeResponse>(`/applications/${applicationId}/runtime`, {
@@ -112,7 +124,10 @@ export const getApplicationRuntime = async (
             limit: params?.limit,
             offset: params?.offset,
             locale: params?.locale,
-            linkedCollectionId: resolvedSectionId
+            linkedCollectionId: resolvedSectionId,
+            search: params?.search,
+            sort: params?.sort ? JSON.stringify(params.sort) : undefined,
+            filters: params?.filters ? JSON.stringify(params.filters) : undefined
         }
     })
     return response.data
@@ -226,6 +241,23 @@ export const copyApplicationRuntimeRow = async (params: {
     const body: Record<string, unknown> = { copyChildTables }
     if (resolvedSectionId) body.linkedCollectionId = resolvedSectionId
     const response = await apiClient.post<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows/${rowId}/copy`, body)
+    return response.data
+}
+
+export const runApplicationRuntimeRecordCommand = async (params: {
+    applicationId: string
+    rowId: string
+    command: RuntimeRecordCommand
+    linkedCollectionId?: string
+    sectionId?: string
+    expectedVersion?: number
+}): Promise<Record<string, unknown>> => {
+    const { applicationId, rowId, command, linkedCollectionId, sectionId, expectedVersion } = params
+    const resolvedSectionId = sectionId ?? linkedCollectionId
+    const body: Record<string, unknown> = {}
+    if (resolvedSectionId) body.linkedCollectionId = resolvedSectionId
+    if (typeof expectedVersion === 'number') body.expectedVersion = expectedVersion
+    const response = await apiClient.post<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows/${rowId}/${command}`, body)
     return response.data
 }
 

@@ -156,7 +156,15 @@ export default function DashboardApp(props: DashboardAppProps) {
         () => ({
             title: detailsTitle,
             applicationId: props.applicationId,
+            sectionId: state.appData?.activeSectionId ?? state.selectedLinkedCollectionId ?? state.activeLinkedCollectionId ?? null,
+            sectionCodename: state.appData?.section?.codename ?? null,
+            linkedCollectionId:
+                state.appData?.activeLinkedCollectionId ?? state.selectedLinkedCollectionId ?? state.activeLinkedCollectionId ?? null,
+            linkedCollectionCodename: state.appData?.linkedCollection.codename ?? null,
+            sections: state.appData?.sections ?? [],
+            linkedCollections: state.appData?.linkedCollections ?? [],
             apiBaseUrl: props.apiBaseUrl,
+            locale: props.locale,
             currentWorkspaceId,
             runtimeQueryKeyPrefix: adapter?.queryKeyPrefix,
             workspacesEnabled,
@@ -167,6 +175,12 @@ export default function DashboardApp(props: DashboardAppProps) {
             rowCount: state.rowCount,
             paginationModel: state.paginationModel,
             onPaginationModelChange: state.setPaginationModel,
+            sortModel: state.sortModel,
+            onSortModelChange: state.setSortModel,
+            filterModel: state.filterModel,
+            onFilterModelChange: state.setFilterModel,
+            searchValue: state.searchValue,
+            onSearchValueChange: state.setSearchValue,
             pageSizeOptions: state.pageSizeOptions,
             localeText: state.localeText,
             actions: createActions,
@@ -181,6 +195,14 @@ export default function DashboardApp(props: DashboardAppProps) {
         }),
         [
             detailsTitle,
+            state.appData?.activeSectionId,
+            state.appData?.activeLinkedCollectionId,
+            state.appData?.section?.codename,
+            state.appData?.linkedCollection.codename,
+            state.appData?.sections,
+            state.appData?.linkedCollections,
+            state.selectedLinkedCollectionId,
+            state.activeLinkedCollectionId,
             state.appData?.linkedCollection.runtimeConfig?.searchMode,
             currentWorkspaceId,
             workspacesEnabled,
@@ -193,6 +215,12 @@ export default function DashboardApp(props: DashboardAppProps) {
             state.rowCount,
             state.paginationModel,
             state.setPaginationModel,
+            state.sortModel,
+            state.setSortModel,
+            state.filterModel,
+            state.setFilterModel,
+            state.searchValue,
+            state.setSearchValue,
             state.pageSizeOptions,
             state.localeText,
             createActions,
@@ -200,6 +228,7 @@ export default function DashboardApp(props: DashboardAppProps) {
             navigate,
             props.apiBaseUrl,
             props.applicationId,
+            props.locale,
             workspacePageContent
         ]
     )
@@ -342,7 +371,14 @@ export default function DashboardApp(props: DashboardAppProps) {
                         labels={{
                             editText: t('app.edit', 'Edit'),
                             copyText: t('app.copy', 'Copy'),
-                            deleteText: t('app.delete', 'Delete')
+                            deleteText: t('app.delete', 'Delete'),
+                            postText: t('app.postRecord', 'Post'),
+                            unpostText: t('app.unpostRecord', 'Unpost'),
+                            voidText: t('app.voidRecord', 'Void'),
+                            stateDraftText: t('app.recordStateDraft', 'Draft'),
+                            statePostedText: t('app.recordStatePosted', 'Posted'),
+                            stateVoidedText: t('app.recordStateVoided', 'Voided'),
+                            stateUnknownText: t('app.recordStateUnknown', 'State')
                         }}
                     />
                 </>

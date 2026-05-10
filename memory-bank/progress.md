@@ -2,8 +2,6 @@
 
 > Completed work only. Active tasks live in tasks.md; reusable implementation rules live in systemPatterns.md.
 
----
-
 ## ⚠️ IMPORTANT: Version History Table
 
 **The table below MUST remain at the top of this file. All new progress entries should be added BELOW this table.**
@@ -11,6 +9,1197 @@
 | ------------ | ---------- | -------------- | ------------------------------ |
 | 0.62.0-alpha | 2026-05-06 | 0.62.0 Alpha — 2026-05-06 | Node.js 22 migration, isolated-vm 6.x upgrade, autoskills support, startup DB reset |
 | 0.61.0-alpha | 2026-04-29 | 0.61.0 Alpha — 2026-04-30 | Harden data-driven entity resource surfaces |
+
+---
+
+## Completed: Workspace Policy QA Remediation Hardening (2026-05-10)
+
+> Goal: Close the QA gaps found after the LMS Workspace-policy fix without weakening generic no-Workspace application support.
+
+### Summary
+
+Snapshot import now fails closed when an imported envelope contains an invalid `runtimePolicy.workspaceMode` value. The importer no longer silently downgrades malformed policy data to the default optional mode, while still preserving valid required Workspace policy for the LMS fixture.
+
+The no-Workspace runtime regression was stabilized against the current default catalog seed state and role model. The Playwright flow now reuses an existing `Title` field definition when present, creates one only when needed, and verifies shared runtime rows with an `editor` user because `member` remains intentionally read-only.
+
+### Changes Made
+
+-   Added explicit `runtimePolicy` object validation and `parseWorkspaceModePolicy` use to snapshot import.
+-   Added a route-level import regression proving invalid workspace policies return `400` before metahub creation.
+-   Strengthened the imported-runtime-policy test to assert the canonical publication version stores the required Workspace policy.
+-   Stabilized the no-Workspace Playwright flow around existing default `Title` fields and current create-button selectors.
+-   Updated the non-owner no-Workspace proof to use the existing application `editor` role instead of weakening `member` permissions.
+
+### Validation
+
+-   `pnpm --filter @universo/metahubs-backend test -- metahubsRoutes --runInBand` passed.
+-   `pnpm --filter @universo/applications-backend test -- applicationSyncRoutes --runInBand` passed.
+-   `pnpm --filter @universo/metahubs-backend build` passed.
+-   `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/application-workspace-regressions.spec.ts --project=chromium --grep "@flow application without workspaces shares runtime rows between application users"` passed.
+-   `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts --project=chromium --grep "@flow lms snapshot fixture imports through the browser UI and is immediately usable after linked app creation"` passed.
+-   `git diff --check` passed.
+
+---
+
+## Completed: LMS Workspace Policy Fixture And Import Closure (2026-05-10)
+
+> Goal: Ensure the canonical LMS snapshot requires application Workspaces, preserves that policy through snapshot import, and avoids the no-Workspace sync failure path reported during app creation.
+
+### Summary
+
+The LMS product Playwright generator now emits the snapshot with `runtimePolicy.workspaceMode = "required"` and recomputes the snapshot hash through the standard snapshot envelope helper. The fixture contract fails if the LMS snapshot drifts back to an optional Workspace policy.
+
+Snapshot import now preserves a valid imported runtime policy when it rebuilds the canonical publication snapshot for the imported metahub. This makes the imported publication/version drive the connector diff dialog into required Workspace mode instead of offering "create without workspaces" for the LMS fixture.
+
+The existing optional no-Workspace sync path remains covered by the application sync route tests, so non-LMS publications can still create schemas without Workspaces when their publication policy is optional.
+
+### Changes Made
+
+-   Added required Workspace runtime policy injection to `metahubs-lms-app-export.spec.ts`.
+-   Added LMS fixture contract validation for `snapshot.runtimePolicy.workspaceMode === "required"`.
+-   Preserved imported snapshot runtime policy in `metahubsController.importFromSnapshot` when creating the canonical publication version.
+-   Updated the LMS snapshot import browser flow to expect required Workspace policy in the connector diff dialog.
+-   Regenerated `tools/fixtures/metahubs-lms-app-snapshot.json` only through the product Playwright generator.
+
+### Validation
+
+-   `pnpm --filter @universo/metahubs-backend test -- metahubsRoutes --runInBand` passed (`75/75` active tests; `4` skipped).
+-   `pnpm --filter @universo/applications-backend test -- applicationSyncRoutes --runInBand` passed (`23/23` tests), including optional no-Workspace schema creation.
+-   `pnpm --filter @universo/metahubs-backend build` passed.
+-   `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/generators/metahubs-lms-app-export.spec.ts --project=generators --grep "@generator create canonical lms metahub and export snapshot fixture"` passed and regenerated the fixture.
+-   `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts --project=chromium --grep "@flow lms snapshot fixture imports through the browser UI and is immediately usable after linked app creation"` passed (`2/2` tests). The imported LMS app schema sync created the schema with Workspaces and did not reproduce the 500 error.
+-   Direct fixture check confirmed `snapshot.runtimePolicy.workspaceMode = "required"` and a 64-character hash.
+-   `git diff --check` passed.
+
+---
+
+## Completed: Generic Posting Registrar Kind QA Closure (2026-05-10)
+
+> Goal: Remove the remaining Catalog-specific posting registrar semantics from the runtime posting movement path.
+
+### Summary
+
+Runtime posting movements now receive their registrar kind from the published runtime Entity metadata in `_app_objects.kind` instead of hardcoding `catalog` inside `RuntimePostingMovementService`. Missing registrar kind metadata fails closed with a controlled API error before ledger writes are attempted.
+
+The affected runtime row errors now use neutral record-collection wording, so the path remains valid for future posting-capable Entity types and for Catalog-backed ledger configurations.
+
+### Changes Made
+
+-   Added `kind` loading to `resolveRuntimeLinkedCollection`.
+-   Passed `linkedCollection.kind` into posting append/reversal calls as `registrarKind`.
+-   Removed hardcoded `registrarKind: 'catalog'` from posting movement append and reverse flows.
+-   Replaced Catalog-specific posting availability messages with neutral record-collection wording.
+-   Updated posting movement regressions to prove non-Catalog registrar kinds are forwarded to the Ledger service.
+
+### Validation
+
+-   `pnpm --filter @universo/applications-backend test -- runtimePostingMovements runtimeLedgersService applicationWorkspaces --runInBand` passed (`38/38` tests).
+-   `pnpm --filter @universo/applications-backend build` passed.
+-   `git diff --check` passed.
+
+---
+
+## Completed: Catalog-Backed Ledger Schema Templates (2026-05-10)
+
+> Goal: Make Catalogs the default universal Entity type for directory, document, and ledger-like LMS behavior while keeping standalone Ledgers available as optional presets for future metahub configurations.
+
+### Summary
+
+Catalog entity type templates now expose the generic `ledgerSchema` capability in the same Entity constructor contract that already drives behavior, scripts, layouts, and field definitions. Basic, basic-demo, and LMS templates no longer seed standalone Ledger objects by default; standalone Ledgers remain available as an optional entity type preset that users can add when they need a configuration closer to separate 1C-style register objects.
+
+The LMS product template now models progress, score, enrollment, attendance, certificate, points, activity, and notification registers as Catalog instances with `config.ledger`. These Catalog-backed ledger objects are registrar-only in runtime, excluded from ordinary CRUD and workspace seed flows, and still participate in posting, script, and generic Ledger API/projection behavior through the shared component capability metadata.
+
+The standard linked-collection Catalog UI uses the shared `LedgerSchemaFields` surface and component-capability discovery instead of Ledger-kind or Catalog-only branching. The LMS fixture was regenerated through the product Playwright generator and the full browser import/runtime flow passed against the regenerated snapshot.
+
+### Changes Made
+
+-   Enabled `ledgerSchema` in the standard Catalog entity type definition and added the `ledgerSchema` tab to the Catalog authoring contract.
+-   Removed default Ledger preset seeding from the `basic`, `basic-demo`, and LMS metahub templates while preserving the standalone Ledger preset for manual use.
+-   Converted LMS ledger-like objects to `kind: catalog` entities with `config.ledger`, registrar-only source policy, field roles, and projections.
+-   Reused the generic Ledger schema UI in standard Catalog create/edit/copy dialogs and linked it to create/update/copy payloads without dropping unrelated config.
+-   Updated linked-collection backend helpers to validate, persist, copy, and remove `config.ledger` safely.
+-   Kept registrar-only Catalog-backed ledger objects out of ordinary runtime row lists and automatic workspace seed passes.
+-   Avoided duplicate workspace seed work during schema bootstrap by deferring predefined row seeding to the explicit workspace seed sync step.
+-   Updated fixture contracts and browser flow checks so LMS ledger-like objects are verified as Catalog-backed ledger schemas.
+-   Regenerated `tools/fixtures/metahubs-lms-app-snapshot.json` through the product Playwright generator.
+
+### Validation
+
+-   `pnpm --filter @universo/metahubs-frontend build` passed.
+-   `pnpm --filter @universo/applications-backend build` passed.
+-   `pnpm --filter @universo/metahubs-backend build` passed.
+-   `pnpm --filter @universo/metahubs-backend test -- templateManifestValidator metahubSchemaService --runInBand` passed (`25/25` tests).
+-   `pnpm --filter @universo/applications-backend test -- applicationWorkspaces runtimeLedgersService --runInBand` passed (`30/30` tests).
+-   `pnpm --filter @universo/metahubs-frontend exec vitest run --config vitest.config.ts src/domains/entities/ui/__tests__/EntityInstanceList.test.tsx src/domains/entities/ui/__tests__/BuiltinEntityCollectionPage.test.tsx` passed (`24/24` tests).
+-   `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/generators/metahubs-lms-app-export.spec.ts --project=generators --grep "@generator create canonical lms metahub and export snapshot fixture"` passed and regenerated the LMS snapshot.
+-   `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts --project=chromium --grep "lms snapshot fixture imports"` passed (`2/2` tests, full import/runtime flow).
+-   `rg -n '"kind"\\s*:\\s*"ledger"|"presetCodename"\\s*:\\s*"ledger"' tools/fixtures/metahubs-lms-app-snapshot.json packages/metahubs-backend/base/src/domains/templates/data/basic.template.ts packages/metahubs-backend/base/src/domains/templates/data/basic-demo.template.ts packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts` returned no matches.
+-   A direct snapshot JSON check found `8` `config.ledger` LMS entities, all with `kind: catalog` and `sourcePolicy: registrar`.
+-   `pnpm build` passed (`30/30` Turbo tasks).
+-   `git diff --check` passed.
+
+---
+
+## Completed: Ledger Schema QA Closure (2026-05-10)
+
+> Goal: Close the QA findings from the generic Ledger schema implementation so Ledger behavior is component-driven, validated at authoring/publication boundaries, and proven through the full LMS browser flow.
+
+### Summary
+
+Ledger runtime access now fails closed with controlled API errors for invalid, missing, or unavailable Ledger ids. The remaining compatibility paths that treated `kind === 'ledger'` as sufficient were removed from schema generation, runtime services, script gates, and workspace seed handling; Ledger behavior now depends on the generic `ledgerSchema` component capability plus safe published runtime metadata.
+
+`config.ledger` references are validated in Entity create/update/copy flows and snapshot publication/import paths. Validation accepts the same field aliases that schema generation materializes, so generated snake-case runtime columns remain compatible with author-authored field codenames.
+
+The LMS fixture was regenerated from the product Playwright generator, then the full browser import/runtime flow passed with UI coverage for `Схема регистра`, Catalog `Поведение`, linked application creation, public guest runtime, Ledger fact reads, and post/unpost compensation.
+
+### Changes Made
+
+-   Added controlled Ledger id validation and unavailable-ledger errors in runtime Ledger controllers and services.
+-   Enforced strict Ledger config reference validation across frontend authoring, backend CRUD, copy, publication serialization, and snapshot restore.
+-   Removed remaining Ledger kind-only compatibility checks from schema/runtime/workspace/script paths.
+-   Fixed workspace seed type discovery for generated child TABLE JSONB columns so LMS seed data inserts safely after schema creation.
+-   Fixed Entity dialog action helpers so validation/can-save callbacks tolerate uninitialized form values during browser-driven modal startup.
+-   Corrected Ledger schema i18n namespace placement so the metahub Ledger tab resolves localized labels.
+-   Regenerated `tools/fixtures/metahubs-lms-app-snapshot.json` through the product generator.
+
+### Validation
+
+-   `pnpm --filter @universo/applications-backend test -- runtimeLedgersService applicationWorkspaces --runInBand` passed (`30/30` tests).
+-   `pnpm --filter @universo/applications-backend lint` passed.
+-   `pnpm --filter @universo/applications-backend build` passed.
+-   `pnpm --filter @universo/metahubs-frontend test -- actionsFactories --run` passed (`70/70` files, `287/287` tests).
+-   `pnpm --filter @universo/metahubs-frontend lint` passed.
+-   `pnpm --filter @universo/metahubs-frontend build` passed.
+-   `pnpm --filter @universo/core-frontend build` passed after rebuilding the metahubs frontend package.
+-   `node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "@generator create canonical lms metahub and export snapshot fixture"` passed and regenerated the LMS snapshot fixture.
+-   `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts --project chromium --grep "lms snapshot fixture imports"` passed (`2/2` tests, about 8.3 minutes).
+-   `pnpm build` passed (`30/30` Turbo tasks).
+-   `git diff --check` passed.
+
+---
+
+## Completed: Generic Ledger Schema Entity Constructor Implementation (2026-05-10)
+
+> Goal: Complete the QA-refined Ledger plan so Ledger behavior is driven by generic Entity constructor components, can support future hybrid Catalog/Ledger types, and is proven through generated LMS fixtures and runtime import flows.
+
+### Summary
+
+Ledger semantics are now exposed through the generic `ledgerSchema` component contract instead of being only a hardcoded standard-kind concept. Shared types normalize and validate `config.ledger`, backend/schema/runtime gates use component capability metadata, and published runtime metadata carries safe component capability information for Ledger-aware services.
+
+The metahub Entity dialog exposes a reusable Ledger schema tab for any compatible entity type. Application layout editing and `apps-template-mui` runtime widgets now consume generic `ledger.facts` and `ledger.projection` datasources through existing table and chart widgets, without adding LMS-specific widgets.
+
+The LMS snapshot was regenerated through the product Playwright generator after rebuilding `@universo/metahubs-backend`, and the full snapshot import/runtime browser flow passed on the regenerated fixture.
+
+### Changes Made
+
+-   Added strict Ledger config schemas, normalizers, component capability helpers, and reference validation to `@universo/types`.
+-   Replaced Ledger kind-only checks in schema generation, published snapshot serialization, runtime Ledger services, scripts, and workspace copy/delete flows with capability-aware gates.
+-   Added a generic `LedgerSchemaFields` UI surface and wired it into the shared Entity instance dialog via the `ledgerSchema` tab.
+-   Extended Entity type authoring so `ledgerSchema` component settings can be enabled for future compatible custom or hybrid entity types.
+-   Extended the application widget behavior editor with generic `records.list`, `ledger.facts`, and `ledger.projection` datasource editing, limiting charts to projection-based Ledger data.
+-   Extended `apps-template-mui` details tables and charts to fetch Ledger facts/projections using the existing runtime API and React Query patterns.
+-   Regenerated `tools/fixtures/metahubs-lms-app-snapshot.json` through the `metahubs-lms-app-export` Playwright generator; the Ledger entity type now contains the updated `ledgerSchema` capability flags and tab metadata.
+
+### Validation
+
+-   `pnpm --filter @universo/types test -- applicationLayouts ledgers entityTypes` passed.
+-   `pnpm --filter @universo/types build` passed.
+-   `pnpm --filter @universo/schema-ddl test -- SchemaGenerator` passed.
+-   `pnpm --filter @universo/applications-backend test -- runtimeLedgersService applicationWorkspaces runtimeWorkspaceService` passed.
+-   `pnpm --filter @universo/metahubs-backend test -- componentRegistry templateManifestValidator SnapshotSerializer` passed.
+-   `pnpm --filter @universo/metahubs-frontend test -- EntityInstanceList EntitiesWorkspace` passed.
+-   `pnpm --filter @universo/metahubs-frontend build` passed.
+-   `pnpm --filter @universo/applications-frontend test -- ApplicationWidgetBehaviorEditorDialog` passed (`27/27` files, `150/150` tests).
+-   `pnpm --filter @universo/applications-frontend lint` passed.
+-   `pnpm --filter @universo/applications-frontend build` passed.
+-   `pnpm --filter @universo/apps-template-mui test -- widgetRenderer MainGrid` passed (`18/18` files, `104/104` tests).
+-   `pnpm --filter @universo/apps-template-mui lint` passed.
+-   `pnpm --filter @universo/apps-template-mui build` passed.
+-   `pnpm --filter @universo/metahubs-backend build` passed before fixture regeneration.
+-   `pnpm build` passed (`30/30` Turbo tasks).
+-   `node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "canonical lms metahub"` passed (`2/2` tests) and regenerated the LMS snapshot.
+-   `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts --project chromium --grep "lms snapshot fixture imports"` passed (`2/2` tests, full import/runtime flow).
+-   `pnpm docs:i18n:check` passed (`81` EN/RU GitBook page pairs).
+-   `git diff --check` passed.
+
+---
+
+## Completed: Linked Collection Record Behavior QA Fixes (2026-05-09)
+
+> Goal: Close the QA findings where the standard linked-collection Catalog preset still had a base-Catalog script attachment assumption and did not preserve edited record behavior settings in copy dialogs.
+
+### Summary
+
+The linked-collection preset now keeps the Entity constructor contract generic. Script, action, event, and record behavior script lookups use the active route `kindKey` first and only fall back to the entity kind or `catalog` when no route kind is available. This removes the remaining UI-layer assumption that every linked-collection authoring surface is the base Catalog kind.
+
+Copy dialogs now include the edited `config.recordBehavior` payload when record behavior is enabled for the linked-collection surface. This keeps copy behavior aligned with create/edit flows and prevents a copied transactional Catalog from silently retaining stale source behavior when the user changes the settings before copying.
+
+### Changes Made
+
+-   Added a linked-collection attachment-kind resolver that prefers `routeKindKey` over the base entity kind.
+-   Replaced hardcoded Catalog attachment kinds in linked-collection script tabs and record behavior script queries.
+-   Replaced the remaining generic Entity list linked-collection script/action/event attachment fallback with the resolved active kind key.
+-   Allowed linked-collection copy payloads to carry a generic `config` object.
+-   Added regression tests for non-Catalog linked-collection script tab attachment and record behavior copy payload preservation.
+
+### Validation
+
+-   `rg "attachedToKind: 'catalog'|usesLinkedCollectionAuthoring \\? 'catalog'" packages/metahubs-frontend/base/src/domains/entities -n` found no remaining matches.
+-   `pnpm --filter @universo/metahubs-frontend exec vitest run src/domains/entities/presets/ui/__tests__/SettingsOriginTabs.test.tsx src/domains/entities/ui/__tests__/RecordBehaviorFields.test.tsx src/domains/entities/ui/__tests__/EntityInstanceList.test.tsx src/domains/entities/ui/__tests__/BuiltinEntityCollectionPage.test.tsx` passed (`4/4` files, `31/31` tests).
+-   `pnpm --filter @universo/metahubs-frontend lint` passed.
+-   `pnpm --filter @universo/metahubs-frontend build` passed.
+-   `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts --project chromium --grep "lms snapshot fixture imports"` passed (`2/2` tests, including the full LMS import/runtime flow and Catalog behavior authoring path).
+-   `git diff --check` passed.
+
+---
+
+## Completed: Catalog Record Behavior QA Closure (2026-05-09)
+
+> Goal: Close the QA findings where standard Catalog create/edit dialogs did not expose the new record behavior authoring UI even though the generic Entity constructor contract already supported it.
+
+### Summary
+
+The standard Catalog route now exposes the same shared `RecordBehaviorFields` authoring surface as the generic Entity dialog. The tab is still enabled by the Catalog entity type `components` and `ui.tabs` contract, so the implementation does not add an LMS-only or one-off Catalog-only interface.
+
+Catalog create, edit, and copy dialogs preserve `config.recordBehavior` through the linked-collection API and backend helper paths. Existing config keys are retained during updates, and saved behavior values remain visible while async field, script, or Ledger option lists are still loading.
+
+The full LMS product browser flow now proves the Russian Catalog `Поведение` authoring path, including default create settings, existing transactional Catalog settings, save/reopen persistence, screenshots, linked application schema creation, public runtime, registrar-only Ledger protection, and UI-driven post/unpost Ledger compensation.
+
+### Changes Made
+
+-   Added configured-value fallback options in `RecordBehaviorFields` to avoid MUI out-of-range select warnings during async option loading.
+-   Gated Ledger option fetching so generic behavior controls load Ledger choices only while relevant create/edit/copy dialogs are open.
+-   Added `recordBehavior` support to the standard linked-collection frontend API and backend helper contracts.
+-   Reused `RecordBehaviorFields` in standard Catalog create/edit/copy dialogs instead of creating a separate Catalog-specific UI.
+-   Preserved linked-collection `config` in list and detail payloads so edit dialogs can initialize saved behavior accurately.
+-   Extended the LMS Playwright browser flow with RU Catalog behavior authoring screenshots and save/reopen checks.
+-   Raised the single full LMS product-flow timeout to match the now broader browser journey; the test completes successfully in about 8.3 minutes.
+
+### Validation
+
+-   `pnpm --filter @universo/metahubs-frontend lint` passed.
+-   `pnpm --filter @universo/metahubs-frontend exec vitest run src/domains/entities/ui/__tests__/RecordBehaviorFields.test.tsx src/domains/entities/ui/__tests__/EntityInstanceList.test.tsx src/domains/entities/ui/__tests__/BuiltinEntityCollectionPage.test.tsx` passed (`3/3` files, `26/26` tests).
+-   `pnpm build` passed (`30/30` tasks).
+-   `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts --project chromium --grep "lms snapshot fixture imports"` passed (`2/2` tests).
+-   `git diff --check` passed.
+
+---
+
+## Completed: Entity-Driven Catalog Record Behavior UI (2026-05-09)
+
+> Goal: Expose Catalog record behavior through the generic Entity constructor, preserve template contracts, localize script capability labels, and prove the generated LMS snapshot through the product generator.
+
+### Summary
+
+Catalog record behavior is now a generic Entity authoring surface. The `behavior` tab appears from entity type `components` plus `ui.tabs`, not from Catalog-only branching, and edits `config.recordBehavior` through the shared entity dialog flow.
+
+The missing template-path defect was fixed at the source. `TemplateManifestValidator` now preserves `identityFields`, `recordLifecycle`, `posting`, and `ledgerSchema` instead of stripping them during Zod parsing. Core backend also runs the existing built-in TemplateSeeder during startup after platform migrations, so active built-in template versions are refreshed when manifest hashes change without a schema or template version bump.
+
+The LMS fixture remains generator-owned. `tools/fixtures/metahubs-lms-app-snapshot.json` was regenerated through the product Playwright generator, and the generated Catalog entity type now contains `behavior`, `identityFields`, `recordLifecycle`, and `posting`.
+
+### Changes Made
+
+-   Added shared `CatalogRecordBehavior` validation and normalization in `@universo/types`.
+-   Reused the shared normalizer/schema from schema generation, application runtime services, and `apps-template-mui`.
+-   Added a component-driven `behavior` tab in Entity authoring and a reusable `RecordBehaviorFields` form.
+-   Persisted `config.recordBehavior` without dropping existing entity config keys.
+-   Added structured constructor controls for `identityFields`, `recordLifecycle`, `posting`, and `ledgerSchema`.
+-   Localized `posting`, `ledger.read`, and `ledger.write` script capability labels.
+-   Updated Catalog template contracts, LMS fixture contract checks, and GitBook-style docs.
+
+### Validation
+
+-   `pnpm --filter @universo/types test -- recordBehavior`
+-   `pnpm --filter @universo/types build`
+-   `pnpm --filter @universo/schema-ddl build`
+-   `pnpm --filter @universo/applications-backend build`
+-   `pnpm --filter @universo/apps-template-mui build`
+-   `pnpm --filter @universo/metahubs-backend test -- templateManifestValidator`
+-   `pnpm --filter @universo/metahubs-backend test -- metahubSchemaService`
+-   `pnpm --filter @universo/metahubs-backend build`
+-   `pnpm --filter @universo/metahubs-frontend build`
+-   `pnpm --filter @universo/metahubs-frontend exec vitest run --config vitest.config.ts src/domains/entities/ui/__tests__/EntityInstanceList.test.tsx`
+-   `pnpm --filter @universo/metahubs-frontend exec vitest run --config vitest.config.ts src/domains/entities/ui/__tests__/RecordBehaviorFields.test.tsx src/domains/scripts/ui/__tests__/EntityScriptsTab.test.tsx`
+-   `pnpm --filter @universo/core-backend build`
+-   `node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/generators/metahubs-lms-app-export.spec.ts --project=generators`
+
+---
+
+## Completed: LMS Runtime Datasource QA Closure (2026-05-09)
+
+> Goal: Finish the follow-up implementation after the user-reported LMS runtime QA issues and prove the generated snapshot through the full browser import/runtime path.
+
+### Summary
+
+The LMS snapshot fixture remains generator-owned: `tools/fixtures/metahubs-lms-app-snapshot.json` was regenerated through the product Playwright generator, not hand-edited. Runtime fixes after that point were code-side fixes and did not require another fixture edit.
+
+Integrated published application runtime now provides dashboard widgets with the active locale, runtime sections, and linked collections. This lets the generic dashboard renderer resolve localized widget labels and codename-based datasources without LMS-specific branching.
+
+Configured runtime chart widgets now localize the MUI Charts empty-data overlay and no longer show English `No data to display` text in Russian runtime pages. Production runtime API calls also carry search/sort/filter parameters consistently from the MUI template adapter through the applications frontend API wrapper.
+
+Backend runtime list validation now resolves localized attribute codenames before checking sort/filter fields. This keeps the SQL allow-list strict while allowing generated LMS widget datasource queries such as `CompletedAt`, `SubmittedAt`, `EnrolledAt`, and `Title` to resolve to their declared physical columns.
+
+### Changes Made
+
+-   Passed `locale`, `sections`, and `linkedCollections` into integrated `DashboardDetailsProvider` data from `ApplicationRuntime`.
+-   Added localized no-data support to the shared `SessionsChart` and `PageViewsBarChart` wrappers and wired it through `MainGrid`.
+-   Propagated runtime list `search`, `sort`, and `filters` through the production applications frontend adapter/API.
+-   Resolved localized backend attribute codenames in runtime sort/filter validation using the shared runtime codename helper.
+-   Strengthened the LMS browser flow to assert Russian dashboard localization, absence of English no-data text, Ledger navigation/search text, public runtime security edges, registrar-only Ledger rejection, and record post/unpost Ledger movement compensation.
+
+### Validation
+
+-   Product snapshot generator passed: `node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "@generator create canonical lms metahub and export snapshot fixture"`.
+-   `pnpm --filter @universo/applications-frontend test -- ApplicationRuntime apiWrappers` passed.
+-   `pnpm --filter @universo/apps-template-mui test -- MainGrid` passed.
+-   `pnpm --filter @universo/metahubs-frontend test -- src/domains/entities/ui/__tests__/EntityInstanceList.test.tsx` passed.
+-   `pnpm --filter @universo/applications-backend test -- applicationsRoutes` passed.
+-   `pnpm --filter @universo/applications-frontend build` passed.
+-   `pnpm --filter @universo/apps-template-mui build` passed.
+-   `pnpm --filter @universo/applications-backend build` passed.
+-   `pnpm --filter @universo/core-frontend build` passed.
+-   Full LMS runtime browser proof passed: `node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "lms snapshot fixture imports"`.
+
+## Completed: LMS Runtime UX QA Remediation (2026-05-09)
+
+> Goal: Close the user-reported LMS runtime UX findings while preserving the shared Entity constructor and generic MUI application template surfaces.
+
+### Summary
+
+Ledger collections now use the consolidated `ledgers` i18n namespace in the metahub UI, so Russian runtimes show `Регистры` and the shared search control can use the Ledger-specific placeholder instead of the generic entity-instance fallback.
+
+Ledger rows and cards now open the shared field-definition resource surface, matching the same internal-resource pattern used by other metadata entities. The generic block-content route behavior for custom Page-like entity kinds remains intact.
+
+Field-definition tabs and empty-state fallbacks now have shared localized keys, with Ledger-specific copy available for Ledger attribute surfaces. The runtime dashboard widget contract now accepts localized text for stat-card titles, chart titles, intervals, and series labels. Configured chart widgets with empty `records.list` datasources now render an empty zero-data chart contract instead of falling back to MUI demo data.
+
+### Changes Made
+
+-   Added `ledgers` to the metahub i18n bundle consolidation path.
+-   Extended the generic entity instance list so standard Ledger rows open the configured data-schema resource surface route.
+-   Added shared and Ledger-specific field-definition i18n keys in English and Russian.
+-   Extended application layout widget schemas to accept localized widget text.
+-   Resolved localized widget text in the apps-template dashboard renderer for overview cards and record-series charts.
+-   Suppressed demo chart series whenever a configured `records.list` datasource has no rows or cannot resolve a target.
+-   Localized LMS dashboard widget labels in the LMS template through the generic widget config contract.
+-   Synced `tools/fixtures/metahubs-lms-app-snapshot.json` with the localized widget config so newly imported LMS metahubs receive the same runtime labels.
+
+### Validation
+
+-   `pnpm --filter @universo/types build` passed.
+-   `pnpm --filter @universo/types test` passed (`7/7` files, `45/45` tests).
+-   `pnpm --filter @universo/apps-template-mui test -- MainGrid` passed (`18/18` files, `102/102` tests).
+-   `pnpm --filter @universo/metahubs-frontend test -- EntityInstanceList` passed (`68/68` files, `276/276` tests).
+-   `pnpm --filter @universo/metahubs-backend test -- templateManifestValidator` passed (`16/16` tests).
+-   `pnpm --filter @universo/apps-template-mui lint` passed.
+-   `pnpm --filter @universo/metahubs-frontend lint` passed.
+-   `pnpm --filter @universo/metahubs-backend lint` passed with existing warnings and no errors.
+-   `pnpm --filter @universo/apps-template-mui build` passed.
+-   `pnpm --filter @universo/metahubs-frontend build` passed.
+-   `pnpm --filter @universo/metahubs-backend build` passed.
+-   `node -e "JSON.parse(require('fs').readFileSync('tools/fixtures/metahubs-lms-app-snapshot.json','utf8'))"` passed.
+-   `git diff --check` passed.
+
+## Completed: LMS QA Final Debt Closure (2026-05-08)
+
+> Goal: Close the last QA findings from the LMS Catalog/Ledger implementation without changing the generic Entity architecture or adding LMS-specific UI.
+
+### Summary
+
+Ledger runtime validation now returns controlled `UpdateFailure` responses for direct append, projection filter, update, and reversal validation failures. Invalid fact fields, invalid field values, missing required fields, invalid projection filter values, missing reversal sources, and actor-less write attempts now produce stable HTTP status/error-code payloads instead of escaping as generic 500 errors.
+
+Posting movement error wrapping now preserves the underlying controlled Ledger validation message while still returning the generic `POSTING_MOVEMENT_INVALID` contract for record posting flows.
+
+Template/UI cleanup removed the remaining TypeScript suppression and stale task comments found in the touched MUI template, application template, and metahub board surfaces. The `data-screenshot` select prop is now expressed through a MUI prop type assertion, and shadow tuple typing no longer uses TypeScript suppression.
+
+### Changes Made
+
+-   Added controlled Ledger validation failures for append payload field names, required fields, invalid coerced values, projection filter values, reversal source misses, and missing actor ids.
+-   Added focused service and route regressions for invalid Ledger append/projection values and kept posting movement invalid-field behavior stable.
+-   Removed stale task comments from touched metahub/template surfaces and removed TypeScript suppression from template color-mode and shadow helpers.
+
+### Validation
+
+-   `pnpm --filter applications-backend test -- runtimeLedgersService applicationsRoutes publicApplicationsRoutes runtimePostingMovements` passed (`4/4` suites, `131/131` tests).
+-   `pnpm --filter apps-template-mui test -- GuestApp` passed (`18/18` files, `103/103` tests under the package runner).
+-   `pnpm --filter applications-backend lint` passed.
+-   `pnpm --filter apps-template-mui lint` passed.
+-   `pnpm --filter @universo/template-mui lint` passed.
+-   `pnpm --filter @universo/metahubs-frontend lint` passed.
+-   `pnpm --filter applications-backend build` passed.
+-   `pnpm --filter apps-template-mui build` passed after `@universo/template-mui` declarations were rebuilt.
+-   `pnpm --filter @universo/template-mui build` passed.
+-   `pnpm --filter @universo/metahubs-frontend build` passed.
+-   `git diff --check` passed.
+
+## Completed: LMS QA Debt Closure (2026-05-08)
+
+> Goal: Close the remaining QA findings around generic public guest contracts, bounded request validation, controlled Ledger errors, and observable manual-edit Ledger mutations.
+
+### Summary
+
+Public guest runtime API payloads now expose neutral platform aliases. Guest sessions return `participantId` while preserving `studentId` compatibility, runtime reads accept `X-Guest-Participant-Id` while preserving the legacy student header, and guest progress/submission writes accept `participantId`, `contentNodeId`, and `assessmentId` with strict legacy-alias consistency checks.
+
+Guest assessment submissions now fail at the Zod boundary when answer payloads are too large. The validation caps question count, option count per question, option-id length, and session-token length before runtime storage or application schema access is attempted.
+
+Ledger projection errors now use controlled `UpdateFailure` responses for unknown projections, invalid projection fields, and invalid filters. Manual-editable Ledger facts are now observable through focused `PATCH` and `DELETE` runtime routes, while append-only and registrar-only policies still fail closed before mutation.
+
+The manual Ledger mutation deny path was tightened so append-only ledgers reject updates before loading writable attribute metadata. Delete remains a soft-delete operation that updates audit/version fields and never hard-deletes fact rows.
+
+### Changes Made
+
+-   Added canonical `participantId`, `assessmentId`, and `contentNodeId` request fields to public guest runtime endpoints with legacy `studentId`, `quizId`, and `moduleId` compatibility.
+-   Updated the standalone guest app to store and send `participantId`, use neutral request bodies, and normalize older session payloads.
+-   Added bounded guest answer validation for question count, selected-option count, selected-option id length, and session-token length.
+-   Converted Ledger projection service failures from generic errors to stable 400/404/409 API responses with error codes.
+-   Added guarded Ledger fact `PATCH` and `DELETE` routes with existing runtime permission checks, `manualEditable` policy enforcement, soft delete, audit fields, optimistic version increment, workspace scoping, and locked-row protection.
+-   Added focused backend and frontend regression tests for neutral guest aliases, oversized answer rejection, alias mismatch rejection, controlled Ledger projection errors, manual-edit Ledger fact updates/deletes, and permission/policy deny paths.
+
+### Validation
+
+-   `pnpm --filter applications-backend test -- runtimeLedgersService applicationsRoutes publicApplicationsRoutes` passed (`3/3` suites, `120/120` tests).
+-   `pnpm --filter apps-template-mui test -- GuestApp` passed (`18/18` files, `103/103` tests under the package runner).
+-   `pnpm --filter applications-backend lint` passed.
+-   `pnpm --filter apps-template-mui lint` passed.
+-   `pnpm --filter applications-backend build` passed.
+-   `pnpm --filter apps-template-mui build` passed.
+-   `node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "lms snapshot fixture imports"` passed (`2/2` tests), including browser UI snapshot import, linked application sync, public guest progress/submission writes, authenticated post/unpost, and final test database reset.
+
+## Completed: LMS QA Final Remediation (2026-05-08)
+
+> Goal: Close the remaining QA findings after the LMS Catalog/Ledger implementation and keep the public runtime contract generic, secure, and browser-proven.
+
+### Summary
+
+Public guest runtime settings now use neutral platform terms: access links, participants, assessments, content nodes, assessment responses, and content progress. The runtime still accepts legacy LMS-shaped keys from older snapshots, but the canonical LMS template and regenerated fixture now store the neutral keys.
+
+Ledger runtime column discovery no longer relies on an information-schema compatibility probe. Tests now model real `column_name` rows, which keeps workspace-column detection deterministic and closer to production metadata.
+
+The LMS browser flow now includes security edge assertions for public runtime target access and registrar-only Ledger writes. It proves that public runtime calls fail closed without a slug, reject a foreign assessment target, and reject direct manual writes to a registrar-only Ledger with `LEDGER_REGISTRAR_ONLY`.
+
+The Settings-origin frontend test now mocks the shared LayoutList at the correct module boundary. This removes the warning-prone accidental render of the real list while still proving that shared entity settings tabs pass the expected metahub and collection ids.
+
+### Changes Made
+
+-   Added neutral `publicRuntime.guest` object and field keys to the public guest runtime controller.
+-   Kept backwards-compatible aliases for legacy `students`, `quizzes`, `modules`, `quizResponses`, and `moduleProgress` guest runtime settings.
+-   Updated the LMS template and regenerated `tools/fixtures/metahubs-lms-app-snapshot.json` with neutral guest runtime settings.
+-   Added public guest runtime tests for expired and exhausted access links.
+-   Removed the Ledger workspace-column legacy boolean probe and updated Ledger service tests to return realistic information-schema rows.
+-   Extended the LMS Playwright import/runtime flow with public runtime security checks and registrar-only Ledger write rejection.
+-   Fixed the Settings-origin shared tabs test mock so it uses the shared LayoutList contract without rendering the real data loader.
+
+### Validation
+
+-   `pnpm --filter @universo/applications-backend test -- runtimeLedgersService publicApplicationsRoutes applicationsRoutes` passed (`3/3` suites, `112/112` tests).
+-   `pnpm --filter @universo/metahubs-backend test -- templateManifestValidator metahubSchemaService` passed (`2/2` suites, `24/24` tests).
+-   `pnpm --filter @universo/metahubs-frontend test -- SettingsOriginTabs` passed under the package runner (`68/68` files, `274/274` tests).
+-   `pnpm --filter @universo/applications-backend lint` passed.
+-   `pnpm --filter @universo/metahubs-backend lint` passed with existing warnings only.
+-   `pnpm --filter @universo/metahubs-frontend lint` passed.
+-   `pnpm --filter @universo/applications-backend build` passed.
+-   `pnpm run build:e2e` passed (`30/30` tasks).
+-   `node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "canonical lms metahub"` passed (`2/2` tests) and regenerated the LMS snapshot fixture.
+-   `node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "lms snapshot fixture imports"` passed (`2/2` tests), including updated snapshot import, linked application sync, public guest runtime, registrar-only Ledger rejection, authenticated post/unpost, compensating Ledger facts, and browser issue checks.
+-   `pnpm docs:i18n:check` passed (`81` EN/RU page pairs).
+-   `git diff --check` passed.
+
+## Completed: LMS QA Blocker Closure (2026-05-08)
+
+> Goal: Close the remaining QA blockers found after the LMS Catalog/Ledger implementation and re-prove the full browser import/runtime path.
+
+### Summary
+
+Generic application settings saves no longer overwrite server-managed public runtime settings. The frontend strips `publicRuntime` and `guestRuntime` from the general settings payload, while the backend preserves those keys from the current application row and ignores tampered values submitted by a generic settings request.
+
+Public guest sessions no longer store raw bearer secrets in runtime rows. The persisted session state stores a SHA-256 `secretHash`, and validation compares the transport secret through a timing-safe hash comparison. The public token contract remains compatible for clients.
+
+The LMS Playwright import helper now handles the existing CSRF refresh behavior deterministically. It tracks every metahub import response, accepts the automatic retry after a transient 419, and only retries the button click when no automatic retry arrives.
+
+### Changes Made
+
+-   Added editable application settings sanitization on the frontend general settings form.
+-   Added backend merge logic that preserves server-managed application setting keys while still validating editable settings with Zod.
+-   Added focused application settings regression coverage for stripped server-managed settings and preserved backend settings.
+-   Replaced persisted public guest session secrets with SHA-256 hashes and timing-safe validation.
+-   Updated public application route tests to assert hashed guest session state and compatibility with token validation.
+-   Hardened the LMS snapshot import Playwright flow against CSRF retry races.
+
+### Validation
+
+-   `pnpm --filter @universo/applications-backend test -- applicationsRoutes publicApplicationsRoutes` passed (`2/2` suites, `94/94` tests).
+-   `pnpm --filter @universo/applications-frontend test -- ApplicationSettings` passed (`27/27` files, `148/148` tests under the package runner).
+-   `pnpm --filter @universo/metahubs-frontend test -- MetahubList ImportSnapshotDialog` passed (`68/68` files, `274/274` tests under the package runner).
+-   `pnpm --filter @universo/applications-backend lint` passed.
+-   `pnpm --filter @universo/applications-frontend lint` passed.
+-   `pnpm --filter @universo/metahubs-frontend lint` passed.
+-   `node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "lms snapshot fixture imports"` passed (`2/2` tests), including UI import, linked application sync, public guest LMS journeys, runtime progress writes, and authenticated post/unpost actions.
+-   `pnpm build` passed (`30/30` tasks).
+-   `git diff --check` passed.
+
+## Completed: LMS QA Follow-up Hardening (2026-05-08)
+
+> Goal: Close the final follow-up hardening issues found after the LMS Catalog/Ledger QA pass while preserving generic platform architecture and shared UI contracts.
+
+### Summary
+
+Public guest runtime bindings are no longer hidden LMS-shaped backend defaults. The LMS metahub snapshot now carries explicit `application.publicRuntime.guest` settings, snapshot export/import preserves settings, linked application creation propagates them into application settings, and the public guest runtime fails closed with 404 when a published application does not configure public guest bindings.
+
+Ledger reversal idempotency no longer depends on a string business idempotency attribute. Generated Ledger tables now include `_app_reversal_of_fact_id` with a partial active-row unique index, and runtime reversal writes use that system column when available before falling back to legacy business idempotency fields.
+
+The published app runtime now resets section-scoped server sort/filter state when the user switches sections. This prevents catalog-specific fields from being replayed against a different catalog and removes the browser-side 400s previously observed in the LMS Playwright flow.
+
+The earlier browser blocker in the generic Ledger reversal path remains covered: ledgers that still expose a string idempotency key receive a deterministic reversal suffix, while new generated ledgers use the system reversal id column. Both paths use `ON CONFLICT DO NOTHING` plus idempotency lookup fallback, which makes repeated reversal attempts fail closed without creating duplicate Ledger facts.
+
+The authenticated application runtime adapter now forwards row record commands to the backend, and `RowActionsMenu` executes post/unpost/void through the clicked row before closing the menu. The LMS browser flow proves the real UI action path, not a direct API shortcut.
+
+### Changes Made
+
+-   Added explicit public guest runtime bindings to the LMS metahub settings seed and removed backend LMS defaults from the public guest runtime controller.
+-   Preserved metahub settings in publication snapshots, snapshot hashing, import restore, and linked application settings propagation.
+-   Added `_app_reversal_of_fact_id` to generated Ledger tables and a partial unique index to make system-level reversal idempotency independent from business fields.
+-   Resolved runtime section codenames to plain strings in the backend runtime payload so datasource widgets can reliably bind by codename.
+-   Reset runtime DataGrid sort/filter state when switching sections to avoid cross-catalog field leakage.
+-   Added Playwright browser issue collection for console errors, page errors, and failed API responses, with transient CSRF 419 responses removed only after a successful same-method/same-URL retry.
+-   Added deterministic reversal idempotency handling for append-only Ledgers with source key fields.
+-   Kept reversal inserts append-only and conflict-safe through the same idempotency lookup pattern used by regular fact append.
+-   Added a focused service test proving workspace-scoped reversal idempotency keys and `ON CONFLICT DO NOTHING` SQL.
+-   Wired authenticated application runtime record commands through `runApplicationRuntimeRecordCommand`.
+-   Added localized application runtime record command labels and stable row-action test ids.
+-   Hardened the LMS import Playwright flow against one stale CSRF-token retry during snapshot import.
+-   Extended the LMS Playwright proof so post and unpost are clicked through the runtime row action menu and visual/geometry checks run on the dashboard surfaces.
+
+### Validation
+
+-   `pnpm --filter @universo/types lint` passed.
+-   `pnpm --filter @universo/utils test -- publicationSnapshotHash` passed under the package runner (`29/29` files, `307/307` tests).
+-   `pnpm --filter @universo/schema-ddl test -- SchemaGenerator` passed (`44/44` tests).
+-   `pnpm --filter @universo/metahubs-backend test -- SnapshotSerializer SnapshotRestoreService applicationQueriesStore` passed (`31/31` tests).
+-   `pnpm --filter @universo/applications-backend test -- applicationsRoutes runtimeLedgersService publicApplicationsRoutes` passed (`109/109` tests).
+-   `pnpm --filter @universo/apps-template-mui test -- useCrudDashboard MainGrid` passed under the package runner (`18/18` files, `103/103` tests).
+-   `pnpm --filter @universo/apps-template-mui lint` passed.
+-   `pnpm --filter @universo/apps-template-mui build` passed.
+-   `pnpm run build:e2e` passed (`30/30` tasks).
+-   `node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "LMS app"` passed.
+-   `node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "lms snapshot fixture imports"` passed (`2/2` tests), including browser console/pageerror/API-response issue checks.
+-   `pnpm --filter @universo/applications-backend test -- --runTestsByPath src/tests/services/runtimeLedgersService.test.ts src/tests/services/runtimePostingMovements.test.ts src/tests/services/applicationWorkspaces.test.ts` passed (`3/3` suites, `32/32` tests).
+-   `pnpm --filter @universo/applications-backend lint` passed.
+-   `pnpm --filter @universo/applications-backend build` passed.
+-   `pnpm --filter @universo/applications-frontend test -- --runInBand src/api/__tests__/apiWrappers.test.ts` passed under the package runner (`27/27` files, `147/147` tests).
+-   `pnpm --filter @universo/applications-frontend lint` passed.
+-   `pnpm --filter @universo/applications-frontend build` passed.
+-   `pnpm --filter @universo/apps-template-mui test -- --runInBand src/components/__tests__/RowActionsMenu.recordCommands.test.tsx` passed under the package runner (`18/18` files, `101/101` tests).
+-   `pnpm --filter @universo/apps-template-mui lint` passed.
+-   `pnpm --filter @universo/apps-template-mui build` passed.
+-   `pnpm --filter @universo/core-frontend build` passed.
+-   `node --check tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts` passed.
+-   `node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "lms snapshot fixture imports"` passed (`2/2` tests), including snapshot import, linked app sync, public guest LMS actions, authenticated runtime post, authenticated runtime unpost, compensating Progress Ledger facts, and UI geometry assertions.
+-   `pnpm docs:i18n:check` passed (`81` EN/RU page pairs).
+-   `git diff --check` passed.
+
+## Completed: LMS QA Remediation Completion (2026-05-08)
+
+> Goal: Close the remaining QA blockers from the Catalog/Ledger/LMS implementation without adding LMS-specific platform UI.
+
+### Summary
+
+The runtime Ledger write path now distinguishes manual API writes from registrar posting writes, enforces source policy and allowed registrar kinds, and stores posting movement metadata on transactional Catalog records. Unpost and void commands now append compensating Ledger facts in the same transaction before clearing stored movement metadata.
+
+The public guest runtime now reads its LMS-like object and field bindings from generic application settings under `publicRuntime.guest` or `guestRuntime`, with the current LMS codenames only as defaults. This keeps the public flow configurable for other published applications without adding a separate LMS-specific control surface.
+
+### Changes Made
+
+-   Added Ledger write-origin policy enforcement for direct API calls, posting flows, and script runtime contexts.
+-   Added registrar-kind enforcement so registrar-only Ledgers can restrict writes to Catalog posting flows.
+-   Persisted posting movement references in `_app_posting_movements` and reversed them on unpost/void through compensating Ledger facts.
+-   Added route and service tests for manual Ledger rejection, registrar-kind rejection, persisted movement reversal, and malformed stored movement metadata.
+-   Extended the LMS browser flow spec to unpost a posted enrollment and assert compensating Progress Ledger facts.
+-   Added configurable public guest runtime bindings through application settings while preserving existing LMS defaults.
+-   Added GitBook guides for transactional Catalogs and Ledgers in EN/RU and updated `schema-ddl` / `universo-types` README coverage.
+
+### Validation
+
+-   `pnpm --filter @universo/applications-backend test -- --runTestsByPath src/tests/shared/publicRuntimeAccess.test.ts src/tests/routes/publicApplicationsRoutes.test.ts src/tests/routes/applicationsRoutes.test.ts src/tests/services/runtimeLedgersService.test.ts src/tests/services/runtimePostingMovements.test.ts` passed (`5/5` suites, `119/119` tests).
+-   `pnpm --filter @universo/applications-backend lint` passed.
+-   `pnpm --filter @universo/applications-backend build` passed.
+-   `pnpm --filter @universo/schema-ddl build` passed.
+-   `pnpm --filter @universo/schema-ddl test` passed (`9/9` suites, `158/158` tests).
+-   `node --check tools/testing/e2e/support/backend/api-session.mjs` passed.
+-   `node --check tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts` passed.
+-   `node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "lms snapshot fixture imports"` passed (`2/2` tests), including LMS snapshot import, linked app sync, guest runtime actions, Catalog post/unpost, and compensating Progress Ledger facts.
+-   `pnpm docs:i18n:check` passed (`81` EN/RU page pairs).
+
+## Completed: LMS Phase 10 Validation Closure (2026-05-08)
+
+> Goal: Convert the remaining QA findings into executable proof for the Catalog/Ledger/LMS implementation.
+
+### Summary
+
+The broad validation matrix for the new Ledger type, Catalog record behavior, runtime posting, generic LMS widgets, fixture generation, and browser import flow was expanded from focused checks to full package-level regression runs. Stale test contracts were updated where the product model changed intentionally.
+
+### Changes Made
+
+-   Updated `applicationReleaseBundle.test.ts` so the deterministic migration contract uses an explicitly physical Catalog entity when it expects an additive DDL diff.
+-   Updated metahub import tests to include the Ledger preset toggle.
+-   Updated LMS template seed tests from the retired `WelcomePage` seed to the current `LearnerHome` and `MainLedger` model.
+-   Mocked dynamic entity type discovery in settings route tests so the registry filter exercises the current six standard entity kinds, including Ledger.
+
+### Validation
+
+-   `pnpm --filter @universo/schema-ddl test` passed (`9/9` suites, `158/158` tests).
+-   `pnpm --filter @universo/applications-backend test -- --runInBand` passed (`26/26` suites, `283/283` tests).
+-   `pnpm --filter @universo/metahubs-backend test -- --runInBand` passed (`69/69` suites, `626/630` tests with `4` skipped).
+-   `pnpm --filter @universo/metahubs-frontend test -- BuiltinEntityCollectionPage.test.tsx` passed the configured package suite (`68/68` files, `274/274` tests).
+-   `pnpm --filter @universo/apps-template-mui test` passed (`18/18` files, `101/101` tests).
+-   Previously completed in this implementation wave: root `pnpm build`, docs i18n check, LMS generator Playwright, direct fixture contract check, and LMS import/runtime Chromium Playwright proof.
+
+## Completed: LMS Fixture Generator And Import Proof (2026-05-08)
+
+> Goal: Close Phase 8/9 LMS product-fixture gaps with a regenerated snapshot and browser proof.
+
+### Summary
+
+The canonical LMS fixture was regenerated through the official Playwright generator after strengthening the fixture contract. The regenerated snapshot now passes the expanded LMS product contract and the browser import/runtime flow, including EN/RU public guest journeys, real runtime rows, enrollment posting, and Progress Ledger fact assertions.
+
+### Changes Made
+
+-   Strengthened `lmsFixtureContract.ts` so quiz questions, answer options, and module content are checked for equal English/Russian breadth.
+-   Corrected lifecycle script attachment validation to match the exported snapshot shape: `attachedToKind` plus `attachedToId`.
+-   Regenerated `tools/fixtures/metahubs-lms-app-snapshot.json` through `metahubs-lms-app-export.spec.ts`.
+-   Marked the Phase 8 bilingual/guest-flow items and Phase 9 generator/import proof items complete in the LMS implementation plan.
+
+### Validation
+
+-   `pnpm build` passed (`30/30` tasks).
+-   `node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "canonical lms"` passed (`2/2` including setup).
+-   Direct fixture contract check with `assertLmsFixtureEnvelopeContract` passed.
+-   `node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "lms snapshot fixture imports"` passed (`2/2` including setup).
+
+## Completed: LMS Generic Widget Datasource Closure (2026-05-08)
+
+> Goal: Close the Phase 8 generic widget configuration gap without adding LMS-specific runtime widgets.
+
+### Summary
+
+The LMS template now drives learner metrics, progress charts, and report tables through existing generic widget keys and runtime datasource contracts. Template-authored widget configs use stable section codenames, and the published app resolves those codenames to runtime section ids before querying data.
+
+### Changes Made
+
+-   Added codename target fields to generic `records.list` and `records.count` datasource schemas.
+-   Resolved datasource codenames in `overviewCards`, chart widgets, and `detailsTable` widgets through runtime section metadata.
+-   Extended the shared application widget behavior editor to preserve and edit datasource codename targets with EN/RU i18n.
+-   Configured the LMS seed with generic `overviewCards`, `sessionsChart`, `pageViewsChart`, `columnsContainer`, and nested `detailsTable` widgets for learner metrics, department progress, assignment scores, learning tracks, and enrollment history.
+-   Extended LMS template and fixture-contract checks so generic widget datasource configuration is validated.
+
+### Validation
+
+-   `pnpm --filter @universo/types build`
+-   `pnpm --filter @universo/types test -- applicationLayouts.test.ts`
+-   `pnpm --filter @universo/types lint`
+-   `pnpm --filter @universo/apps-template-mui test -- MainGrid.test.tsx widgetRenderer.test.tsx`
+-   `pnpm --filter @universo/apps-template-mui build`
+-   `pnpm --filter @universo/apps-template-mui lint`
+-   `pnpm --filter @universo/applications-frontend test -- ApplicationWidgetBehaviorEditorDialog.test.tsx`
+-   `pnpm --filter @universo/applications-frontend build`
+-   `pnpm --filter @universo/applications-frontend lint`
+-   `pnpm --filter @universo/metahubs-backend test -- templateManifestValidator.test.ts --runInBand`
+-   `pnpm --filter @universo/metahubs-backend build`
+-   `pnpm --filter @universo/metahubs-backend lint` (passes with pre-existing warnings)
+-   `git diff --check`
+
+## Completed: LMS Placeholder Configuration Cleanup (2026-05-08)
+
+> Goal: Remove placeholder external support-domain data from the LMS template.
+
+### Summary
+
+The LMS configuration Set no longer seeds `support@example.com`. `SupportEmail` remains available as a generic configurable value, but its default is empty so product snapshots do not contain a fake external domain.
+
+### Changes Made
+
+-   Changed `LmsConfiguration.SupportEmail` default value to an empty string.
+-   Added a template regression assertion for the empty default.
+-   Marked the Phase 8 placeholder support-domain cleanup item complete.
+
+### Validation
+
+-   `pnpm --filter @universo/metahubs-backend test -- templateManifestValidator.test.ts --runInBand`
+-   `pnpm --filter @universo/metahubs-backend build`
+-   `pnpm --filter @universo/metahubs-backend lint` (passes with pre-existing warnings)
+-   `git diff --check`
+
+## Completed: LMS Lifecycle Script Seeds (2026-05-08)
+
+> Goal: Close the Phase 8 script gap with metahub-authored LMS lifecycle and posting scripts.
+
+### Summary
+
+The LMS template now seeds the planned lifecycle scripts through the existing extension SDK contract. The scripts remain attached to standard Catalog entities and use existing record and Ledger APIs, so the runtime does not need LMS-specific code paths.
+
+### Changes Made
+
+-   Added `AutoEnrollmentRuleScript` attached to `Students` with minimal record read/write lifecycle capabilities.
+-   Added `QuizAttemptPostingScript`, `ModuleCompletionPostingScript`, and `CertificateIssuePostingScript` as posting lifecycle scripts.
+-   Kept `EnrollmentPostingScript` in place and extended the script set around it.
+-   Marked `ModuleProgress` as transactional so module completion posting uses the same generic post/ledger path as other document-like catalogs.
+-   Extended template validation and LMS fixture-contract checks for required scripts, attachments, and capabilities.
+-   Marked the Phase 8 scripts checklist item complete.
+
+### Validation
+
+-   `pnpm --filter @universo/metahubs-backend test -- templateManifestValidator.test.ts --runInBand`
+-   `pnpm --filter @universo/metahubs-backend build`
+-   `pnpm --filter @universo/metahubs-backend lint` (passes with pre-existing warnings)
+-   `git diff --check`
+
+## Completed: LMS Bilingual Page Entities (2026-05-08)
+
+> Goal: Close the Phase 8 page-content gap with reusable bilingual Page entities in the LMS template.
+
+### Summary
+
+The LMS template now includes the planned bilingual Page entities for course overviews, knowledge articles, assignment instructions, and certificate policy content. The implementation uses the existing Page entity type and Editor.js block-content contract, with no custom runtime branch or LMS-only UI.
+
+### Changes Made
+
+-   Added reusable LMS template helpers for localized Editor.js header and paragraph blocks.
+-   Added `CourseOverview`, `KnowledgeArticle`, `AssignmentInstructions`, and `CertificatePolicy` as secondary LMS Page entities.
+-   Kept the existing `LearnerHome` primary navigation page unchanged.
+-   Extended template validation and LMS fixture-contract checks for the new Page codenames and bilingual Editor.js content.
+-   Marked the Phase 8 bilingual Pages checklist item complete.
+
+### Validation
+
+-   `pnpm --filter @universo/metahubs-backend test -- templateManifestValidator.test.ts --runInBand`
+-   `pnpm --filter @universo/metahubs-backend build`
+-   `pnpm --filter @universo/metahubs-backend lint` (passes with pre-existing warnings)
+-   `git diff --check`
+
+## Completed: LMS Transactional Event Catalogs (2026-05-08)
+
+> Goal: Close the Phase 8 product-model gap with separate transactional LMS event catalogs while keeping the implementation configuration-driven.
+
+### Summary
+
+The LMS template now includes separate transactional event catalogs as complements to the current product model. These catalogs capture quiz attempts, assignment submissions, training attendance, and certificate issue events through the standard Catalog entity type and generic Ledger posting metadata.
+
+### Changes Made
+
+-   Added `QuizAttempts`, `AssignmentSubmissions`, `TrainingAttendance`, and `CertificateIssues` to the LMS template.
+-   Configured each new event catalog with workspace/year numbering, effective dates, lifecycle metadata where relevant, manual posting, and target Ledgers.
+-   Kept the model generic: no LMS-specific runtime branch, widget, route, or UI component was introduced.
+-   Extended the template validator test and LMS fixture contract so the new entities and transactional behavior are required.
+-   Updated the Phase 8 plan to record the product-model decision: the new event catalogs complement the current catalogs.
+
+### Validation
+
+-   `pnpm --filter @universo/metahubs-backend test -- templateManifestValidator.test.ts --runInBand`
+-   `pnpm --filter @universo/metahubs-backend build`
+-   `pnpm --filter @universo/metahubs-backend lint` (passes with pre-existing warnings)
+-   `git diff --check`
+
+## Completed: LMS Transactional Catalog Behavior (2026-05-08)
+
+> Goal: Advance Phase 8 by giving document-like LMS catalogs generic transactional record behavior.
+
+### Summary
+
+The LMS template now marks current document-like catalogs as transactional through reusable metadata. Each transactional catalog gets workspace/year numbering, effective-date configuration, manual posting metadata, and posted-record immutability, without adding LMS-specific runtime branches.
+
+### Changes Made
+
+-   Added `buildTransactionalCatalogConfig()` to the LMS template.
+-   Applied transactional behavior to `QuizResponses`, `Assignments`, `TrainingEvents`, `Certificates`, and the existing `Enrollments`.
+-   Extended template tests and fixture-contract checks for transactional record behavior.
+
+### Validation
+
+-   `pnpm --filter @universo/metahubs-backend test -- templateManifestValidator.test.ts --runInBand`
+-   `pnpm --filter @universo/metahubs-backend build`
+-   `pnpm --filter @universo/metahubs-backend lint`
+
+## Completed: LMS Additional Ledger Definitions (2026-05-08)
+
+> Goal: Advance Phase 8 by expanding the LMS product template with the missing generic Ledger entities.
+
+### Summary
+
+The LMS template now includes the required Ledger objects beyond the original Progress and Score ledgers. The additional Ledgers are generated through a reusable template helper, keep the same append-only/idempotent shape, and expose projection metadata without adding LMS-specific runtime code.
+
+### Changes Made
+
+-   Added `LearningActivityLedger`, `EnrollmentLedger`, `AttendanceLedger`, `CertificateLedger`, `PointsLedger`, and `NotificationLedger`.
+-   Kept each Ledger configured with append-only mutation policy, registrar source policy, idempotency fields, and a learner projection.
+-   Extended metahubs template tests and the LMS fixture contract required codenames.
+
+### Validation
+
+-   `pnpm --filter @universo/metahubs-backend test -- templateManifestValidator.test.ts --runInBand`
+-   `pnpm --filter @universo/metahubs-backend build`
+-   `pnpm --filter @universo/metahubs-backend lint`
+
+## Completed: LMS Generic Runtime Policy Settings (2026-05-08)
+
+> Goal: Close the Phase 7 application settings gap for generic runtime policies without adding LMS-specific settings keys.
+
+### Summary
+
+Application settings now include generic runtime policy controls for dashboard default resolution, datasource execution scope, and workspace opening behavior. The same keys are represented in frontend types, frontend defaults, backend strict validation, EN/RU i18n, and focused tests.
+
+### Changes Made
+
+-   Added `dashboardDefaultMode`, `datasourceExecutionPolicy`, and `workspaceOpenBehavior` to `ApplicationDialogSettings`.
+-   Added default values in `DEFAULT_APPLICATION_DIALOG_SETTINGS`.
+-   Extended backend `applicationDialogSettingsSchema` with strict enums for the new fields.
+-   Added existing-style MUI setting rows in `ApplicationSettings.tsx`.
+-   Added EN/RU i18n for all new labels, descriptions, and option values.
+-   Added frontend coverage for saving the new settings and backend route coverage for accepting them.
+
+### Validation
+
+-   `pnpm --filter @universo/applications-frontend test -- ApplicationSettings.test.tsx`
+-   `pnpm --filter @universo/applications-backend test -- applicationsRoutes.test.ts --runInBand`
+-   `pnpm --filter @universo/applications-frontend build`
+-   `pnpm --filter @universo/applications-frontend lint`
+-   `pnpm --filter @universo/applications-backend build`
+-   `pnpm --filter @universo/applications-backend lint`
+
+## Completed: LMS Overview Cards Metric Authoring (2026-05-08)
+
+> Goal: Close the remaining Phase 7 widget authoring gap for metric-backed `overviewCards`.
+
+### Summary
+
+Application layout authors can now configure multiple `overviewCards` metric cards through the existing shared widget behavior editor. The editor keeps the implementation generic, saves only the implemented `records.count` metric datasource contract, trims text inputs, and removes unsupported metric keys during normalization.
+
+### Changes Made
+
+-   Added compact multi-card controls to `ApplicationWidgetBehaviorEditorDialog`.
+-   Normalized overview-card saved configs to strict `records.count` metric datasources.
+-   Added EN/RU i18n keys for generic overview-card metric controls.
+-   Added a focused frontend regression test for multi-card metric authoring.
+
+### Validation
+
+-   `pnpm --filter @universo/applications-frontend test -- ApplicationWidgetBehaviorEditorDialog.test.tsx`
+-   `pnpm --filter @universo/applications-frontend build`
+-   `pnpm --filter @universo/applications-frontend lint`
+
+## Completed: LMS Chart Datasource QA Remediation (2026-05-08)
+
+> Goal: Close the Phase 7 QA gap where chart widget contracts existed but published runtime charts still rendered only static demo data.
+
+### Summary
+
+The existing MUI dashboard chart cards now consume generic `records.list` datasources. `sessionsChart` and `pageViewsChart` keep their original demo fallback, but can receive runtime X-axis labels and numeric series derived from configured record fields. The same `ApplicationWidgetBehaviorEditorDialog` now authors chart datasource settings through the existing shared behavior editor instead of adding a new LMS-specific UI surface.
+
+### Changes Made
+
+-   Added a typed records-series chart widget config contract in `@universo/types`.
+-   Registered `sessionsChart` and `pageViewsChart` config validation with `parseApplicationLayoutWidgetConfig`.
+-   Updated `MainGrid` to fetch chart records through the existing `fetchAppData` runtime list API.
+-   Reused existing `SessionsChart` and `PageViewsBarChart` cards, passing optional runtime props while preserving original MUI demo defaults.
+-   Restricted `detailsTable` authoring to datasource kinds the runtime can actually execute.
+-   Added chart datasource authoring fields to `ApplicationWidgetBehaviorEditorDialog` with EN/RU i18n keys.
+-   Added regression tests for chart config validation, chart runtime datasource rendering, and chart datasource authoring.
+
+### Validation
+
+-   `pnpm --filter @universo/types test -- applicationLayouts.test.ts`
+-   `pnpm --filter @universo/types build`
+-   `pnpm --filter @universo/types lint`
+-   `pnpm --filter @universo/apps-template-mui test -- MainGrid.test.tsx`
+-   `pnpm --filter @universo/apps-template-mui build`
+-   `pnpm --filter @universo/apps-template-mui lint`
+-   `pnpm --filter @universo/applications-frontend test -- ApplicationWidgetBehaviorEditorDialog.test.tsx`
+-   `pnpm --filter @universo/applications-frontend build`
+-   `pnpm --filter @universo/applications-frontend lint`
+-   `git diff --check`
+
+## Completed: LMS Generic Metric Widgets (2026-05-08)
+
+> Goal: Continue Phase 7 by letting existing dashboard card/stat surfaces consume generic metric datasources without adding LMS-specific widgets or changing the MUI dashboard style.
+
+### Summary
+
+The existing `overviewCards` dashboard surface now has a typed card config contract and can render metric-backed `StatCard` values. The first generic metric key is `records.count`, resolved through the existing runtime records API with `limit=1` and `pagination.total`, so the implementation reuses the safe runtime list path instead of adding an LMS-specific metric endpoint.
+
+### Changes Made
+
+-   Added `statCardWidgetConfigSchema` and `overviewCardsWidgetConfigSchema` in `@universo/types`.
+-   Registered `overviewCards` config validation in `parseApplicationLayoutWidgetConfig`.
+-   Updated `MainGrid` to read configured `overviewCards` cards while preserving the original demo-card fallback.
+-   Added `RuntimeStatCard` rendering that resolves `metric` datasource descriptors with `metricKey: "records.count"`.
+-   Passed active runtime section and linked-collection identifiers into `DashboardDetailsSlot` from `DashboardApp`.
+-   Added regression coverage proving that metric cards query the runtime list API and render `pagination.total`.
+
+### Validation
+
+-   `pnpm --filter @universo/types build`
+-   `pnpm --filter @universo/types lint`
+-   `pnpm --filter @universo/apps-template-mui test -- MainGrid.test.tsx`
+-   `pnpm --filter @universo/apps-template-mui build`
+-   `pnpm --filter @universo/apps-template-mui lint`
+-   `git diff --check`
+
+## Completed: LMS Details Table Datasource Authoring (2026-05-08)
+
+> Goal: Continue Phase 7 by exposing the generic `detailsTable` datasource contract through existing application layout authoring and consuming `records.list` datasources in the published app runtime.
+
+### Summary
+
+Application layout authors can now configure `detailsTable.datasource` through the existing `ApplicationWidgetBehaviorEditorDialog` instead of editing JSON or using a new LMS-specific widget. Published apps render `records.list` datasources through the existing `CustomizedDataGrid`, reuse server pagination/sort/filter query contracts, and fall back to the current active-section table when no datasource target is configured.
+
+### Changes Made
+
+-   Passed widget identity from `ApplicationLayouts.tsx` into `ApplicationWidgetBehaviorEditorDialog`.
+-   Added generic datasource controls to the existing behavior editor, with EN/RU i18n keys.
+-   Added a shared `runtimeListQuery` helper for MUI DataGrid sort/filter model conversion.
+-   Added runtime `records.list` execution for `detailsTable` widgets in `widgetRenderer.tsx`.
+-   Kept the default current-section `detailsTable` behavior unchanged for layouts without a datasource descriptor.
+-   Added focused frontend tests for authoring and runtime rendering.
+
+### Validation
+
+-   `pnpm --filter @universo/applications-frontend test -- ApplicationWidgetBehaviorEditorDialog.test.tsx`
+-   `pnpm --filter @universo/apps-template-mui test -- widgetRenderer.test.tsx`
+-   `pnpm --filter @universo/applications-frontend build`
+-   `pnpm --filter @universo/apps-template-mui build`
+-   `pnpm --filter @universo/applications-frontend lint`
+-   `pnpm --filter @universo/apps-template-mui lint`
+-   `git diff --check`
+
+## Completed: LMS Generic Runtime Datasource Tables (2026-05-08)
+
+> Goal: Continue Phase 7 by adding generic datasource descriptors and server-side query models to the existing runtime details table path.
+
+### Summary
+
+Runtime dashboard widgets now have a shared datasource descriptor contract for `records.list`, `ledger.facts`, `ledger.projection`, and `metric`. The existing `detailsTable` config accepts that descriptor, and the authenticated runtime list API accepts validated search, sort, and filter models. The published application MUI table path reuses the current `detailsTable`, `CrudDataAdapter`, `fetchAppData`, and `CustomizedDataGrid` components with explicit server-side sorting/filtering instead of adding LMS-specific widgets.
+
+### Changes Made
+
+-   Added `runtimeDataSources` schemas and types in `@universo/types`.
+-   Extended `detailsTableWidgetConfigSchema` with an optional `datasource` descriptor.
+-   Added validated runtime list query params for search, sort, and filters.
+-   Kept backend SQL parameterized and restricted to declared non-TABLE runtime attributes.
+-   Added runtime table sort/filter/search params to `CrudDataAdapter.fetchList()` and `fetchAppData()`.
+-   Wired `DashboardDetailsSlot`, `DashboardApp`, `MainGrid`, and `CustomizedDataGrid` to server-side table models.
+-   Preserved local page search behavior for catalogs that keep `searchMode: page-local`.
+-   Added backend and frontend regression tests for the generic query path.
+
+### Validation
+
+-   `pnpm --filter @universo/types build`
+-   `pnpm --filter @universo/types lint`
+-   `pnpm --filter @universo/applications-backend test -- applicationsRoutes.test.ts --runInBand`
+-   `pnpm --filter @universo/applications-backend build`
+-   `pnpm --filter @universo/applications-backend lint`
+-   `pnpm --filter @universo/apps-template-mui test -- useCrudDashboard.test.tsx MainGrid.test.tsx`
+-   `pnpm --filter @universo/apps-template-mui build`
+-   `pnpm --filter @universo/apps-template-mui lint`
+-   `git diff --check`
+
+---
+
+## Completed: LMS Posting Movement E2E Proof (2026-05-08)
+
+> Goal: Finish Phase 6 by proving that a metahub-authored LMS posting script can create generic Ledger facts from the published application runtime.
+
+### Summary
+
+The LMS template now carries a seed lifecycle script attached to the `Enrollments` Catalog. The script returns a generic posting movement targeting `ProgressLedger`, while runtime posting remains platform-owned and validates the script output through the existing declarative movement contract. The canonical LMS snapshot was regenerated and the browser import/runtime flow now proves that posting an enrollment creates a Ledger fact without LMS-specific runtime code.
+
+### Changes Made
+
+-   Added template seed-script support with manifest validation, compilation, checksum storage, and entity attachment resolution.
+-   Added `EnrollmentPostingScript` to the LMS template and declared `Enrollments.config.recordBehavior.posting.targetLedgers`.
+-   Added source idempotency fields to LMS progress and score Ledgers.
+-   Extended the LMS fixture contract to require the posting script and target Ledger declaration.
+-   Added reusable E2E API helpers for runtime record posting and Ledger fact lookup.
+-   Extended the LMS snapshot import flow to post an enrollment and assert a `ProgressLedger` fact.
+-   Fixed snapshot import bootstrapping so default Ledger presets are disabled for imported snapshots.
+
+### Validation
+
+-   `pnpm --filter @universo/types build`
+-   `pnpm --filter @universo/types lint`
+-   `pnpm --filter @universo/metahubs-backend test -- templateManifestValidator.test.ts`
+-   `pnpm --filter @universo/metahubs-backend build`
+-   `pnpm --filter @universo/metahubs-backend lint`
+-   `pnpm --filter @universo/metahubs-backend exec eslint src/domains/metahubs/controllers/metahubsController.ts`
+-   `node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "canonical lms"`
+-   `node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "lms snapshot fixture"`
+
+---
+
+## Completed: LMS Posting Movement Contract (2026-05-08)
+
+> Goal: Continue Phase 6 by adding safe declarative posting movements for runtime lifecycle scripts.
+
+### Summary
+
+`beforePost` lifecycle handlers can now return a structured `movements` result. The runtime validates the payload, allows only ledgers declared in `config.recordBehavior.posting.targetLedgers`, appends facts through the generic Ledger service inside the same posting transaction, and prevents `afterPost` when movements are invalid.
+
+### Changes Made
+
+-   Added shared `ScriptPostingMovement*` types in `@universo/types`.
+-   Added `RuntimePostingMovementService` for movement normalization, target-ledger validation, and Ledger append orchestration.
+-   Made runtime lifecycle dispatch return handler results while preserving existing fire-and-forget after-commit hooks.
+-   Wired post commands so `beforePost` runs inside the transaction, movements append before commit, and `afterPost` runs only after successful commit.
+-   Added service tests for valid movements, undeclared ledgers, malformed payloads, and Ledger append failures.
+-   Added route tests for successful movement append ordering and fail-closed invalid Ledger fields.
+-   Added scripting compiler coverage for `beforePost` with `posting`, `ledger.read`, and `ledger.write` capabilities.
+
+### Validation
+
+-   `pnpm --filter @universo/applications-backend test -- runtimePostingMovements.test.ts runtimeLedgersService.test.ts runtimeScriptsService.test.ts applicationsRoutes.test.ts`
+-   `pnpm --filter @universo/applications-backend lint`
+-   `pnpm --filter @universo/applications-backend build`
+-   `pnpm --filter @universo/types lint`
+-   `pnpm --filter @universo/types build`
+-   `pnpm --filter @universo/extension-sdk lint`
+-   `pnpm --filter @universo/extension-sdk build`
+-   `pnpm --filter @universo/scripting-engine test -- compiler.test.ts`
+-   `pnpm --filter @universo/scripting-engine lint`
+-   `pnpm --filter @universo/scripting-engine build`
+-   `pnpm --filter @universo/apps-template-mui lint`
+-   `pnpm --filter @universo/apps-template-mui build`
+-   `pnpm --filter @universo/metahubs-backend build`
+-   `git diff --check`
+
+---
+
+## Completed: LMS Ledger Runtime Services (2026-05-08)
+
+> Goal: Close Phase 5 runtime Ledger services without introducing LMS-specific runtime branches or Ledger-only CRUD screens.
+
+### Summary
+
+Added the generic runtime Ledger service boundary for metadata loading, fact listing, safe projection queries, append-only fact writes, idempotent append, and reversal batches. Runtime scripts can now call `ctx.ledger.reverse()` only when `ledger.write` is declared, matching the existing fail-closed capability model.
+
+### Changes Made
+
+-   Added `RuntimeLedgerService` as the canonical service class and kept the plural alias for compatibility.
+-   Added HTTP support for ledger fact reversal under the existing runtime Ledger route group.
+-   Made idempotency checks workspace-aware when runtime ledger tables include `workspace_id`.
+-   Implemented reversals as compensating appended facts, preserving append-only behavior.
+-   Extended the script SDK Ledger API with `reverse()`.
+-   Updated runtime, design-time, and client-side script contexts so `ledger.reverse()` fails closed unless `ledger.write` is available.
+-   Added focused service and route coverage for idempotency, reversal, workspace isolation, aggregation, invalid fields, append-only SQL, and permission failures.
+
+### Validation
+
+-   `pnpm --filter @universo/applications-backend test -- runtimeLedgersService.test.ts runtimeScriptsService.test.ts applicationsRoutes.test.ts`
+-   `pnpm --filter @universo/applications-backend lint`
+-   `pnpm --filter @universo/applications-backend build`
+-   `pnpm --filter @universo/extension-sdk lint`
+-   `pnpm --filter @universo/extension-sdk build`
+-   `pnpm --filter @universo/metahubs-backend lint`
+-   `pnpm --filter @universo/metahubs-backend build`
+-   `pnpm --filter @universo/apps-template-mui lint`
+-   `pnpm --filter @universo/apps-template-mui build`
+-   `git diff --check`
+
+---
+
+## Completed: LMS Runtime Record Command Backend Hardening (2026-05-08)
+
+> Goal: Close the Phase 4 backend QA coverage and service boundary for transactional Catalog record commands.
+
+### Summary
+
+Moved record command mutation planning behind explicit runtime services and added regression coverage for numbering, state transitions, immutability, and permissions. Runtime routes still expose the same `post`, `unpost`, and `void` endpoints, but the controller now delegates numbering and command update planning to service-level contracts.
+
+### Changes Made
+
+-   Added `RuntimeNumberingService` and `RuntimeRecordCommandService` in the record behavior service module.
+-   Kept the existing low-level numbering helpers for compatibility while routing command update planning through the new service.
+-   Added service tests for global numbering, workspace fallback numbering, concurrent atomic upsert allocation, command update planning, and invalid transition rejection.
+-   Added route tests for successful posting, invalid state transitions, edit-permission failures, posted parent immutability for update/delete, and posted parent tabular edit blocking.
+-   Updated the existing tabular copy test to match the current parent-row load shape used by child-row mutation guards.
+
+### Validation
+
+-   `pnpm --filter @universo/applications-backend test -- runtimeRecordBehavior.test.ts applicationsRoutes.test.ts`
+-   `pnpm --filter @universo/applications-backend lint`
+-   `pnpm --filter @universo/applications-backend build`
+-   `git diff --check`
+
+---
+
+## Completed: LMS Runtime Record Commands UI (2026-05-08)
+
+> Goal: Continue the LMS platform implementation by surfacing generic transactional Catalog commands in the published app runtime without adding LMS-only widgets or divergent UI patterns.
+
+### Summary
+
+Runtime list responses now expose Catalog `recordBehavior` and record system state for record-enabled sections. The MUI runtime template uses the existing row actions menu to show record state and execute `post`, `unpost`, and `void` commands through the adapter layer, with TanStack Query invalidation and snackbar feedback.
+
+### Changes Made
+
+-   Added runtime response metadata for `recordBehavior` and `_app_record_*` / posting state fields.
+-   Added `runAppRecordCommand()` and `CrudDataAdapter.recordCommand()`.
+-   Added reusable `RuntimeRecordStateChip` and command availability helpers.
+-   Extended `RowActionsMenu` with state chip plus MUI icon menu actions for post, unpost, and void.
+-   Added EN/RU i18n for record command labels, states, success messages, and errors.
+-   Added focused frontend coverage for command visibility, disabled edit permission behavior, mutation calls, and query refresh.
+
+### Validation
+
+-   `pnpm --filter @universo/apps-template-mui test -- RowActionsMenu.recordCommands.test.tsx useCrudDashboard.test.tsx`
+-   `pnpm --filter @universo/apps-template-mui lint`
+-   `pnpm --filter @universo/apps-template-mui build`
+-   `pnpm --filter @universo/applications-backend build`
+-   `pnpm --filter @universo/applications-backend test -- runtimeRecordBehavior.test.ts runtimeLedgersService.test.ts`
+-   `pnpm --filter @universo/applications-backend test -- runtimeRowsController.test.ts`
+-   `git diff --check`
+
+---
+
+## Completed: LMS Catalog And Ledger Metadata Foundation (2026-05-07)
+
+> Goal: Implement the approved first implementation wave for Catalog record behavior, the standard Ledger entity kind, shared Entity UI reuse, and the canonical LMS snapshot fixture.
+
+### Summary
+
+Added `ledger` as a first-class standard entity kind and introduced shared Catalog `recordBehavior` plus Ledger `config.ledger` contracts. Ledgers now flow through standard templates, metahub routing, publication snapshots, schema helpers, scripts capability metadata, i18n, docs, and the canonical LMS Playwright fixture without adding LMS-specific runtime widgets or Ledger-only authoring screens.
+
+### Changes Made
+
+**Shared contracts**
+
+-   Added shared Catalog record behavior and Ledger config types in `@universo/types`.
+-   Extended Entity component manifests with identity fields, record lifecycle, posting, and ledger schema flags.
+-   Added `ledger` to standard entity kinds, settings, surface labels, script attachment kinds, and schema DDL built-in helpers.
+
+**Templates and LMS fixture**
+
+-   Added the standard Ledger preset and default `Main` ledger instance.
+-   Extended standard Catalog config with default record behavior.
+-   Added LMS `ProgressLedger` and `ScoreLedger` definitions.
+-   Regenerated `tools/fixtures/metahubs-lms-app-snapshot.json` through the official Playwright generator.
+
+**UI and docs**
+
+-   Routed Ledgers through the existing generic Entity list/details authoring surface.
+-   Added EN/RU labels and breadcrumb titles for Ledgers.
+-   Documented Ledgers in GitBook architecture docs and updated LMS entity docs plus package README notes.
+
+### Validation
+
+-   `pnpm --filter @universo/types test -- entityTypes.test.ts`
+-   `pnpm --filter @universo/template-mui test -- menuConfigs.test.ts`
+-   `pnpm --filter @universo/metahubs-backend test -- componentRegistry.test.ts`
+-   `pnpm --filter @universo/applications-backend test -- runtimeRowsController.test.ts`
+-   `pnpm --filter @universo/metahubs-frontend test -- --runInBand src/domains/entities/ui/__tests__/BuiltinEntityCollectionPage.test.tsx`
+-   `pnpm run build:e2e`
+-   `node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "canonical lms"`
+-   `git diff --check`
+
+### Runtime Completion
+
+Closed the runtime follow-up by adding append-only Ledger APIs, Ledger projection queries, `ctx.ledger` script bridges, transactional Catalog row commands, atomic record numbering, and posted-row immutability checks.
+Runtime row commands now expose platform-owned `post`, `unpost`, and `void` transitions with lifecycle hooks and fail-closed state validation.
 
 ---
 
@@ -25,13 +1214,14 @@ Implemented `FULL_DATABASE_RESET` environment variable that performs a complete 
 ### Changes Made
 
 **New module:** `packages/universo-core-backend/base/src/bootstrap/startupReset.ts`
-- Config parsing with `FULL_DATABASE_RESET` env var (off by default)
-- Production guard (`NODE_ENV=production` blocks execution)
-- Advisory lock via `withAdvisoryLock` + `getPoolExecutor()` (same pattern as `bootstrapSuperuser.ts`)
-- Schema discovery from `registeredSystemAppDefinitions` + dynamic schema detection
-- Safe schema drop with `quoteIdentifier`, validation regex, infrastructure protection
-- Auth user deletion via `supabaseAdmin.auth.admin.deleteUser()`
-- Post-reset verification with residue detection
+
+-   Config parsing with `FULL_DATABASE_RESET` env var (off by default)
+-   Production guard (`NODE_ENV=production` blocks execution)
+-   Advisory lock via `withAdvisoryLock` + `getPoolExecutor()` (same pattern as `bootstrapSuperuser.ts`)
+-   Schema discovery from `registeredSystemAppDefinitions` + dynamic schema detection
+-   Safe schema drop with `quoteIdentifier`, validation regex, infrastructure protection
+-   Auth user deletion via `supabaseAdmin.auth.admin.deleteUser()`
+-   Post-reset verification with residue detection
 
 **Integration:** `packages/universo-core-backend/base/src/index.ts` — `executeStartupFullReset()` called before migrations in `initDatabase()`
 
@@ -54,26 +1244,30 @@ Migrated the project to Node.js 22 with upgraded isolated-vm dependency for scri
 ### Changes Made
 
 **Configuration Updates:**
-- `package.json` - Updated engines.node to `>=22.6.0`
-- `.nvmrc` - Created with Node.js 22 version specification
-- `packages/scripting-engine/base/package.json` - Upgraded isolated-vm from 5.0.4 to ^6.1.2
-- `.github/workflows/main.yml` - Updated CI matrix to Node.js 22.x
+
+-   `package.json` - Updated engines.node to `>=22.6.0`
+-   `.nvmrc` - Created with Node.js 22 version specification
+-   `packages/scripting-engine/base/package.json` - Upgraded isolated-vm from 5.0.4 to ^6.1.2
+-   `.github/workflows/main.yml` - Updated CI matrix to Node.js 22.x
 
 **Documentation Updates:**
-- `.kiro/steering/tech.md` - Added Node.js 22 requirements and critical flag notes
-- `README.md` - Updated tech stack section with Node.js 22 requirement
-- `memory-bank/techContext.md` - Added Node.js 22 and isolated-vm 6.x notes
-- `docs/migration/nodejs-22-migration-guide.md` - Created comprehensive migration guide
-- `docs/migration/NODEJS_22_MIGRATION_INSTRUCTIONS.md` - Created user action instructions
+
+-   `.kiro/steering/tech.md` - Added Node.js 22 requirements and critical flag notes
+-   `README.md` - Updated tech stack section with Node.js 22 requirement
+-   `memory-bank/techContext.md` - Added Node.js 22 and isolated-vm 6.x notes
+-   `docs/migration/nodejs-22-migration-guide.md` - Created comprehensive migration guide
+-   `docs/migration/NODEJS_22_MIGRATION_INSTRUCTIONS.md` - Created user action instructions
 
 **Critical Finding:**
-- isolated-vm 5.0.4 does NOT support Node.js 22 (requires >=18.0.0)
-- isolated-vm 6.x is REQUIRED for Node.js 22 (requires >=22.0.0)
-- Migration sequence: upgrade isolated-vm first, then migrate Node.js
+
+-   isolated-vm 5.0.4 does NOT support Node.js 22 (requires >=18.0.0)
+-   isolated-vm 6.x is REQUIRED for Node.js 22 (requires >=22.0.0)
+-   Migration sequence: upgrade isolated-vm first, then migrate Node.js
 
 ### Validation Status
 
 Configuration changes complete. User actions required:
+
 1. Install Node.js 22 (`nvm install 22`)
 2. Clean install dependencies (`pnpm clean:all && pnpm install`)
 3. Run build and tests
@@ -81,12 +1275,13 @@ Configuration changes complete. User actions required:
 
 ### Technical Notes
 
-- `--no-node-snapshot` flag already configured in startup scripts
-- No import assertions usage found (no migration needed)
-- ESM packages isolated (only universo-i18n and universo-store)
-- Native addon dependencies minimal (only isolated-vm in use)
+-   `--no-node-snapshot` flag already configured in startup scripts
+-   No import assertions usage found (no migration needed)
+-   ESM packages isolated (only universo-i18n and universo-store)
+-   Native addon dependencies minimal (only isolated-vm in use)
 
 ---
+
 | 0.60.0-alpha | 2026-04-23 | 0.60.0 Alpha — 2026-04-23 | Refresh metahub resources/docs and add empty template support |
 | 0.59.0-alpha | 2026-04-17 | 0.59.0 Alpha — 2026-04-17 | Implement Entity Component Architecture and metahub resources |
 | 0.58.0-alpha | 2026-04-08 | 0.58.0 Alpha — 2026-04-08 (Ancient Manuscripts) | Metahub snapshot import/export, self-hosted parity, scripting, shared/common layout flow |
@@ -132,49 +1327,49 @@ Configuration changes complete. User actions required:
 
 Closed the QA blocker left after making hub-assignment behavior generic across Entity types.
 
-| Area                | Resolution                                                                                                                                                             |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Backend regression  | Updated hub delete route tests for the new generic query order and added coverage for a required hub-assignable Page blocking hub deletion.                            |
-| Fixture contract    | Verified the LMS snapshot hash and confirmed Page, Catalog, Set, and Enumeration definitions expose enabled `treeAssignment` and Hubs tabs through Entity metadata.    |
-| Validation          | Focused backend Jest, metahubs frontend Vitest, runtime/application focused tests, package lint/build checks, full root `pnpm build`, and Chromium Basic Pages UX flow passed. |
-| Residual warnings   | `@universo/metahubs-backend` lint still reports existing warnings only; no lint errors were introduced by this closure.                                                |
+| Area               | Resolution                                                                                                                                                                     |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Backend regression | Updated hub delete route tests for the new generic query order and added coverage for a required hub-assignable Page blocking hub deletion.                                    |
+| Fixture contract   | Verified the LMS snapshot hash and confirmed Page, Catalog, Set, and Enumeration definitions expose enabled `treeAssignment` and Hubs tabs through Entity metadata.            |
+| Validation         | Focused backend Jest, metahubs frontend Vitest, runtime/application focused tests, package lint/build checks, full root `pnpm build`, and Chromium Basic Pages UX flow passed. |
+| Residual warnings  | `@universo/metahubs-backend` lint still reports existing warnings only; no lint errors were introduced by this closure.                                                        |
 
 ## 2026-05-06 Generic Hub-Assignable Entity Integration
 
 Made hub-scoped authoring and hub delete blocking derive from Entity constructor metadata instead of fixed Catalog/Set/Enumeration assumptions.
 
-| Area                         | Resolution                                                                                                                                                                      |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Hub tabs                     | Hub detail tabs are now built from editable Entity types with enabled `treeAssignment`, so Pages and future hub-assignable kinds appear automatically.                           |
-| Hub-scoped lists             | Non-hub child routes under a hub now render the generic Entity instance surface and filter by `config.hubs`; the persisted generic fallback to old `config.treeEntities` was removed. |
-| Delete blockers              | Hub deletion checks now return generic `blockingRelatedObjects` and `blockingChildTreeEntities`, with Entity kind and display type labels for each blocker.                      |
-| Baseline templates           | Set and Enumeration definitions now enable hub assignment and expose the Hubs tab, matching Pages and Catalogs under the constructor-driven model.                                |
-| LMS fixture                  | `tools/fixtures/metahubs-lms-app-snapshot.json` was updated to the new Set/Enumeration hub-assignment contract and its `snapshotHash` was recalculated.                         |
-| Regression coverage          | Added backend Jest for generic hub blockers and frontend Vitest for hub-scoped generic child routes and updated delete-dialog/query-key tests.                                    |
-| Validation                   | Focused backend Jest, focused frontend Vitest, metahubs frontend/backend lint/build, and full root `pnpm build` passed; backend lint still reports only pre-existing warnings.    |
+| Area                | Resolution                                                                                                                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Hub tabs            | Hub detail tabs are now built from editable Entity types with enabled `treeAssignment`, so Pages and future hub-assignable kinds appear automatically.                                |
+| Hub-scoped lists    | Non-hub child routes under a hub now render the generic Entity instance surface and filter by `config.hubs`; the persisted generic fallback to old `config.treeEntities` was removed. |
+| Delete blockers     | Hub deletion checks now return generic `blockingRelatedObjects` and `blockingChildTreeEntities`, with Entity kind and display type labels for each blocker.                           |
+| Baseline templates  | Set and Enumeration definitions now enable hub assignment and expose the Hubs tab, matching Pages and Catalogs under the constructor-driven model.                                    |
+| LMS fixture         | `tools/fixtures/metahubs-lms-app-snapshot.json` was updated to the new Set/Enumeration hub-assignment contract and its `snapshotHash` was recalculated.                               |
+| Regression coverage | Added backend Jest for generic hub blockers and frontend Vitest for hub-scoped generic child routes and updated delete-dialog/query-key tests.                                        |
+| Validation          | Focused backend Jest, focused frontend Vitest, metahubs frontend/backend lint/build, and full root `pnpm build` passed; backend lint still reports only pre-existing warnings.        |
 
 ## 2026-05-06 Runtime Start Section Stale Placeholder Suppression
 
 Fixed the published application runtime root flashing a non-start section before the configured start page rendered.
 
-| Area                    | Resolution                                                                                                                                                                                                 |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Root cause              | `useCrudDashboard` could expose React Query placeholder/fallback data while the menu-defined start section was already being selected and fetched, so users briefly saw Access Links before Welcome.       |
-| Generic runtime fix     | The hook now suppresses mismatched section data and returns a loading state when the current response section differs from the initial menu start section or selected section under fetch.                  |
-| Menu start support      | Initial menu section detection now treats `page` items as valid section targets, matching the runtime menu model used by Page start screens.                                                                |
-| Regression coverage     | Added deterministic hook coverage for the stale Access Links -> Welcome transition and extended the LMS browser flow to assert that Access Links / Ссылки доступа is not visible on runtime root loading. |
-| E2E robustness          | The LMS flow now waits for the successful `200` sync response instead of failing on the expected first CSRF retry `419` response.                                                                           |
-| Validation              | Focused `useCrudDashboard` Vitest, `@universo/apps-template-mui` lint/build, root `pnpm build`, Chromium LMS import/runtime Playwright, and `git diff --check` passed.                                      |
+| Area                | Resolution                                                                                                                                                                                                |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Root cause          | `useCrudDashboard` could expose React Query placeholder/fallback data while the menu-defined start section was already being selected and fetched, so users briefly saw Access Links before Welcome.      |
+| Generic runtime fix | The hook now suppresses mismatched section data and returns a loading state when the current response section differs from the initial menu start section or selected section under fetch.                |
+| Menu start support  | Initial menu section detection now treats `page` items as valid section targets, matching the runtime menu model used by Page start screens.                                                              |
+| Regression coverage | Added deterministic hook coverage for the stale Access Links -> Welcome transition and extended the LMS browser flow to assert that Access Links / Ссылки доступа is not visible on runtime root loading. |
+| E2E robustness      | The LMS flow now waits for the successful `200` sync response instead of failing on the expected first CSRF retry `419` response.                                                                         |
+| Validation          | Focused `useCrudDashboard` Vitest, `@universo/apps-template-mui` lint/build, root `pnpm build`, Chromium LMS import/runtime Playwright, and `git diff --check` passed.                                    |
 
 ## 2026-05-06 Application Sync RLS Transaction Boundary Closure
 
 Fixed the LMS Connector Board schema sync 500 that appeared after importing the canonical LMS snapshot and creating an application schema with workspaces enabled.
 
-| Area                     | Resolution                                                                                                                                                                                                 |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Area                      | Resolution                                                                                                                                                                                                  |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Sync transaction boundary | `/api/v1/application/:id/sync` now uses plain authenticated middleware instead of the request-scoped RLS transaction wrapper because schema sync performs long-running DDL under its own transaction locks. |
-| Authorization             | Regular application routes still use request RLS middleware; the sync route keeps explicit application access enforcement inside the existing sync controller/service path.                                |
-| Regression coverage       | Core route-composition Jest verifies plain auth is passed only to sync. The LMS Playwright flow now drives the real Connector Board diff dialog and schema sync UI instead of calling sync directly.       |
+| Authorization             | Regular application routes still use request RLS middleware; the sync route keeps explicit application access enforcement inside the existing sync controller/service path.                                 |
+| Regression coverage       | Core route-composition Jest verifies plain auth is passed only to sync. The LMS Playwright flow now drives the real Connector Board diff dialog and schema sync UI instead of calling sync directly.        |
 | Validation                | Applications backend build/lint, core backend build/lint, focused core Jest, Chromium LMS import/runtime Playwright, root `pnpm build`, and `git diff --check` passed.                                      |
 
 ## 2026-05-05 LMS Runtime Welcome Assertion Closure
@@ -925,22 +2120,22 @@ The 2026-04-09 wave completed the first large end-to-end ECAE delivery set. This
 
 ## 2026-05-06 Generic Localized Variant Tabs For Page Content
 
-| Area              | Resolution                                                                                                                                                    |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Shared UI surface | Extracted `LocalizedVariantTabs` into `@universo/template-mui` so Page content language tabs are no longer a Page-local custom tab implementation.             |
-| Visual parity     | Matched localized content tabs to the metahub MUI tab typography and compact 28px action/add button geometry used on neighboring Entity authoring screens.     |
-| Primary marker    | Marked the primary content locale with the same 16px `Star` icon affordance used by display attributes.                                                       |
-| Regression proof  | Extended the Chromium Basic Pages UX flow to assert primary-star rendering, action/add centerline alignment, and Page-vs-Catalog tab typography equality.      |
-| Validation        | Focused template-mui Jest, block editor Jest, package lints/builds, root `pnpm build`, Chromium Basic Pages UX Playwright, and `git diff --check` passed.     |
+| Area              | Resolution                                                                                                                                                 |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shared UI surface | Extracted `LocalizedVariantTabs` into `@universo/template-mui` so Page content language tabs are no longer a Page-local custom tab implementation.         |
+| Visual parity     | Matched localized content tabs to the metahub MUI tab typography and compact 28px action/add button geometry used on neighboring Entity authoring screens. |
+| Primary marker    | Marked the primary content locale with the same 16px `Star` icon affordance used by display attributes.                                                    |
+| Regression proof  | Extended the Chromium Basic Pages UX flow to assert primary-star rendering, action/add centerline alignment, and Page-vs-Catalog tab typography equality.  |
+| Validation        | Focused template-mui Jest, block editor Jest, package lints/builds, root `pnpm build`, Chromium Basic Pages UX Playwright, and `git diff --check` passed.  |
 
 ## 2026-05-06 LMS Page Content Import And Editor.js UX Closure
 
-| Area                          | Resolution                                                                                                                                           |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| LMS product page seed          | Removed the short preset Welcome page from the LMS output path and kept `LearnerHome` as the stable internal page codename with visible Welcome text. |
-| Template seed contract         | Added `localizeCodenameFromName` so seed entities can opt out of codename localization when presentation names are intentionally localized.           |
-| Canonical fixture              | Regenerated `tools/fixtures/metahubs-lms-app-snapshot.json` through the official Playwright generator with full EN/RU Welcome block content.          |
-| Editor.js first render/toolbox | Fixed late-data initialization so content renders on first open and constrained the block toolbox to remain visible and scrollable.                    |
+| Area                           | Resolution                                                                                                                                                           |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| LMS product page seed          | Removed the short preset Welcome page from the LMS output path and kept `LearnerHome` as the stable internal page codename with visible Welcome text.                |
+| Template seed contract         | Added `localizeCodenameFromName` so seed entities can opt out of codename localization when presentation names are intentionally localized.                          |
+| Canonical fixture              | Regenerated `tools/fixtures/metahubs-lms-app-snapshot.json` through the official Playwright generator with full EN/RU Welcome block content.                         |
+| Editor.js first render/toolbox | Fixed late-data initialization so content renders on first open and constrained the block toolbox to remain visible and scrollable.                                  |
 | Validation                     | Backend/template Jest, block editor Jest/Vitest, generator Playwright, Basic Pages UX Playwright, LMS import/runtime Playwright, full build, and diff checks passed. |
 
 ## 2026-05-02 LMS Portal Runtime Refactor Implementation

@@ -22,7 +22,11 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 - Expose runtime sync, diff, and release-bundle routes for managed application schemas.
 - Manage application-side layouts, including metahub lineage, application-owned copies, defaults, activation, and widget activity.
 - Materialize curated runtime menu contracts from `menuWidget` config, including explicit section items, hub/catalog codename resolution, overflow items, start-page selection, and workspace entry placement.
+- Own transactional Catalog commands for `recordBehavior`: atomic record numbering, `post` / `unpost` / `void` transitions, lifecycle hooks, and posted-row immutability checks.
+- Apply declarative `beforePost` script movements through the generic Ledger service inside the posting transaction.
+- Expose generic runtime Ledger metadata, fact append/reversal, fact listing, and projection query routes for standard `ledger` entities without making Ledgers normal row-CRUD sections.
 - Execute published runtime scripts through a fail-closed server bridge that only exposes non-lifecycle server methods from `rpc.client` scripts and reuses runtime row helpers, workspace context, and permission maps.
+- Expose `ctx.ledger` to runtime scripts only when `ledger.read` or `ledger.write` capabilities are declared.
 - Persist schema sync state in `applications.cat_applications` through SQL-first stores.
 - Keep runtime release metadata in the same central sync-state surface.
 - Reuse shared guards, identifier helpers, and query helpers from the database standard packages.
@@ -62,6 +66,7 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 
 - `createApplicationsRoutes(...)` mounts CRUD, connector, membership, and runtime-sync routes.
 - The route surface now includes public join/leave flows and settings endpoints for per-workspace catalog limits.
+- Runtime Ledger endpoints are mounted under `/applications/:applicationId/runtime/ledgers` and keep append/reverse/query behavior separate from generic Catalog row CRUD.
 - Application layout endpoints are mounted under `/applications/:applicationId/layouts` and `/applications/:applicationId/layout-scopes`.
 - `initializeRateLimiters()` prepares package-level rate limiting before route creation.
 - Persistence helpers in `src/services/` and `src/persistence/` form the SQL-first write/read seams.

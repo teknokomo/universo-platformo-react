@@ -1,6 +1,12 @@
 import { z } from 'zod'
 import { dashboardLayoutConfigSchema } from './dashboardLayout'
 import { DASHBOARD_LAYOUT_WIDGETS, DASHBOARD_LAYOUT_ZONES } from './metahubs'
+import {
+    ledgerProjectionDatasourceSchema,
+    recordsCountMetricDatasourceSchema,
+    recordsListDatasourceSchema,
+    runtimeDatasourceDescriptorSchema
+} from './runtimeDataSources'
 import { SCRIPT_ATTACHMENT_KIND_PATTERN } from './scripts'
 
 export const APPLICATION_LAYOUT_SOURCE_KINDS = ['metahub', 'application'] as const
@@ -42,6 +48,7 @@ const sharedBehaviorSchema = z
 const scriptAttachmentKindSchema = z.string().trim().regex(SCRIPT_ATTACHMENT_KIND_PATTERN).nullable().optional()
 
 const genericWidgetConfigSchema = z.record(z.unknown()).default({})
+const localizedWidgetTextSchema = z.union([z.string().min(1).max(160), applicationLayoutLocalizedContentSchema])
 
 const menuWidgetItemSchema = z
     .object({
@@ -131,17 +138,69 @@ export const quizWidgetConfigSchema = scriptBackedWidgetConfigSchema
 
 export const detailsTableWidgetConfigSchema = z
     .object({
+        datasource: runtimeDatasourceDescriptorSchema.optional(),
         enableRowReordering: z.boolean().optional(),
         showViewToggle: z.boolean().optional(),
         sharedBehavior: sharedBehaviorSchema.optional()
     })
     .strict()
 
+export const statCardWidgetConfigSchema = z
+    .object({
+        title: localizedWidgetTextSchema.optional(),
+        value: z.string().max(80).optional(),
+        interval: localizedWidgetTextSchema.optional(),
+        trend: z.enum(['up', 'down', 'neutral']).optional(),
+        data: z.array(z.number()).max(120).optional(),
+        datasource: recordsCountMetricDatasourceSchema.optional()
+    })
+    .strict()
+
+export type StatCardWidgetConfig = z.infer<typeof statCardWidgetConfigSchema>
+
+export const overviewCardsWidgetConfigSchema = z
+    .object({
+        cards: z.array(statCardWidgetConfigSchema).max(8).optional(),
+        sharedBehavior: sharedBehaviorSchema.optional()
+    })
+    .strict()
+
+export type OverviewCardsWidgetConfig = z.infer<typeof overviewCardsWidgetConfigSchema>
+
+const chartSeriesDefinitionSchema = z
+    .object({
+        id: z.string().min(1).max(128).optional(),
+        label: localizedWidgetTextSchema.optional(),
+        field: z.string().min(1).max(128),
+        stack: z.string().min(1).max(128).optional(),
+        area: z.boolean().optional()
+    })
+    .strict()
+
+export const recordsSeriesChartWidgetConfigSchema = z
+    .object({
+        title: localizedWidgetTextSchema.optional(),
+        value: z.string().max(80).optional(),
+        interval: localizedWidgetTextSchema.optional(),
+        trend: z.enum(['up', 'down', 'neutral']).optional(),
+        datasource: z.union([recordsListDatasourceSchema, ledgerProjectionDatasourceSchema]).optional(),
+        xField: z.string().min(1).max(128).optional(),
+        maxRows: z.number().int().min(1).max(100).optional(),
+        series: z.array(chartSeriesDefinitionSchema).min(1).max(8).optional(),
+        sharedBehavior: sharedBehaviorSchema.optional()
+    })
+    .strict()
+
+export type RecordsSeriesChartWidgetConfig = z.infer<typeof recordsSeriesChartWidgetConfigSchema>
+
 const widgetConfigSchemaByKey = {
     menuWidget: menuWidgetConfigSchema,
     columnsContainer: columnsContainerWidgetConfigSchema,
     quizWidget: quizWidgetConfigSchema,
-    detailsTable: detailsTableWidgetConfigSchema
+    detailsTable: detailsTableWidgetConfigSchema,
+    overviewCards: overviewCardsWidgetConfigSchema,
+    sessionsChart: recordsSeriesChartWidgetConfigSchema,
+    pageViewsChart: recordsSeriesChartWidgetConfigSchema
 } as const
 
 export const applicationLayoutWidgetConfigSchema = genericWidgetConfigSchema

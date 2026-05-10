@@ -102,9 +102,7 @@ const MetahubBoard = () => {
         )
     }
 
-    // Success state with dashboard
-    // Demo trend data for SparkLineChart (30 data points)
-    // TODO: Replace with real historical data when analytics service is ready
+    // Success state with dashboard. Sparkline cards keep demo trend data until analytics service data is available.
     const treeEntitiesCount = getEntityCount(boardSummary?.entityCounts, 'hub')
     const linkedCollectionsCount = getEntityCount(boardSummary?.entityCounts, 'catalog')
     const membersCount = boardSummary?.membersCount ?? 0

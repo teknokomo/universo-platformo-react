@@ -1,4 +1,4 @@
-import type { GridColDef, GridPaginationModel, GridLocaleText } from '@mui/x-data-grid'
+import type { GridColDef, GridFilterModel, GridPaginationModel, GridLocaleText, GridSortModel } from '@mui/x-data-grid'
 import type {} from '@mui/material/themeCssVarsAugmentation'
 import { alpha } from '@mui/material/styles'
 import Box from '@mui/material/Box'
@@ -21,7 +21,10 @@ export interface DashboardDetailsSlot {
     sectionCodename?: string | null
     linkedCollectionId?: string | null
     linkedCollectionCodename?: string | null
+    sections?: Array<{ id: string; codename: string }>
+    linkedCollections?: Array<{ id: string; codename: string }>
     apiBaseUrl?: string
+    locale?: string
     currentWorkspaceId?: string | null
     runtimeQueryKeyPrefix?: readonly unknown[]
     workspacesEnabled?: boolean
@@ -33,6 +36,12 @@ export interface DashboardDetailsSlot {
     rowCount?: number
     paginationModel?: GridPaginationModel
     onPaginationModelChange?: (model: GridPaginationModel) => void
+    sortModel?: GridSortModel
+    onSortModelChange?: (model: GridSortModel) => void
+    filterModel?: GridFilterModel
+    onFilterModelChange?: (model: GridFilterModel) => void
+    searchValue?: string
+    onSearchValueChange?: (value: string) => void
     pageSizeOptions?: number[]
     /** Optional toolbar actions (e.g. Create button) rendered next to the title. */
     actions?: React.ReactNode

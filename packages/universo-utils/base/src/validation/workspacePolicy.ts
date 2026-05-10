@@ -50,7 +50,10 @@ export function resolveWorkspaceModeDecision(input: ResolveWorkspaceModeInput): 
 
     if (input.applicationAlreadyEnabled) {
         if (input.requested === false) {
-            throw new WorkspacePolicyError('WORKSPACE_MODE_ALREADY_ENABLED', 'Workspace mode cannot be turned off after it has been enabled.')
+            throw new WorkspacePolicyError(
+                'WORKSPACE_MODE_ALREADY_ENABLED',
+                'Workspace mode cannot be turned off after it has been enabled.'
+            )
         }
         return true
     }

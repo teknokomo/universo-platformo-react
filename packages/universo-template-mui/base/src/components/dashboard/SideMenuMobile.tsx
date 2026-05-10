@@ -50,7 +50,6 @@ export default function SideMenuMobile({ open, toggleDrawer }: SideMenuMobilePro
                     height: '100%'
                 }}
             >
-                {/* TODO: Restore Avatar/Name/notification bell once real user data is wired */}
                 <Divider />
                 <Stack sx={{ flexGrow: 1 }}>
                     <MenuContent />

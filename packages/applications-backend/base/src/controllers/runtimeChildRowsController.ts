@@ -27,6 +27,7 @@ import {
     ensureRuntimePermission,
     type RuntimeTableChildAttributeMeta
 } from '../shared/runtimeHelpers'
+import { assertRuntimeRecordMutable } from '../services/runtimeRecordBehavior'
 
 // ---------------------------------------------------------------------------
 // Zod schema
@@ -238,7 +239,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
             const inserted = await ctx.manager.transaction(async (tx) => {
                 const parentRows = (await tx.query(
                     `
-            SELECT id, _upl_locked
+                    SELECT *
             FROM ${tc.parentTableIdent}
             WHERE id = $1
               AND ${runtimeRowCondition}
@@ -253,6 +254,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                 if (parentRows[0]._upl_locked) {
                     throw new UpdateFailure(423, { error: 'Parent record is locked' })
                 }
+                assertRuntimeRecordMutable(tc.catalog.config, parentRows[0])
 
                 const { minRows, maxRows } = getTableRowLimits(tc.tableAttr.validation_rules)
                 const activeCountRows = (await tx.query(
@@ -321,7 +323,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
         // Check parent record is not locked
         const parentRows = (await ctx.manager.query(
             `
-        SELECT id, _upl_locked
+        SELECT *
         FROM ${tc.parentTableIdent}
         WHERE id = $1
           AND ${runtimeRowCondition}
@@ -331,6 +333,12 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
 
         if (parentRows.length === 0) return res.status(404).json({ error: 'Parent record not found' })
         if (parentRows[0]._upl_locked) return res.status(423).json({ error: 'Parent record is locked' })
+        try {
+            assertRuntimeRecordMutable(tc.catalog.config, parentRows[0])
+        } catch (error) {
+            if (error instanceof UpdateFailure) return res.status(error.statusCode).json(error.body)
+            throw error
+        }
 
         const { expectedVersion } = parsedBody.data
         const data = (() => {
@@ -515,7 +523,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
             const inserted = await ctx.manager.transaction(async (tx) => {
                 const parentRows = (await tx.query(
                     `
-            SELECT id, _upl_locked
+                    SELECT *
             FROM ${tc.parentTableIdent}
             WHERE id = $1
               AND ${runtimeRowCondition}
@@ -530,6 +538,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                 if (parentRows[0]._upl_locked) {
                     throw new UpdateFailure(423, { error: 'Parent record is locked' })
                 }
+                assertRuntimeRecordMutable(tc.catalog.config, parentRows[0])
 
                 const sourceRows = (await tx.query(
                     `
@@ -666,7 +675,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
             await ctx.manager.transaction(async (tx) => {
                 const parentRows = (await tx.query(
                     `
-            SELECT id, _upl_locked
+                    SELECT *
             FROM ${tc.parentTableIdent}
             WHERE id = $1
               AND ${runtimeRowCondition}
@@ -681,6 +690,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                 if (parentRows[0]._upl_locked) {
                     throw new UpdateFailure(423, { error: 'Parent record is locked' })
                 }
+                assertRuntimeRecordMutable(tc.catalog.config, parentRows[0])
 
                 const childRows = (await tx.query(
                     `

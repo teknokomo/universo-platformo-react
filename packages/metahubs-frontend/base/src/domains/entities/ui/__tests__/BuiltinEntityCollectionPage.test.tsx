@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
-import { StandardEntityChildCollectionPage } from '../BuiltinEntityCollectionPage'
+import BuiltinEntityCollectionPage, { StandardEntityChildCollectionPage } from '../BuiltinEntityCollectionPage'
 
 vi.mock('../EntityInstanceListContent', () => ({
     default: () => <div data-testid='generic-entity-instances'>Generic entity instances</div>
@@ -37,9 +37,32 @@ const renderRoute = (route: string) =>
         </MemoryRouter>
     )
 
+const renderCollectionRoute = (route: string) =>
+    render(
+        <MemoryRouter initialEntries={[route]}>
+            <Routes>
+                <Route path='/metahub/:metahubId/entities/:kindKey/instances' element={<BuiltinEntityCollectionPage />} />
+            </Routes>
+        </MemoryRouter>
+    )
+
 describe('StandardEntityChildCollectionPage', () => {
+    it('uses the generic entity instance list for the standard ledger collection route', () => {
+        renderCollectionRoute('/metahub/metahub-1/entities/ledger/instances')
+
+        expect(screen.getByTestId('generic-entity-instances')).toBeInTheDocument()
+        expect(screen.queryByTestId('legacy-catalog-list')).not.toBeInTheDocument()
+    })
+
     it('uses the generic entity instance list for hub-scoped hub-assignable kinds', () => {
         renderRoute('/metahub/metahub-1/entities/page/instance/hub-1/instances')
+
+        expect(screen.getByTestId('generic-entity-instances')).toBeInTheDocument()
+        expect(screen.queryByTestId('legacy-catalog-list')).not.toBeInTheDocument()
+    })
+
+    it('uses the generic entity instance list for hub-scoped ledgers', () => {
+        renderRoute('/metahub/metahub-1/entities/ledger/instance/hub-1/instances')
 
         expect(screen.getByTestId('generic-entity-instances')).toBeInTheDocument()
         expect(screen.queryByTestId('legacy-catalog-list')).not.toBeInTheDocument()

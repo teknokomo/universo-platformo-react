@@ -392,6 +392,5 @@ export const shape = {
     borderRadius: 8
 }
 
-// @ts-ignore
-const defaultShadows: Shadows = ['none', 'var(--template-palette-baseShadow)', ...defaultTheme.shadows.slice(2)]
+const defaultShadows = ['none', 'var(--template-palette-baseShadow)', ...defaultTheme.shadows.slice(2)] as unknown as Shadows
 export const shadows = defaultShadows

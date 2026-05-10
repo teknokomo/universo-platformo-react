@@ -151,18 +151,3 @@ describe('Content-Type Validation', () => {
         })
     })
 })
-
-/*
- * TODO: Add HTTP-level Content-Type validation tests after pnpm install
- *
- * Planned tests:
- * 1. Verify Content-Type: application/json header in all endpoints
- * 2. Test component error handling for HTML/XML/text responses
- * 3. Test malformed JSON handling
- * 4. Test empty response body handling
- *
- * These require:
- * - MSW server to be fully initialized (after pnpm install)
- * - fetch API or axios for HTTP header inspection
- * - Component rendering with error states
- */

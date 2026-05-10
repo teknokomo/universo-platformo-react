@@ -36,6 +36,8 @@ import {
     isBuiltinEntityKind,
     isEnabledComponentConfig,
     isEntityResourceSurfaceCapability,
+    supportsLedgerSchema,
+    supportsRecordBehavior,
     validateComponentDependencies,
     type ComponentManifest,
     type EntityComponentKey,
@@ -83,10 +85,12 @@ import { EntityTypePresetSelector } from './EntityTypePresetSelector'
 type EntityTypeFormValues = Record<string, unknown>
 
 type EntitiesViewMode = 'card' | 'list'
-type SupportedEntityTab = 'general' | 'treeEntities' | 'layout' | 'scripts'
+type SupportedEntityTab = 'general' | 'behavior' | 'ledgerSchema' | 'treeEntities' | 'layout' | 'scripts'
 
 const STRUCTURED_ENTITY_TAB_LABELS: Record<SupportedEntityTab, string> = {
     general: 'General',
+    behavior: 'Behavior',
+    ledgerSchema: 'Ledger schema',
     treeEntities: 'Hubs',
     layout: 'Layout',
     scripts: 'Scripts'
@@ -116,8 +120,14 @@ type EntityTypeMenuContext = ActionContext<EntityTypeDisplayRow>
 
 const ENTITY_KIND_KEY_PATTERN = /^[a-z][a-z0-9._-]{0,63}$/
 const DIALOG_SAVE_CANCEL = { __dialogCancelled: true }
-const STRUCTURED_ENTITY_TABS: readonly SupportedEntityTab[] = ['general', 'treeEntities', 'layout', 'scripts']
-const OPTIONAL_ENTITY_TABS: readonly Exclude<SupportedEntityTab, 'general'>[] = ['treeEntities', 'layout', 'scripts']
+const STRUCTURED_ENTITY_TABS: readonly SupportedEntityTab[] = ['general', 'behavior', 'ledgerSchema', 'treeEntities', 'layout', 'scripts']
+const OPTIONAL_ENTITY_TABS: readonly Exclude<SupportedEntityTab, 'general'>[] = [
+    'behavior',
+    'ledgerSchema',
+    'treeEntities',
+    'layout',
+    'scripts'
+]
 const RELATION_TYPE_SEPARATOR_PATTERN = /[\n,]/
 const ENTITY_TYPE_MENU_KIND = 'entity-type'
 const COMPONENT_SECTION_SX = {
@@ -144,9 +154,14 @@ const DEFAULT_COMPONENTS_TEMPLATE: ComponentManifest = {
     actions: { enabled: true },
     events: { enabled: true },
     scripting: { enabled: true },
+    blockContent: false,
     layoutConfig: { enabled: true },
     runtimeBehavior: { enabled: true },
-    physicalTable: { enabled: true, prefix: 'obj' }
+    physicalTable: { enabled: true, prefix: 'obj' },
+    identityFields: false,
+    recordLifecycle: false,
+    posting: false,
+    ledgerSchema: false
 }
 
 const DEFAULT_PRESENTATION_TEMPLATE: Record<string, unknown> = {}
@@ -426,6 +441,14 @@ const getDefaultEnabledComponent = (key: keyof ComponentManifest) => {
             return { enabled: true, allowedRelationTypes: ['manyToOne'] }
         case 'physicalTable':
             return { enabled: true, prefix: 'obj' }
+        case 'identityFields':
+            return { enabled: true, allowNumber: true, allowEffectiveDate: true }
+        case 'recordLifecycle':
+            return { enabled: true, allowCustomStates: true }
+        case 'posting':
+            return { enabled: true, allowManualPosting: true, allowAutomaticPosting: true }
+        case 'ledgerSchema':
+            return { enabled: true, allowProjections: true, allowRegistrarPolicy: true, allowManualFacts: false }
         default:
             return { enabled: true }
     }
@@ -477,6 +500,34 @@ const normalizeComponentManifestForBuilder = (value: unknown): ComponentManifest
               prefix: String((source.physicalTable as Record<string, unknown>).prefix ?? '').trim() || 'obj'
           }
         : false
+    const identityFields = isEnabledComponentConfig(source.identityFields as never)
+        ? {
+              enabled: true,
+              allowNumber: (source.identityFields as Record<string, unknown>).allowNumber !== false,
+              allowEffectiveDate: (source.identityFields as Record<string, unknown>).allowEffectiveDate !== false
+          }
+        : false
+    const recordLifecycle = isEnabledComponentConfig(source.recordLifecycle as never)
+        ? {
+              enabled: true,
+              allowCustomStates: (source.recordLifecycle as Record<string, unknown>).allowCustomStates !== false
+          }
+        : false
+    const posting = isEnabledComponentConfig(source.posting as never)
+        ? {
+              enabled: true,
+              allowManualPosting: (source.posting as Record<string, unknown>).allowManualPosting !== false,
+              allowAutomaticPosting: (source.posting as Record<string, unknown>).allowAutomaticPosting !== false
+          }
+        : false
+    const ledgerSchema = isEnabledComponentConfig(source.ledgerSchema as never)
+        ? {
+              enabled: true,
+              allowProjections: (source.ledgerSchema as Record<string, unknown>).allowProjections !== false,
+              allowRegistrarPolicy: (source.ledgerSchema as Record<string, unknown>).allowRegistrarPolicy !== false,
+              allowManualFacts: (source.ledgerSchema as Record<string, unknown>).allowManualFacts === true
+          }
+        : false
 
     const manifest: ComponentManifest = {
         dataSchema,
@@ -490,9 +541,23 @@ const normalizeComponentManifestForBuilder = (value: unknown): ComponentManifest
         actions: isEnabledComponentConfig(source.actions as never) ? { enabled: true } : false,
         events: isEnabledComponentConfig(source.events as never) ? { enabled: true } : false,
         scripting: isEnabledComponentConfig(source.scripting as never) ? { enabled: true } : false,
+        blockContent: isEnabledComponentConfig(source.blockContent as never)
+            ? {
+                  enabled: true,
+                  storage: 'objectConfig',
+                  defaultFormat: 'editorjs',
+                  supportedFormats: ['editorjs'],
+                  allowedBlockTypes: ['paragraph', 'header', 'list', 'quote', 'table', 'image', 'embed', 'delimiter'],
+                  maxBlocks: 500
+              }
+            : false,
         layoutConfig: isEnabledComponentConfig(source.layoutConfig as never) ? { enabled: true } : false,
         runtimeBehavior: isEnabledComponentConfig(source.runtimeBehavior as never) ? { enabled: true } : false,
-        physicalTable
+        physicalTable,
+        identityFields,
+        recordLifecycle,
+        posting,
+        ledgerSchema
     }
 
     if (!isEnabledComponentConfig(manifest.dataSchema)) {
@@ -500,6 +565,7 @@ const normalizeComponentManifestForBuilder = (value: unknown): ComponentManifest
         manifest.hierarchy = false
         manifest.nestedCollections = false
         manifest.relations = false
+        manifest.ledgerSchema = false
     }
 
     if (!isEnabledComponentConfig(manifest.actions)) {
@@ -508,6 +574,20 @@ const normalizeComponentManifestForBuilder = (value: unknown): ComponentManifest
 
     if (!isEnabledComponentConfig(manifest.layoutConfig)) {
         manifest.runtimeBehavior = false
+    }
+
+    if (!isEnabledComponentConfig(manifest.records)) {
+        manifest.identityFields = false
+        manifest.recordLifecycle = false
+        manifest.posting = false
+    }
+
+    if (!isEnabledComponentConfig(manifest.recordLifecycle)) {
+        manifest.posting = false
+    }
+
+    if (!isEnabledComponentConfig(manifest.physicalTable)) {
+        manifest.ledgerSchema = false
     }
 
     return manifest
@@ -1293,16 +1373,28 @@ const EntitiesWorkspace = () => {
         }): TabConfig[] => {
             const structuredTabs = normalizeStructuredEntityTabs(values.tabs)
             const components = normalizeComponentManifestForBuilder(values.components)
+            const canExposeBehaviorTab = supportsRecordBehavior(components)
+            const canExposeLedgerSchemaTab = supportsLedgerSchema(components)
             const resourceSurfaces = normalizeResourceSurfaceDefinitions(values.resourceSurfaces, components)
             const isStandardEntityTypeEdit = editorState.mode === 'edit' && isBuiltinEntityKind(String(values.kindKey ?? ''))
             const isStructureLocked = isStandardEntityTypeEdit
 
             const toggleAuthoringTab = (tab: Exclude<SupportedEntityTab, 'general'>, checked: boolean) => {
                 const nextTabs = checked ? [...structuredTabs, tab] : structuredTabs.filter((currentTab) => currentTab !== tab)
+                const isTabAllowed = (candidate: Exclude<SupportedEntityTab, 'general'>) => {
+                    if (candidate === 'behavior') return canExposeBehaviorTab
+                    if (candidate === 'ledgerSchema') return canExposeLedgerSchemaTab
+                    return true
+                }
 
                 setValue(
                     'tabs',
-                    Array.from(new Set(['general', ...OPTIONAL_ENTITY_TABS.filter((candidate) => nextTabs.includes(candidate))]))
+                    Array.from(
+                        new Set([
+                            'general',
+                            ...OPTIONAL_ENTITY_TABS.filter((candidate) => isTabAllowed(candidate) && nextTabs.includes(candidate))
+                        ])
+                    )
                 )
             }
 
@@ -1401,7 +1493,12 @@ const EntitiesWorkspace = () => {
                                                     <Checkbox
                                                         checked={structuredTabs.includes(tab)}
                                                         onChange={(event) => toggleAuthoringTab(tab, event.target.checked)}
-                                                        disabled={isLoading || isStructureLocked}
+                                                        disabled={
+                                                            isLoading ||
+                                                            isStructureLocked ||
+                                                            (tab === 'behavior' && !canExposeBehaviorTab) ||
+                                                            (tab === 'ledgerSchema' && !canExposeLedgerSchemaTab)
+                                                        }
                                                     />
                                                 }
                                                 label={t(`entities.tabOptions.${tab}`, STRUCTURED_ENTITY_TAB_LABELS[tab])}
@@ -2016,6 +2113,222 @@ const EntitiesWorkspace = () => {
                                                 )}
                                                 fullWidth
                                             />
+                                        ) : null}
+                                    </Stack>
+                                </Box>
+                                <Box sx={COMPONENT_SECTION_SX}>
+                                    <Stack spacing={1.5}>
+                                        <Typography variant='subtitle2'>
+                                            {t('entities.components.identityFields', 'Identity fields')}
+                                        </Typography>
+                                        <Typography variant='body2' color='text.secondary'>
+                                            {t(
+                                                'entities.components.identityFieldsHelper',
+                                                'Enables system record number and effective date settings for entity instances.'
+                                            )}
+                                        </Typography>
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
+                                                    checked={isEnabledComponentConfig(components.identityFields)}
+                                                    onChange={(event) => setComponentEnabled('identityFields', event.target.checked)}
+                                                    disabled={isLoading || isStructureLocked}
+                                                />
+                                            }
+                                            label={t('entities.components.identityFields', 'Identity fields')}
+                                        />
+                                        {isEnabledComponentConfig(components.identityFields) ? (
+                                            <FormGroup>
+                                                <FormControlLabel
+                                                    control={
+                                                        <Checkbox
+                                                            checked={components.identityFields.allowNumber !== false}
+                                                            onChange={(event) =>
+                                                                updateComponentConfig('identityFields', {
+                                                                    allowNumber: event.target.checked
+                                                                })
+                                                            }
+                                                            disabled={isLoading || isStructureLocked}
+                                                        />
+                                                    }
+                                                    label={t('entities.components.allowRecordNumber', 'Allow record number')}
+                                                />
+                                                <FormControlLabel
+                                                    control={
+                                                        <Checkbox
+                                                            checked={components.identityFields.allowEffectiveDate !== false}
+                                                            onChange={(event) =>
+                                                                updateComponentConfig('identityFields', {
+                                                                    allowEffectiveDate: event.target.checked
+                                                                })
+                                                            }
+                                                            disabled={isLoading || isStructureLocked}
+                                                        />
+                                                    }
+                                                    label={t('entities.components.allowEffectiveDate', 'Allow effective date')}
+                                                />
+                                            </FormGroup>
+                                        ) : null}
+                                    </Stack>
+                                </Box>
+                                <Box sx={COMPONENT_SECTION_SX}>
+                                    <Stack spacing={1.5}>
+                                        <Typography variant='subtitle2'>
+                                            {t('entities.components.recordLifecycle', 'Record lifecycle')}
+                                        </Typography>
+                                        <Typography variant='body2' color='text.secondary'>
+                                            {t(
+                                                'entities.components.recordLifecycleHelper',
+                                                'Enables lifecycle states for transactional or hybrid entity records.'
+                                            )}
+                                        </Typography>
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
+                                                    checked={isEnabledComponentConfig(components.recordLifecycle)}
+                                                    onChange={(event) => setComponentEnabled('recordLifecycle', event.target.checked)}
+                                                    disabled={isLoading || isStructureLocked}
+                                                />
+                                            }
+                                            label={t('entities.components.recordLifecycle', 'Record lifecycle')}
+                                        />
+                                        {isEnabledComponentConfig(components.recordLifecycle) ? (
+                                            <FormControlLabel
+                                                control={
+                                                    <Checkbox
+                                                        checked={components.recordLifecycle.allowCustomStates !== false}
+                                                        onChange={(event) =>
+                                                            updateComponentConfig('recordLifecycle', {
+                                                                allowCustomStates: event.target.checked
+                                                            })
+                                                        }
+                                                        disabled={isLoading || isStructureLocked}
+                                                    />
+                                                }
+                                                label={t('entities.components.allowCustomStates', 'Allow custom states')}
+                                            />
+                                        ) : null}
+                                    </Stack>
+                                </Box>
+                                <Box sx={COMPONENT_SECTION_SX}>
+                                    <Stack spacing={1.5}>
+                                        <Typography variant='subtitle2'>{t('entities.components.posting', 'Posting')}</Typography>
+                                        <Typography variant='body2' color='text.secondary'>
+                                            {t(
+                                                'entities.components.postingHelper',
+                                                'Enables record posting settings and ledger movement scripts.'
+                                            )}
+                                        </Typography>
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
+                                                    checked={isEnabledComponentConfig(components.posting)}
+                                                    onChange={(event) => setComponentEnabled('posting', event.target.checked)}
+                                                    disabled={isLoading || isStructureLocked}
+                                                />
+                                            }
+                                            label={t('entities.components.posting', 'Posting')}
+                                        />
+                                        {isEnabledComponentConfig(components.posting) ? (
+                                            <FormGroup>
+                                                <FormControlLabel
+                                                    control={
+                                                        <Checkbox
+                                                            checked={components.posting.allowManualPosting !== false}
+                                                            onChange={(event) =>
+                                                                updateComponentConfig('posting', {
+                                                                    allowManualPosting: event.target.checked
+                                                                })
+                                                            }
+                                                            disabled={isLoading || isStructureLocked}
+                                                        />
+                                                    }
+                                                    label={t('entities.components.allowManualPosting', 'Allow manual posting')}
+                                                />
+                                                <FormControlLabel
+                                                    control={
+                                                        <Checkbox
+                                                            checked={components.posting.allowAutomaticPosting !== false}
+                                                            onChange={(event) =>
+                                                                updateComponentConfig('posting', {
+                                                                    allowAutomaticPosting: event.target.checked
+                                                                })
+                                                            }
+                                                            disabled={isLoading || isStructureLocked}
+                                                        />
+                                                    }
+                                                    label={t('entities.components.allowAutomaticPosting', 'Allow automatic posting')}
+                                                />
+                                            </FormGroup>
+                                        ) : null}
+                                    </Stack>
+                                </Box>
+                                <Box sx={COMPONENT_SECTION_SX}>
+                                    <Stack spacing={1.5}>
+                                        <Typography variant='subtitle2'>
+                                            {t('entities.components.ledgerSchema', 'Ledger schema')}
+                                        </Typography>
+                                        <Typography variant='body2' color='text.secondary'>
+                                            {t(
+                                                'entities.components.ledgerSchemaHelper',
+                                                'Enables append-only ledger schema settings and projection metadata.'
+                                            )}
+                                        </Typography>
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
+                                                    checked={isEnabledComponentConfig(components.ledgerSchema)}
+                                                    onChange={(event) => setComponentEnabled('ledgerSchema', event.target.checked)}
+                                                    disabled={isLoading || isStructureLocked}
+                                                />
+                                            }
+                                            label={t('entities.components.ledgerSchema', 'Ledger schema')}
+                                        />
+                                        {isEnabledComponentConfig(components.ledgerSchema) ? (
+                                            <FormGroup>
+                                                <FormControlLabel
+                                                    control={
+                                                        <Checkbox
+                                                            checked={components.ledgerSchema.allowProjections !== false}
+                                                            onChange={(event) =>
+                                                                updateComponentConfig('ledgerSchema', {
+                                                                    allowProjections: event.target.checked
+                                                                })
+                                                            }
+                                                            disabled={isLoading || isStructureLocked}
+                                                        />
+                                                    }
+                                                    label={t('entities.components.allowLedgerProjections', 'Allow projections')}
+                                                />
+                                                <FormControlLabel
+                                                    control={
+                                                        <Checkbox
+                                                            checked={components.ledgerSchema.allowRegistrarPolicy !== false}
+                                                            onChange={(event) =>
+                                                                updateComponentConfig('ledgerSchema', {
+                                                                    allowRegistrarPolicy: event.target.checked
+                                                                })
+                                                            }
+                                                            disabled={isLoading || isStructureLocked}
+                                                        />
+                                                    }
+                                                    label={t('entities.components.allowLedgerRegistrarPolicy', 'Allow registrar policy')}
+                                                />
+                                                <FormControlLabel
+                                                    control={
+                                                        <Checkbox
+                                                            checked={components.ledgerSchema.allowManualFacts === true}
+                                                            onChange={(event) =>
+                                                                updateComponentConfig('ledgerSchema', {
+                                                                    allowManualFacts: event.target.checked
+                                                                })
+                                                            }
+                                                            disabled={isLoading || isStructureLocked}
+                                                        />
+                                                    }
+                                                    label={t('entities.components.allowLedgerManualFacts', 'Allow manual facts')}
+                                                />
+                                            </FormGroup>
                                         ) : null}
                                     </Stack>
                                 </Box>

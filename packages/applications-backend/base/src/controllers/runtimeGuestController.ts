@@ -21,8 +21,13 @@ import { UUID_REGEX, resolveLocalizedContent, resolveRuntimeCodenameText, IDENTI
 
 const ACTIVE_ROW_SQL = '_upl_deleted = false AND _app_deleted = false'
 const GUEST_SESSION_TTL_MS = 1000 * 60 * 60 * 24
-const GUEST_STUDENT_ID_HEADER = 'x-guest-student-id'
+const GUEST_PARTICIPANT_ID_HEADER = 'x-guest-participant-id'
+const LEGACY_GUEST_STUDENT_ID_HEADER = 'x-guest-student-id'
 const GUEST_SESSION_TOKEN_HEADER = 'x-guest-session-token'
+const MAX_GUEST_SESSION_TOKEN_LENGTH = 4096
+const MAX_GUEST_ANSWER_QUESTIONS = 200
+const MAX_GUEST_ANSWER_OPTIONS = 20
+const MAX_GUEST_ANSWER_ID_LENGTH = 128
 
 const createGuestSessionSchema = z.object({
     displayName: z.string().trim().min(1).max(255),
@@ -32,7 +37,7 @@ const createGuestSessionSchema = z.object({
 const publicRuntimeQuerySchema = z
     .object({
         slug: z.string().trim().min(1).max(255),
-        targetType: z.enum(['module', 'quiz']).optional(),
+        targetType: z.enum(['content', 'assessment', 'module', 'quiz']).optional(),
         targetId: z.string().uuid().optional(),
         locale: z.string().trim().min(2).max(32).optional()
     })
@@ -46,21 +51,82 @@ const publicRuntimeQuerySchema = z
         }
     })
 
-const guestSubmitSchema = z.object({
-    studentId: z.string().uuid(),
-    sessionToken: z.string().trim().min(1),
-    quizId: z.string().uuid(),
-    answers: z.record(z.array(z.string())).default({})
-})
+const guestAnswerOptionsSchema = z.array(z.string().trim().min(1).max(MAX_GUEST_ANSWER_ID_LENGTH)).max(MAX_GUEST_ANSWER_OPTIONS)
+const guestAnswersSchema = z
+    .record(guestAnswerOptionsSchema)
+    .default({})
+    .superRefine((answers, ctx) => {
+        if (Object.keys(answers).length > MAX_GUEST_ANSWER_QUESTIONS) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: `answers supports at most ${MAX_GUEST_ANSWER_QUESTIONS} questions`
+            })
+        }
+    })
 
-const guestProgressSchema = z.object({
-    studentId: z.string().uuid(),
-    sessionToken: z.string().trim().min(1),
-    moduleId: z.string().uuid(),
-    progressPercent: z.number().min(0).max(100).default(0),
-    lastAccessedItemIndex: z.number().int().min(0).default(0),
-    status: z.string().trim().min(1).max(64).default('in_progress')
-})
+const guestSubmitSchema = z
+    .object({
+        participantId: z.string().uuid().optional(),
+        studentId: z.string().uuid().optional(),
+        sessionToken: z.string().trim().min(1).max(MAX_GUEST_SESSION_TOKEN_LENGTH),
+        assessmentId: z.string().uuid().optional(),
+        quizId: z.string().uuid().optional(),
+        answers: guestAnswersSchema
+    })
+    .superRefine((value, ctx) => {
+        if (!value.participantId && !value.studentId) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['participantId'], message: 'participantId is required' })
+        }
+        if (value.participantId && value.studentId && value.participantId !== value.studentId) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['studentId'], message: 'studentId alias must match participantId' })
+        }
+        if (!value.assessmentId && !value.quizId) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['assessmentId'], message: 'assessmentId is required' })
+        }
+        if (value.assessmentId && value.quizId && value.assessmentId !== value.quizId) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['quizId'], message: 'quizId alias must match assessmentId' })
+        }
+    })
+    .transform((value) => ({
+        participantId: value.participantId ?? value.studentId!,
+        sessionToken: value.sessionToken,
+        assessmentId: value.assessmentId ?? value.quizId!,
+        answers: value.answers
+    }))
+
+const guestProgressSchema = z
+    .object({
+        participantId: z.string().uuid().optional(),
+        studentId: z.string().uuid().optional(),
+        sessionToken: z.string().trim().min(1).max(MAX_GUEST_SESSION_TOKEN_LENGTH),
+        contentNodeId: z.string().uuid().optional(),
+        moduleId: z.string().uuid().optional(),
+        progressPercent: z.number().min(0).max(100).default(0),
+        lastAccessedItemIndex: z.number().int().min(0).default(0),
+        status: z.string().trim().min(1).max(64).default('in_progress')
+    })
+    .superRefine((value, ctx) => {
+        if (!value.participantId && !value.studentId) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['participantId'], message: 'participantId is required' })
+        }
+        if (value.participantId && value.studentId && value.participantId !== value.studentId) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['studentId'], message: 'studentId alias must match participantId' })
+        }
+        if (!value.contentNodeId && !value.moduleId) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['contentNodeId'], message: 'contentNodeId is required' })
+        }
+        if (value.contentNodeId && value.moduleId && value.contentNodeId !== value.moduleId) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['moduleId'], message: 'moduleId alias must match contentNodeId' })
+        }
+    })
+    .transform((value) => ({
+        participantId: value.participantId ?? value.studentId!,
+        sessionToken: value.sessionToken,
+        contentNodeId: value.contentNodeId ?? value.moduleId!,
+        progressPercent: value.progressPercent,
+        lastAccessedItemIndex: value.lastAccessedItemIndex,
+        status: value.status
+    }))
 
 type AccessLinkRecord = {
     id: string
@@ -96,9 +162,211 @@ type GuestSessionPayload = {
 
 type StoredGuestSessionState = {
     linkId: string
-    secret: string
+    secretHash: string
     expiresAt: string
     workspaceId?: string | null
+}
+
+type PublicGuestRuntimeConfig = {
+    objects: {
+        accessLinks: string
+        participants: string
+        assessments: string
+        contentNodes: string
+        assessmentResponses: string
+        contentProgress: string
+    }
+    fields: {
+        accessLink: {
+            slug: string
+            targetType: string
+            targetId: string
+            isActive: string
+            expiresAt: string
+            maxUses: string
+            useCount: string
+            title: string
+            classId: string
+        }
+        participant: {
+            displayName: string
+            isGuest: string
+            guestSessionToken: string
+        }
+        contentNode: {
+            title: string
+            description: string
+            contentItems: string
+        }
+        contentPart: {
+            itemType: string
+            itemTitle: string
+            itemContent: string
+            quizId: string
+            sortOrder: string
+        }
+        assessment: {
+            title: string
+            description: string
+            passingScorePercent: string
+            questions: string
+        }
+        assessmentQuestion: {
+            prompt: string
+            description: string
+            questionType: string
+            explanation: string
+            sortOrder: string
+            options: string
+        }
+        assessmentResponse: {
+            studentId: string
+            quizId: string
+            questionId: string
+            selectedOptionIds: string
+            isCorrect: string
+            attemptNumber: string
+            submittedAt: string
+        }
+        contentProgress: {
+            studentId: string
+            moduleId: string
+            status: string
+            progressPercent: string
+            startedAt: string
+            completedAt: string
+            lastAccessedItemIndex: string
+        }
+    }
+}
+
+const PUBLIC_GUEST_RUNTIME_OBJECT_ALIASES = {
+    accessLinks: ['accessLinks'],
+    participants: ['participants', 'students'],
+    assessments: ['assessments', 'quizzes'],
+    contentNodes: ['contentNodes', 'modules'],
+    assessmentResponses: ['assessmentResponses', 'quizResponses'],
+    contentProgress: ['contentProgress', 'moduleProgress']
+} as const
+const PUBLIC_GUEST_RUNTIME_FIELD_KEYS = {
+    accessLink: ['slug', 'targetType', 'targetId', 'isActive', 'expiresAt', 'maxUses', 'useCount', 'title', 'classId'],
+    participant: ['displayName', 'isGuest', 'guestSessionToken'],
+    contentNode: ['title', 'description', 'contentItems'],
+    contentPart: ['itemType', 'itemTitle', 'itemContent', 'quizId', 'sortOrder'],
+    assessment: ['title', 'description', 'passingScorePercent', 'questions'],
+    assessmentQuestion: ['prompt', 'description', 'questionType', 'explanation', 'sortOrder', 'options'],
+    assessmentResponse: ['studentId', 'quizId', 'questionId', 'selectedOptionIds', 'isCorrect', 'attemptNumber', 'submittedAt'],
+    contentProgress: ['studentId', 'moduleId', 'status', 'progressPercent', 'startedAt', 'completedAt', 'lastAccessedItemIndex']
+} as const
+const PUBLIC_GUEST_RUNTIME_FIELD_ALIASES = {
+    accessLink: ['accessLink'],
+    participant: ['participant', 'student'],
+    contentNode: ['contentNode', 'module'],
+    contentPart: ['contentPart', 'moduleContentItem'],
+    assessment: ['assessment', 'quiz'],
+    assessmentQuestion: ['assessmentQuestion', 'quizQuestion'],
+    assessmentResponse: ['assessmentResponse', 'quizResponse'],
+    contentProgress: ['contentProgress', 'moduleProgress']
+} as const
+
+const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
+    Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
+const readConfiguredString = (value: unknown): string | null => (typeof value === 'string' && value.trim().length > 0 ? value.trim() : null)
+
+const readConfiguredStringMap = <K extends readonly string[]>(source: unknown, keys: K): Record<K[number], string> | null => {
+    if (!isPlainRecord(source)) return null
+    const result = {} as Record<K[number], string>
+    for (const key of keys) {
+        const value = readConfiguredString(source[key])
+        if (!value) {
+            return null
+        }
+        result[key as K[number]] = value
+    }
+    return result
+}
+
+const readConfiguredStringMapByAliases = <TKeys extends Record<string, readonly string[]>>(
+    source: unknown,
+    aliases: TKeys
+): Record<keyof TKeys, string> | null => {
+    if (!isPlainRecord(source)) return null
+    const result = {} as Record<keyof TKeys, string>
+    for (const [key, candidates] of Object.entries(aliases) as Array<[keyof TKeys, readonly string[]]>) {
+        const value = candidates
+            .map((candidate) => readConfiguredString(source[candidate]))
+            .find((candidate): candidate is string => Boolean(candidate))
+        if (!value) {
+            return null
+        }
+        result[key] = value
+    }
+    return result
+}
+
+const readFieldMapByAliases = <K extends keyof typeof PUBLIC_GUEST_RUNTIME_FIELD_ALIASES>(
+    rawFields: Record<string, unknown>,
+    fieldKey: K
+) => {
+    const aliases = PUBLIC_GUEST_RUNTIME_FIELD_ALIASES[fieldKey]
+    for (const alias of aliases) {
+        const fieldMap = readConfiguredStringMap(rawFields[alias], PUBLIC_GUEST_RUNTIME_FIELD_KEYS[fieldKey])
+        if (fieldMap) {
+            return fieldMap
+        }
+    }
+    return null
+}
+
+const resolvePublicGuestRuntimeConfig = (settings: Record<string, unknown>): PublicGuestRuntimeConfig | null => {
+    const publicRuntime = isPlainRecord(settings.publicRuntime) ? settings.publicRuntime : {}
+    const rawConfig = isPlainRecord(publicRuntime.guest)
+        ? publicRuntime.guest
+        : isPlainRecord(settings.guestRuntime)
+        ? settings.guestRuntime
+        : null
+    if (!rawConfig) return null
+
+    const objects = readConfiguredStringMapByAliases(rawConfig.objects, PUBLIC_GUEST_RUNTIME_OBJECT_ALIASES)
+    const rawFields = isPlainRecord(rawConfig.fields) ? rawConfig.fields : null
+    if (!objects || !rawFields) return null
+
+    const accessLinkFields = readFieldMapByAliases(rawFields, 'accessLink')
+    const participantFields = readFieldMapByAliases(rawFields, 'participant')
+    const contentNodeFields = readFieldMapByAliases(rawFields, 'contentNode')
+    const contentPartFields = readFieldMapByAliases(rawFields, 'contentPart')
+    const assessmentFields = readFieldMapByAliases(rawFields, 'assessment')
+    const assessmentQuestionFields = readFieldMapByAliases(rawFields, 'assessmentQuestion')
+    const assessmentResponseFields = readFieldMapByAliases(rawFields, 'assessmentResponse')
+    const contentProgressFields = readFieldMapByAliases(rawFields, 'contentProgress')
+
+    if (
+        !accessLinkFields ||
+        !participantFields ||
+        !contentNodeFields ||
+        !contentPartFields ||
+        !assessmentFields ||
+        !assessmentQuestionFields ||
+        !assessmentResponseFields ||
+        !contentProgressFields
+    ) {
+        return null
+    }
+
+    return {
+        objects,
+        fields: {
+            accessLink: accessLinkFields,
+            participant: participantFields,
+            contentNode: contentNodeFields,
+            contentPart: contentPartFields,
+            assessment: assessmentFields,
+            assessmentQuestion: assessmentQuestionFields,
+            assessmentResponse: assessmentResponseFields,
+            contentProgress: contentProgressFields
+        }
+    }
 }
 
 const indexByCodename = <T extends { codename: unknown }>(items: T[]) =>
@@ -212,9 +480,12 @@ const encodeGuestSessionToken = (payload: GuestSessionPayload): string => Buffer
 
 const encodeStoredGuestSessionState = (payload: StoredGuestSessionState): string => JSON.stringify(payload)
 
-const isSameSecret = (expected: string, actual: string): boolean => {
-    const expectedBuffer = Buffer.from(expected, 'utf8')
-    const actualBuffer = Buffer.from(actual, 'utf8')
+const hashGuestSessionSecret = (secret: string): string => crypto.createHash('sha256').update(secret, 'utf8').digest('hex')
+
+const isSameSecretHash = (expectedHash: string, actualSecret: string): boolean => {
+    const actualHash = hashGuestSessionSecret(actualSecret)
+    const expectedBuffer = Buffer.from(expectedHash, 'utf8')
+    const actualBuffer = Buffer.from(actualHash, 'utf8')
     return (
         expectedBuffer.length === actualBuffer.length &&
         crypto.timingSafeEqual(new Uint8Array(expectedBuffer), new Uint8Array(actualBuffer))
@@ -230,12 +501,12 @@ const decodeStoredGuestSessionState = (value: unknown): StoredGuestSessionState 
         const decoded = JSON.parse(value) as Partial<StoredGuestSessionState>
         if (!decoded || typeof decoded !== 'object') return null
         if (typeof decoded.linkId !== 'string' || !UUID_REGEX.test(decoded.linkId)) return null
-        if (typeof decoded.secret !== 'string' || decoded.secret.trim().length === 0) return null
+        if (typeof decoded.secretHash !== 'string' || !/^[a-f0-9]{64}$/i.test(decoded.secretHash)) return null
         if (typeof decoded.expiresAt !== 'string' || Number.isNaN(new Date(decoded.expiresAt).getTime())) return null
         if (decoded.workspaceId != null && (typeof decoded.workspaceId !== 'string' || !UUID_REGEX.test(decoded.workspaceId))) return null
         return {
             linkId: decoded.linkId,
-            secret: decoded.secret,
+            secretHash: decoded.secretHash.toLowerCase(),
             expiresAt: decoded.expiresAt,
             workspaceId: decoded.workspaceId ?? null
         }
@@ -263,27 +534,30 @@ const decodeGuestSessionToken = (token: string): GuestSessionPayload | null => {
     }
 }
 
-const readGuestRuntimeSessionRequest = (req: Request): { studentId: string; sessionToken: string } | { error: string } | null => {
-    const studentIdHeader = req.get(GUEST_STUDENT_ID_HEADER)
+const readGuestRuntimeSessionRequest = (req: Request): { participantId: string; sessionToken: string } | { error: string } | null => {
+    const participantIdHeader = req.get(GUEST_PARTICIPANT_ID_HEADER) ?? req.get(LEGACY_GUEST_STUDENT_ID_HEADER)
     const sessionTokenHeader = req.get(GUEST_SESSION_TOKEN_HEADER)
 
-    const studentId = typeof studentIdHeader === 'string' ? studentIdHeader.trim() : ''
+    const participantId = typeof participantIdHeader === 'string' ? participantIdHeader.trim() : ''
     const sessionToken = typeof sessionTokenHeader === 'string' ? sessionTokenHeader.trim() : ''
 
-    if (!studentId && !sessionToken) {
+    if (!participantId && !sessionToken) {
         return null
     }
 
-    if (!studentId || !sessionToken) {
+    if (!participantId || !sessionToken) {
         return { error: 'Guest runtime session headers must be provided together' }
     }
 
-    if (!UUID_REGEX.test(studentId)) {
-        return { error: 'Guest runtime student header must be a UUID' }
+    if (!UUID_REGEX.test(participantId)) {
+        return { error: 'Guest runtime participant header must be a UUID' }
+    }
+    if (sessionToken.length > MAX_GUEST_SESSION_TOKEN_LENGTH) {
+        return { error: 'Guest runtime session token is too large' }
     }
 
     return {
-        studentId,
+        participantId,
         sessionToken
     }
 }
@@ -299,39 +573,41 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         return id
     }
 
-    const resolveAccessLinksBinding = async (executor: DbExecutor, schemaName: string) =>
-        resolvePublicRuntimeObject(executor, schemaName, 'AccessLinks')
-    const resolveStudentsBinding = async (executor: DbExecutor, schemaName: string) =>
-        resolvePublicRuntimeObject(executor, schemaName, 'Students')
-    const resolveQuizBinding = async (executor: DbExecutor, schemaName: string) =>
-        resolvePublicRuntimeObject(executor, schemaName, 'Quizzes')
-    const resolveModuleBinding = async (executor: DbExecutor, schemaName: string) =>
-        resolvePublicRuntimeObject(executor, schemaName, 'Modules')
-    const resolveQuizResponsesBinding = async (executor: DbExecutor, schemaName: string) =>
-        resolvePublicRuntimeObject(executor, schemaName, 'QuizResponses')
-    const resolveModuleProgressBinding = async (executor: DbExecutor, schemaName: string) =>
-        resolvePublicRuntimeObject(executor, schemaName, 'ModuleProgress')
+    const resolveAccessLinksBinding = async (executor: DbExecutor, schemaName: string, config: PublicGuestRuntimeConfig) =>
+        resolvePublicRuntimeObject(executor, schemaName, config.objects.accessLinks)
+    const resolveStudentsBinding = async (executor: DbExecutor, schemaName: string, config: PublicGuestRuntimeConfig) =>
+        resolvePublicRuntimeObject(executor, schemaName, config.objects.participants)
+    const resolveQuizBinding = async (executor: DbExecutor, schemaName: string, config: PublicGuestRuntimeConfig) =>
+        resolvePublicRuntimeObject(executor, schemaName, config.objects.assessments)
+    const resolveModuleBinding = async (executor: DbExecutor, schemaName: string, config: PublicGuestRuntimeConfig) =>
+        resolvePublicRuntimeObject(executor, schemaName, config.objects.contentNodes)
+    const resolveQuizResponsesBinding = async (executor: DbExecutor, schemaName: string, config: PublicGuestRuntimeConfig) =>
+        resolvePublicRuntimeObject(executor, schemaName, config.objects.assessmentResponses)
+    const resolveModuleProgressBinding = async (executor: DbExecutor, schemaName: string, config: PublicGuestRuntimeConfig) =>
+        resolvePublicRuntimeObject(executor, schemaName, config.objects.contentProgress)
 
     const loadAccessLinkRecordBy = async (
         executor: DbExecutor,
         schemaName: string,
+        config: PublicGuestRuntimeConfig,
         lookup: { type: 'slug'; value: string } | { type: 'id'; value: string },
         workspaceId: string | null
     ): Promise<AccessLinkRecord | null> => {
-        const binding = await resolveAccessLinksBinding(executor, schemaName)
+        const binding = await resolveAccessLinksBinding(executor, schemaName, config)
         if (!binding) return null
 
         const attrs = resolveTopLevelAttributes(binding)
         const attrByCodename = indexByCodename(attrs)
-        const slugColumn = attrByCodename.Slug?.column_name
-        const targetTypeColumn = attrByCodename.TargetType?.column_name
-        const targetIdColumn = attrByCodename.TargetId?.column_name
-        const isActiveColumn = attrByCodename.IsActive?.column_name
-        const expiresAtColumn = attrByCodename.ExpiresAt?.column_name
-        const maxUsesColumn = attrByCodename.MaxUses?.column_name
-        const useCountColumn = attrByCodename.UseCount?.column_name
-        const titleColumn = attrByCodename.LinkTitle?.column_name
-        const classIdColumn = attrByCodename.LinkClassId?.column_name
+        const fields = config.fields.accessLink
+        const slugColumn = attrByCodename[fields.slug]?.column_name
+        const targetTypeColumn = attrByCodename[fields.targetType]?.column_name
+        const targetIdColumn = attrByCodename[fields.targetId]?.column_name
+        const isActiveColumn = attrByCodename[fields.isActive]?.column_name
+        const expiresAtColumn = attrByCodename[fields.expiresAt]?.column_name
+        const maxUsesColumn = attrByCodename[fields.maxUses]?.column_name
+        const useCountColumn = attrByCodename[fields.useCount]?.column_name
+        const titleColumn = attrByCodename[fields.title]?.column_name
+        const classIdColumn = attrByCodename[fields.classId]?.column_name
 
         if (!slugColumn || !targetTypeColumn || !targetIdColumn || !isActiveColumn) return null
 
@@ -405,12 +681,13 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
     const resolveAccessLinkRecordBy = async (
         executor: DbExecutor,
         schemaName: string,
+        config: PublicGuestRuntimeConfig,
         workspacesEnabled: boolean,
         lookup: { type: 'slug'; value: string } | { type: 'id'; value: string }
     ): Promise<AccessLinkRecord | null> => {
         if (!workspacesEnabled) {
             await setPublicWorkspaceContext(executor, schemaName, null)
-            return loadAccessLinkRecordBy(executor, schemaName, lookup, null)
+            return loadAccessLinkRecordBy(executor, schemaName, config, lookup, null)
         }
 
         const workspaceIds = await listActivePublicWorkspaceIds(executor, schemaName)
@@ -420,7 +697,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                 continue
             }
 
-            const link = await loadAccessLinkRecordBy(executor, schemaName, lookup, workspaceId)
+            const link = await loadAccessLinkRecordBy(executor, schemaName, config, lookup, workspaceId)
             if (link) {
                 return link
             }
@@ -433,16 +710,20 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
     const loadAccessLinkRecord = async (
         executor: DbExecutor,
         schemaName: string,
+        config: PublicGuestRuntimeConfig,
         workspacesEnabled: boolean,
         slug: string
-    ): Promise<AccessLinkRecord | null> => resolveAccessLinkRecordBy(executor, schemaName, workspacesEnabled, { type: 'slug', value: slug })
+    ): Promise<AccessLinkRecord | null> =>
+        resolveAccessLinkRecordBy(executor, schemaName, config, workspacesEnabled, { type: 'slug', value: slug })
 
     const loadAccessLinkRecordById = async (
         executor: DbExecutor,
         schemaName: string,
+        config: PublicGuestRuntimeConfig,
         workspacesEnabled: boolean,
         linkId: string
-    ): Promise<AccessLinkRecord | null> => resolveAccessLinkRecordBy(executor, schemaName, workspacesEnabled, { type: 'id', value: linkId })
+    ): Promise<AccessLinkRecord | null> =>
+        resolveAccessLinkRecordBy(executor, schemaName, config, workspacesEnabled, { type: 'id', value: linkId })
 
     const assertAccessLinkAvailable = (
         link: AccessLinkRecord,
@@ -503,6 +784,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         executor: DbExecutor,
         schemaName: string,
         workspacesEnabled: boolean,
+        config: PublicGuestRuntimeConfig,
         studentId: string,
         sessionToken: string
     ): Promise<{ isValid: boolean; accessLinkId: string | null; workspaceId: string | null }> => {
@@ -511,13 +793,14 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
             return { isValid: false, accessLinkId: null, workspaceId: null }
         }
 
-        const binding = await resolveStudentsBinding(executor, schemaName)
+        const binding = await resolveStudentsBinding(executor, schemaName, config)
         if (!binding) return { isValid: false, accessLinkId: null, workspaceId: null }
 
         const attrs = resolveTopLevelAttributes(binding)
         const attrByCodename = indexByCodename(attrs)
-        const tokenColumn = attrByCodename.GuestSessionToken?.column_name
-        const isGuestColumn = attrByCodename.IsGuest?.column_name
+        const studentFields = config.fields.participant
+        const tokenColumn = attrByCodename[studentFields.guestSessionToken]?.column_name
+        const isGuestColumn = attrByCodename[studentFields.isGuest]?.column_name
         if (!tokenColumn || !isGuestColumn) return { isValid: false, accessLinkId: null, workspaceId: null }
 
         if (!IDENTIFIER_REGEX.test(tokenColumn) || !IDENTIFIER_REGEX.test(isGuestColumn)) {
@@ -559,7 +842,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
             const isTokenBoundToStoredSession =
                 storedState?.linkId === tokenPayload.linkId &&
                 (storedState.workspaceId ?? null) === (tokenPayload.workspaceId ?? null) &&
-                isSameSecret(storedState.secret, tokenPayload.secret)
+                isSameSecretHash(storedState.secretHash, tokenPayload.secret)
 
             if (rows.length > 0 && !isExpired && isTokenBoundToStoredSession) {
                 return {
@@ -573,8 +856,14 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         return { isValid: false, accessLinkId: null, workspaceId: null }
     }
 
-    const buildModulePayload = async (executor: DbExecutor, schemaName: string, moduleId: string, locale: string) => {
-        const binding = await resolveModuleBinding(executor, schemaName)
+    const buildModulePayload = async (
+        executor: DbExecutor,
+        schemaName: string,
+        config: PublicGuestRuntimeConfig,
+        moduleId: string,
+        locale: string
+    ) => {
+        const binding = await resolveModuleBinding(executor, schemaName, config)
         if (!binding) return null
 
         const row = await loadPublicRuntimeRecord(executor, schemaName, binding, moduleId)
@@ -582,7 +871,9 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
 
         const attrs = resolveTopLevelAttributes(binding)
         const attrByCodename = indexByCodename(attrs)
-        const contentTable = attrByCodename.ContentItems
+        const moduleFields = config.fields.contentNode
+        const contentItemFields = config.fields.contentPart
+        const contentTable = attrByCodename[moduleFields.contentItems]
         const contentAttrs = resolveChildAttributes(binding, contentTable?.id ?? '')
         const contentAttrByCodename = indexByCodename(contentAttrs)
         const childRows = contentTable ? await loadPublicTableRows(executor, schemaName, contentTable, contentAttrs, moduleId) : []
@@ -593,21 +884,42 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         return {
             type: 'module' as const,
             id: moduleId,
-            title: resolveLocalizedContent(readAttrValue(row, attrByCodename.Title?.column_name ?? 'title'), locale, ''),
-            description: resolveLocalizedContent(readAttrValue(row, attrByCodename.Description?.column_name ?? 'description'), locale, ''),
+            title: resolveLocalizedContent(readAttrValue(row, attrByCodename[moduleFields.title]?.column_name ?? 'title'), locale, ''),
+            description: resolveLocalizedContent(
+                readAttrValue(row, attrByCodename[moduleFields.description]?.column_name ?? 'description'),
+                locale,
+                ''
+            ),
             contentItems: childRows.map((childRow, index) => ({
                 id: String(childRow.id),
-                itemType: resolveEnumerationRefValue(contentAttrByCodename.ItemType, childRow[columns.ItemType], enumValueCodeMaps),
-                itemTitle: resolveLocalizedContent(childRow[columns.ItemTitle], locale, ''),
-                itemContent: resolveLocalizedContent(childRow[columns.ItemContent], locale, ''),
-                quizId: typeof childRow[columns.QuizId] === 'string' ? childRow[columns.QuizId] : '',
-                sortOrder: typeof childRow[columns.SortOrder] === 'number' ? Number(childRow[columns.SortOrder]) : index
+                itemType: resolveEnumerationRefValue(
+                    contentAttrByCodename[contentItemFields.itemType],
+                    childRow[columns[contentItemFields.itemType]],
+                    enumValueCodeMaps
+                ),
+                itemTitle: resolveLocalizedContent(childRow[columns[contentItemFields.itemTitle]], locale, ''),
+                itemContent: resolveLocalizedContent(childRow[columns[contentItemFields.itemContent]], locale, ''),
+                quizId:
+                    typeof childRow[columns[contentItemFields.quizId]] === 'string'
+                        ? String(childRow[columns[contentItemFields.quizId]])
+                        : '',
+                sortOrder:
+                    typeof childRow[columns[contentItemFields.sortOrder]] === 'number'
+                        ? Number(childRow[columns[contentItemFields.sortOrder]])
+                        : index
             }))
         }
     }
 
-    const buildQuizPayload = async (executor: DbExecutor, schemaName: string, quizId: string, includeAnswers: boolean, locale: string) => {
-        const binding = await resolveQuizBinding(executor, schemaName)
+    const buildQuizPayload = async (
+        executor: DbExecutor,
+        schemaName: string,
+        config: PublicGuestRuntimeConfig,
+        quizId: string,
+        includeAnswers: boolean,
+        locale: string
+    ) => {
+        const binding = await resolveQuizBinding(executor, schemaName, config)
         if (!binding) return null
 
         const row = await loadPublicRuntimeRecord(executor, schemaName, binding, quizId)
@@ -615,7 +927,9 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
 
         const attrs = resolveTopLevelAttributes(binding)
         const attrByCodename = indexByCodename(attrs)
-        const questionsTable = attrByCodename.Questions
+        const quizFields = config.fields.assessment
+        const questionFields = config.fields.assessmentQuestion
+        const questionsTable = attrByCodename[quizFields.questions]
         const questionAttrs = questionsTable ? resolveChildAttributes(binding, questionsTable.id) : []
         const questionAttrByCodename = indexByCodename(questionAttrs)
         const questionRows = questionsTable ? await loadPublicTableRows(executor, schemaName, questionsTable, questionAttrs, quizId) : []
@@ -624,16 +938,16 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         const questions = normalizeQuestionRows(
             questionRows,
             {
-                prompt: columns.Prompt,
-                description: columns.QuestionDescription,
-                questionType: columns.QuestionType,
-                explanation: columns.Explanation,
-                sortOrder: columns.SortOrder,
-                options: columns.Options
+                prompt: columns[questionFields.prompt],
+                description: columns[questionFields.description],
+                questionType: columns[questionFields.questionType],
+                explanation: columns[questionFields.explanation],
+                sortOrder: columns[questionFields.sortOrder],
+                options: columns[questionFields.options]
             },
             {
                 locale,
-                questionTypeAttribute: questionAttrByCodename.QuestionType,
+                questionTypeAttribute: questionAttrByCodename[questionFields.questionType],
                 enumValueCodeMaps
             }
         ).map((question) => ({
@@ -644,9 +958,13 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         return {
             type: 'quiz' as const,
             id: quizId,
-            title: resolveLocalizedContent(readAttrValue(row, attrByCodename.Title?.column_name ?? 'title'), locale, ''),
-            description: resolveLocalizedContent(readAttrValue(row, attrByCodename.Description?.column_name ?? 'description'), locale, ''),
-            passingScorePercent: readAttrValue(row, attrByCodename.PassingScorePercent?.column_name ?? 'passing_score_percent'),
+            title: resolveLocalizedContent(readAttrValue(row, attrByCodename[quizFields.title]?.column_name ?? 'title'), locale, ''),
+            description: resolveLocalizedContent(
+                readAttrValue(row, attrByCodename[quizFields.description]?.column_name ?? 'description'),
+                locale,
+                ''
+            ),
+            passingScorePercent: readAttrValue(row, attrByCodename[quizFields.passingScorePercent]?.column_name ?? 'passing_score_percent'),
             questions
         }
     }
@@ -654,30 +972,33 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
     const resolveAllowedRuntimeTarget = async (
         executor: DbExecutor,
         schemaName: string,
+        config: PublicGuestRuntimeConfig,
         link: AccessLinkRecord,
-        requestedTargetType?: 'module' | 'quiz',
+        requestedTargetType?: 'content' | 'assessment' | 'module' | 'quiz',
         requestedTargetId?: string
     ): Promise<{ type: 'module' | 'quiz'; id: string } | null> => {
-        const baseTargetType = link.targetType === 'quiz' ? 'quiz' : 'module'
+        const baseTargetType = link.targetType === 'quiz' || link.targetType === 'assessment' ? 'quiz' : 'module'
+        const normalizedRequestedTargetType =
+            requestedTargetType === 'assessment' ? 'quiz' : requestedTargetType === 'content' ? 'module' : requestedTargetType
         const baseTargetId = link.targetId
         if (!UUID_REGEX.test(baseTargetId)) {
             return null
         }
 
-        if (!requestedTargetType || !requestedTargetId) {
+        if (!normalizedRequestedTargetType || !requestedTargetId) {
             return { type: baseTargetType, id: baseTargetId }
         }
         if (!UUID_REGEX.test(requestedTargetId)) {
             return null
         }
-        if (requestedTargetType === baseTargetType && requestedTargetId === baseTargetId) {
+        if (normalizedRequestedTargetType === baseTargetType && requestedTargetId === baseTargetId) {
             return { type: baseTargetType, id: baseTargetId }
         }
-        if (baseTargetType !== 'module' || requestedTargetType !== 'quiz') {
+        if (baseTargetType !== 'module' || normalizedRequestedTargetType !== 'quiz') {
             return null
         }
 
-        const modulePayload = await buildModulePayload(executor, schemaName, baseTargetId, 'en')
+        const modulePayload = await buildModulePayload(executor, schemaName, config, baseTargetId, 'en')
         if (!modulePayload) {
             return null
         }
@@ -718,11 +1039,22 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         })
     }
 
+    const requirePublicGuestRuntimeConfig = (ctx: PublicRuntimeSchemaContext, res: Response): PublicGuestRuntimeConfig | null => {
+        const runtimeConfig = resolvePublicGuestRuntimeConfig(ctx.settings)
+        if (runtimeConfig) {
+            return runtimeConfig
+        }
+        res.status(404).json({ error: 'Public guest runtime is not configured for this application' })
+        return null
+    }
+
     const resolveLink = async (req: Request, res: Response) => {
         const { applicationId, slug } = req.params
         const locale = typeof req.query.locale === 'string' ? req.query.locale : 'en'
         await withPublicRuntimeContext(applicationId, res, async (ctx) => {
-            const link = await loadAccessLinkRecord(ctx.manager, ctx.schemaName, ctx.workspacesEnabled, slug)
+            const runtimeConfig = requirePublicGuestRuntimeConfig(ctx, res)
+            if (!runtimeConfig) return
+            const link = await loadAccessLinkRecord(ctx.manager, ctx.schemaName, runtimeConfig, ctx.workspacesEnabled, slug)
             if (!link) {
                 res.status(404).json({ error: 'Access link not found' })
                 return
@@ -761,7 +1093,15 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         }
 
         await withPublicRuntimeContext(applicationId, res, async (ctx) => {
-            const link = await loadAccessLinkRecordById(ctx.manager, ctx.schemaName, ctx.workspacesEnabled, parsed.data.accessLinkId)
+            const runtimeConfig = requirePublicGuestRuntimeConfig(ctx, res)
+            if (!runtimeConfig) return
+            const link = await loadAccessLinkRecordById(
+                ctx.manager,
+                ctx.schemaName,
+                runtimeConfig,
+                ctx.workspacesEnabled,
+                parsed.data.accessLinkId
+            )
             if (!link) {
                 res.status(404).json({ error: 'Access link not found' })
                 return
@@ -781,23 +1121,24 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                 return
             }
 
-            const studentsBinding = await resolveStudentsBinding(ctx.manager, ctx.schemaName)
+            const studentsBinding = await resolveStudentsBinding(ctx.manager, ctx.schemaName, runtimeConfig)
             if (!studentsBinding) {
-                res.status(400).json({ error: 'Students catalog is not available in this application' })
+                res.status(400).json({ error: 'Participant catalog is not available in this application' })
                 return
             }
 
             const attrs = resolveTopLevelAttributes(studentsBinding)
             const attrByCodename = indexByCodename(attrs)
-            const displayNameColumn = attrByCodename.DisplayName?.column_name
-            const isGuestColumn = attrByCodename.IsGuest?.column_name
-            const tokenColumn = attrByCodename.GuestSessionToken?.column_name
+            const studentFields = runtimeConfig.fields.participant
+            const displayNameColumn = attrByCodename[studentFields.displayName]?.column_name
+            const isGuestColumn = attrByCodename[studentFields.isGuest]?.column_name
+            const tokenColumn = attrByCodename[studentFields.guestSessionToken]?.column_name
             if (!displayNameColumn || !isGuestColumn || !tokenColumn) {
                 res.status(400).json({ error: 'Students catalog is missing guest session fields' })
                 return
             }
             if (!IDENTIFIER_REGEX.test(displayNameColumn) || !IDENTIFIER_REGEX.test(isGuestColumn) || !IDENTIFIER_REGEX.test(tokenColumn)) {
-                res.status(400).json({ error: 'Students catalog has invalid guest session fields' })
+                res.status(400).json({ error: 'Participant catalog has invalid guest session fields' })
                 return
             }
 
@@ -812,14 +1153,19 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                         throw error
                     }
 
-                    const studentId = await createUuidV7(tx)
+                    const participantId = await createUuidV7(tx)
                     const sessionSecret = crypto.randomBytes(32).toString('hex')
                     const expiresAt = new Date(Date.now() + GUEST_SESSION_TTL_MS).toISOString()
                     const insertColumns = ['id', qColumn(displayNameColumn), qColumn(isGuestColumn), qColumn(tokenColumn)]
                     const insertValues = [
-                        studentId,
+                        participantId,
                         parsed.data.displayName,
-                        encodeStoredGuestSessionState({ linkId: link.id, secret: sessionSecret, expiresAt, workspaceId: link.workspaceId })
+                        encodeStoredGuestSessionState({
+                            linkId: link.id,
+                            secretHash: hashGuestSessionSecret(sessionSecret),
+                            expiresAt,
+                            workspaceId: link.workspaceId
+                        })
                     ]
                     const insertPlaceholders = ['$1', '$2', 'true', '$3']
 
@@ -831,7 +1177,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
 
                     insertColumns.push(qColumn('_upl_created_by'), qColumn('_upl_updated_by'))
                     insertPlaceholders.push(`$${insertValues.length + 1}`, `$${insertValues.length + 2}`)
-                    insertValues.push(studentId, studentId)
+                    insertValues.push(participantId, participantId)
 
                     await tx.query(
                         `
@@ -842,7 +1188,8 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                     )
 
                     return {
-                        studentId,
+                        participantId,
+                        studentId: participantId,
                         sessionToken: encodeGuestSessionToken({ linkId: link.id, secret: sessionSecret, workspaceId: link.workspaceId })
                     }
                 })
@@ -871,6 +1218,8 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         }
 
         await withPublicRuntimeContext(applicationId, res, async (ctx) => {
+            const runtimeConfig = requirePublicGuestRuntimeConfig(ctx, res)
+            if (!runtimeConfig) return
             let link: AccessLinkRecord | null = null
 
             if (guestSessionRequest) {
@@ -878,7 +1227,8 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                     ctx.manager,
                     ctx.schemaName,
                     ctx.workspacesEnabled,
-                    guestSessionRequest.studentId,
+                    runtimeConfig,
+                    guestSessionRequest.participantId,
                     guestSessionRequest.sessionToken
                 )
                 if (!session.isValid || !session.accessLinkId) {
@@ -897,6 +1247,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                 link = await loadAccessLinkRecordBy(
                     ctx.manager,
                     ctx.schemaName,
+                    runtimeConfig,
                     { type: 'id', value: session.accessLinkId },
                     session.workspaceId
                 )
@@ -905,7 +1256,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                     return
                 }
             } else {
-                link = await loadAccessLinkRecord(ctx.manager, ctx.schemaName, ctx.workspacesEnabled, parsed.data.slug)
+                link = await loadAccessLinkRecord(ctx.manager, ctx.schemaName, runtimeConfig, ctx.workspacesEnabled, parsed.data.slug)
             }
 
             if (!link) {
@@ -930,6 +1281,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
             const resolvedTarget = await resolveAllowedRuntimeTarget(
                 ctx.manager,
                 ctx.schemaName,
+                runtimeConfig,
                 link,
                 parsed.data.targetType,
                 parsed.data.targetId
@@ -941,8 +1293,8 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
 
             const payload =
                 resolvedTarget.type === 'quiz'
-                    ? await buildQuizPayload(ctx.manager, ctx.schemaName, resolvedTarget.id, false, locale)
-                    : await buildModulePayload(ctx.manager, ctx.schemaName, resolvedTarget.id, locale)
+                    ? await buildQuizPayload(ctx.manager, ctx.schemaName, runtimeConfig, resolvedTarget.id, false, locale)
+                    : await buildModulePayload(ctx.manager, ctx.schemaName, runtimeConfig, resolvedTarget.id, locale)
             if (!payload) {
                 res.status(404).json({ error: 'Runtime target not found' })
                 return
@@ -960,11 +1312,14 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         }
 
         await withPublicRuntimeContext(applicationId, res, async (ctx) => {
+            const runtimeConfig = requirePublicGuestRuntimeConfig(ctx, res)
+            if (!runtimeConfig) return
             const session = await validateGuestSession(
                 ctx.manager,
                 ctx.schemaName,
                 ctx.workspacesEnabled,
-                parsed.data.studentId,
+                runtimeConfig,
+                parsed.data.participantId,
                 parsed.data.sessionToken
             )
             if (!session.isValid || !session.accessLinkId) {
@@ -983,6 +1338,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
             const link = await loadAccessLinkRecordBy(
                 ctx.manager,
                 ctx.schemaName,
+                runtimeConfig,
                 { type: 'id', value: session.accessLinkId },
                 session.workspaceId
             )
@@ -997,45 +1353,53 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                 return
             }
 
-            const allowedQuizTarget = await resolveAllowedRuntimeTarget(ctx.manager, ctx.schemaName, link, 'quiz', parsed.data.quizId)
+            const allowedQuizTarget = await resolveAllowedRuntimeTarget(
+                ctx.manager,
+                ctx.schemaName,
+                runtimeConfig,
+                link,
+                'assessment',
+                parsed.data.assessmentId
+            )
             if (!allowedQuizTarget || allowedQuizTarget.type !== 'quiz') {
                 res.status(403).json({ error: 'Quiz is not available for this guest session' })
                 return
             }
 
-            const quizPayload = await buildQuizPayload(ctx.manager, ctx.schemaName, parsed.data.quizId, true, 'en')
+            const quizPayload = await buildQuizPayload(ctx.manager, ctx.schemaName, runtimeConfig, parsed.data.assessmentId, true, 'en')
             if (!quizPayload || quizPayload.type !== 'quiz') {
                 res.status(404).json({ error: 'Quiz not found' })
                 return
             }
 
-            const responsesBinding = await resolveQuizResponsesBinding(ctx.manager, ctx.schemaName)
+            const responsesBinding = await resolveQuizResponsesBinding(ctx.manager, ctx.schemaName, runtimeConfig)
             if (!responsesBinding) {
-                res.status(400).json({ error: 'Quiz responses catalog is not available' })
+                res.status(400).json({ error: 'Assessment responses catalog is not available' })
                 return
             }
 
             const attrs = resolveTopLevelAttributes(responsesBinding)
             const attrByCodename = indexByCodename(attrs)
             const tableQt = qSchemaTable(ctx.schemaName, responsesBinding.tableName)
+            const responseFields = runtimeConfig.fields.assessmentResponse
             const columns = {
-                studentId: attrByCodename.StudentId?.column_name,
-                quizId: attrByCodename.QuizId?.column_name,
-                questionId: attrByCodename.QuestionId?.column_name,
-                selectedOptionIds: attrByCodename.SelectedOptionIds?.column_name,
-                isCorrect: attrByCodename.IsCorrect?.column_name,
-                attemptNumber: attrByCodename.AttemptNumber?.column_name,
-                submittedAt: attrByCodename.SubmittedAt?.column_name
+                studentId: attrByCodename[responseFields.studentId]?.column_name,
+                quizId: attrByCodename[responseFields.quizId]?.column_name,
+                questionId: attrByCodename[responseFields.questionId]?.column_name,
+                selectedOptionIds: attrByCodename[responseFields.selectedOptionIds]?.column_name,
+                isCorrect: attrByCodename[responseFields.isCorrect]?.column_name,
+                attemptNumber: attrByCodename[responseFields.attemptNumber]?.column_name,
+                submittedAt: attrByCodename[responseFields.submittedAt]?.column_name
             }
 
             if (Object.values(columns).some((column) => !column)) {
-                res.status(400).json({ error: 'Quiz responses catalog is missing required fields' })
+                res.status(400).json({ error: 'Assessment responses catalog is missing required fields' })
                 return
             }
 
             for (const col of Object.values(columns)) {
                 if (!IDENTIFIER_REGEX.test(col)) {
-                    res.status(400).json({ error: 'Quiz responses catalog has invalid column names' })
+                    res.status(400).json({ error: 'Assessment responses catalog has invalid column names' })
                     return
                 }
             }
@@ -1048,7 +1412,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                   AND "${columns.quizId}" = $2
                   AND ${ACTIVE_ROW_SQL}
                 `,
-                [parsed.data.studentId, parsed.data.quizId]
+                [parsed.data.participantId, parsed.data.assessmentId]
             )
             const lastAttemptRaw = attemptRows[0]?.attemptNumber
             const nextAttemptNumber =
@@ -1088,8 +1452,8 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                     const insertPlaceholders = ['$1', '$2', '$3', '$4', '$5::jsonb', '$6', '$7', 'NOW()']
                     const insertValues = [
                         await createUuidV7(tx),
-                        parsed.data.studentId,
-                        parsed.data.quizId,
+                        parsed.data.participantId,
+                        parsed.data.assessmentId,
                         question.id,
                         JSON.stringify(selectedOptionIds),
                         isCorrect,
@@ -1104,7 +1468,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
 
                     insertColumns.push(qColumn('_upl_created_by'), qColumn('_upl_updated_by'))
                     insertPlaceholders.push(`$${insertValues.length + 1}`, `$${insertValues.length + 2}`)
-                    insertValues.push(parsed.data.studentId, parsed.data.studentId)
+                    insertValues.push(parsed.data.participantId, parsed.data.participantId)
 
                     await tx.query(
                         `
@@ -1135,11 +1499,14 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         }
 
         await withPublicRuntimeContext(applicationId, res, async (ctx) => {
+            const runtimeConfig = requirePublicGuestRuntimeConfig(ctx, res)
+            if (!runtimeConfig) return
             const session = await validateGuestSession(
                 ctx.manager,
                 ctx.schemaName,
                 ctx.workspacesEnabled,
-                parsed.data.studentId,
+                runtimeConfig,
+                parsed.data.participantId,
                 parsed.data.sessionToken
             )
             if (!session.isValid || !session.accessLinkId) {
@@ -1158,6 +1525,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
             const link = await loadAccessLinkRecordBy(
                 ctx.manager,
                 ctx.schemaName,
+                runtimeConfig,
                 { type: 'id', value: session.accessLinkId },
                 session.workspaceId
             )
@@ -1172,37 +1540,45 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                 return
             }
 
-            const allowedModuleTarget = await resolveAllowedRuntimeTarget(ctx.manager, ctx.schemaName, link, 'module', parsed.data.moduleId)
+            const allowedModuleTarget = await resolveAllowedRuntimeTarget(
+                ctx.manager,
+                ctx.schemaName,
+                runtimeConfig,
+                link,
+                'content',
+                parsed.data.contentNodeId
+            )
             if (!allowedModuleTarget || allowedModuleTarget.type !== 'module') {
                 res.status(403).json({ error: 'Module is not available for this guest session' })
                 return
             }
 
-            const progressBinding = await resolveModuleProgressBinding(ctx.manager, ctx.schemaName)
+            const progressBinding = await resolveModuleProgressBinding(ctx.manager, ctx.schemaName, runtimeConfig)
             if (!progressBinding) {
-                res.status(500).json({ error: 'Module progress catalog is not available' })
+                res.status(500).json({ error: 'Content progress catalog is not available' })
                 return
             }
 
             const attrs = resolveTopLevelAttributes(progressBinding)
             const attrByCodename = indexByCodename(attrs)
+            const progressFields = runtimeConfig.fields.contentProgress
             const columns = {
-                studentId: attrByCodename.ProgressStudentId?.column_name,
-                moduleId: attrByCodename.ModuleId?.column_name,
-                status: attrByCodename.ProgressStatus?.column_name,
-                progressPercent: attrByCodename.ProgressPercent?.column_name,
-                startedAt: attrByCodename.StartedAt?.column_name,
-                completedAt: attrByCodename.CompletedAt?.column_name,
-                lastAccessedItemIndex: attrByCodename.LastAccessedItemIndex?.column_name
+                studentId: attrByCodename[progressFields.studentId]?.column_name,
+                moduleId: attrByCodename[progressFields.moduleId]?.column_name,
+                status: attrByCodename[progressFields.status]?.column_name,
+                progressPercent: attrByCodename[progressFields.progressPercent]?.column_name,
+                startedAt: attrByCodename[progressFields.startedAt]?.column_name,
+                completedAt: attrByCodename[progressFields.completedAt]?.column_name,
+                lastAccessedItemIndex: attrByCodename[progressFields.lastAccessedItemIndex]?.column_name
             }
             if (Object.values(columns).some((column) => !column)) {
-                res.status(500).json({ error: 'Module progress catalog is missing required fields' })
+                res.status(500).json({ error: 'Content progress catalog is missing required fields' })
                 return
             }
 
             for (const col of Object.values(columns)) {
                 if (!IDENTIFIER_REGEX.test(col)) {
-                    res.status(400).json({ error: 'Module progress catalog has invalid column names' })
+                    res.status(400).json({ error: 'Content progress catalog has invalid column names' })
                     return
                 }
             }
@@ -1219,7 +1595,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                       AND ${ACTIVE_ROW_SQL}
                     LIMIT 1
                     `,
-                    [parsed.data.studentId, parsed.data.moduleId]
+                    [parsed.data.participantId, parsed.data.contentNodeId]
                 )
 
                 if (existingRows[0]?.id) {
@@ -1235,8 +1611,8 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                         WHERE id = $6
                         `,
                         [
-                            parsed.data.studentId,
-                            parsed.data.moduleId,
+                            parsed.data.participantId,
+                            parsed.data.contentNodeId,
                             parsed.data.status,
                             parsed.data.progressPercent,
                             parsed.data.lastAccessedItemIndex,
@@ -1257,8 +1633,8 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                     const insertPlaceholders = ['$1', '$2', '$3', '$4', '$5', 'NOW()', 'CASE WHEN $5 >= 100 THEN NOW() ELSE NULL END', '$6']
                     const insertValues = [
                         await createUuidV7(tx),
-                        parsed.data.studentId,
-                        parsed.data.moduleId,
+                        parsed.data.participantId,
+                        parsed.data.contentNodeId,
                         parsed.data.status,
                         parsed.data.progressPercent,
                         parsed.data.lastAccessedItemIndex
@@ -1272,7 +1648,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
 
                     insertColumns.push(qColumn('_upl_created_by'), qColumn('_upl_updated_by'))
                     insertPlaceholders.push(`$${insertValues.length + 1}`, `$${insertValues.length + 2}`)
-                    insertValues.push(parsed.data.studentId, parsed.data.studentId)
+                    insertValues.push(parsed.data.participantId, parsed.data.participantId)
 
                     await tx.query(
                         `

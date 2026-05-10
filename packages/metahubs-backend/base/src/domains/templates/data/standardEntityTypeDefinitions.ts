@@ -1,4 +1,4 @@
-import type { ComponentManifest, EntityTypeUIConfig, PresetDefaultInstance } from '@universo/types'
+import { DEFAULT_LEDGER_CONFIG, type ComponentManifest, type EntityTypeUIConfig, type PresetDefaultInstance } from '@universo/types'
 import { vlc } from './basic.template'
 
 export const STANDARD_HUB_NAME = vlc('Hubs', 'Хабы')
@@ -31,6 +31,12 @@ export const STANDARD_PAGE_DESCRIPTION = vlc(
     'Стандартный тип страницы для структурированного блочного контента, хранящегося в объектах метаданных.'
 )
 
+export const STANDARD_LEDGER_NAME = vlc('Ledgers', 'Регистры')
+export const STANDARD_LEDGER_DESCRIPTION = vlc(
+    'Standard ledger entity type for append-only facts, dimensions, resources, and projection-based reporting.',
+    'Стандартный тип регистра для неизменяемых фактов, измерений, ресурсов и отчетов на основе проекций.'
+)
+
 export const HUB_TYPE_COMPONENTS: ComponentManifest = {
     dataSchema: false,
     records: false,
@@ -46,7 +52,11 @@ export const HUB_TYPE_COMPONENTS: ComponentManifest = {
     blockContent: false,
     layoutConfig: false,
     runtimeBehavior: false,
-    physicalTable: false
+    physicalTable: false,
+    identityFields: false,
+    recordLifecycle: false,
+    posting: false,
+    ledgerSchema: false
 }
 
 export const HUB_TYPE_UI: EntityTypeUIConfig = {
@@ -81,12 +91,16 @@ export const CATALOG_TYPE_COMPONENTS: ComponentManifest = {
     blockContent: false,
     layoutConfig: { enabled: true },
     runtimeBehavior: { enabled: true },
-    physicalTable: { enabled: true, prefix: 'cat' }
+    physicalTable: { enabled: true, prefix: 'cat' },
+    identityFields: { enabled: true, allowNumber: true, allowEffectiveDate: true },
+    recordLifecycle: { enabled: true, allowCustomStates: true },
+    posting: { enabled: true, allowManualPosting: true, allowAutomaticPosting: true },
+    ledgerSchema: { enabled: true, allowProjections: true, allowRegistrarPolicy: true, allowManualFacts: true }
 }
 
 export const CATALOG_TYPE_UI: EntityTypeUIConfig = {
     iconName: 'IconDatabase',
-    tabs: ['general', 'hubs', 'layout', 'scripts'],
+    tabs: ['general', 'behavior', 'ledgerSchema', 'hubs', 'layout', 'scripts'],
     sidebarSection: 'objects',
     sidebarOrder: 30,
     nameKey: 'metahubs:catalogs.title',
@@ -108,11 +122,15 @@ export const SET_TYPE_COMPONENTS: ComponentManifest = {
     blockContent: false,
     layoutConfig: { enabled: true },
     runtimeBehavior: false,
-    physicalTable: false
+    physicalTable: false,
+    identityFields: false,
+    recordLifecycle: false,
+    posting: false,
+    ledgerSchema: false
 }
 
 export const SET_TYPE_UI: EntityTypeUIConfig = {
-    iconName: 'IconFileText',
+    iconName: 'IconStack2',
     tabs: ['general', 'hubs', 'scripts'],
     sidebarSection: 'objects',
     sidebarOrder: 40,
@@ -144,7 +162,11 @@ export const ENUMERATION_TYPE_COMPONENTS: ComponentManifest = {
     blockContent: false,
     layoutConfig: false,
     runtimeBehavior: false,
-    physicalTable: false
+    physicalTable: false,
+    identityFields: false,
+    recordLifecycle: false,
+    posting: false,
+    ledgerSchema: false
 }
 
 export const ENUMERATION_TYPE_UI: EntityTypeUIConfig = {
@@ -187,7 +209,11 @@ export const PAGE_TYPE_COMPONENTS: ComponentManifest = {
     },
     layoutConfig: { enabled: true },
     runtimeBehavior: { enabled: true },
-    physicalTable: false
+    physicalTable: false,
+    identityFields: false,
+    recordLifecycle: false,
+    posting: false,
+    ledgerSchema: false
 }
 
 export const PAGE_TYPE_UI: EntityTypeUIConfig = {
@@ -196,6 +222,41 @@ export const PAGE_TYPE_UI: EntityTypeUIConfig = {
     sidebarSection: 'objects',
     sidebarOrder: 20,
     nameKey: 'metahubs:pages.title'
+}
+
+export const LEDGER_TYPE_COMPONENTS: ComponentManifest = {
+    dataSchema: { enabled: true },
+    records: false,
+    treeAssignment: { enabled: true },
+    optionValues: false,
+    fixedValues: false,
+    hierarchy: false,
+    nestedCollections: false,
+    relations: { enabled: true, allowedRelationTypes: ['manyToOne'] },
+    actions: { enabled: true },
+    events: { enabled: true },
+    scripting: { enabled: true },
+    blockContent: false,
+    layoutConfig: { enabled: true },
+    runtimeBehavior: { enabled: true },
+    physicalTable: { enabled: true, prefix: 'led' },
+    identityFields: false,
+    recordLifecycle: false,
+    posting: false,
+    ledgerSchema: { enabled: true, allowProjections: true, allowRegistrarPolicy: true, allowManualFacts: false }
+}
+
+export const LEDGER_TYPE_UI: EntityTypeUIConfig = {
+    iconName: 'IconReceipt',
+    tabs: ['general', 'ledgerSchema', 'hubs', 'layout', 'scripts'],
+    sidebarSection: 'objects',
+    sidebarOrder: 60,
+    nameKey: 'metahubs:ledgers.title',
+    resourceSurfaces: [FIELD_DEFINITIONS_RESOURCE_SURFACE]
+}
+
+export const LEDGER_TYPE_CONFIG = {
+    ledger: DEFAULT_LEDGER_CONFIG
 }
 
 export const HUB_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
@@ -308,6 +369,55 @@ export const ENUMERATION_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
                 codename: 'Inactive',
                 name: vlc('Inactive', 'Неактивный'),
                 sortOrder: 2
+            }
+        ]
+    }
+]
+
+export const LEDGER_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
+    {
+        codename: 'MainLedger',
+        name: vlc('Main', 'Основной'),
+        description: vlc('Main ledger for append-only facts and reporting', 'Основной регистр для неизменяемых фактов и отчетности'),
+        config: LEDGER_TYPE_CONFIG,
+        attributes: [
+            {
+                codename: 'Subject',
+                dataType: 'STRING',
+                name: vlc('Subject', 'Субъект'),
+                sortOrder: 1,
+                isRequired: true
+            },
+            {
+                codename: 'ResourceValue',
+                dataType: 'NUMBER',
+                name: vlc('Resource Value', 'Значение ресурса'),
+                sortOrder: 2
+            },
+            {
+                codename: 'OccurredAt',
+                dataType: 'DATE',
+                name: vlc('Occurred At', 'Дата события'),
+                sortOrder: 3,
+                validationRules: { dateComposition: 'datetime' }
+            },
+            {
+                codename: 'SourceObjectId',
+                dataType: 'STRING',
+                name: vlc('Source Object ID', 'ID объекта-источника'),
+                sortOrder: 4
+            },
+            {
+                codename: 'SourceRowId',
+                dataType: 'STRING',
+                name: vlc('Source Row ID', 'ID строки-источника'),
+                sortOrder: 5
+            },
+            {
+                codename: 'SourceLineId',
+                dataType: 'STRING',
+                name: vlc('Source Line ID', 'ID строки движения'),
+                sortOrder: 6
             }
         ]
     }

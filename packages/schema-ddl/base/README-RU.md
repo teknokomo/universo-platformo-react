@@ -13,6 +13,8 @@
 - **История миграций**: запись, просмотр и анализ миграций для безопасности отката
 - **Чистые функции**: нейминг-утилиты, работающие без подключения к базе данных
 - **Внедрение зависимостей**: все классы получают экземпляр Knex через конструктор
+- **Поддержка транзакционных Catalog**: материализация системных колонок `recordBehavior` для нумерации, lifecycle, posting и сохранённых posting movements
+- **Поддержка Ledger**: генерация стандартных таблиц `ledger` для append-only facts отдельно от generic row CRUD
 
 ## Установка
 
@@ -80,6 +82,15 @@ console.log(diff.hasChanges) // true
 console.log(diff.additive) // Non-destructive changes
 console.log(diff.destructive) // Destructive changes requiring confirmation
 ```
+
+### Transactional Catalogs и Ledgers
+
+`SchemaGenerator` читает конфигурацию сущностей, включая `config.recordBehavior` и `config.ledger`, при материализации runtime schemas.
+Catalogs с активным record behavior получают системные колонки для record number, effective date, lifecycle state, posting metadata и optimistic runtime safety.
+Ledgers используют префикс таблиц `led_` и предназначены для append-only facts, posting movements и projection queries.
+
+Operational Ledger facts являются runtime data.
+Publication snapshots экспортируют Ledger metadata и configuration, но application release bundles не должны экспортировать operational facts как обычные seeded Catalog rows.
 
 ## Справочник API
 

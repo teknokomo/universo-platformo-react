@@ -7,6 +7,7 @@ import {
     updateApplicationRuntimeRow,
     deleteApplicationRuntimeRow,
     copyApplicationRuntimeRow,
+    runApplicationRuntimeRecordCommand,
     reorderApplicationRuntimeRows
 } from './applications'
 import { applicationsQueryKeys } from './queryKeys'
@@ -21,13 +22,16 @@ export function createRuntimeAdapter(applicationId: string): CrudDataAdapter {
     return {
         queryKeyPrefix: applicationsQueryKeys.runtimeAll(applicationId),
 
-        fetchList: ({ limit, offset, locale, linkedCollectionId, sectionId }) =>
+        fetchList: ({ limit, offset, locale, linkedCollectionId, sectionId, search, sort, filters }) =>
             getApplicationRuntime(applicationId, {
                 limit,
                 offset,
                 locale,
                 linkedCollectionId,
-                sectionId
+                sectionId,
+                search,
+                sort,
+                filters
             }) as Promise<AppDataResponse>,
 
         fetchRow: (rowId, linkedCollectionId) =>
@@ -61,6 +65,16 @@ export function createRuntimeAdapter(applicationId: string): CrudDataAdapter {
                 linkedCollectionId: data?.linkedCollectionId,
                 sectionId: data?.sectionId ?? data?.linkedCollectionId,
                 copyChildTables: data?.copyChildTables
+            }),
+
+        recordCommand: (rowId, command, data) =>
+            runApplicationRuntimeRecordCommand({
+                applicationId,
+                rowId,
+                command,
+                linkedCollectionId: data?.linkedCollectionId,
+                sectionId: data?.sectionId ?? data?.linkedCollectionId,
+                expectedVersion: data?.expectedVersion
             }),
 
         reorderRows: ({ linkedCollectionId, sectionId, orderedRowIds }) =>

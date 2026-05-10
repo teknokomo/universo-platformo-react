@@ -54,7 +54,15 @@ vi.mock('@universo/apps-template-mui', async () => {
             layoutConfig,
             menu
         }: {
-            details?: { title?: string; actions?: ReactNode; banner?: ReactNode; content?: ReactNode }
+            details?: {
+                title?: string
+                actions?: ReactNode
+                banner?: ReactNode
+                content?: ReactNode
+                locale?: string
+                sections?: Array<{ id: string; codename: string }>
+                linkedCollections?: Array<{ id: string; codename: string }>
+            }
             layoutConfig?: Record<string, unknown>
             menu?: { items?: Array<{ label: string; selected?: boolean; href?: string | null }> }
         }) => (
@@ -65,6 +73,13 @@ vi.mock('@universo/apps-template-mui', async () => {
                 </div>
                 <div data-testid='apps-dashboard-banner'>{details?.banner}</div>
                 <div data-testid='apps-dashboard-title'>{details?.title}</div>
+                <div data-testid='apps-dashboard-details'>
+                    {JSON.stringify({
+                        locale: details?.locale,
+                        sections: details?.sections,
+                        linkedCollections: details?.linkedCollections
+                    })}
+                </div>
                 <div data-testid='apps-dashboard-actions'>{details?.actions}</div>
                 <div data-testid='apps-dashboard-content'>{details?.content}</div>
             </div>
@@ -117,7 +132,9 @@ vi.mock('@universo/apps-template-mui', async () => {
                     settings: { sectionLinksEnabled: true },
                     workspacesEnabled: true,
                     section: { name: 'Details', codename: 'details' },
-                    linkedCollection: { name: 'Details' }
+                    sections: [{ id: 'catalog-1', codename: 'details' }],
+                    linkedCollection: { name: 'Details' },
+                    linkedCollections: [{ id: 'catalog-1', codename: 'details' }]
                 },
                 isLoading: false,
                 isFetching: false,
@@ -288,6 +305,11 @@ describe('ApplicationRuntime pending interaction safety', () => {
         renderRuntimePage()
 
         expect(screen.getByTestId('apps-dashboard-title')).toHaveTextContent('Details')
+        expect(screen.getByTestId('apps-dashboard-details')).toHaveTextContent('"locale":"en"')
+        expect(screen.getByTestId('apps-dashboard-details')).toHaveTextContent('"sections":[{"id":"catalog-1","codename":"details"}]')
+        expect(screen.getByTestId('apps-dashboard-details')).toHaveTextContent(
+            '"linkedCollections":[{"id":"catalog-1","codename":"details"}]'
+        )
 
         const user = userEvent.setup()
         await user.click(screen.getByRole('button', { name: 'Create' }))

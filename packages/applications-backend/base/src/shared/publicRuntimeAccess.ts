@@ -10,6 +10,7 @@ export interface PublicRuntimeSchemaContext {
     applicationId: string
     schemaName: string
     schemaIdent: string
+    settings: Record<string, unknown>
     manager: DbExecutor
     workspacesEnabled: boolean
     currentWorkspaceId: string | null
@@ -104,10 +105,12 @@ export const resolvePublicRuntimeSchema = async (
         schemaName: string | null
         isPublic: boolean
         workspacesEnabled: boolean
+        settings?: unknown
     }>(
         `
         SELECT id, schema_name AS "schemaName", is_public AS "isPublic",
-               workspaces_enabled AS "workspacesEnabled"
+               workspaces_enabled AS "workspacesEnabled",
+               settings
         FROM applications.cat_applications
         WHERE id = $1
           AND ${ACTIVE_ROW_SQL}
@@ -153,6 +156,10 @@ export const resolvePublicRuntimeSchema = async (
         applicationId,
         schemaName: application.schemaName,
         schemaIdent: quoteIdentifier(application.schemaName),
+        settings:
+            application.settings && typeof application.settings === 'object' && !Array.isArray(application.settings)
+                ? (application.settings as Record<string, unknown>)
+                : {},
         manager: executor,
         workspacesEnabled: application.workspacesEnabled,
         currentWorkspaceId

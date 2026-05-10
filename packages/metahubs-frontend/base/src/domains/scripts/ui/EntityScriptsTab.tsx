@@ -25,6 +25,7 @@ import CodeMirror from '@uiw/react-codemirror'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
 import { extractAxiosError } from '@universo/utils'
 import {
+    SCRIPT_CAPABILITIES,
     resolveAllowedScriptCapabilities,
     resolveDefaultScriptCapabilities,
     type MetahubScriptRecord,
@@ -53,6 +54,34 @@ type DraftState = {
     sourceCode: string
     isActive: boolean
     capabilities: ScriptCapability[]
+}
+
+const SCRIPT_CAPABILITY_LABEL_KEYS: Record<ScriptCapability, string> = {
+    'records.read': 'scripts.capabilities.recordsRead',
+    'records.write': 'scripts.capabilities.recordsWrite',
+    'metadata.read': 'scripts.capabilities.metadataRead',
+    'rpc.client': 'scripts.capabilities.rpcClient',
+    lifecycle: 'scripts.capabilities.lifecycle',
+    posting: 'scripts.capabilities.posting',
+    'ledger.read': 'scripts.capabilities.ledgerRead',
+    'ledger.write': 'scripts.capabilities.ledgerWrite'
+}
+
+const SCRIPT_CAPABILITY_FALLBACK_LABELS: Record<ScriptCapability, string> = {
+    'records.read': 'Read records',
+    'records.write': 'Write records',
+    'metadata.read': 'Read metadata',
+    'rpc.client': 'Call server methods from client code',
+    lifecycle: 'Receive lifecycle events',
+    posting: 'Run posting handlers',
+    'ledger.read': 'Read ledgers',
+    'ledger.write': 'Write ledgers'
+}
+
+for (const capability of SCRIPT_CAPABILITIES) {
+    if (!SCRIPT_CAPABILITY_LABEL_KEYS[capability] || !SCRIPT_CAPABILITY_FALLBACK_LABELS[capability]) {
+        throw new Error(`Missing script capability label key for ${capability}`)
+    }
 }
 
 const resolveErrorMessage = (error: unknown, fallback: string): string => {
@@ -776,20 +805,7 @@ export const EntityScriptsTab = ({
     }
 
     const getCapabilityLabel = (capability: ScriptCapability): string => {
-        switch (capability) {
-            case 'records.read':
-                return t('scripts.capabilities.recordsRead', 'Read records')
-            case 'records.write':
-                return t('scripts.capabilities.recordsWrite', 'Write records')
-            case 'metadata.read':
-                return t('scripts.capabilities.metadataRead', 'Read metadata')
-            case 'rpc.client':
-                return t('scripts.capabilities.rpcClient', 'Call server methods from client code')
-            case 'lifecycle':
-                return t('scripts.capabilities.lifecycle', 'Receive lifecycle events')
-            default:
-                return capability
-        }
+        return t(SCRIPT_CAPABILITY_LABEL_KEYS[capability], SCRIPT_CAPABILITY_FALLBACK_LABELS[capability])
     }
 
     const handleSave = async () => {

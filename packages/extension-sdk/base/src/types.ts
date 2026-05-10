@@ -1,6 +1,7 @@
 import type { ScriptAttachmentKind, ScriptCapability, ScriptEventName, ScriptModuleRole, ScriptSourceKind } from '@universo/types'
 import type { HttpAPI } from './apis/http'
 import type { I18nAPI } from './apis/i18n'
+import type { ExtensionLedgerApi } from './apis/ledgers'
 import type { LogAPI } from './apis/log'
 import type { ExtensionMetadataApi } from './apis/metadata'
 import type { ExtensionRecordApi } from './apis/records'
@@ -26,6 +27,7 @@ export interface ScriptContext {
     scriptId?: string
     scriptCodename?: string
     records: ExtensionRecordApi
+    ledger: ExtensionLedgerApi
     metadata: ExtensionMetadataApi
     callServerMethod(methodName: string, args: unknown[]): Promise<unknown>
     emit?(eventName: ScriptEventName, payload?: unknown): Promise<unknown>

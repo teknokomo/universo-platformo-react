@@ -1,3 +1,4 @@
+import { IconReceipt, IconStack2 } from '@tabler/icons-react'
 import { getApplicationMenuItems, getMetahubMenuItems } from '../menuConfigs'
 
 describe('menuConfigs', () => {
@@ -113,15 +114,16 @@ describe('menuConfigs', () => {
         expect(dynamicItemIds).toEqual(['metahub-entity-custom-alpha', 'metahub-entity-custom-beta', 'metahub-entity-custom-zeta'])
     })
 
-    it('keeps standard metahub object menu order as hubs, pages, catalogs, sets, and enumerations', () => {
+    it('keeps standard metahub object menu order as hubs, pages, catalogs, sets, enumerations, and ledgers', () => {
         const menuItems = getMetahubMenuItems('mhb-1', {
             canManageMetahub: true,
             canManageMembers: true,
             menuEntityTypes: [
                 { kindKey: 'catalog', title: 'Catalogs', iconName: 'IconDatabase', sidebarSection: 'objects', sidebarOrder: 30 },
-                { kindKey: 'set', title: 'Sets', iconName: 'IconFileText', sidebarSection: 'objects', sidebarOrder: 40 },
+                { kindKey: 'set', title: 'Sets', iconName: 'IconStack2', sidebarSection: 'objects', sidebarOrder: 40 },
                 { kindKey: 'page', title: 'Pages', iconName: 'IconFileText', sidebarSection: 'objects', sidebarOrder: 20 },
                 { kindKey: 'enumeration', title: 'Enumerations', iconName: 'IconFiles', sidebarSection: 'objects', sidebarOrder: 50 },
+                { kindKey: 'ledger', title: 'Ledgers', iconName: 'IconReceipt', sidebarSection: 'objects', sidebarOrder: 60 },
                 { kindKey: 'hub', title: 'Hubs', iconName: 'IconHierarchy', sidebarSection: 'objects', sidebarOrder: 10 }
             ]
         })
@@ -135,8 +137,16 @@ describe('menuConfigs', () => {
             'metahub-entity-page',
             'metahub-entity-catalog',
             'metahub-entity-set',
-            'metahub-entity-enumeration'
+            'metahub-entity-enumeration',
+            'metahub-entity-ledger'
         ])
+
+        expect(menuItems.find((item) => item.id === 'metahub-entity-set' && item.type !== 'divider')).toEqual(
+            expect.objectContaining({ icon: IconStack2 })
+        )
+        expect(menuItems.find((item) => item.id === 'metahub-entity-ledger' && item.type !== 'divider')).toEqual(
+            expect.objectContaining({ icon: IconReceipt })
+        )
     })
 
     it('hides authoring-only metahub items and compacts dividers without manage access', () => {

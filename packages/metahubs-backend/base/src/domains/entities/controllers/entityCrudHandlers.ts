@@ -33,6 +33,7 @@ import {
     applyDesignTimeCopyOverrides,
     hasDesignTimeChildrenToCopy,
     validateEntityConfigForComponents,
+    validateLedgerConfigReferencesForEntity,
     executeBehaviorDelete,
     executeBehaviorBlockingState,
     type EntityInstanceRow
@@ -101,7 +102,8 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
         }
 
-        const { objectsService, settingsService, resolver, mutationService, actionExecutor } = createEntityServices(exec, schemaService)
+        const { objectsService, fieldDefinitionsService, settingsService, resolver, mutationService, actionExecutor } =
+            createEntityServices(exec, schemaService)
         const resolvedType = await assertSupportedEntityKind(resolver, parsed.data.kind, metahubId, userId)
         await ensureEntityMutationPermission({ req, exec, userId, metahubId, resolvedType, mode: 'create' })
 
@@ -113,6 +115,14 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
         const name = buildRequiredLocalizedField(parsed.data.name, parsed.data.namePrimaryLocale, 'Name', normalizedCodename)
         const description = buildOptionalLocalizedField(parsed.data.description, parsed.data.descriptionPrimaryLocale)
         const config = validateEntityConfigForComponents(resolvedType, parsed.data.config)
+        await validateLedgerConfigReferencesForEntity({
+            resolvedType,
+            config,
+            metahubId,
+            objectId: null,
+            userId,
+            fieldDefinitionsService
+        })
 
         const pendingObjectId = generateUuidV7()
 
@@ -149,7 +159,8 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
         }
 
-        const { objectsService, settingsService, resolver, mutationService, actionExecutor } = createEntityServices(exec, schemaService)
+        const { objectsService, fieldDefinitionsService, settingsService, resolver, mutationService, actionExecutor } =
+            createEntityServices(exec, schemaService)
         const existing = (await objectsService.findById(metahubId, req.params.entityId, userId)) as EntityInstanceRow | null
         if (!existing) {
             throw new MetahubNotFoundError('Entity', req.params.entityId)
@@ -168,6 +179,14 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             await assertCodenameAvailable(objectsService, metahubId, existing.kind, nextCodename.normalizedCodename, userId, existing.id)
         }
         const config = validateEntityConfigForComponents(resolvedType, parsed.data.config)
+        await validateLedgerConfigReferencesForEntity({
+            resolvedType,
+            config,
+            metahubId,
+            objectId: existing.id,
+            userId,
+            fieldDefinitionsService
+        })
 
         const updated = (await mutationService.run({
             metahubId,
@@ -429,10 +448,8 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
         }
 
-        const { objectsService, settingsService, fixedValuesService, resolver, mutationService, actionExecutor } = createEntityServices(
-            exec,
-            schemaService
-        )
+        const { objectsService, fieldDefinitionsService, settingsService, fixedValuesService, resolver, mutationService, actionExecutor } =
+            createEntityServices(exec, schemaService)
         const source = (await objectsService.findById(metahubId, req.params.entityId, userId)) as EntityInstanceRow | null
         if (!source) {
             throw new MetahubNotFoundError('Entity', req.params.entityId)
@@ -465,6 +482,26 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             designTimeCopyPlan.copyFieldDefinitions || designTimeCopyPlan.copyRecords || designTimeCopyPlan.copyOptionValues
                 ? await schemaService.ensureSchema(metahubId, userId)
                 : undefined
+        const nextCopyConfig = {
+            ...((source.config && typeof source.config === 'object' && !Array.isArray(source.config)
+                ? (source.config as Record<string, unknown>)
+                : {}) as Record<string, unknown>),
+            ...((parsed.data.config && typeof parsed.data.config === 'object' && !Array.isArray(parsed.data.config)
+                ? parsed.data.config
+                : {}) as Record<string, unknown>)
+        }
+        if (parsed.data.parentTreeEntityId !== undefined) {
+            nextCopyConfig.parentTreeEntityId = parsed.data.parentTreeEntityId
+        }
+        const validatedCopyConfig = validateEntityConfigForComponents(resolvedType, nextCopyConfig)
+        await validateLedgerConfigReferencesForEntity({
+            resolvedType,
+            config: validatedCopyConfig,
+            metahubId,
+            objectId: designTimeCopyPlan.copyFieldDefinitions ? source.id : null,
+            userId,
+            fieldDefinitionsService
+        })
 
         const maxCopyAttempts = copyCodename ? 1 : CODENAME_RETRY_MAX_ATTEMPTS
         let created: EntityInstanceRow | null = null
@@ -491,19 +528,6 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
                     mode: 'copy',
                     actionExecutor,
                     mutation: async (tx) => {
-                        const nextConfig = {
-                            ...((source.config && typeof source.config === 'object' && !Array.isArray(source.config)
-                                ? (source.config as Record<string, unknown>)
-                                : {}) as Record<string, unknown>),
-                            ...((parsed.data.config && typeof parsed.data.config === 'object' && !Array.isArray(parsed.data.config)
-                                ? parsed.data.config
-                                : {}) as Record<string, unknown>)
-                        }
-                        if (parsed.data.parentTreeEntityId !== undefined) {
-                            nextConfig.parentTreeEntityId = parsed.data.parentTreeEntityId
-                        }
-                        const validatedConfig = validateEntityConfigForComponents(resolvedType, nextConfig)
-
                         const nextEntity = await objectsService.createObject(
                             metahubId,
                             source.kind,
@@ -516,7 +540,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
                                     parsed.data.description !== undefined
                                         ? buildOptionalLocalizedField(parsed.data.description, parsed.data.descriptionPrimaryLocale)
                                         : getEntityDescriptionField(source),
-                                config: validatedConfig
+                                config: validatedCopyConfig
                             },
                             userId,
                             tx

@@ -34,6 +34,9 @@ export interface ApplicationDialogSettings {
     dialogAllowResize: boolean
     dialogCloseBehavior: DialogCloseBehavior
     sectionLinksEnabled: boolean
+    dashboardDefaultMode: 'layout-default' | 'first-menu-item'
+    datasourceExecutionPolicy: 'workspace-scoped' | 'layout-only'
+    workspaceOpenBehavior: 'last-used' | 'default-workspace'
 }
 
 export interface ApplicationMember {

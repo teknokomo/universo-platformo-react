@@ -21,6 +21,13 @@ LMS-шаблон намеренно построен вокруг сущност
 | `AccessLinks`    | Записи для маршрутизации гостевого доступа                                             |
 | `Enrollments`    | Связь класс-студент-модуль                                                             |
 
+## Операционные регистры
+
+| Регистр          | Назначение                                                                                         |
+| ---------------- | -------------------------------------------------------------------------------------------------- |
+| `ProgressLedger` | Append-oriented движения учебного прогресса по учащемуся, модулю, workspace и попытке             |
+| `ScoreLedger`    | Append-oriented движения результатов тестов и оценок с измерениями score, max score и percent     |
+
 ## Вспомогательные enumeration
 
 | Enumeration        | Назначение                                |
@@ -35,12 +42,14 @@ LMS-шаблон намеренно построен вокруг сущност
 -   Варианты ответов теста хранятся в JSON-поле внутри каждой строки вопроса.
 -   `TABLE`-поля используются для content items модуля и вопросов теста.
 -   `LearnerHome` является Page, а не физической runtime-таблицей. Её содержимое хранится в metadata blocks и рендерится общей dashboard details surface.
+-   `ProgressLedger` и `ScoreLedger` являются стандартными Ledger entities, а не LMS-specific services. Они используют общий блок Ledger configuration для dimensions, resources, measures, period fields и projections.
+-   Транзакционные LMS-каталоги используют общую вкладку Catalog `behavior` для нумерации, effective dates, lifecycle states, posting targets и posting scripts. LMS fixture хранит эти настройки в `config.recordBehavior`.
 -   Access links остаются обычными runtime rows, а не отдельной routing subsystem.
 -   Guest sessions создают student rows в той же schema приложения, чтобы progress и статистику тестов можно было запрашивать совместно.
 
 ## Редактирование контента Page
 
-Контент Page редактируется в метахабе на entity-owned маршруте контента:
+Контент Page редактируется в метахабе на маршруте контента, принадлежащем сущности:
 `/metahub/:metahubId/entities/:kindKey/instance/:entityId/content`.
 
 Поверхность редактирования использует официальный Editor.js core и инструменты через общий adapter `@universo/template-mui`.

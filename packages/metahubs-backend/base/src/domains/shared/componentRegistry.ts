@@ -114,6 +114,34 @@ export const COMPONENT_REGISTRY: Record<keyof ComponentManifest, BackendComponen
         dependencies: [...COMPONENT_DEPENDENCIES.physicalTable],
         requiresPhysicalTable: true,
         supportedKinds: null
+    },
+    identityFields: {
+        key: 'identityFields',
+        tables: ['_mhb_attributes'],
+        dependencies: [...COMPONENT_DEPENDENCIES.identityFields],
+        requiresPhysicalTable: true,
+        supportedKinds: ['catalog']
+    },
+    recordLifecycle: {
+        key: 'recordLifecycle',
+        tables: ['_mhb_objects'],
+        dependencies: [...COMPONENT_DEPENDENCIES.recordLifecycle],
+        requiresPhysicalTable: true,
+        supportedKinds: ['catalog']
+    },
+    posting: {
+        key: 'posting',
+        tables: ['_mhb_scripts'],
+        dependencies: [...COMPONENT_DEPENDENCIES.posting],
+        requiresPhysicalTable: true,
+        supportedKinds: ['catalog']
+    },
+    ledgerSchema: {
+        key: 'ledgerSchema',
+        tables: ['_mhb_attributes'],
+        dependencies: [...COMPONENT_DEPENDENCIES.ledgerSchema],
+        requiresPhysicalTable: true,
+        supportedKinds: null
     }
 }
 

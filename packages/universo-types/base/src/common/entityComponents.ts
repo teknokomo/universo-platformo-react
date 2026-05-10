@@ -1,3 +1,5 @@
+import type { LedgerMode } from './ledgers'
+
 export const ENTITY_COMPONENT_KEYS = [
     'dataSchema',
     'records',
@@ -13,7 +15,11 @@ export const ENTITY_COMPONENT_KEYS = [
     'blockContent',
     'layoutConfig',
     'runtimeBehavior',
-    'physicalTable'
+    'physicalTable',
+    'identityFields',
+    'recordLifecycle',
+    'posting',
+    'ledgerSchema'
 ] as const
 
 export type EntityComponentKey = (typeof ENTITY_COMPONENT_KEYS)[number]
@@ -63,6 +69,27 @@ export interface PhysicalTableComponentConfig extends ComponentConfig {
     prefix: string
 }
 
+export interface IdentityFieldsComponentConfig extends ComponentConfig {
+    allowNumber?: boolean
+    allowEffectiveDate?: boolean
+}
+
+export interface RecordLifecycleComponentConfig extends ComponentConfig {
+    allowCustomStates?: boolean
+}
+
+export interface PostingComponentConfig extends ComponentConfig {
+    allowManualPosting?: boolean
+    allowAutomaticPosting?: boolean
+}
+
+export interface LedgerSchemaComponentConfig extends ComponentConfig {
+    allowProjections?: boolean
+    allowRegistrarPolicy?: boolean
+    allowManualFacts?: boolean
+    allowedModes?: readonly LedgerMode[]
+}
+
 export interface ComponentManifest {
     dataSchema: DataSchemaComponentConfig | false
     records: RecordsComponentConfig | false
@@ -79,6 +106,10 @@ export interface ComponentManifest {
     layoutConfig: ComponentConfig | false
     runtimeBehavior: ComponentConfig | false
     physicalTable: PhysicalTableComponentConfig | false
+    identityFields?: IdentityFieldsComponentConfig | false
+    recordLifecycle?: RecordLifecycleComponentConfig | false
+    posting?: PostingComponentConfig | false
+    ledgerSchema?: LedgerSchemaComponentConfig | false
 }
 
 export const COMPONENT_DEPENDENCIES: Record<EntityComponentKey, readonly EntityComponentKey[]> = {
@@ -96,11 +127,34 @@ export const COMPONENT_DEPENDENCIES: Record<EntityComponentKey, readonly EntityC
     blockContent: [],
     layoutConfig: [],
     runtimeBehavior: ['layoutConfig'],
-    physicalTable: []
+    physicalTable: [],
+    identityFields: ['records'],
+    recordLifecycle: ['records', 'identityFields'],
+    posting: ['recordLifecycle', 'scripting'],
+    ledgerSchema: ['dataSchema', 'physicalTable']
 }
 
 export const isEnabledComponentConfig = (config: ComponentConfig | false | null | undefined): config is ComponentConfig =>
     Boolean(config && typeof config === 'object' && config.enabled)
+
+export const supportsRecordBehavior = (components: Pick<ComponentManifest, 'identityFields' | 'recordLifecycle' | 'posting'> | null | undefined): boolean =>
+    Boolean(
+        isEnabledComponentConfig(components?.identityFields) ||
+            isEnabledComponentConfig(components?.recordLifecycle) ||
+            isEnabledComponentConfig(components?.posting)
+    )
+
+export const supportsLedgerSchema = (components: Pick<ComponentManifest, 'ledgerSchema'> | null | undefined): boolean =>
+    isEnabledComponentConfig(components?.ledgerSchema)
+
+export const isLedgerSchemaCapableEntity = (
+    components: Pick<ComponentManifest, 'dataSchema' | 'physicalTable' | 'ledgerSchema'> | null | undefined
+): boolean =>
+    Boolean(
+        isEnabledComponentConfig(components?.ledgerSchema) &&
+            isEnabledComponentConfig(components?.dataSchema) &&
+            isEnabledComponentConfig(components?.physicalTable)
+    )
 
 export const getEnabledComponentKeys = (manifest: ComponentManifest): EntityComponentKey[] =>
     ENTITY_COMPONENT_KEYS.filter((key) => isEnabledComponentConfig(manifest[key]))

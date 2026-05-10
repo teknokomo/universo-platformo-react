@@ -1,7 +1,8 @@
 import {
     archivePersonalWorkspaceForUser,
     ensureApplicationRuntimeWorkspaceSchema,
-    ensurePersonalWorkspaceForUser
+    ensurePersonalWorkspaceForUser,
+    syncWorkspaceSeededElements
 } from '../../services/applicationWorkspaces'
 import { createMockDbExecutor } from '../utils/dbMocks'
 
@@ -52,6 +53,40 @@ describe('applicationWorkspaces service', () => {
                             dataType: 'TABLE'
                         }
                     ]
+                } as never,
+                {
+                    id: '018f8a78-7b8f-7c1d-a111-222233334460',
+                    codename: 'progressledger',
+                    kind: 'ledger',
+                    physicalTablePrefix: 'led',
+                    components: {
+                        dataSchema: {
+                            enabled: true
+                        },
+                        physicalTable: {
+                            enabled: true
+                        },
+                        ledgerSchema: {
+                            enabled: true
+                        }
+                    },
+                    config: {
+                        ledger: {
+                            idempotency: { keyFields: ['source_object_id', 'source_row_id'] }
+                        }
+                    },
+                    fields: [
+                        {
+                            id: '018f8a78-7b8f-7c1d-a111-222233334461',
+                            codename: 'SourceObjectId',
+                            dataType: 'STRING'
+                        },
+                        {
+                            id: '018f8a78-7b8f-7c1d-a111-222233334462',
+                            codename: 'SourceRowId',
+                            dataType: 'STRING'
+                        }
+                    ]
                 } as never
             ]
         })
@@ -71,9 +106,16 @@ describe('applicationWorkspaces service', () => {
         expect(executedSql).toContain(`FOREIGN KEY ("workspace_id") REFERENCES "${schemaName}"."_app_workspaces"(id) ON DELETE RESTRICT`)
         expect(executedSql).toContain(`CREATE POLICY "workspace_select" ON "${schemaName}"."cat_018f8a787b8f7c1da111222233334442"`)
         expect(executedSql).toContain(`CREATE POLICY "workspace_insert" ON "${schemaName}"."tbl_018f8a787b8f7c1da111222233334443"`)
+        expect(executedSql).toContain(`CREATE UNIQUE INDEX IF NOT EXISTS "led_018f8a787b8f7c1da111222233334460_ledger_idempotency_uidx"`)
+        expect(executedSql).toContain(
+            `ON "${schemaName}"."led_018f8a787b8f7c1da111222233334460"("workspace_id", "attr_018f8a787b8f7c1da111222233334461", "attr_018f8a787b8f7c1da111222233334462")`
+        )
+        expect(executedSql).toContain(
+            `WHERE "attr_018f8a787b8f7c1da111222233334461" IS NOT NULL AND "attr_018f8a787b8f7c1da111222233334462" IS NOT NULL`
+        )
     })
 
-    it('seeds predefined runtime rows into the application member personal workspace during workspace schema bootstrap', async () => {
+    it('defers predefined runtime row seeding during workspace schema bootstrap and seeds through explicit sync', async () => {
         const { executor } = createMockDbExecutor()
         const schemaName = 'app_018f8a787b8f7c1da111222233334445'
         const generatedIds = [
@@ -190,6 +232,18 @@ describe('applicationWorkspaces service', () => {
             ]
         })
 
+        expect(
+            executor.query.mock.calls.find(([sql]) =>
+                String(sql).includes(`INSERT INTO "${schemaName}"."cat_018f8a787b8f7c1da111222233334470"`)
+            )
+        ).toBeUndefined()
+
+        await syncWorkspaceSeededElements(executor, {
+            schemaName,
+            workspaceId: '018f8a78-7b8f-7c1d-a111-222233334499',
+            actorUserId: '018f8a78-7b8f-7c1d-a111-222233334441'
+        })
+
         const runtimeSeedInsertCall = executor.query.mock.calls.find(([sql]) =>
             String(sql).includes(`INSERT INTO "${schemaName}"."cat_018f8a787b8f7c1da111222233334470"`)
         )
@@ -197,8 +251,7 @@ describe('applicationWorkspaces service', () => {
         expect(runtimeSeedInsertCall).toBeDefined()
         expect(runtimeSeedInsertCall?.[1]).toEqual(
             expect.arrayContaining([
-                '018f8a78-7b8f-7c1d-a111-222233334452',
-                '018f8a78-7b8f-7c1d-a111-222233334448',
+                '018f8a78-7b8f-7c1d-a111-222233334499',
                 'shared-seed-row',
                 JSON.stringify({
                     en: 'Shared starter',
@@ -218,7 +271,11 @@ describe('applicationWorkspaces service', () => {
             }
 
             if (sql.includes('FROM information_schema.columns')) {
-                return [{ tableName: 'cat_018f8a787b8f7c1da111222233334552' }, { tableName: 'tbl_018f8a787b8f7c1da111222233334553' }]
+                return [
+                    { tableName: 'cat_018f8a787b8f7c1da111222233334552' },
+                    { tableName: 'tbl_018f8a787b8f7c1da111222233334553' },
+                    { tableName: 'led_018f8a787b8f7c1da111222233334556' }
+                ]
             }
 
             return []
@@ -234,6 +291,7 @@ describe('applicationWorkspaces service', () => {
 
         expect(executedSql).toContain(`UPDATE "${schemaName}"."cat_018f8a787b8f7c1da111222233334552"`)
         expect(executedSql).toContain(`UPDATE "${schemaName}"."tbl_018f8a787b8f7c1da111222233334553"`)
+        expect(executedSql).toContain(`UPDATE "${schemaName}"."led_018f8a787b8f7c1da111222233334556"`)
         expect(executedSql).toContain('WHERE "workspace_id" = ANY($1::uuid[])')
         expect(executedSql).toContain(`UPDATE "${schemaName}"."_app_workspaces"`)
     })
@@ -815,7 +873,8 @@ describe('applicationWorkspaces service', () => {
                                             ContentItems: [
                                                 {
                                                     QuizId: 'quiz-seed-row',
-                                                    ItemTitle: 'Readiness check'
+                                                    ItemTitle: 'Readiness check',
+                                                    Metadata: { weight: 1, required: true }
                                                 }
                                             ]
                                         }
@@ -897,6 +956,17 @@ describe('applicationWorkspaces service', () => {
                         targetObjectKind: null
                     },
                     {
+                        objectId: 'moduleObject',
+                        attributeId: 'module-content-item-metadata-attr',
+                        parentAttributeId: 'module-content-items-attr',
+                        codename: 'Metadata',
+                        columnName: 'col_metadata',
+                        dataType: 'JSON',
+                        uiConfig: null,
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    },
+                    {
                         objectId: 'quizObject',
                         attributeId: 'quiz-title-attr',
                         parentAttributeId: null,
@@ -911,6 +981,7 @@ describe('applicationWorkspaces service', () => {
             }
 
             if (sql.includes('FROM information_schema.columns')) {
+                expect(params?.[1]).toEqual(expect.arrayContaining(['cat_module_object', 'cat_quiz_object', 'tbl_modulecontentitemsattr']))
                 return [
                     {
                         tableName: 'cat_module_object',
@@ -931,6 +1002,11 @@ describe('applicationWorkspaces service', () => {
                         tableName: 'tbl_modulecontentitemsattr',
                         columnName: 'col_item_title',
                         udtName: 'text'
+                    },
+                    {
+                        tableName: 'tbl_modulecontentitemsattr',
+                        columnName: 'col_metadata',
+                        udtName: 'jsonb'
                     }
                 ]
             }
@@ -963,9 +1039,11 @@ describe('applicationWorkspaces service', () => {
                 '018f8a78-7b8f-7c1d-a111-222233334955',
                 'module-seed-row:module-content-items-attr:0',
                 '018f8a78-7b8f-7c1d-a111-222233334953',
-                'Readiness check'
+                'Readiness check',
+                JSON.stringify({ weight: 1, required: true })
             ])
         )
+        expect(String(childInsertCall?.[0])).toContain('::jsonb')
         expect(childInsertCall?.[1]).not.toEqual(expect.arrayContaining(['quiz-seed-row']))
     })
 })

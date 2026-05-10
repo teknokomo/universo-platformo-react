@@ -21,7 +21,8 @@ const DEFAULT_CC: CodenameConfig = {
     autoReformat: true,
     requireReformat: true
 }
-const _cc = (values: Record<string, unknown>): CodenameConfig => (values._codenameConfig as CodenameConfig) || DEFAULT_CC
+const _cc = (values?: Record<string, unknown> | null): CodenameConfig =>
+    (values?._codenameConfig as CodenameConfig | undefined) || DEFAULT_CC
 const DIALOG_SAVE_CANCEL = { __dialogCancelled: true } as const
 
 import {
@@ -43,6 +44,7 @@ export interface ValueGroupDisplayWithContainer extends ValueGroupDisplay {
 }
 
 export type ValueGroupFormValues = Record<string, unknown>
+const ensureFormValues = (values?: ValueGroupFormValues | null): ValueGroupFormValues => values ?? {}
 export type ValueGroupFormSetValue = (name: string, value: unknown) => void
 export type ValueGroupActionContext = ActionContext<ValueGroupDisplayWithContainer, ValueGroupLocalizedPayload> & {
     treeEntities?: TreeEntity[]
@@ -149,15 +151,18 @@ const buildCopyInitialValues = (ctx: ActionContext<ValueGroupDisplayWithContaine
     }
 }
 
-const getValueGroupCopyOptions = (values: Record<string, unknown>) =>
-    normalizeValueGroupCopyOptions({
+const getValueGroupCopyOptions = (rawValues?: Record<string, unknown> | null) => {
+    const values = ensureFormValues(rawValues)
+    return normalizeValueGroupCopyOptions({
         copyFixedValues: values.copyFixedValues as boolean | undefined
     })
+}
 
 export const validateValueGroupForm = (
     ctx: ActionContext<ValueGroupDisplayWithContainer, ValueGroupLocalizedPayload>,
-    values: ValueGroupFormValues
+    rawValues?: ValueGroupFormValues | null
 ) => {
+    const values = ensureFormValues(rawValues)
     const cc = _cc(values)
     const errors: Record<string, string> = {}
 
@@ -186,7 +191,8 @@ export const validateValueGroupForm = (
     return Object.keys(errors).length > 0 ? errors : null
 }
 
-export const canSaveValueGroupForm = (values: ValueGroupFormValues) => {
+export const canSaveValueGroupForm = (rawValues?: ValueGroupFormValues | null) => {
+    const values = ensureFormValues(rawValues)
     const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
@@ -208,8 +214,9 @@ export const canSaveValueGroupForm = (values: ValueGroupFormValues) => {
 }
 
 export const toPayload = (
-    values: ValueGroupFormValues
+    rawValues?: ValueGroupFormValues | null
 ): ValueGroupLocalizedPayload & { treeEntityIds?: string[]; isSingleHub?: boolean; isRequiredHub?: boolean } => {
+    const values = ensureFormValues(rawValues)
     const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined

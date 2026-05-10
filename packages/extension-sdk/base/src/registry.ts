@@ -25,9 +25,7 @@ export interface ResolvedExtensionScriptMetadata {
 
 type ExtensionScriptConstructor = abstract new (...args: never[]) => object
 
-export const resolveExtensionScriptMetadata = (
-    metadata: ExtensionScriptMetadata = {}
-): ResolvedExtensionScriptMetadata => {
+export const resolveExtensionScriptMetadata = (metadata: ExtensionScriptMetadata = {}): ResolvedExtensionScriptMetadata => {
     const moduleRole = normalizeScriptModuleRole(metadata.moduleRole ?? DEFAULT_SCRIPT_MODULE_ROLE)
     const sourceKind = normalizeScriptSourceKind(metadata.sourceKind ?? DEFAULT_SCRIPT_SOURCE_KIND)
 

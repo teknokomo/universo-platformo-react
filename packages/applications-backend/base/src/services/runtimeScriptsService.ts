@@ -19,6 +19,13 @@ import {
 } from '@universo/types'
 import { createLocalizedContent, resolveApplicationLifecycleContractFromConfig, type DbExecutor } from '@universo/utils'
 import type { RolePermission } from '../routes/guards'
+import { RuntimeLedgersService } from './runtimeLedgersService'
+import {
+    allocateRuntimeRecordNumber,
+    assertRuntimeRecordMutable,
+    isRuntimeRecordBehaviorEnabled,
+    normalizeRuntimeRecordBehavior
+} from './runtimeRecordBehavior'
 import {
     IDENTIFIER_REGEX,
     RUNTIME_WRITABLE_TYPES,
@@ -38,6 +45,14 @@ import {
     resolveRuntimeCodenameText,
     runtimeCodenameTextSql
 } from '../shared/runtimeHelpers'
+
+const LEDGER_CAPABILITY_CONDITION = `
+(
+  COALESCE((config->'components'->'ledgerSchema'->>'enabled')::boolean, false) = true
+  AND COALESCE((config->'components'->'dataSchema'->>'enabled')::boolean, false) = true
+  AND COALESCE((config->'components'->'physicalTable'->>'enabled')::boolean, false) = true
+  AND jsonb_typeof(config->'ledger') = 'object'
+)`
 
 type RuntimeScriptRow = {
     id: string
@@ -352,7 +367,10 @@ const buildWritableAttrs = (attrs: RuntimeScriptAttributeRow[]): RuntimeScriptAt
     )
 
 export class RuntimeScriptsService {
-    constructor(private readonly engine: ScriptEngine = new ScriptEngine()) {}
+    constructor(
+        private readonly engine: ScriptEngine = new ScriptEngine(),
+        private readonly ledgers: RuntimeLedgersService = new RuntimeLedgersService()
+    ) {}
 
     async listClientScripts(params: {
         executor: DbExecutor
@@ -436,7 +454,8 @@ export class RuntimeScriptsService {
             script,
             currentWorkspaceId: params.currentWorkspaceId ?? null,
             currentUserId: params.currentUserId ?? null,
-            permissions: params.permissions ?? null
+            permissions: params.permissions ?? null,
+            executionOrigin: 'manual'
         })
 
         return this.engine.callMethod({
@@ -447,13 +466,14 @@ export class RuntimeScriptsService {
         })
     }
 
-    async dispatchLifecycleEvent(params: RuntimeLifecycleDispatchParams): Promise<void> {
+    async dispatchLifecycleEvent(params: RuntimeLifecycleDispatchParams): Promise<unknown[]> {
         const scripts = await this.listActiveScripts(params.executor, params.schemaName)
         const attachmentKeys = new Set<string>([
             buildAttachmentKey('metahub', null),
             ...(params.attachmentKind && params.attachmentId ? [buildAttachmentKey(params.attachmentKind, params.attachmentId)] : []),
             ...(params.attributeIds ?? []).map((attributeId) => buildAttachmentKey('attribute', attributeId))
         ])
+        const results: unknown[] = []
 
         for (const script of scripts) {
             if (!script.serverBundle) continue
@@ -472,20 +492,26 @@ export class RuntimeScriptsService {
                 script,
                 currentWorkspaceId: params.currentWorkspaceId ?? null,
                 currentUserId: params.currentUserId ?? null,
-                permissions: params.permissions ?? null
+                permissions: params.permissions ?? null,
+                executionOrigin: 'registrar',
+                registrarKind: params.attachmentKind ?? null
             })
 
-            await this.engine.dispatchEvent({
-                bundle: script.serverBundle,
-                manifest: script.manifest,
-                eventName: params.payload.eventName,
-                payload: {
-                    ...params.payload,
-                    entityCodename: params.entityCodename
-                },
-                context
-            })
+            results.push(
+                ...(await this.engine.dispatchEvent({
+                    bundle: script.serverBundle,
+                    manifest: script.manifest,
+                    eventName: params.payload.eventName,
+                    payload: {
+                        ...params.payload,
+                        entityCodename: params.entityCodename
+                    },
+                    context
+                }))
+            )
         }
+
+        return results
     }
 
     private dispatchLifecycleEventAfterCommit(params: RuntimeLifecycleDispatchParams | null): void {
@@ -581,11 +607,17 @@ export class RuntimeScriptsService {
         currentWorkspaceId: string | null
         currentUserId: string | null
         permissions: Record<RolePermission, boolean> | null
+        executionOrigin?: 'manual' | 'registrar'
+        registrarKind?: ScriptAttachmentKind | null
     }) {
         const canReadRecords = hasScriptCapability(params.script.manifest, 'records.read')
         const canWriteRecords = hasScriptCapability(params.script.manifest, 'records.write')
         const canReadMetadata = hasScriptCapability(params.script.manifest, 'metadata.read')
+        const canReadLedger = hasScriptCapability(params.script.manifest, 'ledger.read')
+        const canWriteLedger = hasScriptCapability(params.script.manifest, 'ledger.write')
         const canCallServerMethod = hasScriptCapability(params.script.manifest, 'rpc.client')
+        const ledgerWriteOrigin = params.executionOrigin ?? 'manual'
+        const ledgerRegistrarKind = params.executionOrigin === 'registrar' ? params.registrarKind ?? null : null
 
         const callServerMethod = async (methodName: string, args: unknown[]) => {
             if (!canCallServerMethod) {
@@ -739,10 +771,107 @@ export class RuntimeScriptsService {
                       }
                     : async () => denyCapability('metadata.read')
             },
+            ledger: {
+                list: canReadLedger
+                    ? async () =>
+                          this.ledgers.listLedgers({
+                              executor: params.executor,
+                              schemaName: params.schemaName
+                          })
+                    : async () => denyCapability('ledger.read'),
+                facts: canReadLedger
+                    ? async (ledgerCodename: string, options?: { limit?: number; offset?: number }) => {
+                          const ledger = await this.resolveLedgerMetadataByCodename(params.executor, params.schemaName, ledgerCodename)
+                          return this.ledgers.listFacts({
+                              executor: params.executor,
+                              schemaName: params.schemaName,
+                              ledgerId: ledger.id,
+                              currentWorkspaceId: params.currentWorkspaceId,
+                              limit: options?.limit,
+                              offset: options?.offset
+                          })
+                      }
+                    : async () => denyCapability('ledger.read'),
+                query: canReadLedger
+                    ? async (
+                          ledgerCodename: string,
+                          projectionCodename: string,
+                          options?: { filters?: Record<string, unknown>; limit?: number; offset?: number }
+                      ) => {
+                          const ledger = await this.resolveLedgerMetadataByCodename(params.executor, params.schemaName, ledgerCodename)
+                          return this.ledgers.queryProjection({
+                              executor: params.executor,
+                              schemaName: params.schemaName,
+                              ledgerId: ledger.id,
+                              currentWorkspaceId: params.currentWorkspaceId,
+                              projectionCodename,
+                              filters: options?.filters,
+                              limit: options?.limit,
+                              offset: options?.offset
+                          })
+                      }
+                    : async () => denyCapability('ledger.read'),
+                append: canWriteLedger
+                    ? async (ledgerCodename: string, facts: Array<{ data: Record<string, unknown> }>) =>
+                          this.ledgers.appendFacts({
+                              executor: params.executor,
+                              schemaName: params.schemaName,
+                              ledgerCodename,
+                              currentWorkspaceId: params.currentWorkspaceId,
+                              currentUserId: params.currentUserId,
+                              facts,
+                              writeOrigin: ledgerWriteOrigin,
+                              registrarKind: ledgerRegistrarKind
+                          })
+                    : async () => denyCapability('ledger.write'),
+                reverse: canWriteLedger
+                    ? async (ledgerCodename: string, factIds: string[]) =>
+                          this.ledgers.reverseFacts({
+                              executor: params.executor,
+                              schemaName: params.schemaName,
+                              ledgerCodename,
+                              currentWorkspaceId: params.currentWorkspaceId,
+                              currentUserId: params.currentUserId,
+                              factIds,
+                              writeOrigin: ledgerWriteOrigin,
+                              registrarKind: ledgerRegistrarKind
+                          })
+                    : async () => denyCapability('ledger.write')
+            },
             callServerMethod
         }
 
         return baseContext
+    }
+
+    private async resolveLedgerMetadataByCodename(
+        executor: DbExecutor,
+        schemaName: string,
+        ledgerCodename: string
+    ): Promise<{ id: string }> {
+        const normalized = ledgerCodename.trim()
+        if (!normalized) {
+            throw new Error('Ledger codename is required')
+        }
+
+        const rows = (await executor.query(
+            `
+        SELECT id
+        FROM ${quoteIdentifier(schemaName)}._app_objects
+        WHERE ${LEDGER_CAPABILITY_CONDITION}
+          AND ${runtimeCodenameTextSql('codename')} = $1
+          AND _upl_deleted = false
+          AND _app_deleted = false
+        LIMIT 1
+      `,
+            [normalized]
+        )) as Array<{ id: string }>
+
+        const id = rows[0]?.id
+        if (!id) {
+            throw new Error(`Ledger was not found: ${normalized}`)
+        }
+        return { id }
     }
 
     private async resolveRecordBinding(params: {
@@ -1062,6 +1191,35 @@ export class RuntimeScriptsService {
             const insertColumns = columnValues.map((entry) => quoteIdentifier(entry.column))
             const insertValues = columnValues.map((entry) => entry.value)
             const placeholders = insertValues.map((_, index) => `$${index + 1}`)
+            const recordBehavior = normalizeRuntimeRecordBehavior(binding.object.config)
+            if (isRuntimeRecordBehaviorEnabled(recordBehavior)) {
+                const recordDate = new Date()
+                if (recordBehavior.numbering.enabled) {
+                    insertColumns.push(quoteIdentifier('_app_record_number'))
+                    insertValues.push(
+                        await allocateRuntimeRecordNumber({
+                            manager: txExecutor,
+                            schemaIdent: quoteIdentifier(params.schemaName),
+                            objectId: binding.object.id,
+                            behavior: recordBehavior,
+                            currentWorkspaceId: params.currentWorkspaceId,
+                            currentUserId: currentUserId,
+                            date: recordDate
+                        })
+                    )
+                    placeholders.push(`$${insertValues.length}`)
+                }
+                if (recordBehavior.effectiveDate.enabled && recordBehavior.effectiveDate.defaultToNow) {
+                    insertColumns.push(quoteIdentifier('_app_record_date'))
+                    insertValues.push(recordDate)
+                    placeholders.push(`$${insertValues.length}`)
+                }
+                if (recordBehavior.lifecycle.enabled || recordBehavior.posting.mode !== 'disabled') {
+                    insertColumns.push(quoteIdentifier('_app_record_state'))
+                    insertValues.push('draft')
+                    placeholders.push(`$${insertValues.length}`)
+                }
+            }
 
             if (binding.object.hasWorkspaceColumn && params.currentWorkspaceId) {
                 insertColumns.push(quoteIdentifier('workspace_id'))
@@ -1142,7 +1300,7 @@ export class RuntimeScriptsService {
 
             const currentRow = (await txExecutor.query(
                 `
-          SELECT id, _upl_locked
+          SELECT *
           FROM ${binding.tableIdent}
           WHERE id = $1
             AND ${binding.activeRowCondition}
@@ -1157,6 +1315,7 @@ export class RuntimeScriptsService {
             if (currentRow[0]._upl_locked) {
                 throw new Error('Runtime record is locked')
             }
+            assertRuntimeRecordMutable(binding.object.config, currentRow[0])
 
             const previousRow = await this.getRecordById({
                 executor: txExecutor,
@@ -1285,7 +1444,7 @@ export class RuntimeScriptsService {
 
             const currentRow = (await txExecutor.query(
                 `
-          SELECT id, _upl_locked
+          SELECT *
           FROM ${binding.tableIdent}
           WHERE id = $1
             AND ${binding.activeRowCondition}
@@ -1300,6 +1459,7 @@ export class RuntimeScriptsService {
             if (currentRow[0]._upl_locked) {
                 throw new Error('Runtime record is locked')
             }
+            assertRuntimeRecordMutable(binding.object.config, currentRow[0])
 
             const previousRow = await this.getRecordById({
                 executor: txExecutor,

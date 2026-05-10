@@ -574,10 +574,14 @@ type SnapshotLayoutWidget = Record<string, unknown>
 type SnapshotEnvelope = Record<string, unknown> & {
     snapshot?: {
         entities?: Record<string, SnapshotEntity>
+        entityTypeDefinitions?: Record<string, Record<string, unknown>>
         elements?: Record<string, SnapshotElement[]>
         fixedValues?: Record<string, Array<Record<string, unknown>>>
         scripts?: SnapshotScript[]
         layoutZoneWidgets?: SnapshotLayoutWidget[]
+        runtimePolicy?: {
+            workspaceMode?: unknown
+        }
     }
     metahub?: {
         name?: unknown
@@ -589,6 +593,10 @@ type SnapshotEnvelope = Record<string, unknown> & {
 
 const REQUIRED_ENTITY_CODENAMES = [
     'LearnerHome',
+    'CourseOverview',
+    'KnowledgeArticle',
+    'AssignmentInstructions',
+    'CertificatePolicy',
     'Classes',
     'Students',
     'Departments',
@@ -596,12 +604,24 @@ const REQUIRED_ENTITY_CODENAMES = [
     'Modules',
     'Quizzes',
     'QuizResponses',
+    'QuizAttempts',
+    'LearningActivityLedger',
+    'ProgressLedger',
+    'ScoreLedger',
+    'EnrollmentLedger',
+    'AttendanceLedger',
+    'CertificateLedger',
+    'PointsLedger',
+    'NotificationLedger',
     'ModuleProgress',
     'AccessLinks',
     'Enrollments',
     'Assignments',
+    'AssignmentSubmissions',
     'TrainingEvents',
+    'TrainingAttendance',
     'Certificates',
+    'CertificateIssues',
     'Reports',
     'AssignmentStatus',
     'TrainingEventType',
@@ -645,6 +665,20 @@ const readLocalizedText = (value: unknown, locale = 'en'): string | undefined =>
 const readWidgetConfig = (value: unknown): Record<string, unknown> =>
     value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
 
+const readRecord = (value: unknown): Record<string, unknown> | null =>
+    value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null
+
+const assertLocalizedFixtureValue = (errors: string[], value: unknown, expected: { en: string; ru: string }, label: string) => {
+    const actualEn = readLocalizedText(value, 'en')
+    const actualRu = readLocalizedText(value, 'ru')
+    if (actualEn !== expected.en) {
+        errors.push(`${label} is missing the canonical English value`)
+    }
+    if (actualRu !== expected.ru) {
+        errors.push(`${label} is missing the canonical Russian value`)
+    }
+}
+
 const getSeededRows = (elementsByEntityId: Record<string, SnapshotElement[]>, entityId: string | undefined) => {
     if (!entityId) {
         return []
@@ -683,6 +717,10 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         errors.push('LMS fixture snapshotHash drifted from the canonical snapshot payload')
     }
 
+    if (envelope.snapshot?.runtimePolicy?.workspaceMode !== 'required') {
+        errors.push('LMS fixture publication runtime policy must require application workspaces')
+    }
+
     const metahubNameEn = readLocalizedText(envelope.metahub?.name, 'en')
     const metahubNameRu = readLocalizedText(envelope.metahub?.name, 'ru')
     const metahubDescriptionEn = readLocalizedText(envelope.metahub?.description, 'en')
@@ -718,6 +756,34 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
     }
 
     const entities = Object.values(envelope.snapshot?.entities ?? {})
+    const entityTypeDefinitions =
+        envelope.snapshot?.entityTypeDefinitions && typeof envelope.snapshot.entityTypeDefinitions === 'object'
+            ? envelope.snapshot.entityTypeDefinitions
+            : {}
+    const catalogEntityType = entityTypeDefinitions.catalog
+    const catalogEntityTypeUi =
+        catalogEntityType?.ui && typeof catalogEntityType.ui === 'object' && !Array.isArray(catalogEntityType.ui)
+            ? (catalogEntityType.ui as Record<string, unknown>)
+            : null
+    const catalogEntityTypeTabs = Array.isArray(catalogEntityTypeUi?.tabs) ? catalogEntityTypeUi.tabs : []
+    const catalogEntityTypeComponents =
+        catalogEntityType?.components && typeof catalogEntityType.components === 'object' && !Array.isArray(catalogEntityType.components)
+            ? (catalogEntityType.components as Record<string, unknown>)
+            : null
+
+    if (!catalogEntityTypeTabs.includes('behavior')) {
+        errors.push('LMS fixture Catalog entity type must expose the generic behavior tab')
+    }
+    if (!catalogEntityTypeTabs.includes('ledgerSchema')) {
+        errors.push('LMS fixture Catalog entity type must expose the generic ledger schema tab')
+    }
+    for (const componentKey of ['identityFields', 'recordLifecycle', 'posting', 'ledgerSchema']) {
+        const component = catalogEntityTypeComponents?.[componentKey]
+        if (!component || typeof component !== 'object' || Array.isArray(component) || (component as Record<string, unknown>).enabled !== true) {
+            errors.push(`LMS fixture Catalog entity type must enable ${componentKey} for runtime behavior authoring`)
+        }
+    }
+
     const entityByCodename = new Map<string, SnapshotEntity>()
     for (const entity of entities) {
         const codename = readLocalizedText(entity?.codename, 'en')
@@ -801,6 +867,66 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
             errors.push('LMS menuWidget must keep workspace navigation in the primary menu for MVP')
         }
     }
+    const overviewCardsWidget = widgets.find((widget) => widget?.widgetKey === 'overviewCards')
+    const overviewCardsConfig = readWidgetConfig(overviewCardsWidget?.config)
+    const overviewCards = Array.isArray(overviewCardsConfig.cards) ? overviewCardsConfig.cards : []
+    if (overviewCards.length < 4) {
+        errors.push('LMS fixture must configure overviewCards with learner dashboard metrics')
+    }
+    if (!overviewCards.some((card) => readLocalizedText((card as Record<string, unknown>)?.title, 'ru') === 'Учащиеся')) {
+        errors.push('LMS overviewCards must store localized learner metric titles in widget config')
+    }
+    for (const card of overviewCards) {
+        const datasource = (card as Record<string, unknown>)?.datasource as Record<string, unknown> | undefined
+        const params = datasource?.params as Record<string, unknown> | undefined
+        if (datasource?.kind !== 'metric' || datasource?.metricKey !== 'records.count' || typeof params?.sectionCodename !== 'string') {
+            errors.push('LMS overviewCards must use generic records.count metric datasources targeted by section codename')
+            break
+        }
+    }
+
+    for (const chartWidgetKey of ['sessionsChart', 'pageViewsChart']) {
+        const chartWidget = widgets.find((widget) => widget?.widgetKey === chartWidgetKey)
+        const chartConfig = readWidgetConfig(chartWidget?.config)
+        const datasource = chartConfig.datasource as Record<string, unknown> | undefined
+        const chartTitleRu = readLocalizedText(chartConfig.title, 'ru')
+        if (!chartWidget || datasource?.kind !== 'records.list' || typeof datasource?.sectionCodename !== 'string') {
+            errors.push(`LMS ${chartWidgetKey} must use a generic records.list datasource targeted by section codename`)
+        }
+        if (typeof chartConfig.xField !== 'string' || !Array.isArray(chartConfig.series) || chartConfig.series.length === 0) {
+            errors.push(`LMS ${chartWidgetKey} must declare generic xField and series config`)
+        }
+        if (chartWidgetKey === 'sessionsChart' && chartTitleRu !== 'Прогресс подразделений') {
+            errors.push('LMS sessionsChart must store localized chart titles in widget config')
+        }
+        if (chartWidgetKey === 'pageViewsChart' && chartTitleRu !== 'Оценки заданий') {
+            errors.push('LMS pageViewsChart must store localized chart titles in widget config')
+        }
+    }
+
+    const columnsContainerWidget = widgets.find((widget) => widget?.widgetKey === 'columnsContainer')
+    const columnsContainerConfig = readWidgetConfig(columnsContainerWidget?.config)
+    const columns = Array.isArray(columnsContainerConfig.columns) ? columnsContainerConfig.columns : []
+    const nestedDetailsTables = columns.flatMap((column) => {
+        const widgetsInColumn = (column as Record<string, unknown>)?.widgets
+        return Array.isArray(widgetsInColumn) ? widgetsInColumn : []
+    })
+    if (nestedDetailsTables.length < 3) {
+        errors.push('LMS fixture must configure reusable report tables through columnsContainer + detailsTable widgets')
+    }
+    for (const nestedWidget of nestedDetailsTables) {
+        const typedWidget = nestedWidget as Record<string, unknown>
+        const nestedConfig = readWidgetConfig(typedWidget.config)
+        const datasource = (nestedConfig.datasource ?? {}) as Record<string, unknown>
+        if (
+            typedWidget.widgetKey !== 'detailsTable' ||
+            datasource.kind !== 'records.list' ||
+            typeof datasource.sectionCodename !== 'string'
+        ) {
+            errors.push('LMS report table widgets must use generic detailsTable records.list datasources targeted by section codename')
+            break
+        }
+    }
 
     const learnerHomeEntity = entityByCodename.get('LearnerHome')
     if (learnerHomeEntity?.kind !== 'page') {
@@ -831,6 +957,23 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
             errors.push('LMS LearnerHome page must include the full Russian onboarding text')
         }
     }
+    for (const pageCodename of ['CourseOverview', 'KnowledgeArticle', 'AssignmentInstructions', 'CertificatePolicy']) {
+        const pageEntity = entityByCodename.get(pageCodename)
+        if (pageEntity?.kind !== 'page') {
+            errors.push(`LMS fixture must include ${pageCodename} as a Page entity`)
+            continue
+        }
+        const pageConfig = pageEntity as SnapshotEntity & { config?: Record<string, unknown> }
+        const blockContent = pageConfig.config?.blockContent as Record<string, unknown> | undefined
+        const blocks = Array.isArray(blockContent?.blocks) ? blockContent.blocks : []
+        const blockContentText = JSON.stringify(blockContent)
+        if (blockContent?.format !== 'editorjs' || blocks.length < 2) {
+            errors.push(`LMS ${pageCodename} page must use Editor.js-compatible bilingual content blocks`)
+        }
+        if (!blockContentText.includes('"_primary":"en"') || !blockContentText.includes('"ru"')) {
+            errors.push(`LMS ${pageCodename} page must include English and Russian localized content`)
+        }
+    }
 
     const shortPresetPage = entities.find(
         (entity) =>
@@ -847,6 +990,127 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         findEntityByKindAndName('set', 'LMS Configuration')
     if (lmsConfigurationEntity?.kind !== 'set') {
         errors.push('LMS fixture must include LmsConfiguration as a Set entity')
+    }
+    for (const ledgerCodename of [
+        'LearningActivityLedger',
+        'ProgressLedger',
+        'ScoreLedger',
+        'EnrollmentLedger',
+        'AttendanceLedger',
+        'CertificateLedger',
+        'PointsLedger',
+        'NotificationLedger'
+    ]) {
+        const ledgerEntity = entityByCodename.get(ledgerCodename)
+        if (ledgerEntity?.kind !== 'catalog') {
+            errors.push(`LMS fixture must include ${ledgerCodename} as a register-enabled Catalog entity`)
+        } else if (ledgerEntity.config?.ledger === undefined) {
+            errors.push(`LMS ${ledgerCodename} must carry the canonical ledger configuration`)
+        }
+    }
+    for (const transactionalCatalogCodename of [
+        'QuizResponses',
+        'QuizAttempts',
+        'ModuleProgress',
+        'Assignments',
+        'AssignmentSubmissions',
+        'TrainingEvents',
+        'TrainingAttendance',
+        'Certificates',
+        'CertificateIssues',
+        'Enrollments'
+    ]) {
+        const catalogEntity = entityByCodename.get(transactionalCatalogCodename)
+        const recordBehavior =
+            catalogEntity?.config?.recordBehavior &&
+            typeof catalogEntity.config.recordBehavior === 'object' &&
+            !Array.isArray(catalogEntity.config.recordBehavior)
+                ? (catalogEntity.config.recordBehavior as Record<string, unknown>)
+                : null
+        if (recordBehavior?.mode !== 'transactional') {
+            errors.push(`LMS ${transactionalCatalogCodename} catalog must use transactional record behavior`)
+        }
+    }
+    const enrollmentEntity = entityByCodename.get('Enrollments')
+    const enrollmentRecordBehavior =
+        enrollmentEntity?.config?.recordBehavior &&
+        typeof enrollmentEntity.config.recordBehavior === 'object' &&
+        !Array.isArray(enrollmentEntity.config.recordBehavior)
+            ? (enrollmentEntity.config.recordBehavior as Record<string, unknown>)
+            : null
+    const enrollmentPosting =
+        enrollmentRecordBehavior?.posting &&
+        typeof enrollmentRecordBehavior.posting === 'object' &&
+        !Array.isArray(enrollmentRecordBehavior.posting)
+            ? (enrollmentRecordBehavior.posting as Record<string, unknown>)
+            : null
+    const targetLedgers = Array.isArray(enrollmentPosting?.targetLedgers) ? enrollmentPosting.targetLedgers : []
+    if (enrollmentRecordBehavior?.mode !== 'transactional') {
+        errors.push('LMS Enrollments catalog must use transactional record behavior')
+    }
+    if (enrollmentPosting?.mode !== 'manual' || !targetLedgers.includes('ProgressLedger')) {
+        errors.push('LMS Enrollments posting behavior must manually target ProgressLedger')
+    }
+    for (const requiredScript of [
+        { codename: 'AutoEnrollmentRuleScript', attachedTo: 'Students', capabilities: ['records.read', 'records.write', 'lifecycle'] },
+        { codename: 'EnrollmentPostingScript', attachedTo: 'Enrollments', capabilities: ['lifecycle', 'posting', 'ledger.write'] },
+        { codename: 'QuizAttemptPostingScript', attachedTo: 'QuizAttempts', capabilities: ['lifecycle', 'posting', 'ledger.write'] },
+        { codename: 'ModuleCompletionPostingScript', attachedTo: 'ModuleProgress', capabilities: ['lifecycle', 'posting', 'ledger.write'] },
+        {
+            codename: 'CertificateIssuePostingScript',
+            attachedTo: 'CertificateIssues',
+            capabilities: ['lifecycle', 'posting', 'ledger.write']
+        }
+    ]) {
+        const script = scripts.find((candidate) => readLocalizedText(candidate?.codename, 'en') === requiredScript.codename)
+        if (!script) {
+            errors.push(`LMS fixture must include the ${requiredScript.codename} lifecycle script`)
+            continue
+        }
+        const manifest = script.manifest && typeof script.manifest === 'object' ? (script.manifest as Record<string, unknown>) : null
+        const capabilities = Array.isArray(manifest?.capabilities) ? manifest.capabilities : []
+        const attachedEntity = entityByCodename.get(requiredScript.attachedTo)
+        if (script.attachedToKind !== 'catalog' || !attachedEntity?.id || script.attachedToId !== attachedEntity.id) {
+            errors.push(`LMS ${requiredScript.codename} must be attached to ${requiredScript.attachedTo}`)
+        }
+        for (const capability of requiredScript.capabilities) {
+            if (!capabilities.includes(capability)) {
+                errors.push(`LMS ${requiredScript.codename} must declare ${capability} capability`)
+            }
+        }
+    }
+
+    const enrollmentPostingScript = scripts.find((script) => readLocalizedText(script?.codename, 'en') === 'EnrollmentPostingScript')
+    if (!enrollmentPostingScript) {
+        errors.push('LMS fixture must include the EnrollmentPostingScript lifecycle script')
+    } else {
+        const manifest =
+            enrollmentPostingScript.manifest && typeof enrollmentPostingScript.manifest === 'object'
+                ? (enrollmentPostingScript.manifest as Record<string, unknown>)
+                : {}
+        const capabilities = Array.isArray(manifest.capabilities) ? manifest.capabilities : []
+        const methods = Array.isArray(manifest.methods) ? manifest.methods : []
+        const hasBeforePost = methods.some(
+            (method) =>
+                method &&
+                typeof method === 'object' &&
+                (method as Record<string, unknown>).target === 'server' &&
+                (method as Record<string, unknown>).eventName === 'beforePost'
+        )
+        if (enrollmentPostingScript.attachedToKind !== 'catalog' || enrollmentPostingScript.attachedToId !== enrollmentEntity?.id) {
+            errors.push('LMS EnrollmentPostingScript must be attached to the Enrollments catalog')
+        }
+        if (enrollmentPostingScript.moduleRole !== 'lifecycle') {
+            errors.push('LMS EnrollmentPostingScript must use the lifecycle module role')
+        }
+        for (const capability of ['metadata.read', 'lifecycle', 'posting', 'ledger.write']) {
+            if (!capabilities.includes(capability)) {
+                errors.push(`LMS EnrollmentPostingScript must declare ${capability}`)
+            }
+        }
+        if (!hasBeforePost) {
+            errors.push('LMS EnrollmentPostingScript must declare a beforePost server handler')
+        }
     }
     const exportedFixedValues = Object.values(envelope.snapshot?.fixedValues ?? {}).flat()
     const fixedValueCodenames = new Set(exportedFixedValues.map((value) => readLocalizedText(value?.codename, 'en')).filter(Boolean))
@@ -949,6 +1213,69 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         if (quizQuestions.length !== seededQuiz.questions.en.length) {
             errors.push(`LMS quiz ${seededQuiz.title.en} must contain ${seededQuiz.questions.en.length} questions`)
         }
+        if (seededQuiz.questions.ru.length !== seededQuiz.questions.en.length) {
+            errors.push(`LMS quiz ${seededQuiz.title.en} must define equal English and Russian question counts`)
+        }
+        for (const [index, expectedEnQuestion] of seededQuiz.questions.en.entries()) {
+            const expectedRuQuestion = seededQuiz.questions.ru[index]
+            const actualQuestion = readRecord(quizQuestions[index])
+            if (!actualQuestion || !expectedRuQuestion) {
+                continue
+            }
+
+            assertLocalizedFixtureValue(
+                errors,
+                actualQuestion.Prompt,
+                { en: expectedEnQuestion.prompt, ru: expectedRuQuestion.prompt },
+                `LMS quiz ${seededQuiz.title.en} question ${index + 1} prompt`
+            )
+            assertLocalizedFixtureValue(
+                errors,
+                actualQuestion.QuestionDescription,
+                { en: expectedEnQuestion.description, ru: expectedRuQuestion.description },
+                `LMS quiz ${seededQuiz.title.en} question ${index + 1} description`
+            )
+            assertLocalizedFixtureValue(
+                errors,
+                actualQuestion.Explanation,
+                { en: expectedEnQuestion.explanation, ru: expectedRuQuestion.explanation },
+                `LMS quiz ${seededQuiz.title.en} question ${index + 1} explanation`
+            )
+            const actualOptions = Array.isArray(actualQuestion.Options) ? actualQuestion.Options : []
+            if (actualOptions.length !== expectedEnQuestion.options.length) {
+                errors.push(
+                    `LMS quiz ${seededQuiz.title.en} question ${index + 1} must contain ${
+                        expectedEnQuestion.options.length
+                    } answer option(s)`
+                )
+            }
+            if (expectedRuQuestion.options.length !== expectedEnQuestion.options.length) {
+                errors.push(`LMS quiz ${seededQuiz.title.en} question ${index + 1} must define equal English and Russian option counts`)
+            }
+            for (const [optionIndex, expectedEnOption] of expectedEnQuestion.options.entries()) {
+                const expectedRuOption = expectedRuQuestion.options[optionIndex]
+                const actualOption = readRecord(actualOptions[optionIndex])
+                if (!actualOption || !expectedRuOption) {
+                    continue
+                }
+                assertLocalizedFixtureValue(
+                    errors,
+                    actualOption.label,
+                    {
+                        en: readLocalizedText(expectedEnOption.label, 'en') ?? '',
+                        ru: readLocalizedText(expectedRuOption.label, 'ru') ?? ''
+                    },
+                    `LMS quiz ${seededQuiz.title.en} question ${index + 1} option ${optionIndex + 1} label`
+                )
+                if (actualOption.isCorrect !== expectedEnOption.isCorrect || actualOption.isCorrect !== expectedRuOption.isCorrect) {
+                    errors.push(
+                        `LMS quiz ${seededQuiz.title.en} question ${index + 1} option ${
+                            optionIndex + 1
+                        } must keep the same correctness flag in both locales`
+                    )
+                }
+            }
+        }
     }
 
     const moduleRowsByKey = new Map<string, SnapshotElement>()
@@ -980,6 +1307,36 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         const contentItems = Array.isArray(moduleData.ContentItems) ? moduleData.ContentItems : []
         if (contentItems.length !== seededModule.contentItems.en.length) {
             errors.push(`LMS module ${seededModule.title.en} must contain ${seededModule.contentItems.en.length} content item(s)`)
+        }
+        if (seededModule.contentItems.ru.length !== seededModule.contentItems.en.length) {
+            errors.push(`LMS module ${seededModule.title.en} must define equal English and Russian content item counts`)
+        }
+        for (const [index, expectedEnItem] of seededModule.contentItems.en.entries()) {
+            const expectedRuItem = seededModule.contentItems.ru[index]
+            const actualItem = readRecord(contentItems[index])
+            if (!actualItem || !expectedRuItem) {
+                continue
+            }
+
+            assertLocalizedFixtureValue(
+                errors,
+                actualItem.ItemTitle,
+                { en: expectedEnItem.itemTitle, ru: expectedRuItem.itemTitle },
+                `LMS module ${seededModule.title.en} item ${index + 1} title`
+            )
+            const expectedEnContent = 'itemContent' in expectedEnItem ? expectedEnItem.itemContent : undefined
+            const expectedRuContent = 'itemContent' in expectedRuItem ? expectedRuItem.itemContent : undefined
+            if (expectedEnContent || expectedRuContent) {
+                assertLocalizedFixtureValue(
+                    errors,
+                    actualItem.ItemContent,
+                    { en: expectedEnContent ?? '', ru: expectedRuContent ?? '' },
+                    `LMS module ${seededModule.title.en} item ${index + 1} content`
+                )
+            }
+            if (actualItem.SortOrder !== expectedEnItem.sortOrder || actualItem.SortOrder !== expectedRuItem.sortOrder) {
+                errors.push(`LMS module ${seededModule.title.en} item ${index + 1} must keep the same sort order in both locales`)
+            }
         }
 
         const quizRefItem = contentItems.find((item) => item && typeof item === 'object' && (item as Record<string, unknown>).QuizId)

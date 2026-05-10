@@ -5,6 +5,7 @@ import { emptyTemplate } from './empty.template'
 import { lmsTemplate } from './lms.template'
 import { catalogEntityPreset } from './linked-collection.entity-preset'
 import { fixedValuesLibraryEntityPreset } from './fixed-values-library.entity-preset'
+import { ledgerEntityPreset } from './ledger.entity-preset'
 import { enumerationEntityPreset } from './option-list.entity-preset'
 import { pageEntityPreset } from './page.entity-preset'
 import { hubEntityPreset } from './tree-entity.entity-preset'
@@ -22,6 +23,7 @@ export const builtinEntityTypePresets: EntityTypePresetManifest[] = [
     pageEntityPreset,
     setEntityPreset,
     enumerationEntityPreset,
+    ledgerEntityPreset,
     fixedValuesLibraryEntityPreset
 ]
 

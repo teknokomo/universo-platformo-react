@@ -1,4 +1,11 @@
-import { DataGrid, type GridColDef, type GridPaginationModel, type GridLocaleText } from '@mui/x-data-grid'
+import {
+    DataGrid,
+    type GridColDef,
+    type GridFilterModel,
+    type GridLocaleText,
+    type GridPaginationModel,
+    type GridSortModel
+} from '@mui/x-data-grid'
 import { getPendingAction, shouldShowPendingFeedback } from '@universo/utils'
 
 export interface CustomizedDataGridRow {
@@ -14,6 +21,10 @@ export interface CustomizedDataGridProps {
     rowCount?: number
     paginationModel?: GridPaginationModel
     onPaginationModelChange?: (model: GridPaginationModel) => void
+    sortModel?: GridSortModel
+    onSortModelChange?: (model: GridSortModel) => void
+    filterModel?: GridFilterModel
+    onFilterModelChange?: (model: GridFilterModel) => void
     pageSizeOptions?: number[]
     /** MUI DataGrid locale text overrides (e.g. from @mui/x-data-grid/locales) */
     localeText?: Partial<GridLocaleText>
@@ -45,6 +56,10 @@ export default function CustomizedDataGrid({
     rowCount,
     paginationModel,
     onPaginationModelChange,
+    sortModel,
+    onSortModelChange,
+    filterModel,
+    onFilterModelChange,
     pageSizeOptions = [10, 20, 50],
     localeText,
     rowHeight,
@@ -60,9 +75,15 @@ export default function CustomizedDataGrid({
             columns={columns}
             loading={loading}
             paginationMode={rowCount === undefined ? 'client' : 'server'}
+            sortingMode={onSortModelChange ? 'server' : 'client'}
+            filterMode={onFilterModelChange ? 'server' : 'client'}
             rowCount={rowCount}
             paginationModel={paginationModel}
             onPaginationModelChange={onPaginationModelChange}
+            sortModel={sortModel}
+            onSortModelChange={onSortModelChange}
+            filterModel={filterModel}
+            onFilterModelChange={onFilterModelChange}
             getRowClassName={(params) => getCustomizedDataGridRowClassName(params.row, params.indexRelativeToCurrentPage)}
             initialState={
                 paginationModel

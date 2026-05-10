@@ -344,12 +344,31 @@ describe('MetahubSchemaService create options', () => {
         const bundle = await (service as any).buildTemplateBootstrapBundle(lmsTemplate)
         const kindKeys = bundle.entityTypePresets.map((preset: { entityType: { kindKey: string } }) => preset.entityType.kindKey)
         const entityCodenames = bundle.seed.entities.map((entity: { codename: string }) => entity.codename)
+        const catalogPreset = bundle.entityTypePresets.find(
+            (preset: { entityType: { kindKey: string } }) => preset.entityType.kindKey === 'catalog'
+        )
 
         expect(kindKeys).toEqual(expect.arrayContaining(['hub', 'page', 'catalog', 'set', 'enumeration']))
+        expect(catalogPreset?.entityType.ui.tabs).toContain('behavior')
+        expect(catalogPreset?.entityType.ui.tabs).toContain('ledgerSchema')
+        expect(catalogPreset?.entityType.components.identityFields).toEqual({
+            enabled: true,
+            allowNumber: true,
+            allowEffectiveDate: true
+        })
+        expect(catalogPreset?.entityType.components.recordLifecycle).toEqual({
+            enabled: true,
+            allowCustomStates: true
+        })
+        expect(catalogPreset?.entityType.components.posting).toEqual({
+            enabled: true,
+            allowManualPosting: true,
+            allowAutomaticPosting: true
+        })
         expect(entityCodenames).toEqual(
             expect.arrayContaining([
                 'MainHub',
-                'WelcomePage',
+                'LearnerHome',
                 'MainCatalog',
                 'MainSet',
                 'MainEnumeration',

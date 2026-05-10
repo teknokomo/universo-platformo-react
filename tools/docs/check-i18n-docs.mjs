@@ -125,6 +125,7 @@ const screenshotExemptPages = new Set([
   'architecture/database.md',
   'architecture/entity-component-system.md',
   'architecture/frontend.md',
+  'architecture/ledgers.md',
   'architecture/lms-entities.md',
   'architecture/monorepo-structure.md',
   'architecture/optional-global-catalog.md',

@@ -96,6 +96,24 @@
             "workspaceModeReadOnly": "Режим рабочих пространств выбирается при синхронизации схемы коннектора по политике версии публикации и не может быть выключен после включения рабочих пространств.",
             "sectionLinksEnabled": "Индивидуальные ссылки разделов",
             "sectionLinksEnabledDescription": "Формировать для каждого раздела меню приложения отдельный URL на основе идентификатора раздела.",
+            "dashboardDefaultMode": "Стартовый дашборд runtime",
+            "dashboardDefaultModeDescription": "Определяет, как опубликованное приложение выбирает начальный раздел дашборда.",
+            "dashboardDefaultModes": {
+                "layout-default": "По умолчанию из макета",
+                "first-menu-item": "Первый пункт меню"
+            },
+            "datasourceExecutionPolicy": "Выполнение источников данных",
+            "datasourceExecutionPolicyDescription": "Определяет, должны ли источники данных макетов всегда ограничиваться активным рабочим пространством runtime.",
+            "datasourceExecutionPolicies": {
+                "workspace-scoped": "В рамках рабочего пространства",
+                "layout-only": "Только по макету"
+            },
+            "workspaceOpenBehavior": "Открытие рабочего пространства",
+            "workspaceOpenBehaviorDescription": "Выберите, какое рабочее пространство открывается первым при входе пользователя в опубликованное приложение.",
+            "workspaceOpenBehaviors": {
+                "last-used": "Последнее использованное",
+                "default-workspace": "Рабочее пространство по умолчанию"
+            },
             "dialogActionTooltips": {
                 "resetSize": "Сбросить размер окна",
                 "expand": "Развернуть окно",
@@ -167,6 +185,40 @@
             "widgetBehaviorEditor": {
                 "title": "Поведение виджета",
                 "description": "Настройте, как унаследованные макеты могут переопределять этот виджет."
+            },
+            "datasource": {
+                "title": "Источник данных",
+                "kind": "Источник данных",
+                "currentSection": "Текущий runtime-раздел",
+                "recordsList": "Список записей",
+                "ledgerFacts": "Факты регистра",
+                "ledgerProjection": "Проекция регистра",
+                "metric": "Метрика",
+                "sectionId": "Идентификатор раздела",
+                "sectionCodename": "Код раздела",
+                "search": "Начальный поиск",
+                "xField": "Поле оси X",
+                "seriesField": "Поле ряда",
+                "seriesLabel": "Название ряда",
+                "maxRows": "Максимум строк",
+                "overviewCards": "Метрики обзорных карточек",
+                "overviewCard": "Карточка",
+                "cardTitle": "Заголовок карточки",
+                "cardValue": "Значение по умолчанию",
+                "cardInterval": "Период",
+                "cardTrend": "Тренд",
+                "cardSectionId": "ID раздела метрики",
+                "cardSectionCodename": "Код раздела метрики",
+                "cardSearch": "Поиск метрики",
+                "trend": {
+                    "up": "Рост",
+                    "down": "Снижение",
+                    "neutral": "Без изменений"
+                },
+                "ledgerId": "Идентификатор регистра",
+                "ledgerCodename": "Код регистра",
+                "projectionCodename": "Код проекции",
+                "metricKey": "Ключ метрики"
             },
             "columnsEditor": {
                 "title": "Контейнер колонок",
@@ -372,10 +424,21 @@
             "deleteConfirmTitle": "Удалить элемент?",
             "deleteConfirmDescription": "Элемент будет удален без возможности восстановления.",
             "deleting": "Удаление...",
+            "postRecord": "Провести",
+            "unpostRecord": "Отменить проведение",
+            "voidRecord": "Аннулировать",
+            "recordPosted": "Запись проведена.",
+            "recordUnposted": "Проведение записи отменено.",
+            "recordVoided": "Запись аннулирована.",
+            "recordStateDraft": "Черновик",
+            "recordStatePosted": "Проведена",
+            "recordStateVoided": "Аннулирована",
+            "recordStateUnknown": "Состояние",
             "errorCreate": "Ошибка создания: {{message}}",
             "errorUpdate": "Ошибка обновления: {{message}}",
             "errorDelete": "Ошибка удаления: {{message}}",
             "errorCopy": "Ошибка копирования: {{message}}",
+            "errorRecordCommand": "Ошибка команды записи: {{message}}",
             "errorSchemaChanged": "Схема изменилась с момента открытия формы. Пожалуйста, закройте и попробуйте снова.",
             "workspaceLimitReached": "Для этого раздела достигнут лимит рабочего пространства ({{current}} / {{max}})."
         }

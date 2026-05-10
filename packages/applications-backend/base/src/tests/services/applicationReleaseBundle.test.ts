@@ -30,6 +30,7 @@ describe('applicationReleaseBundle', () => {
                 id: 'catalog-products',
                 codename: createCodenameVlc('products', 'продукты'),
                 kind: 'catalog',
+                physicalTableEnabled: true,
                 fields: []
             }
         },

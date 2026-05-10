@@ -1,4 +1,12 @@
-import { isBuiltinEntityKind, type BuiltinEntityKind, type VersionedLocalizedContent } from '@universo/types'
+import {
+    DEFAULT_CATALOG_RECORD_BEHAVIOR,
+    DEFAULT_LEDGER_CONFIG,
+    isBuiltinEntityKind,
+    normalizeCatalogRecordBehaviorFromConfig,
+    normalizeLedgerConfigFromConfig,
+    type BuiltinEntityKind,
+    type VersionedLocalizedContent
+} from '@universo/types'
 import { normalizeLinkedCollectionCopyOptions } from '@universo/utils'
 import { type LinkedCollectionEntity, type TreeEntity } from '../../../types'
 import { ensureLocalizedContent, getLocalizedContentText } from '../../../utils/localizedInput'
@@ -30,7 +38,8 @@ const BUILTIN_ENTITY_TYPE_NAME_KEYS: Record<BuiltinEntityKind, { key: string; fa
     catalog: { key: 'metahubs:catalogs.title', fallback: 'Catalogs' },
     set: { key: 'metahubs:sets.title', fallback: 'Sets' },
     enumeration: { key: 'metahubs:enumerations.title', fallback: 'Enumerations' },
-    page: { key: 'metahubs:pages.title', fallback: 'Pages' }
+    page: { key: 'metahubs:pages.title', fallback: 'Pages' },
+    ledger: { key: 'metahubs:ledgers.title', fallback: 'Ledgers' }
 }
 
 const BUILTIN_ENTITY_DIALOG_TITLE_KEYS: Record<
@@ -66,6 +75,12 @@ const BUILTIN_ENTITY_DIALOG_TITLE_KEYS: Record<
         edit: { key: 'metahubs:pages.editDialog.title', fallback: 'Edit Page' },
         copy: { key: 'metahubs:pages.copyTitle', fallback: 'Copy Page' },
         delete: { key: 'metahubs:pages.deleteDialog.title', fallback: 'Delete Page' }
+    },
+    ledger: {
+        create: { key: 'metahubs:ledgers.createDialog.title', fallback: 'Create Ledger' },
+        edit: { key: 'metahubs:ledgers.editDialog.title', fallback: 'Edit Ledger' },
+        copy: { key: 'metahubs:ledgers.copyTitle', fallback: 'Copy Ledger' },
+        delete: { key: 'metahubs:ledgers.deleteDialog.title', fallback: 'Delete Ledger' }
     }
 }
 
@@ -84,7 +99,7 @@ export const decodeKindKey = (value?: string): string => {
     }
 }
 
-const STANDARD_ENTITY_METADATA_KIND_SET = new Set<string>(['hub', 'catalog', 'set', 'enumeration', 'page'])
+const STANDARD_ENTITY_METADATA_KIND_SET = new Set<string>(['hub', 'catalog', 'set', 'enumeration', 'page', 'ledger'])
 
 export const isStandardEntityMetadataKind = (kind: string): kind is BuiltinEntityKind => STANDARD_ENTITY_METADATA_KIND_SET.has(kind)
 
@@ -247,6 +262,9 @@ export const buildInitialFormValues = (uiLocale: string, entity?: MetahubEntityI
         descriptionVlc: entity?.description ? ensureLocalizedContent(entity.description, uiLocale, descriptionFallback) : null,
         codename: entity ? ensureLocalizedContent(entity.codename ?? null, uiLocale, nameFallback || entity.id) : null,
         codenameTouched: Boolean(entity),
+        recordBehavior: entity ? normalizeCatalogRecordBehaviorFromConfig(config) : DEFAULT_CATALOG_RECORD_BEHAVIOR,
+        ledgerSchemaEnabled: Boolean(isRecord(config.ledger)),
+        ledgerConfig: entity ? normalizeLedgerConfigFromConfig(config) : DEFAULT_LEDGER_CONFIG,
         treeEntityIds: getConfigTreeEntityIds(config),
         isSingleHub: getConfigBoolean(config, 'isSingleHub'),
         isRequiredHub: getConfigBoolean(config, 'isRequiredHub')

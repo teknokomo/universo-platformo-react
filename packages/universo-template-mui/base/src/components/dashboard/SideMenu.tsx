@@ -49,7 +49,6 @@ export default function SideMenu() {
                 }
             }}
         >
-            {/* TODO: Restore product selector once real data is wired */}
             {/*
       <Box
         sx={{

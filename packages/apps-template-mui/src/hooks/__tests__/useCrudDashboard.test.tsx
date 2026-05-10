@@ -342,6 +342,91 @@ describe('useCrudDashboard optimistic mutations', () => {
         })
     })
 
+    it('passes generic server list query models to the adapter', async () => {
+        const fetchList = vi.fn().mockResolvedValue(createAppData())
+        const adapter = createAdapter({ fetchList })
+        const { getState } = renderCrudDashboard(adapter)
+
+        await waitFor(() => {
+            expect(getState().selectedLinkedCollectionId).toBe('catalog-1')
+        })
+
+        await act(async () => {
+            getState().setSearchValue('Alpha')
+            getState().setSortModel([{ field: 'score', sort: 'desc' }])
+            getState().setFilterModel({
+                items: [{ id: 1, field: 'name', operator: 'contains', value: 'Alpha' }]
+            })
+        })
+
+        await waitFor(() => {
+            expect(fetchList).toHaveBeenLastCalledWith(
+                expect.objectContaining({
+                    linkedCollectionId: 'catalog-1',
+                    sectionId: 'catalog-1',
+                    search: 'Alpha',
+                    sort: [{ field: 'score', direction: 'desc' }],
+                    filters: [{ field: 'name', operator: 'contains', value: 'Alpha' }],
+                    offset: 0
+                })
+            )
+        })
+    })
+
+    it('resets section-scoped sort and filters when switching runtime sections', async () => {
+        const secondarySection = createRuntimeSection('catalog-2', 'Lessons')
+        const fetchList = vi.fn().mockImplementation(async ({ linkedCollectionId }: { linkedCollectionId?: string }) => ({
+            ...createAppData(),
+            section: linkedCollectionId === 'catalog-2' ? secondarySection : createRuntimeSection('catalog-1', 'Products'),
+            linkedCollection: linkedCollectionId === 'catalog-2' ? secondarySection : createRuntimeSection('catalog-1', 'Products'),
+            sections: [createRuntimeSection('catalog-1', 'Products'), secondarySection],
+            linkedCollections: [createRuntimeSection('catalog-1', 'Products'), secondarySection],
+            activeSectionId: linkedCollectionId ?? 'catalog-1',
+            activeLinkedCollectionId: linkedCollectionId ?? 'catalog-1'
+        }))
+        const adapter = createAdapter({ fetchList })
+        const { getState } = renderCrudDashboard(adapter)
+
+        await waitFor(() => {
+            expect(getState().selectedLinkedCollectionId).toBe('catalog-1')
+        })
+
+        await act(async () => {
+            getState().setSortModel([{ field: 'CompletedAt', sort: 'desc' }])
+            getState().setFilterModel({
+                items: [{ id: 1, field: 'SubmittedAt', operator: 'isNotEmpty' }]
+            })
+        })
+
+        await waitFor(() => {
+            expect(fetchList).toHaveBeenLastCalledWith(
+                expect.objectContaining({
+                    linkedCollectionId: 'catalog-1',
+                    sort: [{ field: 'CompletedAt', direction: 'desc' }],
+                    filters: [{ field: 'SubmittedAt', operator: 'isNotEmpty' }]
+                })
+            )
+        })
+
+        await act(async () => {
+            getState().onSelectLinkedCollection('catalog-2')
+        })
+
+        await waitFor(() => {
+            expect(fetchList).toHaveBeenLastCalledWith(
+                expect.objectContaining({
+                    linkedCollectionId: 'catalog-2',
+                    sectionId: 'catalog-2',
+                    sort: [],
+                    filters: [],
+                    offset: 0
+                })
+            )
+        })
+        expect(getState().sortModel).toEqual([])
+        expect(getState().filterModel).toEqual({ items: [] })
+    })
+
     it('omits row action columns when runtime permissions make the section read-only', async () => {
         const adapter = createAdapter({
             fetchList: vi.fn().mockResolvedValue({
@@ -633,5 +718,61 @@ describe('useCrudDashboard optimistic mutations', () => {
         expect(enqueueSnackbar).toHaveBeenCalledWith('This item is still being created. Please wait a moment and try again.', {
             variant: 'info'
         })
+    })
+
+    it('runs record lifecycle commands through the adapter and refreshes runtime data', async () => {
+        const fetchList = vi.fn().mockResolvedValue({
+            ...createAppData(),
+            linkedCollection: {
+                ...createAppData().linkedCollection,
+                recordBehavior: {
+                    mode: 'transactional',
+                    numbering: { enabled: true, scope: 'workspace', periodicity: 'none', minLength: 6 },
+                    effectiveDate: { enabled: true, defaultToNow: true },
+                    lifecycle: { enabled: true, states: [] },
+                    posting: { mode: 'manual', targetLedgers: [] },
+                    immutability: 'posted'
+                }
+            },
+            rows: [{ id: 'row-1', name: 'Original', _app_record_state: 'draft' }]
+        } satisfies AppDataResponse)
+        const recordCommand = vi.fn().mockResolvedValue({ id: 'row-1', status: 'posted' })
+        const adapter = createAdapter({ fetchList, recordCommand })
+        const { getState } = renderCrudDashboard(adapter)
+
+        await waitFor(() => {
+            expect(getState().handleRecordCommand).toBeDefined()
+            expect(getState().selectedLinkedCollectionId).toBe('catalog-1')
+        })
+
+        await act(async () => {
+            await getState().handleRecordCommand?.('row-1', 'post')
+        })
+
+        expect(recordCommand).toHaveBeenCalledWith('row-1', 'post', {
+            linkedCollectionId: 'catalog-1',
+            sectionId: 'catalog-1'
+        })
+        expect(enqueueSnackbar).toHaveBeenCalledWith('Record posted.', { variant: 'success' })
+        await waitFor(() => {
+            expect(fetchList.mock.calls.length).toBeGreaterThanOrEqual(2)
+        })
+    })
+
+    it('surfaces record lifecycle command errors through the snackbar path', async () => {
+        const recordCommand = vi.fn().mockRejectedValue(new Error('posting blocked'))
+        const adapter = createAdapter({ recordCommand })
+        const { getState } = renderCrudDashboard(adapter)
+
+        await waitFor(() => {
+            expect(getState().handleRecordCommand).toBeDefined()
+            expect(getState().selectedLinkedCollectionId).toBe('catalog-1')
+        })
+
+        await act(async () => {
+            await getState().handleRecordCommand?.('row-1', 'post')
+        })
+
+        expect(enqueueSnackbar).toHaveBeenCalledWith('Record command failed: posting blocked', { variant: 'error' })
     })
 })

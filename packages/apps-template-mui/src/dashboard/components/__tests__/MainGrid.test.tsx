@@ -1,5 +1,6 @@
-import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ChangeEventHandler, ReactNode } from 'react'
 import MainGrid from '../MainGrid'
 import { DashboardDetailsProvider } from '../../DashboardDetailsContext'
@@ -35,6 +36,19 @@ interface MockPaginationControlsProps {
     }
 }
 
+interface MockStatCardProps {
+    title: string
+    value: string
+}
+
+interface MockChartProps {
+    title?: string
+    value?: string
+    xAxisData?: string[]
+    series?: Array<{ label: string; data: number[] }>
+    noDataText?: string
+}
+
 interface MockRenderCellParams {
     id: string
     api: {
@@ -59,9 +73,35 @@ vi.mock('../../internals/components/Copyright', () => ({
 }))
 
 vi.mock('../HighlightedCard', () => ({ default: () => <div data-testid='highlighted-card' /> }))
-vi.mock('../PageViewsBarChart', () => ({ default: () => <div data-testid='page-views-chart' /> }))
-vi.mock('../SessionsChart', () => ({ default: () => <div data-testid='sessions-chart' /> }))
-vi.mock('../StatCard', () => ({ default: () => <div data-testid='stat-card' /> }))
+vi.mock('../PageViewsBarChart', () => ({
+    default: (props: MockChartProps) => (
+        <div
+            data-testid='page-views-chart'
+            data-series-length={String(props.series?.length ?? -1)}
+            data-x-axis-length={String(props.xAxisData?.length ?? -1)}
+            data-first-label={props.series?.[0]?.label ?? ''}
+            data-no-data-text={props.noDataText ?? ''}
+        >
+            {props.title ?? 'Page views'}:{props.value ?? ''}:{props.xAxisData?.join('|') ?? ''}:{props.series?.[0]?.data.join('|') ?? ''}
+        </div>
+    )
+}))
+vi.mock('../SessionsChart', () => ({
+    default: (props: MockChartProps) => (
+        <div
+            data-testid='sessions-chart'
+            data-series-length={String(props.series?.length ?? -1)}
+            data-x-axis-length={String(props.xAxisData?.length ?? -1)}
+            data-first-label={props.series?.[0]?.label ?? ''}
+            data-no-data-text={props.noDataText ?? ''}
+        >
+            {props.title ?? 'Sessions'}:{props.value ?? ''}:{props.xAxisData?.join('|') ?? ''}:{props.series?.[0]?.data.join('|') ?? ''}
+        </div>
+    )
+}))
+vi.mock('../StatCard', () => ({
+    default: (props: MockStatCardProps) => <div data-testid='stat-card'>{`${props.title}:${props.value}`}</div>
+}))
 vi.mock('../widgetRenderer', () => ({
     renderWidget: (widget: { widgetKey: string }) => <div data-testid={`rendered-widget-${widget.widgetKey}`}>{widget.widgetKey}</div>
 }))
@@ -104,6 +144,28 @@ vi.mock('@universo/template-mui', async () => {
         ),
         useViewPreference: (_key: string, defaultMode: 'table' | 'card') => React.useState(defaultMode)
     }
+})
+
+const createQueryClient = () =>
+    new QueryClient({
+        defaultOptions: {
+            queries: {
+                retry: false
+            }
+        }
+    })
+
+const localizedText = (en: string, ru: string) => ({
+    _schema: '1',
+    _primary: 'en',
+    locales: {
+        en: { content: en, version: 1, isActive: true },
+        ru: { content: ru, version: 1, isActive: true }
+    }
+})
+
+afterEach(() => {
+    vi.unstubAllGlobals()
 })
 
 describe('MainGrid enhanced runtime details', () => {
@@ -162,6 +224,331 @@ describe('MainGrid enhanced runtime details', () => {
         expect(screen.getByTestId('customized-grid')).toHaveAttribute('data-rows', '1')
         expect(screen.getByTestId('customized-grid')).toHaveAttribute('data-row-count', 'undefined')
         expect(screen.getByTestId('customized-grid')).toHaveAttribute('data-hide-footer', 'false')
+    })
+
+    it('resolves localized overview card labels and records.count metrics through the runtime list API', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                section: {
+                    id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
+                    codename: 'courses',
+                    tableName: 'courses',
+                    name: 'Courses'
+                },
+                linkedCollection: {
+                    id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
+                    codename: 'courses',
+                    tableName: 'courses',
+                    name: 'Courses'
+                },
+                sections: [],
+                linkedCollections: [],
+                activeSectionId: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
+                activeLinkedCollectionId: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
+                columns: [],
+                rows: [],
+                pagination: {
+                    total: 42,
+                    limit: 1,
+                    offset: 0
+                },
+                layoutConfig: {},
+                zoneWidgets: { left: [], right: [], center: [] },
+                menus: [],
+                activeMenuId: null
+            })
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <DashboardDetailsProvider
+                    value={{
+                        ...details,
+                        applicationId: 'app-1',
+                        apiBaseUrl: '/api/v1',
+                        locale: 'ru',
+                        sections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'courses' }],
+                        linkedCollections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'courses' }]
+                    }}
+                >
+                    <MainGrid
+                        layoutConfig={{ ...baseLayoutConfig, showOverviewCards: true, showDetailsTable: false }}
+                        centerWidgets={[
+                            {
+                                id: 'overview-cards',
+                                widgetKey: 'overviewCards',
+                                sortOrder: 1,
+                                config: {
+                                    cards: [
+                                        {
+                                            title: localizedText('Courses', 'Курсы'),
+                                            value: '0',
+                                            interval: localizedText('All records', 'Все записи'),
+                                            trend: 'neutral',
+                                            datasource: {
+                                                kind: 'metric',
+                                                metricKey: 'records.count',
+                                                params: {
+                                                    sectionCodename: 'courses',
+                                                    search: 'safety'
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        ]}
+                    />
+                </DashboardDetailsProvider>
+            </QueryClientProvider>
+        )
+
+        await waitFor(() => expect(screen.getByTestId('stat-card')).toHaveTextContent('Курсы:42'))
+        const requestedUrl = new URL(fetchMock.mock.calls[0][0] as string)
+        expect(requestedUrl.searchParams.get('limit')).toBe('1')
+        expect(requestedUrl.searchParams.get('linkedCollectionId')).toBe('017f22e2-79b0-7cc3-98c4-dc0c0c073990')
+        expect(requestedUrl.searchParams.get('search')).toBe('safety')
+        expect(requestedUrl.searchParams.get('locale')).toBe('ru')
+    })
+
+    it('resolves records.list datasource rows into localized chart series props', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                section: {
+                    id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
+                    codename: 'activity',
+                    tableName: 'activity',
+                    name: 'Activity'
+                },
+                linkedCollection: {
+                    id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
+                    codename: 'activity',
+                    tableName: 'Activity',
+                    name: 'Activity'
+                },
+                sections: [],
+                linkedCollections: [],
+                activeSectionId: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
+                activeLinkedCollectionId: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
+                columns: [],
+                rows: [
+                    { id: 'row-1', period: 'Jan', completed: 12 },
+                    { id: 'row-2', period: 'Feb', completed: '18' }
+                ],
+                pagination: {
+                    total: 2,
+                    limit: 3,
+                    offset: 0
+                },
+                layoutConfig: {},
+                zoneWidgets: { left: [], right: [], center: [] },
+                menus: [],
+                activeMenuId: null
+            })
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <DashboardDetailsProvider
+                    value={{
+                        ...details,
+                        applicationId: 'app-1',
+                        apiBaseUrl: '/api/v1',
+                        locale: 'ru',
+                        sections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'activity' }],
+                        linkedCollections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'activity' }]
+                    }}
+                >
+                    <MainGrid
+                        layoutConfig={{ ...baseLayoutConfig, showPageViewsChart: true, showDetailsTable: false }}
+                        centerWidgets={[
+                            {
+                                id: 'page-views-chart',
+                                widgetKey: 'pageViewsChart',
+                                sortOrder: 1,
+                                config: {
+                                    title: localizedText('Completed learning', 'Завершённое обучение'),
+                                    value: '30',
+                                    datasource: {
+                                        kind: 'records.list',
+                                        sectionCodename: 'activity',
+                                        query: {
+                                            search: 'cohort',
+                                            sort: [{ field: 'period', direction: 'asc' }]
+                                        }
+                                    },
+                                    xField: 'period',
+                                    maxRows: 3,
+                                    series: [{ field: 'completed', label: localizedText('Completed', 'Завершено') }]
+                                }
+                            }
+                        ]}
+                    />
+                </DashboardDetailsProvider>
+            </QueryClientProvider>
+        )
+
+        await waitFor(() => expect(screen.getByTestId('page-views-chart')).toHaveTextContent('Завершённое обучение:30:Jan|Feb:12|18'))
+        expect(screen.getByTestId('page-views-chart')).toHaveAttribute('data-first-label', 'Завершено')
+        const requestedUrl = new URL(fetchMock.mock.calls[0][0] as string)
+        expect(requestedUrl.searchParams.get('limit')).toBe('3')
+        expect(requestedUrl.searchParams.get('linkedCollectionId')).toBe('017f22e2-79b0-7cc3-98c4-dc0c0c073990')
+        expect(requestedUrl.searchParams.get('search')).toBe('cohort')
+        expect(JSON.parse(requestedUrl.searchParams.get('sort') ?? '[]')).toEqual([{ field: 'period', direction: 'asc' }])
+    })
+
+    it('resolves ledger.projection datasource rows into localized chart series props', async () => {
+        window.sessionStorage.setItem('up.auth.csrf', 'csrf-token')
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                projection: { codename: 'ProgressByLearner' },
+                rows: [
+                    { Learner: 'Ana', ProgressDelta: 10 },
+                    { Learner: 'Ben', ProgressDelta: '15' }
+                ],
+                limit: 2,
+                offset: 0
+            })
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <DashboardDetailsProvider
+                    value={{
+                        ...details,
+                        applicationId: 'app-1',
+                        apiBaseUrl: '/api/v1',
+                        locale: 'ru'
+                    }}
+                >
+                    <MainGrid
+                        layoutConfig={{ ...baseLayoutConfig, showPageViewsChart: true, showDetailsTable: false }}
+                        centerWidgets={[
+                            {
+                                id: 'page-views-chart',
+                                widgetKey: 'pageViewsChart',
+                                sortOrder: 1,
+                                config: {
+                                    title: localizedText('Progress by learner', 'Прогресс по учащимся'),
+                                    datasource: {
+                                        kind: 'ledger.projection',
+                                        ledgerId: '017f22e2-79b0-7cc3-98c4-dc0c0c073995',
+                                        projectionCodename: 'ProgressByLearner'
+                                    },
+                                    xField: 'Learner',
+                                    maxRows: 2,
+                                    series: [{ field: 'ProgressDelta', label: localizedText('Progress', 'Прогресс') }]
+                                }
+                            }
+                        ]}
+                    />
+                </DashboardDetailsProvider>
+            </QueryClientProvider>
+        )
+
+        await waitFor(() => expect(screen.getByTestId('page-views-chart')).toHaveTextContent('Прогресс по учащимся:25:Ana|Ben:10|15'))
+        expect(screen.getByTestId('page-views-chart')).toHaveAttribute('data-first-label', 'Прогресс')
+
+        const [requestedUrl, requestInit] = fetchMock.mock.calls[0]
+        expect(new URL(requestedUrl as string).pathname).toBe(
+            '/api/v1/applications/app-1/runtime/ledgers/017f22e2-79b0-7cc3-98c4-dc0c0c073995/query'
+        )
+        expect(requestInit).toMatchObject({
+            method: 'POST',
+            credentials: 'include'
+        })
+        const headers = new Headers((requestInit as RequestInit).headers)
+        expect(headers.get('Content-Type')).toBe('application/json')
+        expect(headers.get('X-CSRF-Token')).toBe('csrf-token')
+        expect(JSON.parse((requestInit as RequestInit).body as string)).toEqual({
+            projectionCodename: 'ProgressByLearner',
+            limit: 2,
+            offset: 0
+        })
+    })
+
+    it('keeps configured chart widgets empty instead of falling back to demo data when datasource rows are empty', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                section: {
+                    id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
+                    codename: 'activity',
+                    tableName: 'activity',
+                    name: 'Activity'
+                },
+                linkedCollection: {
+                    id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
+                    codename: 'activity',
+                    tableName: 'activity',
+                    name: 'Activity'
+                },
+                sections: [],
+                linkedCollections: [],
+                activeSectionId: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
+                activeLinkedCollectionId: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
+                columns: [],
+                rows: [],
+                pagination: {
+                    total: 0,
+                    limit: 12,
+                    offset: 0
+                },
+                layoutConfig: {},
+                zoneWidgets: { left: [], right: [], center: [] },
+                menus: [],
+                activeMenuId: null
+            })
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <DashboardDetailsProvider
+                    value={{
+                        ...details,
+                        applicationId: 'app-1',
+                        apiBaseUrl: '/api/v1',
+                        locale: 'ru',
+                        sections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'activity' }],
+                        linkedCollections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'activity' }]
+                    }}
+                >
+                    <MainGrid
+                        layoutConfig={{ ...baseLayoutConfig, showSessionsChart: true, showDetailsTable: false }}
+                        centerWidgets={[
+                            {
+                                id: 'sessions-chart',
+                                widgetKey: 'sessionsChart',
+                                sortOrder: 1,
+                                config: {
+                                    title: localizedText('Progress', 'Прогресс'),
+                                    datasource: {
+                                        kind: 'records.list',
+                                        sectionCodename: 'activity'
+                                    },
+                                    xField: 'period',
+                                    maxRows: 12,
+                                    series: [{ field: 'completed', label: localizedText('Completed', 'Завершено'), area: true }]
+                                }
+                            }
+                        ]}
+                    />
+                </DashboardDetailsProvider>
+            </QueryClientProvider>
+        )
+
+        await waitFor(() => expect(screen.getByTestId('sessions-chart')).toHaveTextContent('Прогресс:0::'))
+        expect(screen.getByTestId('sessions-chart')).toHaveAttribute('data-series-length', '1')
+        expect(screen.getByTestId('sessions-chart')).toHaveAttribute('data-x-axis-length', '0')
+        expect(screen.getByTestId('sessions-chart')).toHaveAttribute('data-first-label', 'Завершено')
+        expect(screen.getByTestId('sessions-chart')).toHaveAttribute('data-no-data-text', 'Нет данных для отображения')
     })
 
     it('switches table mode to FlowListTable when row reordering is enabled', () => {

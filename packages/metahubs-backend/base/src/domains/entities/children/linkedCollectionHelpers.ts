@@ -3,7 +3,8 @@ import type { DbExecutor, SqlQueryable } from '@universo/utils'
 import { localizedContent, validation, database } from '@universo/utils'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 const { normalizeLinkedCollectionCopyOptions, normalizeCodenameForStyle, isValidCodenameForStyle } = validation
-import { MetaEntityKind } from '@universo/types'
+import { MetaEntityKind, normalizeCatalogRecordBehavior, normalizeLedgerConfig, validateLedgerConfigReferences } from '@universo/types'
+import type { LedgerConfig } from '@universo/types'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubTreeEntitiesService } from '../../metahubs/services/MetahubTreeEntitiesService'
@@ -58,6 +59,8 @@ type LinkedCollectionObjectRow = {
         isRequiredHub?: boolean
         sortOrder?: number
         runtimeConfig?: unknown
+        recordBehavior?: unknown
+        ledger?: unknown
     }
     _upl_version?: number
     created_at?: unknown
@@ -75,6 +78,7 @@ type LinkedCollectionListItemRow = {
     isSingleHub: boolean
     isRequiredHub: boolean
     sortOrder: number
+    config: Record<string, unknown>
     version: number
     createdAt: unknown
     updatedAt: unknown
@@ -157,6 +161,7 @@ const mapLinkedCollectionListItem = (
     isSingleHub: row.config?.isSingleHub || false,
     isRequiredHub: row.config?.isRequiredHub || false,
     sortOrder: row.config?.sortOrder || 0,
+    config: row.config ?? {},
     version: row._upl_version || 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -260,6 +265,8 @@ const createLinkedCollectionSchema = z
         isSingleHub: z.boolean().optional(),
         isRequiredHub: z.boolean().optional(),
         treeEntityIds: z.array(z.string().uuid()).optional(),
+        recordBehavior: z.record(z.unknown()).optional(),
+        ledgerConfig: z.union([z.record(z.unknown()), z.null()]).optional(),
         kindKey: z.string().trim().min(1).max(128).optional()
     })
     .strict()
@@ -275,9 +282,44 @@ const updateLinkedCollectionSchema = z
         isSingleHub: z.boolean().optional(),
         isRequiredHub: z.boolean().optional(),
         treeEntityIds: z.array(z.string().uuid()).optional(),
+        recordBehavior: z.record(z.unknown()).optional(),
+        ledgerConfig: z.union([z.record(z.unknown()), z.null()]).optional(),
         expectedVersion: z.number().int().positive().optional()
     })
     .strict()
+
+const normalizeOptionalLedgerConfig = (value: unknown): LedgerConfig | null | undefined => {
+    if (value === undefined) return undefined
+    if (value === null) return null
+    return normalizeLedgerConfig(value)
+}
+
+const validateLinkedCollectionLedgerConfig = async ({
+    fieldDefinitionsService,
+    metahubId,
+    objectId,
+    userId,
+    ledgerConfig
+}: {
+    fieldDefinitionsService: MetahubFieldDefinitionsService
+    metahubId: string
+    objectId: string | null
+    userId?: string
+    ledgerConfig: LedgerConfig | null | undefined
+}): Promise<string | null> => {
+    if (!ledgerConfig) return null
+
+    const fields = objectId ? await fieldDefinitionsService.findAllFlat(metahubId, objectId, userId, 'all') : []
+    const referenceErrors = validateLedgerConfigReferences({
+        config: ledgerConfig,
+        fields: fields.map((field) => ({
+            codename: field.codename,
+            dataType: field.dataType
+        }))
+    })
+
+    return referenceErrors.length > 0 ? 'Ledger schema references unknown or incompatible field definitions' : null
+}
 
 const copyLinkedCollectionSchema = z
     .object({
@@ -521,6 +563,7 @@ export const getLinkedCollectionByHub = async ({ req, res, metahubId, userId, ex
         isSingleHub: currentConfig.isSingleHub,
         isRequiredHub: currentConfig.isRequiredHub,
         sortOrder: currentConfig.sortOrder,
+        config: currentConfig,
         version: catalog._upl_version || 1,
         createdAt: catalog.created_at,
         updatedAt: catalog.updated_at,
@@ -559,8 +602,21 @@ export const createLinkedCollectionByHub = async ({ req, res, metahubId, userId,
         isSingleHub,
         isRequiredHub,
         treeEntityIds,
+        recordBehavior,
+        ledgerConfig,
         kindKey
     } = parsed.data
+    const normalizedLedgerConfig = normalizeOptionalLedgerConfig(ledgerConfig)
+    const ledgerValidationError = await validateLinkedCollectionLedgerConfig({
+        fieldDefinitionsService,
+        metahubId,
+        objectId: null,
+        userId,
+        ledgerConfig: normalizedLedgerConfig
+    })
+    if (ledgerValidationError) {
+        return res.status(400).json({ error: ledgerValidationError })
+    }
 
     const targetKind = await resolveRequestedEntityMetadataKind(entityTypeService, metahubId, 'catalog', kindKey, userId)
 
@@ -633,7 +689,9 @@ export const createLinkedCollectionByHub = async ({ req, res, metahubId, userId,
                         hubs: targetTreeEntityIds,
                         isSingleHub: isSingleHub ?? false,
                         isRequiredHub: effectiveIsRequired,
-                        sortOrder
+                        sortOrder,
+                        recordBehavior: normalizeCatalogRecordBehavior(recordBehavior),
+                        ...(normalizedLedgerConfig ? { ledger: normalizedLedgerConfig } : {})
                     },
                     createdBy: userId
                 },
@@ -663,6 +721,7 @@ export const createLinkedCollectionByHub = async ({ req, res, metahubId, userId,
         isSingleHub: catalog.config.isSingleHub,
         isRequiredHub: catalog.config.isRequiredHub,
         sortOrder: catalog.config.sortOrder,
+        config: catalog.config ?? {},
         version: catalog._upl_version || 1,
         createdAt: catalog.created_at,
         updatedAt: catalog.updated_at,
@@ -672,7 +731,10 @@ export const createLinkedCollectionByHub = async ({ req, res, metahubId, userId,
 
 export const updateLinkedCollectionByHub = async ({ req, res, metahubId, userId, exec, schemaService }: MetahubHandlerContext) => {
     const { treeEntityId, linkedCollectionId } = req.params
-    const { objectsService, treeEntitiesService, settingsService, entityTypeService } = createDomainServices(exec, schemaService)
+    const { objectsService, treeEntitiesService, fieldDefinitionsService, settingsService, entityTypeService } = createDomainServices(
+        exec,
+        schemaService
+    )
     const catalogCompatibleKinds = await resolveLinkedCollectionCompatibleKinds(entityTypeService, metahubId, userId)
     const catalogCompatibleKindSet = createLinkedCollectionCompatibleKindSet(catalogCompatibleKinds)
 
@@ -701,8 +763,21 @@ export const updateLinkedCollectionByHub = async ({ req, res, metahubId, userId,
         isSingleHub,
         isRequiredHub,
         treeEntityIds,
+        recordBehavior,
+        ledgerConfig,
         expectedVersion
     } = parsed.data
+    const normalizedLedgerConfig = normalizeOptionalLedgerConfig(ledgerConfig)
+    const ledgerValidationError = await validateLinkedCollectionLedgerConfig({
+        fieldDefinitionsService,
+        metahubId,
+        objectId: linkedCollectionId,
+        userId,
+        ledgerConfig: normalizedLedgerConfig
+    })
+    if (ledgerValidationError) {
+        return res.status(400).json({ error: ledgerValidationError })
+    }
 
     const currentName = getLinkedCollectionNameField(catalog)
     const currentDescription = getLinkedCollectionDescriptionField(catalog)
@@ -781,6 +856,24 @@ export const updateLinkedCollectionByHub = async ({ req, res, metahubId, userId,
                 : undefined
     }
 
+    const nextConfig = {
+        ...currentConfig,
+        hubs: targetTreeEntityIds,
+        isSingleHub: isSingleHub ?? currentConfig.isSingleHub,
+        isRequiredHub: isRequiredHub ?? currentConfig.isRequiredHub,
+        sortOrder: sortOrder ?? currentConfig.sortOrder,
+        recordBehavior:
+            recordBehavior !== undefined ? normalizeCatalogRecordBehavior(recordBehavior) : normalizeCatalogRecordBehavior(currentConfig.recordBehavior),
+        runtimeConfig: currentConfig.runtimeConfig
+    }
+    if (normalizedLedgerConfig !== undefined) {
+        if (normalizedLedgerConfig === null) {
+            delete nextConfig.ledger
+        } else {
+            nextConfig.ledger = normalizedLedgerConfig
+        }
+    }
+
     const updated = (await objectsService.updateObject(
         metahubId,
         linkedCollectionId,
@@ -789,13 +882,7 @@ export const updateLinkedCollectionByHub = async ({ req, res, metahubId, userId,
             codename: finalCodenameText !== getLinkedCollectionCodenameText(catalog.codename) ? finalCodename : undefined,
             name: finalName,
             description: finalDescription,
-            config: {
-                hubs: targetTreeEntityIds,
-                isSingleHub: isSingleHub ?? currentConfig.isSingleHub,
-                isRequiredHub: isRequiredHub ?? currentConfig.isRequiredHub,
-                sortOrder: sortOrder ?? currentConfig.sortOrder,
-                runtimeConfig: undefined
-            },
+            config: nextConfig,
             updatedBy: userId,
             expectedVersion
         },
@@ -816,6 +903,7 @@ export const updateLinkedCollectionByHub = async ({ req, res, metahubId, userId,
         isSingleHub: responseCatalog.config?.isSingleHub ?? false,
         isRequiredHub: responseCatalog.config?.isRequiredHub ?? false,
         sortOrder: responseCatalog.config?.sortOrder ?? 0,
+        config: responseCatalog.config ?? {},
         version: responseCatalog._upl_version || 1,
         createdAt: responseCatalog.created_at,
         updatedAt: responseCatalog.updated_at,

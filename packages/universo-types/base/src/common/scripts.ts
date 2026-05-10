@@ -1,6 +1,16 @@
 import type { VersionedLocalizedContent } from './admin'
 
-export const SCRIPT_ATTACHMENT_KINDS = ['metahub', 'catalog', 'hub', 'set', 'enumeration', 'page', 'attribute', 'general'] as const
+export const SCRIPT_ATTACHMENT_KINDS = [
+    'metahub',
+    'catalog',
+    'hub',
+    'set',
+    'enumeration',
+    'page',
+    'ledger',
+    'attribute',
+    'general'
+] as const
 export type KnownScriptAttachmentKind = (typeof SCRIPT_ATTACHMENT_KINDS)[number]
 export type ScriptAttachmentKind = KnownScriptAttachmentKind | (string & {})
 
@@ -30,7 +40,16 @@ export type ScriptSourceKind = (typeof SCRIPT_SOURCE_KINDS)[number]
 export const SCRIPT_AUTHORING_SOURCE_KINDS = ['embedded'] as const
 export type ScriptAuthoringSourceKind = (typeof SCRIPT_AUTHORING_SOURCE_KINDS)[number]
 
-export const SCRIPT_CAPABILITIES = ['records.read', 'records.write', 'metadata.read', 'rpc.client', 'lifecycle'] as const
+export const SCRIPT_CAPABILITIES = [
+    'records.read',
+    'records.write',
+    'metadata.read',
+    'rpc.client',
+    'lifecycle',
+    'posting',
+    'ledger.read',
+    'ledger.write'
+] as const
 export type ScriptCapability = (typeof SCRIPT_CAPABILITIES)[number]
 
 export const SCRIPT_METHOD_TARGETS = ['server', 'client', 'server_and_client'] as const
@@ -48,7 +67,13 @@ export const SCRIPT_LIFECYCLE_EVENTS = [
     'beforeDelete',
     'afterDelete',
     'beforeCopy',
-    'afterCopy'
+    'afterCopy',
+    'beforePost',
+    'afterPost',
+    'beforeUnpost',
+    'afterUnpost',
+    'beforeVoid',
+    'afterVoid'
 ] as const
 export type ScriptLifecycleEvent = (typeof SCRIPT_LIFECYCLE_EVENTS)[number]
 export type ScriptEventName = ScriptLifecycleEvent | (string & {})
@@ -62,8 +87,8 @@ export const DEFAULT_SCRIPT_MODULE_ROLE: ScriptModuleRole = 'module'
 const SUPPORTED_SCRIPT_SDK_API_VERSION_SET = new Set<string>(SUPPORTED_SCRIPT_SDK_API_VERSIONS)
 
 const SCRIPT_ALLOWED_CAPABILITIES_BY_ROLE: Record<ScriptModuleRole, readonly ScriptCapability[]> = {
-    module: ['records.read', 'records.write', 'metadata.read', 'lifecycle'],
-    lifecycle: ['records.read', 'records.write', 'metadata.read', 'lifecycle'],
+    module: ['records.read', 'records.write', 'metadata.read', 'lifecycle', 'posting', 'ledger.read', 'ledger.write'],
+    lifecycle: ['records.read', 'records.write', 'metadata.read', 'lifecycle', 'posting', 'ledger.read', 'ledger.write'],
     widget: ['metadata.read', 'rpc.client'],
     library: ['metadata.read']
 }
@@ -274,6 +299,19 @@ export interface ScriptLifecyclePayload {
     previousRow?: Record<string, unknown> | null
     patch?: Record<string, unknown> | null
     metadata?: Record<string, unknown>
+}
+
+export interface ScriptPostingMovementFact {
+    data: Record<string, unknown>
+}
+
+export interface ScriptPostingMovement {
+    ledgerCodename: string
+    facts: ScriptPostingMovementFact[]
+}
+
+export interface ScriptPostingMovementResult {
+    movements: ScriptPostingMovement[]
 }
 
 export interface RuntimeScriptCallRequest {

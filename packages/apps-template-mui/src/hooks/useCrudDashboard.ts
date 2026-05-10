@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { GridColDef, GridLocaleText, GridPaginationModel } from '@mui/x-data-grid'
+import type { GridColDef, GridFilterModel, GridLocaleText, GridPaginationModel, GridSortModel } from '@mui/x-data-grid'
 import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'
 import { isPendingInteractionBlocked, makePendingMarkers } from '@universo/utils'
@@ -20,11 +20,12 @@ import {
     safeInvalidateQueriesInactive
 } from './optimisticCrud'
 import type { AppDataResponse } from '../api/api'
-import type { CrudDataAdapter, CellRendererOverrides } from '../api/types'
+import type { CrudDataAdapter, CellRendererOverrides, RuntimeRecordCommand } from '../api/types'
 import type { DashboardMenuItem, DashboardMenuSlot } from '../dashboard/Dashboard'
 import type { FieldConfig } from '../components/dialogs/FormDialog'
 import { toGridColumns, toFieldConfigs } from '../utils/columns'
 import { getDataGridLocaleText } from '../utils/getDataGridLocale'
+import { mapGridFilterModel, mapGridSortModel } from '../utils/runtimeListQuery'
 
 // ---------------------------------------------------------------------------
 //  Stable empty key prefix (avoids new [] allocation on each render)
@@ -297,6 +298,12 @@ export interface CrudDashboardState {
     rowCount: number | undefined
     paginationModel: GridPaginationModel
     setPaginationModel: (model: GridPaginationModel) => void
+    sortModel: GridSortModel
+    setSortModel: (model: GridSortModel) => void
+    filterModel: GridFilterModel
+    setFilterModel: (model: GridFilterModel) => void
+    searchValue: string
+    setSearchValue: (value: string) => void
     pageSizeOptions: number[]
     localeText: Partial<GridLocaleText> | undefined
     handlePendingInteractionAttempt: (rowId: string) => boolean
@@ -352,6 +359,8 @@ export interface CrudDashboardState {
     menuRowId: string | null
     handleOpenMenu: (event: React.MouseEvent<HTMLElement>, rowId: string) => void
     handleCloseMenu: () => void
+    handleRecordCommand?: (rowId: string, command: RuntimeRecordCommand) => Promise<void>
+    isRecordCommandPending?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -379,6 +388,9 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         page: 0,
         pageSize: defaultPageSize
     })
+    const [sortModel, setSortModelState] = useState<GridSortModel>([])
+    const [filterModel, setFilterModelState] = useState<GridFilterModel>({ items: [] })
+    const [searchValue, setSearchValueState] = useState('')
     const [selectedLinkedCollectionId, setSelectedLinkedCollectionId] = useState<string | undefined>(
         () => initialSectionId ?? readInitialLinkedCollectionId()
     )
@@ -404,6 +416,30 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     // ----- Derived values -----
     const limit = paginationModel.pageSize
     const offset = paginationModel.page * paginationModel.pageSize
+    const runtimeSort = useMemo(() => mapGridSortModel(sortModel), [sortModel])
+    const runtimeFilters = useMemo(() => mapGridFilterModel(filterModel), [filterModel])
+    const normalizedSearchValue = searchValue.trim()
+
+    const setSortModel = useCallback((model: GridSortModel) => {
+        setSortModelState(model)
+        setPaginationModel((current) => ({ ...current, page: 0 }))
+    }, [])
+
+    const setFilterModel = useCallback((model: GridFilterModel) => {
+        setFilterModelState(model)
+        setPaginationModel((current) => ({ ...current, page: 0 }))
+    }, [])
+
+    const setSearchValue = useCallback((value: string) => {
+        setSearchValueState(value)
+        setPaginationModel((current) => ({ ...current, page: 0 }))
+    }, [])
+
+    const resetSectionScopedListState = useCallback(() => {
+        setPaginationModel((current) => ({ ...current, page: 0 }))
+        setSortModelState([])
+        setFilterModelState({ items: [] })
+    }, [])
 
     // Query key helpers
     const queryKeyPrefix = adapter?.queryKeyPrefix ?? EMPTY_KEY_PREFIX
@@ -411,14 +447,24 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         defaultValue: 'This item is still being created. Please wait a moment and try again.'
     })
     const listKey = useMemo(
-        () => [...queryKeyPrefix, 'list', selectedLinkedCollectionId, { limit, offset, locale }] as const,
-        [queryKeyPrefix, selectedLinkedCollectionId, limit, offset, locale]
+        () =>
+            [
+                ...queryKeyPrefix,
+                'list',
+                selectedLinkedCollectionId,
+                { limit, offset, locale, search: normalizedSearchValue, sort: runtimeSort, filters: runtimeFilters }
+            ] as const,
+        [queryKeyPrefix, selectedLinkedCollectionId, limit, offset, locale, normalizedSearchValue, runtimeFilters, runtimeSort]
     )
 
     useEffect(() => {
         if (!initialSectionId) return
-        setSelectedLinkedCollectionId((current) => (current === initialSectionId ? current : initialSectionId))
-    }, [initialSectionId])
+        setSelectedLinkedCollectionId((current) => {
+            if (current === initialSectionId) return current
+            resetSectionScopedListState()
+            return initialSectionId
+        })
+    }, [initialSectionId, resetSectionScopedListState])
     const sourceRowId = copyRowId ?? editRowId
     const rowKey = useMemo(() => [...queryKeyPrefix, 'row', sourceRowId] as const, [queryKeyPrefix, sourceRowId])
 
@@ -431,7 +477,10 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                 offset,
                 locale,
                 linkedCollectionId: selectedLinkedCollectionId,
-                sectionId: selectedLinkedCollectionId
+                sectionId: selectedLinkedCollectionId,
+                search: normalizedSearchValue || undefined,
+                sort: runtimeSort,
+                filters: runtimeFilters
             }),
         enabled: Boolean(adapter),
         staleTime,
@@ -709,6 +758,24 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         }
     })
 
+    const recordCommandMutation = useMutation({
+        mutationKey: [...queryKeyPrefix, 'record-command'],
+        mutationFn: async (params: { rowId: string; command: RuntimeRecordCommand }) => {
+            if (!adapter?.recordCommand) {
+                throw new Error('Record lifecycle commands are not available for this runtime adapter')
+            }
+
+            return adapter.recordCommand(params.rowId, params.command, {
+                linkedCollectionId: selectedLinkedCollectionId ?? activeLinkedCollectionId,
+                sectionId: selectedLinkedCollectionId ?? activeSectionId
+            })
+        },
+        onSettled: (_data, _error, variables) => {
+            safeInvalidateQueries(queryClient, queryKeyPrefix, queryKeyPrefix)
+            queryClient.invalidateQueries({ queryKey: [...queryKeyPrefix, 'row', variables.rowId] })
+        }
+    })
+
     // ----- CRUD handlers -----
     const handleOpenCreate = useCallback(() => {
         if (displayAppData?.workspaceLimit?.canCreate === false) {
@@ -927,6 +994,30 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         [adapter?.reorderRows, enqueueSnackbar, reorderMutation, t]
     )
 
+    const handleRecordCommand = useCallback(
+        async (rowId: string, command: RuntimeRecordCommand) => {
+            if (guardPendingRowInteraction(rowId)) return
+
+            try {
+                await recordCommandMutation.mutateAsync({ rowId, command })
+                const messageKey =
+                    command === 'post' ? 'app.recordPosted' : command === 'unpost' ? 'app.recordUnposted' : 'app.recordVoided'
+                const defaultValue = command === 'post' ? 'Record posted.' : command === 'unpost' ? 'Record unposted.' : 'Record voided.'
+                enqueueSnackbar(t(messageKey, defaultValue), { variant: 'success' })
+            } catch (err) {
+                const msg = extractApiErrorMessage(err)
+                enqueueSnackbar(
+                    t('app.errorRecordCommand', {
+                        defaultValue: 'Record command failed: {{message}}',
+                        message: msg
+                    }),
+                    { variant: 'error' }
+                )
+            }
+        },
+        [enqueueSnackbar, guardPendingRowInteraction, recordCommandMutation, t]
+    )
+
     // ----- Row actions menu -----
     const handleOpenMenu = useCallback(
         (event: React.MouseEvent<HTMLElement>, rowId: string) => {
@@ -947,10 +1038,10 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     const onSelectLinkedCollection = useCallback(
         (linkedCollectionId: string) => {
             if (!linkedCollectionId || linkedCollectionId === activeLinkedCollectionId) return
-            setPaginationModel((prev) => ({ ...prev, page: 0 }))
+            resetSectionScopedListState()
             setSelectedLinkedCollectionId(linkedCollectionId)
         },
-        [activeLinkedCollectionId]
+        [activeLinkedCollectionId, resetSectionScopedListState]
     )
     const onSelectSection = onSelectLinkedCollection
 
@@ -1097,6 +1188,12 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         rowCount,
         paginationModel,
         setPaginationModel,
+        sortModel,
+        setSortModel,
+        filterModel,
+        setFilterModel,
+        searchValue,
+        setSearchValue,
         pageSizeOptions,
         localeText,
         handlePendingInteractionAttempt: guardPendingRowInteraction,
@@ -1149,6 +1246,8 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         menuAnchorEl,
         menuRowId,
         handleOpenMenu,
-        handleCloseMenu
+        handleCloseMenu,
+        handleRecordCommand: adapter?.recordCommand ? handleRecordCommand : undefined,
+        isRecordCommandPending: recordCommandMutation.isPending
     }
 }

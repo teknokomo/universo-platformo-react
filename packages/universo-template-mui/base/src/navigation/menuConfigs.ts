@@ -20,7 +20,9 @@ import {
     IconUserShield,
     IconLanguage,
     IconApps,
-    IconDatabase
+    IconDatabase,
+    IconReceipt,
+    IconStack2
 } from '@tabler/icons-react'
 
 export type TemplateMenuItem = TemplateMenuEntry | TemplateMenuDivider
@@ -69,7 +71,9 @@ const menuIconRegistry: Record<string, ElementType> = {
     IconHierarchy3,
     IconHistory,
     IconLayoutDashboard,
+    IconReceipt,
     IconSettings,
+    IconStack2,
     IconUsers,
     IconUsersGroup,
     IconUserShield,

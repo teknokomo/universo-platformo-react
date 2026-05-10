@@ -876,6 +876,7 @@ const ApplicationLayouts = () => {
 
                 <ApplicationWidgetBehaviorEditorDialog
                     open={Boolean(behaviorEditingWidget)}
+                    widgetKey={behaviorEditingWidget?.widgetKey}
                     config={behaviorEditingWidget?.config as Record<string, unknown> | undefined}
                     onSave={(config) => {
                         if (!behaviorEditingWidget) return

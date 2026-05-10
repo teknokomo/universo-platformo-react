@@ -1,8 +1,20 @@
 import { Checkbox, FormControlLabel, Stack, Typography } from '@mui/material'
+import { useQueries, useQuery } from '@tanstack/react-query'
 import type { ActionDescriptor, ActionContext } from '@universo/template-mui'
 import { createCopyActionIcon, createDeleteActionIcon, createEditActionIcon, notifyError } from '@universo/template-mui'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
-import type { VersionedLocalizedContent } from '@universo/types'
+import {
+    normalizeCatalogRecordBehavior,
+    normalizeCatalogRecordBehaviorFromConfig,
+    normalizeLedgerConfig,
+    normalizeLedgerConfigFromConfig,
+    supportsLedgerSchema,
+    validateLedgerConfigReferences,
+    type CatalogRecordBehavior,
+    type ComponentManifest,
+    type LedgerConfig,
+    type VersionedLocalizedContent
+} from '@universo/types'
 import { normalizeLinkedCollectionCopyOptions } from '@universo/utils'
 import type { LinkedCollectionEntity, LinkedCollectionDisplay, LinkedCollectionLocalizedPayload, TreeEntity } from '../../../../types'
 import { getVLCString } from '../../../../types'
@@ -19,8 +31,14 @@ import {
 import { ContainerSelectionPanel } from '../../../../components'
 import LayoutList from '../../../layouts/ui/LayoutList'
 import { createScriptsTab } from '../../../scripts/ui/EntityScriptsTab'
+import { scriptsApi } from '../../../scripts/api/scriptsApi'
 import GeneralTabFields from '../../../shared/ui/GeneralTabFields'
 import { buildLinkedCollectionAuthoringPath } from './linkedCollectionRoutePaths'
+import * as entitiesApi from '../../api'
+import * as fieldDefinitionsApi from '../../metadata/fieldDefinition/api'
+import RecordBehaviorFields from '../../ui/RecordBehaviorFields'
+import type { RecordBehaviorOption } from '../../ui/RecordBehaviorFields'
+import LedgerSchemaFields from '../../ui/LedgerSchemaFields'
 
 const DEFAULT_CC: CodenameConfig = {
     style: 'pascal-case',
@@ -30,7 +48,8 @@ const DEFAULT_CC: CodenameConfig = {
     autoReformat: true,
     requireReformat: true
 }
-const _cc = (values: Record<string, unknown>): CodenameConfig => (values._codenameConfig as CodenameConfig) || DEFAULT_CC
+const _cc = (values?: Record<string, unknown> | null): CodenameConfig =>
+    (values?._codenameConfig as CodenameConfig | undefined) || DEFAULT_CC
 const DIALOG_SAVE_CANCEL = { __dialogCancelled: true } as const
 
 /**
@@ -41,18 +60,89 @@ export interface LinkedCollectionDisplayWithContainer extends LinkedCollectionDi
 }
 
 export type LinkedCollectionFormValues = Record<string, unknown>
+const ensureFormValues = (values?: LinkedCollectionFormValues | null): LinkedCollectionFormValues => values ?? {}
 export type LinkedCollectionFormSetValue = (name: string, value: unknown) => void
 export type LinkedCollectionActionContext = ActionContext<LinkedCollectionDisplayWithContainer, LinkedCollectionLocalizedPayload> & {
     treeEntities?: TreeEntity[]
     currentTreeEntityId?: string | null
     metahubId?: string | null
     routeKindKey?: string | null
+    recordBehaviorEnabled?: boolean
+    recordBehaviorComponents?: ComponentManifest | null
+    recordBehaviorDefaultConfig?: Record<string, unknown> | null
+    ledgerSchemaEnabled?: boolean
+    ledgerSchemaComponents?: ComponentManifest | null
+    ledgerSchemaDefaultConfig?: Record<string, unknown> | null
+    ledgerCandidateKindKeys?: string[]
+    ledgerEntityKindOptions?: RecordBehaviorOption[]
 }
 export type LinkedCollectionDialogTabArgs = {
     values: LinkedCollectionFormValues
     setValue: LinkedCollectionFormSetValue
     isLoading: boolean
     errors?: Record<string, string>
+}
+
+const resolveLinkedCollectionAttachmentKind = (ctx: Pick<LinkedCollectionActionContext, 'routeKindKey' | 'entityKind'>): string => {
+    const routeKindKey = typeof ctx.routeKindKey === 'string' ? ctx.routeKindKey.trim() : ''
+    if (routeKindKey.length > 0) {
+        return routeKindKey
+    }
+
+    const entityKind = typeof ctx.entityKind === 'string' ? ctx.entityKind.trim() : ''
+    return entityKind.length > 0 ? entityKind : 'catalog'
+}
+
+const getRecordBehaviorFormValue = (value: unknown): CatalogRecordBehavior => normalizeCatalogRecordBehavior(value)
+const getLedgerConfigFormValue = (value: unknown): LedgerConfig => normalizeLedgerConfig(value)
+const hasLedgerConfig = (config: unknown): boolean => Boolean(config && typeof config === 'object' && !Array.isArray(config) && 'ledger' in config)
+
+const toRecordBehaviorOption = (entity: { id: string; codename?: unknown; name?: unknown }, uiLocale: string): RecordBehaviorOption => {
+    const codename = getVLCString(entity.codename as VersionedLocalizedContent<string> | string | undefined, uiLocale) || entity.id
+    const label = getVLCString(entity.name as VersionedLocalizedContent<string> | string | undefined, uiLocale) || codename
+    return { codename, label }
+}
+
+const fieldDefinitionToRecordBehaviorOption = (
+    field: { id: string; codename?: unknown; name?: unknown },
+    uiLocale: string
+): RecordBehaviorOption => {
+    const codename = getVLCString(field.codename as VersionedLocalizedContent<string> | string | undefined, uiLocale) || field.id
+    const label = getVLCString(field.name as VersionedLocalizedContent<string> | string | undefined, uiLocale) || codename
+    return { codename, label }
+}
+
+const scriptToRecordBehaviorOption = (
+    script: { id: string; codename?: unknown; presentation?: { name?: unknown } },
+    uiLocale: string
+): RecordBehaviorOption => {
+    const codename = getVLCString(script.codename as VersionedLocalizedContent<string> | string | undefined, uiLocale) || script.id
+    const label = getVLCString(script.presentation?.name as VersionedLocalizedContent<string> | string | undefined, uiLocale) || codename
+    return { codename, label }
+}
+
+const validateRecordBehaviorValue = (
+    behavior: CatalogRecordBehavior,
+    t: (key: string, fallback?: string | Record<string, unknown>) => string
+): Record<string, string> => {
+    const errors: Record<string, string> = {}
+    if (
+        (behavior.mode === 'transactional' || behavior.mode === 'hybrid') &&
+        behavior.posting.mode !== 'disabled' &&
+        behavior.posting.targetLedgers.length === 0
+    ) {
+        errors.recordBehaviorPosting = t(
+            'entities.recordBehavior.validation.targetLedgerRequired',
+            'Select at least one target Ledger for posting.'
+        )
+    }
+    if (behavior.posting.mode !== 'disabled' && behavior.lifecycle.enabled && !behavior.lifecycle.states.some((state) => state.isInitial)) {
+        errors.recordBehaviorLifecycle = t(
+            'entities.recordBehavior.validation.initialStateRequired',
+            'Select an initial lifecycle state before enabling posting.'
+        )
+    }
+    return errors
 }
 
 export const buildInitialValues = (ctx: ActionContext<LinkedCollectionDisplayWithContainer, LinkedCollectionLocalizedPayload>) => {
@@ -87,7 +177,19 @@ export const buildInitialValues = (ctx: ActionContext<LinkedCollectionDisplayWit
         codenameTouched: true,
         treeEntityIds,
         isSingleHub,
-        isRequiredHub
+        isRequiredHub,
+        recordBehavior:
+            raw?.config && typeof raw.config === 'object'
+                ? normalizeCatalogRecordBehaviorFromConfig(raw.config)
+                : normalizeCatalogRecordBehaviorFromConfig((ctx as LinkedCollectionActionContext).recordBehaviorDefaultConfig),
+        ledgerSchemaEnabled:
+            raw?.config && typeof raw.config === 'object'
+                ? hasLedgerConfig(raw.config)
+                : hasLedgerConfig((ctx as LinkedCollectionActionContext).ledgerSchemaDefaultConfig),
+        ledgerConfig:
+            raw?.config && typeof raw.config === 'object'
+                ? normalizeLedgerConfigFromConfig(raw.config)
+                : normalizeLedgerConfigFromConfig((ctx as LinkedCollectionActionContext).ledgerSchemaDefaultConfig)
     }
 }
 
@@ -151,7 +253,8 @@ const buildCopyInitialValues = (ctx: ActionContext<LinkedCollectionDisplayWithCo
     }
 }
 
-const getLinkedCollectionCopyOptions = (values: Record<string, unknown>) => {
+const getLinkedCollectionCopyOptions = (rawValues?: Record<string, unknown> | null) => {
+    const values = ensureFormValues(rawValues)
     return normalizeLinkedCollectionCopyOptions({
         copyFieldDefinitions: values.copyFieldDefinitions as boolean | undefined,
         copyRecords: values.copyRecords as boolean | undefined
@@ -160,8 +263,9 @@ const getLinkedCollectionCopyOptions = (values: Record<string, unknown>) => {
 
 export const validateLinkedCollectionForm = (
     ctx: ActionContext<LinkedCollectionDisplayWithContainer, LinkedCollectionLocalizedPayload>,
-    values: LinkedCollectionFormValues
+    rawValues?: LinkedCollectionFormValues | null
 ) => {
+    const values = ensureFormValues(rawValues)
     const cc = _cc(values)
     const errors: Record<string, string> = {}
 
@@ -185,6 +289,17 @@ export const validateLinkedCollectionForm = (
         errors.codename = ctx.t('catalogs.validation.codenameRequired', 'Codename is required')
     } else if (!isValidCodenameForStyle(normalizedCodename, cc.style, cc.alphabet, cc.allowMixed)) {
         errors.codename = ctx.t('catalogs.validation.codenameInvalid', 'Codename contains invalid characters')
+    }
+
+    if ((ctx as LinkedCollectionActionContext).recordBehaviorEnabled) {
+        Object.assign(errors, validateRecordBehaviorValue(getRecordBehaviorFormValue(values.recordBehavior), ctx.t))
+    }
+    if ((ctx as LinkedCollectionActionContext).ledgerSchemaEnabled && values.ledgerSchemaEnabled === true) {
+        try {
+            normalizeLedgerConfig(values.ledgerConfig)
+        } catch {
+            errors.ledgerConfig = ctx.t('entities.ledgerSchema.validation.invalid', 'Ledger schema settings are invalid.')
+        }
     }
 
     return Object.keys(errors).length > 0 ? errors : null
@@ -256,7 +371,187 @@ export const LinkedCollectionLayoutTabFields = ({
     )
 }
 
-export const canSaveLinkedCollectionForm = (values: LinkedCollectionFormValues) => {
+const LinkedCollectionRecordBehaviorTab = ({
+    ctx,
+    values,
+    setValue,
+    isLoading,
+    errors,
+    linkedCollectionId
+}: {
+    ctx: LinkedCollectionActionContext
+    values: LinkedCollectionFormValues
+    setValue: LinkedCollectionFormSetValue
+    isLoading: boolean
+    errors: Record<string, string>
+    linkedCollectionId?: string | null
+}) => {
+    const metahubId = ctx.metahubId ?? ctx.entity.metahubId ?? null
+    const uiLocale = normalizeLocale(ctx.uiLocale as string | undefined)
+    const behaviorComponents = ctx.recordBehaviorComponents ?? null
+    const attachedToKind = resolveLinkedCollectionAttachmentKind(ctx)
+    const ledgerCandidateKindKeys = ctx.ledgerCandidateKindKeys?.length ? ctx.ledgerCandidateKindKeys : ['ledger']
+    const ledgerQueries = useQueries({
+        queries: ledgerCandidateKindKeys.map((kindKey) => ({
+            queryKey:
+                metahubId && ctx.recordBehaviorEnabled
+                    ? ['metahubs', metahubId, 'catalogs', linkedCollectionId ?? 'create', 'recordBehavior', 'ledgers', kindKey]
+                    : ['metahubs', 'catalogs', 'recordBehavior', 'ledgers', 'empty', kindKey],
+            queryFn: () =>
+                entitiesApi.listEntityInstances(metahubId!, {
+                    kind: kindKey,
+                    limit: 200,
+                    offset: 0,
+                    sortBy: 'codename',
+                    sortOrder: 'asc'
+                }),
+            enabled: Boolean(metahubId && ctx.recordBehaviorEnabled),
+            staleTime: 30 * 1000
+        }))
+    })
+    const fieldDefinitionsQuery = useQuery({
+        queryKey:
+            metahubId && linkedCollectionId
+                ? ['metahubs', metahubId, 'catalogs', linkedCollectionId, 'recordBehavior', 'fieldDefinitions']
+                : ['metahubs', 'catalogs', 'recordBehavior', 'fieldDefinitions', 'empty'],
+        queryFn: () =>
+            fieldDefinitionsApi.listFieldDefinitionsDirect(metahubId!, linkedCollectionId!, {
+                limit: 200,
+                offset: 0,
+                sortBy: 'sortOrder',
+                sortOrder: 'asc',
+                kindKey: ctx.routeKindKey ?? undefined
+            }),
+        enabled: Boolean(metahubId && linkedCollectionId),
+        staleTime: 30 * 1000
+    })
+    const scriptsQuery = useQuery({
+        queryKey:
+            metahubId && linkedCollectionId
+                ? ['metahubs', metahubId, attachedToKind, linkedCollectionId, 'recordBehavior', 'scripts']
+                : ['metahubs', 'catalogs', 'recordBehavior', 'scripts', 'empty'],
+        queryFn: () =>
+            scriptsApi.list(metahubId!, {
+                attachedToKind,
+                attachedToId: linkedCollectionId
+            }),
+        enabled: Boolean(metahubId && linkedCollectionId),
+        staleTime: 30 * 1000
+    })
+    const ledgerOptions = ledgerQueries
+        .flatMap((query) => query.data?.items ?? [])
+        .filter((entity) => hasLedgerConfig(entity.config))
+        .map((entity) => toRecordBehaviorOption(entity, uiLocale))
+    const fieldOptions = (fieldDefinitionsQuery.data?.items ?? []).map((field) => fieldDefinitionToRecordBehaviorOption(field, uiLocale))
+    const scriptOptions = (scriptsQuery.data ?? []).map((script) => scriptToRecordBehaviorOption(script, uiLocale))
+
+    return (
+        <RecordBehaviorFields
+            value={getRecordBehaviorFormValue(values.recordBehavior)}
+            onChange={(nextValue) => setValue('recordBehavior', nextValue)}
+            disabled={isLoading}
+            components={behaviorComponents}
+            fieldOptions={fieldOptions}
+            ledgerOptions={ledgerOptions}
+            scriptOptions={scriptOptions}
+            errors={errors}
+        />
+    )
+}
+
+const LinkedCollectionLedgerSchemaTab = ({
+    ctx,
+    values,
+    setValue,
+    isLoading,
+    errors,
+    linkedCollectionId
+}: {
+    ctx: LinkedCollectionActionContext
+    values: LinkedCollectionFormValues
+    setValue: LinkedCollectionFormSetValue
+    isLoading: boolean
+    errors: Record<string, string>
+    linkedCollectionId?: string | null
+}) => {
+    const metahubId = ctx.metahubId ?? ctx.entity.metahubId ?? null
+    const uiLocale = normalizeLocale(ctx.uiLocale as string | undefined)
+    const components = ctx.ledgerSchemaComponents ?? null
+    const fieldDefinitionsQuery = useQuery({
+        queryKey:
+            metahubId && linkedCollectionId
+                ? ['metahubs', metahubId, 'catalogs', linkedCollectionId, 'ledgerSchema', 'fieldDefinitions']
+                : ['metahubs', 'catalogs', 'ledgerSchema', 'fieldDefinitions', 'empty'],
+        queryFn: () =>
+            fieldDefinitionsApi.listFieldDefinitionsDirect(metahubId!, linkedCollectionId!, {
+                limit: 200,
+                offset: 0,
+                sortBy: 'sortOrder',
+                sortOrder: 'asc',
+                kindKey: ctx.routeKindKey ?? undefined
+            }),
+        enabled: Boolean(metahubId && linkedCollectionId),
+        staleTime: 30 * 1000
+    })
+    const fieldOptions = (fieldDefinitionsQuery.data?.items ?? []).map((field) => fieldDefinitionToRecordBehaviorOption(field, uiLocale))
+    const referenceFields = (fieldDefinitionsQuery.data?.items ?? []).map((field) => ({
+        codename: getVLCString(field.codename as VersionedLocalizedContent<string> | string | undefined, uiLocale) || field.id,
+        dataType: field.dataType
+    }))
+    const referenceErrors =
+        values.ledgerSchemaEnabled === true && referenceFields.length > 0
+            ? validateLedgerConfigReferences({ config: getLedgerConfigFormValue(values.ledgerConfig), fields: referenceFields })
+            : []
+    const mergedErrors =
+        referenceErrors.length > 0
+            ? {
+                  ...errors,
+                  ledgerConfig: ctx.t(
+                      'entities.ledgerSchema.validation.referencesInvalid',
+                      'Ledger schema references unknown or incompatible field definitions.'
+                  )
+              }
+            : errors
+
+    return (
+        <Stack spacing={2}>
+            <FormControlLabel
+                control={
+                    <Checkbox
+                        checked={values.ledgerSchemaEnabled === true}
+                        onChange={(event) => setValue('ledgerSchemaEnabled', event.target.checked)}
+                        disabled={isLoading}
+                    />
+                }
+                label={ctx.t('entities.ledgerSchema.enabled', 'Use this entity as a ledger')}
+            />
+            {values.ledgerSchemaEnabled === true && components && supportsLedgerSchema(components) ? (
+                <LedgerSchemaFields
+                    value={getLedgerConfigFormValue(values.ledgerConfig)}
+                    onChange={(nextValue) => setValue('ledgerConfig', nextValue)}
+                    disabled={isLoading}
+                    components={components}
+                    fieldOptions={fieldOptions}
+                    entityKindOptions={ctx.ledgerEntityKindOptions ?? []}
+                    errors={mergedErrors}
+                />
+            ) : (
+                <Typography variant='body2' color='text.secondary'>
+                    {ctx.t(
+                        'entities.ledgerSchema.disabledDescription',
+                        'Enable ledger schema when this entity should store append-only facts, dimensions, resources, and projections.'
+                    )}
+                </Typography>
+            )}
+        </Stack>
+    )
+}
+
+export const canSaveLinkedCollectionForm = (
+    ctx: ActionContext<LinkedCollectionDisplayWithContainer, LinkedCollectionLocalizedPayload>,
+    rawValues?: LinkedCollectionFormValues | null
+) => {
+    const values = ensureFormValues(rawValues)
     const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const codenameValue = values.codename as VersionedLocalizedContent<string> | null | undefined
@@ -268,18 +563,38 @@ export const canSaveLinkedCollectionForm = (values: LinkedCollectionFormValues) 
         hasPrimaryContent(nameVlc) &&
         Boolean(normalizedCodename) &&
         isValidCodenameForStyle(normalizedCodename, cc.style, cc.alphabet, cc.allowMixed)
+    const behaviorValid =
+        !(ctx as LinkedCollectionActionContext).recordBehaviorEnabled ||
+        Object.keys(validateRecordBehaviorValue(getRecordBehaviorFormValue(values.recordBehavior), ctx.t)).length === 0
+    const ledgerValid =
+        !(ctx as LinkedCollectionActionContext).ledgerSchemaEnabled ||
+        values.ledgerSchemaEnabled !== true ||
+        (() => {
+            try {
+                normalizeLedgerConfig(values.ledgerConfig)
+                return true
+            } catch {
+                return false
+            }
+        })()
     // TreeEntity requirement based on isRequiredHub flag in values
     const isRequiredHub = Boolean(values.isRequiredHub)
     if (isRequiredHub) {
         const treeEntityIds = Array.isArray(values.treeEntityIds) ? values.treeEntityIds : []
-        return baseValid && treeEntityIds.length > 0
+        return baseValid && behaviorValid && ledgerValid && treeEntityIds.length > 0
     }
-    return baseValid
+    return baseValid && behaviorValid && ledgerValid
 }
 
 export const toPayload = (
-    values: LinkedCollectionFormValues
-): LinkedCollectionLocalizedPayload & { treeEntityIds?: string[]; isSingleHub?: boolean; isRequiredHub?: boolean } => {
+    rawValues?: LinkedCollectionFormValues | null
+): LinkedCollectionLocalizedPayload & {
+    treeEntityIds?: string[]
+    isSingleHub?: boolean
+    isRequiredHub?: boolean
+    ledgerConfig?: LedgerConfig | null
+} => {
+    const values = ensureFormValues(rawValues)
     const cc = _cc(values)
     const nameVlc = values.nameVlc as VersionedLocalizedContent<string> | null | undefined
     const descriptionVlc = values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined
@@ -302,7 +617,9 @@ export const toPayload = (
         descriptionPrimaryLocale,
         treeEntityIds,
         isSingleHub,
-        isRequiredHub
+        isRequiredHub,
+        recordBehavior: normalizeCatalogRecordBehavior(values.recordBehavior),
+        ledgerConfig: values.ledgerSchemaEnabled === true ? normalizeLedgerConfig(values.ledgerConfig) : null
     }
 }
 
@@ -393,6 +710,40 @@ export const buildFormTabs = (
             }
         ]
 
+        if ((ctx as LinkedCollectionActionContext).recordBehaviorEnabled) {
+            tabs.push({
+                id: 'behavior',
+                label: ctx.t('entities.instances.tabs.behavior', 'Behavior'),
+                content: (
+                    <LinkedCollectionRecordBehaviorTab
+                        ctx={ctx as LinkedCollectionActionContext}
+                        values={values}
+                        setValue={setValue}
+                        isLoading={isFormLoading}
+                        errors={errors}
+                        linkedCollectionId={editingEntityId}
+                    />
+                )
+            })
+        }
+
+        if ((ctx as LinkedCollectionActionContext).ledgerSchemaEnabled) {
+            tabs.push({
+                id: 'ledgerSchema',
+                label: ctx.t('entities.instances.tabs.ledgerSchema', 'Ledger schema'),
+                content: (
+                    <LinkedCollectionLedgerSchemaTab
+                        ctx={ctx as LinkedCollectionActionContext}
+                        values={values}
+                        setValue={setValue}
+                        isLoading={isFormLoading}
+                        errors={errors}
+                        linkedCollectionId={editingEntityId}
+                    />
+                )
+            })
+        }
+
         // Always show TreeEntities tab in edit mode (same as create mode)
         {
             const treeEntityIds = Array.isArray(values.treeEntityIds) ? values.treeEntityIds : []
@@ -443,7 +794,7 @@ export const buildFormTabs = (
                 createScriptsTab({
                     t: ctx.t,
                     metahubId,
-                    attachedToKind: 'catalog',
+                    attachedToKind: resolveLinkedCollectionAttachmentKind(ctx as LinkedCollectionActionContext),
                     attachedToId: editingEntityId
                 })
             )
@@ -481,7 +832,7 @@ const linkedCollectionActions: readonly ActionDescriptor<LinkedCollectionDisplay
                     initialExtraValues: initial,
                     tabs: buildFormTabs(ctx, treeEntities, ctx.entity.id),
                     validate: (values: LinkedCollectionFormValues) => validateLinkedCollectionForm(ctx, values),
-                    canSave: (values: LinkedCollectionFormValues) => canSaveLinkedCollectionForm(values),
+                    canSave: (values: LinkedCollectionFormValues) => canSaveLinkedCollectionForm(ctx, values),
                     showDeleteButton: true,
                     deleteButtonText: ctx.t('common:actions.delete'),
                     onDelete: () => {
@@ -581,7 +932,7 @@ const linkedCollectionActions: readonly ActionDescriptor<LinkedCollectionDisplay
                         }
                     ],
                     validate: (values: LinkedCollectionFormValues) => validateLinkedCollectionForm(ctx, values),
-                    canSave: (values: LinkedCollectionFormValues) => canSaveLinkedCollectionForm(values),
+                    canSave: (values: LinkedCollectionFormValues) => canSaveLinkedCollectionForm(ctx, values),
                     onClose: () => {
                         // BaseEntityMenu handles dialog closing
                     },
@@ -592,9 +943,19 @@ const linkedCollectionActions: readonly ActionDescriptor<LinkedCollectionDisplay
                                 treeEntityIds: _hubIds,
                                 isSingleHub: _isSingleHub,
                                 isRequiredHub: _isRequiredHub,
+                                recordBehavior,
+                                ledgerConfig,
                                 ...copyPayload
                             } = payload
                             const copyOptions = getLinkedCollectionCopyOptions(data)
+                            const copiedConfig: Record<string, unknown> = {}
+                            if ((ctx as LinkedCollectionActionContext).recordBehaviorEnabled) {
+                                copiedConfig.recordBehavior = normalizeCatalogRecordBehavior(recordBehavior)
+                            }
+                            if ((ctx as LinkedCollectionActionContext).ledgerSchemaEnabled && ledgerConfig) {
+                                copiedConfig.ledger = normalizeLedgerConfig(ledgerConfig)
+                            }
+                            const behaviorConfig = Object.keys(copiedConfig).length > 0 ? { config: copiedConfig } : {}
                             const currentTreeEntityId = (ctx as LinkedCollectionActionContext).currentTreeEntityId
                             const detachedFromCurrentHub =
                                 typeof currentTreeEntityId === 'string' &&
@@ -617,6 +978,7 @@ const linkedCollectionActions: readonly ActionDescriptor<LinkedCollectionDisplay
                             }
                             void ctx.api?.copyEntity?.(ctx.entity.id, {
                                 ...copyPayload,
+                                ...behaviorConfig,
                                 ...copyOptions
                             })
                         } catch (error: unknown) {

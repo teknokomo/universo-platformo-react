@@ -5,7 +5,7 @@ import type { VersionedLocalizedContent } from './admin'
 import type { ComponentManifest } from './entityComponents'
 import type { EntityTypeUIConfig } from './entityTypeDefinition'
 import type { SharedBehavior } from './shared'
-import type { ScriptAttachmentKind } from './scripts'
+import type { ScriptAttachmentKind, ScriptCapability, ScriptModuleRole, ScriptSourceKind } from './scripts'
 
 /**
  * Supported attribute data types.
@@ -51,11 +51,11 @@ export type DialogSizePreset = 'small' | 'medium' | 'large'
 export type DialogCloseBehavior = 'strict-modal' | 'backdrop-close'
 
 /** Entity metadata kinds that expose entity-scoped settings. */
-export const ENTITY_SETTINGS_KINDS = ['hub', 'catalog', 'set', 'enumeration', 'page'] as const
+export const ENTITY_SETTINGS_KINDS = ['hub', 'catalog', 'set', 'enumeration', 'page', 'ledger'] as const
 export type EntitySettingsKind = (typeof ENTITY_SETTINGS_KINDS)[number]
 
 /** Neutral entity-authoring surface aliases that map to stored builtin kind values. */
-export const ENTITY_SURFACE_KEYS = ['treeEntity', 'linkedCollection', 'valueGroup', 'optionList', 'page'] as const
+export const ENTITY_SURFACE_KEYS = ['treeEntity', 'linkedCollection', 'valueGroup', 'optionList', 'page', 'ledger'] as const
 export type EntitySurfaceKey = (typeof ENTITY_SURFACE_KEYS)[number]
 
 export type EntitySettingsScope = EntitySettingsKind | EntitySurfaceKey
@@ -65,7 +65,8 @@ const ENTITY_SURFACE_TO_SETTINGS_KIND_MAP: Record<EntitySurfaceKey, EntitySettin
     linkedCollection: 'catalog',
     valueGroup: 'set',
     optionList: 'enumeration',
-    page: 'page'
+    page: 'page',
+    ledger: 'ledger'
 }
 
 const SETTINGS_KIND_TO_ENTITY_SURFACE_MAP: Record<EntitySettingsKind, EntitySurfaceKey> = {
@@ -73,7 +74,8 @@ const SETTINGS_KIND_TO_ENTITY_SURFACE_MAP: Record<EntitySettingsKind, EntitySurf
     catalog: 'linkedCollection',
     set: 'valueGroup',
     enumeration: 'optionList',
-    page: 'page'
+    page: 'page',
+    ledger: 'ledger'
 }
 
 export const ENTITY_SURFACE_LABELS: Record<EntitySurfaceKey, { singular: string; plural: string }> = {
@@ -81,7 +83,8 @@ export const ENTITY_SURFACE_LABELS: Record<EntitySurfaceKey, { singular: string;
     linkedCollection: { singular: 'Catalog', plural: 'Catalogs' },
     valueGroup: { singular: 'Set', plural: 'Sets' },
     optionList: { singular: 'Enumeration', plural: 'Enumerations' },
-    page: { singular: 'Page', plural: 'Pages' }
+    page: { singular: 'Page', plural: 'Pages' },
+    ledger: { singular: 'Ledger', plural: 'Ledgers' }
 }
 
 export const isEntitySurfaceKey = (value: string): value is EntitySurfaceKey =>
@@ -458,6 +461,22 @@ export const METAHUB_SETTINGS_REGISTRY: readonly SettingDefinition[] = [
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 2
+    },
+
+    // ── Ledgers ──
+    {
+        key: buildEntitySettingKey('ledger', 'allowCopy'),
+        tab: 'ledger',
+        valueType: 'boolean',
+        defaultValue: true,
+        sortOrder: 1
+    },
+    {
+        key: buildEntitySettingKey('ledger', 'allowDelete'),
+        tab: 'ledger',
+        valueType: 'boolean',
+        defaultValue: true,
+        sortOrder: 2
     }
 ]
 
@@ -674,7 +693,8 @@ const _META_ENTITY_KIND_MAP = {
     SET: 'set',
     ENUMERATION: 'enumeration',
     HUB: 'hub',
-    PAGE: 'page'
+    PAGE: 'page',
+    LEDGER: 'ledger'
 } as const
 
 export const MetaEntityKind = _META_ENTITY_KIND_MAP
@@ -684,7 +704,8 @@ export const BuiltinEntityKinds = {
     SET: 'set',
     ENUMERATION: 'enumeration',
     HUB: 'hub',
-    PAGE: 'page'
+    PAGE: 'page',
+    LEDGER: 'ledger'
 } as const
 
 // eslint-disable-next-line no-redeclare
@@ -927,7 +948,7 @@ export interface QuizWidgetConfig {
 
 // ========= Menu item kinds (used by MenuWidgetConfig) =========
 
-export const METAHUB_MENU_ITEM_KINDS = ['catalog', 'catalogs_all', 'hub', 'page', 'link'] as const
+export const METAHUB_MENU_ITEM_KINDS = ['catalog', 'catalogs_all', 'hub', 'page', 'ledger', 'link'] as const
 export type MetahubMenuItemKind = (typeof METAHUB_MENU_ITEM_KINDS)[number]
 
 // ========= Template Manifest Types =========
@@ -1158,6 +1179,22 @@ export interface TemplateSeedEnumerationValue {
     isDefault?: boolean
 }
 
+/** Seed script definition attached to a metahub or a seeded entity by codename. */
+export interface TemplateSeedScript {
+    codename: string
+    name: VersionedLocalizedContent<string>
+    description?: VersionedLocalizedContent<string>
+    attachedToKind: ScriptAttachmentKind
+    attachedToEntityCodename?: string
+    moduleRole: ScriptModuleRole
+    sourceKind?: ScriptSourceKind
+    sdkApiVersion?: string
+    sourceCode: string
+    capabilities?: ScriptCapability[]
+    isActive?: boolean
+    config?: Record<string, unknown>
+}
+
 /** All seed data that populates system tables when creating a metahub from a template. */
 export interface MetahubTemplateSeed {
     layouts: TemplateSeedLayout[]
@@ -1169,6 +1206,8 @@ export interface MetahubTemplateSeed {
     elements?: Record<string, TemplateSeedElement[]>
     /** Enumeration values keyed by enumeration codename. */
     optionValues?: Record<string, TemplateSeedEnumerationValue[]>
+    /** Compiled at seed time and stored in the generic metahub scripts table. */
+    scripts?: TemplateSeedScript[]
 }
 
 /**

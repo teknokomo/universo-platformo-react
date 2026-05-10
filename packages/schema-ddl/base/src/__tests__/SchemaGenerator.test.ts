@@ -869,5 +869,132 @@ describe('SchemaGenerator', () => {
             expect(businessColumns).not.toContain('_upl_deleted_at')
             expect(businessColumns).toContain('_upl_deleted_by')
         })
+
+        it('adds system reversal idempotency columns to ledger runtime tables', async () => {
+            type MockTable = Record<string, jest.Mock>
+            const createTableCalls = new Map<string, Array<{ method: string; args: unknown[] }>>()
+            const createTable = jest.fn((tableName: string, callback: (table: MockTable) => void) => {
+                const calls: Array<{ method: string; args: unknown[] }> = []
+                const table = {} as MockTable
+                Object.assign(table, {
+                    string: jest.fn(() => table),
+                    jsonb: jest.fn(() => table),
+                    boolean: jest.fn(() => table),
+                    integer: jest.fn(() => table),
+                    text: jest.fn(() => table),
+                    uuid: jest.fn((...args: unknown[]) => {
+                        calls.push({ method: 'uuid', args })
+                        return table
+                    }),
+                    primary: jest.fn(() => table),
+                    defaultTo: jest.fn(() => table),
+                    timestamp: jest.fn(() => table),
+                    notNullable: jest.fn(() => table),
+                    nullable: jest.fn(() => table),
+                    specificType: jest.fn(() => table)
+                })
+                callback(table)
+                createTableCalls.set(tableName, calls)
+                return Promise.resolve()
+            })
+            const localKnex = {
+                raw: jest.fn().mockResolvedValue(undefined),
+                fn: { now: jest.fn(() => 'NOW()') },
+                schema: {
+                    withSchema: jest.fn(() => ({
+                        createTable
+                    }))
+                }
+            } as unknown as import('knex').Knex
+
+            const localGenerator = new SchemaGenerator(localKnex)
+            await localGenerator.createEntityTable('app_test123', {
+                id: 'ledger-progress',
+                codename: 'progress_ledger',
+                kind: 'ledger',
+                physicalTableName: 'led_progress',
+                components: {
+                    dataSchema: { enabled: true },
+                    physicalTable: { enabled: true, prefix: 'led' },
+                    ledgerSchema: { enabled: true }
+                },
+                config: {
+                    ledger: {}
+                },
+                fields: []
+            } as unknown as import('../types').EntityDefinition)
+
+            const ledgerColumns = (createTableCalls.get('led_progress') ?? []).map((entry) => String(entry.args[0]))
+            expect(ledgerColumns).toContain('_app_reversal_of_fact_id')
+            expect(String((localKnex.raw as jest.Mock).mock.calls.map((call) => call[0]).join('\n'))).toContain(
+                'idx_led_progress_reversal_of_fact'
+            )
+        })
+
+        it('adds ledger system columns for non-ledger entities with ledgerSchema capability', async () => {
+            const createTableCalls = new Map<string, Array<{ method: string; args: unknown[] }>>()
+            const createTable = jest.fn((tableName: string, callback: (table: Record<string, jest.Mock>) => void) => {
+                const calls: Array<{ method: string; args: unknown[] }> = []
+                const table = new Proxy(
+                    {},
+                    {
+                        get: (_target, prop) => {
+                            if (prop === 'uuid') {
+                                return jest.fn((...args: unknown[]) => {
+                                    calls.push({ method: 'uuid', args })
+                                    return table
+                                })
+                            }
+                            return jest.fn(() => table)
+                        }
+                    }
+                ) as Record<string, jest.Mock>
+                callback(table)
+                createTableCalls.set(tableName, calls)
+                return Promise.resolve()
+            })
+            const localKnex = {
+                raw: jest.fn().mockResolvedValue(undefined),
+                fn: { now: jest.fn(() => 'NOW()') },
+                schema: {
+                    withSchema: jest.fn(() => ({
+                        createTable
+                    }))
+                }
+            } as unknown as import('knex').Knex
+
+            const localGenerator = new SchemaGenerator(localKnex)
+            await localGenerator.createEntityTable('app_test123', {
+                id: 'catalog-ledger',
+                codename: 'hybrid_catalog',
+                kind: 'catalog',
+                physicalTableName: 'cat_hybrid_catalog',
+                fields: [],
+                components: {
+                    dataSchema: { enabled: true },
+                    records: { enabled: true },
+                    treeAssignment: false,
+                    optionValues: false,
+                    fixedValues: false,
+                    hierarchy: false,
+                    nestedCollections: false,
+                    relations: false,
+                    actions: false,
+                    events: false,
+                    scripting: false,
+                    blockContent: false,
+                    layoutConfig: false,
+                    runtimeBehavior: false,
+                    physicalTable: { enabled: true, prefix: 'cat' },
+                    ledgerSchema: { enabled: true, allowProjections: true }
+                },
+                config: {
+                    ledger: {}
+                }
+            } as unknown as import('../types').EntityDefinition)
+
+            const ledgerColumns = (createTableCalls.get('cat_hybrid_catalog') ?? []).map((entry) => String(entry.args[0]))
+            expect(ledgerColumns).toContain('_app_reversal_of_fact_id')
+        })
     })
 })

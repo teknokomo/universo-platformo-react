@@ -14,6 +14,9 @@ import {
     isEnabledComponentConfig,
     isBuiltinEntityKind,
     normalizePageBlockContentForStorage,
+    normalizeLedgerConfigFromConfig,
+    supportsLedgerSchema,
+    validateLedgerConfigReferences,
     type BlockContentComponentConfig,
     type PageBlockContentValidationOptions,
     type ResolvedEntityType,
@@ -233,6 +236,42 @@ export const validateEntityConfigForComponents = (
     }
 }
 
+export const validateLedgerConfigReferencesForEntity = async (params: {
+    resolvedType: ResolvedEntityType
+    config: Record<string, unknown> | undefined
+    metahubId: string
+    objectId: string | null
+    userId?: string
+    fieldDefinitionsService: MetahubFieldDefinitionsService
+}): Promise<void> => {
+    if (
+        !params.config ||
+        !supportsLedgerSchema(params.resolvedType.components) ||
+        !Object.prototype.hasOwnProperty.call(params.config, 'ledger')
+    ) {
+        return
+    }
+
+    const config = normalizeLedgerConfigFromConfig(params.config)
+    const fields = params.objectId
+        ? (await params.fieldDefinitionsService.findAllFlat(params.metahubId, params.objectId, params.userId, 'business')).map((field) => ({
+              codename: field.codename,
+              dataType: field.dataType
+          }))
+        : []
+    const referenceErrors = validateLedgerConfigReferences({ config, fields })
+    const blockingReferenceErrors = params.objectId
+        ? referenceErrors
+        : referenceErrors.filter((error) => error.code === 'DUPLICATE_FIELD_ROLE' || error.code === 'DUPLICATE_PROJECTION_CODENAME')
+
+    if (blockingReferenceErrors.length > 0) {
+        throw new MetahubValidationError('Ledger schema config contains invalid field references', {
+            field: 'config.ledger',
+            errors: blockingReferenceErrors
+        })
+    }
+}
+
 export const buildPageBlockContentValidationOptions = (
     component: Partial<BlockContentComponentConfig>
 ): PageBlockContentValidationOptions => ({
@@ -299,7 +338,8 @@ export const ENTITY_METADATA_LABEL_PLURAL_MAP = {
     hub: 'hubs',
     set: 'sets',
     enumeration: 'enumerations',
-    page: 'pages'
+    page: 'pages',
+    ledger: 'ledgers'
 } as const
 
 export type ResolvedTypeWithOptionalConfig = ResolvedEntityType & { config?: Record<string, unknown> | null }

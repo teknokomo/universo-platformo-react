@@ -11,6 +11,7 @@ const SYSTEM_TABLE_ORDER = [
     '_app_migrations',
     '_app_settings',
     '_app_objects',
+    '_app_record_counters',
     '_app_attributes',
     '_app_values',
     '_app_scripts',

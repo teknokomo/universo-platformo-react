@@ -21,6 +21,7 @@ export interface AppRow {
     slug: string | null
     isPublic?: boolean
     workspacesEnabled?: boolean
+    settings: Record<string, unknown> | null
     schemaName: string | null
     schemaStatus: ApplicationSchemaStatus | null
     schemaError: string | null
@@ -64,6 +65,7 @@ const APP_SELECT = `
     slug,
     is_public            AS "isPublic",
     workspaces_enabled   AS "workspacesEnabled",
+    settings,
     schema_name         AS "schemaName",
     schema_status       AS "schemaStatus",
     schema_error        AS "schemaError",
@@ -168,6 +170,7 @@ export async function createApplication(
         description?: VersionedLocalizedContent<string> | null
         isPublic?: boolean
         workspacesEnabled?: boolean
+        settings?: Record<string, unknown> | null
         userId: string
     }
 ): Promise<AppRow> {
@@ -177,16 +180,18 @@ export async function createApplication(
              description,
              is_public,
              workspaces_enabled,
+             settings,
              _upl_created_by,
              _upl_updated_by
          )
-         VALUES ($1, $2, $3, $4, $5, $5)
+         VALUES ($1, $2, $3, $4, $5, $6, $6)
          RETURNING ${APP_SELECT}`,
         [
             JSON.stringify(input.name),
             input.description ? JSON.stringify(input.description) : null,
             input.isPublic === true,
             input.workspacesEnabled === true,
+            input.settings ? JSON.stringify(input.settings) : JSON.stringify({}),
             input.userId
         ]
     )

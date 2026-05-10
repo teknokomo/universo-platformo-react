@@ -1,4 +1,13 @@
 import type { AppDataResponse } from './api'
+import type { RuntimeDatasourceFilter, RuntimeDatasourceSort } from '@universo/types'
+
+export type RuntimeRecordCommand = 'post' | 'unpost' | 'void'
+
+export interface RuntimeListQueryParams {
+    search?: string
+    sort?: RuntimeDatasourceSort[]
+    filters?: RuntimeDatasourceFilter[]
+}
 
 /**
  * Adapter interface that decouples CRUD business logic from specific
@@ -12,13 +21,15 @@ export interface CrudDataAdapter {
     queryKeyPrefix: readonly unknown[]
 
     /** Fetch paginated list of rows including schema, menus, etc. */
-    fetchList(params: {
-        limit: number
-        offset: number
-        locale: string
-        linkedCollectionId?: string
-        sectionId?: string
-    }): Promise<AppDataResponse>
+    fetchList(
+        params: {
+            limit: number
+            offset: number
+            locale: string
+            linkedCollectionId?: string
+            sectionId?: string
+        } & RuntimeListQueryParams
+    ): Promise<AppDataResponse>
 
     /** Fetch a single row (raw data, for edit forms). */
     fetchRow(rowId: string, linkedCollectionId?: string): Promise<Record<string, unknown>>
@@ -44,6 +55,13 @@ export interface CrudDataAdapter {
     copyRow(
         rowId: string,
         data?: { copyChildTables?: boolean; linkedCollectionId?: string; sectionId?: string }
+    ): Promise<Record<string, unknown>>
+
+    /** Execute a generic runtime record lifecycle command. */
+    recordCommand?(
+        rowId: string,
+        command: RuntimeRecordCommand,
+        data?: { linkedCollectionId?: string; sectionId?: string; expectedVersion?: number }
     ): Promise<Record<string, unknown>>
 
     /** Persist a complete runtime row order for catalogs that explicitly support reordering. */

@@ -34,6 +34,13 @@ export { CrudDialogs } from './components/CrudDialogs'
 export type { CrudDialogsProps, CrudDialogsLabels } from './components/CrudDialogs'
 export { RowActionsMenu } from './components/RowActionsMenu'
 export type { RowActionsMenuProps, RowActionsMenuLabels } from './components/RowActionsMenu'
+export {
+    RuntimeRecordStateChip,
+    getRuntimeRecordState,
+    isRuntimeRecordBehaviorCommandable,
+    canRunRuntimeRecordCommand
+} from './components/RuntimeRecordState'
+export type { RuntimeRecordState, RuntimeRecordStateLabels } from './components/RuntimeRecordState'
 
 // Headless controller hook
 export { useCrudDashboard } from './hooks/useCrudDashboard'
@@ -50,7 +57,7 @@ export { default as LanguageSwitcher } from './components/LanguageSwitcher'
 export { getDataGridLocaleText } from './utils/getDataGridLocale'
 
 // API — adapter pattern
-export type { CrudDataAdapter, CellRendererOverrides } from './api/types'
+export type { CrudDataAdapter, CellRendererOverrides, RuntimeRecordCommand } from './api/types'
 export { createStandaloneAdapter } from './api/adapters'
 
 // Tabular part (TABLE attribute) adapter & components

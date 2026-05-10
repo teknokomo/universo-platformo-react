@@ -1,7 +1,21 @@
 import type { DbExecutor, SqlQueryable } from '@universo/utils'
 import { qColumn, qSchema, qSchemaTable, qTable } from '@universo/database'
-import { generateChildTableName, hasPhysicalRuntimeTable, resolveEntityTableName, type EntityDefinition } from '@universo/schema-ddl'
-import { ApplicationMembershipState, type VersionedLocalizedContent } from '@universo/types'
+import {
+    generateChildTableName,
+    hasPhysicalRuntimeTable,
+    resolveEntityTableName,
+    resolveFieldColumnName,
+    type EntityDefinition,
+    type FieldDefinition
+} from '@universo/schema-ddl'
+import {
+    ApplicationMembershipState,
+    isLedgerSchemaCapableEntity,
+    normalizeLedgerConfigFromConfig,
+    type ComponentManifest,
+    type LedgerConfig,
+    type VersionedLocalizedContent
+} from '@universo/types'
 
 const WORKSPACES_TABLE = '_app_workspaces'
 const WORKSPACE_ROLES_TABLE = '_app_workspace_roles'
@@ -20,6 +34,8 @@ const WORKSPACE_SEED_TEMPLATE_KEY = 'workspace_seed_template'
 
 const ACTIVE_ROW_SQL = '_upl_deleted = false AND _app_deleted = false'
 const CURRENT_WORKSPACE_SETTING = `NULLIF(current_setting('app.current_workspace_id', true), '')`
+const normalizeLedgerFieldKey = (value: string): string => value.trim().toLowerCase()
+const normalizeLedgerFieldIdentity = (value: string): string => value.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
 const runtimeCodenameTextSql = (columnRef: string): string =>
     `COALESCE(${columnRef}->'locales'->(${columnRef}->>'_primary')->>'content', ${columnRef}->'locales'->'en'->>'content', '')`
 
@@ -532,6 +548,80 @@ async function ensureWorkspaceScopedColumn(executor: DbExecutor, schemaName: str
     )
 }
 
+function resolveLedgerConfig(config: Record<string, unknown> | undefined): LedgerConfig {
+    return normalizeLedgerConfigFromConfig(config)
+}
+
+function resolveRuntimeComponents(entity: EntityDefinition): ComponentManifest | undefined {
+    if (entity.components) {
+        return entity.components
+    }
+    if (isRecord(entity.config?.components)) {
+        return entity.config.components as unknown as ComponentManifest
+    }
+    return undefined
+}
+
+function isLedgerSchemaRuntimeEntity(entity: EntityDefinition): boolean {
+    return isLedgerSchemaCapableEntity(resolveRuntimeComponents(entity))
+}
+
+function findLedgerIdempotencyField(fields: FieldDefinition[], keyField: string): FieldDefinition | null {
+    const normalized = normalizeLedgerFieldKey(keyField)
+    const normalizedIdentity = normalizeLedgerFieldIdentity(keyField)
+
+    return (
+        fields.find((field) => {
+            if (field.dataType === 'TABLE' || field.parentAttributeId) {
+                return false
+            }
+            const columnName = resolveFieldColumnName(field)
+            return (
+                normalizeLedgerFieldKey(field.codename) === normalized ||
+                normalizeLedgerFieldKey(columnName) === normalized ||
+                normalizeLedgerFieldIdentity(field.codename) === normalizedIdentity ||
+                normalizeLedgerFieldIdentity(columnName) === normalizedIdentity
+            )
+        }) ?? null
+    )
+}
+
+function buildRuntimeIndexName(tableName: string, suffix: string): string {
+    return `${tableName}_${suffix}`.slice(0, 63)
+}
+
+async function ensureLedgerIdempotencyIndex(executor: DbExecutor, schemaName: string, entity: EntityDefinition): Promise<void> {
+    if (!isLedgerSchemaRuntimeEntity(entity) || !hasPhysicalRuntimeTable(entity)) {
+        return
+    }
+
+    const keyFields = resolveLedgerConfig(entity.config).idempotency.keyFields
+    if (keyFields.length === 0) {
+        return
+    }
+
+    const keyColumns = keyFields
+        .map((keyField) => findLedgerIdempotencyField(entity.fields, keyField))
+        .filter((field): field is FieldDefinition => Boolean(field))
+        .map((field) => resolveFieldColumnName(field))
+
+    if (keyColumns.length !== keyFields.length) {
+        return
+    }
+
+    const tableName = resolveEntityTableName(entity)
+    const tableIdent = qSchemaTable(schemaName, tableName)
+    const quotedKeyColumns = keyColumns.map((columnName) => qColumn(columnName))
+    const notNullConditions = quotedKeyColumns.map((columnName) => `${columnName} IS NOT NULL`)
+    await executor.query(
+        `
+        CREATE UNIQUE INDEX IF NOT EXISTS ${qTable(buildRuntimeIndexName(tableName, 'ledger_idempotency_uidx'))}
+        ON ${tableIdent}(${[qColumn('workspace_id'), ...quotedKeyColumns].join(', ')})
+        WHERE ${notNullConditions.join(' AND ')} AND ${ACTIVE_ROW_SQL};
+        `
+    )
+}
+
 async function recreateWorkspacePolicy(executor: DbExecutor, tableIdent: string, policyName: string, sql: string): Promise<void> {
     await executor.query(`DROP POLICY IF EXISTS ${qTable(policyName)} ON ${tableIdent}`)
     await executor.query(sql)
@@ -604,10 +694,15 @@ export async function ensureApplicationRuntimeWorkspaceSchema(
         await ensureWorkspaceScopedPolicies(executor, input.schemaName, tableName)
     }
 
+    for (const entity of input.entities) {
+        await ensureLedgerIdempotencyIndex(executor, input.schemaName, entity)
+    }
+
     await ensurePersonalWorkspacesForApplicationMembers(executor, {
         schemaName: input.schemaName,
         applicationId: input.applicationId,
-        actorUserId: input.actorUserId
+        actorUserId: input.actorUserId,
+        seedElements: false
     })
 }
 
@@ -983,12 +1078,17 @@ async function loadRuntimeCatalogSeedMetadata(
     const objectsQt = qSchemaTable(schemaName, '_app_objects')
     const attributesQt = qSchemaTable(schemaName, '_app_attributes')
 
-    const [objects, attributes, columns] = await Promise.all([
+    const [objects, attributes] = await Promise.all([
         executor.query<RuntimeCatalogSeedObjectRow>(
             `
                         SELECT id AS "objectId", ${runtimeCodenameTextSql('codename')} AS codename, table_name AS "tableName"
             FROM ${objectsQt}
-                        WHERE COALESCE(kind, '') NOT IN ('hub', 'set', 'enumeration', 'page')
+                        WHERE COALESCE(kind, '') NOT IN ('hub', 'set', 'enumeration', 'page', 'ledger')
+              AND NOT (
+                COALESCE((config->'components'->'ledgerSchema'->>'enabled')::boolean, false) = true
+                AND jsonb_typeof(config->'ledger') = 'object'
+                AND COALESCE(config->'ledger'->>'sourcePolicy', '') = 'registrar'
+              )
               AND table_name IS NOT NULL
               AND ${ACTIVE_ROW_SQL}
             ORDER BY ${runtimeCodenameTextSql('codename')} ASC, id ASC
@@ -1010,20 +1110,31 @@ async function loadRuntimeCatalogSeedMetadata(
             WHERE ${ACTIVE_ROW_SQL}
             ORDER BY sort_order ASC, _upl_created_at ASC, id ASC
             `
-        ),
-        executor.query<RuntimeColumnDefinitionRow>(
-            `
-            SELECT
-                table_name AS "tableName",
-                column_name AS "columnName",
-                udt_name AS "udtName"
-            FROM information_schema.columns
-            WHERE table_schema = $1
-              AND (table_name LIKE 'cat\\_%' ESCAPE '\\' OR table_name LIKE 'tbl\\_%' ESCAPE '\\')
-            `,
-            [schemaName]
         )
     ])
+
+    const runtimeTableNames = new Set(objects.map((object) => object.tableName).filter((tableName) => tableName.length > 0))
+    for (const attribute of attributes) {
+        if (attribute.parentAttributeId === null && attribute.dataType === 'TABLE') {
+            runtimeTableNames.add(generateChildTableName(attribute.attributeId))
+        }
+    }
+
+    const columns =
+        runtimeTableNames.size > 0
+            ? await executor.query<RuntimeColumnDefinitionRow>(
+                  `
+            SELECT
+                c.table_name AS "tableName",
+                c.column_name AS "columnName",
+                c.udt_name AS "udtName"
+            FROM information_schema.columns c
+            WHERE c.table_schema = $1
+              AND c.table_name = ANY($2::text[])
+            `,
+                  [schemaName, Array.from(runtimeTableNames)]
+              )
+            : []
 
     const columnTypes = new Map<string, string>()
     for (const column of columns) {
@@ -1355,6 +1466,7 @@ export async function ensurePersonalWorkspaceForUser(
         userId: string
         actorUserId?: string | null
         defaultRoleCodename?: 'owner' | 'member'
+        seedElements?: boolean
     }
 ): Promise<{ workspaceId: string }> {
     const { schemaName, userId, actorUserId } = input
@@ -1494,7 +1606,7 @@ export async function ensurePersonalWorkspaceForUser(
         }
     }
 
-    if (createdWorkspace) {
+    if (createdWorkspace && input.seedElements !== false) {
         await syncWorkspaceSeededElements(executor, {
             schemaName,
             workspaceId,
@@ -1511,6 +1623,7 @@ export async function ensurePersonalWorkspacesForApplicationMembers(
         schemaName: string
         applicationId: string
         actorUserId?: string | null
+        seedElements?: boolean
     }
 ): Promise<void> {
     const memberRows = await executor.query<ApplicationMemberRow>(
@@ -1529,7 +1642,8 @@ export async function ensurePersonalWorkspacesForApplicationMembers(
             schemaName: input.schemaName,
             userId: member.userId,
             actorUserId: input.actorUserId,
-            defaultRoleCodename: 'owner'
+            defaultRoleCodename: 'owner',
+            seedElements: input.seedElements
         })
     }
 }
@@ -1609,14 +1723,18 @@ export async function archiveWorkspaceScopedBusinessRows(
         return
     }
 
+    const objectsQt = qSchemaTable(input.schemaName, '_app_objects')
     const scopedTables = await executor.query<WorkspaceScopedTableRow>(
         `
-        SELECT table_name AS "tableName"
-        FROM information_schema.columns
-        WHERE table_schema = $1
-          AND column_name = 'workspace_id'
-          AND (table_name LIKE 'cat\\_%' ESCAPE '\\' OR table_name LIKE 'tbl\\_%' ESCAPE '\\')
-        ORDER BY table_name ASC
+        SELECT DISTINCT c.table_name AS "tableName"
+        FROM information_schema.columns c
+        INNER JOIN ${objectsQt} o ON o.table_name = c.table_name
+        WHERE c.table_schema = $1
+          AND c.column_name = 'workspace_id'
+          AND o.table_name IS NOT NULL
+          AND o._upl_deleted = false
+          AND o._app_deleted = false
+        ORDER BY c.table_name ASC
         `,
         [input.schemaName]
     )
