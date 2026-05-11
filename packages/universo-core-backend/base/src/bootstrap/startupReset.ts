@@ -1,7 +1,6 @@
 import { getPoolExecutor } from '@universo/database'
 import { withAdvisoryLock, type DbExecutor } from '@universo/utils/database'
 import { registeredSystemAppDefinitions } from '@universo/migrations-platform'
-import { createSupabaseAdminClient } from '../utils/supabaseAdmin'
 import logger from '../utils/logger'
 
 const STARTUP_RESET_LOCK_KEY = 'universo:startup:full-database-reset'
@@ -13,44 +12,12 @@ const FIXED_SCHEMA_NAME_PATTERN = /^[a-z_][a-z0-9_]*$/
 
 // --- Config ---
 
-interface StartupResetDisabledConfig {
-    enabled: false
-}
-
-interface StartupResetEnabledConfig {
-    enabled: true
-    supabaseUrl: string
-    serviceRoleKey: string
-}
-
-type StartupResetConfig = StartupResetDisabledConfig | StartupResetEnabledConfig
-
 const parseEnvBoolean = (value: string | undefined, defaultValue: boolean): boolean => {
     if (value === undefined || value === '') {
         return defaultValue
     }
     const normalized = value.trim().toLowerCase()
     return normalized === 'true' || normalized === '1'
-}
-
-const assertPresent = (value: string | undefined, envName: string): string => {
-    const normalized = value?.trim()
-    if (!normalized) {
-        throw new Error(`Startup full reset requires ${envName} when FULL_DATABASE_RESET=true`)
-    }
-    return normalized
-}
-
-function getStartupResetConfig(): StartupResetConfig {
-    const enabled = parseEnvBoolean(process.env.FULL_DATABASE_RESET, false)
-    if (!enabled) {
-        return { enabled: false }
-    }
-    return {
-        enabled: true,
-        supabaseUrl: assertPresent(process.env.SUPABASE_URL, 'SUPABASE_URL'),
-        serviceRoleKey: assertPresent(process.env.SERVICE_ROLE_KEY, 'SERVICE_ROLE_KEY')
-    }
 }
 
 // --- Production guard ---
@@ -225,47 +192,25 @@ interface AuthUserDeleteResult {
 }
 
 async function deleteAllAuthUsers(
-    config: StartupResetEnabledConfig,
+    db: DbExecutor,
     authUsers: { id: string; email: string }[]
 ): Promise<AuthUserDeleteResult[]> {
-    const supabaseAdmin = createSupabaseAdminClient(config.supabaseUrl, config.serviceRoleKey)
-
-    const results: AuthUserDeleteResult[] = []
-
-    // Process users in batches to respect Supabase rate limits (bucket of ~30 requests)
-    // Using sequential processing with small delays to avoid 429 errors
-    const BATCH_SIZE = 10
-    const BATCH_DELAY_MS = 100
-
-    for (let i = 0; i < authUsers.length; i += BATCH_SIZE) {
-        const batch = authUsers.slice(i, i + BATCH_SIZE)
-
-        // Process batch in parallel (within rate limit tolerance)
-        const batchResults = await Promise.all(
-            batch.map(async (user) => {
-                try {
-                    const { error } = await supabaseAdmin.auth.admin.deleteUser(user.id)
-                    if (error) {
-                        throw error
-                    }
-                    return { userId: user.id, email: user.email, status: 'deleted' as const }
-                } catch (error) {
-                    const message = error instanceof Error ? error.message : String(error)
-                    logger.error(`[startup-reset]: Failed to delete auth user ${user.email}`, { error: message })
-                    return { userId: user.id, email: user.email, status: 'failed' as const, message }
-                }
-            })
-        )
-
-        results.push(...batchResults)
-
-        // Add delay between batches to respect rate limits
-        if (i + BATCH_SIZE < authUsers.length) {
-            await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS))
-        }
+    if (authUsers.length === 0) {
+        return []
     }
 
-    return results
+    const userIds = authUsers.map((u) => u.id)
+
+    try {
+        await db.query('DELETE FROM auth.users WHERE id = ANY($1::uuid[])', [userIds])
+
+        return authUsers.map((user) => ({ userId: user.id, email: user.email, status: 'deleted' as const }))
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        logger.error('[startup-reset]: Failed to delete auth users via SQL', { error: message })
+
+        return authUsers.map((user) => ({ userId: user.id, email: user.email, status: 'failed' as const, message }))
+    }
 }
 
 // --- Residue check ---
@@ -310,15 +255,6 @@ export async function executeStartupFullReset(
     // Production guard is NEVER bypassed, even with force=true
     assertNotProduction()
 
-    // When force=true, we need to build config manually since env var might be false
-    const config: StartupResetEnabledConfig = envEnabled
-        ? (getStartupResetConfig() as StartupResetEnabledConfig)
-        : {
-              enabled: true,
-              supabaseUrl: assertPresent(process.env.SUPABASE_URL, 'SUPABASE_URL'),
-              serviceRoleKey: assertPresent(process.env.SERVICE_ROLE_KEY, 'SERVICE_ROLE_KEY')
-          }
-
     logger.warn('⚠️ [startup-reset]: FULL DATABASE RESET IS ENABLED — all platform data will be destroyed!')
 
     const fixedProjectSchemas = loadFixedProjectSchemaNames()
@@ -333,7 +269,7 @@ export async function executeStartupFullReset(
 
             const dropResults = await dropProjectSchemas(tx, beforeState.ownedSchemas, fixedProjectSchemas)
 
-            const deleteResults = await deleteAllAuthUsers(config, beforeState.authUsers)
+            const deleteResults = await deleteAllAuthUsers(tx, beforeState.authUsers)
 
             await tx.query('CREATE SCHEMA IF NOT EXISTS public')
 

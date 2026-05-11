@@ -77,6 +77,8 @@ const mockBootstrapStartupSuperuser = jest.fn().mockResolvedValue({
     status: 'disabled'
 })
 const mockExecuteStartupFullReset = jest.fn().mockResolvedValue({ enabled: false, status: 'disabled' })
+const mockPoolExecutor = { query: jest.fn().mockResolvedValue([]) }
+const mockGetPoolExecutor = jest.fn(() => mockPoolExecutor)
 const mockKnex = { tag: 'knex' }
 const mockGetKnex = jest.fn(() => mockKnex)
 const mockDestroyKnex = jest.fn().mockResolvedValue(undefined)
@@ -135,7 +137,8 @@ jest.mock(
     '@universo/database',
     () => ({
         getKnex: mockGetKnex,
-        destroyKnex: mockDestroyKnex
+        destroyKnex: mockDestroyKnex,
+        getPoolExecutor: mockGetPoolExecutor
     }),
     { virtual: true }
 )
@@ -143,7 +146,8 @@ jest.mock(
 jest.mock(
     '@universo/metahubs-backend',
     () => ({
-        initializeRateLimiters: jest.fn()
+        initializeRateLimiters: jest.fn(),
+        seedTemplates: jest.fn().mockResolvedValue({ created: 0, updated: 0, skipped: 0, errors: 0 })
     }),
     { virtual: true }
 )

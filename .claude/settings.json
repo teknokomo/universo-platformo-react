@@ -9,6 +9,7 @@
       "Bash(pnpm build *)",
       "Bash(pnpm vitest *)",
       "Bash(grep *)",
+      "Bash(grep -n *)",
       "Bash(find *)",
       "Bash(tail *)",
       "Bash(python3 -c *)",
@@ -22,7 +23,8 @@
       "Bash(node -e ' *)",
       "Bash(pnpm add *)",
       "Read(*)",
-      "Bash(pnpm exec *)"
+      "Bash(pnpm exec *)",
+      "Bash(node tools *)"
     ],
     "deny": [
       "Read(.env*)",
