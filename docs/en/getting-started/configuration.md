@@ -126,10 +126,10 @@ pnpm start:allclean
 This command is equivalent to:
 
 ```bash
-pnpm clean:all && pnpm install && pnpm build && pnpm start --reset-db
+pnpm clean:all && pnpm install && pnpm build && _FORCE_DATABASE_RESET=true pnpm start
 ```
 
-The `--reset-db` flag forces a database reset regardless of the `FULL_DATABASE_RESET` environment variable value. All safety measures (production guard, advisory lock, schema validation) remain active.
+The `_FORCE_DATABASE_RESET` environment variable forces a database reset regardless of the `FULL_DATABASE_RESET` environment variable value. All safety measures (production guard, advisory lock, schema validation) remain active.
 
 **When to use `start:allclean` vs `FULL_DATABASE_RESET`:**
 

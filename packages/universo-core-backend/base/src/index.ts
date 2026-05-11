@@ -80,7 +80,6 @@ export class App {
 
     async initDatabase() {
         try {
-            // Check for forced reset via CLI flag (--reset-db)
             const forceReset = process.env._FORCE_DATABASE_RESET === 'true'
             await executeStartupFullReset(forceReset ? { force: true } : undefined)
 

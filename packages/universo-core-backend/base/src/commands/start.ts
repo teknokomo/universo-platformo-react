@@ -1,4 +1,3 @@
-import { Flags } from '@oclif/core'
 import * as Server from '../index'
 import { initKnex } from '@universo/database'
 import logger from '../utils/logger'
@@ -6,22 +5,8 @@ import { BaseCommand } from './base'
 import { net, rateLimiting } from '@universo/utils'
 
 export default class Start extends BaseCommand {
-    static flags = {
-        ...BaseCommand.flags,
-        'reset-db': Flags.boolean({
-            description: 'Force full database reset on startup (ignores FULL_DATABASE_RESET env var)',
-            default: false
-        })
-    }
-
     async run(): Promise<void> {
-        const { flags } = await this.parse(Start)
-
-        // Pass reset-db flag to the startup reset function via environment variable
-        if (flags['reset-db']) {
-            process.env._FORCE_DATABASE_RESET = 'true'
-            logger.warn('⚠️ [start]: --reset-db flag detected - full database reset will be forced!')
-        }
+        await this.parse(Start)
 
         logger.info('Starting Universo Platformo...')
         const host = process.env.HOST

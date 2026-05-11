@@ -126,10 +126,10 @@ pnpm start:allclean
 Эта команда эквивалентна:
 
 ```bash
-pnpm clean:all && pnpm install && pnpm build && pnpm start --reset-db
+pnpm clean:all && pnpm install && pnpm build && _FORCE_DATABASE_RESET=true pnpm start
 ```
 
-Флаг `--reset-db` принудительно выполняет сброс базы данных независимо от значения переменной окружения `FULL_DATABASE_RESET`. Все меры безопасности (защита от production, advisory lock, валидация схем) сохраняются.
+Переменная окружения `_FORCE_DATABASE_RESET` принудительно выполняет сброс базы данных независимо от значения переменной окружения `FULL_DATABASE_RESET`. Все меры безопасности (защита от production, advisory lock, валидация схем) сохраняются.
 
 **Когда использовать `start:allclean` или `FULL_DATABASE_RESET`:**
 

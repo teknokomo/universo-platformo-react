@@ -27,7 +27,7 @@
         "start:windows": "cd packages/universo-core-backend/base/bin && run start",
         "start:default": "cd packages/universo-core-backend/base/bin && ./run start",
         "start:clean": "pnpm clean:all && pnpm install && pnpm build && pnpm start",
-        "start:allclean": "pnpm clean:all && pnpm install && pnpm build && pnpm start --reset-db",
+        "start:allclean": "pnpm clean:all && pnpm install && pnpm build && _FORCE_DATABASE_RESET=true pnpm start",
         "start-worker": "run-script-os",
         "start-worker:windows": "cd packages/universo-core-backend/base/bin && run worker",
         "start-worker:default": "cd packages/universo-core-backend/base/bin && ./run worker",
