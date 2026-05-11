@@ -42,7 +42,7 @@ await executeStartupFullReset(forceReset ? { force: true } : undefined)
 
 ```
 pnpm start:allclean
-  → pnpm clean:all && pnpm install && pnpm build && _FORCE_DATABASE_RESET=true pnpm start
+  → pnpm clean:all && pnpm install && pnpm build && cross-env _FORCE_DATABASE_RESET=true pnpm start
     → run-script-os                         (no flags to forward)
       → npm run start:default               (no args → no loss)
         → cd .../bin && ./run start
@@ -84,8 +84,8 @@ pnpm start:allclean
 
 - [x] **Step 1.1**: Update `start:allclean` script in root `package.json`
   - **File**: `package.json:30`
-  - **Change**: `"start:allclean": "pnpm clean:all && pnpm install && pnpm build && _FORCE_DATABASE_RESET=true pnpm start"`
-  - **Why**: Env vars are inherited by child processes; CLI flags are lost by `run-script-os → npm` chain
+  - **Change**: `"start:allclean": "pnpm clean:all && pnpm install && pnpm build && cross-env _FORCE_DATABASE_RESET=true pnpm start"`
+  - **Why**: Env vars are inherited by child processes; CLI flags are lost by `run-script-os → npm` chain. `cross-env` ensures cross-platform compatibility.
 
 - [x] **Step 1.2**: Remove `--reset-db` flag from `start.ts` (dead code)
   - **File**: `packages/universo-core-backend/base/src/commands/start.ts:9-24`
@@ -187,7 +187,7 @@ pnpm start:allclean
   - Run `pnpm test:vitest`
   - Verify no regressions
 
-- [x] **Step 2.5**: Manual smoke test — `_FORCE_DATABASE_RESET=true pnpm start` — reset completed in 4 seconds, server started
+- [x] **Step 2.5**: Manual smoke test — `cross-env _FORCE_DATABASE_RESET=true pnpm start` — reset completed in 4 seconds, server started
   - Run the command on local dev environment
   - Verify terminal output includes:
     - `⚠️ [startup-reset]: FULL DATABASE RESET IS ENABLED`
@@ -219,9 +219,9 @@ pnpm start:allclean
 - [x] **Step 4.1**: Full build passes: `pnpm build`
 - [x] **Step 4.2**: All tests pass: 59 tests, 7 suites, 0 failures
 - [x] **Step 4.3**: Lint passes: `pnpm lint` clean
-- [x] **Step 4.4**: Manual test: `_FORCE_DATABASE_RESET=true pnpm start` — reset completed in 4 seconds, server started successfully
+- [x] **Step 4.4**: Manual test: `cross-env _FORCE_DATABASE_RESET=true pnpm start` — reset completed in 4 seconds, server started successfully
 - [ ] **Step 4.5**: Manual test: `pnpm start:clean` starts WITHOUT resetting database (requires running server)
-- [ ] **Step 4.6**: Manual test: `NODE_ENV=production _FORCE_DATABASE_RESET=true pnpm start` is BLOCKED (requires running server)
+- [ ] **Step 4.6**: Manual test: `NODE_ENV=production cross-env _FORCE_DATABASE_RESET=true pnpm start` is BLOCKED (requires running server)
 - [x] **Step 4.7**: Documentation is identical in structure (EN/RU parity)
 
 ## Potential Challenges
@@ -229,9 +229,7 @@ pnpm start:allclean
 ### 1. Cross-Platform Compatibility
 **Risk**: `_FORCE_DATABASE_RESET=true pnpm start` syntax is Unix-only (bash/zsh). Windows `cmd.exe` uses `set VAR=value && command`.
 
-**Mitigation**: Current project uses `run-script-os` for cross-platform `start` script, but `start:allclean` itself is NOT cross-platform (it uses Unix shell `&&` chaining). The existing `start:windows` / `start:default` pattern only covers the `start` command itself. For `start:allclean`, users on Windows should use PowerShell or WSL, which both support `VAR=value command` syntax.
-
-**Future improvement**: Add `start:allclean:windows` variant using `cross-env` if needed.
+**Mitigation**: Added `cross-env` package as a dev dependency. This ensures the environment variable is set correctly across all platforms (Windows, macOS, Linux) without requiring users to manually handle platform-specific syntax.
 
 ### 2. Env Var Leakage
 **Risk**: `_FORCE_DATABASE_RESET=true` is set for the entire process tree. If the server restarts within the same shell session, the env var persists.
@@ -247,7 +245,7 @@ pnpm start:allclean
 
 | What | Before | After |
 |------|--------|-------|
-| `start:allclean` script | `... && pnpm start --reset-db` (BROKEN) | `... && _FORCE_DATABASE_RESET=true pnpm start` (WORKS) |
+| `start:allclean` script | `... && pnpm start --reset-db` (BROKEN) | `... && cross-env _FORCE_DATABASE_RESET=true pnpm start` (WORKS, cross-platform) |
 | `--reset-db` flag in start.ts | Present (dead code) | Removed |
 | `start:clean` script | Already exists, works correctly | No changes |
 | `_FORCE_DATABASE_RESET` check in index.ts | Already works | No changes |
