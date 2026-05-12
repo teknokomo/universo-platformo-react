@@ -114,6 +114,64 @@ describe('RuntimeReportsService', () => {
         expect(executor.query).not.toHaveBeenCalled()
     })
 
+    it('rejects duplicate aggregation output aliases before SQL is built', async () => {
+        const { executor } = createMockDbExecutor()
+        const service = new RuntimeReportsService()
+
+        await expect(
+            service.runRecordsListReport({
+                executor,
+                schemaName,
+                tableName: 'cat_module_progress',
+                fields,
+                permissions: { readReports: true },
+                definition: {
+                    ...definition,
+                    aggregations: [
+                        { field: 'ProgressPercent', function: 'avg', alias: 'AverageProgress' },
+                        { field: 'ProgressPercent', function: 'max', alias: 'AverageProgress' }
+                    ]
+                }
+            })
+        ).rejects.toMatchObject({
+            body: expect.objectContaining({
+                code: 'REPORT_AGGREGATION_ALIAS_DUPLICATE',
+                alias: 'AverageProgress'
+            })
+        })
+
+        expect(executor.query).not.toHaveBeenCalled()
+    })
+
+    it('rejects aggregation aliases that normalize to the same SQL alias before SQL is built', async () => {
+        const { executor } = createMockDbExecutor()
+        const service = new RuntimeReportsService()
+
+        await expect(
+            service.runRecordsListReport({
+                executor,
+                schemaName,
+                tableName: 'cat_module_progress',
+                fields,
+                permissions: { readReports: true },
+                definition: {
+                    ...definition,
+                    aggregations: [
+                        { field: 'ProgressPercent', function: 'avg', alias: 'AverageProgress' },
+                        { field: 'ProgressPercent', function: 'max', alias: 'average_progress' }
+                    ]
+                }
+            })
+        ).rejects.toMatchObject({
+            body: expect.objectContaining({
+                code: 'REPORT_AGGREGATION_SQL_ALIAS_DUPLICATE',
+                alias: 'average_progress'
+            })
+        })
+
+        expect(executor.query).not.toHaveBeenCalled()
+    })
+
     it('rejects JSON/TABLE fields before SQL is built', async () => {
         const { executor } = createMockDbExecutor()
         const service = new RuntimeReportsService()

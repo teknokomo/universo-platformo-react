@@ -140,6 +140,20 @@ const buildAggregationSqlAlias = (alias: string, index: number): string => {
     return /^[a-z_][a-z0-9_]*$/.test(normalized) ? normalized : `aggregation_${index + 1}`
 }
 
+const assertUniqueAggregationAlias = (seenAliases: Set<string>, alias: string, code: string, field: string): void => {
+    if (!seenAliases.has(alias)) {
+        seenAliases.add(alias)
+        return
+    }
+
+    throw new UpdateFailure(400, {
+        error: 'Report aggregation alias must be unique',
+        code,
+        alias,
+        field
+    })
+}
+
 export class RuntimeReportsService {
     async runRecordsListReport(params: RuntimeReportRecordsListParams): Promise<RuntimeReportRecordsListResult> {
         if (params.permissions.readReports !== true) {
@@ -183,6 +197,8 @@ export class RuntimeReportsService {
         })
         orderClauses.push('_upl_created_at DESC', 'id ASC')
 
+        const outputAliases = new Set<string>()
+        const sqlAliases = new Set<string>()
         const aggregationSpecs = definition.aggregations.map((aggregation, index) => {
             const field = resolveReportField(params.fields, aggregation.field)
             if ((aggregation.function === 'sum' || aggregation.function === 'avg') && field.dataType !== 'NUMBER') {
@@ -196,6 +212,8 @@ export class RuntimeReportsService {
 
             const outputAlias = buildAggregationAlias(aggregation)
             const sqlAlias = buildAggregationSqlAlias(outputAlias, index)
+            assertUniqueAggregationAlias(outputAliases, outputAlias, 'REPORT_AGGREGATION_ALIAS_DUPLICATE', aggregation.field)
+            assertUniqueAggregationAlias(sqlAliases, sqlAlias, 'REPORT_AGGREGATION_SQL_ALIAS_DUPLICATE', aggregation.field)
             return {
                 outputAlias,
                 sqlAlias,
