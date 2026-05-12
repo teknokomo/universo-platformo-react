@@ -126,7 +126,7 @@ describe('Template seed services transaction scope', () => {
             codenameConfig
         )
 
-        expect(localizedCodename?.locales?.en?.content).toBe('Main')
+        expect(localizedCodename?.locales?.en?.content).toBe('MainHub')
         expect(localizedCodename?.locales?.ru?.content).toBe('Основной')
     })
 

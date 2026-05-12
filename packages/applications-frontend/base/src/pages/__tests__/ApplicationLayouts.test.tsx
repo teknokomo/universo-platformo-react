@@ -13,6 +13,7 @@ const apiMocks = vi.hoisted(() => ({
     toggleApplicationLayoutWidget: vi.fn(),
     upsertApplicationLayoutWidget: vi.fn(),
     deleteApplicationLayoutWidget: vi.fn(),
+    updateApplicationLayoutWidgetConfig: vi.fn(),
     createApplicationLayout: vi.fn(),
     updateApplicationLayout: vi.fn(),
     deleteApplicationLayout: vi.fn(),
@@ -90,7 +91,9 @@ vi.mock('@universo/template-mui', () => ({
                       <div key={zone.zone}>
                           <h2>{zone.title}</h2>
                           {(zone.items ?? []).map((item: any) => (
-                              <div key={item.id}>{item.label}</div>
+                              <button key={item.id} type='button' onClick={item.onClick}>
+                                  {item.label}
+                              </button>
                           ))}
                       </div>
                   ))
@@ -108,11 +111,14 @@ vi.mock('@universo/template-mui', () => ({
             {syncState ? <span>{labels.syncState?.[syncState]}</span> : null}
         </div>
     ),
-    EntityFormDialog: ({ open, title, extraFields }: any) =>
+    EntityFormDialog: ({ open, title, extraFields, onSave }: any) =>
         open ? (
             <div data-testid='entity-form-dialog'>
                 <h3>{title}</h3>
                 {typeof extraFields === 'function' ? extraFields() : null}
+                <button type='button' onClick={onSave}>
+                    Save
+                </button>
             </div>
         ) : null,
     LocalizedInlineField: ({ label }: { label: string }) => <div>{label}</div>,
@@ -129,6 +135,7 @@ vi.mock('../../api/applications', () => ({
     toggleApplicationLayoutWidget: apiMocks.toggleApplicationLayoutWidget,
     upsertApplicationLayoutWidget: apiMocks.upsertApplicationLayoutWidget,
     deleteApplicationLayoutWidget: apiMocks.deleteApplicationLayoutWidget,
+    updateApplicationLayoutWidgetConfig: apiMocks.updateApplicationLayoutWidgetConfig,
     createApplicationLayout: apiMocks.createApplicationLayout,
     updateApplicationLayout: apiMocks.updateApplicationLayout,
     deleteApplicationLayout: apiMocks.deleteApplicationLayout,
@@ -137,6 +144,7 @@ vi.mock('../../api/applications', () => ({
 
 import ApplicationLayouts from '../ApplicationLayouts'
 import { STORAGE_KEYS } from '../../constants/storage'
+import { applicationsQueryKeys } from '../../api/queryKeys'
 
 const renderPage = (initialEntry = '/a/app-1/admin/layouts/layout-1') => {
     const queryClient = new QueryClient({
@@ -146,7 +154,7 @@ const renderPage = (initialEntry = '/a/app-1/admin/layouts/layout-1') => {
         }
     })
 
-    return render(
+    const result = render(
         <QueryClientProvider client={queryClient}>
             <MemoryRouter initialEntries={[initialEntry]}>
                 <Routes>
@@ -156,6 +164,8 @@ const renderPage = (initialEntry = '/a/app-1/admin/layouts/layout-1') => {
             </MemoryRouter>
         </QueryClientProvider>
     )
+
+    return { ...result, queryClient }
 }
 
 describe('ApplicationLayouts', () => {
@@ -270,6 +280,7 @@ describe('ApplicationLayouts', () => {
         apiMocks.toggleApplicationLayoutWidget.mockResolvedValue({})
         apiMocks.upsertApplicationLayoutWidget.mockResolvedValue({})
         apiMocks.deleteApplicationLayoutWidget.mockResolvedValue(undefined)
+        apiMocks.updateApplicationLayoutWidgetConfig.mockResolvedValue({})
         apiMocks.createApplicationLayout.mockResolvedValue({})
         apiMocks.updateApplicationLayout.mockResolvedValue({})
         apiMocks.deleteApplicationLayout.mockResolvedValue(undefined)
@@ -317,5 +328,28 @@ describe('ApplicationLayouts', () => {
         expect(screen.getByText('Homepage')).toBeInTheDocument()
         expect(screen.getByText('Application')).toBeInTheDocument()
         expect(screen.getByText('Clean')).toBeInTheDocument()
+    })
+
+    it('rolls back optimistic widget config updates when the save mutation fails', async () => {
+        const user = userEvent.setup()
+        apiMocks.updateApplicationLayoutWidgetConfig.mockRejectedValueOnce(new Error('save failed'))
+        const { queryClient } = renderPage()
+
+        await waitFor(() => {
+            expect(screen.getByText('Homepage')).toBeInTheDocument()
+        })
+
+        await user.click(screen.getByRole('button', { name: 'Overview cards' }))
+        await user.type(screen.getByLabelText('Card title 1'), 'Optimistic card')
+        await user.click(screen.getByRole('button', { name: 'Save' }))
+
+        await waitFor(() => {
+            expect(apiMocks.updateApplicationLayoutWidgetConfig).toHaveBeenCalled()
+        })
+        await waitFor(() => {
+            const cached = queryClient.getQueryData<any>(applicationsQueryKeys.layoutDetail('app-1', 'layout-1'))
+            const widget = cached?.widgets?.find((item: any) => item.id === 'widget-top-1')
+            expect(widget?.config).toEqual({})
+        })
     })
 })

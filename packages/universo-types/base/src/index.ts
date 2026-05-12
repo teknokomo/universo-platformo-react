@@ -4,6 +4,7 @@
 export * from './protocol/version'
 export * from './common/branding'
 export * from './common/linkedCollectionRuntimeConfig'
+export * from './common/lmsPlatform'
 export * from './common/dashboardLayout'
 export * from './common/enums'
 export * from './common/roles'

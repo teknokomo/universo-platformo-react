@@ -8,6 +8,7 @@ import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import type { AppDataResponse } from '../api/api'
 import type { FieldConfig, FieldValidationRules } from '../components/dialogs/FormDialog'
 import type { CellRendererOverrides } from '../api/types'
+import { formatRuntimeValue } from './displayValue'
 
 export interface ToGridColumnsOptions {
     /** Callback fired when the row-actions "⋮" button is clicked. */
@@ -20,6 +21,7 @@ export interface ToGridColumnsOptions {
      * Used e.g. by ApplicationRuntime for inline BOOLEAN editing.
      */
     cellRenderers?: CellRendererOverrides
+    locale?: string
 }
 
 const buildGridRowActionsTriggerTestId = (rowId: string) => `grid-row-actions-trigger-${rowId}`
@@ -31,6 +33,7 @@ const buildGridRowActionsTriggerTestId = (rowId: string) => `grid-row-actions-tr
  * if `options.onMenuOpen` is provided.
  */
 export function toGridColumns(response: AppDataResponse, options?: ToGridColumnsOptions): GridColDef[] {
+    const locale = options?.locale ?? 'en'
     const cols: GridColDef[] = response.columns.map((c) => {
         // TABLE columns are virtual — not sortable/filterable, show chip
         if (c.dataType === 'TABLE') {
@@ -81,7 +84,11 @@ export function toGridColumns(response: AppDataResponse, options?: ToGridColumns
                 }
                 if (c.dataType === 'STRING' && c.uiConfig?.widget === 'textarea') {
                     if (params.value === null || params.value === undefined) return ''
-                    return <Box sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.5 }}>{String(params.value)}</Box>
+                    return (
+                        <Box sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.5 }}>
+                            {formatRuntimeValue(params.value, locale)}
+                        </Box>
+                    )
                 }
                 if (c.dataType === 'REF' && refOptionLabels) {
                     let value = ''
@@ -90,11 +97,7 @@ export function toGridColumns(response: AppDataResponse, options?: ToGridColumns
                     } else if (params.value && typeof params.value === 'object') {
                         const refObject = params.value as Record<string, unknown>
                         let objectLabel = ''
-                        if (typeof refObject.label === 'string') {
-                            objectLabel = refObject.label
-                        } else if (typeof refObject.name === 'string') {
-                            objectLabel = refObject.name
-                        }
+                        objectLabel = formatRuntimeValue(refObject.label ?? refObject.name, locale)
                         if (objectLabel) {
                             return objectLabel
                         }
@@ -105,7 +108,7 @@ export function toGridColumns(response: AppDataResponse, options?: ToGridColumns
                     return refOptionLabels.get(value) ?? ''
                 }
                 if (params.value === null || params.value === undefined) return ''
-                return String(params.value)
+                return formatRuntimeValue(params.value, locale)
             }
         }
     })

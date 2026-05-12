@@ -86,8 +86,9 @@ const SettingsPage = () => {
         if (!data?.registry) return SETTING_TABS
 
         const registryTabs = new Set(data.registry.map((entry) => entry.tab))
-        return SETTING_TABS.filter((tab) => registryTabs.has(tab))
-    }, [data?.registry])
+        const orderedTabs = data.meta?.tabOrder?.length ? data.meta.tabOrder : SETTING_TABS
+        return orderedTabs.filter((tab): tab is SettingTab => registryTabs.has(tab) && (SETTING_TABS as readonly string[]).includes(tab))
+    }, [data?.registry, data?.meta?.tabOrder])
 
     useEffect(() => {
         if (visibleTabs.length > 0 && !visibleTabs.includes(activeTab)) {

@@ -6,6 +6,7 @@ import { createApplicationsController } from '../controllers/applicationsControl
 import { createRuntimeRowsController } from '../controllers/runtimeRowsController'
 import { createRuntimeChildRowsController } from '../controllers/runtimeChildRowsController'
 import { createRuntimeLedgersController } from '../controllers/runtimeLedgersController'
+import { createRuntimeReportsController } from '../controllers/runtimeReportsController'
 import { createRuntimeScriptsController } from '../controllers/runtimeScriptsController'
 import { createRuntimeWorkspaceController } from '../controllers/runtimeWorkspaceController'
 import { createApplicationLayoutsController } from '../controllers/applicationLayoutsController'
@@ -23,6 +24,7 @@ export function createApplicationsRoutes(
     const runtime = createRuntimeRowsController(getDbExecutor)
     const childRows = createRuntimeChildRowsController(getDbExecutor)
     const ledgers = createRuntimeLedgersController(getDbExecutor)
+    const reports = createRuntimeReportsController(getDbExecutor)
     const runtimeScripts = createRuntimeScriptsController(getDbExecutor)
     const workspace = createRuntimeWorkspaceController(getDbExecutor)
     const layouts = createApplicationLayoutsController(getDbExecutor)
@@ -80,6 +82,7 @@ export function createApplicationsRoutes(
     router.get('/:applicationId/runtime/scripts', readLimiter, asyncHandler(runtimeScripts.listScripts))
     router.get('/:applicationId/runtime/scripts/:scriptId/client', readLimiter, asyncHandler(runtimeScripts.getClientBundle))
     router.post('/:applicationId/runtime/scripts/:scriptId/call', writeLimiter, asyncHandler(runtimeScripts.callMethod))
+    router.post('/:applicationId/runtime/reports/run', readLimiter, asyncHandler(reports.runReport))
     router.get('/:applicationId/runtime/ledgers', readLimiter, asyncHandler(ledgers.listLedgers))
     router.get('/:applicationId/runtime/ledgers/:ledgerId/facts', readLimiter, asyncHandler(ledgers.listFacts))
     router.patch('/:applicationId/runtime/ledgers/:ledgerId/facts/:factId', writeLimiter, asyncHandler(ledgers.updateFact))

@@ -32,6 +32,7 @@ export interface SettingsResponse {
     registry: SettingsRegistryEntry[]
     meta?: {
         hasHubNesting?: boolean
+        tabOrder?: string[]
     }
 }
 

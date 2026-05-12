@@ -1748,6 +1748,7 @@ describe('Applications Routes', () => {
                         dashboardDefaultMode: 'first-menu-item',
                         datasourceExecutionPolicy: 'layout-only',
                         workspaceOpenBehavior: 'default-workspace',
+                        schemaDiffLocalizedLabels: false,
                         publicRuntime: {
                             guest: {
                                 objects: { students: 'TamperedStudents' }
@@ -1761,6 +1762,7 @@ describe('Applications Routes', () => {
                 dashboardDefaultMode: 'first-menu-item',
                 datasourceExecutionPolicy: 'layout-only',
                 workspaceOpenBehavior: 'default-workspace',
+                schemaDiffLocalizedLabels: false,
                 publicRuntime: existingPublicRuntime
             })
             expect(response.body.settings).not.toMatchObject({
@@ -3411,14 +3413,14 @@ describe('Applications Routes', () => {
             nextRow?: Record<string, unknown>
         ) => {
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-	                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
-	                    return [
-	                        {
-	                            id: runtimeLinkedCollectionId,
-	                            kind: 'catalog',
-	                            codename: 'documents',
-	                            table_name: 'documents',
-	                            config: recordBehaviorConfig
+                if (sql.includes('FROM "app_runtime_test"._app_objects')) {
+                    return [
+                        {
+                            id: runtimeLinkedCollectionId,
+                            kind: 'catalog',
+                            codename: 'documents',
+                            table_name: 'documents',
+                            config: recordBehaviorConfig
                         }
                     ]
                 }
@@ -3518,11 +3520,11 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-	                if (
-	                    sql.includes('FROM "app_runtime_test"._app_objects') &&
-	                    sql.includes("config->'components'->'ledgerSchema'") &&
-	                    !sql.includes('AND NOT')
-	                ) {
+                if (
+                    sql.includes('FROM "app_runtime_test"._app_objects') &&
+                    sql.includes("config->'components'->'ledgerSchema'") &&
+                    !sql.includes('AND NOT')
+                ) {
                     return [
                         {
                             id: '018f8a78-7b8f-7c1d-a111-222233334576',
@@ -3542,12 +3544,12 @@ describe('Applications Routes', () => {
                 }
                 if (sql.includes('FROM "app_runtime_test"._app_objects')) {
                     return [
-	                        {
-	                            id: runtimeLinkedCollectionId,
-	                            kind: 'catalog',
-	                            codename: 'documents',
-	                            table_name: 'documents',
-	                            config: recordBehaviorWithLedgerConfig
+                        {
+                            id: runtimeLinkedCollectionId,
+                            kind: 'catalog',
+                            codename: 'documents',
+                            table_name: 'documents',
+                            config: recordBehaviorWithLedgerConfig
                         }
                     ]
                 }
@@ -3631,11 +3633,11 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-	                if (
-	                    sql.includes('FROM "app_runtime_test"._app_objects') &&
-	                    sql.includes("config->'components'->'ledgerSchema'") &&
-	                    !sql.includes('AND NOT')
-	                ) {
+                if (
+                    sql.includes('FROM "app_runtime_test"._app_objects') &&
+                    sql.includes("config->'components'->'ledgerSchema'") &&
+                    !sql.includes('AND NOT')
+                ) {
                     return [
                         {
                             id: '018f8a78-7b8f-7c1d-a111-222233334576',
@@ -3664,12 +3666,12 @@ describe('Applications Routes', () => {
                 }
                 if (sql.includes('FROM "app_runtime_test"._app_objects')) {
                     return [
-	                        {
-	                            id: runtimeLinkedCollectionId,
-	                            kind: 'catalog',
-	                            codename: 'documents',
-	                            table_name: 'documents',
-	                            config: recordBehaviorWithLedgerConfig
+                        {
+                            id: runtimeLinkedCollectionId,
+                            kind: 'catalog',
+                            codename: 'documents',
+                            table_name: 'documents',
+                            config: recordBehaviorWithLedgerConfig
                         }
                     ]
                 }
@@ -3794,11 +3796,11 @@ describe('Applications Routes', () => {
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-	                if (
-	                    sql.includes('FROM "app_runtime_test"._app_objects') &&
-	                    sql.includes("config->'components'->'ledgerSchema'") &&
-	                    !sql.includes('AND NOT')
-	                ) {
+                if (
+                    sql.includes('FROM "app_runtime_test"._app_objects') &&
+                    sql.includes("config->'components'->'ledgerSchema'") &&
+                    !sql.includes('AND NOT')
+                ) {
                     return [
                         {
                             id: '018f8a78-7b8f-7c1d-a111-222233334576',
@@ -3818,12 +3820,12 @@ describe('Applications Routes', () => {
                 }
                 if (sql.includes('FROM "app_runtime_test"._app_objects')) {
                     return [
-	                        {
-	                            id: runtimeLinkedCollectionId,
-	                            kind: 'catalog',
-	                            codename: 'documents',
-	                            table_name: 'documents',
-	                            config: recordBehaviorWithLedgerConfig
+                        {
+                            id: runtimeLinkedCollectionId,
+                            kind: 'catalog',
+                            codename: 'documents',
+                            table_name: 'documents',
+                            config: recordBehaviorWithLedgerConfig
                         }
                     ]
                 }
@@ -4273,6 +4275,146 @@ describe('Applications Routes', () => {
                     String(call[0]).includes('UPDATE "app_runtime_test"."led_progress"')
                 )
             ).toBeUndefined()
+        })
+    })
+
+    describe('Runtime reports route contract', () => {
+        const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-2222333346a0'
+        const runtimeSchemaName = 'app_018f8a787b8f7c1da1112222333346a0'
+
+        const reportDefinition = {
+            codename: 'LearnerProgress',
+            title: 'Learner progress',
+            datasource: {
+                kind: 'records.list',
+                sectionCodename: 'ModuleProgress',
+                query: { sort: [{ field: 'ProgressPercent', direction: 'desc' }] }
+            },
+            columns: [{ field: 'ProgressPercent', label: 'Progress', type: 'number' }],
+            filters: [],
+            aggregations: [{ field: 'ProgressPercent', function: 'avg', alias: 'AverageProgress' }]
+        }
+
+        const mockRuntimeApplication = (
+            applicationRepo: ReturnType<typeof buildDataSource>['applicationRepo'],
+            applicationUserRepo: ReturnType<typeof buildDataSource>['applicationUserRepo'],
+            role: 'owner' | 'admin' | 'editor' | 'member'
+        ) => {
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: runtimeSchemaName,
+                workspacesEnabled: false,
+                settings: {}
+            })
+        }
+
+        it('rejects report execution before touching runtime metadata when report permissions are unavailable', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'member')
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/reports/run`)
+                .send({ reportCodename: 'LearnerProgress' })
+                .expect(403)
+
+            expect(response.body).toEqual({ error: 'Insufficient permissions for this action' })
+            expect((dataSource.query as jest.Mock).mock.calls.some((call) => String(call[0]).includes('._app_objects'))).toBe(false)
+        })
+
+        it('rejects arbitrary inline report definitions before runtime metadata lookup', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/reports/run`)
+                .send({ definition: reportDefinition })
+                .expect(400)
+
+            expect(response.body).toMatchObject({ error: 'Invalid report payload' })
+            expect((dataSource.query as jest.Mock).mock.calls.some((call) => String(call[0]).includes('._app_objects'))).toBe(false)
+        })
+
+        it('runs a records.list report through published runtime metadata for report-capable roles', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            const baseQuery = (dataSource.query as jest.Mock).getMockImplementation()
+
+            ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes(`FROM "${runtimeSchemaName}"._app_objects`)) {
+                    if (params?.[0] === 'Reports') {
+                        return [
+                            {
+                                id: '018f8a78-7b8f-7c1d-a111-2222333346b1',
+                                codename: 'Reports',
+                                table_name: 'reports',
+                                config: {}
+                            }
+                        ]
+                    }
+                    expect(params).toEqual(['ModuleProgress'])
+                    return [
+                        {
+                            id: '018f8a78-7b8f-7c1d-a111-2222333346a1',
+                            codename: 'ModuleProgress',
+                            table_name: 'module_progress',
+                            config: {}
+                        }
+                    ]
+                }
+                if (sql.includes(`FROM "${runtimeSchemaName}"._app_attributes`)) {
+                    if (params?.[0] === '018f8a78-7b8f-7c1d-a111-2222333346b1') {
+                        return [
+                            {
+                                codename: 'Definition',
+                                column_name: 'definition',
+                                data_type: 'JSON'
+                            }
+                        ]
+                    }
+                    return [
+                        {
+                            codename: 'ProgressPercent',
+                            column_name: 'progress_percent',
+                            data_type: 'NUMBER'
+                        }
+                    ]
+                }
+                if (sql.includes(`FROM "${runtimeSchemaName}"."reports"`)) {
+                    expect(params).toEqual(['LearnerProgress'])
+                    return [{ definition: reportDefinition }]
+                }
+                if (sql.includes('SELECT "progress_percent"') && sql.includes(`FROM "${runtimeSchemaName}"."module_progress"`)) {
+                    return [{ progress_percent: 75 }]
+                }
+                if (sql.includes('SELECT count(*) AS total') && sql.includes(`FROM "${runtimeSchemaName}"."module_progress"`)) {
+                    return [{ total: '1' }]
+                }
+                if (sql.includes('SELECT AVG("progress_percent") AS "average_progress"')) {
+                    return [{ average_progress: '75' }]
+                }
+
+                return baseQuery?.(sql, params) ?? []
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/reports/run`)
+                .send({ reportCodename: 'LearnerProgress', limit: 25, offset: 0 })
+                .expect(200)
+
+            expect(response.body).toMatchObject({
+                rows: [{ ProgressPercent: 75 }],
+                total: 1,
+                aggregations: { AverageProgress: 75 },
+                definition: { codename: 'LearnerProgress' }
+            })
         })
     })
 

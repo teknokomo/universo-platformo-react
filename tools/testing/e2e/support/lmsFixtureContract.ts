@@ -1,6 +1,11 @@
 import { buildVLC, computeSnapshotHash } from '@universo/utils'
+import { lmsAcceptanceMatrixSchema, reportDefinitionSchema, resourceDefinitionSchema } from '@universo/types'
 
 export const LMS_FIXTURE_FILENAME = 'metahubs-lms-app-snapshot.json'
+const LMS_EXPECTED_BUNDLE_VERSION = 1
+const LMS_EXPECTED_SNAPSHOT_VERSION = 1
+const LMS_EXPECTED_STRUCTURE_VERSION = '0.1.0'
+const LMS_EXPECTED_SNAPSHOT_FORMAT_VERSION = 3
 
 export const LMS_CANONICAL_METAHUB = {
     name: {
@@ -431,6 +436,143 @@ export const LMS_DEMO_MODULES = [
     }
 ] as const
 
+export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
+    {
+        area: 'learnerHome',
+        requiredEntities: ['LearnerHome', 'LearningResources', 'Courses', 'ModuleProgress'],
+        requiredStatuses: ['NotStarted', 'InProgress', 'Completed']
+    },
+    {
+        area: 'contentLibrary',
+        requiredEntities: ['LearningResources', 'Courses', 'CourseSections', 'Modules'],
+        requiredStatuses: ['Published']
+    },
+    {
+        area: 'learningTrackProgression',
+        requiredEntities: ['LearningTracks', 'TrackSteps', 'Enrollments', 'ProgressLedger'],
+        requiredStatuses: ['NotStarted', 'InProgress', 'Completed', 'Overdue', 'Expired']
+    },
+    {
+        area: 'assignmentSubmissionAndGrading',
+        requiredEntities: ['Assignments', 'AssignmentSubmissions'],
+        requiredStatuses: ['NotStarted', 'PendingReview', 'Declined', 'Accepted']
+    },
+    {
+        area: 'trainingAttendance',
+        requiredEntities: ['TrainingEvents', 'TrainingAttendance', 'AttendanceLedger'],
+        requiredStatuses: ['Registered', 'Attended', 'NoShow', 'Cancelled']
+    },
+    {
+        area: 'certificateIssue',
+        requiredEntities: ['Certificates', 'CertificateIssues', 'CertificateLedger'],
+        requiredStatuses: ['Eligible', 'Issued', 'Revoked', 'Expired']
+    },
+    {
+        area: 'reports',
+        requiredEntities: ['Reports'],
+        requiredReports: ['LearnerProgress', 'CourseProgress']
+    },
+    {
+        area: 'knowledgeBase',
+        requiredEntities: ['KnowledgeSpaces', 'KnowledgeFolders', 'KnowledgeBookmarks', 'KnowledgeArticle']
+    },
+    {
+        area: 'developmentPlan',
+        requiredEntities: ['DevelopmentPlans', 'DevelopmentPlanStages', 'DevelopmentPlanTasks']
+    },
+    {
+        area: 'workspaceIsolation',
+        requiredEntities: ['Students', 'Departments', 'Classes']
+    }
+])
+
+export const LMS_DEMO_RESOURCES = [
+    resourceDefinitionSchema.parse({
+        codename: 'CourseOverviewPageResource',
+        title: buildVLC('Course overview page', 'Страница обзора курса'),
+        source: { type: 'page', pageCodename: 'CourseOverview' },
+        estimatedTimeMinutes: 5,
+        language: 'en'
+    }),
+    resourceDefinitionSchema.parse({
+        codename: 'SafetyVideoResource',
+        title: buildVLC('Safety intro video', 'Вводное видео по безопасности'),
+        source: { type: 'video', url: 'https://example.test/lms/safety-intro.mp4', mimeType: 'video/mp4' },
+        estimatedTimeMinutes: 8,
+        language: 'en'
+    }),
+    resourceDefinitionSchema.parse({
+        codename: 'CertificatePolicyResource',
+        title: buildVLC('Certificate policy page', 'Страница политики сертификатов'),
+        source: { type: 'page', pageCodename: 'CertificatePolicy' },
+        estimatedTimeMinutes: 4,
+        language: 'en'
+    })
+] as const
+
+export const LMS_DEMO_COURSES = [
+    {
+        key: 'onboarding-course',
+        title: { en: 'Learner Onboarding Course', ru: 'Курс адаптации учащегося' },
+        description: { en: 'A short course for the first learner journey.', ru: 'Короткий курс для первого учебного маршрута.' },
+        estimatedTimeMinutes: 22
+    },
+    {
+        key: 'compliance-course',
+        title: { en: 'Compliance Refresh Course', ru: 'Курс обновления требований' },
+        description: { en: 'Required refresher materials and checks.', ru: 'Обязательные материалы и проверки.' },
+        estimatedTimeMinutes: 18
+    }
+] as const
+
+export const LMS_DEMO_KNOWLEDGE_SPACE = {
+    key: 'operations-knowledge',
+    title: { en: 'Operations Knowledge', ru: 'Операционные знания' },
+    description: { en: 'Shared articles for daily learning support.', ru: 'Общие статьи для ежедневной поддержки обучения.' }
+} as const
+
+export const LMS_DEMO_DEVELOPMENT_PLAN = {
+    key: 'ava-onboarding-plan',
+    title: { en: 'Ava onboarding plan', ru: 'План адаптации Авы' },
+    stageTitle: { en: 'First week', ru: 'Первая неделя' },
+    taskTitle: { en: 'Complete the learner onboarding course', ru: 'Завершить курс адаптации учащегося' }
+} as const
+
+export const LMS_DEMO_REPORTS = [
+    reportDefinitionSchema.parse({
+        codename: 'LearnerProgress',
+        title: buildVLC('Learner progress', 'Прогресс учащихся'),
+        datasource: {
+            kind: 'records.list',
+            sectionCodename: 'ModuleProgress',
+            query: { sort: [{ field: 'CompletedAt', direction: 'desc' }] }
+        },
+        columns: [
+            { field: 'ProgressStudentId', label: buildVLC('Learner', 'Учащийся'), type: 'text' },
+            { field: 'ProgressPercent', label: buildVLC('Progress', 'Прогресс'), type: 'number' },
+            { field: 'ProgressStatus', label: buildVLC('Status', 'Статус'), type: 'status' }
+        ],
+        filters: [],
+        aggregations: [{ field: 'ProgressPercent', function: 'avg', alias: 'AverageProgress' }]
+    }),
+    reportDefinitionSchema.parse({
+        codename: 'CourseProgress',
+        title: buildVLC('Course progress', 'Прогресс курсов'),
+        datasource: {
+            kind: 'records.list',
+            sectionCodename: 'Enrollments',
+            query: { sort: [{ field: 'EnrolledAt', direction: 'desc' }] }
+        },
+        columns: [
+            { field: 'EnrollmentStudentId', label: buildVLC('Learner', 'Учащийся'), type: 'text' },
+            { field: 'ModuleIdRef', label: buildVLC('Module', 'Модуль'), type: 'text' },
+            { field: 'Score', label: buildVLC('Score', 'Балл'), type: 'number' }
+        ],
+        filters: [],
+        aggregations: [{ field: 'Score', function: 'avg', alias: 'AverageScore' }]
+    })
+] as const
+
 export const LMS_DEMO_ACCESS_LINKS = [
     {
         key: 'demo-module',
@@ -572,15 +714,23 @@ type SnapshotScript = Record<string, unknown>
 type SnapshotLayoutWidget = Record<string, unknown>
 
 type SnapshotEnvelope = Record<string, unknown> & {
+    bundleVersion?: unknown
     snapshot?: {
+        version?: unknown
         entities?: Record<string, SnapshotEntity>
         entityTypeDefinitions?: Record<string, Record<string, unknown>>
         elements?: Record<string, SnapshotElement[]>
         fixedValues?: Record<string, Array<Record<string, unknown>>>
+        optionValues?: Record<string, Array<Record<string, unknown>>>
         scripts?: SnapshotScript[]
         layoutZoneWidgets?: SnapshotLayoutWidget[]
         runtimePolicy?: {
             workspaceMode?: unknown
+        }
+        versionEnvelope?: {
+            structureVersion?: unknown
+            templateVersion?: unknown
+            snapshotFormatVersion?: unknown
         }
     }
     metahub?: {
@@ -600,7 +750,11 @@ const REQUIRED_ENTITY_CODENAMES = [
     'Classes',
     'Students',
     'Departments',
+    'LearningResources',
+    'Courses',
+    'CourseSections',
     'LearningTracks',
+    'TrackSteps',
     'Modules',
     'Quizzes',
     'QuizResponses',
@@ -622,7 +776,20 @@ const REQUIRED_ENTITY_CODENAMES = [
     'TrainingAttendance',
     'Certificates',
     'CertificateIssues',
+    'KnowledgeSpaces',
+    'KnowledgeFolders',
+    'KnowledgeBookmarks',
+    'DevelopmentPlans',
+    'DevelopmentPlanStages',
+    'DevelopmentPlanTasks',
+    'NotificationRules',
+    'NotificationOutbox',
     'Reports',
+    'ResourceType',
+    'CompletionStatus',
+    'AttemptStatus',
+    'AssignmentReviewStatus',
+    'TrainingAttendanceStatus',
     'AssignmentStatus',
     'TrainingEventType',
     'CertificateStatus',
@@ -710,11 +877,26 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
     if (envelope.kind !== 'metahub_snapshot_bundle') {
         errors.push('LMS fixture must keep kind="metahub_snapshot_bundle"')
     }
+    if (envelope.bundleVersion !== LMS_EXPECTED_BUNDLE_VERSION) {
+        errors.push(`LMS fixture bundleVersion must remain ${LMS_EXPECTED_BUNDLE_VERSION}`)
+    }
 
     if (!envelope?.snapshot || typeof envelope.snapshot !== 'object') {
         errors.push('LMS fixture is missing the snapshot payload')
     } else if (envelope.snapshotHash !== computeSnapshotHash(envelope.snapshot)) {
         errors.push('LMS fixture snapshotHash drifted from the canonical snapshot payload')
+    }
+    if (envelope.snapshot?.version !== LMS_EXPECTED_SNAPSHOT_VERSION) {
+        errors.push(`LMS fixture snapshot version must remain ${LMS_EXPECTED_SNAPSHOT_VERSION}`)
+    }
+    if (envelope.snapshot?.versionEnvelope?.structureVersion !== LMS_EXPECTED_STRUCTURE_VERSION) {
+        errors.push(`LMS fixture structureVersion must remain ${LMS_EXPECTED_STRUCTURE_VERSION}`)
+    }
+    if (envelope.snapshot?.versionEnvelope?.snapshotFormatVersion !== LMS_EXPECTED_SNAPSHOT_FORMAT_VERSION) {
+        errors.push(`LMS fixture snapshotFormatVersion must remain ${LMS_EXPECTED_SNAPSHOT_FORMAT_VERSION}`)
+    }
+    if (envelope.snapshot?.versionEnvelope?.templateVersion != null) {
+        errors.push('LMS fixture must not pin or bump templateVersion in exported snapshots')
     }
 
     if (envelope.snapshot?.runtimePolicy?.workspaceMode !== 'required') {
@@ -800,6 +982,13 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
             errors.push(`LMS fixture is missing entity ${codename}`)
         }
     }
+    for (const acceptanceArea of LMS_PRODUCT_ACCEPTANCE_MATRIX) {
+        for (const entityCodename of acceptanceArea.requiredEntities) {
+            if (!entityByCodename.has(entityCodename)) {
+                errors.push(`LMS acceptance area ${acceptanceArea.area} is missing required entity ${entityCodename}`)
+            }
+        }
+    }
 
     for (const requiredEntity of REQUIRED_BASIC_BASELINE_ENTITIES) {
         if (!findEntityByKindAndName(requiredEntity.kind, requiredEntity.name)) {
@@ -817,7 +1006,14 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
     }
 
     const widgets = Array.isArray(envelope.snapshot?.layoutZoneWidgets) ? envelope.snapshot.layoutZoneWidgets : []
-    const forbiddenWidgetKeys = new Set(['moduleViewerWidget', 'statsViewerWidget', 'qrCodeWidget'])
+    const forbiddenWidgetKeys = new Set([
+        'moduleViewerWidget',
+        'statsViewerWidget',
+        'qrCodeWidget',
+        'brandSelector',
+        'productTree',
+        'usersByCountryChart'
+    ])
     for (const widget of widgets) {
         if (forbiddenWidgetKeys.has(String(widget?.widgetKey))) {
             errors.push(`LMS fixture must not include legacy global widget ${String(widget?.widgetKey)}`)
@@ -932,6 +1128,10 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
     if (learnerHomeEntity?.kind !== 'page') {
         errors.push('LMS fixture must include LearnerHome as a Page entity')
     } else {
+        const learnerHomeCodenameRu = readLocalizedText(learnerHomeEntity.codename, 'ru')
+        if (!learnerHomeCodenameRu) {
+            errors.push('LMS LearnerHome page must export a Russian codename value')
+        }
         const learnerHomeNameEn = readLocalizedText(learnerHomeEntity.presentation?.name, 'en')
         const learnerHomeNameRu = readLocalizedText(learnerHomeEntity.presentation?.name, 'ru')
         if (learnerHomeNameEn !== 'Welcome' || learnerHomeNameRu !== 'Добро пожаловать') {
@@ -962,6 +1162,10 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         if (pageEntity?.kind !== 'page') {
             errors.push(`LMS fixture must include ${pageCodename} as a Page entity`)
             continue
+        }
+        const pageCodenameRu = readLocalizedText(pageEntity.codename, 'ru')
+        if (!pageCodenameRu) {
+            errors.push(`LMS ${pageCodename} page must export a Russian codename value`)
         }
         const pageConfig = pageEntity as SnapshotEntity & { config?: Record<string, unknown> }
         const blockContent = pageConfig.config?.blockContent as Record<string, unknown> | undefined
@@ -1113,37 +1317,117 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         }
     }
     const exportedFixedValues = Object.values(envelope.snapshot?.fixedValues ?? {}).flat()
+    const exportedOptionValues = Object.values(envelope.snapshot?.optionValues ?? {}).flat()
     const fixedValueCodenames = new Set(exportedFixedValues.map((value) => readLocalizedText(value?.codename, 'en')).filter(Boolean))
+    const optionValueCodenames = new Set(exportedOptionValues.map((value) => readLocalizedText(value?.codename, 'en')).filter(Boolean))
     for (const codename of ['AppName', 'DefaultPassingScore', 'CertificateValidityDays', 'AutoEnrollEnabled', 'SupportEmail']) {
         if (!fixedValueCodenames.has(codename)) {
             errors.push(`LMS fixture is missing Set/Constants fixed value ${codename}`)
+        }
+    }
+    for (const acceptanceArea of LMS_PRODUCT_ACCEPTANCE_MATRIX) {
+        for (const statusCodename of acceptanceArea.requiredStatuses) {
+            if (!fixedValueCodenames.has(statusCodename) && !optionValueCodenames.has(statusCodename)) {
+                errors.push(`LMS acceptance area ${acceptanceArea.area} is missing status value ${statusCodename}`)
+            }
         }
     }
 
     const elementsByEntityId = envelope.snapshot?.elements ?? {}
     const classRows = getSeededRows(elementsByEntityId, entityByCodename.get('Classes')?.id)
     const studentRows = getSeededRows(elementsByEntityId, entityByCodename.get('Students')?.id)
+    const resourceRows = getSeededRows(elementsByEntityId, entityByCodename.get('LearningResources')?.id)
+    const courseRows = getSeededRows(elementsByEntityId, entityByCodename.get('Courses')?.id)
+    const courseSectionRows = getSeededRows(elementsByEntityId, entityByCodename.get('CourseSections')?.id)
+    const learningTrackRows = getSeededRows(elementsByEntityId, entityByCodename.get('LearningTracks')?.id)
+    const trackStepRows = getSeededRows(elementsByEntityId, entityByCodename.get('TrackSteps')?.id)
     const moduleRows = getSeededRows(elementsByEntityId, entityByCodename.get('Modules')?.id)
     const quizRows = getSeededRows(elementsByEntityId, entityByCodename.get('Quizzes')?.id)
     const quizResponseRows = getSeededRows(elementsByEntityId, entityByCodename.get('QuizResponses')?.id)
     const moduleProgressRows = getSeededRows(elementsByEntityId, entityByCodename.get('ModuleProgress')?.id)
     const accessLinkRows = getSeededRows(elementsByEntityId, entityByCodename.get('AccessLinks')?.id)
     const enrollmentRows = getSeededRows(elementsByEntityId, entityByCodename.get('Enrollments')?.id)
+    const knowledgeSpaceRows = getSeededRows(elementsByEntityId, entityByCodename.get('KnowledgeSpaces')?.id)
+    const knowledgeFolderRows = getSeededRows(elementsByEntityId, entityByCodename.get('KnowledgeFolders')?.id)
+    const knowledgeBookmarkRows = getSeededRows(elementsByEntityId, entityByCodename.get('KnowledgeBookmarks')?.id)
+    const developmentPlanRows = getSeededRows(elementsByEntityId, entityByCodename.get('DevelopmentPlans')?.id)
+    const developmentPlanStageRows = getSeededRows(elementsByEntityId, entityByCodename.get('DevelopmentPlanStages')?.id)
+    const developmentPlanTaskRows = getSeededRows(elementsByEntityId, entityByCodename.get('DevelopmentPlanTasks')?.id)
+    const reportRows = getSeededRows(elementsByEntityId, entityByCodename.get('Reports')?.id)
 
     const expectedCounts = [
         ['class', classRows.length, LMS_DEMO_CLASSES.length],
         ['student', studentRows.length, LMS_DEMO_STUDENTS.length],
+        ['resource', resourceRows.length, LMS_DEMO_RESOURCES.length],
+        ['course', courseRows.length, LMS_DEMO_COURSES.length],
+        ['course section', courseSectionRows.length, 3],
+        ['learning track', learningTrackRows.length, 2],
+        ['track step', trackStepRows.length, 3],
         ['module', moduleRows.length, LMS_DEMO_MODULES.length],
         ['quiz', quizRows.length, LMS_DEMO_QUIZZES.length],
         ['quiz response', quizResponseRows.length, LMS_DEMO_QUIZ_RESPONSES.length],
         ['module progress', moduleProgressRows.length, LMS_DEMO_MODULE_PROGRESS.length],
         ['access link', accessLinkRows.length, LMS_DEMO_ACCESS_LINKS.length],
-        ['enrollment', enrollmentRows.length, LMS_DEMO_ENROLLMENTS.length]
+        ['enrollment', enrollmentRows.length, LMS_DEMO_ENROLLMENTS.length],
+        ['knowledge space', knowledgeSpaceRows.length, 1],
+        ['knowledge folder', knowledgeFolderRows.length, 1],
+        ['knowledge bookmark', knowledgeBookmarkRows.length, 1],
+        ['development plan', developmentPlanRows.length, 1],
+        ['development plan stage', developmentPlanStageRows.length, 1],
+        ['development plan task', developmentPlanTaskRows.length, 1],
+        ['report', reportRows.length, LMS_DEMO_REPORTS.length]
     ] as const
 
     for (const [label, actual, expected] of expectedCounts) {
         if (actual !== expected) {
             errors.push(`LMS fixture must seed exactly ${expected} ${label} row(s), received ${actual}`)
+        }
+    }
+
+    for (const expectedResource of LMS_DEMO_RESOURCES) {
+        const resourceRow = resourceRows.find((row) => readLocalizedText(row?.data?.Title, 'en') === readLocalizedText(expectedResource.title, 'en'))
+        if (!resourceRow) {
+            errors.push(`LMS fixture is missing learning resource ${expectedResource.codename}`)
+            continue
+        }
+        const resourceDefinition = resourceDefinitionSchema.safeParse({
+            codename: expectedResource.codename,
+            title: resourceRow.data?.Title,
+            source: resourceRow.data?.Source,
+            estimatedTimeMinutes: resourceRow.data?.EstimatedTimeMinutes,
+            language: resourceRow.data?.Language
+        })
+        if (!resourceDefinition.success) {
+            errors.push(`LMS learning resource ${expectedResource.codename} must match the generic resource contract`)
+        }
+    }
+
+    const reportRowsByCodename = new Map<string, SnapshotElement>()
+    for (const expectedReport of LMS_DEMO_REPORTS) {
+        const reportRow = reportRows.find((row) => readLocalizedText(row?.data?.Name, 'en') === readLocalizedText(expectedReport.title, 'en'))
+        if (!reportRow) {
+            errors.push(`LMS fixture is missing report definition ${expectedReport.codename}`)
+            continue
+        }
+        reportRowsByCodename.set(expectedReport.codename, reportRow)
+
+        const reportDefinition = reportDefinitionSchema.safeParse(reportRow.data?.Definition)
+        if (!reportDefinition.success) {
+            errors.push(`LMS report ${expectedReport.codename} must store a valid generic report definition`)
+            continue
+        }
+        if (reportDefinition.data.codename !== expectedReport.codename) {
+            errors.push(`LMS report ${expectedReport.codename} must keep its canonical report codename`)
+        }
+        if (reportDefinition.data.datasource.kind !== 'records.list') {
+            errors.push(`LMS report ${expectedReport.codename} must use an existing generic records.list datasource`)
+        }
+    }
+    for (const acceptanceArea of LMS_PRODUCT_ACCEPTANCE_MATRIX) {
+        for (const reportCodename of acceptanceArea.requiredReports) {
+            if (!reportRowsByCodename.has(reportCodename)) {
+                errors.push(`LMS acceptance area ${acceptanceArea.area} is missing report ${reportCodename}`)
+            }
         }
     }
 
@@ -1157,9 +1441,8 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         classRowsByKey.set(seededClass.key, classRow)
 
         const classData = classRow.data ?? {}
-        if (readLocalizedText(classData.Description, 'en') !== seededClass.description.en) {
-            errors.push(`LMS class ${seededClass.name.en} is missing the canonical English description`)
-        }
+        assertLocalizedFixtureValue(errors, classData.Name, seededClass.name, `LMS class ${seededClass.name.en} name`)
+        assertLocalizedFixtureValue(errors, classData.Description, seededClass.description, `LMS class ${seededClass.name.en} description`)
         if (classData.SchoolYear !== seededClass.schoolYear) {
             errors.push(`LMS class ${seededClass.name.en} must use SchoolYear=${seededClass.schoolYear}`)
         }

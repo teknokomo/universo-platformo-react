@@ -8,7 +8,7 @@ import {
 } from '@universo/utils'
 import type { Request, Response } from 'express'
 import type { ApplicationRole, RolePermission } from '../routes/guards'
-import { ensureApplicationAccess, ROLE_PERMISSIONS } from '../routes/guards'
+import { ensureApplicationAccess, resolveEffectiveRolePermissions } from '../routes/guards'
 import { findApplicationSchemaInfo } from '../persistence/applicationsStore'
 import type { RuntimeWorkspaceAccess } from '../services/applicationWorkspaces'
 import { resolveRuntimeWorkspaceAccess, setRuntimeWorkspaceContext } from '../services/applicationWorkspaces'
@@ -127,6 +127,19 @@ export const resolvePresentationCodename = (presentation: unknown, locale: strin
 
 export const runtimeCodenameTextSql = (columnRef: string): string =>
     `COALESCE(${columnRef}->'locales'->(${columnRef}->>'_primary')->>'content', ${columnRef}->'locales'->'en'->>'content', '')`
+
+export const runtimeStandardKindSql = (kindColumn = 'kind'): string => `COALESCE(${kindColumn}, '')`
+
+export const runtimeRegistrarLedgerSql = (configColumn = 'config'): string => `(
+    COALESCE((${configColumn}->'components'->'ledgerSchema'->>'enabled')::boolean, false) = true
+    AND jsonb_typeof(${configColumn}->'ledger') = 'object'
+    AND COALESCE(${configColumn}->'ledger'->>'sourcePolicy', '') = 'registrar'
+)`
+
+export const runtimeCatalogFilterSql = (kindColumn = 'kind', configColumn = 'config'): string => `(${runtimeStandardKindSql(
+    kindColumn
+)} NOT IN ('hub', 'set', 'enumeration', 'page', 'ledger')
+    AND NOT ${runtimeRegistrarLedgerSql(configColumn)})`
 
 export const resolveRuntimeCodenameText = (codename: unknown): string => {
     if (typeof codename === 'string') {
@@ -831,7 +844,6 @@ export const resolveRuntimeSchema = async (
 
     const accessContext = await ensureApplicationAccess(ds, userId, applicationId)
     const role = (accessContext.membership.role || 'member') as ApplicationRole
-    const permissions = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.member
 
     const application = await findApplicationSchemaInfo(
         {
@@ -847,6 +859,7 @@ export const resolveRuntimeSchema = async (
         res.status(400).json({ error: 'Application schema is not configured' })
         return null
     }
+    const permissions = resolveEffectiveRolePermissions(role, application.settings ?? {})
 
     const schemaName = application.schemaName
     if (!IDENTIFIER_REGEX.test(schemaName)) {

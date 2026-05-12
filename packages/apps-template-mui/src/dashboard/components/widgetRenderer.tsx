@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import type { GridFilterModel, GridPaginationModel, GridSortModel } from '@mui/x-data-grid'
+import type { GridColDef, GridFilterModel, GridPaginationModel, GridSortModel } from '@mui/x-data-grid'
 import Avatar from '@mui/material/Avatar'
 import Box from '@mui/material/Box'
 import Divider from '@mui/material/Divider'
@@ -11,6 +11,7 @@ import PersonRoundedIcon from '@mui/icons-material/PersonRounded'
 import { detailsTableWidgetConfigSchema, type ColumnsContainerConfig, type RuntimeDatasourceDescriptor } from '@universo/types'
 import { fetchAppData, fetchRuntimeLedgerFacts, fetchRuntimeLedgerProjection } from '../../api/api'
 import { toGridColumns } from '../../utils/columns'
+import { formatRuntimeValue } from '../../utils/displayValue'
 import { mapGridFilterModel, mapGridSortModel } from '../../utils/runtimeListQuery'
 import SelectContent from './SelectContent'
 import MenuContent from './MenuContent'
@@ -115,7 +116,10 @@ function RecordsListDetailsTableWidget({ datasource }: { datasource: Extract<Run
         placeholderData: (previous) => previous
     })
 
-    const columns = useMemo(() => (query.data ? toGridColumns(query.data) : []), [query.data])
+    const columns = useMemo(
+        () => (query.data ? toGridColumns(query.data, { locale: details?.locale ?? 'en' }) : []),
+        [query.data, details?.locale]
+    )
 
     const setPaginationModel = (model: GridPaginationModel) => {
         setPaginationModelState(model)
@@ -163,11 +167,15 @@ const toLedgerGridRows = (rows: Array<Record<string, unknown>>): Array<Record<st
         }
     })
 
-const toLedgerGridColumns = (
-    rows: Array<Record<string, unknown>>
-): Array<{ field: string; headerName: string; flex: number; minWidth: number }> => {
+const toLedgerGridColumns = (rows: Array<Record<string, unknown>>, locale: string): GridColDef[] => {
     const keys = Array.from(new Set(rows.flatMap((row) => Object.keys(row).filter((key) => key !== 'id'))))
-    return keys.map((key) => ({ field: key, headerName: key, flex: 1, minWidth: 140 }))
+    return keys.map((key) => ({
+        field: key,
+        headerName: key,
+        flex: 1,
+        minWidth: 140,
+        renderCell: (params) => formatRuntimeValue(params.value, locale)
+    }))
 }
 
 function LedgerDetailsTableWidget({
@@ -235,7 +243,7 @@ function LedgerDetailsTableWidget({
     })
 
     const rows = useMemo(() => query.data?.rows ?? [], [query.data?.rows])
-    const columns = useMemo(() => toLedgerGridColumns(rows), [rows])
+    const columns = useMemo(() => toLedgerGridColumns(rows, details?.locale ?? 'en'), [rows, details?.locale])
 
     if (!canFetch) {
         return <CurrentDetailsTableWidget />

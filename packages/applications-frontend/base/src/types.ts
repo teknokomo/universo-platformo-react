@@ -1,4 +1,10 @@
-import type { ApplicationMembershipState, DialogCloseBehavior, DialogSizePreset, VersionedLocalizedContent } from '@universo/types'
+import type {
+    ApplicationMembershipState,
+    ApplicationRolePolicySettings,
+    DialogCloseBehavior,
+    DialogSizePreset,
+    VersionedLocalizedContent
+} from '@universo/types'
 // Re-export centralized VLC utilities
 export {
     getVLCString,
@@ -26,6 +32,7 @@ export interface ApplicationPermissions {
     createContent: boolean
     editContent: boolean
     deleteContent: boolean
+    readReports?: boolean
 }
 
 export interface ApplicationDialogSettings {
@@ -37,6 +44,8 @@ export interface ApplicationDialogSettings {
     dashboardDefaultMode: 'layout-default' | 'first-menu-item'
     datasourceExecutionPolicy: 'workspace-scoped' | 'layout-only'
     workspaceOpenBehavior: 'last-used' | 'default-workspace'
+    schemaDiffLocalizedLabels: boolean
+    rolePolicies?: ApplicationRolePolicySettings
 }
 
 export interface ApplicationMember {

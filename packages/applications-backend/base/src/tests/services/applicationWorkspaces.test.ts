@@ -1046,4 +1046,200 @@ describe('applicationWorkspaces service', () => {
         expect(String(childInsertCall?.[0])).toContain('::jsonb')
         expect(childInsertCall?.[1]).not.toEqual(expect.arrayContaining(['quiz-seed-row']))
     })
+
+    it('orders workspace seed objects by catalog refs declared inside table child attributes', async () => {
+        const { executor } = createMockDbExecutor()
+        const schemaName = 'app_018f8a787b8f7c1da111222233335050'
+        const generatedIds = [
+            '018f8a78-7b8f-7c1d-a111-222233335051',
+            '018f8a78-7b8f-7c1d-a111-222233335052',
+            '018f8a78-7b8f-7c1d-a111-222233335053',
+            '018f8a78-7b8f-7c1d-a111-222233335054',
+            '018f8a78-7b8f-7c1d-a111-222233335055'
+        ]
+
+        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
+                const id = generatedIds.shift()
+                return id ? [{ id }] : []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
+                return []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_roles"`)) {
+                if (params?.[0] === 'owner') {
+                    return [{ id: '018f8a78-7b8f-7c1d-a111-222233335060', codename: 'owner' }]
+                }
+                if (params?.[0] === 'member') {
+                    return [{ id: '018f8a78-7b8f-7c1d-a111-222233335061', codename: 'member' }]
+                }
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_user_roles"`)) {
+                return []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_settings"`)) {
+                return [
+                    {
+                        value: {
+                            version: 1,
+                            elements: {
+                                trackObject: [
+                                    {
+                                        id: 'track-seed-row',
+                                        data: {
+                                            Title: 'Onboarding track',
+                                            TrackItems: [
+                                                {
+                                                    ModuleId: 'module-seed-row',
+                                                    Required: true
+                                                }
+                                            ]
+                                        }
+                                    }
+                                ],
+                                moduleObject: [
+                                    {
+                                        id: 'module-seed-row',
+                                        data: {
+                                            Title: 'Learning Path 101'
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                ]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
+                return [
+                    {
+                        objectId: 'trackObject',
+                        codename: 'LearningTracks',
+                        tableName: 'cat_track_object'
+                    },
+                    {
+                        objectId: 'moduleObject',
+                        codename: 'Modules',
+                        tableName: 'cat_module_object'
+                    }
+                ]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_attributes"`)) {
+                return [
+                    {
+                        objectId: 'trackObject',
+                        attributeId: 'track-title-attr',
+                        parentAttributeId: null,
+                        codename: 'Title',
+                        columnName: 'col_title',
+                        dataType: 'STRING',
+                        uiConfig: null,
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    },
+                    {
+                        objectId: 'trackObject',
+                        attributeId: 'track-items-attr',
+                        parentAttributeId: null,
+                        codename: 'TrackItems',
+                        columnName: 'col_track_items',
+                        dataType: 'TABLE',
+                        uiConfig: null,
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    },
+                    {
+                        objectId: 'trackItemsObject',
+                        attributeId: 'track-item-module-attr',
+                        parentAttributeId: 'track-items-attr',
+                        codename: 'ModuleId',
+                        columnName: 'col_module_id',
+                        dataType: 'REF',
+                        uiConfig: null,
+                        targetObjectId: 'moduleObject',
+                        targetObjectKind: 'catalog'
+                    },
+                    {
+                        objectId: 'trackItemsObject',
+                        attributeId: 'track-item-required-attr',
+                        parentAttributeId: 'track-items-attr',
+                        codename: 'Required',
+                        columnName: 'col_required',
+                        dataType: 'BOOLEAN',
+                        uiConfig: null,
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    },
+                    {
+                        objectId: 'moduleObject',
+                        attributeId: 'module-title-attr',
+                        parentAttributeId: null,
+                        codename: 'Title',
+                        columnName: 'col_title',
+                        dataType: 'STRING',
+                        uiConfig: null,
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    }
+                ]
+            }
+
+            if (sql.includes('FROM information_schema.columns')) {
+                return [
+                    {
+                        tableName: 'cat_track_object',
+                        columnName: 'col_title',
+                        udtName: 'text'
+                    },
+                    {
+                        tableName: 'cat_module_object',
+                        columnName: 'col_title',
+                        udtName: 'text'
+                    },
+                    {
+                        tableName: 'tbl_trackitemsattr',
+                        columnName: 'col_module_id',
+                        udtName: 'uuid'
+                    },
+                    {
+                        tableName: 'tbl_trackitemsattr',
+                        columnName: 'col_required',
+                        udtName: 'bool'
+                    }
+                ]
+            }
+
+            if (sql.includes('SELECT id, _seed_source_key AS "seedSourceKey"')) {
+                return []
+            }
+
+            return []
+        })
+
+        await ensurePersonalWorkspaceForUser(executor, {
+            schemaName,
+            userId: '018f8a78-7b8f-7c1d-a111-222233335080',
+            actorUserId: '018f8a78-7b8f-7c1d-a111-222233335081',
+            defaultRoleCodename: 'owner'
+        })
+
+        const insertCalls = executor.query.mock.calls.filter(([sql]) => String(sql).includes('INSERT INTO'))
+        const moduleInsertIndex = insertCalls.findIndex(([sql]) => String(sql).includes(`INSERT INTO "${schemaName}"."cat_module_object"`))
+        const trackInsertIndex = insertCalls.findIndex(([sql]) => String(sql).includes(`INSERT INTO "${schemaName}"."cat_track_object"`))
+        const childInsertCall = insertCalls.find(([sql]) => String(sql).includes(`INSERT INTO "${schemaName}"."tbl_trackitemsattr"`))
+
+        expect(moduleInsertIndex).toBeGreaterThanOrEqual(0)
+        expect(trackInsertIndex).toBeGreaterThanOrEqual(0)
+        expect(moduleInsertIndex).toBeLessThan(trackInsertIndex)
+        expect(childInsertCall?.[1]).toEqual(
+            expect.arrayContaining(['track-seed-row:track-items-attr:0', '018f8a78-7b8f-7c1d-a111-222233335053', true])
+        )
+        expect(childInsertCall?.[1]).not.toEqual(expect.arrayContaining(['module-seed-row']))
+    })
 })

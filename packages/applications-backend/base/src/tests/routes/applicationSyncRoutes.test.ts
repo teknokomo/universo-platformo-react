@@ -571,6 +571,78 @@ describe('applicationSyncRoutes', () => {
                 snapshotFormatVersion: 1 as const
             },
             entities: {
+                'hub-learning': {
+                    id: 'hub-learning',
+                    codename: {
+                        _schema: '1',
+                        _primary: 'en',
+                        locales: {
+                            en: { content: 'Learning', version: 1, isActive: true },
+                            ru: { content: 'Обучение', version: 1, isActive: true }
+                        }
+                    },
+                    kind: 'hub',
+                    fields: [],
+                    presentation: {
+                        name: {
+                            _schema: '1',
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Learning', version: 1, isActive: true },
+                                ru: { content: 'Обучение', version: 1, isActive: true }
+                            }
+                        }
+                    },
+                    config: {}
+                },
+                'page-welcome': {
+                    id: 'page-welcome',
+                    codename: {
+                        _schema: '1',
+                        _primary: 'en',
+                        locales: {
+                            en: { content: 'LearnerHome', version: 1, isActive: true },
+                            ru: { content: 'ДоброПожаловать', version: 1, isActive: true }
+                        }
+                    },
+                    kind: 'page',
+                    fields: [],
+                    presentation: {
+                        name: {
+                            _schema: '1',
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Welcome', version: 1, isActive: true },
+                                ru: { content: 'Добро пожаловать', version: 1, isActive: true }
+                            }
+                        }
+                    },
+                    hubs: ['hub-learning'],
+                    config: {
+                        blockContent: {
+                            blocks: [
+                                { id: 'title', type: 'header', data: { text: 'Welcome' } },
+                                { id: 'intro', type: 'paragraph', data: { text: 'Intro' } }
+                            ]
+                        }
+                    }
+                },
+                'set-config': {
+                    id: 'set-config',
+                    codename: 'LmsConfiguration',
+                    kind: 'set',
+                    fields: [],
+                    presentation: { name: {} },
+                    config: {}
+                },
+                'enum-status': {
+                    id: 'enum-status',
+                    codename: 'ModuleStatus',
+                    kind: 'enumeration',
+                    fields: [],
+                    presentation: { name: {} },
+                    config: {}
+                },
                 'catalog-resources': {
                     id: 'catalog-resources',
                     codename: 'resources',
@@ -603,8 +675,41 @@ describe('applicationSyncRoutes', () => {
                         }
                     ],
                     presentation: { name: {} },
+                    hubs: ['hub-learning'],
                     config: {},
                     physicalTableName: 'resources'
+                }
+            },
+            entityTypeDefinitions: {
+                hub: {
+                    kindKey: 'hub',
+                    codename: 'Hub',
+                    presentation: { name: { en: 'Hubs', ru: 'Хабы' } },
+                    ui: { sidebarOrder: 10 }
+                },
+                page: {
+                    kindKey: 'page',
+                    codename: 'Page',
+                    presentation: { name: { en: 'Pages', ru: 'Страницы' } },
+                    ui: { sidebarOrder: 20 }
+                },
+                set: {
+                    kindKey: 'set',
+                    codename: 'Set',
+                    presentation: { name: { en: 'Sets', ru: 'Наборы' } },
+                    ui: { sidebarOrder: 40 }
+                },
+                enumeration: {
+                    kindKey: 'enumeration',
+                    codename: 'Enumeration',
+                    presentation: { name: { en: 'Enumerations', ru: 'Перечисления' } },
+                    ui: { sidebarOrder: 50 }
+                },
+                catalog: {
+                    kindKey: 'catalog',
+                    codename: 'Catalog',
+                    presentation: { name: { en: 'Catalogs', ru: 'Каталоги' } },
+                    ui: { sidebarOrder: 30 }
                 }
             },
             elements: {
@@ -630,6 +735,19 @@ describe('applicationSyncRoutes', () => {
                             ]
                         }
                     }
+                ]
+            },
+            fixedValues: {
+                'set-config': [
+                    { id: 'constant-score', codename: 'DefaultPassingScore' },
+                    { id: 'constant-attempts', codename: 'MaxAttempts' }
+                ]
+            },
+            optionValues: {
+                'enum-status': [
+                    { id: 'status-draft', codename: 'Draft' },
+                    { id: 'status-published', codename: 'Published' },
+                    { id: 'status-archived', codename: 'Archived' }
                 ]
             },
             layouts: []
@@ -665,6 +783,69 @@ describe('applicationSyncRoutes', () => {
                     NestedTitle: expect.objectContaining({
                         _primary: 'ru'
                     })
+                })
+            ])
+        )
+        expect(response.body.diff.details.create.entityGroups).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    kindKey: 'hub',
+                    entities: [
+                        expect.objectContaining({
+                            id: 'hub-learning',
+                            metrics: [{ key: 'linkedEntities', count: 2 }]
+                        })
+                    ]
+                }),
+                expect.objectContaining({
+                    kindKey: 'page',
+                    entities: [
+                        expect.objectContaining({
+                            id: 'page-welcome',
+                            codename: expect.objectContaining({
+                                locales: expect.objectContaining({
+                                    ru: expect.objectContaining({ content: 'ДоброПожаловать' })
+                                })
+                            }),
+                            metrics: [{ key: 'blocks', count: 2 }]
+                        })
+                    ]
+                }),
+                expect.objectContaining({
+                    kindKey: 'catalog',
+                    entities: [
+                        expect.objectContaining({
+                            id: 'catalog-resources',
+                            fields: expect.arrayContaining([
+                                expect.objectContaining({
+                                    id: childFieldId,
+                                    parentAttributeId: tableFieldId
+                                })
+                            ]),
+                            metrics: [
+                                { key: 'fields', count: 2 },
+                                { key: 'elements', count: 1 }
+                            ]
+                        })
+                    ]
+                }),
+                expect.objectContaining({
+                    kindKey: 'set',
+                    entities: [
+                        expect.objectContaining({
+                            id: 'set-config',
+                            metrics: [{ key: 'constants', count: 2 }]
+                        })
+                    ]
+                }),
+                expect.objectContaining({
+                    kindKey: 'enumeration',
+                    entities: [
+                        expect.objectContaining({
+                            id: 'enum-status',
+                            metrics: [{ key: 'values', count: 3 }]
+                        })
+                    ]
                 })
             ])
         )

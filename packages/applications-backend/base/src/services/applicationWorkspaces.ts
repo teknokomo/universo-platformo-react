@@ -128,6 +128,13 @@ type RuntimeCatalogSeedAttributeRow = {
     targetObjectKind: string | null
 }
 
+class WorkspaceSeedReferenceResolutionError extends Error {
+    constructor(message: string) {
+        super(message)
+        this.name = 'WorkspaceSeedReferenceResolutionError'
+    }
+}
+
 type RuntimeColumnDefinitionRow = {
     tableName: string
     columnName: string
@@ -182,6 +189,16 @@ const normalizeReferenceId = (value: unknown): string | null => {
     }
 
     return null
+}
+
+const resolveWorkspaceSeedLegacyObjectIdFromTableName = (tableName: string): string | null => {
+    const match = /^(?:cat|doc|rel)_([0-9a-f]{32})$/i.exec(tableName)
+    if (!match) {
+        return null
+    }
+
+    const compactId = match[1].toLowerCase()
+    return `${compactId.slice(0, 8)}-${compactId.slice(8, 12)}-${compactId.slice(12, 16)}-${compactId.slice(16, 20)}-${compactId.slice(20)}`
 }
 
 const buildChildSeedSourceKey = (parentSeedSourceKey: string, tableAttributeId: string, index: number): string =>
@@ -909,6 +926,11 @@ const resolveWorkspaceSeedObjectOrder = (
     attributes: RuntimeCatalogSeedAttributeRow[]
 ): RuntimeCatalogSeedObjectRow[] => {
     const objectIds = new Set(objects.map((object) => object.objectId))
+    const tableOwnerObjectIdByAttributeId = new Map(
+        attributes
+            .filter((attribute) => attribute.parentAttributeId === null && attribute.dataType === 'TABLE')
+            .map((attribute) => [attribute.attributeId, attribute.objectId])
+    )
     const objectIdByCodename = new Map(
         objects
             .filter((object) => typeof object.codename === 'string' && object.codename.trim().length > 0)
@@ -921,23 +943,29 @@ const resolveWorkspaceSeedObjectOrder = (
     }
 
     for (const attribute of attributes) {
+        const dependencyOwnerObjectId = objectIds.has(attribute.objectId)
+            ? attribute.objectId
+            : attribute.parentAttributeId
+            ? tableOwnerObjectIdByAttributeId.get(attribute.parentAttributeId)
+            : undefined
+
         if (
-            attribute.parentAttributeId === null &&
+            dependencyOwnerObjectId &&
             attribute.dataType === 'REF' &&
             isWorkspaceSeedCatalogLikeTargetKind(attribute.targetObjectKind) &&
             typeof attribute.targetObjectId === 'string' &&
             objectIds.has(attribute.targetObjectId) &&
-            attribute.targetObjectId !== attribute.objectId
+            attribute.targetObjectId !== dependencyOwnerObjectId
         ) {
-            dependenciesByObjectId.get(attribute.objectId)?.add(attribute.targetObjectId)
+            dependenciesByObjectId.get(dependencyOwnerObjectId)?.add(attribute.targetObjectId)
         }
 
         for (const dependencyObjectId of resolveWorkspaceSeedStringDependencyObjectIds(attribute, objectIdByCodename)) {
-            if (!objectIds.has(dependencyObjectId) || dependencyObjectId === attribute.objectId) {
+            if (!dependencyOwnerObjectId || !objectIds.has(dependencyObjectId) || dependencyObjectId === dependencyOwnerObjectId) {
                 continue
             }
 
-            dependenciesByObjectId.get(attribute.objectId)?.add(dependencyObjectId)
+            dependenciesByObjectId.get(dependencyOwnerObjectId)?.add(dependencyObjectId)
         }
     }
 
@@ -982,6 +1010,8 @@ const normalizeWorkspaceSeedValueWithReferences = (
     attribute: RuntimeCatalogSeedAttributeRow,
     columnType: string,
     seedRowIdByObjectAndSourceKey: Map<string, Map<string, string>>,
+    seedRowIdBySourceKey: Map<string, string>,
+    duplicateSeedSourceKeys: Set<string>,
     rowData: Record<string, unknown>,
     objectIdByCodename: Map<string, string>
 ): unknown => {
@@ -999,9 +1029,11 @@ const normalizeWorkspaceSeedValueWithReferences = (
             return null
         }
 
-        const targetRowId = seedRowIdByObjectAndSourceKey.get(attribute.targetObjectId)?.get(seedSourceKey)
+        const targetRowId =
+            seedRowIdByObjectAndSourceKey.get(attribute.targetObjectId)?.get(seedSourceKey) ??
+            (!duplicateSeedSourceKeys.has(seedSourceKey) ? seedRowIdBySourceKey.get(seedSourceKey) : undefined)
         if (!targetRowId) {
-            throw new Error(
+            throw new WorkspaceSeedReferenceResolutionError(
                 `Failed to resolve workspace seed reference for ${attribute.objectId}.${attribute.codename} -> ${attribute.targetObjectId} (${seedSourceKey})`
             )
         }
@@ -1020,9 +1052,11 @@ const normalizeWorkspaceSeedValueWithReferences = (
             return null
         }
 
-        const targetRowId = seedRowIdByObjectAndSourceKey.get(publicRuntimeTargetObjectId)?.get(seedSourceKey)
+        const targetRowId =
+            seedRowIdByObjectAndSourceKey.get(publicRuntimeTargetObjectId)?.get(seedSourceKey) ??
+            (!duplicateSeedSourceKeys.has(seedSourceKey) ? seedRowIdBySourceKey.get(seedSourceKey) : undefined)
         if (!targetRowId) {
-            throw new Error(
+            throw new WorkspaceSeedReferenceResolutionError(
                 `Failed to resolve workspace seed runtime target for ${attribute.objectId}.${attribute.codename} -> ${publicRuntimeTargetObjectId} (${seedSourceKey})`
             )
         }
@@ -1260,6 +1294,8 @@ async function syncWorkspaceSeededChildRows(
         childRows: unknown[]
         columnTypes: Map<string, string>
         seedRowIdByObjectAndSourceKey: Map<string, Map<string, string>>
+        seedRowIdBySourceKey: Map<string, string>
+        duplicateSeedSourceKeys: Set<string>
         objectIdByCodename: Map<string, string>
         actorUserId?: string | null
     }
@@ -1293,6 +1329,8 @@ async function syncWorkspaceSeededChildRows(
                 attribute,
                 input.columnTypes.get(`${childTableName}.${attribute.columnName}`) ?? 'text',
                 input.seedRowIdByObjectAndSourceKey,
+                input.seedRowIdBySourceKey,
+                input.duplicateSeedSourceKeys,
                 rowData,
                 input.objectIdByCodename
             ),
@@ -1333,15 +1371,41 @@ export async function syncWorkspaceSeededElements(
     const template = await loadWorkspaceSeedTemplate(executor, input.schemaName)
     const { objects, attributes, columnTypes, objectIdByCodename } = await loadRuntimeCatalogSeedMetadata(executor, input.schemaName)
     const seedRowIdByObjectAndSourceKey = new Map<string, Map<string, string>>()
+    const seedRowIdBySourceKey = new Map<string, string>()
+    const duplicateSeedSourceKeys = new Set<string>()
 
-    for (const object of resolveWorkspaceSeedObjectOrder(objects, attributes)) {
+    const rememberSeedRowId = (objectId: string, seedSourceKey: string, rowId: string): void => {
+        const objectSeedRows = seedRowIdByObjectAndSourceKey.get(objectId) ?? new Map<string, string>()
+        objectSeedRows.set(seedSourceKey, rowId)
+        seedRowIdByObjectAndSourceKey.set(objectId, objectSeedRows)
+
+        const existingGlobalRowId = seedRowIdBySourceKey.get(seedSourceKey)
+        if (existingGlobalRowId && existingGlobalRowId !== rowId) {
+            duplicateSeedSourceKeys.add(seedSourceKey)
+            seedRowIdBySourceKey.delete(seedSourceKey)
+            return
+        }
+
+        if (!duplicateSeedSourceKeys.has(seedSourceKey)) {
+            seedRowIdBySourceKey.set(seedSourceKey, rowId)
+        }
+    }
+
+    const syncObjectSeededElements = async (object: RuntimeCatalogSeedObjectRow): Promise<void> => {
         const topLevelAttributes = attributes.filter(
             (attribute) => attribute.objectId === object.objectId && attribute.parentAttributeId === null && attribute.dataType !== 'TABLE'
         )
         const tableAttributes = attributes.filter(
             (attribute) => attribute.objectId === object.objectId && attribute.parentAttributeId === null && attribute.dataType === 'TABLE'
         )
-        const entityRows = Array.isArray(template?.elements?.[object.objectId]) ? (template?.elements?.[object.objectId] as unknown[]) : []
+        const legacyObjectId = resolveWorkspaceSeedLegacyObjectIdFromTableName(object.tableName)
+        const directRows = template?.elements?.[object.objectId]
+        const legacyRows = legacyObjectId ? template?.elements?.[legacyObjectId] : undefined
+        const entityRows = Array.isArray(directRows)
+            ? (directRows as unknown[])
+            : Array.isArray(legacyRows)
+            ? (legacyRows as unknown[])
+            : []
         const desiredSeedSourceKeys = new Set<string>()
         const tableQt = qSchemaTable(input.schemaName, object.tableName)
         const existingRows = await executor.query<WorkspaceSeedExistingRow>(
@@ -1372,6 +1436,8 @@ export async function syncWorkspaceSeededElements(
                     attribute,
                     columnTypes.get(`${object.tableName}.${attribute.columnName}`) ?? 'text',
                     seedRowIdByObjectAndSourceKey,
+                    seedRowIdBySourceKey,
+                    duplicateSeedSourceKeys,
                     rowData,
                     objectIdByCodename
                 ),
@@ -1387,9 +1453,7 @@ export async function syncWorkspaceSeededElements(
                 values,
                 actorUserId: input.actorUserId
             })
-            const objectSeedRows = seedRowIdByObjectAndSourceKey.get(object.objectId) ?? new Map<string, string>()
-            objectSeedRows.set(seedSourceKey, rowId)
-            seedRowIdByObjectAndSourceKey.set(object.objectId, objectSeedRows)
+            rememberSeedRowId(object.objectId, seedSourceKey, rowId)
 
             for (const tableAttribute of tableAttributes) {
                 const childRows = Array.isArray(rowData[tableAttribute.codename]) ? (rowData[tableAttribute.codename] as unknown[]) : []
@@ -1404,6 +1468,8 @@ export async function syncWorkspaceSeededElements(
                     childRows,
                     columnTypes,
                     seedRowIdByObjectAndSourceKey,
+                    seedRowIdBySourceKey,
+                    duplicateSeedSourceKeys,
                     objectIdByCodename,
                     actorUserId: input.actorUserId
                 })
@@ -1439,6 +1505,35 @@ export async function syncWorkspaceSeededElements(
             rowIds: staleRowIds,
             actorUserId: input.actorUserId
         })
+    }
+
+    let pendingObjects = resolveWorkspaceSeedObjectOrder(objects, attributes)
+    let lastReferenceError: WorkspaceSeedReferenceResolutionError | null = null
+
+    while (pendingObjects.length > 0) {
+        const deferredObjects: RuntimeCatalogSeedObjectRow[] = []
+        let progressed = false
+
+        for (const object of pendingObjects) {
+            try {
+                await syncObjectSeededElements(object)
+                progressed = true
+            } catch (error) {
+                if (error instanceof WorkspaceSeedReferenceResolutionError) {
+                    lastReferenceError = error
+                    deferredObjects.push(object)
+                    continue
+                }
+
+                throw error
+            }
+        }
+
+        if (!progressed) {
+            throw lastReferenceError ?? new Error('Failed to resolve workspace seed object order')
+        }
+
+        pendingObjects = deferredObjects
     }
 }
 

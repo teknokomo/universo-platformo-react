@@ -25,6 +25,7 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 - Own transactional Catalog commands for `recordBehavior`: atomic record numbering, `post` / `unpost` / `void` transitions, lifecycle hooks, and posted-row immutability checks.
 - Apply declarative `beforePost` script movements through the generic Ledger service inside the posting transaction.
 - Expose generic runtime Ledger metadata, fact append/reversal, fact listing, and projection query routes for standard `ledger` entities without making Ledgers normal row-CRUD sections.
+- Provide a generic runtime report runner for Catalog-backed report definitions. The runner validates shared report contracts, resolves table and column identifiers from published metadata, parameterizes SQL values, and fails closed for unavailable fields.
 - Execute published runtime scripts through a fail-closed server bridge that only exposes non-lifecycle server methods from `rpc.client` scripts and reuses runtime row helpers, workspace context, and permission maps.
 - Expose `ctx.ledger` to runtime scripts only when `ledger.read` or `ledger.write` capabilities are declared.
 - Persist schema sync state in `applications.cat_applications` through SQL-first stores.

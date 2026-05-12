@@ -6,6 +6,98 @@
 
 ## Current Task Ledger (Canonical)
 
+## Active: Connector Schema Diff Entity Metrics QA (2026-05-12)
+
+> Goal: replace misleading zero field/element summaries for non-Catalog entity types in the application connector schema diff with entity-appropriate metrics and add focused component/backend/browser coverage that catches unfinished, illogical schema-diff UI states.
+> Status: completed. The connector schema diff now renders Entity-appropriate metrics for Hubs, Pages, Sets, Enumerations, Catalogs, and custom fallback types, and focused backend/frontend/browser coverage prevents misleading `0 fields, 0 elements` summaries for non-field-based Entity types.
+
+-   [x] Add backend schema diff metrics for Hub, Page, Set, Enumeration, Catalog, and unknown/custom entity fallbacks.
+-   [x] Render entity metrics in the connector schema diff dialog without showing meaningless `0 fields, 0 elements` summaries.
+-   [x] Add focused backend and frontend regression tests for the new metrics.
+-   [x] Extend the imported LMS Playwright flow with low-overhead UX assertions for schema diff metric sanity and screenshot evidence.
+-   [x] Run targeted tests/build checks and update memory-bank progress/context.
+
+## Active: LMS Connector QA Closure (2026-05-12)
+
+> Goal: close the QA findings from the latest LMS connector/entity localization pass: persist connector schema-label settings through the backend contract, localize schema diff codenames without breaking preview value lookup, update browser flow assertions, and rerun focused validation.
+> Status: completed. The backend settings contract now accepts the connector schema label option, managed role-policy codenames are enforced even without `baseRole`, schema diff previews localize codenames without breaking canonical preview data lookup, and the imported LMS runtime Playwright flow passes on a fresh root build.
+
+-   [x] Accept `schemaDiffLocalizedLabels` in the backend application settings schema and cover it with an API regression test.
+-   [x] Render localized schema diff codenames when the setting is enabled while preserving canonical data keys for preview row lookup.
+-   [x] Update Playwright LMS runtime flow expectations for the source-Metahub workspace-policy copy.
+-   [x] Run focused frontend/backend/template tests and the imported LMS runtime Playwright flow.
+-   [x] Update memory-bank progress and active context with the QA closure evidence.
+
+## Active: LMS Connector And Entity Localization Remediation (2026-05-12)
+
+> Goal: close the latest manual QA findings from the rebuilt LMS metahub/application: localized Page codenames, entity-driven settings tab order, clearer connector schema diff UX, configurable localized schema diff labels, full entity-type diff overview, and active home menu on root app URL.
+> Status: completed. Page codenames now keep canonical EN values while adding RU values, Settings tabs follow Entity ordering, connector schema diff UX is clearer and entity-type aware, localized schema diff labels are configurable, root runtime URLs mark Home active, and the LMS snapshot was regenerated through the product Playwright generator.
+
+-   [x] Fix LMS Page seed/generator data so Page codenames have both EN and RU VLC values without bumping schema or template versions.
+-   [x] Make metahub Settings entity tabs follow Entity constructor ordering so Pages appear immediately after Hubs without hardcoded kind ordering.
+-   [x] Improve required Workspace connector notification copy and place it above the disabled enabled switch.
+-   [x] Add application Connector settings for localized schema diff labels, defaulting to enabled.
+-   [x] Expand connector schema diff overview to show all transferred entity types grouped dynamically by Entity metadata, using localized display names when enabled.
+-   [x] Mark the published app home menu item active on the root application URL.
+-   [x] Add/adjust regression tests and regenerate the LMS snapshot through the product Playwright generator.
+
+## Active: LMS Runtime Manual QA Remediation (2026-05-12)
+
+> Goal: close manual QA findings from the freshly rebuilt LMS application without adding LMS-specific runtime forks: improve required workspace connector UX, render structured values safely, restore active menu state, enforce EN/RU fixture localization, and add regression coverage.
+> Status: completed. Required workspace connector UX, generic structured value formatting, active published-app menu state, bilingual LMS fixture seed data, regenerated snapshot, and regression coverage are complete.
+
+-   [x] Improve required workspace policy messaging in the connector diff dialog and remove unnecessary acknowledgement when workspaces are required by the publication.
+-   [x] Add generic structured runtime value formatting so objects/arrays/VLC/report definitions/quiz options never render as `[object Object]`.
+-   [x] Restore active published-app menu styling to match the MUI dashboard template behavior.
+-   [x] Audit and fix LMS fixture/generator EN/RU localization gaps, including codename/presentation/seed data that currently shows English in RU fields.
+-   [x] Expand unit and Playwright coverage for workspace policy UX, structured table/form rendering, active menu state, and bilingual fixture integrity.
+-   [x] Regenerate `tools/fixtures/metahubs-lms-app-snapshot.json` only through the product Playwright generator and run targeted validation.
+
+## Active: iSpring-like LMS QA Remediation (2026-05-12)
+
+> Goal: close the implementation QA findings without adding LMS-specific runtime forks: saved-report execution, report aggregations, registrar-only ledger boundaries, role policy control-panel editing, and updated validation/docs.
+> Status: completed. Runtime saved-report execution, aggregations, ledger-boundary filtering, access settings editing, docs, unit tests, lint/build checks, and LMS Playwright runtime proof are complete.
+
+-   [x] Restrict runtime report execution to saved `Reports` Catalog records and preserve safe metadata-only SQL resolution.
+-   [x] Add real report aggregation execution and response validation for generic report definitions.
+-   [x] Align report target discovery with runtime Catalog boundaries so registrar-only ledger Catalogs stay internal.
+-   [x] Add an application settings role-policy editor that reuses the existing MUI settings surface and persists through sanitized settings.
+-   [x] Update tests, API helper contracts, docs, and memory-bank records for the QA remediation.
+-   [x] Run targeted lint/build/test validation for the changed packages.
+
+## Active: iSpring-like LMS Platform Roadmap Implementation (2026-05-11)
+
+> Goal: implement the approved iSpring-like LMS platform roadmap end to end without LMS-specific runtime forks, preserving the Metahub-first architecture, generic Entity primitives, MUI dashboard parity, UUID v7, i18n, secure SQL, and Playwright-generated fixture workflow.
+> Status: completed. 2026-05-11 implementation completed shared contracts, LMS template/fixture expansion, safe report runner, docs, generator proof, imported-workspace seed hardening, role policy enforcement, metadata-backed widget datasource pickers, optimistic mutation rollback coverage, and no-version-bump guard coverage.
+
+-   [x] Phase 0: Capture baseline audit for LMS fixture, generic widgets, scripts, ledgers, demo surfaces, and no-version-bump constraints.
+-   [x] Phase 1: Add product acceptance matrix and expand LMS fixture contract with generic product-level invariants.
+-   [x] Phase 2: Add shared generic resource contracts and wire LMS resource metadata through existing Catalog/Page/runtime surfaces.
+-   [x] Phase 3: Add generic sequence, completion policy, lifecycle status, and workflow-action contracts without expanding core `post`/`unpost`/`void` commands.
+-   [x] Phase 4: Extend existing application/workspace capability policy model for LMS labels and backend runtime enforcement.
+-   [x] Phase 5: Add Catalog-backed report definition contracts and safe report runner over validated runtime datasource descriptors.
+-   [x] Phase 6: Improve existing application control-panel and widget editor surfaces with metadata-backed pickers and TanStack Query-safe mutations.
+-   [x] Phase 7: Restore published app MUI dashboard visual parity and block remaining demo-only surfaces from runtime layouts.
+-   [x] Phase 8: Expand LMS template metadata, ledgers, scripts, statuses, and realistic seed records using generic platform primitives.
+-   [x] Phase 9: Update the Playwright LMS generator, regenerate `tools/fixtures/metahubs-lms-app-snapshot.json`, and enforce snapshot contract validation.
+-   [x] Phase 10: Add backend, frontend, and Playwright coverage for workflows, reports, roles, workspace isolation, screenshots, i18n, and no-version-bump checks.
+-   [x] Phase 11: Update package READMEs and GitBook docs in `docs/en` and `docs/ru`.
+
+### Current Implementation Slice
+
+-   [x] Phase 4a: Add generic application role-policy normalization and effective permission resolution from existing application settings.
+-   [x] Phase 4b: Enforce report read capability in the safe report runner and cover fail-closed behavior.
+-   [x] Phase 6a: Replace raw section datasource entry in the existing widget behavior editor with metadata-backed section pickers while preserving manual codename fallback.
+-   [x] Phase 6b: Add TanStack Query optimistic rollback coverage for layout widget config saves.
+-   [x] Phase 10a: Add targeted backend/frontend tests for role policy, report authorization, metadata pickers, and no-version-bump guard.
+-   [x] Phase 10b: Re-run focused package lint/build/tests and LMS generator/runtime Playwright flows.
+-   [x] Phase 10c: Wire the safe generic report runner to an authenticated runtime reports endpoint and typed published-app API helper.
+
+### Current Blocker
+
+-   [x] Fix imported publication workspace seed reference remapping for catalog `REF` values in restored snapshots. Evidence: `node tools/testing/e2e/run-playwright-suite.mjs flows/snapshot-import-lms-runtime.spec.ts` now passes through linked app creation, schema sync, guest runtime, ledger facts, and post/unpost flow.
+-   [x] Added regression hardening for workspace seed ordering, retrying unresolved references, unique global `_seed_source_key` fallback, and legacy `table_name` object id lookup.
+
 ## Active: LMS Fixture Workspace Policy And Sync Regression Closure (2026-05-10)
 
 > Goal: make the product LMS snapshot require application Workspaces, preserve that policy through snapshot import, regenerate the fixture from the Playwright generator, and keep optional no-Workspace sync behavior guarded.

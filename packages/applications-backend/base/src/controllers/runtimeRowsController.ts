@@ -35,6 +35,8 @@ import {
     quoteIdentifier,
     normalizeLocale,
     runtimeCodenameTextSql,
+    runtimeCatalogFilterSql,
+    runtimeStandardKindSql,
     resolveRuntimeCodenameText,
     resolvePresentationName,
     resolveLocalizedContent,
@@ -138,16 +140,7 @@ const RUNTIME_RECORD_SYSTEM_FIELDS = [
     '_app_voided_by'
 ] as const
 
-const RUNTIME_STANDARD_KIND_SQL = (kindColumn = 'kind') => `COALESCE(${kindColumn}, '')`
-
-const RUNTIME_REGISTRAR_LEDGER_SQL = (configColumn = 'config') => `(
-    COALESCE((${configColumn}->'components'->'ledgerSchema'->>'enabled')::boolean, false) = true
-    AND jsonb_typeof(${configColumn}->'ledger') = 'object'
-    AND COALESCE(${configColumn}->'ledger'->>'sourcePolicy', '') = 'registrar'
-)`
-
-const RUNTIME_CATALOG_FILTER_SQL = `(${RUNTIME_STANDARD_KIND_SQL()} NOT IN ('hub', 'set', 'enumeration', 'page', 'ledger')
-    AND NOT ${RUNTIME_REGISTRAR_LEDGER_SQL()})`
+const RUNTIME_CATALOG_FILTER_SQL = runtimeCatalogFilterSql()
 
 const resolveRuntimeStandardKind = (kind: unknown): BuiltinEntityKind | null =>
     typeof kind === 'string' && isBuiltinEntityKind(kind) ? kind : null
@@ -883,7 +876,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             `
         SELECT id, kind, codename, table_name, presentation, config
         FROM ${schemaIdent}._app_objects
-        WHERE (${RUNTIME_CATALOG_FILTER_SQL} OR ${RUNTIME_STANDARD_KIND_SQL('kind')} = 'page')
+        WHERE (${RUNTIME_CATALOG_FILTER_SQL} OR ${runtimeStandardKindSql('kind')} = 'page')
           AND _upl_deleted = false
           AND _app_deleted = false
         ORDER BY ${runtimeCodenameTextSql('codename')} ASC, id ASC
@@ -1502,7 +1495,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 `
           SELECT id, kind, codename, presentation, config
           FROM ${schemaIdent}._app_objects
-                    WHERE (${RUNTIME_STANDARD_KIND_SQL('kind')} = 'hub' OR ${RUNTIME_CATALOG_FILTER_SQL} OR ${RUNTIME_STANDARD_KIND_SQL(
+                    WHERE (${runtimeStandardKindSql('kind')} = 'hub' OR ${RUNTIME_CATALOG_FILTER_SQL} OR ${runtimeStandardKindSql(
                     'kind'
                 )} = 'page')
             AND _upl_deleted = false

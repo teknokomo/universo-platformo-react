@@ -119,6 +119,36 @@ export interface SchemaDiffResponse {
                         sortOrder: number
                     }>
                 }>
+                entityGroups?: Array<{
+                    kindKey: string
+                    typeCodename?: unknown
+                    typeName?: unknown
+                    entities: Array<{
+                        id: string
+                        kind: string
+                        codename: unknown
+                        name?: unknown
+                        tableName?: string | null
+                        fields?: Array<{
+                            id: string
+                            codename: unknown
+                            name?: unknown
+                            dataType: string
+                            isRequired: boolean
+                            parentAttributeId?: string | null
+                        }>
+                        recordsCount?: number
+                        recordsPreview?: Array<{
+                            id: string
+                            data: Record<string, unknown>
+                            sortOrder: number
+                        }>
+                        metrics?: Array<{
+                            key: string
+                            count: number
+                        }>
+                    }>
+                }>
             }
             changes?: {
                 additive: Array<{

@@ -34,6 +34,7 @@ Runtime dashboard template for published applications in the Universo Platformo 
 - **Supported widgets**: `brandSelector`, `divider`, `menuWidget`, `spacer`, `infoCard`, `userProfile`, `productTree`, `usersByCountryChart`, `detailsTable`, `columnsContainer`
 - **Menu resolution**: 2-level fallback — widget ID → menus map → legacy single menu prop
 - **Curated menu contract**: Runtime menus support primary item limits, overflow items, start-page selection, and workspace entry placement without requiring LMS-only components.
+- **LMS fixture rule**: LMS published layouts use the shared MUI dashboard shell and generic data-driven widgets. Demo-only surfaces such as `brandSelector`, `productTree`, and `usersByCountryChart` are blocked by the LMS fixture contract unless they become real runtime-data surfaces.
 
 ### 📝 CRUD Components
 - **FormDialog**: Generic modal form with configurable fields, validation rules, and Zod integration

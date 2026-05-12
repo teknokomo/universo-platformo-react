@@ -50,8 +50,8 @@ describe('workspace policy helpers', () => {
         ).toThrow(WorkspacePolicyError)
     })
 
-    it('requires acknowledgement for first-time required workspace enablement', () => {
-        expect(() =>
+    it('enables workspace mode without application-admin acknowledgement when publication requires it', () => {
+        expect(
             resolveWorkspaceModeDecision({
                 policy: 'required',
                 requested: null,
@@ -59,7 +59,7 @@ describe('workspace policy helpers', () => {
                 schemaAlreadyInstalled: false,
                 acknowledgementReceived: false
             })
-        ).toThrow(/acknowledgement/)
+        ).toBe(true)
     })
 
     it('requires acknowledgement before optional policy enables workspaces', () => {

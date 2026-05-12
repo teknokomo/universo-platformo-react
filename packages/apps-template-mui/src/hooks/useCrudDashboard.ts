@@ -1059,9 +1059,10 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         return toGridColumns(displayAppData, {
             onMenuOpen: canOpenRowActions ? handleOpenMenu : undefined,
             actionsAriaLabel: t('app.actions', 'Actions'),
-            cellRenderers
+            cellRenderers,
+            locale
         })
-    }, [displayAppData, t, handleOpenMenu, cellRenderers])
+    }, [displayAppData, t, handleOpenMenu, cellRenderers, locale])
 
     const rows = useMemo(() => (displayAppData ? displayAppData.rows : []), [displayAppData])
 

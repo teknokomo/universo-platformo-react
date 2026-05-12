@@ -64,6 +64,8 @@
             "title": "Application Settings",
             "tabs": {
                 "general": "General",
+                "connectors": "Connectors",
+                "access": "Access",
                 "limits": "Limits"
             },
             "dialogSizePreset": "Popup window size",
@@ -114,6 +116,9 @@
                 "last-used": "Last used workspace",
                 "default-workspace": "Default workspace"
             },
+            "connectorsHint": "Configure how application connectors present source metahub changes before schema synchronization.",
+            "schemaDiffLocalizedLabels": "Localized schema change labels",
+            "schemaDiffLocalizedLabelsDescription": "Show entity type, entity, and field labels in the current interface language when the source metahub provides localized values.",
             "dialogActionTooltips": {
                 "resetSize": "Reset dialog size",
                 "expand": "Expand dialog",
@@ -122,6 +127,22 @@
             },
             "generalSaved": "Application settings saved",
             "generalSaveError": "Failed to save application settings",
+            "accessHint": "Configure generic application and workspace capabilities for each application role. These rules are enforced by the runtime API.",
+            "capabilityColumn": "Capability",
+            "roles": {
+                "owner": "Owner",
+                "admin": "Admin",
+                "editor": "Editor",
+                "member": "Member"
+            },
+            "capabilities": {
+                "manageMembers": "Manage members",
+                "manageApplication": "Manage application",
+                "createContent": "Create content",
+                "editContent": "Edit content",
+                "deleteContent": "Delete content",
+                "readReports": "Read reports"
+            },
             "limitsHint": "Set row limits per catalog for every workspace. When the limit is reached, users will not be able to create more records in that catalog.",
             "limitsRequiresSchema": "Limits settings will become available after the application schema is created.",
             "limitsRequiresWorkspaces": "Limits are available only for applications created with workspace mode enabled.",
@@ -554,7 +575,9 @@
             "layoutConflictWarning": "Layout changes may conflict with application-side customizations. Choose how metahub layout updates should be handled during sync.",
             "workspace": {
                 "title": "Workspaces",
-                "required": "This publication version requires application workspaces.",
+                "required": "Application workspaces are enabled because the source metahub requires workspace-isolated application data. The schema will be created with workspace isolation automatically.",
+                "requiredEnabled": "Application workspaces are enabled",
+                "requiredSwitchLabel": "Application workspaces are enabled by the source metahub",
                 "withoutWorkspaces": "Create without workspaces",
                 "withWorkspaces": "Create application workspaces",
                 "acknowledge": "I understand that workspaces cannot be turned off after they are enabled for this application."
@@ -587,14 +610,32 @@
             "schemaNotExists": "Schema does not exist yet. It will be created on first sync.",
             "schemaWillBeCreated": "The following schema will be created:",
             "tablesWillBeCreated": "Tables to be created",
+            "entitiesWillBeCreated": "Entities to be created",
             "tableMeta": "{{fields}}, {{elements}}",
             "fieldsCount_one": "{{count}} field",
             "fieldsCount_other": "{{count}} fields",
             "elementsCount_one": "{{count}} element",
             "elementsCount_other": "{{count}} elements",
+            "entityMetrics": {
+                "fields_one": "{{count}} field",
+                "fields_other": "{{count}} fields",
+                "elements_one": "{{count}} element",
+                "elements_other": "{{count}} elements",
+                "constants_one": "{{count}} constant",
+                "constants_other": "{{count}} constants",
+                "values_one": "{{count}} value",
+                "values_other": "{{count}} values",
+                "blocks_one": "{{count}} block",
+                "blocks_other": "{{count}} blocks",
+                "linkedEntities_one": "{{count}} linked entity",
+                "linkedEntities_other": "{{count}} linked entities"
+            },
             "fields": "Fields",
             "records": "Predefined elements",
+            "noFields": "No fields",
+            "noConfiguredPreview": "No additional preview details",
             "columns": {
+                "name": "Name",
                 "codename": "Codename",
                 "type": "Type",
                 "required": "Required"
@@ -612,6 +653,7 @@
             "summary": {
                 "create_one": "Create {{count}} table in new schema",
                 "create_other": "Create {{count}} tables in new schema",
+                "createEntities": "Create {{entities}} entities and {{tables}} tables in new schema",
                 "uiChanged": "UI settings have changed",
                 "upToDate": "Schema is already up to date",
                 "metadataChanged": "System metadata will be updated",

@@ -51,6 +51,7 @@ export {
     syncApplicationSchemaFromSource,
     runPublishedApplicationRuntimeSync,
     buildCreateTableDetails,
+    buildCreateEntityGroupDetails,
     mapStructuredChange
 } from './sync/syncEngine'
 

@@ -31,6 +31,7 @@ import {
     LMS_DEMO_QUIZ,
     LMS_DEMO_QUIZZES,
     LMS_DEMO_QUIZ_RESPONSES,
+    LMS_DEMO_REPORTS,
     LMS_DEMO_STUDENTS,
     LMS_FIXTURE_FILENAME,
     LMS_PUBLICATION,
@@ -202,6 +203,7 @@ async function runRuntimeRecordCommandFromRow(page: Page, rowId: string, command
 
 async function submitSnapshotImportDialog(page: Page, dialog: Locator): Promise<Response> {
     const importButton = dialog.getByRole('button', { name: /import/i }).last()
+    const importResponseTimeoutMs = 300_000
     const pendingResponses: Response[] = []
     const pendingWaiters: Array<(response: Response) => void> = []
     const onResponse = (response: Response) => {
@@ -241,7 +243,7 @@ async function submitSnapshotImportDialog(page: Page, dialog: Locator): Promise<
     try {
         for (let attempt = 0; attempt < 2; attempt += 1) {
             await importButton.click()
-            let response = await waitForNextImportResponse(180_000)
+            let response = await waitForNextImportResponse(importResponseTimeoutMs)
 
             for (let retryAttempt = 0; retryAttempt < 3; retryAttempt += 1) {
                 if (response.status() === 201) return response
@@ -527,6 +529,16 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         const enrollmentCatalogId = await findCatalogIdByCodename(api, importedId, 'Enrollments')
         await page.goto(`/metahub/${importedId}/entities/catalog/instances`)
         await expect(page.getByRole('heading', { name: 'Каталоги' })).toBeVisible({ timeout: 30_000 })
+        const openEnrollmentCatalogDialog = async () => {
+            await page.getByPlaceholder(/Поиск каталогов/i).fill('Enrollments')
+            const menuTrigger = page.getByTestId(buildEntityMenuTriggerSelector('catalog', enrollmentCatalogId))
+            await expect(menuTrigger).toBeVisible({ timeout: 30_000 })
+            await menuTrigger.click()
+            await page.getByTestId(buildEntityMenuItemSelector('catalog', 'edit', enrollmentCatalogId)).click()
+            const dialog = page.getByRole('dialog', { name: /Редактировать каталог/i })
+            await expect(dialog).toBeVisible({ timeout: 30_000 })
+            return dialog
+        }
 
         await page
             .getByRole('button', { name: /создать/i })
@@ -543,10 +555,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await createCatalogDialog.getByTestId(entityDialogSelectors.cancelButton).click()
         await expect(createCatalogDialog).toHaveCount(0)
 
-        await page.getByTestId(buildEntityMenuTriggerSelector('catalog', enrollmentCatalogId)).click()
-        await page.getByTestId(buildEntityMenuItemSelector('catalog', 'edit', enrollmentCatalogId)).click()
-        let enrollmentDialog = page.getByRole('dialog', { name: /Редактировать каталог/i })
-        await expect(enrollmentDialog).toBeVisible({ timeout: 30_000 })
+        let enrollmentDialog = await openEnrollmentCatalogDialog()
         await enrollmentDialog.getByRole('tab', { name: 'Поведение' }).click()
         await expect(enrollmentDialog.getByLabel('Режим записей')).toContainText('Транзакционный')
         await expect(enrollmentDialog.getByLabel('Префикс')).toHaveValue('ENR-')
@@ -568,10 +577,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         expect((await behaviorSaveResponse).ok()).toBe(true)
         await expect(enrollmentDialog).toHaveCount(0)
 
-        await page.getByTestId(buildEntityMenuTriggerSelector('catalog', enrollmentCatalogId)).click()
-        await page.getByTestId(buildEntityMenuItemSelector('catalog', 'edit', enrollmentCatalogId)).click()
-        enrollmentDialog = page.getByRole('dialog', { name: /Редактировать каталог/i })
-        await expect(enrollmentDialog).toBeVisible({ timeout: 30_000 })
+        enrollmentDialog = await openEnrollmentCatalogDialog()
         await enrollmentDialog.getByRole('tab', { name: 'Поведение' }).click()
         await expect(enrollmentDialog.getByLabel('Префикс')).toHaveValue('ENR-QA-')
         await enrollmentDialog.screenshot({ path: testInfo.outputPath('metahub-catalog-enrollments-behavior-reopened-ru.png') })
@@ -622,11 +628,21 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
 
         const diffDialog = page.getByRole('dialog', { name: 'Schema Changes' })
         await expect(diffDialog).toBeVisible({ timeout: 30_000 })
-        await expect(diffDialog.getByText('This publication version requires application workspaces.')).toBeVisible()
-        await expect(diffDialog.getByText('Workspaces', { exact: true })).toHaveCount(0)
-        await diffDialog
-            .getByLabel('I understand that workspaces cannot be turned off after they are enabled for this application.')
-            .check()
+        await expect(
+            diffDialog.getByText(
+                'Application workspaces are enabled because the source metahub requires workspace-isolated application data. The schema will be created with workspace isolation automatically.'
+            )
+        ).toBeVisible()
+        await expect(diffDialog.getByRole('switch', { name: 'Application workspaces are enabled' })).toBeChecked()
+        await expect(
+            diffDialog.getByLabel('I understand that workspaces cannot be turned off after they are enabled for this application.')
+        ).toHaveCount(0)
+        await expect(diffDialog.getByText('0 fields, 0 elements')).toHaveCount(0)
+        await expect(diffDialog.getByText(/\d+ linked entities/).first()).toBeVisible()
+        await expect(diffDialog.getByText(/\d+ blocks/).first()).toBeVisible()
+        await expect(diffDialog.getByText(/\d+ constants/).first()).toBeVisible()
+        await expect(diffDialog.getByText(/\d+ values/).first()).toBeVisible()
+        await diffDialog.screenshot({ path: testInfo.outputPath('application-schema-diff-entity-metrics-en.png') })
 
         const syncResponsePromise = waitForSettledMutationResponse(
             page,
@@ -640,8 +656,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         expect(syncResponse.status()).toBe(200)
         expect(syncResponse.request().postDataJSON()).toMatchObject({
             schemaOptions: {
-                workspaceModeRequested: 'enabled',
-                acknowledgeIrreversibleWorkspaceEnablement: true
+                workspaceModeRequested: 'enabled'
             }
         })
         await expect(diffDialog).toHaveCount(0)
@@ -695,12 +710,24 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await clickRuntimeNavigationItem(page, 'Knowledge')
         await expect(page.getByText('Quizzes', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
         await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
+        await expect(page.getByText('[object Object]', { exact: true })).toHaveCount(0)
+        await page.locator('[data-testid^="grid-row-actions-trigger-"]').first().click()
+        await page.getByRole('menuitem', { name: 'Edit' }).click()
+        const quizEditDialog = page.getByRole('dialog', { name: 'Edit element' })
+        await expect(quizEditDialog).toBeVisible({ timeout: 30_000 })
+        await expect(quizEditDialog.getByText('Departure window, Docking corridor')).toBeVisible({ timeout: 30_000 })
+        await expect(quizEditDialog.getByText('[object Object]', { exact: true })).toHaveCount(0)
+        await quizEditDialog.getByRole('button', { name: 'Cancel' }).click()
+        await expect(quizEditDialog).toHaveCount(0)
         await clickRuntimeNavigationItem(page, 'Development')
         await expect(page.getByText('Classes', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
         await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
         await clickRuntimeNavigationItem(page, 'Reports')
+        await expect(page.getByRole('link', { name: 'Reports' }).first()).toHaveAttribute('aria-current', 'page')
         await expect(page.getByText('Reports', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
         await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
+        await expect(page.getByText('[object Object]', { exact: true })).toHaveCount(0)
+        await expect(page.getByRole('gridcell', { name: 'All active learners' }).first()).toBeVisible({ timeout: 30_000 })
 
         await applyBrowserPreferences(page, { language: 'ru' })
         await page.goto(`/a/${applicationId}`)
@@ -858,6 +885,32 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         expect(studentRows).toHaveLength(LMS_DEMO_STUDENTS.length + 2)
         expect(quizResponseRows).toHaveLength(LMS_DEMO_QUIZ_RESPONSES.length + 4)
         expect(moduleProgressRows).toHaveLength(LMS_DEMO_MODULE_PROGRESS.length + 2)
+
+        const learnerProgressReport = LMS_DEMO_REPORTS.find((report) => report.codename === 'LearnerProgress')
+        if (!learnerProgressReport) {
+            throw new Error('LMS fixture contract is missing the learner progress report definition')
+        }
+
+        const reportResponse = await sendWithCsrf(
+            api,
+            'POST',
+            `/api/v1/applications/${applicationId}/runtime/reports/run?workspaceId=${encodeURIComponent(mainWorkspaceId)}`,
+            {
+                reportCodename: learnerProgressReport.codename,
+                limit: 10,
+                offset: 0
+            }
+        )
+        if (!reportResponse.ok) {
+            throw new Error(`Saved LMS report execution failed with ${reportResponse.status}: ${await reportResponse.text()}`)
+        }
+
+        const reportPayload = await reportResponse.json()
+        expect(reportPayload.definition?.codename).toBe(learnerProgressReport.codename)
+        expect(Array.isArray(reportPayload.rows)).toBe(true)
+        expect(Number(reportPayload.total)).toBeGreaterThanOrEqual(LMS_DEMO_MODULE_PROGRESS.length)
+        expect(typeof reportPayload.aggregations?.AverageProgress).toBe('number')
+
         expectNoBrowserRuntimeIssues(browserIssues, 'LMS snapshot runtime flow')
     })
 })

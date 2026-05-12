@@ -302,7 +302,6 @@ describe('TemplateManifestValidator', () => {
         expect(manifest.seed.entities.find((entity) => entity.codename === 'LearnerHome')).toEqual(
             expect.objectContaining({
                 kind: 'page',
-                localizeCodenameFromName: false,
                 name: expect.objectContaining({
                     locales: expect.objectContaining({
                         en: expect.objectContaining({ content: 'Welcome' }),
@@ -315,8 +314,7 @@ describe('TemplateManifestValidator', () => {
             const pageEntity = entityByCodename.get(codename)
             expect(pageEntity).toEqual(
                 expect.objectContaining({
-                    kind: 'page',
-                    localizeCodenameFromName: false
+                    kind: 'page'
                 })
             )
             expect(pageEntity?.config).toMatchObject({

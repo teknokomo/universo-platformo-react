@@ -323,6 +323,7 @@ const ConnectorBoard = () => {
                     isSyncing={syncMutation.isPending}
                     uiLocale={i18n.language}
                     schemaStatus={schemaStatus}
+                    useLocalizedSchemaDiffLabels={application?.settings?.schemaDiffLocalizedLabels !== false}
                 />
             )}
         </Stack>

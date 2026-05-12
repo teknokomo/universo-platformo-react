@@ -381,6 +381,99 @@ describe('ApplicationSettings', () => {
         })
     })
 
+    it('saves connector schema diff localization setting from the connectors tab', async () => {
+        const queryClient = new QueryClient({
+            defaultOptions: {
+                queries: { retry: false },
+                mutations: { retry: false }
+            }
+        })
+        const i18n = getI18nInstance()
+
+        render(
+            <I18nextProvider i18n={i18n}>
+                <SnackbarProvider>
+                    <QueryClientProvider client={queryClient}>
+                        <MemoryRouter initialEntries={['/applications/app-1/settings']}>
+                            <Routes>
+                                <Route path='/applications/:applicationId/settings' element={<ApplicationSettings />} />
+                            </Routes>
+                        </MemoryRouter>
+                    </QueryClientProvider>
+                </SnackbarProvider>
+            </I18nextProvider>
+        )
+
+        await userEvent.click(screen.getByRole('tab', { name: 'Connectors' }))
+        await userEvent.click(screen.getByTestId('application-settings-schema-diff-localized-labels-switch'))
+        await userEvent.click(screen.getByTestId('application-settings-connectors-save'))
+
+        await waitFor(() => {
+            expect(mockedUpdateApplication).toHaveBeenCalledWith(
+                'app-1',
+                expect.objectContaining({
+                    expectedVersion: 1,
+                    settings: expect.objectContaining({
+                        schemaDiffLocalizedLabels: false
+                    })
+                })
+            )
+        })
+    })
+
+    it('saves role policy capabilities through the access settings tab', async () => {
+        const queryClient = new QueryClient({
+            defaultOptions: {
+                queries: { retry: false },
+                mutations: { retry: false }
+            }
+        })
+        const i18n = getI18nInstance()
+
+        render(
+            <I18nextProvider i18n={i18n}>
+                <SnackbarProvider>
+                    <QueryClientProvider client={queryClient}>
+                        <MemoryRouter initialEntries={['/applications/app-1/settings']}>
+                            <Routes>
+                                <Route path='/applications/:applicationId/settings' element={<ApplicationSettings />} />
+                            </Routes>
+                        </MemoryRouter>
+                    </QueryClientProvider>
+                </SnackbarProvider>
+            </I18nextProvider>
+        )
+
+        await userEvent.click(screen.getByRole('tab', { name: 'Access' }))
+        await userEvent.click(screen.getByRole('checkbox', { name: 'member readReports' }))
+        await userEvent.click(screen.getByTestId('application-settings-access-save'))
+
+        await waitFor(() => {
+            expect(mockedUpdateApplication).toHaveBeenCalledWith(
+                'app-1',
+                expect.objectContaining({
+                    expectedVersion: 1,
+                    settings: expect.objectContaining({
+                        rolePolicies: expect.objectContaining({
+                            templates: expect.arrayContaining([
+                                expect.objectContaining({
+                                    baseRole: 'member',
+                                    rules: expect.arrayContaining([
+                                        expect.objectContaining({
+                                            capability: 'readReports',
+                                            effect: 'allow',
+                                            scope: 'workspace'
+                                        })
+                                    ])
+                                })
+                            ])
+                        })
+                    })
+                })
+            )
+        })
+    })
+
     it('does not send server-managed public runtime settings from the general settings form', async () => {
         mockedUseApplicationDetails.mockReturnValue({
             data: {
