@@ -4,6 +4,8 @@ description: Generic LMS resource model used by the metahub fixture and publishe
 
 # LMS Resource Model
 
+![Resources workspace used by the LMS resource model](../.gitbook/assets/entities/resources-workspace.png)
+
 The LMS fixture models learning content as ordinary Catalog records, not as a dedicated LMS runtime module.
 
 ## Entities

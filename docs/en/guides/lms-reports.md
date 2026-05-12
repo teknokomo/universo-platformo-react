@@ -4,6 +4,8 @@ description: Catalog-backed LMS report definitions and safe runtime execution.
 
 # LMS Reports
 
+![Catalog records used by LMS report definitions](../.gitbook/assets/entities/catalog-records.png)
+
 LMS reports are configuration records in the existing `Reports` Catalog.
 The platform does not add a report-only widget or LMS-specific report table for V1.
 
