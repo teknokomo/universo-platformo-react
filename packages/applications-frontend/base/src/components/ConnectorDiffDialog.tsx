@@ -36,7 +36,8 @@ import {
     Select,
     Radio,
     RadioGroup,
-    Checkbox
+    Checkbox,
+    Switch
 } from '@mui/material'
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline'
@@ -53,6 +54,51 @@ import { useApplicationDiff } from '../hooks/useConnectorSync'
 import type { Connector, SchemaStatus } from '../types'
 import { getVLCString } from '../types'
 
+const isLocalizedContent = (value: unknown): value is Record<string, unknown> =>
+    Boolean(value && typeof value === 'object' && !Array.isArray(value) && 'locales' in value)
+
+const getPrimaryLocalizedText = (value: unknown): string => {
+    if (!isLocalizedContent(value)) {
+        return typeof value === 'string' ? value : ''
+    }
+
+    const primaryLocale = typeof value._primary === 'string' ? value._primary : 'en'
+    const locales = value.locales
+    if (locales && typeof locales === 'object' && !Array.isArray(locales)) {
+        const primary = (locales as Record<string, unknown>)[primaryLocale]
+        if (primary && typeof primary === 'object' && !Array.isArray(primary)) {
+            const content = (primary as Record<string, unknown>).content
+            if (typeof content === 'string') {
+                return content
+            }
+        }
+
+        for (const localeValue of Object.values(locales)) {
+            if (localeValue && typeof localeValue === 'object' && !Array.isArray(localeValue)) {
+                const content = (localeValue as Record<string, unknown>).content
+                if (typeof content === 'string') {
+                    return content
+                }
+            }
+        }
+    }
+
+    return ''
+}
+
+const resolveSchemaDisplayText = (value: unknown, uiLocale: string, useLocalizedLabels: boolean): string => {
+    if (typeof value === 'string') {
+        return value
+    }
+    if (!isLocalizedContent(value)) {
+        return ''
+    }
+    if (!useLocalizedLabels) {
+        return getPrimaryLocalizedText(value)
+    }
+    return getVLCString(value as VersionedLocalizedContent<string>, uiLocale) || getPrimaryLocalizedText(value)
+}
+
 /**
  * Format a cell value for predefined elements preview.
  * Handles: VLC objects, arrays (TABLE child rows), plain values.
@@ -60,15 +106,15 @@ import { getVLCString } from '../types'
 function formatPreviewCellValue(
     value: unknown,
     uiLocale: string,
+    useLocalizedLabels: boolean,
     t: (key: string, fallback: string, params?: Record<string, unknown>) => string
 ): string {
     if (value === null || value === undefined) return ''
     if (Array.isArray(value)) {
         return value.length > 0 ? t('connectors.diffDialog.tableRowCount', '{{count}} rows', { count: value.length }) : ''
     }
-    if (typeof value === 'object' && 'locales' in (value as Record<string, unknown>)) {
-        const localizedValue = value as VersionedLocalizedContent<string>
-        return getVLCString(localizedValue, uiLocale) || getVLCString(localizedValue, 'en') || ''
+    if (isLocalizedContent(value)) {
+        return resolveSchemaDisplayText(value, uiLocale, useLocalizedLabels)
     }
     if (typeof value === 'object') {
         return JSON.stringify(value)
@@ -79,9 +125,45 @@ function formatPreviewCellValue(
 type PreviewTableField = {
     id: string
     codename: string
+    displayCodename?: string
     dataType: string
     isRequired: boolean
     parentAttributeId?: string | null
+}
+
+type PreviewEntityField = {
+    id: string
+    codename: unknown
+    name?: unknown
+    dataType: string
+    isRequired: boolean
+    parentAttributeId?: string | null
+}
+
+type PreviewEntity = {
+    id: string
+    kind: string
+    codename: unknown
+    name?: unknown
+    tableName?: string | null
+    fields?: PreviewEntityField[]
+    recordsCount?: number
+    recordsPreview?: Array<{
+        id: string
+        data: Record<string, unknown>
+        sortOrder: number
+    }>
+    metrics?: Array<{
+        key: string
+        count: number
+    }>
+}
+
+type PreviewEntityGroup = {
+    kindKey: string
+    typeCodename?: unknown
+    typeName?: unknown
+    entities: PreviewEntity[]
 }
 
 function resolvePreviewChildFieldValue(
@@ -89,11 +171,12 @@ function resolvePreviewChildFieldValue(
     field: PreviewTableField,
     fieldsById: Map<string, PreviewTableField>,
     uiLocale: string,
+    useLocalizedLabels: boolean,
     t: (key: string, fallback: string, params?: Record<string, unknown>) => string
 ): string {
     const directValue = rowData?.[field.codename]
     if (directValue !== null && directValue !== undefined) {
-        return formatPreviewCellValue(directValue, uiLocale, t)
+        return formatPreviewCellValue(directValue, uiLocale, useLocalizedLabels, t)
     }
 
     if (!field.parentAttributeId) {
@@ -116,7 +199,7 @@ function resolvePreviewChildFieldValue(
                 return ''
             }
 
-            return formatPreviewCellValue((childRow as Record<string, unknown>)[field.codename], uiLocale, t)
+            return formatPreviewCellValue((childRow as Record<string, unknown>)[field.codename], uiLocale, useLocalizedLabels, t)
         })
         .filter((value) => value.length > 0)
         .join(', ')
@@ -142,6 +225,7 @@ export interface ConnectorDiffDialogProps {
     isSyncing: boolean
     uiLocale: string
     schemaStatus?: SchemaStatus
+    useLocalizedSchemaDiffLabels?: boolean
 }
 
 type StructuredDiffChange = {
@@ -178,7 +262,8 @@ export function ConnectorDiffDialog({
     onSync,
     isSyncing,
     uiLocale,
-    schemaStatus
+    schemaStatus,
+    useLocalizedSchemaDiffLabels = true
 }: ConnectorDiffDialogProps) {
     const { t } = useTranslation('applications')
     const [bulkLayoutResolution, setBulkLayoutResolution] = useState<ApplicationLayoutSyncResolution | ''>('')
@@ -205,6 +290,13 @@ export function ConnectorDiffDialog({
     const formatSummary = (summaryKey?: string, summaryParams?: Record<string, unknown>, fallback?: string) => {
         if (summaryKey === 'schema.create.summary') {
             const tablesCount = typeof summaryParams?.tablesCount === 'number' ? summaryParams.tablesCount : 0
+            const entitiesCount = typeof summaryParams?.entitiesCount === 'number' ? summaryParams.entitiesCount : 0
+            if (entitiesCount > 0) {
+                return t('connectors.diffDialog.summary.createEntities', 'Create {{entities}} entities and {{tables}} tables in new schema', {
+                    entities: entitiesCount,
+                    tables: tablesCount
+                })
+            }
             return t('connectors.diffDialog.summary.create', 'Create {{count}} tables in new schema', { count: tablesCount })
         }
         if (summaryKey === 'ui.layout.changed') {
@@ -429,7 +521,8 @@ export function ConnectorDiffDialog({
         runtimeWorkspacePolicy === 'required' ||
         diffData?.workspaceMode?.applicationWorkspacesEnabled === true ||
         (runtimeWorkspacePolicy === 'optional' && workspaceModeRequested === 'enabled')
-    const workspaceRequiresAcknowledgement = diffData?.workspaceMode?.applicationWorkspacesEnabled !== true && workspaceEffectiveEnabled
+    const workspaceRequiresAcknowledgement =
+        runtimeWorkspacePolicy !== 'required' && diffData?.workspaceMode?.applicationWorkspacesEnabled !== true && workspaceEffectiveEnabled
     const workspaceSyncDisabled = workspaceRequiresAcknowledgement && !workspaceAcknowledged
 
     const hasWorkspaceMetadata = Boolean(diffData?.workspaceMode || diffData?.runtimePolicy || diffData?.schemaOptions)
@@ -438,10 +531,18 @@ export function ConnectorDiffDialog({
             return undefined
         }
 
-        return {
-            workspaceModeRequested: runtimeWorkspacePolicy === 'required' ? 'enabled' : workspaceModeRequested,
-            acknowledgeIrreversibleWorkspaceEnablement: workspaceRequiresAcknowledgement ? workspaceAcknowledged : undefined
+        const schemaOptions: {
+            workspaceModeRequested: 'enabled' | 'not_requested'
+            acknowledgeIrreversibleWorkspaceEnablement?: boolean
+        } = {
+            workspaceModeRequested: runtimeWorkspacePolicy === 'required' ? 'enabled' : workspaceModeRequested
         }
+
+        if (workspaceRequiresAcknowledgement) {
+            schemaOptions.acknowledgeIrreversibleWorkspaceEnablement = workspaceAcknowledged
+        }
+
+        return schemaOptions
     }
 
     const handleSync = async (confirmDestructive: boolean) => {
@@ -477,16 +578,37 @@ export function ConnectorDiffDialog({
 
     const connectorName = connector ? getVLCString(connector.name, uiLocale) : ''
     const createTables = diffData?.diff?.details?.create?.tables ?? []
+    const createEntityGroups = (diffData?.diff?.details?.create?.entityGroups ?? []) as PreviewEntityGroup[]
     const additiveStructured = (diffData?.diff?.details?.changes?.additive ?? []) as StructuredDiffChange[]
     const destructiveStructured = (diffData?.diff?.details?.changes?.destructive ?? []) as StructuredDiffChange[]
-    const hasCreateTableDetails = createTables.length > 0
+    const hasCreateEntityGroupDetails = createEntityGroups.length > 0
     const workspaceModeSection =
         diffData && !diffError ? (
             <Box sx={{ mb: 2 }}>
                 {runtimeWorkspacePolicy === 'required' ? (
-                    <Alert severity='info'>
-                        {t('connectors.diffDialog.workspace.required', 'This publication version requires application workspaces.')}
-                    </Alert>
+                    <>
+                        <Alert severity='info' sx={{ mb: 1 }}>
+                            {t(
+                                'connectors.diffDialog.workspace.required',
+                                'Application workspaces are enabled because the source metahub requires workspace-isolated application data. The schema will be created with workspace isolation automatically.'
+                            )}
+                        </Alert>
+                        <FormControlLabel
+                            control={
+                                <Switch
+                                    checked
+                                    disabled
+                                    inputProps={{
+                                        'aria-label': t(
+                                            'connectors.diffDialog.workspace.requiredSwitchLabel',
+                                            'Application workspaces are enabled by the source metahub'
+                                        )
+                                    }}
+                                />
+                            }
+                            label={t('connectors.diffDialog.workspace.requiredEnabled', 'Application workspaces are enabled')}
+                        />
+                    </>
                 ) : workspaceCanChoose ? (
                     <FormControl component='fieldset' fullWidth>
                         <Typography variant='subtitle2' sx={{ mb: 1 }}>
@@ -530,6 +652,206 @@ export function ConnectorDiffDialog({
             </Box>
         ) : null
 
+    const getCanonicalCodenameText = (value: unknown) => getPrimaryLocalizedText(value) || resolveSchemaDisplayText(value, uiLocale, false)
+    const getDisplayCodenameText = (value: unknown) =>
+        resolveSchemaDisplayText(value, uiLocale, useLocalizedSchemaDiffLabels) || getCanonicalCodenameText(value)
+    const getEntityMetricLabel = (metric: { key: string; count: number }): string => {
+        const fallbackLabels: Record<string, string> = {
+            fields: '{{count}} fields',
+            elements: '{{count}} elements',
+            constants: '{{count}} constants',
+            values: '{{count}} values',
+            blocks: '{{count}} blocks',
+            linkedEntities: '{{count}} linked entities'
+        }
+        return t(`connectors.diffDialog.entityMetrics.${metric.key}`, fallbackLabels[metric.key] ?? '{{count}} items', {
+            count: metric.count
+        })
+    }
+    const getEntityMetricsSummary = (entity: PreviewEntity, fieldsCount: number): string => {
+        const rawMetrics = Array.isArray(entity.metrics) ? entity.metrics : []
+        const metrics =
+            rawMetrics.length > 0
+                ? rawMetrics
+                : fieldsCount > 0 || (entity.recordsCount ?? 0) > 0
+                  ? [
+                        { key: 'fields', count: fieldsCount },
+                        { key: 'elements', count: entity.recordsCount ?? 0 }
+                    ]
+                  : []
+        return metrics.map(getEntityMetricLabel).join(', ')
+    }
+
+    const renderEntityGroupsPreview = (groups: PreviewEntityGroup[]) => (
+        <Box sx={{ mb: 2 }}>
+            <Typography variant='subtitle1' sx={{ fontWeight: 600, mb: 1, color: 'success.main' }}>
+                {t('connectors.diffDialog.entitiesWillBeCreated', 'Entities to be created')}
+            </Typography>
+
+            {groups.map((group) => {
+                const typeName =
+                    resolveSchemaDisplayText(group.typeName, uiLocale, useLocalizedSchemaDiffLabels) ||
+                    resolveSchemaDisplayText(group.typeCodename, uiLocale, useLocalizedSchemaDiffLabels) ||
+                    group.kindKey
+                const typeCodename = getDisplayCodenameText(group.typeCodename) || group.kindKey
+
+                return (
+                    <Box key={group.kindKey} sx={{ mb: 2 }}>
+                        <Typography variant='subtitle2' sx={{ mb: 1 }}>
+                            {typeName}
+                            <Typography component='span' variant='body2' color='text.secondary' sx={{ ml: 1 }}>
+                                {typeCodename}
+                            </Typography>
+                        </Typography>
+
+                        {group.entities.map((entity) => {
+                            const rawFields = (entity.fields ?? []) as PreviewEntityField[]
+                            const fields = rawFields.map((field) => ({
+                                ...field,
+                                codename: getCanonicalCodenameText(field.codename),
+                                displayCodename: getDisplayCodenameText(field.codename)
+                            })) as PreviewTableField[]
+                            const fieldsById = new Map(fields.map((field) => [field.id, field]))
+                            const preview = (entity.recordsPreview ?? [])
+                                .slice()
+                                .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.id.localeCompare(b.id))
+                            const entityName =
+                                resolveSchemaDisplayText(entity.name, uiLocale, useLocalizedSchemaDiffLabels) ||
+                                resolveSchemaDisplayText(entity.codename, uiLocale, useLocalizedSchemaDiffLabels) ||
+                                entity.id
+                            const entityCodename = getDisplayCodenameText(entity.codename)
+                            const metricsSummary = getEntityMetricsSummary(entity, fields.length)
+                            const metrics = Array.isArray(entity.metrics) ? entity.metrics : []
+
+                            return (
+                                <Accordion
+                                    key={entity.id}
+                                    disableGutters
+                                    elevation={0}
+                                    sx={{ border: '1px solid', borderColor: 'divider', mb: 1 }}
+                                >
+                                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                        <Box sx={{ minWidth: 0 }}>
+                                            <Typography variant='subtitle2'>{entityName}</Typography>
+                                            <Typography variant='body2' color='text.secondary' sx={{ fontFamily: 'monospace' }}>
+                                                {entityCodename}
+                                            </Typography>
+                                        </Box>
+                                        {metricsSummary ? (
+                                            <Typography variant='body2' color='text.secondary' sx={{ ml: 2, alignSelf: 'center' }}>
+                                                {metricsSummary}
+                                            </Typography>
+                                        ) : null}
+                                    </AccordionSummary>
+                                    <AccordionDetails>
+                                        {fields.length > 0 ? (
+                                            <>
+                                                <Typography variant='subtitle2' sx={{ mb: 1 }}>
+                                                    {t('connectors.diffDialog.fields', 'Fields')}
+                                                </Typography>
+                                                <Table size='small'>
+                                                    <TableHead>
+                                                        <TableRow>
+                                                            <TableCell>{t('connectors.diffDialog.columns.name', 'Name')}</TableCell>
+                                                            <TableCell>{t('connectors.diffDialog.columns.type', 'Type')}</TableCell>
+                                                            <TableCell>{t('connectors.diffDialog.columns.required', 'Required')}</TableCell>
+                                                        </TableRow>
+                                                    </TableHead>
+                                                    <TableBody>
+                                                        {rawFields.map((rawField, index) => {
+                                                            const field = fields[index]
+                                                            const label =
+                                                                resolveSchemaDisplayText(
+                                                                    rawField.name,
+                                                                    uiLocale,
+                                                                    useLocalizedSchemaDiffLabels
+                                                                ) || field.displayCodename || field.codename
+                                                            return (
+                                                                <TableRow key={field.id}>
+                                                                    <TableCell>
+                                                                        <Typography variant='body2'>{label}</Typography>
+                                                                        <Typography
+                                                                            variant='caption'
+                                                                            color='text.secondary'
+                                                                            sx={{ fontFamily: 'monospace' }}
+                                                                        >
+                                                                            {field.displayCodename || field.codename}
+                                                                        </Typography>
+                                                                    </TableCell>
+                                                                    <TableCell>{formatDataType(field.dataType)}</TableCell>
+                                                                    <TableCell>
+                                                                        {field.isRequired ? t('common.yes', 'Yes') : t('common.no', 'No')}
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            )
+                                                        })}
+                                                    </TableBody>
+                                                </Table>
+                                            </>
+                                        ) : metrics.length > 0 ? (
+                                            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                                {metrics.map((metric) => (
+                                                    <Typography key={metric.key} variant='body2' color='text.secondary'>
+                                                        {getEntityMetricLabel(metric)}
+                                                    </Typography>
+                                                ))}
+                                            </Box>
+                                        ) : (
+                                            <Typography variant='body2' color='text.secondary'>
+                                                {t('connectors.diffDialog.noConfiguredPreview', 'No additional preview details')}
+                                            </Typography>
+                                        )}
+
+                                        {preview.length > 0 && fields.length > 0 && (
+                                            <Box sx={{ mt: 2 }}>
+                                                <Typography variant='subtitle2' sx={{ mb: 1 }}>
+                                                    {t('connectors.diffDialog.records', 'Predefined elements')}
+                                                </Typography>
+                                                <Table size='small'>
+                                                    <TableHead>
+                                                        <TableRow>
+                                                            {rawFields.map((rawField, index) => {
+                                                                const field = fields[index]
+                                                                const label =
+                                                                    resolveSchemaDisplayText(
+                                                                        rawField.name,
+                                                                        uiLocale,
+                                                                        useLocalizedSchemaDiffLabels
+                                                                    ) || field.displayCodename || field.codename
+                                                                return <TableCell key={field.id}>{label}</TableCell>
+                                                            })}
+                                                        </TableRow>
+                                                    </TableHead>
+                                                    <TableBody>
+                                                        {preview.map((row) => (
+                                                            <TableRow key={row.id}>
+                                                                {fields.map((field) => {
+                                                                    const display = resolvePreviewChildFieldValue(
+                                                                        row.data,
+                                                                        field,
+                                                                        fieldsById,
+                                                                        uiLocale,
+                                                                        useLocalizedSchemaDiffLabels,
+                                                                        t
+                                                                    )
+                                                                    return <TableCell key={field.id}>{display}</TableCell>
+                                                                })}
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            </Box>
+                                        )}
+                                    </AccordionDetails>
+                                </Accordion>
+                            )
+                        })}
+                    </Box>
+                )
+            })}
+        </Box>
+    )
+
     return (
         <Dialog open={open} onClose={onClose} maxWidth='md' fullWidth aria-labelledby='connector-diff-dialog-title'>
             <DialogTitle id='connector-diff-dialog-title' component='div'>
@@ -564,10 +886,12 @@ export function ConnectorDiffDialog({
                         </Box>
 
                         {/* Show what will be created (expandable details) */}
-                        {createTables.length > 0 ? (
+                        {hasCreateEntityGroupDetails ? (
+                            renderEntityGroupsPreview(createEntityGroups)
+                        ) : createTables.length > 0 ? (
                             <Box sx={{ mb: 2 }}>
                                 <Typography variant='subtitle1' sx={{ fontWeight: 600, mb: 1, color: 'success.main' }}>
-                                    {t('connectors.diffDialog.tablesWillBeCreated', 'Tables to be created')}
+                                    {t('connectors.diffDialog.entitiesWillBeCreated', 'Entities to be created')}
                                 </Typography>
 
                                 {createTables.map((table) => {
@@ -648,6 +972,7 @@ export function ConnectorDiffDialog({
                                                                                 f,
                                                                                 fieldsById,
                                                                                 uiLocale,
+                                                                                useLocalizedSchemaDiffLabels,
                                                                                 t
                                                                             )
                                                                             return <TableCell key={f.id}>{display}</TableCell>
@@ -666,7 +991,7 @@ export function ConnectorDiffDialog({
                         ) : hasAdditiveChanges ? (
                             <Box sx={{ mb: 2 }}>
                                 <Typography variant='subtitle1' sx={{ fontWeight: 600, mb: 1, color: 'success.main' }}>
-                                    {t('connectors.diffDialog.tablesWillBeCreated', 'Tables to be created')}
+                                    {t('connectors.diffDialog.entitiesWillBeCreated', 'Entities to be created')}
                                 </Typography>
                                 <List dense>
                                     {(additiveStructured.length > 0
@@ -897,7 +1222,7 @@ export function ConnectorDiffDialog({
                                 <Typography variant='subtitle1' sx={{ fontWeight: 600, mb: 1, color: 'success.main' }}>
                                     {t('connectors.diffDialog.additiveChanges', 'Safe Changes (will be applied)')}
                                 </Typography>
-                                {hasCreateTableDetails && (
+                                {createTables.length > 0 && (
                                     <Box sx={{ mb: 2 }}>
                                         {createTables.map((table) => {
                                             const fields = (table.fields ?? []) as PreviewTableField[]
@@ -981,6 +1306,7 @@ export function ConnectorDiffDialog({
                                                                                         f,
                                                                                         fieldsById,
                                                                                         uiLocale,
+                                                                                        useLocalizedSchemaDiffLabels,
                                                                                         t
                                                                                     )
                                                                                     return <TableCell key={f.id}>{display}</TableCell>

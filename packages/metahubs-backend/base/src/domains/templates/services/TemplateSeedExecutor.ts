@@ -84,6 +84,9 @@ export const buildTemplateSeedEntityCodenameValue = (
         if (!localizedName) {
             continue
         }
+        if (normalizedLocale === primaryLocale && nextCodename.locales[primaryLocale]?.content) {
+            continue
+        }
 
         nextCodename.locales[normalizedLocale] = {
             content: normalizeCodenameForStyle(localizedName, config.style, config.alphabet),

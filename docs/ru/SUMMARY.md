@@ -80,6 +80,8 @@
 * [Обзор](guides/README.md)
 * [Обзор LMS](guides/lms-overview.md)
 * [Настройка LMS](guides/lms-setup.md)
+* [Модель ресурсов LMS](guides/lms-resource-model.md)
+* [Отчёты LMS](guides/lms-reports.md)
 * [Гостевой доступ LMS](guides/lms-guest-access.md)
 * [Транзакционные каталоги](guides/transactional-catalogs.md)
 * [Руководство по Регистрам](guides/ledgers.md)

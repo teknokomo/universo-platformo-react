@@ -13,11 +13,17 @@ type Props = {
     open: boolean
     widgetKey?: string | null
     config?: Record<string, unknown> | null
+    sectionOptions?: DatasourceSectionOption[]
     onSave: (config: Record<string, unknown>) => void
     onCancel: () => void
 }
 
 type EditableDatasourceKind = 'current' | 'records.list' | 'ledger.facts' | 'ledger.projection'
+type DatasourceSectionOption = {
+    id: string
+    label: string
+    codename?: string | null
+}
 
 const DETAILS_TABLE_DATASOURCE_KIND_OPTIONS: Array<{ value: EditableDatasourceKind; labelKey: string; fallback: string }> = [
     { value: 'current', labelKey: 'layouts.datasource.currentSection', fallback: 'Current runtime section' },
@@ -259,7 +265,7 @@ const normalizeOverviewCardsConfig = (config: Record<string, unknown>): Record<s
     return next
 }
 
-export default function ApplicationWidgetBehaviorEditorDialog({ open, widgetKey, config, onSave, onCancel }: Props) {
+export default function ApplicationWidgetBehaviorEditorDialog({ open, widgetKey, config, sectionOptions = [], onSave, onCancel }: Props) {
     const { t } = useTranslation(['applications', 'common'])
     const [draft, setDraft] = useState<Record<string, unknown>>(() => normalizeConfig(config))
 
@@ -285,6 +291,14 @@ export default function ApplicationWidgetBehaviorEditorDialog({ open, widgetKey,
                 ...patch
             })
         })
+    }
+    const updateRecordsDatasourceSection = (sectionId: string) => {
+        const selected = sectionOptions.find((option) => option.id === sectionId)
+        updateDatasource({
+            kind: 'records.list',
+            sectionId,
+            ...(selected?.codename ? { sectionCodename: selected.codename } : {})
+        } as Partial<RuntimeDatasourceDescriptor>)
     }
     const updateFirstSeries = (patch: Record<string, unknown>) => {
         setDraft((current) => ({
@@ -343,6 +357,13 @@ export default function ApplicationWidgetBehaviorEditorDialog({ open, widgetKey,
             }
         })
     }
+    const updateOverviewCardMetricSection = (index: number, sectionId: string) => {
+        const selected = sectionOptions.find((option) => option.id === sectionId)
+        updateOverviewCardMetricParams(index, {
+            sectionId,
+            ...(selected?.codename ? { sectionCodename: selected.codename } : {})
+        })
+    }
     const normalizeDraft = () => {
         if (isDetailsTableWidget) return normalizeDetailsTableConfig(draft)
         if (isChartWidget) return normalizeChartConfig(draft)
@@ -393,6 +414,35 @@ export default function ApplicationWidgetBehaviorEditorDialog({ open, widgetKey,
                             </FormControl>
                             {datasourceKind === 'records.list' ? (
                                 <>
+                                    {sectionOptions.length > 0 ? (
+                                        <FormControl size='small' fullWidth>
+                                            <InputLabel>{t('layouts.datasource.sectionPicker', 'Section')}</InputLabel>
+                                            <Select
+                                                value={
+                                                    sectionOptions.some(
+                                                        (option) =>
+                                                            option.id ===
+                                                            normalizeDatasourceText(
+                                                                (datasource as { sectionId?: unknown } | null)?.sectionId
+                                                            )
+                                                    )
+                                                        ? normalizeDatasourceText((datasource as { sectionId?: unknown } | null)?.sectionId)
+                                                        : ''
+                                                }
+                                                label={t('layouts.datasource.sectionPicker', 'Section')}
+                                                onChange={(event) => updateRecordsDatasourceSection(event.target.value)}
+                                            >
+                                                <MenuItem value=''>
+                                                    {t('layouts.datasource.sectionManual', 'Manual section reference')}
+                                                </MenuItem>
+                                                {sectionOptions.map((option) => (
+                                                    <MenuItem key={option.id} value={option.id}>
+                                                        {option.label}
+                                                    </MenuItem>
+                                                ))}
+                                            </Select>
+                                        </FormControl>
+                                    ) : null}
                                     <TextField
                                         size='small'
                                         label={t('layouts.datasource.sectionId', 'Section ID')}
@@ -625,6 +675,34 @@ export default function ApplicationWidgetBehaviorEditorDialog({ open, widgetKey,
                                             onChange={(event) => updateOverviewCardMetricParams(index, { sectionId: event.target.value })}
                                             fullWidth
                                         />
+                                        {sectionOptions.length > 0 ? (
+                                            <FormControl size='small' fullWidth>
+                                                <InputLabel>{`${t(
+                                                    'layouts.datasource.cardSectionPicker',
+                                                    'Metric section'
+                                                )} ${slotNumber}`}</InputLabel>
+                                                <Select
+                                                    value={
+                                                        sectionOptions.some(
+                                                            (option) => option.id === normalizeDatasourceText(params.sectionId)
+                                                        )
+                                                            ? normalizeDatasourceText(params.sectionId)
+                                                            : ''
+                                                    }
+                                                    label={`${t('layouts.datasource.cardSectionPicker', 'Metric section')} ${slotNumber}`}
+                                                    onChange={(event) => updateOverviewCardMetricSection(index, event.target.value)}
+                                                >
+                                                    <MenuItem value=''>
+                                                        {t('layouts.datasource.sectionManual', 'Manual section reference')}
+                                                    </MenuItem>
+                                                    {sectionOptions.map((option) => (
+                                                        <MenuItem key={option.id} value={option.id}>
+                                                            {option.label}
+                                                        </MenuItem>
+                                                    ))}
+                                                </Select>
+                                            </FormControl>
+                                        ) : null}
                                         <TextField
                                             size='small'
                                             label={`${t(

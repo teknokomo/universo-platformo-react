@@ -24,6 +24,7 @@ import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import { NUMBER_DEFAULTS, validateNumber, toNumberRules } from '@universo/utils'
 import type { FieldConfig } from '../components/dialogs/FormDialog'
 import { getTabularStringDisplayValue, isLocalizedStringField, updateLocalizedTabularStringValue } from './tabularCellValues'
+import { formatRuntimeValue } from './displayValue'
 
 type RefOption = { id: string; label: string }
 
@@ -557,6 +558,11 @@ export function buildTabularColumns({
                 if (isLocalizedStringField(field)) {
                     colDef.renderEditCell = (params) => <LocalizedStringEditCell {...params} locale={locale} />
                 }
+            }
+
+            if (field.type !== 'STRING' && field.type !== 'NUMBER' && field.type !== 'BOOLEAN') {
+                colDef.renderCell = (params) => formatRuntimeValue(params.value, locale)
+                colDef.valueFormatter = (value: unknown) => formatRuntimeValue(value, locale)
             }
 
             // Customize NUMBER columns: custom edit cell + validation + alignment

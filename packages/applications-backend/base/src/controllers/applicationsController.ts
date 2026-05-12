@@ -1,13 +1,14 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
 import type { VersionedLocalizedContent } from '@universo/types'
+import { applicationRolePolicySettingsSchema } from '@universo/types'
 import { ApplicationMembershipState } from '@universo/types'
 import type { DbExecutor } from '@universo/utils'
 import { database, normalizeApplicationCopyOptions, OptimisticLockError } from '@universo/utils'
 import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo/utils/vlc'
 import { generateSchemaName, isValidSchemaName } from '@universo/schema-ddl'
 import { isSuperuser as isSuperuserCheck, getGlobalRoleCodename, hasSubjectPermission } from '@universo/admin-backend'
-import { ensureApplicationAccess, ROLE_PERMISSIONS, assertNotOwner } from '../routes/guards'
+import { ensureApplicationAccess, assertNotOwner, resolveEffectiveRolePermissions } from '../routes/guards'
 import type { ApplicationRole, RolePermission } from '../routes/guards'
 import { validateListQuery } from '../schemas/queryParams'
 import { ApplicationSchemaStatus } from '../persistence/contracts'
@@ -62,7 +63,8 @@ const NO_APPLICATION_PERMISSIONS: Record<RolePermission, boolean> = {
     manageApplication: false,
     createContent: false,
     editContent: false,
-    deleteContent: false
+    deleteContent: false,
+    readReports: false
 }
 
 // ---------------------------------------------------------------------------
@@ -153,6 +155,8 @@ const applicationDialogSettingsSchema = z
         dashboardDefaultMode: z.enum(['layout-default', 'first-menu-item']).optional(),
         datasourceExecutionPolicy: z.enum(['workspace-scoped', 'layout-only']).optional(),
         workspaceOpenBehavior: z.enum(['last-used', 'default-workspace']).optional(),
+        schemaDiffLocalizedLabels: z.boolean().optional(),
+        rolePolicies: applicationRolePolicySettingsSchema.optional(),
         applicationLayouts: z
             .object({
                 readRoles: z
@@ -260,7 +264,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
                     ? 'superadmin'
                     : 'supermoderator'
                 : 'public'
-            const permissions = role ? ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.member : NO_APPLICATION_PERMISSIONS
+            const permissions = role ? resolveEffectiveRolePermissions(role, a.settings ?? {}) : NO_APPLICATION_PERMISSIONS
 
             return {
                 id: a.id,
@@ -306,7 +310,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
         if (!application) return res.status(404).json({ error: 'Application not found' })
 
         const role = ctx.membership.role as ApplicationRole
-        const permissions = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.member
+        const permissions = resolveEffectiveRolePermissions(role, application.settings ?? {})
 
         return res.json({
             id: application.id,
@@ -436,7 +440,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
             membersCount: 1,
             role: 'owner',
             accessType: 'member',
-            permissions: ROLE_PERMISSIONS.owner,
+            permissions: resolveEffectiveRolePermissions('owner', saved.settings ?? {}),
             membershipState: ApplicationMembershipState.JOINED,
             canJoin: false,
             canLeave: false
@@ -633,7 +637,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
             membersCount: undefined,
             role: 'owner',
             accessType: 'member',
-            permissions: ROLE_PERMISSIONS.owner,
+            permissions: resolveEffectiveRolePermissions('owner', copied.settings ?? {}),
             membershipState: ApplicationMembershipState.JOINED,
             canJoin: false,
             canLeave: false
@@ -808,7 +812,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
         }
         if (!saved) return res.status(404).json({ error: 'Application not found' })
         const role = ctx.membership.role as ApplicationRole
-        const permissions = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.member
+        const permissions = resolveEffectiveRolePermissions(role, saved.settings ?? {})
 
         return res.json({
             id: saved.id,

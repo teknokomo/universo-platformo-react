@@ -80,6 +80,8 @@
 * [Overview](guides/README.md)
 * [LMS Overview](guides/lms-overview.md)
 * [LMS Setup](guides/lms-setup.md)
+* [LMS Resource Model](guides/lms-resource-model.md)
+* [LMS Reports](guides/lms-reports.md)
 * [LMS Guest Access](guides/lms-guest-access.md)
 * [Transactional Catalogs](guides/transactional-catalogs.md)
 * [Ledgers Guide](guides/ledgers.md)

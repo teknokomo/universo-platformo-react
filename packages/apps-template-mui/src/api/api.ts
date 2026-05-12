@@ -4,7 +4,8 @@ import {
     catalogRecordBehaviorSchema,
     linkedCollectionRuntimeViewConfigSchema,
     dashboardLayoutConfigSchema,
-    runtimePageBlockSchema
+    runtimePageBlockSchema,
+    reportDefinitionSchema
 } from '@universo/types'
 import type { RuntimeRecordCommand } from './types'
 
@@ -20,7 +21,8 @@ const runtimePermissionsSchema = z
         manageApplication: z.boolean().optional().default(false),
         createContent: z.boolean().optional().default(true),
         editContent: z.boolean().optional().default(true),
-        deleteContent: z.boolean().optional().default(true)
+        deleteContent: z.boolean().optional().default(true),
+        readReports: z.boolean().optional().default(false)
     })
     .optional()
 
@@ -418,9 +420,17 @@ const runtimeLedgerProjectionResponseSchema = z.object({
     offset: z.number().optional().default(0)
 })
 
+const runtimeReportRunResponseSchema = z.object({
+    rows: z.array(z.record(z.unknown())).optional().default([]),
+    total: z.number().optional().default(0),
+    aggregations: z.record(z.unknown()).optional().default({}),
+    definition: reportDefinitionSchema
+})
+
 export type RuntimeLedgerMetadataResponse = z.infer<typeof runtimeLedgerMetadataSchema>
 export type RuntimeLedgerFactsResponse = z.infer<typeof runtimeLedgerFactsResponseSchema>
 export type RuntimeLedgerProjectionResponse = z.infer<typeof runtimeLedgerProjectionResponseSchema>
+export type RuntimeReportRunResponse = z.infer<typeof runtimeReportRunResponseSchema>
 
 export async function fetchAppData(options: {
     apiBaseUrl: string
@@ -566,6 +576,38 @@ export async function fetchRuntimeLedgerProjection(options: {
     const parsed = runtimeLedgerProjectionResponseSchema.safeParse(await res.json())
     if (!parsed.success) {
         throw new Error('Ledger projection API response validation failed')
+    }
+    return parsed.data
+}
+
+export async function runRuntimeReport(options: {
+    apiBaseUrl: string
+    applicationId: string
+    reportId?: string
+    reportCodename?: string
+    limit?: number
+    offset?: number
+    workspaceId?: string | null
+}): Promise<RuntimeReportRunResponse> {
+    const { apiBaseUrl, applicationId, reportId, reportCodename, limit, offset, workspaceId } = options
+    const normalizedBase = apiBaseUrl.replace(/\/$/, '')
+    const url = new URL(buildApiUrl(normalizedBase, `/applications/${applicationId}/runtime/reports/run`))
+    if (workspaceId?.trim()) {
+        url.searchParams.set('workspaceId', workspaceId.trim())
+    }
+
+    const res = await fetchWithCsrf(apiBaseUrl, url.toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportId, reportCodename, limit, offset })
+    })
+    if (!res.ok) {
+        throw new Error(await extractErrorMessage(res, 'Runtime report API request failed'))
+    }
+
+    const parsed = runtimeReportRunResponseSchema.safeParse(await res.json())
+    if (!parsed.success) {
+        throw new Error('Runtime report API response validation failed')
     }
     return parsed.data
 }

@@ -114,6 +114,20 @@ const filterRegistryForEntityTypes = (registry: RegistryEntry[], entityTypes: Re
     return registry.filter((entry) => !isEntitySettingKind(entry.tab) || availableEntityTabs.has(entry.tab))
 }
 
+const buildSettingsTabOrder = (entityTypes: ResolvedEntityType[]): string[] => {
+    const orderedEntityTabs = entityTypes
+        .filter((entityType) => isEntitySettingKind(entityType.kindKey))
+        .slice()
+        .sort((left, right) => {
+            const leftOrder = typeof left.ui?.sidebarOrder === 'number' ? left.ui.sidebarOrder : Number.MAX_SAFE_INTEGER
+            const rightOrder = typeof right.ui?.sidebarOrder === 'number' ? right.ui.sidebarOrder : Number.MAX_SAFE_INTEGER
+            return leftOrder - rightOrder || left.kindKey.localeCompare(right.kindKey)
+        })
+        .map((entityType) => entityType.kindKey)
+
+    return ['general', 'common', ...orderedEntityTabs]
+}
+
 const buildRegistry = async ({
     exec,
     schemaService,
@@ -126,9 +140,12 @@ const buildRegistry = async ({
     metahubId: string
     userId?: string
     languageOptions: string[]
-}): Promise<RegistryEntry[]> => {
+}): Promise<{ registry: RegistryEntry[]; tabOrder: string[] }> => {
     const entityTypes = await new EntityTypeService(exec, schemaService).listTypes(metahubId, userId)
-    return filterRegistryForEntityTypes(withDynamicLanguageOptions(languageOptions), entityTypes)
+    return {
+        registry: filterRegistryForEntityTypes(withDynamicLanguageOptions(languageOptions), entityTypes),
+        tabOrder: buildSettingsTabOrder(entityTypes)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -142,11 +159,11 @@ export function createSettingsController(createHandler: ReturnType<typeof create
 
         const dbRows = await settingsService.findAll(metahubId, userId)
         const languageOptions = await getContentLocaleCodes(exec)
-        const registry = await buildRegistry({ exec, schemaService, metahubId, userId, languageOptions })
+        const { registry, tabOrder } = await buildRegistry({ exec, schemaService, metahubId, userId, languageOptions })
         const merged = mergeSettingsWithDefaults(dbRows, registry)
         const hasHubNesting = await settingsService.hasHubNesting(metahubId, userId)
 
-        res.json({ settings: merged, registry, meta: { hasHubNesting } })
+        res.json({ settings: merged, registry, meta: { hasHubNesting, tabOrder } })
     })
 
     // PUT /metahub/:metahubId/settings
@@ -181,10 +198,10 @@ export function createSettingsController(createHandler: ReturnType<typeof create
             }
 
             const dbRows = await settingsService.findAll(metahubId, userId)
-            const registry = await buildRegistry({ exec, schemaService, metahubId, userId, languageOptions })
+            const { registry, tabOrder } = await buildRegistry({ exec, schemaService, metahubId, userId, languageOptions })
             const merged = mergeSettingsWithDefaults(dbRows, registry)
             const hasHubNesting = await settingsService.hasHubNesting(metahubId, userId)
-            res.json({ settings: merged, registry, meta: { hasHubNesting } })
+            res.json({ settings: merged, registry, meta: { hasHubNesting, tabOrder } })
         },
         { permission: 'manageMetahub' }
     )

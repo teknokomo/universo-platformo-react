@@ -59,12 +59,6 @@ export function resolveWorkspaceModeDecision(input: ResolveWorkspaceModeInput): 
     }
 
     if (policy === 'required') {
-        if (!input.acknowledgementReceived) {
-            throw new WorkspacePolicyError(
-                'WORKSPACE_ENABLEMENT_ACK_REQUIRED',
-                'Enabling workspace mode requires irreversible-action acknowledgement.'
-            )
-        }
         return true
     }
 

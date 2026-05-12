@@ -33,6 +33,7 @@ import {
     type SyncableApplicationRecord,
     type ApplicationSchemaSyncSource,
     type DiffStructuredChange,
+    type DiffEntityGroupDetails,
     type DiffTableDetails,
     type EntityField,
     type SnapshotElementRow,
@@ -786,6 +787,169 @@ export function buildCreateTableDetails(options: {
                 recordsPreview: records.slice(0, 50)
             }
         })
+}
+
+export function buildCreateEntityGroupDetails(options: {
+    entities: EntityDefinition[]
+    snapshot: PublishedApplicationSnapshot
+    includeEntityIds?: Set<string>
+}): DiffEntityGroupDetails[] {
+    const { entities, snapshot, includeEntityIds } = options
+    const createTablesByEntityId = new Map(
+        buildCreateTableDetails({ entities, snapshot, includeEntityIds }).map((table) => [table.id, table])
+    )
+    const snapshotEntities = isRecord(snapshot.entities) ? Object.values(snapshot.entities) : []
+    const entityTypeDefinitions = isRecord(snapshot.entityTypeDefinitions) ? snapshot.entityTypeDefinitions : {}
+    const fixedValuesByEntityId = isRecord(snapshot.fixedValues) ? snapshot.fixedValues : {}
+    const optionValuesByEntityId = isRecord(snapshot.optionValues) ? snapshot.optionValues : {}
+
+    const flattenFieldDetails = (fields: unknown[] = []): DiffEntityGroupDetails['entities'][number]['fields'] =>
+        fields.flatMap((field) => {
+            if (!isRecord(field)) {
+                return []
+            }
+
+            const fieldId = typeof field.id === 'string' ? field.id : ''
+            const presentation = isRecord(field.presentation) ? field.presentation : {}
+            const current = {
+                id: fieldId,
+                codename: field.codename,
+                name: presentation.name,
+                dataType: typeof field.dataType === 'string' ? field.dataType : '',
+                isRequired: Boolean(field.isRequired),
+                parentAttributeId: typeof field.parentAttributeId === 'string' ? field.parentAttributeId : null
+            }
+            const childFields = Array.isArray(field.childFields) ? flattenFieldDetails(field.childFields) : []
+            return [current, ...childFields]
+        })
+
+    const getCollectionCount = (collection: Record<string, unknown>, entityId: string): number => {
+        const values = collection[entityId]
+        return Array.isArray(values) ? values.length : 0
+    }
+
+    const getPageBlockCount = (entity: Record<string, unknown>): number => {
+        const config = isRecord(entity.config) ? entity.config : {}
+        const blockContent = isRecord(config.blockContent) ? config.blockContent : {}
+        return Array.isArray(blockContent.blocks) ? blockContent.blocks.length : 0
+    }
+
+    const getLinkedEntityCount = (entityId: string): number =>
+        snapshotEntities.filter((candidate) => {
+            if (!isRecord(candidate) || candidate.id === entityId) {
+                return false
+            }
+
+            const directHubs = Array.isArray(candidate.hubs) ? candidate.hubs : []
+            if (directHubs.includes(entityId)) {
+                return true
+            }
+
+            const config = isRecord(candidate.config) ? candidate.config : {}
+            const configHubs = Array.isArray(config.hubs) ? config.hubs : []
+            return configHubs.includes(entityId)
+        }).length
+
+    const buildEntityMetrics = (
+        kind: string,
+        entityId: string,
+        rawEntity: Record<string, unknown>,
+        fieldsCount: number,
+        recordsCount: number
+    ): DiffEntityGroupDetails['entities'][number]['metrics'] => {
+        if (kind === 'catalog') {
+            return [
+                { key: 'fields', count: fieldsCount },
+                { key: 'elements', count: recordsCount }
+            ]
+        }
+
+        if (kind === 'set') {
+            const constantsCount = getCollectionCount(fixedValuesByEntityId, entityId)
+            return constantsCount > 0 ? [{ key: 'constants', count: constantsCount }] : []
+        }
+
+        if (kind === ENUMERATION_KIND) {
+            const valuesCount = getCollectionCount(optionValuesByEntityId, entityId)
+            return valuesCount > 0 ? [{ key: 'values', count: valuesCount }] : []
+        }
+
+        if (kind === 'page') {
+            const blocksCount = getPageBlockCount(rawEntity)
+            return blocksCount > 0 ? [{ key: 'blocks', count: blocksCount }] : []
+        }
+
+        if (kind === 'hub') {
+            const linkedEntitiesCount = getLinkedEntityCount(entityId)
+            return linkedEntitiesCount > 0 ? [{ key: 'linkedEntities', count: linkedEntitiesCount }] : []
+        }
+
+        const fallbackMetrics = [
+            fieldsCount > 0 ? { key: 'fields', count: fieldsCount } : null,
+            recordsCount > 0 ? { key: 'elements', count: recordsCount } : null
+        ].filter((metric): metric is { key: string; count: number } => Boolean(metric))
+        return fallbackMetrics
+    }
+
+    const groups = new Map<string, DiffEntityGroupDetails>()
+    for (const rawEntity of snapshotEntities) {
+        if (!isRecord(rawEntity)) {
+            continue
+        }
+
+        const entityId = typeof rawEntity.id === 'string' ? rawEntity.id : ''
+        if (!entityId || (includeEntityIds && !includeEntityIds.has(entityId))) {
+            continue
+        }
+
+        const kind = typeof rawEntity.kind === 'string' ? rawEntity.kind : 'unknown'
+        const rawType = entityTypeDefinitions[kind]
+        const entityType = isRecord(rawType) ? rawType : {}
+        const entityTypePresentation = isRecord(entityType.presentation) ? entityType.presentation : {}
+        const entityTypeUi = isRecord(entityType.ui) ? entityType.ui : {}
+        const sortOrder = typeof entityTypeUi.sidebarOrder === 'number' ? entityTypeUi.sidebarOrder : Number.MAX_SAFE_INTEGER
+
+        if (!groups.has(kind)) {
+            groups.set(kind, {
+                kindKey: kind,
+                typeCodename: entityType.codename,
+                typeName: entityTypePresentation.name,
+                sortOrder,
+                entities: []
+            })
+        }
+
+        const presentation: Record<string, unknown> = isRecord(rawEntity.presentation) ? rawEntity.presentation : {}
+        const tableDetails = createTablesByEntityId.get(entityId)
+        const fields = Array.isArray(rawEntity.fields) ? flattenFieldDetails(rawEntity.fields) : []
+        const fallbackTableName = entities.find((entity) => entity.id === entityId) ?? null
+        const recordsCount = tableDetails?.recordsCount ?? 0
+        groups.get(kind)?.entities.push({
+            id: entityId,
+            kind,
+            codename: rawEntity.codename,
+            name: presentation.name,
+            description: presentation.description,
+            tableName: tableDetails?.tableName ?? (fallbackTableName ? resolveEntityTableName(fallbackTableName) : null),
+            fields,
+            recordsCount,
+            recordsPreview: tableDetails?.recordsPreview ?? [],
+            metrics: buildEntityMetrics(kind, entityId, rawEntity, fields.length, recordsCount)
+        })
+    }
+
+    return Array.from(groups.values())
+        .sort((left, right) => left.sortOrder - right.sortOrder || left.kindKey.localeCompare(right.kindKey))
+        .map((group) => ({
+            ...group,
+            entities: group.entities.sort((left, right) => {
+                const leftOrder = entities.findIndex((entity) => entity.id === left.id)
+                const rightOrder = entities.findIndex((entity) => entity.id === right.id)
+                const normalizedLeftOrder = leftOrder >= 0 ? leftOrder : Number.MAX_SAFE_INTEGER
+                const normalizedRightOrder = rightOrder >= 0 ? rightOrder : Number.MAX_SAFE_INTEGER
+                return normalizedLeftOrder - normalizedRightOrder || left.id.localeCompare(right.id)
+            })
+        }))
 }
 
 export function mapStructuredChange(change: SchemaChange): DiffStructuredChange {

@@ -55,6 +55,41 @@ const resolveIcon = (iconName?: string | null) => {
     }
 }
 
+const isCurrentHref = (href?: string | null): boolean => {
+    const safeHref = sanitizeHref(href)
+    if (!safeHref || typeof window === 'undefined') return false
+
+    try {
+        const targetUrl = new URL(safeHref, window.location.origin)
+        return targetUrl.pathname === window.location.pathname && targetUrl.search === window.location.search
+    } catch {
+        return safeHref === `${window.location.pathname}${window.location.search}`
+    }
+}
+
+const isRootApplicationStartHref = (href?: string | null): boolean => {
+    const safeHref = sanitizeHref(href)
+    if (!safeHref || typeof window === 'undefined') return false
+
+    try {
+        const currentUrl = new URL(window.location.href)
+        const targetUrl = new URL(safeHref, window.location.origin)
+        const currentParts = currentUrl.pathname.split('/').filter(Boolean)
+        const targetParts = targetUrl.pathname.split('/').filter(Boolean)
+
+        return (
+            currentParts.length === 2 &&
+            targetParts.length >= 3 &&
+            currentParts[0] === 'a' &&
+            targetParts[0] === 'a' &&
+            currentParts[1] === targetParts[1] &&
+            targetUrl.search === currentUrl.search
+        )
+    } catch {
+        return false
+    }
+}
+
 interface MenuContentProps {
     menu?: DashboardMenuSlot
 }
@@ -99,6 +134,8 @@ export default function MenuContent({ menu }: MenuContentProps) {
             {items.map((item, index) => {
                 const isHubLabel = item.kind === 'hub'
                 const isInertLink = item.kind === 'link' && !sanitizeHref(item.href)
+                const isSelected =
+                    Boolean(item.selected) || (item.kind === 'link' && (isCurrentHref(item.href) || (index === 0 && isRootApplicationStartHref(item.href))))
                 const needsWorkspaceDivider = index === firstWorkspaceRootIndex
                 return (
                     <Fragment key={item.id}>
@@ -106,11 +143,29 @@ export default function MenuContent({ menu }: MenuContentProps) {
                         <ListItem disablePadding sx={{ display: 'block' }}>
                             <ListItemButton
                                 disabled={isHubLabel || isInertLink}
-                                selected={Boolean(item.selected)}
+                                selected={isSelected}
+                                aria-current={isSelected ? 'page' : undefined}
                                 {...(item.kind === 'link' && sanitizeHref(item.href)
                                     ? { component: 'a' as const, href: sanitizeHref(item.href) }
                                     : {})}
                                 onClick={() => handleItemSelect(item)}
+                                sx={{
+                                    borderRadius: 1,
+                                    minHeight: 36,
+                                    '&.Mui-selected': {
+                                        bgcolor: 'action.selected',
+                                        color: 'text.primary',
+                                        '& .MuiListItemIcon-root': {
+                                            color: 'text.primary'
+                                        },
+                                        '& .MuiListItemText-primary': {
+                                            fontWeight: 700
+                                        },
+                                        '&:hover': {
+                                            bgcolor: 'action.selected'
+                                        }
+                                    }
+                                }}
                             >
                                 <ListItemIcon>{resolveIcon(item.icon)}</ListItemIcon>
                                 <ListItemText primary={item.label} />
@@ -129,7 +184,7 @@ export default function MenuContent({ menu }: MenuContentProps) {
                         {overflowItems.map((item) => (
                             <MenuItem
                                 key={item.id}
-                                selected={Boolean(item.selected)}
+                                selected={Boolean(item.selected) || (item.kind === 'link' && isCurrentHref(item.href))}
                                 disabled={item.kind === 'hub' || (item.kind === 'link' && !sanitizeHref(item.href))}
                                 {...(item.kind === 'link' && sanitizeHref(item.href)
                                     ? { component: 'a' as const, href: sanitizeHref(item.href) }

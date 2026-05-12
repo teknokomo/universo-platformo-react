@@ -137,7 +137,9 @@ export const COMPONENT_DEPENDENCIES: Record<EntityComponentKey, readonly EntityC
 export const isEnabledComponentConfig = (config: ComponentConfig | false | null | undefined): config is ComponentConfig =>
     Boolean(config && typeof config === 'object' && config.enabled)
 
-export const supportsRecordBehavior = (components: Pick<ComponentManifest, 'identityFields' | 'recordLifecycle' | 'posting'> | null | undefined): boolean =>
+export const supportsRecordBehavior = (
+    components: Pick<ComponentManifest, 'identityFields' | 'recordLifecycle' | 'posting'> | null | undefined
+): boolean =>
     Boolean(
         isEnabledComponentConfig(components?.identityFields) ||
             isEnabledComponentConfig(components?.recordLifecycle) ||

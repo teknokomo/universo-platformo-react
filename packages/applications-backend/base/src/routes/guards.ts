@@ -2,6 +2,7 @@ import { activeAppRowCondition, type DbExecutor } from '@universo/utils'
 import * as httpErrors from 'http-errors'
 import { createAccessGuards } from '@universo/auth-backend'
 import { isSuperuser, getGlobalRoleCodename, hasSubjectPermission } from '@universo/admin-backend'
+import { applicationRolePolicySettingsSchema, type RoleCapabilityRule } from '@universo/types'
 import type { ApplicationMembershipRecord, ConnectorAccessRecord } from '../persistence/contracts'
 
 // Handle both ESM and CJS imports
@@ -17,32 +18,99 @@ export const ROLE_PERMISSIONS: Record<ApplicationRole, Record<string, boolean>> 
         manageApplication: true,
         createContent: true,
         editContent: true,
-        deleteContent: true
+        deleteContent: true,
+        readReports: true
     },
     admin: {
         manageMembers: true,
         manageApplication: true,
         createContent: true,
         editContent: true,
-        deleteContent: true
+        deleteContent: true,
+        readReports: true
     },
     editor: {
         manageMembers: false,
         manageApplication: false,
         createContent: true,
         editContent: true,
-        deleteContent: false
+        deleteContent: false,
+        readReports: true
     },
     member: {
         manageMembers: false,
         manageApplication: false,
         createContent: false,
         editContent: false,
-        deleteContent: false
+        deleteContent: false,
+        readReports: false
     }
 }
 
-export type RolePermission = 'manageMembers' | 'manageApplication' | 'createContent' | 'editContent' | 'deleteContent'
+export type RolePermission = 'manageMembers' | 'manageApplication' | 'createContent' | 'editContent' | 'deleteContent' | 'readReports'
+
+const ROLE_PERMISSION_KEYS: readonly RolePermission[] = [
+    'manageMembers',
+    'manageApplication',
+    'createContent',
+    'editContent',
+    'deleteContent',
+    'readReports'
+] as const
+
+const ROLE_PERMISSION_CAPABILITY_ALIASES: Record<RolePermission, readonly string[]> = {
+    manageMembers: ['manageMembers', 'members.manage', 'workspace.members.manage'],
+    manageApplication: ['manageApplication', 'application.manage', 'settings.manage'],
+    createContent: ['createContent', 'content.create', 'records.create'],
+    editContent: ['editContent', 'content.edit', 'records.edit', 'workflow.execute'],
+    deleteContent: ['deleteContent', 'content.delete', 'records.delete'],
+    readReports: ['readReports', 'reports.read', 'report.read']
+}
+
+const cloneRolePermissions = (role: ApplicationRole): Record<RolePermission, boolean> => {
+    const base = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.member
+    return Object.fromEntries(ROLE_PERMISSION_KEYS.map((key) => [key, base[key] === true])) as Record<RolePermission, boolean>
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
+
+const ruleMatchesPermission = (rule: RoleCapabilityRule, permission: RolePermission): boolean => {
+    const aliases = ROLE_PERMISSION_CAPABILITY_ALIASES[permission]
+    return aliases.includes(rule.capability)
+}
+
+export const resolveEffectiveRolePermissions = (
+    role: ApplicationRole,
+    settings?: Record<string, unknown> | null
+): Record<RolePermission, boolean> => {
+    const permissions = cloneRolePermissions(role)
+    const rawRolePolicies = isRecord(settings) ? settings.rolePolicies : undefined
+    const parsed = applicationRolePolicySettingsSchema.safeParse(rawRolePolicies)
+    if (!parsed.success) {
+        return permissions
+    }
+
+    for (const template of parsed.data.templates) {
+        const appliesToRole = template.baseRole === role || template.codename === role || template.codename === `${role}Policy`
+        if (!appliesToRole) {
+            continue
+        }
+
+        for (const rule of template.rules) {
+            if (rule.scope !== 'application' && rule.scope !== 'workspace') {
+                continue
+            }
+
+            for (const permission of ROLE_PERMISSION_KEYS) {
+                if (ruleMatchesPermission(rule, permission)) {
+                    permissions[permission] = rule.effect === 'allow'
+                }
+            }
+        }
+    }
+
+    return permissions
+}
 
 export interface ApplicationMembershipContext {
     membership: ApplicationMembershipRecord

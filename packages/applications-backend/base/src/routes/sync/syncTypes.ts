@@ -310,6 +310,45 @@ export type DiffTableDetails = {
     }>
 }
 
+export type DiffEntityFieldDetails = {
+    id: string
+    codename: unknown
+    name?: unknown
+    dataType: string
+    isRequired: boolean
+    parentAttributeId: string | null
+}
+
+export type DiffEntityMetricDetails = {
+    key: string
+    count: number
+}
+
+export type DiffEntityDetails = {
+    id: string
+    kind: string
+    codename: unknown
+    name?: unknown
+    description?: unknown
+    tableName: string | null
+    fields: DiffEntityFieldDetails[]
+    recordsCount: number
+    recordsPreview: Array<{
+        id: string
+        data: Record<string, unknown>
+        sortOrder: number
+    }>
+    metrics: DiffEntityMetricDetails[]
+}
+
+export type DiffEntityGroupDetails = {
+    kindKey: string
+    typeCodename?: unknown
+    typeName?: unknown
+    sortOrder: number
+    entities: DiffEntityDetails[]
+}
+
 export type DiffStructuredChange = {
     type: string
     description: string

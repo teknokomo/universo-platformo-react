@@ -20,6 +20,7 @@ import {
     Typography
 } from '@mui/material'
 import SaveIcon from '@mui/icons-material/Save'
+import type { ApplicationRolePolicySettings, RoleCapabilityRule } from '@universo/types'
 import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'
 import { TemplateMainCard as MainCard, ViewHeaderMUI as ViewHeader, PAGE_CONTENT_GUTTER_MX, PAGE_TAB_BAR_SX } from '@universo/template-mui'
@@ -27,9 +28,173 @@ import { useApplicationDetails } from '../api/useApplicationDetails'
 import { applicationsQueryKeys } from '../api/queryKeys'
 import { getApplicationWorkspaceLimits, updateApplication, updateApplicationWorkspaceLimits } from '../api/applications'
 import { DEFAULT_APPLICATION_DIALOG_SETTINGS, sanitizeApplicationDialogSettingsForSave } from '../settings/dialogSettings'
-import { toApplicationDisplay, type ApplicationDialogSettings, type ApplicationWorkspaceLimitItem, type SchemaStatus } from '../types'
+import {
+    toApplicationDisplay,
+    type ApplicationDialogSettings,
+    type ApplicationRole,
+    type ApplicationWorkspaceLimitItem,
+    type SchemaStatus
+} from '../types'
 
-type SettingsTab = 'general' | 'limits'
+type SettingsTab = 'general' | 'connectors' | 'access' | 'limits'
+type ApplicationCapabilityKey = 'manageMembers' | 'manageApplication' | 'createContent' | 'editContent' | 'deleteContent' | 'readReports'
+
+const APPLICATION_ROLE_ORDER: ApplicationRole[] = ['owner', 'admin', 'editor', 'member']
+
+const APPLICATION_CAPABILITIES: Array<{
+    key: ApplicationCapabilityKey
+    capability: string
+    aliases: readonly string[]
+    labelKey: string
+    fallback: string
+}> = [
+    {
+        key: 'manageMembers',
+        capability: 'manageMembers',
+        aliases: ['manageMembers', 'members.manage', 'workspace.members.manage'],
+        labelKey: 'settings.capabilities.manageMembers',
+        fallback: 'Manage members'
+    },
+    {
+        key: 'manageApplication',
+        capability: 'manageApplication',
+        aliases: ['manageApplication', 'application.manage', 'settings.manage'],
+        labelKey: 'settings.capabilities.manageApplication',
+        fallback: 'Manage application'
+    },
+    {
+        key: 'createContent',
+        capability: 'createContent',
+        aliases: ['createContent', 'content.create', 'records.create'],
+        labelKey: 'settings.capabilities.createContent',
+        fallback: 'Create content'
+    },
+    {
+        key: 'editContent',
+        capability: 'editContent',
+        aliases: ['editContent', 'content.edit', 'records.edit', 'workflow.execute'],
+        labelKey: 'settings.capabilities.editContent',
+        fallback: 'Edit content'
+    },
+    {
+        key: 'deleteContent',
+        capability: 'deleteContent',
+        aliases: ['deleteContent', 'content.delete', 'records.delete'],
+        labelKey: 'settings.capabilities.deleteContent',
+        fallback: 'Delete content'
+    },
+    {
+        key: 'readReports',
+        capability: 'readReports',
+        aliases: ['readReports', 'reports.read', 'report.read'],
+        labelKey: 'settings.capabilities.readReports',
+        fallback: 'Read reports'
+    }
+]
+
+const BASE_ROLE_PERMISSIONS: Record<ApplicationRole, Record<ApplicationCapabilityKey, boolean>> = {
+    owner: {
+        manageMembers: true,
+        manageApplication: true,
+        createContent: true,
+        editContent: true,
+        deleteContent: true,
+        readReports: true
+    },
+    admin: {
+        manageMembers: true,
+        manageApplication: true,
+        createContent: true,
+        editContent: true,
+        deleteContent: true,
+        readReports: true
+    },
+    editor: {
+        manageMembers: false,
+        manageApplication: false,
+        createContent: true,
+        editContent: true,
+        deleteContent: false,
+        readReports: true
+    },
+    member: {
+        manageMembers: false,
+        manageApplication: false,
+        createContent: false,
+        editContent: false,
+        deleteContent: false,
+        readReports: false
+    }
+}
+
+const cloneRoleMatrix = (): Record<ApplicationRole, Record<ApplicationCapabilityKey, boolean>> =>
+    Object.fromEntries(
+        APPLICATION_ROLE_ORDER.map((role) => [
+            role,
+            Object.fromEntries(APPLICATION_CAPABILITIES.map((capability) => [capability.key, BASE_ROLE_PERMISSIONS[role][capability.key]]))
+        ])
+    ) as Record<ApplicationRole, Record<ApplicationCapabilityKey, boolean>>
+
+const roleMatchesTemplate = (template: { codename?: string; baseRole?: ApplicationRole }, role: ApplicationRole): boolean =>
+    template.baseRole === role || template.codename === role || template.codename === `${role}Policy`
+
+const capabilityMatchesRule = (rule: RoleCapabilityRule, capability: (typeof APPLICATION_CAPABILITIES)[number]): boolean =>
+    capability.aliases.includes(rule.capability)
+
+const resolveRolePolicyMatrix = (
+    rolePolicies?: ApplicationRolePolicySettings
+): Record<ApplicationRole, Record<ApplicationCapabilityKey, boolean>> => {
+    const matrix = cloneRoleMatrix()
+    for (const template of rolePolicies?.templates ?? []) {
+        for (const role of APPLICATION_ROLE_ORDER) {
+            if (!roleMatchesTemplate(template, role)) continue
+
+            for (const rule of template.rules) {
+                if (rule.scope !== 'application' && rule.scope !== 'workspace') continue
+                for (const capability of APPLICATION_CAPABILITIES) {
+                    if (capabilityMatchesRule(rule, capability)) {
+                        matrix[role][capability.key] = rule.effect === 'allow'
+                    }
+                }
+            }
+        }
+    }
+    return matrix
+}
+
+const buildRolePoliciesFromMatrix = (
+    currentPolicies: ApplicationRolePolicySettings | undefined,
+    matrix: Record<ApplicationRole, Record<ApplicationCapabilityKey, boolean>>
+): ApplicationRolePolicySettings => {
+    const unmanagedTemplates = (currentPolicies?.templates ?? []).filter(
+        (template) => !APPLICATION_ROLE_ORDER.some((role) => roleMatchesTemplate(template, role))
+    )
+    const templates = APPLICATION_ROLE_ORDER.map((role) => {
+        const existingTemplate = (currentPolicies?.templates ?? []).find((template) => roleMatchesTemplate(template, role))
+        const managedRules = APPLICATION_CAPABILITIES.flatMap(
+            (capability) => existingTemplate?.rules.filter((rule) => capabilityMatchesRule(rule, capability)) ?? []
+        )
+        const rulesToReplace = new Set(managedRules)
+        const preservedRules = (existingTemplate?.rules ?? []).filter((rule) => !rulesToReplace.has(rule))
+        const rules: RoleCapabilityRule[] = [
+            ...preservedRules,
+            ...APPLICATION_CAPABILITIES.map((capability) => ({
+                capability: capability.capability,
+                effect: matrix[role][capability.key] ? 'allow' : 'deny',
+                scope: 'workspace'
+            }))
+        ]
+
+        return {
+            codename: existingTemplate?.codename ?? `${role}Policy`,
+            title: existingTemplate?.title ?? `${role} permissions`,
+            baseRole: role,
+            rules
+        }
+    })
+
+    return { templates: [...unmanagedTemplates, ...templates] }
+}
 
 const RUNTIME_SCHEMA_READY_STATUSES = new Set<SchemaStatus | 'ready'>([
     'synced',
@@ -113,6 +278,22 @@ const ApplicationSettings = () => {
     )
     const effectiveVisibility = visibilityChange ?? applicationQuery.data?.isPublic ?? false
     const hasVisibilityChange = visibilityChange !== undefined && visibilityChange !== applicationQuery.data?.isPublic
+    const rolePolicyMatrix = useMemo(
+        () => resolveRolePolicyMatrix(effectiveGeneralSettings.rolePolicies),
+        [effectiveGeneralSettings.rolePolicies]
+    )
+
+    const updateRoleCapability = (role: ApplicationRole, capability: ApplicationCapabilityKey, checked: boolean) => {
+        const nextMatrix = resolveRolePolicyMatrix(effectiveGeneralSettings.rolePolicies)
+        nextMatrix[role] = {
+            ...nextMatrix[role],
+            [capability]: checked
+        }
+        setGeneralChanges((prev) => ({
+            ...prev,
+            rolePolicies: buildRolePoliciesFromMatrix(effectiveGeneralSettings.rolePolicies, nextMatrix)
+        }))
+    }
 
     const saveGeneralMutation = useMutation({
         mutationKey: ['applications', 'settings', 'general', 'update'],
@@ -177,6 +358,8 @@ const ApplicationSettings = () => {
             <Box data-testid='application-settings-tabs' sx={PAGE_TAB_BAR_SX}>
                 <Tabs value={activeTab} onChange={(_, value: SettingsTab) => setActiveTab(value)}>
                     <Tab value='general' label={t('settings.tabs.general', 'General')} />
+                    <Tab value='connectors' label={t('settings.tabs.connectors', 'Connectors')} />
+                    <Tab value='access' label={t('settings.tabs.access', 'Access')} />
                     <Tab value='limits' label={t('settings.tabs.limits', 'Limits')} />
                 </Tabs>
             </Box>
@@ -536,6 +719,179 @@ const ApplicationSettings = () => {
                             </Box>
                         ) : null}
                     </>
+                ) : activeTab === 'connectors' ? (
+                    <Stack spacing={2}>
+                        <Alert severity='info'>
+                            {t(
+                                'settings.connectorsHint',
+                                'Configure how application connectors present source metahub changes before schema synchronization.'
+                            )}
+                        </Alert>
+
+                        <Stack spacing={0} divider={<Divider />}>
+                            <Box
+                                data-testid='application-setting-schemaDiffLocalizedLabels'
+                                sx={{
+                                    py: 2,
+                                    display: 'grid',
+                                    gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) auto' },
+                                    gap: 3,
+                                    alignItems: 'center'
+                                }}
+                            >
+                                <Box sx={{ minWidth: 0 }}>
+                                    <Typography variant='subtitle2'>
+                                        {t('settings.schemaDiffLocalizedLabels', 'Localized schema change labels')}
+                                    </Typography>
+                                    <Typography variant='body2' color='text.secondary'>
+                                        {t(
+                                            'settings.schemaDiffLocalizedLabelsDescription',
+                                            'Show entity type, entity, and field labels in the current interface language when the source metahub provides localized values.'
+                                        )}
+                                    </Typography>
+                                </Box>
+                                <FormControlLabel
+                                    control={
+                                        <Switch
+                                            checked={effectiveGeneralSettings.schemaDiffLocalizedLabels !== false}
+                                            onChange={(event) =>
+                                                setGeneralChanges((prev) => ({
+                                                    ...prev,
+                                                    schemaDiffLocalizedLabels: event.target.checked
+                                                }))
+                                            }
+                                            slotProps={{
+                                                input: {
+                                                    'data-testid': 'application-settings-schema-diff-localized-labels-switch'
+                                                }
+                                            }}
+                                        />
+                                    }
+                                    label=''
+                                />
+                            </Box>
+                        </Stack>
+
+                        {hasGeneralChanges ? (
+                            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                <Button
+                                    data-testid='application-settings-connectors-save'
+                                    variant='contained'
+                                    startIcon={<SaveIcon />}
+                                    onClick={() =>
+                                        saveGeneralMutation.mutate({
+                                            settings: effectiveGeneralSettings,
+                                            ...(hasVisibilityChange ? { isPublic: effectiveVisibility } : {})
+                                        })
+                                    }
+                                    disabled={saveGeneralMutation.isPending}
+                                >
+                                    {t('settings.save', 'Save')}
+                                </Button>
+                            </Box>
+                        ) : null}
+                    </Stack>
+                ) : activeTab === 'access' ? (
+                    <Stack spacing={2}>
+                        <Alert severity='info'>
+                            {t(
+                                'settings.accessHint',
+                                'Configure generic application and workspace capabilities for each application role. These rules are enforced by the runtime API.'
+                            )}
+                        </Alert>
+
+                        <Box sx={{ overflowX: 'auto' }}>
+                            <Box
+                                data-testid='application-settings-role-policy-grid'
+                                sx={{
+                                    minWidth: 760,
+                                    display: 'grid',
+                                    gridTemplateColumns: `minmax(220px, 1.25fr) repeat(${APPLICATION_ROLE_ORDER.length}, minmax(120px, 1fr))`,
+                                    border: 1,
+                                    borderColor: 'divider',
+                                    borderRadius: 2,
+                                    overflow: 'hidden'
+                                }}
+                            >
+                                <Box sx={{ p: 1.5, bgcolor: 'background.default', borderBottom: 1, borderColor: 'divider' }}>
+                                    <Typography variant='subtitle2'>{t('settings.capabilityColumn', 'Capability')}</Typography>
+                                </Box>
+                                {APPLICATION_ROLE_ORDER.map((role) => (
+                                    <Box
+                                        key={role}
+                                        sx={{
+                                            p: 1.5,
+                                            bgcolor: 'background.default',
+                                            borderBottom: 1,
+                                            borderLeft: 1,
+                                            borderColor: 'divider',
+                                            textAlign: 'center'
+                                        }}
+                                    >
+                                        <Typography variant='subtitle2'>
+                                            {t(`settings.roles.${role}`, role.charAt(0).toUpperCase() + role.slice(1))}
+                                        </Typography>
+                                    </Box>
+                                ))}
+
+                                {APPLICATION_CAPABILITIES.map((capability) => (
+                                    <Box key={capability.key} sx={{ display: 'contents' }}>
+                                        <Box sx={{ p: 1.5, borderTop: 1, borderColor: 'divider' }}>
+                                            <Typography variant='body2' sx={{ fontWeight: 600 }}>
+                                                {t(capability.labelKey, capability.fallback)}
+                                            </Typography>
+                                            <Typography variant='caption' color='text.secondary'>
+                                                {capability.capability}
+                                            </Typography>
+                                        </Box>
+                                        {APPLICATION_ROLE_ORDER.map((role) => (
+                                            <Box
+                                                key={`${role}-${capability.key}`}
+                                                sx={{
+                                                    p: 1,
+                                                    borderTop: 1,
+                                                    borderLeft: 1,
+                                                    borderColor: 'divider',
+                                                    display: 'flex',
+                                                    justifyContent: 'center'
+                                                }}
+                                            >
+                                                <Switch
+                                                    data-testid={`application-settings-role-policy-${role}-${capability.key}`}
+                                                    checked={rolePolicyMatrix[role][capability.key]}
+                                                    onChange={(event) => updateRoleCapability(role, capability.key, event.target.checked)}
+                                                    slotProps={{
+                                                        input: {
+                                                            'aria-label': `${role} ${capability.capability}`
+                                                        }
+                                                    }}
+                                                />
+                                            </Box>
+                                        ))}
+                                    </Box>
+                                ))}
+                            </Box>
+                        </Box>
+
+                        {hasGeneralChanges ? (
+                            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                <Button
+                                    data-testid='application-settings-access-save'
+                                    variant='contained'
+                                    startIcon={<SaveIcon />}
+                                    onClick={() =>
+                                        saveGeneralMutation.mutate({
+                                            settings: effectiveGeneralSettings,
+                                            ...(hasVisibilityChange ? { isPublic: effectiveVisibility } : {})
+                                        })
+                                    }
+                                    disabled={saveGeneralMutation.isPending}
+                                >
+                                    {t('settings.save', 'Save')}
+                                </Button>
+                            </Box>
+                        ) : null}
+                    </Stack>
                 ) : (
                     <Stack spacing={2}>
                         <Alert severity='info'>

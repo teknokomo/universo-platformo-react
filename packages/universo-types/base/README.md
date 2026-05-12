@@ -22,6 +22,7 @@
 - 🔄 **Backward Compatibility** - Version compatibility preservation
 - 🧾 **Record Behavior Types** - Shared Catalog numbering, lifecycle, and posting contracts
 - 📊 **Ledger Types** - Shared append-only Ledger configuration, field roles, source policies, and projections
+- 🎓 **LMS Platform Primitives** - Generic resource, sequence, workflow action, role policy, report definition, and acceptance-matrix contracts
 
 ## Description
 
@@ -34,6 +35,7 @@ Base protocol types and ECS domain types for Universo Platformo.
 - Protocol version
 - Metahub entity component manifests
 - Catalog `recordBehavior` and Ledger configuration contracts
+- Generic LMS-like platform primitives that remain reusable outside LMS configurations
 
 ### Out of scope:
 - UPDL design-time types

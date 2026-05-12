@@ -9,9 +9,11 @@ It is not a hardcoded vertical inside `packages/apps-template-mui`, and the ship
 
 ## What The MVP Covers
 
-- Classes and student directories as ordinary metahub entities.
-- Learning modules stored as runtime rows with structured content items.
-- Quiz catalogs and quiz-response tracking.
+- Classes, departments, and student directories as ordinary metahub entities.
+- Learning resources, courses, course sections, modules, and learning-track steps as Catalog-backed metadata.
+- Quiz catalogs, attempts, responses, and progress tracking.
+- Assignment submission/review, training attendance, certificates, knowledge-base bookmarks, and development-plan records.
+- Catalog-backed report definitions stored in `Reports` and executed through generic runtime datasource descriptors.
 - Workspace-aware collaboration for teachers or operators inside the same application.
 - Public access links that let a guest enter a name, open a module or quiz, and submit progress without a registered platform account.
 - Curated primary navigation that exposes the main product sections directly in the sidebar.
@@ -19,19 +21,20 @@ It is not a hardcoded vertical inside `packages/apps-template-mui`, and the ship
 ## What Stays Out Of Scope For This MVP
 
 - AI tutor and content-generation flows.
-- Full reporting and analytics packages.
-- Complex grading policies, certificates, or timetable automation.
+- Full SCORM package extraction/player runtime and direct storage upload pipelines.
+- Enterprise analytics packages beyond generic records/list and ledger projections.
+- External notification delivery integrations.
 - Custom LMS-only frontend packages outside the shared MUI app template.
 
 ## Core Building Blocks
 
 ![LMS application dashboard](../.gitbook/assets/quiz-tutorial/runtime-quiz.png)
 
-1. The `lms` built-in metahub template defines the canonical entity structure: classes, students, modules, quizzes, access links, progress, enrollments, and supporting enumerations.
+1. The `lms` built-in metahub template defines the canonical entity structure: classes, students, resources, courses, tracks, modules, quizzes, assignments, events, certificates, reports, knowledge spaces, development plans, access links, progress, enrollments, and supporting enumerations.
 2. The applications backend exposes workspace management and a public runtime surface for guest access.
 3. The shared MUI template renders the same dashboard primitives used by other published applications: menu, header, details title, details table, columns containers, and workspace switching.
-4. The committed generator plus snapshot contract ship a bilingual dataset with multiple classes, modules, quizzes, seeded progress, and two guest-access routes.
-5. Removed global `moduleViewerWidget`, `statsViewerWidget`, and `qrCodeWidget` bindings are intentionally absent from the default LMS layout; contextual learning content is reached through runtime rows and public links.
+4. The committed generator plus snapshot contract ship a bilingual dataset with multiple classes, courses, resources, modules, quizzes, seeded progress, knowledge/development records, report definitions, and two guest-access routes.
+5. Removed global `moduleViewerWidget`, `statsViewerWidget`, `qrCodeWidget`, `brandSelector`, `productTree`, and `usersByCountryChart` bindings are intentionally absent from the default LMS layout; contextual learning content is reached through runtime rows and public links.
 
 ## Runtime Model
 
@@ -50,6 +53,8 @@ The shipped LMS browser suite covers workspace management, public-link negative 
 ## Related Reading
 
 - [LMS Setup](lms-setup.md)
+- [LMS Resource Model](lms-resource-model.md)
+- [LMS Reports](lms-reports.md)
 - [LMS Guest Access](lms-guest-access.md)
 - [Workspace Management](workspace-management.md)
 - [LMS Entities](../architecture/lms-entities.md)

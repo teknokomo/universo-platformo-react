@@ -132,4 +132,59 @@ describe('tabularCellValues', () => {
         )
         expect(normalizedRow.amount).toBe(0.7)
     })
+
+    it('renders JSON child values as useful text instead of object stringification', () => {
+        const columns = buildTabularColumns({
+            childFields: [
+                {
+                    id: 'Options',
+                    label: 'Options',
+                    type: 'JSON' as const,
+                    validationRules: {}
+                }
+            ],
+            rowNumberById: new Map([['row-1', 1]]),
+            onDeleteRow: vi.fn(),
+            locale: 'ru'
+        })
+
+        const optionsColumn = columns.find((column) => column.field === 'Options')
+        expect(optionsColumn?.renderCell).toBeDefined()
+
+        render(
+            <>
+                {optionsColumn?.renderCell?.({
+                    id: 'row-1',
+                    field: 'Options',
+                    value: [
+                        {
+                            id: 'a',
+                            label: {
+                                _schema: '1',
+                                _primary: 'en',
+                                locales: {
+                                    en: { content: 'Departure window', version: 1, isActive: true },
+                                    ru: { content: 'Окно отправления', version: 1, isActive: true }
+                                }
+                            }
+                        },
+                        {
+                            id: 'b',
+                            label: {
+                                _schema: '1',
+                                _primary: 'en',
+                                locales: {
+                                    en: { content: 'Docking corridor', version: 1, isActive: true },
+                                    ru: { content: 'Коридор стыковки', version: 1, isActive: true }
+                                }
+                            }
+                        }
+                    ]
+                } as never)}
+            </>
+        )
+
+        expect(screen.getByText('Окно отправления, Коридор стыковки')).toBeInTheDocument()
+        expect(screen.queryByText(/\[object Object]/)).not.toBeInTheDocument()
+    })
 })

@@ -53,6 +53,227 @@
 
 ---
 
+## Completed: Connector Schema Diff Entity Metrics QA (2026-05-12)
+
+The schema creation preview in the application connector no longer shows misleading `0 fields, 0 elements` summaries for Entity types whose useful preview data is not field/record based.
+
+### Changes Made
+
+- Added generic backend schema diff metrics to publication sync details for Hubs, Pages, Sets, Enumerations, Catalogs, and custom fallback Entity types.
+- Kept Catalog summaries as fields/elements while showing Hubs as linked entities, Pages as blocks, Sets as constants, and Enumerations as values.
+- Updated the connector schema diff dialog to render metric summaries and a neutral empty preview state instead of forcing every Entity type into Catalog-like field/element text.
+- Extended i18n for EN/RU metric labels with pluralization.
+- Added backend and frontend regression coverage for the new metric contract and for the absence of misleading `0 fields, 0 elements` text.
+- Extended the imported LMS runtime Playwright flow with focused schema diff sanity assertions and screenshot evidence for the metrics preview.
+
+### Validation
+
+- `pnpm --filter @universo/applications-backend test -- applicationSyncRoutes.test.ts`
+- `pnpm --filter @universo/applications-frontend test -- ConnectorDiffDialog.test.tsx`
+- `pnpm --filter @universo/applications-backend build`
+- `pnpm --filter @universo/applications-frontend build`
+- `pnpm build`
+- `git diff --check`
+- `node tools/testing/e2e/run-playwright-suite.mjs specs/flows/snapshot-import-lms-runtime.spec.ts --project chromium`
+
+## Completed: LMS Connector QA Closure (2026-05-12)
+
+The post-QA connector and localization closure fixed the remaining contract and preview issues found after the LMS connector/entity localization pass.
+
+### Changes Made
+
+- Added `schemaDiffLocalizedLabels` to the strict backend application settings schema so the generic Connectors tab setting is accepted and persisted, including explicit `false`.
+- Added API regression coverage proving the setting is preserved with the rest of sanitized application dialog settings.
+- Hardened managed role policy matching so templates such as `memberPolicy` apply even when imported records omit `baseRole`.
+- Split connector schema diff field codenames into canonical lookup keys and localized display labels, preventing localized UI labels from breaking preview record value lookup.
+- Updated schema diff tests to assert localized Entity type, Entity codename, and field display behavior without relying on ambiguous single-text matches.
+- Updated the imported LMS runtime Playwright flow to assert the source-Metahub Workspace isolation copy.
+
+### Validation
+
+- `pnpm --filter @universo/applications-backend test -- applicationsRoutes.test.ts guards.test.ts applicationSyncRoutes.test.ts`
+- `pnpm --filter @universo/applications-frontend test -- ConnectorDiffDialog.test.tsx ApplicationSettings.test.tsx`
+- `pnpm --filter @universo/apps-template-mui test -- MenuContent.test.tsx displayValue.test.ts tabularCellValues.test.tsx`
+- `pnpm --filter @universo/applications-backend build`
+- `pnpm --filter @universo/applications-frontend build`
+- `pnpm --filter @universo/apps-template-mui build`
+- `pnpm build`
+- `git diff --check`
+- `node tools/testing/e2e/run-playwright-suite.mjs specs/flows/snapshot-import-lms-runtime.spec.ts --project chromium`
+
+## Completed: LMS Connector And Entity Localization Remediation (2026-05-12)
+
+The latest manual QA findings from the rebuilt LMS Metahub and application were closed without adding LMS-specific runtime forks or bumping schema/template versions.
+
+### Changes Made
+
+- Updated LMS Page seed generation so Page entities keep stable canonical EN codenames while gaining RU codename VLC values from localized names.
+- Made Metahub Settings entity tabs follow Entity constructor ordering from entity type metadata, placing Pages immediately after Hubs without a hardcoded kind list.
+- Improved the required Workspace connector schema diff UX by moving the explanatory notice above the disabled enabled switch and rewriting the copy around the source Metahub requirement.
+- Added a generic Application Settings `Connectors` tab with a default-enabled option for localized schema diff labels.
+- Expanded connector schema diff details to include all transferred Entity types grouped dynamically by Entity metadata, with localized type, entity, and field labels when enabled.
+- Added primary-VLC fallback behavior so administrators can switch schema diff labels back to canonical primary text.
+- Marked the published app Home menu item active on root application URLs before a concrete section id is present.
+- Regenerated `tools/fixtures/metahubs-lms-app-snapshot.json` through the product Playwright generator and validated bilingual Page codenames.
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-backend test -- templateSeedTransactionScope.test.ts templateManifestValidator.test.ts`
+- `pnpm --filter @universo/applications-frontend test -- ConnectorDiffDialog.test.tsx ApplicationSettings.test.tsx`
+- `pnpm --filter @universo/applications-backend test -- applicationSyncRoutes.test.ts`
+- `pnpm --filter @universo/apps-template-mui test -- MenuContent.test.tsx`
+- `pnpm --filter @universo/applications-frontend build`
+- `pnpm --filter @universo/applications-backend build`
+- `pnpm --filter @universo/apps-template-mui build`
+- `pnpm --filter @universo/metahubs-backend build`
+- `pnpm --filter @universo/metahubs-frontend build`
+- `node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "metahubs-lms-app-export"`
+- Direct JSON contract check for EN/RU Page codenames in `tools/fixtures/metahubs-lms-app-snapshot.json`
+
+## Completed: LMS Runtime Manual QA Remediation (2026-05-12)
+
+The manual QA findings from the freshly rebuilt LMS application were closed without adding LMS-specific runtime branches.
+
+### Changes Made
+
+- Improved the required-Workspace connector diff dialog: required publications now show a disabled enabled switch and explanatory text, while the irreversible acknowledgement checkbox is reserved only for optional admin-initiated Workspace enablement.
+- Updated workspace policy validation so required publication policy can force Workspace mode without asking the application administrator for an acknowledgement they cannot act on.
+- Added generic runtime value formatting for objects, arrays, localized values, report definitions, and quiz option arrays, preventing `[object Object]` output in grids, details tables, and tabular edit surfaces.
+- Restored published-app menu active state for both metadata-selected items and safe URL link items, matching the original MUI dashboard selected-list behavior with `aria-current="page"`.
+- Fixed LMS fixture/generator seed localization for class records and strengthened the fixture contract to require EN/RU localized values.
+- Regenerated `tools/fixtures/metahubs-lms-app-snapshot.json` through the product Playwright generator.
+- Extended unit and browser coverage for required Workspace UX, structured value rendering, active runtime menu state, bilingual fixture integrity, and the imported LMS runtime path.
+
+### Validation
+
+- `pnpm --filter @universo/utils test -- workspacePolicy.test.ts`
+- `pnpm --filter @universo/applications-frontend test -- ConnectorDiffDialog.test.tsx`
+- `pnpm --filter @universo/applications-backend test -- applicationSyncRoutes.test.ts`
+- `pnpm --filter @universo/apps-template-mui test -- displayValue.test.ts tabularCellValues.test.tsx MenuContent.test.tsx`
+- `git diff --check`
+- `pnpm --filter @universo/apps-template-mui lint`
+- `pnpm --filter @universo/applications-frontend lint`
+- `pnpm --filter @universo/applications-backend lint`
+- `pnpm --filter @universo/utils lint` (existing warnings only)
+- `pnpm --filter @universo/apps-template-mui build`
+- `pnpm --filter @universo/applications-frontend build`
+- `pnpm --filter @universo/core-frontend build`
+- `pnpm --filter @universo/utils build`
+- `pnpm --filter @universo/applications-backend build`
+- `pnpm --filter @universo/core-backend build`
+- `node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "metahubs-lms-app-export"`
+- `node tools/testing/e2e/run-playwright-suite.mjs specs/flows/snapshot-import-lms-runtime.spec.ts --project chromium`
+
+## Completed: LMS Roadmap QA Remediation (2026-05-12)
+
+The post-implementation QA pass found and closed the remaining gaps in the iSpring-like LMS roadmap implementation without adding LMS-specific runtime forks.
+
+### Changes Made
+
+- Restricted runtime report execution to saved `Reports` Catalog records by accepting only `reportId` or `reportCodename` at the API boundary.
+- Added regression coverage proving inline report definitions are rejected before runtime metadata lookup.
+- Added server-side report aggregation execution through safe field metadata and stable public aliases.
+- Shared the ordinary runtime Catalog filter between runtime row APIs and report target discovery so registrar-only ledger Catalogs stay hidden from manual/report execution surfaces.
+- Added a generic Access tab to application settings for role/capability policy editing through existing MUI settings patterns.
+- Updated the isolated app template report API helper to use saved report references and validate aggregation output.
+- Extended the LMS imported runtime Playwright flow to execute a saved report from the generated fixture.
+- Updated GitBook LMS report docs and memory-bank records with the final saved-report execution contract.
+
+### Validation
+
+- `git diff --check`
+- `pnpm --filter @universo/applications-backend test -- runtimeReportsService.test.ts guards.test.ts applicationsRoutes.test.ts`
+- `pnpm --filter @universo/apps-template-mui test -- runtimeReports.test.ts`
+- `pnpm --filter @universo/applications-frontend test -- ApplicationSettings.test.tsx`
+- `pnpm --filter @universo/applications-backend lint`
+- `pnpm --filter @universo/applications-backend build`
+- `pnpm --filter @universo/applications-frontend lint`
+- `pnpm --filter @universo/applications-frontend build`
+- `pnpm --filter @universo/apps-template-mui lint`
+- `pnpm --filter @universo/apps-template-mui build`
+- `node tools/testing/e2e/run-playwright-suite.mjs flows/snapshot-import-lms-runtime.spec.ts`
+
+## Completed: Runtime Report Endpoint Wiring Closure (2026-05-11)
+
+The safe generic runtime report runner is now connected to authenticated application runtime APIs instead of remaining service-only code.
+
+### Changes Made
+
+- Added `POST /applications/:applicationId/runtime/reports/run` for generic `ReportDefinition` execution.
+- Resolved report datasource targets from published runtime metadata in `_app_objects` and `_app_attributes`.
+- Applied lifecycle and workspace row conditions before report execution.
+- Rejected users without `readReports` before touching runtime metadata.
+- Added a typed `apps-template-mui` `runRuntimeReport` helper with CSRF and Zod response validation.
+- Added route and API helper tests for authorized execution and fail-closed unauthorized access.
+
+### Validation
+
+- `git diff --check`
+- `pnpm --filter @universo/applications-backend test -- applicationsRoutes.test.ts runtimeReportsService.test.ts guards.test.ts`
+- `pnpm --filter @universo/applications-backend lint`
+- `pnpm --filter @universo/applications-backend build`
+- `pnpm --filter @universo/apps-template-mui test -- runtimeReports.test.ts`
+- `pnpm --filter @universo/apps-template-mui lint`
+- `pnpm --filter @universo/apps-template-mui build`
+
+## Completed: LMS Roadmap Role Policies, Widget Metadata Pickers, And Final Validation (2026-05-11)
+
+The iSpring-like LMS roadmap implementation was completed through the remaining role-policy, report authorization, widget authoring, and validation phases without adding LMS-specific runtime forks or bumping the template/schema versions.
+
+### Changes Made
+
+- Added generic application role-policy normalization and effective permission resolution from existing application settings.
+- Added `readReports` as a generic application/runtime capability and enforced it fail-closed in the safe runtime report runner.
+- Extended the existing widget behavior editor to use metadata-backed section pickers for `records.list` datasources while preserving manual section fallback for advanced cases.
+- Reused the existing layout authoring and behavior dialog for details tables, title widgets, charts, and overview cards instead of adding LMS-only UI.
+- Added TanStack Query optimistic cache rollback coverage for failed layout widget configuration saves.
+- Added a no-version-bump guard to the LMS fixture contract for bundle version, snapshot version, structure version, snapshot format version, and unpinned exported template version.
+- Regenerated `tools/fixtures/metahubs-lms-app-snapshot.json` through the product Playwright generator after the contract update.
+
+### Validation
+
+- `git diff --check`
+- `pnpm --filter @universo/types test -- lmsPlatform.test.ts`
+- `pnpm --filter @universo/types lint`
+- `pnpm --filter @universo/types build`
+- `pnpm --filter @universo/applications-backend test -- guards.test.ts runtimeReportsService.test.ts`
+- `pnpm --filter @universo/applications-backend lint`
+- `pnpm --filter @universo/applications-backend build`
+- `pnpm --filter @universo/applications-frontend test -- ApplicationWidgetBehaviorEditorDialog.test.tsx ApplicationLayouts.test.tsx`
+- `pnpm --filter @universo/applications-frontend lint`
+- `pnpm --filter @universo/applications-frontend build`
+- `pnpm --filter @universo/apps-template-mui lint`
+- `pnpm --filter @universo/apps-template-mui build`
+- `node tools/testing/e2e/run-playwright-suite.mjs generators/metahubs-lms-app-export.spec.ts`
+- `node tools/testing/e2e/run-playwright-suite.mjs flows/snapshot-import-lms-runtime.spec.ts`
+
+## Completed: iSpring-like LMS Roadmap Implementation Slice And Import Runtime Closure (2026-05-11)
+
+The LMS platform roadmap implementation slice expanded the generic contracts, LMS template, generated product snapshot, safe report runtime, docs, and workspace seeding robustness without adding an LMS-specific runtime fork.
+
+### Changes Made
+
+- Added strict shared LMS/platform primitive schemas for resources, sequence policies, lifecycle statuses, workflow actions, role policy templates, report definitions, and acceptance matrix entries in `@universo/types`.
+- Expanded the LMS Metahub template with richer Catalog/Page/Set/Enumeration metadata, realistic seeded records, report definitions, development-plan and knowledge-base structures, and generic runtime widget datasource usage.
+- Regenerated `tools/fixtures/metahubs-lms-app-snapshot.json` through the product Playwright generator and strengthened the fixture contract.
+- Added `RuntimeReportsService` as a safe V1 report runner over validated published runtime datasource descriptors.
+- Hardened imported publication workspace seeding for restored snapshots: dependency ordering includes table child attributes, unresolved references are retried, unique `_seed_source_key` fallback is available, and legacy table-name object ids can resolve seed rows.
+- Updated package READMEs and GitBook docs for LMS resource and report model guidance.
+
+### Validation
+
+- `pnpm --filter @universo/types test`
+- `pnpm --filter @universo/types build`
+- `pnpm --filter @universo/metahubs-backend build`
+- `pnpm --filter @universo/metahubs-backend test -- templateManifestValidator.test.ts`
+- `pnpm --filter @universo/applications-backend test -- applicationWorkspaces.test.ts runtimeReportsService.test.ts`
+- `pnpm --filter @universo/applications-backend build`
+- `pnpm --filter @universo/applications-backend lint`
+- `node tools/testing/e2e/run-playwright-suite.mjs generators/metahubs-lms-app-export.spec.ts`
+- `node tools/testing/e2e/run-playwright-suite.mjs flows/snapshot-import-lms-runtime.spec.ts`
+
+---
+
 ## Completed: Fix start:allclean Database Reset + App.initDatabase Test Repair (2026-05-11)
 
 > Goal: Fix `pnpm start:allclean` which never reset the Supabase database due to `--reset-db` flag being lost in the `run-script-os -> npm` chain. Also fix 5 pre-existing test failures in `App.initDatabase.test.ts`.

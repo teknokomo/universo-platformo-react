@@ -110,6 +110,8 @@ const buildInitialWidgetConfig = (widgetKey: string): Record<string, unknown> =>
     return {}
 }
 
+const STRUCTURED_BEHAVIOR_WIDGET_KEYS = new Set(['detailsTable', 'detailsTitle', 'overviewCards', 'sessionsChart', 'pageViewsChart'])
+
 type LayoutMenuState = {
     anchorEl: HTMLElement | null
     layout: ApplicationLayout | null
@@ -140,6 +142,8 @@ const ApplicationLayouts = () => {
     const [menuEditorZone, setMenuEditorZone] = useState<DashboardLayoutZone | null>(null)
     const [columnsEditorZone, setColumnsEditorZone] = useState<DashboardLayoutZone | null>(null)
     const [behaviorEditingWidget, setBehaviorEditingWidget] = useState<ApplicationLayoutWidget | null>(null)
+    const layoutDetailQueryKey =
+        applicationId && layoutId ? applicationsQueryKeys.layoutDetail(applicationId, layoutId) : ['application-layout-detail-empty']
 
     const scopesQuery = useQuery({
         queryKey: applicationId ? applicationsQueryKeys.layoutScopes(applicationId, i18n.language) : ['application-layout-scopes-empty'],
@@ -165,8 +169,7 @@ const ApplicationLayouts = () => {
     })
 
     const detailQuery = useQuery({
-        queryKey:
-            applicationId && layoutId ? applicationsQueryKeys.layoutDetail(applicationId, layoutId) : ['application-layout-detail-empty'],
+        queryKey: layoutDetailQueryKey,
         queryFn: () => getApplicationLayout(String(applicationId), String(layoutId)),
         enabled: Boolean(applicationId && layoutId)
     })
@@ -280,6 +283,24 @@ const ApplicationLayouts = () => {
                 config,
                 expectedVersion: widget.version
             }),
+        onMutate: async ({ widget, config }) => {
+            await queryClient.cancelQueries({ queryKey: layoutDetailQueryKey })
+            const previousDetail = queryClient.getQueryData<ApplicationLayoutDetailResponse>(layoutDetailQueryKey)
+
+            if (previousDetail) {
+                queryClient.setQueryData<ApplicationLayoutDetailResponse>(layoutDetailQueryKey, {
+                    ...previousDetail,
+                    widgets: previousDetail.widgets.map((item) => (item.id === widget.id ? { ...item, config } : item))
+                })
+            }
+
+            return { previousDetail }
+        },
+        onError: (_error, _variables, context) => {
+            if (context?.previousDetail) {
+                queryClient.setQueryData(layoutDetailQueryKey, context.previousDetail)
+            }
+        },
         onSuccess: async () => {
             setEditingWidget(null)
             setWidgetConfigError(null)
@@ -402,6 +423,13 @@ const ApplicationLayouts = () => {
         const catalogOptions = (scopesQuery.data ?? [])
             .filter((scope) => scope.linkedCollectionId)
             .map((scope) => ({ id: String(scope.linkedCollectionId), label: scope.name }))
+        const datasourceSectionOptions = (scopesQuery.data ?? [])
+            .filter((scope) => scope.linkedCollectionId)
+            .map((scope) => ({
+                id: String(scope.linkedCollectionId),
+                label: scope.name,
+                codename: resolveLocalizedText(scope.codename ?? {}, 'en', scope.tableName ?? scope.name)
+            }))
         const widgetsByZone = DASHBOARD_LAYOUT_ZONES.reduce<Record<DashboardLayoutZone, ApplicationLayoutWidget[]>>((accumulator, zone) => {
             accumulator[zone] = widgets
                 .filter((widget) => widget.zone === zone)
@@ -516,7 +544,7 @@ const ApplicationLayouts = () => {
                 return
             }
 
-            if (widget.widgetKey === 'detailsTable' || widget.widgetKey === 'detailsTitle') {
+            if (STRUCTURED_BEHAVIOR_WIDGET_KEYS.has(widget.widgetKey)) {
                 setBehaviorEditingWidget(widget)
                 return
             }
@@ -878,6 +906,7 @@ const ApplicationLayouts = () => {
                     open={Boolean(behaviorEditingWidget)}
                     widgetKey={behaviorEditingWidget?.widgetKey}
                     config={behaviorEditingWidget?.config as Record<string, unknown> | undefined}
+                    sectionOptions={datasourceSectionOptions}
                     onSave={(config) => {
                         if (!behaviorEditingWidget) return
                         updateWidgetConfigMutation.mutate({

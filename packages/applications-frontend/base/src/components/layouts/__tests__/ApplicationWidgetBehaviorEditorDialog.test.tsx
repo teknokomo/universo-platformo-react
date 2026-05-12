@@ -68,6 +68,38 @@ describe('ApplicationWidgetBehaviorEditorDialog', () => {
         })
     })
 
+    it('uses metadata-backed section options for records.list datasources', () => {
+        const onSave = vi.fn()
+        render(
+            <ApplicationWidgetBehaviorEditorDialog
+                open
+                widgetKey='detailsTable'
+                config={{ datasource: { kind: 'records.list' } }}
+                sectionOptions={[
+                    {
+                        id: '017f22e2-79b0-7cc3-98c4-dc0c0c07398f',
+                        label: 'Module progress',
+                        codename: 'ModuleProgress'
+                    }
+                ]}
+                onSave={onSave}
+                onCancel={vi.fn()}
+            />
+        )
+
+        fireEvent.mouseDown(screen.getAllByRole('combobox')[1])
+        fireEvent.click(screen.getByRole('option', { name: 'Module progress' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+        expect(onSave).toHaveBeenCalledWith({
+            datasource: {
+                kind: 'records.list',
+                sectionId: '017f22e2-79b0-7cc3-98c4-dc0c0c07398f',
+                sectionCodename: 'ModuleProgress'
+            }
+        })
+    })
+
     it('does not show datasource settings for unrelated widgets', () => {
         render(<ApplicationWidgetBehaviorEditorDialog open widgetKey='menuWidget' config={{}} onSave={vi.fn()} onCancel={vi.fn()} />)
 

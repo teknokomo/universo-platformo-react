@@ -19,6 +19,7 @@ import {
     buildApplicationLayoutChanges,
     buildApplicationSyncSourceFromBundle,
     buildApplicationSyncSourceFromPublication,
+    buildCreateEntityGroupDetails,
     buildCreateTableDetails,
     createExistingApplicationReleaseBundle,
     createPublicationApplicationReleaseBundle,
@@ -118,7 +119,7 @@ const buildWorkspaceModePreview = ({
     schemaAlreadyInstalled: boolean
     acknowledgementReceived: boolean
 }) => {
-    const enablingWorkspaces = !applicationWorkspacesEnabled && (policy === 'required' || (policy === 'optional' && requested === true))
+    const enablingWorkspacesByAdminChoice = !applicationWorkspacesEnabled && policy === 'optional' && requested === true
     const effectiveWorkspacesEnabled =
         applicationWorkspacesEnabled || policy === 'required' || (policy === 'optional' && requested === true)
 
@@ -128,7 +129,7 @@ const buildWorkspaceModePreview = ({
         applicationWorkspacesEnabled,
         effectiveWorkspacesEnabled,
         schemaAlreadyInstalled,
-        requiresAcknowledgement: enablingWorkspaces && !acknowledgementReceived,
+        requiresAcknowledgement: enablingWorkspacesByAdminChoice && !acknowledgementReceived,
         canChoose: policy === 'optional' && !applicationWorkspacesEnabled
     }
 }
@@ -612,8 +613,10 @@ export function createSyncController(
 
             if (!schemaExists) {
                 const createTables = buildCreateTableDetails({ entities: executableCatalogDefs, snapshot })
+                const createEntityGroups = buildCreateEntityGroupDetails({ entities: executableCatalogDefs, snapshot })
 
                 const additive = createTables.map((t) => `Create table "${t.codename}" with ${t.fields.length} field(s)`)
+                const entitiesCount = createEntityGroups.reduce((total, group) => total + group.entities.length, 0)
 
                 return res.json({
                     ...workspaceRuntimePayload,
@@ -625,11 +628,12 @@ export function createSyncController(
                         additive,
                         destructive: [],
                         summaryKey: 'schema.create.summary',
-                        summaryParams: { tablesCount: createTables.length },
-                        summary: `Create ${createTables.length} table(s) in new schema`,
+                        summaryParams: { tablesCount: createTables.length, entitiesCount },
+                        summary: `Create ${entitiesCount} entity/entities and ${createTables.length} table(s) in new schema`,
                         details: {
                             create: {
-                                tables: createTables
+                                tables: createTables,
+                                entityGroups: createEntityGroups
                             },
                             changes: {
                                 additive: additive.map((description) => ({
@@ -688,6 +692,11 @@ export function createSyncController(
                     .map((change: SchemaChange) => String(change.entityId))
             )
             const createTables = buildCreateTableDetails({
+                entities: executableCatalogDefs,
+                snapshot,
+                includeEntityIds: addedTableEntityIds
+            })
+            const createEntityGroups = buildCreateEntityGroupDetails({
                 entities: executableCatalogDefs,
                 snapshot,
                 includeEntityIds: addedTableEntityIds
@@ -767,7 +776,8 @@ export function createSyncController(
                         : diff.summary,
                     details: {
                         create: {
-                            tables: createTables
+                            tables: createTables,
+                            entityGroups: createEntityGroups
                         },
                         layoutChanges,
                         changes: {
