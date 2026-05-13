@@ -141,6 +141,9 @@ export const runtimeCatalogFilterSql = (kindColumn = 'kind', configColumn = 'con
 )} NOT IN ('hub', 'set', 'enumeration', 'page', 'ledger')
     AND NOT ${runtimeRegistrarLedgerSql(configColumn)})`
 
+export const runtimeLayoutCapableFilterSql = (configColumn = 'config'): string =>
+    `COALESCE((${configColumn}->'components'->'layoutConfig'->>'enabled')::boolean, false) = true`
+
 export const resolveRuntimeCodenameText = (codename: unknown): string => {
     if (typeof codename === 'string') {
         return codename

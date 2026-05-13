@@ -37,6 +37,7 @@ import {
     runtimeCodenameTextSql,
     runtimeCatalogFilterSql,
     runtimeStandardKindSql,
+    runtimeLayoutCapableFilterSql,
     resolveRuntimeCodenameText,
     resolvePresentationName,
     resolveLocalizedContent,
@@ -141,6 +142,7 @@ const RUNTIME_RECORD_SYSTEM_FIELDS = [
 ] as const
 
 const RUNTIME_CATALOG_FILTER_SQL = runtimeCatalogFilterSql()
+const RUNTIME_LAYOUT_CAPABLE_FILTER_SQL = runtimeLayoutCapableFilterSql()
 
 const resolveRuntimeStandardKind = (kind: unknown): BuiltinEntityKind | null =>
     typeof kind === 'string' && isBuiltinEntityKind(kind) ? kind : null
@@ -511,7 +513,7 @@ export const resolvePreferredScopeEntityIdFromGlobalMenu = async (params: {
         FROM ${schemaIdent}._app_objects
         WHERE _upl_deleted = false
           AND _app_deleted = false
-          AND (${RUNTIME_CATALOG_FILTER_SQL} OR ${runtimeStandardKindSql('kind')} = 'page')
+          AND ${RUNTIME_LAYOUT_CAPABLE_FILTER_SQL}
           AND (id::text = $1 OR ${runtimeCodenameTextSql('codename')} = $1)
         ORDER BY CASE
                    WHEN id::text = $1 THEN 0

@@ -1035,6 +1035,82 @@ export class MetahubLayoutsService {
         })
     }
 
+    private async findOrCreateScopedLayout(
+        tx: SqlQueryable,
+        schemaName: string,
+        params: {
+            baseLayout: LayoutScopeRow
+            baseLayoutId: string
+            scopeEntityId: string
+            userId?: string | null
+        }
+    ): Promise<LayoutScopeRow> {
+        const { baseLayout, baseLayoutId, scopeEntityId, userId } = params
+        const lt = qSchemaTable(schemaName, '_mhb_layouts')
+        const ot = qSchemaTable(schemaName, '_mhb_objects')
+
+        const scopedLayout = await queryOne<LayoutScopeRow>(
+            tx,
+            `SELECT id, scope_entity_id, base_layout_id, config
+               FROM ${lt}
+              WHERE scope_entity_id = $1
+                AND base_layout_id = $2
+                AND _upl_deleted = false
+                AND _mhb_deleted = false
+              ORDER BY is_default DESC,
+                       is_active DESC,
+                       sort_order ASC,
+                       _upl_created_at ASC
+              LIMIT 1
+              FOR UPDATE`,
+            [scopeEntityId, baseLayoutId]
+        )
+
+        if (scopedLayout) {
+            return scopedLayout
+        }
+
+        const scopeEntity = await queryOne<{ presentation?: unknown; codename?: unknown }>(
+            tx,
+            `SELECT presentation, codename
+               FROM ${ot}
+              WHERE id = $1
+                AND _upl_deleted = false
+                AND _mhb_deleted = false
+              LIMIT 1`,
+            [scopeEntityId]
+        )
+        const now = new Date()
+        const scopedName = this.buildAutoScopedLayoutName(scopeEntity?.presentation, scopeEntity?.codename)
+        const created = await queryOneOrThrow<DbRow>(
+            tx,
+            `INSERT INTO ${lt} (scope_entity_id, base_layout_id, template_key, name, description, config, is_active, is_default, sort_order, owner_id,
+                _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by,
+                _upl_version, _upl_archived, _upl_deleted, _upl_locked,
+                _mhb_published, _mhb_archived, _mhb_deleted)
+             VALUES ($1, $2, 'dashboard', $3, NULL, $4, true, true, 0, NULL,
+                $5, $6, $5, $6,
+                1, false, false, false,
+                true, false, false)
+             RETURNING id, scope_entity_id, base_layout_id, config`,
+            [
+                scopeEntityId,
+                baseLayoutId,
+                JSON.stringify(scopedName),
+                JSON.stringify(stripDashboardWidgetVisibilityConfig(baseLayout.config)),
+                now,
+                userId ?? null
+            ]
+        )
+
+        return {
+            id: String(created.id),
+            scope_entity_id: typeof created.scope_entity_id === 'string' ? created.scope_entity_id : scopeEntityId,
+            base_layout_id: typeof created.base_layout_id === 'string' ? created.base_layout_id : baseLayoutId,
+            config: created.config
+        }
+    }
+
     async setLayoutWidgetScopeVisibility(
         metahubId: string,
         layoutId: string,
@@ -1046,7 +1122,6 @@ export class MetahubLayoutsService {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId ?? undefined)
         const lt = qSchemaTable(schemaName, '_mhb_layouts')
         const wt = qSchemaTable(schemaName, '_mhb_widgets')
-        const ot = qSchemaTable(schemaName, '_mhb_objects')
 
         await this.exec.transaction(async (tx: SqlQueryable) => {
             await this.assertScopeEntitySupportsLayout(tx, schemaName, scopeEntityId)
@@ -1091,63 +1166,12 @@ export class MetahubLayoutsService {
                 })
             }
 
-            let scopedLayout = await queryOne<LayoutScopeRow>(
-                tx,
-                `SELECT id, scope_entity_id, base_layout_id, config
-                   FROM ${lt}
-                  WHERE scope_entity_id = $1
-                    AND base_layout_id = $2
-                    AND _upl_deleted = false
-                    AND _mhb_deleted = false
-                  ORDER BY is_default DESC,
-                           is_active DESC,
-                           sort_order ASC,
-                           _upl_created_at ASC
-                  LIMIT 1
-                  FOR UPDATE`,
-                [scopeEntityId, layoutId]
-            )
-
-            if (!scopedLayout) {
-                const scopeEntity = await queryOne<{ presentation?: unknown; codename?: unknown }>(
-                    tx,
-                    `SELECT presentation, codename
-                       FROM ${ot}
-                      WHERE id = $1
-                        AND _upl_deleted = false
-                        AND _mhb_deleted = false
-                      LIMIT 1`,
-                    [scopeEntityId]
-                )
-                const now = new Date()
-                const scopedName = this.buildAutoScopedLayoutName(scopeEntity?.presentation, scopeEntity?.codename)
-                const created = await queryOneOrThrow<DbRow>(
-                    tx,
-                    `INSERT INTO ${lt} (scope_entity_id, base_layout_id, template_key, name, description, config, is_active, is_default, sort_order, owner_id,
-                        _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by,
-                        _upl_version, _upl_archived, _upl_deleted, _upl_locked,
-                        _mhb_published, _mhb_archived, _mhb_deleted)
-                     VALUES ($1, $2, 'dashboard', $3, NULL, $4, true, true, 0, NULL,
-                        $5, $6, $5, $6,
-                        1, false, false, false,
-                        true, false, false)
-                     RETURNING id, scope_entity_id, base_layout_id, config`,
-                    [
-                        scopeEntityId,
-                        layoutId,
-                        JSON.stringify(scopedName),
-                        JSON.stringify(stripDashboardWidgetVisibilityConfig(baseLayout.config)),
-                        now,
-                        userId ?? null
-                    ]
-                )
-                scopedLayout = {
-                    id: String(created.id),
-                    scope_entity_id: typeof created.scope_entity_id === 'string' ? created.scope_entity_id : scopeEntityId,
-                    base_layout_id: typeof created.base_layout_id === 'string' ? created.base_layout_id : layoutId,
-                    config: created.config
-                }
-            }
+            const scopedLayout = await this.findOrCreateScopedLayout(tx, schemaName, {
+                baseLayout,
+                baseLayoutId: layoutId,
+                scopeEntityId,
+                userId
+            })
 
             await this.upsertLayoutWidgetOverride(tx, schemaName, {
                 layoutId: scopedLayout.id,

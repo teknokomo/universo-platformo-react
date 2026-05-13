@@ -36,8 +36,9 @@ describe('runtimeRowsController startup section resolution', () => {
 
             if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('id::text = $1')) {
                 expect(params).toEqual(['Modules'])
-                expect(sql).toContain("COALESCE(kind, '') NOT IN")
-                expect(sql).toContain("= 'page'")
+                expect(sql).toContain("config->'components'->'layoutConfig'->>'enabled'")
+                expect(sql).not.toContain("COALESCE(kind, '') NOT IN")
+                expect(sql).not.toContain("= 'page'")
                 return [{ id: 'modules-catalog-id' }]
             }
 
@@ -56,7 +57,7 @@ describe('runtimeRowsController startup section resolution', () => {
         expect(executedSql).not.toContain("config->'hubs' @>")
     })
 
-    it('limits startup scope tokens to runtime-renderable catalog-like or page sections', async () => {
+    it('limits startup scope tokens to layout-capable runtime sections', async () => {
         const { executor } = createMockDbExecutor()
 
         executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
@@ -74,8 +75,9 @@ describe('runtimeRowsController startup section resolution', () => {
 
             if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('id::text = $1')) {
                 expect(params).toEqual(['CustomLanding'])
-                expect(sql).toContain("COALESCE(kind, '') NOT IN")
-                expect(sql).toContain("= 'page'")
+                expect(sql).toContain("config->'components'->'layoutConfig'->>'enabled'")
+                expect(sql).not.toContain("COALESCE(kind, '') NOT IN")
+                expect(sql).not.toContain("= 'page'")
                 return [{ id: 'custom-layout-capable-entity-id' }]
             }
 
