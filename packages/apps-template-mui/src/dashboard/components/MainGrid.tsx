@@ -40,6 +40,7 @@ import {
 const noopSetSort = () => undefined
 
 const DEFAULT_SPARKLINE_DATA = Array.from({ length: 30 }, () => 0)
+const ZERO_TREND_LABEL = '0%'
 const EMPTY_RECORDS_SERIES_CHART_CONFIG: RecordsSeriesChartWidgetConfig = {}
 
 const DEFAULT_STAT_CARDS: StatCardProps[] = [
@@ -173,6 +174,15 @@ function RuntimeStatCard({ config, fallback }: { config: StatCardWidgetConfig; f
     const details = useDashboardDetails()
     const base = toStatCardProps(config, fallback, details?.locale)
     const datasource = config.datasource
+    const hasMetricDatasource = datasource?.kind === 'metric' && datasource.metricKey === 'records.count'
+    const runtimeBase = hasMetricDatasource
+        ? {
+              ...base,
+              trend: 'neutral' as const,
+              trendLabel: ZERO_TREND_LABEL,
+              data: config.data?.length ? config.data : DEFAULT_SPARKLINE_DATA
+          }
+        : base
     const params = isRecord(datasource?.params) ? datasource.params : undefined
     const explicitTargetSectionId =
         readStringParam(params, 'sectionId') ??
@@ -214,11 +224,11 @@ function RuntimeStatCard({ config, fallback }: { config: StatCardWidgetConfig; f
     })
 
     const value =
-        datasource?.kind === 'metric' && datasource.metricKey === 'records.count' && metricQuery.data
+        hasMetricDatasource && metricQuery.data
             ? formatMetricValue(metricQuery.data.pagination.total, details?.locale ?? 'en')
-            : base.value
+            : runtimeBase.value
 
-    return <StatCard {...base} value={value} />
+    return <StatCard {...runtimeBase} value={value} />
 }
 
 function RuntimeRecordsSeriesChart({ config, variant }: { config: RecordsSeriesChartWidgetConfig; variant: 'sessions' | 'pageViews' }) {
@@ -308,6 +318,7 @@ function RuntimeRecordsSeriesChart({ config, variant }: { config: RecordsSeriesC
     })
 
     const rows = seriesQuery.data?.rows ?? []
+    const hasRuntimeDatasource = Boolean(recordsDatasource || ledgerProjectionDatasource)
     const hasRuntimeSeries = canFetchRuntimeSeries && rows.length > 0 && Boolean(config.xField)
     const shouldSuppressDemoSeries = Boolean(
         (recordsDatasource || ledgerProjectionDatasource) && config.xField && configuredSeries.length > 0
@@ -344,8 +355,8 @@ function RuntimeRecordsSeriesChart({ config, variant }: { config: RecordsSeriesC
         title: readLocalizedConfigText(config.title, locale),
         value: config.value ?? computedValue,
         interval: readLocalizedConfigText(config.interval, locale),
-        trend: config.trend,
-        trendLabel: toChartTrendLabel(config.trend),
+        trend: config.trend ?? (hasRuntimeDatasource ? 'neutral' : undefined),
+        trendLabel: hasRuntimeDatasource ? toChartTrendLabel(config.trend ?? 'neutral') : toChartTrendLabel(config.trend),
         noDataText: getChartNoDataText(locale),
         xAxisData,
         series

@@ -4,7 +4,30 @@
 
 ---
 
+## Current Implementation: Local Supabase Env Profile Generation Improvement (2026-05-13)
+
+-   Local Supabase env generation now derives backend profiles from the normal env source order instead of maintaining separate `*.local-supabase.example` files.
+-   Development source order: `packages/universo-core-backend/base/.env`, then `.env.example`, then a minimal generated fallback.
+-   E2E source order: `.env.e2e`, then `.env`, then `.env.e2e.example`, then `.env.example`, then a minimal generated fallback.
+-   Existing generated profile values are still used as fallback for generated secrets such as `SESSION_SECRET` when the selected base does not define them.
+-   The generator preserves unrelated application settings and replaces only local Supabase/PostgreSQL connection values, local target markers, and safe missing defaults.
+-   Hosted-only Postgres/Auth overrides such as `DATABASE_SSL_KEY_BASE64`, `SUPABASE_JWKS_URL`, and `SUPABASE_JWT_ISSUER` are cleared from generated local profiles to avoid leaking remote configuration into local Supabase.
+-   Separate backend/frontend `*.local-supabase.example` files were removed to avoid duplicating the canonical env contract.
+-   README and GitBook docs now describe the preserved-settings workflow, hosted/local switching, local allclean command, and shared local Supabase E2E stack behavior.
+-   Latest validation: `node --check tools/local-supabase/write-env.mjs`, `node --check tools/local-supabase/shared.mjs`, and `pnpm run test:local-supabase:tools` pass.
+
 ## Current Implementation: Scoped Menu Contract Closure (2026-05-13)
+
+-   Local Supabase Docker switching is complete.
+-   The repository now includes a committed `supabase/config.toml` and empty `supabase/seed.sql` for CLI-managed local development.
+-   Root scripts cover local Supabase init/network/start/minimal-start/status/stop/nuke, profile generation, doctor checks, and local dev/E2E entrypoints.
+-   `tools/local-supabase/write-env.mjs` generates gitignored backend/frontend local profiles from `supabase status -o env` and rejects hosted Supabase URLs.
+-   `tools/local-supabase/doctor.mjs` validates Docker, Supabase CLI, Auth health, REST, Auth Admin API, direct PostgreSQL, service-role key, and JWT secret before local destructive flows.
+-   Local E2E commands set `UNIVERSO_ENV_FILE` and `UNIVERSO_FRONTEND_ENV_FILE` explicitly, leaving hosted `.env.e2e.local` / `.env.e2e` behavior unchanged.
+-   Tests cover local profile generation, doctor validation, root script contracts, and HS256 verification with local Supabase `SUPABASE_JWT_SECRET`.
+-   Latest validation: `pnpm run test:local-supabase:tools`, focused `@universo/auth-backend` JWT Jest test, `pnpm --filter @universo/auth-backend build`, `pnpm run docs:i18n:check`, node syntax checks for local tools, and targeted Prettier checks pass. `@universo/auth-backend` lint exits 0 with existing warnings in unrelated files.
+
+## Previous Implementation: Scoped Menu Contract Closure (2026-05-13)
 
 -   The final scoped menu contract cleanup is complete.
 -   Menu widget authoring now uses neutral `section`, `hub`, and `link` item kinds; the editor no longer exposes Catalog/Page/Ledger-specific menu branches.
@@ -185,6 +208,11 @@
 
 ## Current Guardrails
 
+-   Browser E2E must use the dedicated E2E boundary: hosted dedicated `.env.e2e.local` / `.env.e2e` by default, or the dedicated local Supabase profile on ports `55321/55322/55323` when local mode is explicitly requested.
+-   Agents must not use `pnpm dev` or port `3000` for Playwright E2E. The repository E2E runner owns startup on `http://127.0.0.1:3100`.
+-   Shared/main Supabase E2E mode is only for manual debugging and must require `E2E_ALLOW_MAIN_SUPABASE=true` plus `E2E_FULL_RESET_MODE=off`.
+-   Local Supabase app-start scripts have two supported profiles: full stack (`start:local-supabase`, `start:allclean:local-supabase`) and minimal stack (`start:local-supabase:minimal`, `start:allclean:local-supabase:minimal`). Both must keep `doctor:local-supabase` before app startup/reset and must pass explicit `.env.local-supabase` profiles.
+-   Local Supabase docs must distinguish Supabase Studio (`http://127.0.0.1:54323`) from the local API URL (`http://127.0.0.1:54321`).
 -   Do not reintroduce `includeBuiltins`, `isBuiltin`, `source`, `custom.*-v2`, old top-level managed route families, or deleted frontend `domains/catalogs|hubs|sets|enumerations` folder names
 -   Runtime workspace management stays on isolated `apps-template-mui` card/list patterns
 -   Keep public-runtime exposure tied to publication-backed state, not raw design-time flags

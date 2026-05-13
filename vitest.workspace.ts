@@ -11,5 +11,6 @@ export default defineWorkspace([
     'packages/scripting-engine/base/vitest.config.ts',
     'packages/start-frontend/base/vitest.config.ts',
     'packages/universo-types/base/vitest.config.ts',
-    'packages/universo-utils/base/vitest.config.ts'
+    'packages/universo-utils/base/vitest.config.ts',
+    'tools/local-supabase/vitest.config.mjs'
 ])

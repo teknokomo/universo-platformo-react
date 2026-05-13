@@ -13,6 +13,7 @@ export type StatCardProps = {
     value: string
     interval: string
     trend: 'up' | 'down' | 'neutral'
+    trendLabel?: string
     data: number[]
 }
 
@@ -42,7 +43,7 @@ function AreaGradient({ color, id }: { color: string; id: string }) {
     )
 }
 
-export default function StatCard({ title, value, interval, trend, data }: StatCardProps) {
+export default function StatCard({ title, value, interval, trend, trendLabel, data }: StatCardProps) {
     const theme = useTheme()
     const daysInWeek = getDaysInMonth(4, 2024)
 
@@ -74,7 +75,7 @@ export default function StatCard({ title, value, interval, trend, data }: StatCa
                             <Typography variant='h4' component='p'>
                                 {value}
                             </Typography>
-                            <Chip size='small' color={color} label={trendValues[trend]} />
+                            <Chip size='small' color={color} label={trendLabel ?? trendValues[trend]} />
                         </Stack>
                         <Typography variant='caption' sx={{ color: 'text.secondary' }}>
                             {interval}

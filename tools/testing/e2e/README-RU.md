@@ -1,16 +1,16 @@
-# Browser E2E Testing
+# Браузерное E2E-тестирование
 
-Эта директория содержит основу browser-testing для агентной верификации.
+Эта директория содержит основу браузерного тестирования для агентной верификации.
 
-## Goals
+## Цели
 
 -   Дать агенту возможность проверять реальное состояние браузера, а не делать выводы только по JSX.
 -   Запускать повторяемые пользовательские сценарии через Playwright CLI и оставлять MCP как точечный инструмент отладки.
 -   Поднимать отдельного аутентифицированного пользователя для каждого прогона и удалять его во время teardown.
--   Возвращать выделенный hosted E2E Supabase в project-empty состояние до и после каждого прогона suite.
+-   Возвращать выделенный удалённый E2E Supabase в состояние пустого проекта до и после каждого прогона suite.
 -   Держать секреты вне git с помощью выделенных e2e env-файлов.
 
-## Files
+## Файлы
 
 -   `playwright.config.mjs`: основная конфигурация Playwright test runner.
 -   `playwright.mcp.config.json`: конфигурация MCP runtime для интерактивной browser-отладки.
@@ -57,8 +57,10 @@
 
 -   `packages/universo-core-backend/base/.env.e2e.local`
 -   `packages/universo-core-frontend/base/.env.e2e.local`
+-   `packages/universo-core-backend/base/.env.e2e.local-supabase` для необязательных E2E-запусков на локальном Supabase
+-   `packages/universo-core-frontend/base/.env.e2e.local-supabase` для необязательных E2E-запусков на локальном Supabase
 
-Коммитьте только `.example` варианты. Никогда не коммитьте реальные секреты или сгенерированный storage state.
+Коммитьте только стандартные `.example` варианты. Файлы `*.local-supabase` генерируются из выбранного локального профиля Supabase CLI и должны оставаться неотслеживаемыми. Никогда не коммитьте реальные секреты или сгенерированное состояние хранилища браузера.
 
 Backend e2e env должен содержать:
 
@@ -80,8 +82,7 @@ Backend e2e env должен содержать:
 
 Для больших suite повышайте `AUTH_LOGIN_RATE_LIMIT_MAX` только в выделенном e2e backend env вместо ослабления production defaults. Browser suite легитимно делает много auth round-trips между disposable users, bootstrap-admin setup и API-assisted provisioning.
 
-Все wrapper-based E2E команды теперь принудительно соблюдают hosted-Supabase reset contract: удаляют все application-owned fixed schemas, dynamic `app_*` / `mhb_*` schemas, `upl_migrations` и Supabase auth users перед стартом suite и ещё раз после остановки сервера. Инфраструктурные схемы вроде `public` сохраняются, чтобы стартовые migrations могли пересобрать platform state поверх валидной базы Supabase/Postgres.
-Прямые `pnpm exec playwright test ...` обходят этот контракт и поэтому допустимы только для debug-only сценариев. Для обычной валидации используйте wrapper-команды ниже.
+Все wrapper-based E2E команды теперь принудительно соблюдают hosted-Supabase reset contract: удаляют все application-owned fixed schemas, dynamic `app_*` / `mhb_*` schemas, `upl_migrations` и Supabase auth users перед стартом suite и ещё раз после остановки сервера. Инфраструктурные схемы вроде `public` сохраняются, чтобы стартовые migrations могли пересобрать platform state поверх валидной базы Supabase/Postgres. Прямые `pnpm exec playwright test ...` обходят этот контракт и поэтому допустимы только для debug-only сценариев. Для обычной валидации используйте wrapper-команды ниже.
 
 ## Run Modes
 
@@ -144,16 +145,14 @@ E2E runner намеренно однопроходный:
 
 Использование тегов:
 
--   `@smoke`: startup/auth/access boundary checks.
-    Сюда входят и deny-by-default admin access, и положительный вход bootstrap-admin.
+-   `@smoke`: startup/auth/access boundary checks. Сюда входят и deny-by-default admin access, и положительный вход bootstrap-admin.
 -   `@flow`: основные пользовательские и admin workflows.
 -   `@permission`: ожидания по RBAC и access-denied.
 -   `@combined`: chained regressions для publication/application/connectors.
 -   `@visual`: screenshot assertions для layout drift.
 -   `@generator`: on-demand snapshot generators (исключены из обычных прогонов).
 
-Текущий инвентарь `@flow`: `30` tests в `25` files, подтверждено через `pnpm exec playwright test -c tools/testing/e2e/playwright.config.mjs --grep @flow --list` на 2026-04-02.
-Текущий статус полной валидации suite: `pnpm run test:e2e:full` прошёл с результатом `42/42` tests на 2026-04-02 после завершения QA remediation wave, закрытия Gap D CRUD breadth и стабилизации combined publication-plus-schema flow.
+Текущий инвентарь `@flow`: `30` tests в `25` files, подтверждено через `pnpm exec playwright test -c tools/testing/e2e/playwright.config.mjs --grep @flow --list` на 2026-04-02. Текущий статус полной валидации suite: `pnpm run test:e2e:full` прошёл с результатом `42/42` tests на 2026-04-02 после завершения QA remediation wave, закрытия Gap D CRUD breadth и стабилизации combined publication-plus-schema flow.
 
 Обновляйте просмотренные screenshot baselines после осознанного UI change:
 
@@ -180,6 +179,20 @@ pnpm run test:e2e:cleanup
 ```bash
 pnpm run test:e2e:doctor
 ```
+
+Запускайте быстрый smoke-slice против локального Supabase:
+
+Предварительное требование: установите Docker Desktop или Docker Engine, запустите Docker daemon и проверьте, что `docker ps` работает. Supabase CLI использует Docker-контейнеры для локального E2E-стека.
+
+```bash
+pnpm supabase:e2e:start:minimal
+pnpm run build:e2e:local-supabase
+pnpm run test:e2e:smoke:local-supabase
+```
+
+Локальные команды запускают выделенный локальный E2E-проект Supabase, генерируют локальный E2E-профиль и запускают `doctor:e2e:local-supabase` до старта сервера. Doctor проверяет Auth, REST, доступ service-role Admin API, прямое подключение PostgreSQL и JWT-конфигурацию только против `localhost`. Выделенный локальный E2E-профиль Supabase использует отдельные от разработки порты: API `55321`, база данных `55322` и Studio `55323`. Используйте `pnpm supabase:e2e:start` или `*:local-supabase:full` только когда тесту нужны Storage, Realtime, Edge Functions или сервисы логирования.
+
+Сгенерированный профиль бэкенда использует `.env.e2e`, если он есть, затем `.env`, затем `.env.e2e.example`, затем `.env.example`, сохраняя не связанные настройки и заменяя только локальные значения Supabase/PostgreSQL и безопасные значения E2E по умолчанию.
 
 Просматривайте план полного reset без удаления схем и пользователей:
 

@@ -1,0 +1,2 @@
+-- Local Supabase seed file.
+-- Universo Platformo bootstraps platform schemas through the application startup migrations.

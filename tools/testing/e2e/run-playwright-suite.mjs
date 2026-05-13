@@ -33,6 +33,18 @@ const toErrorMessage = (error) => (error instanceof Error ? error.message : Stri
 
 const fullResetEnabled = env.fullResetMode !== 'off'
 
+function printRunnerSummary() {
+    process.stdout.write(
+        [
+            `[e2e-runner] App URL: ${env.baseURL}`,
+            `[e2e-runner] Backend env: ${env.backendEnvPath || 'not resolved'}`,
+            `[e2e-runner] Supabase: provider=${env.supabaseProvider || 'n/a'}, isolation=${env.supabaseIsolation || 'n/a'}, localInstance=${
+                env.localSupabaseInstance || 'n/a'
+            }, localStack=${env.localSupabaseStack || 'n/a'}`
+        ].join('\n') + '\n'
+    )
+}
+
 function pipeChildStream(stream, target) {
     if (!stream) {
         return
@@ -192,7 +204,9 @@ function terminateServerProcess(signal) {
 
 async function startServerIfNeeded() {
     if (process.env.E2E_ALLOW_REUSE_SERVER === 'true' && fullResetEnabled) {
-        throw new Error('E2E_ALLOW_REUSE_SERVER=true is incompatible with E2E_FULL_RESET_MODE=strict. Set E2E_FULL_RESET_MODE=off only for manual debugging against an already running server.')
+        throw new Error(
+            'E2E_ALLOW_REUSE_SERVER=true is incompatible with E2E_FULL_RESET_MODE=strict. Set E2E_FULL_RESET_MODE=off only for manual debugging against an already running server.'
+        )
     }
 
     if (await isServerReachable()) {
@@ -324,8 +338,12 @@ async function finalizeAndExit(code) {
 
 async function main() {
     try {
+        printRunnerSummary()
+
         if (playwrightArgs.includes('--no-deps')) {
-            throw new Error('Playwright --no-deps is disallowed for the E2E runner because it bypasses setup dependencies and teardown guarantees.')
+            throw new Error(
+                'Playwright --no-deps is disallowed for the E2E runner because it bypasses setup dependencies and teardown guarantees.'
+            )
         }
 
         await acquireRunLock()

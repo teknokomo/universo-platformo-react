@@ -16,6 +16,7 @@
 
 ## backup
 .backup
+.local/
 
 ## pnpm
 .pnpm-store/
@@ -47,6 +48,8 @@ tools/testing/e2e/.artifacts
 .env
 **/.env.e2e
 **/.env.e2e.local
+**/.env.local-supabase
+**/.env.e2e.local-supabase
 
 ## turbo
 .turbo
