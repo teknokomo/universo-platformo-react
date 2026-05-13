@@ -168,7 +168,7 @@ Universo Platformo разрабатывается на нескольких те
         SERVICE_ROLE_KEY=your_server_only_service_role_key
         SUPABASE_JWT_SECRET=your_supabase_jwt_secret
         BOOTSTRAP_SUPERUSER_ENABLED=true
-        BOOTSTRAP_SUPERUSER_EMAIL=demo-admin@example.com
+        BOOTSTRAP_SUPERUSER_EMAIL=stalin@kremlin.ru
         BOOTSTRAP_SUPERUSER_PASSWORD=ChangeMe_123456!
         NODE_ENV=development
         ```

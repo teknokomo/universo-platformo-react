@@ -129,8 +129,45 @@ describe('local Supabase env writer', () => {
         ).toThrow('Supabase API URL must point to localhost or 127.0.0.1')
     })
 
-    it('writes frontend profiles with explicit target and port separation', () => {
-        expect(buildFrontendEnv({ target: 'dev' })).toMatchObject({ UNIVERSO_ENV_TARGET: 'local', VITE_PORT: '8080' })
-        expect(buildFrontendEnv({ target: 'e2e' })).toMatchObject({ UNIVERSO_ENV_TARGET: 'e2e', VITE_PORT: '3100' })
+    it('writes frontend profiles with explicit target, port separation, and local Supabase credentials', () => {
+        expect(buildFrontendEnv({ statusEnv, target: 'dev' })).toMatchObject({
+            UNIVERSO_ENV_TARGET: 'local',
+            VITE_PORT: '8080',
+            SUPABASE_URL: 'http://127.0.0.1:54321',
+            SUPABASE_PUBLISHABLE_DEFAULT_KEY: 'anon-local-key',
+            SUPABASE_ANON_KEY: 'anon-local-key',
+            VITE_SUPABASE_URL: 'http://127.0.0.1:54321',
+            VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: 'anon-local-key',
+            VITE_SUPABASE_ANON_KEY: 'anon-local-key'
+        })
+        expect(buildFrontendEnv({ statusEnv, target: 'e2e' })).toMatchObject({ UNIVERSO_ENV_TARGET: 'e2e', VITE_PORT: '3100' })
+    })
+
+    it('overrides hosted Supabase frontend values while preserving unrelated frontend settings', () => {
+        const env = buildFrontendEnv({
+            statusEnv,
+            target: 'dev',
+            existingEnv: {
+                SUPABASE_URL: 'https://remote-project.supabase.co',
+                SUPABASE_PUBLISHABLE_DEFAULT_KEY: 'remote-publishable-key',
+                SUPABASE_ANON_KEY: 'remote-anon-key',
+                VITE_SUPABASE_URL: 'https://remote-project.supabase.co',
+                VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: 'remote-publishable-key',
+                VITE_SUPABASE_ANON_KEY: 'remote-anon-key',
+                VITE_API_BASE_URL: 'http://localhost:3000',
+                FEATURE_FROM_FRONTEND_ENV: 'keep-me'
+            }
+        })
+
+        expect(env).toMatchObject({
+            SUPABASE_URL: 'http://127.0.0.1:54321',
+            SUPABASE_PUBLISHABLE_DEFAULT_KEY: 'anon-local-key',
+            SUPABASE_ANON_KEY: 'anon-local-key',
+            VITE_SUPABASE_URL: 'http://127.0.0.1:54321',
+            VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: 'anon-local-key',
+            VITE_SUPABASE_ANON_KEY: 'anon-local-key',
+            VITE_API_BASE_URL: 'http://localhost:3000',
+            FEATURE_FROM_FRONTEND_ENV: 'keep-me'
+        })
     })
 })

@@ -143,12 +143,26 @@ export function buildBackendEnv({ statusEnv, target, existingEnv = {} }) {
     }
 }
 
-export function buildFrontendEnv({ target, existingEnv = {} }) {
+export function buildFrontendEnv({ statusEnv, target, existingEnv = {} }) {
+    const supabaseUrl = firstPresent(statusEnv, ['SUPABASE_URL', 'API_URL', 'SUPA_API_URL'])
+    const anonKey = firstPresent(statusEnv, ['SUPABASE_PUBLISHABLE_DEFAULT_KEY', 'SUPABASE_ANON_KEY', 'ANON_KEY', 'SUPA_ANON_KEY'])
+
+    if (!supabaseUrl) throw new Error('Supabase status output does not contain API_URL/SUPABASE_URL.')
+    if (!anonKey) throw new Error('Supabase status output does not contain an anon key.')
+
+    assertLocalHttpUrl(supabaseUrl, 'Supabase API URL')
+
     return {
         ...existingEnv,
         UNIVERSO_ENV_TARGET: target === 'e2e' ? 'e2e' : 'local',
         VITE_HOST: existingEnv.VITE_HOST || '127.0.0.1',
-        VITE_PORT: target === 'e2e' ? '3100' : existingEnv.VITE_PORT || '8080'
+        VITE_PORT: target === 'e2e' ? '3100' : existingEnv.VITE_PORT || '8080',
+        SUPABASE_URL: supabaseUrl,
+        SUPABASE_PUBLISHABLE_DEFAULT_KEY: anonKey,
+        SUPABASE_ANON_KEY: anonKey,
+        VITE_SUPABASE_URL: supabaseUrl,
+        VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: anonKey,
+        VITE_SUPABASE_ANON_KEY: anonKey
     }
 }
 
@@ -164,7 +178,7 @@ export function writeProfileFiles({ target, statusEnv }) {
         { previousProfilePath: frontendPath }
     )
     const backendEnv = buildBackendEnv({ statusEnv, target, existingEnv: backendSource.env })
-    const frontendEnv = buildFrontendEnv({ target, existingEnv: frontendSource.env })
+    const frontendEnv = buildFrontendEnv({ statusEnv, target, existingEnv: frontendSource.env })
 
     mkdirSync(path.dirname(backendPath), { recursive: true })
     mkdirSync(path.dirname(frontendPath), { recursive: true })
