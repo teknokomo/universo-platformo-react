@@ -128,9 +128,9 @@ Currently, the React implementation in this repository is the most complete publ
 
 In our accounts, you can find repositories with Universo Platformo implementations on other technology stacks, and you can propose creating a new repository for your proposed technology stack:
 
-- GitHub account: https://github.com/teknokomo
+-   GitHub account: https://github.com/teknokomo
 
-- GitVerse account: https://gitverse.ru/teknokomo
+-   GitVerse account: https://gitverse.ru/teknokomo
 
 Each implementation shares the same strategic direction, and the high-level abstraction layer should ensure the portability of applications and platform definitions between them.
 
@@ -140,6 +140,8 @@ Each implementation shares the same strategic direction, and the high-level abst
 
 -   Node.js (>=18.15.0 <19.0.0 || ^20)
 -   PNPM (>=9)
+-   A Supabase/PostgreSQL environment. You can use either a hosted Supabase project or the local Supabase profile described below.
+-   Docker, when you use local Supabase. Install Docker Desktop or Docker Engine, start the Docker daemon, and verify `docker ps` works from your terminal before running local Supabase commands.
 
 ### Installation
 
@@ -197,6 +199,45 @@ Each implementation shares the same strategic direction, and the high-level abst
 
 6. Open [http://localhost:3000](http://localhost:3000).
 
+### Supabase Options
+
+The default `pnpm start` and `pnpm start:allclean` commands use the normal `.env` files. They can point to a hosted Supabase project or to a local Supabase instance if you write local Supabase values directly into `packages/universo-core-backend/base/.env`.
+
+For routine local work, the recommended Docker-based flow keeps hosted and local settings separate by generating gitignored local profiles:
+
+```bash
+pnpm start:local-supabase:minimal
+```
+
+Use the full stack when you need Supabase Storage, Realtime, Edge Functions, or logging services:
+
+```bash
+pnpm start:local-supabase
+```
+
+For a clean rebuild and database reset against local Supabase only:
+
+```bash
+pnpm start:allclean:local-supabase:minimal
+```
+
+For manual local development, Supabase Studio is available at [http://127.0.0.1:54323](http://127.0.0.1:54323). E2E tests do not reuse that development instance: they can start a separate local Supabase profile with API `55321`, Postgres `55322`, and Studio `55323` through:
+
+```bash
+pnpm run test:e2e:smoke:local-supabase
+```
+
+Useful lifecycle commands:
+
+```bash
+pnpm supabase:local:stop
+pnpm supabase:local:nuke
+pnpm supabase:e2e:stop
+pnpm supabase:e2e:nuke
+```
+
+`nuke` deletes the corresponding local Docker volumes/data. Use it only when you intentionally want a fresh local Supabase instance.
+
 ### Development Mode
 
 For local development, the repository also provides:
@@ -209,10 +250,10 @@ This mode is resource-intensive in the current monorepo, so routine validation i
 
 ### Turborepo Build Contract
 
-- Root builds now run on Turbo 2 task contracts with strict environment mode and local caching enabled for build artifacts.
-- Routine validation should continue to use `pnpm build` from the repository root so Turbo can reuse and repopulate the shared workspace cache correctly.
-- CI can opt into Turbo remote cache by defining `TURBO_TEAM` and `TURBO_TOKEN` secrets; local contributors do not need those variables for normal development.
-- The root task contract intentionally excludes generated `dist/`, `build/`, `coverage/`, and `.turbo/` artifacts from task inputs so repeated builds can produce real cache hits instead of self-invalidating.
+-   Root builds run on Turbo 2 task contracts with strict environment mode and local caching enabled for build artifacts.
+-   Routine validation should continue to use `pnpm build` from the repository root so Turbo can reuse and repopulate the shared workspace cache correctly.
+-   CI can opt into Turbo remote cache by defining `TURBO_TEAM` and `TURBO_TOKEN` secrets; local contributors do not need those variables for normal development.
+-   The root task contract intentionally excludes generated `dist/`, `build/`, `coverage/`, and `.turbo/` artifacts from task inputs so repeated builds can produce real cache hits instead of self-invalidating.
 
 ## Contributing
 
@@ -224,8 +265,8 @@ The project is distributed under the Omsk Open License (Basic modification with 
 
 The Omsk Open License is similar to the MIT license, but includes additional "Basic Provisions" aimed at creating a meaningful and secure public domain while protecting traditional values.
 
-AI agents are actively used in the development of this project, which are trained on many other projects / code of various free source projects, as well as many libraries and large projects are used at the heart of Universo Platformo React. 
+AI agents are actively used in the development of this project, which are trained on many other projects / code of various free source projects, as well as many libraries and large projects are used at the heart of Universo Platformo React.
 
-If you think that some code in this repository violates your copyrights, please [create an Issue](https://github.com/teknokomo/universo-platformo-react/issues ) in which describe this problem, specify which code violates your rights, show the original author's code and evidence that this code itself is not a copy of another code, describe your suggestions for problem resolution (attribution, code replacement, etc.).
+If you think that some code in this repository violates your copyrights, please [create an Issue](https://github.com/teknokomo/universo-platformo-react/issues) in which describe this problem, specify which code violates your rights, show the original author's code and evidence that this code itself is not a copy of another code, describe your suggestions for problem resolution (attribution, code replacement, etc.).
 
 In any case, thank you for your participation and contribution to the development of free software code, which directly or indirectly influenced the possibility of creating Universo Platformo / Universo Platformo React!

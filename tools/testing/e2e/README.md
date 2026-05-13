@@ -57,8 +57,10 @@ Use dedicated local-only files:
 
 -   `packages/universo-core-backend/base/.env.e2e.local`
 -   `packages/universo-core-frontend/base/.env.e2e.local`
+-   `packages/universo-core-backend/base/.env.e2e.local-supabase` for optional local Supabase E2E runs
+-   `packages/universo-core-frontend/base/.env.e2e.local-supabase` for optional local Supabase E2E runs
 
-Commit only the `.example` variants. Never commit real secrets or generated storage state.
+Commit only the standard `.example` variants. The `*.local-supabase` files are generated from the selected local Supabase CLI profile and must stay untracked. Never commit real secrets or generated storage state.
 
 Backend e2e env must contain:
 
@@ -80,8 +82,7 @@ Optional e2e-specific overrides:
 
 For large suites, raise `AUTH_LOGIN_RATE_LIMIT_MAX` in the dedicated e2e backend env instead of weakening production defaults. The browser suite legitimately performs many auth round-trips across disposable users, bootstrap-admin setup, and API-assisted provisioning.
 
-All wrapper-based E2E commands now enforce the hosted-Supabase reset contract: drop all application-owned fixed schemas, dynamic `app_*` / `mhb_*` schemas, `upl_migrations`, and Supabase auth users before the suite starts and again after the server stops. Infrastructure schemas such as `public` stay in place so startup migrations can recreate platform state on top of a valid Supabase/Postgres base.
-Direct `pnpm exec playwright test ...` commands bypass that contract and are therefore debug-only. Use the wrapper commands below for normal validation.
+All wrapper-based E2E commands now enforce the hosted-Supabase reset contract: drop all application-owned fixed schemas, dynamic `app_*` / `mhb_*` schemas, `upl_migrations`, and Supabase auth users before the suite starts and again after the server stops. Infrastructure schemas such as `public` stay in place so startup migrations can recreate platform state on top of a valid Supabase/Postgres base. Direct `pnpm exec playwright test ...` commands bypass that contract and are therefore debug-only. Use the wrapper commands below for normal validation.
 
 ## Run Modes
 
@@ -144,16 +145,14 @@ The e2e runner is intentionally single-run:
 
 Tag usage:
 
--   `@smoke`: startup/auth/access boundary checks.
-    This includes both deny-by-default admin access and positive bootstrap-admin entry.
+-   `@smoke`: startup/auth/access boundary checks. This includes both deny-by-default admin access and positive bootstrap-admin entry.
 -   `@flow`: primary user and admin workflows.
 -   `@permission`: RBAC and access-denied expectations.
 -   `@combined`: chained publication/application/connectors regressions.
 -   `@visual`: screenshot assertions for layout drift.
 -   `@generator`: on-demand snapshot generators (excluded from normal runs).
 
-Current `@flow` inventory: `30` tests across `25` files, confirmed via `pnpm exec playwright test -c tools/testing/e2e/playwright.config.mjs --grep @flow --list` on 2026-04-02.
-Current full-suite validation status: `pnpm run test:e2e:full` passed with `42/42` tests on 2026-04-02 after finishing the QA remediation wave, closing Gap D CRUD breadth, and stabilizing the combined publication-plus-schema flow.
+Current `@flow` inventory: `30` tests across `25` files, confirmed via `pnpm exec playwright test -c tools/testing/e2e/playwright.config.mjs --grep @flow --list` on 2026-04-02. Current full-suite validation status: `pnpm run test:e2e:full` passed with `42/42` tests on 2026-04-02 after finishing the QA remediation wave, closing Gap D CRUD breadth, and stabilizing the combined publication-plus-schema flow.
 
 Refresh reviewed screenshot baselines after an intentional UI change:
 
@@ -180,6 +179,20 @@ Inspect the hosted E2E Supabase state without mutating it:
 ```bash
 pnpm run test:e2e:doctor
 ```
+
+Run the fast smoke slice against local Supabase:
+
+Prerequisite: install Docker Desktop or Docker Engine, start the Docker daemon, and verify `docker ps` works. Supabase CLI uses Docker containers for the local E2E stack.
+
+```bash
+pnpm supabase:e2e:start:minimal
+pnpm run build:e2e:local-supabase
+pnpm run test:e2e:smoke:local-supabase
+```
+
+The local commands start a dedicated local E2E Supabase project, generate the local E2E profile, and run `doctor:e2e:local-supabase` before the server starts. The doctor verifies Auth, REST, service-role Admin API access, direct PostgreSQL connectivity, and JWT configuration against `localhost` only. The dedicated E2E local Supabase profile uses separate ports from development: API `55321`, database `55322`, and Studio `55323`. Use `pnpm supabase:e2e:start` or `*:local-supabase:full` only when the test needs Storage, Realtime, Edge Functions, or logging services.
+
+The generated backend profile uses `.env.e2e` when present, then `.env`, then `.env.e2e.example`, then `.env.example`, preserving unrelated settings while replacing local Supabase/PostgreSQL values and E2E-safe defaults.
 
 Preview the full reset plan without dropping schemas or deleting users:
 

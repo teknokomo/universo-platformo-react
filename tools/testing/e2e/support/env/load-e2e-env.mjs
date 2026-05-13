@@ -27,13 +27,27 @@ const parsePositiveIntegerWithMinimum = (value, fallback, minimum) => {
 }
 
 const normalizeFullResetMode = (value) => {
-    const normalized = String(value || 'strict').trim().toLowerCase()
+    const normalized = String(value || 'strict')
+        .trim()
+        .toLowerCase()
 
     if (normalized === 'strict' || normalized === 'off') {
         return normalized
     }
 
     throw new Error(`Invalid E2E_FULL_RESET_MODE value: ${value}. Expected 'strict' or 'off'.`)
+}
+
+const normalizeEnum = (name, value, allowedValues, fallback) => {
+    const normalized = String(value || fallback)
+        .trim()
+        .toLowerCase()
+
+    if (allowedValues.includes(normalized)) {
+        return normalized
+    }
+
+    throw new Error(`Invalid ${name} value: ${value}. Expected one of: ${allowedValues.join(', ')}.`)
 }
 
 const normalizeHost = (value) => {
@@ -56,6 +70,112 @@ const buildCandidateEnvFiles = (target) => {
     return ['.env']
 }
 
+const readEnvObject = (envPath) => {
+    if (!envPath || !fs.existsSync(envPath)) {
+        return {}
+    }
+
+    return dotenv.parse(fs.readFileSync(envPath, 'utf8'))
+}
+
+const inferPolicyFromPath = (explicitPath) => {
+    if (!explicitPath) return {}
+    if (explicitPath.includes('.env.e2e.local-supabase')) {
+        return { provider: 'local', isolation: 'dedicated', localSupabaseInstance: 'dedicated' }
+    }
+    if (explicitPath.includes('.env.local-supabase')) {
+        return { provider: 'local', localSupabaseInstance: 'dev' }
+    }
+    if (explicitPath.includes('.env.e2e')) {
+        return { provider: 'hosted', isolation: 'dedicated' }
+    }
+    return {}
+}
+
+export const loadE2eSupabasePolicy = (explicitBackendPath) => {
+    const mainEnv = readEnvObject(path.resolve(backendRootDir, '.env'))
+    const explicitPolicy = inferPolicyFromPath(explicitBackendPath)
+    const provider = normalizeEnum(
+        'E2E_SUPABASE_PROVIDER',
+        explicitPolicy.provider || process.env.E2E_SUPABASE_PROVIDER || mainEnv.E2E_SUPABASE_PROVIDER,
+        ['hosted', 'local'],
+        'hosted'
+    )
+    const isolation = normalizeEnum(
+        'E2E_SUPABASE_ISOLATION',
+        explicitPolicy.isolation || process.env.E2E_SUPABASE_ISOLATION || mainEnv.E2E_SUPABASE_ISOLATION,
+        ['dedicated', 'main'],
+        'dedicated'
+    )
+    const localSupabaseStack = normalizeEnum(
+        'E2E_LOCAL_SUPABASE_STACK',
+        process.env.E2E_LOCAL_SUPABASE_STACK || mainEnv.E2E_LOCAL_SUPABASE_STACK,
+        ['minimal', 'full'],
+        'minimal'
+    )
+    const localSupabaseInstance = normalizeEnum(
+        'E2E_LOCAL_SUPABASE_INSTANCE',
+        explicitPolicy.localSupabaseInstance || process.env.E2E_LOCAL_SUPABASE_INSTANCE || mainEnv.E2E_LOCAL_SUPABASE_INSTANCE,
+        ['dedicated', 'dev'],
+        'dedicated'
+    )
+    const allowMainSupabase = String(process.env.E2E_ALLOW_MAIN_SUPABASE || mainEnv.E2E_ALLOW_MAIN_SUPABASE || 'false').trim() === 'true'
+
+    return {
+        provider,
+        isolation,
+        localSupabaseStack,
+        localSupabaseInstance,
+        allowMainSupabase
+    }
+}
+
+export const assertE2eSupabasePolicyIsSafe = ({ policy, fullResetMode }) => {
+    const usesMainSupabase = policy.isolation === 'main' || (policy.provider === 'local' && policy.localSupabaseInstance === 'dev')
+
+    if (!usesMainSupabase) {
+        return
+    }
+
+    if (!policy.allowMainSupabase) {
+        throw new Error('E2E shared/main Supabase mode requires E2E_ALLOW_MAIN_SUPABASE=true.')
+    }
+
+    if (fullResetMode !== 'off') {
+        throw new Error('E2E shared/main Supabase mode requires E2E_FULL_RESET_MODE=off.')
+    }
+}
+
+export const buildE2eBackendCandidates = (policy, explicitPath) => {
+    if (explicitPath) {
+        return [explicitPath]
+    }
+
+    if (policy.provider === 'hosted' && policy.isolation === 'dedicated') {
+        return ['.env.e2e.local', '.env.e2e']
+    }
+
+    if (policy.provider === 'hosted' && policy.isolation === 'main') {
+        if (!policy.allowMainSupabase) {
+            throw new Error('Hosted E2E main Supabase mode requires E2E_ALLOW_MAIN_SUPABASE=true before .env can be used.')
+        }
+        return ['.env']
+    }
+
+    if (policy.provider === 'local' && policy.localSupabaseInstance === 'dedicated') {
+        return ['.env.e2e.local-supabase']
+    }
+
+    if (policy.provider === 'local' && policy.localSupabaseInstance === 'dev') {
+        if (!policy.allowMainSupabase) {
+            throw new Error('Local E2E dev Supabase mode requires E2E_ALLOW_MAIN_SUPABASE=true before .env.local-supabase can be used.')
+        }
+        return ['.env.local-supabase']
+    }
+
+    throw new Error(`Unsupported E2E Supabase policy: provider=${policy.provider}, instance=${policy.localSupabaseInstance}`)
+}
+
 const resolveExplicitPath = (rootDir, explicitPath) => {
     if (!explicitPath) {
         return null
@@ -73,6 +193,22 @@ const resolveEnvFile = (rootDir, explicitPath, target) => {
     return buildCandidateEnvFiles(target)
         .map((candidate) => path.resolve(rootDir, candidate))
         .find((candidate) => fs.existsSync(candidate))
+}
+
+const resolveE2eBackendEnvFile = (explicitPath, policy) => {
+    const candidates = buildE2eBackendCandidates(policy, explicitPath)
+        .map((candidate) => (path.isAbsolute(candidate) ? candidate : path.resolve(backendRootDir, candidate)))
+        .filter((candidate) => fs.existsSync(candidate))
+
+    if (candidates.length > 0) {
+        return candidates[0]
+    }
+
+    throw new Error(
+        `Unable to resolve E2E backend env file for provider=${policy.provider}, isolation=${policy.isolation}, localInstance=${
+            policy.localSupabaseInstance
+        }. Expected one of: ${buildE2eBackendCandidates(policy, explicitPath).join(', ')}`
+    )
 }
 
 const loadEnvFileIntoProcess = (envPath) => {
@@ -97,7 +233,13 @@ export function loadE2eEnvironment() {
     const envTarget = (process.env.UNIVERSO_ENV_TARGET || 'e2e').trim()
     process.env.UNIVERSO_ENV_TARGET = envTarget
 
-    const backendEnvPath = loadEnvFileIntoProcess(resolveEnvFile(backendRootDir, process.env.UNIVERSO_ENV_FILE?.trim(), envTarget))
+    const explicitBackendEnvPath = process.env.UNIVERSO_ENV_FILE?.trim()
+    const e2eSupabasePolicy = envTarget === 'e2e' ? loadE2eSupabasePolicy(explicitBackendEnvPath) : null
+    const backendEnvPath = loadEnvFileIntoProcess(
+        envTarget === 'e2e'
+            ? resolveE2eBackendEnvFile(resolveExplicitPath(backendRootDir, explicitBackendEnvPath), e2eSupabasePolicy)
+            : resolveEnvFile(backendRootDir, explicitBackendEnvPath, envTarget)
+    )
     if (backendEnvPath) {
         process.env.UNIVERSO_ENV_FILE = backendEnvPath
     }
@@ -121,6 +263,14 @@ export function loadE2eEnvironment() {
     process.env.E2E_TEST_USER_ROLE_CODENAMES = process.env.E2E_TEST_USER_ROLE_CODENAMES || 'User'
     process.env.E2E_TEST_USER_EMAIL_DOMAIN = process.env.E2E_TEST_USER_EMAIL_DOMAIN || 'example.test'
     process.env.E2E_FULL_RESET_MODE = normalizeFullResetMode(process.env.E2E_FULL_RESET_MODE)
+    if (e2eSupabasePolicy) {
+        process.env.E2E_SUPABASE_PROVIDER = e2eSupabasePolicy.provider
+        process.env.E2E_SUPABASE_ISOLATION = e2eSupabasePolicy.isolation
+        process.env.E2E_LOCAL_SUPABASE_STACK = e2eSupabasePolicy.localSupabaseStack
+        process.env.E2E_LOCAL_SUPABASE_INSTANCE = e2eSupabasePolicy.localSupabaseInstance
+        process.env.E2E_ALLOW_MAIN_SUPABASE = e2eSupabasePolicy.allowMainSupabase ? 'true' : 'false'
+        assertE2eSupabasePolicyIsSafe({ policy: e2eSupabasePolicy, fullResetMode: process.env.E2E_FULL_RESET_MODE })
+    }
     process.env.E2E_SERVER_READY_TIMEOUT_MS = String(parsePositiveInteger(process.env.E2E_SERVER_READY_TIMEOUT_MS, 300000))
     process.env.E2E_SERVER_STOP_TIMEOUT_MS = String(parsePositiveInteger(process.env.E2E_SERVER_STOP_TIMEOUT_MS, 15000))
     process.env.E2E_SERVER_POLL_INTERVAL_MS = String(parsePositiveInteger(process.env.E2E_SERVER_POLL_INTERVAL_MS, 1000))
@@ -156,6 +306,11 @@ export function loadE2eEnvironment() {
         frontendEnvPath,
         baseURL,
         fullResetMode: process.env.E2E_FULL_RESET_MODE,
+        supabaseProvider: e2eSupabasePolicy?.provider ?? null,
+        supabaseIsolation: e2eSupabasePolicy?.isolation ?? null,
+        localSupabaseStack: e2eSupabasePolicy?.localSupabaseStack ?? null,
+        localSupabaseInstance: e2eSupabasePolicy?.localSupabaseInstance ?? null,
+        allowMainSupabase: e2eSupabasePolicy?.allowMainSupabase ?? false,
         serverReadyTimeoutMs,
         serverStopTimeoutMs,
         serverPollIntervalMs

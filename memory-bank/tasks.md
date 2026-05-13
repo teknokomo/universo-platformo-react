@@ -6,6 +6,39 @@
 
 ## Current Task Ledger (Canonical)
 
+## Active: Dedicated E2E Supabase And Agent Playwright Guidance Implementation (2026-05-13)
+
+> Goal: implement the approved dedicated E2E Supabase plan with separate local Docker profile, fail-closed E2E source policy, repository-specific Playwright agent guidance, tests, and EN/RU documentation.
+> Status: in progress.
+
+-   [x] Add centralized local Supabase profile model, generated E2E workdir/config, and profile-safe CLI commands
+-   [x] Update env generation, E2E env loading, doctor/reset safeguards, and package scripts for dedicated hosted/local E2E modes
+-   [x] Harden Playwright agent skill guidance and add tests that preserve repository-specific E2E rules
+-   [x] Update README and GitBook EN/RU documentation for hosted/local dedicated E2E and discouraged shared/main modes
+-   [x] Run focused tests, formatting, docs checks, and update memory-bank progress/context
+
+## Active: Local Supabase Env Profile Generation Improvement (2026-05-13)
+
+> Goal: make local Supabase env generation preserve the full backend env contract by deriving generated profiles from `.env` or `.env.example`, replacing only local Supabase/Postgres overrides, and documenting the workflow in EN/RU README and GitBook docs.
+> Status: completed. Local Supabase env profiles now preserve the normal `.env` / `.env.example` contract and only replace local Supabase/Postgres values, with docs and tests updated.
+
+-   [x] Update the local Supabase env generator to use `.env` as the preferred backend base, `.env.example` as fallback, and the minimal generated template only when neither exists.
+-   [x] Remove obsolete local Supabase backend example duplication and align tests with the generated-profile source order.
+-   [x] Update backend README and GitBook docs in English and Russian with the preserved-settings workflow, local/hosted switching, E2E behavior, and allclean local command.
+-   [x] Run focused local Supabase tooling tests and update memory-bank progress/context.
+
+## Active: Local Supabase Docker Switch Implementation (2026-05-13)
+
+> Goal: implement a safe local Supabase Docker profile for development and E2E, including explicit env switching, doctor checks, tests, and GitBook documentation.
+> Status: completed. Local Supabase can now be started through the CLI on a localhost-bound Docker network, generated local dev/E2E env profiles stay gitignored, doctor checks guard local destructive flows, and focused tests/docs cover the workflow.
+
+-   [x] Add Supabase CLI/Docker local configuration and root scripts for init/start/status/stop/nuke without changing default remote Supabase behavior.
+-   [x] Add explicit local development and E2E env profile generation with safe local-host guards and no committed secrets.
+-   [x] Add `supabase:doctor` checks for Auth, REST, PostgreSQL, JWT/service-role configuration, and local Docker/CLI readiness.
+-   [x] Add focused Vitest/Jest/Playwright-adjacent coverage for scripts, env switching, JWT/Auth assumptions, and command contracts.
+-   [x] Update README and GitBook docs in EN/RU with local/remote switching, troubleshooting, and E2E usage.
+-   [x] Run targeted validation and update memory-bank progress/context.
+
 ## Active: Scoped Widget Visibility Lint And Generic Menu Closure (2026-05-13)
 
 > Goal: close the final QA findings by fixing frontend lint formatting and removing the remaining catalog/page-only menu item editor path in favor of generic layout-capable Entity section targets.
@@ -682,3 +715,16 @@ All phases of the entity-first final migration completed:
 -   [x] Run focused backend tests for metahub import and application sync
 -   [x] Run Playwright proof for LMS required-workspace import/sync and generic non-workspace runtime sharing
 -   [x] Record the completed remediation in `memory-bank/progress.md`
+
+## Active: Local Supabase Minimal App Start Commands (2026-05-13)
+
+-   [x] Add root app-start commands for the minimal local Supabase stack
+-   [x] Keep minimal allclean behind local Supabase startup, doctor checks, and explicit local env profiles
+-   [x] Cover the minimal command contract in local Supabase tool tests
+-   [x] Update backend README and GitBook EN/RU quick-start/configuration docs
+-   [x] Document the default local Supabase Studio URL and distinguish Studio (`:54323`) from the API (`:54321`)
+
+## Planned: Dedicated E2E Supabase And Agent Playwright Guidance (2026-05-13)
+
+-   [ ] Review and approve [e2e-dedicated-supabase-and-agent-playwright-guidance-plan-2026-05-13.md](plan/e2e-dedicated-supabase-and-agent-playwright-guidance-plan-2026-05-13.md)
+-   [ ] Implement separate local E2E Supabase profile, source policy guards, and repository-specific Playwright skill guidance after approval

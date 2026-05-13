@@ -3,13 +3,28 @@ name: playwright-best-practices
 description: Use when writing Playwright tests, fixing flaky tests, debugging failures, implementing Page Object Model, configuring CI/CD, optimizing performance, mocking APIs, handling authentication or OAuth, testing accessibility (axe-core), file uploads/downloads, date/time mocking, WebSockets, geolocation, permissions, multi-tab/popup flows, mobile/responsive layouts, touch gestures, GraphQL, error handling, offline mode, multi-user collaboration, third-party services (payments, email verification), console error monitoring, global setup/teardown, test annotations (skip, fixme, slow), test tags (@smoke, @fast, @critical, filtering with --grep), project dependencies, security testing (XSS, CSRF, auth), performance budgets (Web Vitals, Lighthouse), iframes, component testing, canvas/WebGL, service workers/PWA, test coverage, i18n/localization, Electron apps, or browser extension testing. Covers E2E, component, API, visual, accessibility, security, Electron, and extension testing.
 license: MIT
 metadata:
-  author: currents.dev
-  version: "1.1"
+    author: currents.dev
+    version: '1.1'
 ---
 
 # Playwright Best Practices
 
 This skill provides comprehensive guidance for all aspects of Playwright test development, from writing new tests to debugging and maintaining existing test suites.
+
+## Universo Platformo Repository Rules
+
+These repository-specific rules override the generic Playwright guidance below when working in `upstream-universo-platformo-react`.
+
+-   Use Playwright CLI wrapper commands by default; do not run `pnpm dev` for browser E2E testing.
+-   The E2E application runs on `http://127.0.0.1:3100`, not port `3000`.
+-   The normal manual application can run on port `3000`; do not confuse it with E2E.
+-   For screenshots and browser CLI checks, target `http://127.0.0.1:3100` unless the user explicitly asks for the manual app.
+-   Use hosted dedicated Supabase by default through `packages/universo-core-backend/base/.env.e2e` or `.env.e2e.local`.
+-   Use local Supabase only when the user asks for it, when hosted Supabase is unavailable, or when the local-Supabase workflow is the target of the task.
+-   For local Supabase E2E, use the dedicated E2E Supabase instance and the minimal stack by default.
+-   Use the full local Supabase stack only when Storage, Realtime, Edge Functions, or logging/analytics are under test.
+-   Treat `tools/testing/e2e/run-playwright-suite.mjs` as the owner of app startup and cleanup.
+-   Repository details live in [references/universo-e2e.md](references/universo-e2e.md).
 
 ## Activity-Based Reference Guide
 
@@ -296,8 +311,8 @@ After writing or modifying tests:
 
 1. **Run tests**: `npx playwright test --reporter=list`
 2. **If tests fail**:
-   - Review error output and trace (`npx playwright show-trace`)
-   - Fix locators, waits, or assertions
-   - Re-run tests
+    - Review error output and trace (`npx playwright show-trace`)
+    - Fix locators, waits, or assertions
+    - Re-run tests
 3. **Only proceed when all tests pass**
 4. **Run multiple times** for critical tests: `npx playwright test --repeat-each=5`

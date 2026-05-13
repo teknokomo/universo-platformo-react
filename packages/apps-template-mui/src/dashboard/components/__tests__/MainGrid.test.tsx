@@ -39,11 +39,14 @@ interface MockPaginationControlsProps {
 interface MockStatCardProps {
     title: string
     value: string
+    trendLabel?: string
+    data?: number[]
 }
 
 interface MockChartProps {
     title?: string
     value?: string
+    trendLabel?: string
     xAxisData?: string[]
     series?: Array<{ label: string; data: number[] }>
     noDataText?: string
@@ -80,6 +83,7 @@ vi.mock('../PageViewsBarChart', () => ({
             data-series-length={String(props.series?.length ?? -1)}
             data-x-axis-length={String(props.xAxisData?.length ?? -1)}
             data-first-label={props.series?.[0]?.label ?? ''}
+            data-trend-label={props.trendLabel ?? ''}
             data-no-data-text={props.noDataText ?? ''}
         >
             {props.title ?? 'Page views'}:{props.value ?? ''}:{props.xAxisData?.join('|') ?? ''}:{props.series?.[0]?.data.join('|') ?? ''}
@@ -93,6 +97,7 @@ vi.mock('../SessionsChart', () => ({
             data-series-length={String(props.series?.length ?? -1)}
             data-x-axis-length={String(props.xAxisData?.length ?? -1)}
             data-first-label={props.series?.[0]?.label ?? ''}
+            data-trend-label={props.trendLabel ?? ''}
             data-no-data-text={props.noDataText ?? ''}
         >
             {props.title ?? 'Sessions'}:{props.value ?? ''}:{props.xAxisData?.join('|') ?? ''}:{props.series?.[0]?.data.join('|') ?? ''}
@@ -100,7 +105,15 @@ vi.mock('../SessionsChart', () => ({
     )
 }))
 vi.mock('../StatCard', () => ({
-    default: (props: MockStatCardProps) => <div data-testid='stat-card'>{`${props.title}:${props.value}`}</div>
+    default: (props: MockStatCardProps) => (
+        <div
+            data-testid='stat-card'
+            data-trend-label={props.trendLabel ?? ''}
+            data-series-sum={String(props.data?.reduce((sum, value) => sum + value, 0) ?? 0)}
+        >
+            {`${props.title}:${props.value}`}
+        </div>
+    )
 }))
 vi.mock('../widgetRenderer', () => ({
     renderWidget: (widget: { widgetKey: string }) => <div data-testid={`rendered-widget-${widget.widgetKey}`}>{widget.widgetKey}</div>
@@ -306,6 +319,8 @@ describe('MainGrid enhanced runtime details', () => {
         )
 
         await waitFor(() => expect(screen.getByTestId('stat-card')).toHaveTextContent('Курсы:42'))
+        expect(screen.getByTestId('stat-card')).toHaveAttribute('data-trend-label', '0%')
+        expect(screen.getByTestId('stat-card')).toHaveAttribute('data-series-sum', '0')
         const requestedUrl = new URL(fetchMock.mock.calls[0][0] as string)
         expect(requestedUrl.searchParams.get('limit')).toBe('1')
         expect(requestedUrl.searchParams.get('linkedCollectionId')).toBe('017f22e2-79b0-7cc3-98c4-dc0c0c073990')
@@ -548,6 +563,7 @@ describe('MainGrid enhanced runtime details', () => {
         expect(screen.getByTestId('sessions-chart')).toHaveAttribute('data-series-length', '1')
         expect(screen.getByTestId('sessions-chart')).toHaveAttribute('data-x-axis-length', '0')
         expect(screen.getByTestId('sessions-chart')).toHaveAttribute('data-first-label', 'Завершено')
+        expect(screen.getByTestId('sessions-chart')).toHaveAttribute('data-trend-label', '0%')
         expect(screen.getByTestId('sessions-chart')).toHaveAttribute('data-no-data-text', 'Нет данных для отображения')
     })
 
