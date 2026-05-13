@@ -150,9 +150,9 @@ async function applyEnhancedLayoutConfig(api: ApiContext, metahubId: string) {
     return layoutId
 }
 
-async function createSettingsCatalogLayoutOverride(api: ApiContext, metahubId: string, catalogId: string, baseLayoutId: string) {
+async function createSettingsScopedLayoutOverride(api: ApiContext, metahubId: string, scopeEntityId: string, baseLayoutId: string) {
     const created = await createLayout(api, metahubId, {
-        linkedCollectionId: catalogId,
+        scopeEntityId,
         baseLayoutId,
         templateKey: 'dashboard',
         name: SELF_HOSTED_APP_SETTINGS_LAYOUT.name,
@@ -167,7 +167,7 @@ async function createSettingsCatalogLayoutOverride(api: ApiContext, metahubId: s
         isDefault: true
     })
 
-    expect(created?.linkedCollectionId ?? created?.data?.linkedCollectionId).toBe(catalogId)
+    expect(created?.scopeEntityId ?? created?.data?.scopeEntityId).toBe(scopeEntityId)
     expect(created?.baseLayoutId ?? created?.data?.baseLayoutId).toBe(baseLayoutId)
 
     const settingsLayoutId = created?.id ?? created?.data?.id
@@ -423,7 +423,7 @@ test.describe('Metahubs Self-Hosted App Export', () => {
         const defaultLayoutId = await applyEnhancedLayoutConfig(api, metahubId)
 
         if (sectionMap.settings) {
-            const settingsLayoutId = await createSettingsCatalogLayoutOverride(api, metahubId, sectionMap.settings, defaultLayoutId)
+            const settingsLayoutId = await createSettingsScopedLayoutOverride(api, metahubId, sectionMap.settings, defaultLayoutId)
             expect(typeof settingsLayoutId).toBe('string')
         }
 

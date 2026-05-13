@@ -52,6 +52,6 @@ description: Как администраторы приложения настр
 
 ## Связанные материалы
 
-- [Макеты каталогов](catalog-layouts.md)
+- [Макеты, привязанные к сущностям](entity-scoped-layouts.md)
 - [Приложения](../platform/applications.md)
 - [Обновление схем системных приложений](updating-system-app-schemas.md)

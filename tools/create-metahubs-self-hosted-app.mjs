@@ -241,7 +241,7 @@ async function main() {
             await api('PATCH', `/metahub/${metahubId}/layout/${layoutId}/zone-widget/${primaryMenuWidget.id}/config`, {
                 config: {
                     ...(primaryMenuWidget.config && typeof primaryMenuWidget.config === 'object' ? primaryMenuWidget.config : {}),
-                    autoShowAllCatalogs: true,
+                    autoShowAllSections: true,
                     showTitle: true,
                     title: buildVLC(SELF_HOSTED_APP_LAYOUT.menuTitle.en, SELF_HOSTED_APP_LAYOUT.menuTitle.ru)
                 }
@@ -251,7 +251,7 @@ async function main() {
                 zone: 'left',
                 widgetKey: 'menuWidget',
                 config: {
-                    autoShowAllCatalogs: true,
+                    autoShowAllSections: true,
                     showTitle: true,
                     title: buildVLC(SELF_HOSTED_APP_LAYOUT.menuTitle.en, SELF_HOSTED_APP_LAYOUT.menuTitle.ru)
                 }

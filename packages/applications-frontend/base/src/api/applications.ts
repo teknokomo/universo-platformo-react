@@ -285,14 +285,14 @@ export const listApplicationLayoutScopes = async (applicationId: string, locale?
 
 export const listApplicationLayouts = async (
     applicationId: string,
-    params?: PaginationParams & { linkedCollectionId?: string | null }
+    params?: PaginationParams & { scopeEntityId?: string | null }
 ): Promise<PaginatedResponse<ApplicationLayout>> => {
     const response = await apiClient.get<{ items: ApplicationLayout[]; total: number }>(`/applications/${applicationId}/layouts`, {
         params: {
             limit: params?.limit,
             offset: params?.offset,
-            linkedCollectionId: params?.linkedCollectionId ?? undefined,
-            scope: params?.linkedCollectionId === null ? 'global' : undefined
+            scopeEntityId: params?.scopeEntityId ?? undefined,
+            scope: params?.scopeEntityId === null ? 'global' : undefined
         }
     })
     const items = response.data.items ?? []

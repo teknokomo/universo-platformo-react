@@ -362,11 +362,18 @@ export function renderWidget(widget: ZoneWidgetItem, menus?: DashboardMenusMap, 
             if (depth >= MAX_CONTAINER_DEPTH) return null
             const colConfig = widget.config as unknown as ColumnsContainerConfig | undefined
             if (!colConfig?.columns || !Array.isArray(colConfig.columns) || colConfig.columns.length === 0) return null
+            const activeColumns = colConfig.columns
+                .map((col) => ({
+                    ...col,
+                    widgets: (col.widgets ?? []).filter((childWidget) => childWidget.isActive !== false)
+                }))
+                .filter((col) => col.widgets.length > 0)
+            if (activeColumns.length === 0) return null
             return (
                 <Grid key={widget.id} container spacing={2} sx={{ width: '100%' }}>
-                    {colConfig.columns.map((col) => (
+                    {activeColumns.map((col) => (
                         <Grid key={col.id} size={{ xs: 12, md: col.width }}>
-                            {(col.widgets ?? []).map((w, wIdx) => {
+                            {col.widgets.map((w, wIdx) => {
                                 const inner: ZoneWidgetItem = {
                                     id: w.id ?? `${col.id}-w${wIdx}`,
                                     widgetKey: w.widgetKey,

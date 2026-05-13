@@ -31,6 +31,7 @@ Frontend application for managing applications and connectors in the Universo Pl
 
 ### 🧩 Layouts
 - **Application Layouts**: Application admins can customize metahub-published layouts and create application-owned layouts.
+- **Entity Scopes**: Global layouts and entity-scoped layouts share one authoring model, so Home-only widgets can stay scoped to a Page while other runtime sections use the global shell.
 - **Source Awareness**: Layout cards show whether a layout came from a metahub publication or from the application.
 - **Runtime-Safe Toggles**: Inactive layouts and widgets remain editable but are excluded from runtime rendering.
 

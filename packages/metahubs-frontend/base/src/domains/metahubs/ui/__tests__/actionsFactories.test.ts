@@ -176,7 +176,7 @@ describe('Metahubs page action factories', () => {
         expect(del?.dialog || del?.onSelect).toBeTruthy()
     }, 30000)
 
-    it('LinkedCollectionEntity edit dialog passes metahub and catalog context into the layout tab', async () => {
+    it('LinkedCollectionEntity edit dialog passes metahub and entity scope context into the layout tab', async () => {
         const mod = await import('../../../entities/presets/ui/LinkedCollectionActions')
 
         const descriptors = asDialogDescriptors(mod.default)
@@ -220,7 +220,7 @@ describe('Metahubs page action factories', () => {
 
         expect(layoutTab).toBeTruthy()
         expect(layoutTab.content.props.metahubId).toBe('metahub-1')
-        expect(layoutTab.content.props.linkedCollectionId).toBe('catalog-1')
+        expect(layoutTab.content.props.scopeEntityId).toBe('catalog-1')
     })
 
     it('LinkedCollectionEntity copy dialog build props remain callable for fire-and-forget copy flows', async () => {

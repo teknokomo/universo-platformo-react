@@ -262,7 +262,7 @@ export interface ApplicationRuntimeLinkedCollection {
 
 export interface ApplicationRuntimeMenuItem {
     id: string
-    kind: 'catalog' | 'section' | 'catalogs_all' | 'hub' | 'link'
+    kind: 'section' | 'hub' | 'link'
     title: string
     icon?: string | null
     href?: string | null
@@ -278,7 +278,7 @@ export interface ApplicationRuntimeMenu {
     widgetId: string
     showTitle?: boolean
     title?: string
-    autoShowAllCatalogs?: boolean
+    autoShowAllSections?: boolean
     items: ApplicationRuntimeMenuItem[]
 }
 

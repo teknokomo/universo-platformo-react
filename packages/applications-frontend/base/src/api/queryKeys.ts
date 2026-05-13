@@ -57,14 +57,14 @@ export const applicationsQueryKeys = {
 
     layouts: (applicationId: string) => [...applicationsQueryKeys.detail(applicationId), 'layouts'] as const,
 
-    layoutsList: (applicationId: string, params?: PaginationParams & { linkedCollectionId?: string | null }) => {
+    layoutsList: (applicationId: string, params?: PaginationParams & { scopeEntityId?: string | null }) => {
         const normalized = {
             limit: params?.limit ?? 50,
             offset: params?.offset ?? 0,
             sortBy: params?.sortBy ?? 'sortOrder',
             sortOrder: params?.sortOrder ?? 'asc',
             search: params?.search?.trim() || undefined,
-            linkedCollectionId: params?.linkedCollectionId ?? undefined
+            scopeEntityId: params?.scopeEntityId ?? undefined
         }
         return [...applicationsQueryKeys.layouts(applicationId), 'list', normalized] as const
     },

@@ -13,7 +13,7 @@ const mockCreateScriptsTab = vi.fn((props: Record<string, unknown>) => ({
 vi.mock('../../../../layouts/ui/LayoutList', () => ({
     default: (props: Record<string, unknown>) => {
         mockLayoutList(props)
-        return <div data-testid='catalog-layout-list' />
+        return <div data-testid='entity-layout-list' />
     }
 }))
 
@@ -121,7 +121,7 @@ describe('Settings-origin shared form tabs', () => {
         mockCreateScriptsTab.mockClear()
     })
 
-    it('renders the catalog layout manager and scripts tab when the edit context carries metahubId', () => {
+    it('renders the entity layout manager and scripts tab when the edit context carries metahubId', () => {
         const tabs = buildLinkedCollectionFormTabs(
             createLinkedCollectionContext('metahub-1'),
             [baseHub] as never[],
@@ -138,16 +138,16 @@ describe('Settings-origin shared form tabs', () => {
         const layoutTab = tabs.find((tab) => tab.id === 'layout')
         renderWithProviders(layoutTab?.content)
 
-        expect(screen.getByTestId('catalog-layout-list')).toBeInTheDocument()
+        expect(screen.getByTestId('entity-layout-list')).toBeInTheDocument()
         expect(mockLayoutList).toHaveBeenCalledWith(
             expect.objectContaining({
-                linkedCollectionId: 'catalog-1',
+                scopeEntityId: 'catalog-1',
                 metahubId: 'metahub-1'
             })
         )
     })
 
-    it('still renders the catalog layout manager when metahubId is available on the edited entity', () => {
+    it('still renders the entity layout manager when metahubId is available on the edited entity', () => {
         const tabs = buildLinkedCollectionFormTabs(
             createLinkedCollectionContext(null),
             [baseHub] as never[],
@@ -164,10 +164,10 @@ describe('Settings-origin shared form tabs', () => {
         const layoutTab = tabs.find((tab) => tab.id === 'layout')
         renderWithProviders(layoutTab?.content)
 
-        expect(screen.getByTestId('catalog-layout-list')).toBeInTheDocument()
+        expect(screen.getByTestId('entity-layout-list')).toBeInTheDocument()
         expect(mockLayoutList).toHaveBeenCalledWith(
             expect.objectContaining({
-                linkedCollectionId: 'catalog-1',
+                scopeEntityId: 'catalog-1',
                 metahubId: 'metahub-1'
             })
         )

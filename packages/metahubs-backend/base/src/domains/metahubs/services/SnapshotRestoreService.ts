@@ -1065,17 +1065,17 @@ export class SnapshotRestoreService {
         userId: string
     ): Promise<void> {
         const layouts = snapshot.layouts ?? []
-        const catalogLayouts = snapshot.catalogLayouts ?? []
-        const overrides = snapshot.catalogLayoutWidgetOverrides ?? []
+        const scopedLayouts = snapshot.scopedLayouts ?? []
+        const overrides = snapshot.layoutWidgetOverrides ?? []
         const widgetTableName = await resolveWidgetTableName(qb, this.schemaName)
 
         // Fresh branch initialization seeds a default dashboard layout. Snapshot import
         // must replace that template seed with the snapshot's canonical layout set.
         await qb.withSchema(this.schemaName).from(widgetTableName).del()
-        await qb.withSchema(this.schemaName).from('_mhb_catalog_widget_overrides').del()
+        await qb.withSchema(this.schemaName).from('_mhb_layout_widget_overrides').del()
         await qb.withSchema(this.schemaName).from('_mhb_layouts').del()
 
-        if (!layouts.length && !catalogLayouts.length) return
+        if (!layouts.length && !scopedLayouts.length) return
 
         const now = new Date()
         const layoutIdMap = new Map<string, string>() // old layout id → new layout id
@@ -1086,7 +1086,7 @@ export class SnapshotRestoreService {
                 .withSchema(this.schemaName)
                 .into('_mhb_layouts')
                 .insert({
-                    catalog_id: null,
+                    scope_entity_id: null,
                     base_layout_id: null,
                     template_key: layout.templateKey ?? 'dashboard',
                     name: layout.name ?? {},
@@ -1113,12 +1113,12 @@ export class SnapshotRestoreService {
             layoutIdMap.set(layout.id, inserted.id)
         }
 
-        for (const layout of catalogLayouts) {
-            const newLinkedCollectionId = entityIdMap.get(layout.linkedCollectionId)
+        for (const layout of scopedLayouts) {
+            const newScopeEntityId = entityIdMap.get(layout.scopeEntityId)
             const newBaseLayoutId = layoutIdMap.get(layout.baseLayoutId)
 
-            if (!newLinkedCollectionId || !newBaseLayoutId) {
-                log.warn(`Catalog layout ${layout.id} has unresolved references, skipping restore`)
+            if (!newScopeEntityId || !newBaseLayoutId) {
+                log.warn(`Scoped layout ${layout.id} has unresolved references, skipping restore`)
                 continue
             }
 
@@ -1126,7 +1126,7 @@ export class SnapshotRestoreService {
                 .withSchema(this.schemaName)
                 .into('_mhb_layouts')
                 .insert({
-                    catalog_id: newLinkedCollectionId,
+                    scope_entity_id: newScopeEntityId,
                     base_layout_id: newBaseLayoutId,
                     template_key: layout.templateKey ?? 'dashboard',
                     name: layout.name ?? {},
@@ -1193,19 +1193,19 @@ export class SnapshotRestoreService {
         if (!overrides.length) return
 
         for (const override of overrides) {
-            const newCatalogLayoutId = layoutIdMap.get(override.catalogLayoutId)
+            const newScopedLayoutId = layoutIdMap.get(override.layoutId)
             const newBaseWidgetId = widgetIdMap.get(override.baseWidgetId)
 
-            if (!newCatalogLayoutId || !newBaseWidgetId) {
-                log.warn(`Catalog widget override ${override.id} has unresolved references, skipping restore`)
+            if (!newScopedLayoutId || !newBaseWidgetId) {
+                log.warn(`Layout widget override ${override.id} has unresolved references, skipping restore`)
                 continue
             }
 
             await qb
                 .withSchema(this.schemaName)
-                .into('_mhb_catalog_widget_overrides')
+                .into('_mhb_layout_widget_overrides')
                 .insert({
-                    catalog_layout_id: newCatalogLayoutId,
+                    layout_id: newScopedLayoutId,
                     base_widget_id: newBaseWidgetId,
                     zone: override.zone ?? null,
                     sort_order: override.sortOrder ?? null,

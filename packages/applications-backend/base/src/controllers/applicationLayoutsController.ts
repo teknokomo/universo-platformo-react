@@ -126,16 +126,16 @@ export function createApplicationLayoutsController(getDbExecutor: () => DbExecut
             const executor = getRequestDbExecutor(req, getDbExecutor())
             const ctx = await ensureSchema(req, res, await resolveReadRoles(executor, req.params.applicationId))
             if (!ctx) return
-            const linkedCollectionId =
-                typeof req.query.linkedCollectionId === 'string'
-                    ? req.query.linkedCollectionId || null
+            const scopeEntityId =
+                typeof req.query.scopeEntityId === 'string'
+                    ? req.query.scopeEntityId || null
                     : req.query.scope === 'global'
                     ? null
                     : undefined
             const result = await listApplicationLayouts(ctx.executor, ctx.schemaName, {
                 limit: parseLimit(req.query.limit),
                 offset: parseOffset(req.query.offset),
-                linkedCollectionId
+                scopeEntityId
             })
             res.json(result)
         },

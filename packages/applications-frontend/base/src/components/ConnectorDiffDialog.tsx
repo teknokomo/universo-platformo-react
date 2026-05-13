@@ -292,10 +292,14 @@ export function ConnectorDiffDialog({
             const tablesCount = typeof summaryParams?.tablesCount === 'number' ? summaryParams.tablesCount : 0
             const entitiesCount = typeof summaryParams?.entitiesCount === 'number' ? summaryParams.entitiesCount : 0
             if (entitiesCount > 0) {
-                return t('connectors.diffDialog.summary.createEntities', 'Create {{entities}} entities and {{tables}} tables in new schema', {
-                    entities: entitiesCount,
-                    tables: tablesCount
-                })
+                return t(
+                    'connectors.diffDialog.summary.createEntities',
+                    'Create {{entities}} entities and {{tables}} tables in new schema',
+                    {
+                        entities: entitiesCount,
+                        tables: tablesCount
+                    }
+                )
             }
             return t('connectors.diffDialog.summary.create', 'Create {{count}} tables in new schema', { count: tablesCount })
         }
@@ -674,11 +678,11 @@ export function ConnectorDiffDialog({
             rawMetrics.length > 0
                 ? rawMetrics
                 : fieldsCount > 0 || (entity.recordsCount ?? 0) > 0
-                  ? [
-                        { key: 'fields', count: fieldsCount },
-                        { key: 'elements', count: entity.recordsCount ?? 0 }
-                    ]
-                  : []
+                ? [
+                      { key: 'fields', count: fieldsCount },
+                      { key: 'elements', count: entity.recordsCount ?? 0 }
+                  ]
+                : []
         return metrics.map(getEntityMetricLabel).join(', ')
     }
 
@@ -765,7 +769,9 @@ export function ConnectorDiffDialog({
                                                                     rawField.name,
                                                                     uiLocale,
                                                                     useLocalizedSchemaDiffLabels
-                                                                ) || field.displayCodename || field.codename
+                                                                ) ||
+                                                                field.displayCodename ||
+                                                                field.codename
                                                             return (
                                                                 <TableRow key={field.id}>
                                                                     <TableCell>
@@ -817,7 +823,9 @@ export function ConnectorDiffDialog({
                                                                         rawField.name,
                                                                         uiLocale,
                                                                         useLocalizedSchemaDiffLabels
-                                                                    ) || field.displayCodename || field.codename
+                                                                    ) ||
+                                                                    field.displayCodename ||
+                                                                    field.codename
                                                                 return <TableCell key={field.id}>{label}</TableCell>
                                                             })}
                                                         </TableRow>

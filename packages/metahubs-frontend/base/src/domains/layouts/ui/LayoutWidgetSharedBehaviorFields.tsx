@@ -53,7 +53,7 @@ export default function LayoutWidgetSharedBehaviorFields({ value, onChange, disa
                 <Typography variant='body2' color='text.secondary'>
                     {t(
                         'layouts.sharedBehavior.description',
-                        'Control how inherited catalog layouts can exclude, deactivate, or move this widget.'
+                        'Control how inherited scoped layouts can exclude, deactivate, or move this widget.'
                     )}
                 </Typography>
             </Stack>

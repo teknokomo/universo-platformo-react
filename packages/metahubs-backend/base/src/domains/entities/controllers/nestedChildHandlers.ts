@@ -1,9 +1,8 @@
 import { z } from 'zod'
-import type { RequestHandler } from 'express'
 import { OptimisticLockError } from '@universo/utils'
 import { queryMany, queryOne } from '@universo/utils/database'
 import { qSchemaTable } from '@universo/database'
-import type { createMetahubHandlerFactory } from '../../shared/createMetahubHandler'
+import type { createMetahubHandlerFactory, MetahubHandlerContext } from '../../shared/createMetahubHandler'
 import { MetahubConflictError, MetahubNotFoundError } from '../../shared/domainErrors'
 import { isUniqueViolation } from '@universo/utils/database'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
@@ -134,7 +133,7 @@ export function createNestedChildHandlers(createHandler: ReturnType<typeof creat
     ) => fixedValuesService.findSetReferenceBlockers(metahubId, valueGroupId, userId, compatibleSetKinds)
 
     const upsertNestedValueGroup = async (
-        { req, res, metahubId, userId, exec, schemaService }: Parameters<RequestHandler>[0] extends never ? never : any,
+        { req, res, metahubId, userId, exec, schemaService }: MetahubHandlerContext,
         mode: 'create' | 'update'
     ) => {
         const { treeEntityId, valueGroupId } = req.params

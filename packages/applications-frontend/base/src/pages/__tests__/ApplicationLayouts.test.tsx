@@ -174,7 +174,7 @@ describe('ApplicationLayouts', () => {
         localStorage.clear()
 
         apiMocks.listApplicationLayoutScopes.mockResolvedValue([
-            { id: 'global', scopeKind: 'global', linkedCollectionId: null, kind: null, tableName: null, codename: {}, name: 'Global' }
+            { id: 'global', scopeKind: 'global', scopeEntityId: null, kind: null, tableName: null, codename: {}, name: 'Global' }
         ])
         apiMocks.listApplicationLayouts.mockResolvedValue({
             items: [
@@ -182,7 +182,7 @@ describe('ApplicationLayouts', () => {
                     id: 'layout-1',
                     scopeId: 'global',
                     scopeKind: 'global',
-                    linkedCollectionId: null,
+                    scopeEntityId: null,
                     templateKey: 'dashboard',
                     name: { en: 'Homepage' },
                     description: null,
@@ -207,7 +207,7 @@ describe('ApplicationLayouts', () => {
                 id: 'layout-1',
                 scopeId: 'global',
                 scopeKind: 'global',
-                linkedCollectionId: null,
+                scopeEntityId: null,
                 templateKey: 'dashboard',
                 name: { en: 'Homepage' },
                 description: null,

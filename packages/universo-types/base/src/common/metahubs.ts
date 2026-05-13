@@ -852,8 +852,8 @@ export type DashboardLayoutWidgetDefinition = {
 export interface MenuWidgetConfig {
     showTitle: boolean
     title: VersionedLocalizedContent<string>
-    /** When true, runtime automatically includes all catalogs as menu items. */
-    autoShowAllCatalogs: boolean
+    /** When true, runtime automatically includes all renderable Entity sections as menu items. */
+    autoShowAllSections: boolean
     /** Enables direct binding of this menu widget to a specific hub. */
     bindToHub?: boolean
     /** Hub ID used when direct binding is enabled. */
@@ -880,10 +880,9 @@ export interface MenuWidgetConfigItem {
     title: VersionedLocalizedContent<string>
     icon?: string | null
     href?: string | null
-    catalogId?: string | null
-    /** Runtime/application alias for catalogId. */
+    /** Runtime/application alias for the selected Entity section. */
     linkedCollectionId?: string | null
-    /** Runtime/application alias for catalogId, or Page id/codename for page items. */
+    /** Selected Entity section id or codename. */
     sectionId?: string | null
     hubId?: string | null
     /** Runtime/application alias for hubId. */
@@ -912,6 +911,8 @@ export interface ColumnsContainerColumnWidget {
     widgetKey: DashboardLayoutWidgetKey
     /** Ordered position inside the column. */
     sortOrder?: number
+    /** Whether this nested widget should render. */
+    isActive?: boolean
     /** Nested widget-specific config. */
     config?: Record<string, unknown>
 }
@@ -948,7 +949,7 @@ export interface QuizWidgetConfig {
 
 // ========= Menu item kinds (used by MenuWidgetConfig) =========
 
-export const METAHUB_MENU_ITEM_KINDS = ['catalog', 'catalogs_all', 'hub', 'page', 'ledger', 'link'] as const
+export const METAHUB_MENU_ITEM_KINDS = ['section', 'hub', 'link'] as const
 export type MetahubMenuItemKind = (typeof METAHUB_MENU_ITEM_KINDS)[number]
 
 // ========= Template Manifest Types =========
@@ -1099,6 +1100,13 @@ export interface TemplateSeedLayout {
     config?: Record<string, unknown>
 }
 
+/** Seed scoped layout definition, attached to any entity whose type supports layoutConfig. */
+export interface TemplateSeedScopedLayout extends TemplateSeedLayout {
+    baseLayoutCodename: string
+    scopeEntityCodename: string
+    scopeEntityKind?: EntityKind
+}
+
 /** Seed zone widget assignment. */
 export interface TemplateSeedZoneWidget {
     zone: DashboardLayoutZone
@@ -1198,6 +1206,8 @@ export interface TemplateSeedScript {
 /** All seed data that populates system tables when creating a metahub from a template. */
 export interface MetahubTemplateSeed {
     layouts: TemplateSeedLayout[]
+    /** Entity-scoped layouts keyed by codename and inheriting from a global base layout. */
+    scopedLayouts?: TemplateSeedScopedLayout[]
     /** Zone widget assignments keyed by layout codename. */
     layoutZoneWidgets: Record<string, TemplateSeedZoneWidget[]>
     settings?: TemplateSeedSetting[]

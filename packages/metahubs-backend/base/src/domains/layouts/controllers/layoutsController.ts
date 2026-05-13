@@ -37,7 +37,7 @@ type SourceWidgetRow = {
     is_active?: boolean
 }
 
-type SourceCatalogWidgetOverrideRow = {
+type SourceLayoutWidgetOverrideRow = {
     base_widget_id?: string
     zone?: string | null
     sort_order?: number | null
@@ -124,9 +124,15 @@ const listQuerySchema = z.object({
     offset: z.coerce.number().int().min(0).optional(),
     sortBy: z.enum(['name', 'created', 'updated']).optional(),
     sortOrder: z.enum(['asc', 'desc']).optional(),
-    linkedCollectionId: z.string().uuid().optional(),
+    scopeEntityId: z.string().uuid().optional(),
     search: z.string().optional()
 })
+
+const updateWidgetScopeVisibilitySchema = z
+    .object({
+        isVisible: z.boolean()
+    })
+    .strict()
 
 // ---------------------------------------------------------------------------
 // Controller factory
@@ -245,8 +251,8 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
             const schemaName = await schemaService.ensureSchema(metahubId, userId)
             const layoutsQt = qSchemaTable(schemaName, '_mhb_layouts')
             const widgetsQt = qSchemaTable(schemaName, '_mhb_widgets')
-            const overridesQt = qSchemaTable(schemaName, '_mhb_catalog_widget_overrides')
-            const isCatalogLayout = typeof sourceLayout.linkedCollectionId === 'string' && typeof sourceLayout.baseLayoutId === 'string'
+            const overridesQt = qSchemaTable(schemaName, '_mhb_layout_widget_overrides')
+            const isScopedLayout = typeof sourceLayout.scopeEntityId === 'string' && typeof sourceLayout.baseLayoutId === 'string'
 
             const created = await exec.transaction(async (trx: SqlQueryable) => {
                 const now = new Date()
@@ -265,7 +271,7 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                 const createdLayout = await queryOne<Record<string, unknown>>(
                     trx,
                     `INSERT INTO ${layoutsQt} (
-            catalog_id, base_layout_id, template_key, name, description, config, is_active, is_default, sort_order, owner_id,
+            scope_entity_id, base_layout_id, template_key, name, description, config, is_active, is_default, sort_order, owner_id,
             _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by, _upl_version,
             _upl_archived, _upl_deleted, _upl_locked,
             _mhb_published, _mhb_archived, _mhb_deleted
@@ -276,8 +282,8 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
             $15, $14, $14
         ) RETURNING *`,
                     [
-                        isCatalogLayout ? sourceLayout.linkedCollectionId : null,
-                        isCatalogLayout ? sourceLayout.baseLayoutId : null,
+                        isScopedLayout ? sourceLayout.scopeEntityId : null,
+                        isScopedLayout ? sourceLayout.baseLayoutId : null,
                         sourceLayout.templateKey ?? 'dashboard',
                         JSON.stringify(nameVlc),
                         descriptionVlc ? JSON.stringify(descriptionVlc) : null,
@@ -350,12 +356,12 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                         )
                     }
 
-                    if (isCatalogLayout) {
-                        const sourceOverrides = await queryMany<SourceCatalogWidgetOverrideRow>(
+                    if (isScopedLayout) {
+                        const sourceOverrides = await queryMany<SourceLayoutWidgetOverrideRow>(
                             trx,
                             `SELECT base_widget_id, zone, sort_order, config, is_active, is_deleted_override
                              FROM ${overridesQt}
-                             WHERE catalog_layout_id = $1 AND _upl_deleted = false AND _mhb_deleted = false
+                             WHERE layout_id = $1 AND _upl_deleted = false AND _mhb_deleted = false
                              ORDER BY _upl_created_at ASC`,
                             [layoutId]
                         )
@@ -446,7 +452,7 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
 
                             await trx.query(
                                 `INSERT INTO ${overridesQt} (
-                catalog_layout_id, base_widget_id, zone, sort_order, config, is_active, is_deleted_override,
+                layout_id, base_widget_id, zone, sort_order, config, is_active, is_deleted_override,
                 _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by, _upl_version,
                 _upl_archived, _upl_deleted, _upl_locked,
                 _mhb_published, _mhb_archived, _mhb_deleted
@@ -462,7 +468,7 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
 
             return res.status(201).json({
                 id: created.id,
-                linkedCollectionId: created.catalog_id ?? null,
+                scopeEntityId: created.scope_entity_id ?? null,
                 baseLayoutId: created.base_layout_id ?? null,
                 templateKey: created.template_key ?? 'dashboard',
                 name: created.name ?? {},
@@ -681,6 +687,57 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
         { permission: 'manageMetahub' }
     )
 
+    const listWidgetScopeVisibility = createHandler(
+        async ({ req, res, metahubId, userId, exec, schemaService }) => {
+            const { layoutId, widgetId } = req.params
+
+            const uuidSchema = z.string().uuid()
+            const widgetIdResult = uuidSchema.safeParse(widgetId)
+            if (!widgetIdResult.success) {
+                return res.status(400).json({ error: 'Invalid widget ID' })
+            }
+
+            const layoutsService = new MetahubLayoutsService(exec, schemaService)
+            const items = await layoutsService.listLayoutWidgetScopeVisibility(metahubId, layoutId, widgetIdResult.data, userId)
+            return res.json({ items })
+        },
+        { permission: 'manageMetahub' }
+    )
+
+    const updateWidgetScopeVisibility = createHandler(
+        async ({ req, res, metahubId, userId, exec, schemaService }) => {
+            const { layoutId, widgetId, scopeEntityId } = req.params
+
+            const uuidSchema = z.string().uuid()
+            const widgetIdResult = uuidSchema.safeParse(widgetId)
+            const scopeEntityIdResult = uuidSchema.safeParse(scopeEntityId)
+            if (!widgetIdResult.success) {
+                return res.status(400).json({ error: 'Invalid widget ID' })
+            }
+            if (!scopeEntityIdResult.success) {
+                return res.status(400).json({ error: 'Invalid scope entity ID' })
+            }
+
+            const parsed = updateWidgetScopeVisibilitySchema.safeParse(req.body)
+            if (!parsed.success) {
+                return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
+            }
+
+            const layoutsService = new MetahubLayoutsService(exec, schemaService)
+            const items = await layoutsService.setLayoutWidgetScopeVisibility(
+                metahubId,
+                layoutId,
+                widgetIdResult.data,
+                scopeEntityIdResult.data,
+                parsed.data.isVisible,
+                userId
+            )
+            const item = items.find((row) => row.scopeEntityId === scopeEntityIdResult.data)
+            return res.json({ item })
+        },
+        { permission: 'manageMetahub' }
+    )
+
     return {
         list,
         create,
@@ -694,6 +751,8 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
         moveZoneWidget,
         removeZoneWidget,
         updateZoneWidgetConfig,
-        toggleZoneWidgetActive
+        toggleZoneWidgetActive,
+        listWidgetScopeVisibility,
+        updateWidgetScopeVisibility
     }
 }

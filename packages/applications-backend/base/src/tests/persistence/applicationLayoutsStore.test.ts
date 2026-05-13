@@ -14,7 +14,7 @@ describe('applicationLayoutsStore', () => {
             .mockResolvedValueOnce([
                 {
                     id: 'layout-1',
-                    catalog_id: null,
+                    scope_entity_id: null,
                     template_key: 'dashboard',
                     name: { en: 'Main' },
                     description: null,
@@ -138,7 +138,7 @@ describe('applicationLayoutsStore', () => {
             .mockResolvedValueOnce([
                 {
                     id: 'layout-1',
-                    catalog_id: null,
+                    scope_entity_id: null,
                     template_key: 'dashboard',
                     name: { en: 'Main' },
                     description: null,

@@ -5,7 +5,7 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo/i18n'
 import { useSnackbar } from 'notistack'
-import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueries, useQueryClient } from '@tanstack/react-query'
 
 // project imports
 import {
@@ -380,7 +380,9 @@ export const LinkedCollectionListContent = () => {
                     : DEFAULT_CATALOG_RECORD_BEHAVIOR,
             ledgerSchemaEnabled: showLedgerSchemaTab && hasLedgerConfig(catalogEntityType?.config),
             ledgerConfig:
-                showLedgerSchemaTab && catalogEntityType?.config ? normalizeLedgerConfigFromConfig(catalogEntityType.config) : DEFAULT_LEDGER_CONFIG
+                showLedgerSchemaTab && catalogEntityType?.config
+                    ? normalizeLedgerConfigFromConfig(catalogEntityType.config)
+                    : DEFAULT_LEDGER_CONFIG
         }),
         [catalogEntityType?.config, showLedgerSchemaTab, showRecordBehaviorTab, treeEntityId]
     )

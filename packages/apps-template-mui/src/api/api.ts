@@ -329,7 +329,7 @@ export const appDataResponseSchema = z.object({
                 widgetId: z.string(),
                 showTitle: z.boolean().optional().default(true),
                 title: z.string(),
-                autoShowAllCatalogs: z.boolean().optional().default(false),
+                autoShowAllSections: z.boolean().optional().default(false),
                 startPage: z.string().nullable().optional(),
                 startSectionId: z.string().nullable().optional(),
                 maxPrimaryItems: z.number().nullable().optional(),
@@ -338,7 +338,7 @@ export const appDataResponseSchema = z.object({
                 items: z.array(
                     z.object({
                         id: z.string(),
-                        kind: z.enum(['catalog', 'section', 'page', 'catalogs_all', 'hub', 'link']),
+                        kind: z.enum(['section', 'hub', 'link']),
                         title: z.string(),
                         icon: z.string().nullable().optional(),
                         href: z.string().nullable().optional(),
@@ -353,7 +353,7 @@ export const appDataResponseSchema = z.object({
                     .array(
                         z.object({
                             id: z.string(),
-                            kind: z.enum(['catalog', 'section', 'page', 'catalogs_all', 'hub', 'link']),
+                            kind: z.enum(['section', 'hub', 'link']),
                             title: z.string(),
                             icon: z.string().nullable().optional(),
                             href: z.string().nullable().optional(),

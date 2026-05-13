@@ -64,7 +64,7 @@ export interface DashboardMenuItem {
     id: string
     label: string
     icon?: string | null
-    kind: 'catalog' | 'section' | 'page' | 'hub' | 'link'
+    kind: 'section' | 'hub' | 'link'
     sectionId?: string | null
     linkedCollectionId?: string | null
     treeEntityId?: string | null

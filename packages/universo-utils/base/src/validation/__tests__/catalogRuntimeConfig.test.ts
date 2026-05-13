@@ -135,7 +135,7 @@ describe('sanitizeCatalogRuntimeViewConfig', () => {
     })
 })
 
-describe('catalog layout behavior helpers', () => {
+describe('catalog runtime behavior helpers', () => {
     it('uses defaults when layout behavior is absent', () => {
         expect(
             resolveLinkedCollectionLayoutBehaviorConfig({

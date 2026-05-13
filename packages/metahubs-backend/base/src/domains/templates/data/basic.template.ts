@@ -60,7 +60,7 @@ export function buildBasicMinimalSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                         ru: { content: 'Основное', version: 1, isActive: true }
                     }
                 },
-                autoShowAllCatalogs: true,
+                autoShowAllSections: true,
                 bindToHub: false,
                 boundTreeEntityId: null,
                 items: []

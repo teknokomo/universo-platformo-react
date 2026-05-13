@@ -52,6 +52,6 @@ Inactive layouts remain available in the control panel and can be reactivated la
 
 ## Related Reading
 
-- [Catalog Layouts](catalog-layouts.md)
+- [Entity-Scoped Layouts](entity-scoped-layouts.md)
 - [Applications](../platform/applications.md)
 - [Updating System App Schemas](updating-system-app-schemas.md)

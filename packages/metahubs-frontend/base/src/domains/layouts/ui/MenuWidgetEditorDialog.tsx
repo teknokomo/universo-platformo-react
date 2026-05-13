@@ -26,8 +26,9 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import { DndContext, DragEndEvent, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core'
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import Autocomplete from '@mui/material/Autocomplete'
 import type { MenuWidgetConfig, MenuWidgetConfigItem, MetahubMenuItemKind, VersionedLocalizedContent } from '@universo/types'
-import { METAHUB_MENU_ITEM_KINDS } from '@universo/types'
+import { isEnabledComponentConfig } from '@universo/types'
 import { EntityFormDialog, LocalizedInlineField } from '@universo/template-mui'
 import {
     createLocalizedContent,
@@ -39,9 +40,11 @@ import {
 
 import { fetchAllPaginatedItems, metahubsQueryKeys } from '../../shared'
 import { listEntityInstances } from '../../entities/api/entityInstances'
+import { listEntityTypes, type MetahubEntityType } from '../../entities/api/entityTypes'
 import { useTreeEntities } from '../../entities/presets/hooks/useTreeEntities'
 import { getVLCString, normalizeLocale } from '../../../types'
 import LayoutWidgetSharedBehaviorFields from './LayoutWidgetSharedBehaviorFields'
+import WidgetScopeVisibilityPanel from './WidgetScopeVisibilityPanel'
 
 // ---------------------------------------------------------------------------
 // Props
@@ -52,7 +55,10 @@ export interface MenuWidgetEditorDialogProps {
     metahubId: string
     /** Current widget config (null when creating a new menuWidget). */
     config: MenuWidgetConfig | null
+    layoutId?: string | null
+    widgetId?: string | null
     showSharedBehavior?: boolean
+    showScopeVisibility?: boolean
     onSave: (config: MenuWidgetConfig) => void
     onCancel: () => void
 }
@@ -65,8 +71,16 @@ export interface MenuWidgetEditorDialogProps {
 const buildVLC = utilsBuildVLC
 const ensureVLC = utilsEnsureVLC
 type WorkspacePlacement = NonNullable<MenuWidgetConfig['workspacePlacement']>
+type SectionTargetOption = {
+    id: string
+    label: string
+    kindKey: string
+    codename: string
+    sortOrder: number
+}
 
 const WORKSPACE_PLACEMENTS: WorkspacePlacement[] = ['primary', 'overflow', 'hidden']
+const EDITABLE_MENU_ITEM_KINDS: MetahubMenuItemKind[] = ['section', 'hub', 'link']
 
 const normalizeMaxPrimaryItems = (value: unknown): number | null => {
     if (value == null || value === '') return null
@@ -79,11 +93,23 @@ const normalizeWorkspacePlacement = (value: unknown): WorkspacePlacement => {
     return WORKSPACE_PLACEMENTS.includes(value as WorkspacePlacement) ? (value as WorkspacePlacement) : 'primary'
 }
 
+export const normalizeEditableMenuItemKind = (kind: MetahubMenuItemKind | string | null | undefined): MetahubMenuItemKind => {
+    if (kind === 'hub' || kind === 'link' || kind === 'section') return kind
+    return 'link'
+}
+
+export const resolveMenuItemSectionTarget = (item?: MenuWidgetConfigItem | null): string => {
+    return item?.sectionId ?? item?.linkedCollectionId ?? ''
+}
+
+export const isLayoutMenuSectionEntityType = (entityType: Pick<MetahubEntityType, 'components'>): boolean =>
+    isEnabledComponentConfig(entityType.components.layoutConfig)
+
 function makeDefaultConfig(): MenuWidgetConfig {
     return {
         showTitle: true,
         title: buildVLC('', ''),
-        autoShowAllCatalogs: false,
+        autoShowAllSections: false,
         bindToHub: false,
         boundTreeEntityId: null,
         maxPrimaryItems: 6,
@@ -104,7 +130,7 @@ function normalizeMenuConfig(
         ...makeDefaultConfig(),
         ...config,
         title: ensureVLC(config.title, uiLocale) ?? defaultTitle,
-        autoShowAllCatalogs: Boolean(config.autoShowAllCatalogs) && !config.bindToHub,
+        autoShowAllSections: Boolean(config.autoShowAllSections) && !config.bindToHub,
         bindToHub: Boolean(config.bindToHub),
         boundTreeEntityId: typeof config.boundTreeEntityId === 'string' ? config.boundTreeEntityId : null,
         maxPrimaryItems: normalizeMaxPrimaryItems(config.maxPrimaryItems),
@@ -112,7 +138,7 @@ function normalizeMenuConfig(
             typeof config.overflowLabelKey === 'string' && config.overflowLabelKey.trim() ? config.overflowLabelKey.trim() : null,
         startPage: typeof config.startPage === 'string' && config.startPage.trim() ? config.startPage.trim() : null,
         workspacePlacement: normalizeWorkspacePlacement(config.workspacePlacement),
-        items: Array.isArray(config.items) ? config.items.filter((item) => item.kind !== 'catalogs_all') : []
+        items: Array.isArray(config.items) ? config.items : []
     }
 }
 
@@ -187,15 +213,14 @@ function ItemFormDialog({
     const { t } = useTranslation(['metahubs', 'common'])
     const isEdit = Boolean(item)
     const [submitError, setSubmitError] = useState<string | null>(null)
-    const [kind, setKind] = useState<MetahubMenuItemKind>(item?.kind ?? 'link')
+    const [kind, setKind] = useState<MetahubMenuItemKind>(() => normalizeEditableMenuItemKind(item?.kind))
     const [titleVlc, setTitleVlc] = useState<VersionedLocalizedContent<string> | null>(
         () => ensureVLC(item?.title, uiLocale) ?? createLocalizedContent(normalizeLocale(uiLocale), '')
     )
     const [icon, setIcon] = useState(item?.icon ?? '')
     const [href, setHref] = useState(item?.href ?? '')
-    const [linkedCollectionId, setLinkedCollectionId] = useState(item?.linkedCollectionId ?? '')
+    const [sectionTargetId, setSectionTargetId] = useState(() => resolveMenuItemSectionTarget(item))
     const [treeEntityId, setTreeEntityId] = useState(item?.treeEntityId ?? '')
-    const [pageSectionId, setPageSectionId] = useState(item?.sectionId ?? '')
     const [isActive, setIsActive] = useState(item?.isActive ?? true)
 
     // BUG-1 fix: Reset local state when the edited item changes
@@ -204,24 +229,60 @@ function ItemFormDialog({
         if (prevItemRef.current === item) return
         prevItemRef.current = item
         setSubmitError(null)
-        setKind(item?.kind ?? 'link')
+        setKind(normalizeEditableMenuItemKind(item?.kind))
         setTitleVlc(ensureVLC(item?.title, uiLocale) ?? createLocalizedContent(normalizeLocale(uiLocale), ''))
         setIcon(item?.icon ?? '')
         setHref(item?.href ?? '')
-        setLinkedCollectionId(item?.linkedCollectionId ?? '')
+        setSectionTargetId(resolveMenuItemSectionTarget(item))
         setTreeEntityId(item?.treeEntityId ?? '')
-        setPageSectionId(item?.sectionId ?? '')
         setIsActive(item?.isActive ?? true)
     }, [item, uiLocale])
 
-    const catalogsQuery = useQuery({
-        queryKey: metahubsQueryKeys.entitiesList(metahubId, { kind: 'catalog', limit: 1000, offset: 0, sortOrder: 'asc' }),
+    const sectionTargetsQuery = useQuery({
+        queryKey: [...metahubsQueryKeys.detail(metahubId), 'menuWidget', 'sectionTargets', uiLocale],
         enabled: open,
-        queryFn: () =>
-            fetchAllPaginatedItems((params) => listEntityInstances(metahubId, { ...params, kind: 'catalog' }), {
+        queryFn: async (): Promise<SectionTargetOption[]> => {
+            const entityTypesPage = await fetchAllPaginatedItems((params) => listEntityTypes(metahubId, params), {
                 limit: 1000,
                 sortOrder: 'asc'
             })
+            const layoutCapableTypes = entityTypesPage.items.filter(isLayoutMenuSectionEntityType)
+            const groups = await Promise.all(
+                layoutCapableTypes.map(async (entityType) => {
+                    const instancesPage = await fetchAllPaginatedItems(
+                        (params) => listEntityInstances(metahubId, { ...params, kind: entityType.kindKey }),
+                        { limit: 1000, sortOrder: 'asc' }
+                    )
+                    const typeLabel =
+                        getVLCString(entityType.codename, uiLocale) ||
+                        getVLCString(entityType.codename, 'en') ||
+                        entityType.ui?.nameKey ||
+                        entityType.kindKey
+
+                    return instancesPage.items.map((entity) => {
+                        const label = getVLCString(entity.name, uiLocale) || getVLCString(entity.name, 'en') || String(entity.id)
+                        const codename = getVLCString(entity.codename, uiLocale) || getVLCString(entity.codename, 'en') || ''
+
+                        return {
+                            id: entity.id,
+                            label: `${label} · ${typeLabel}`,
+                            kindKey: entityType.kindKey,
+                            codename,
+                            sortOrder: typeof entity.sortOrder === 'number' ? entity.sortOrder : 0
+                        }
+                    })
+                })
+            )
+
+            return groups
+                .flat()
+                .sort(
+                    (left, right) =>
+                        left.kindKey.localeCompare(right.kindKey) ||
+                        left.sortOrder - right.sortOrder ||
+                        left.label.localeCompare(right.label)
+                )
+        }
     })
     const treeEntities = useTreeEntities(metahubId)
 
@@ -236,18 +297,13 @@ function ItemFormDialog({
             return
         }
 
-        if (kind === 'catalog' && !linkedCollectionId) {
-            setSubmitError(t('layouts.menuEditor.validation.catalogRequired', 'Select a catalog for this menu item.'))
+        if (kind === 'section' && !sectionTargetId.trim()) {
+            setSubmitError(t('layouts.menuEditor.validation.sectionRequired', 'Select an entity section for this menu item.'))
             return
         }
 
         if (kind === 'hub' && !treeEntityId) {
             setSubmitError(t('layouts.menuEditor.validation.hubRequired', 'Select a hub for this menu item.'))
-            return
-        }
-
-        if (kind === 'page' && !pageSectionId.trim()) {
-            setSubmitError(t('layouts.menuEditor.validation.pageRequired', 'Enter a page id or codename for this menu item.'))
             return
         }
 
@@ -275,15 +331,17 @@ function ItemFormDialog({
             title: titleVlc ?? createLocalizedContent(normalizeLocale(uiLocale), ''),
             icon: icon.trim() || null,
             href: kind === 'link' ? href.trim() || null : null,
-            linkedCollectionId: kind === 'catalog' ? linkedCollectionId || null : null,
+            linkedCollectionId: kind === 'section' ? sectionTargetId.trim() || null : null,
             treeEntityId: kind === 'hub' ? treeEntityId || null : null,
-            sectionId: kind === 'page' ? pageSectionId.trim() || null : null,
+            sectionId: kind === 'section' ? sectionTargetId.trim() || null : null,
             sortOrder: item?.sortOrder ?? 0,
             isActive
         })
     }
 
-    const linkedCollections = catalogsQuery.data?.items ?? []
+    const sectionTargets = sectionTargetsQuery.data ?? []
+    const selectedSectionTarget =
+        sectionTargets.find((option) => option.id === sectionTargetId || option.codename === sectionTargetId) ?? null
 
     return (
         <EntityFormDialog
@@ -318,10 +376,10 @@ function ItemFormDialog({
                             label={t('layouts.menuEditor.itemKind')}
                             onChange={(e) => {
                                 setSubmitError(null)
-                                setKind(e.target.value as MetahubMenuItemKind)
+                                setKind(normalizeEditableMenuItemKind(e.target.value as MetahubMenuItemKind))
                             }}
                         >
-                            {METAHUB_MENU_ITEM_KINDS.map((k: MetahubMenuItemKind) => {
+                            {EDITABLE_MENU_ITEM_KINDS.map((k) => {
                                 const kindKey = `layouts.menuEditor.kind${
                                     k.charAt(0).toUpperCase() + k.slice(1).replace(/_([a-z])/g, (_: string, c: string) => c.toUpperCase())
                                 }` as const
@@ -358,33 +416,41 @@ function ItemFormDialog({
                         />
                     )}
 
-                    {kind === 'catalog' && (
-                        <FormControl fullWidth>
-                            <InputLabel>{t('layouts.menuEditor.itemCatalog')}</InputLabel>
-                            <Select
-                                value={linkedCollectionId}
-                                label={t('layouts.menuEditor.itemCatalog')}
-                                onChange={(e) => {
+                    {kind === 'section' && (
+                        <Autocomplete
+                            freeSolo
+                            options={sectionTargets}
+                            value={selectedSectionTarget ?? sectionTargetId}
+                            loading={sectionTargetsQuery.isFetching}
+                            getOptionLabel={(option) => (typeof option === 'string' ? option : option.label)}
+                            isOptionEqualToValue={(option, value) =>
+                                typeof value !== 'string' && (option.id === value.id || option.codename === value.codename)
+                            }
+                            onChange={(_, nextValue) => {
+                                setSubmitError(null)
+                                if (typeof nextValue === 'string') {
+                                    setSectionTargetId(nextValue)
+                                    return
+                                }
+                                setSectionTargetId(nextValue?.id ?? '')
+                            }}
+                            onInputChange={(_, nextInputValue, reason) => {
+                                if (reason === 'input' || reason === 'clear') {
                                     setSubmitError(null)
-                                    setLinkedCollectionId(e.target.value)
-                                }}
-                            >
-                                {linkedCollections.length === 0 ? (
-                                    <MenuItem disabled tabIndex={-1}>
-                                        {t('layouts.menuEditor.noCatalogs')}
-                                    </MenuItem>
-                                ) : (
-                                    linkedCollections.map((cat) => {
-                                        const name = getVLCString(cat.name, uiLocale) || getVLCString(cat.name, 'en') || cat.codename
-                                        return (
-                                            <MenuItem key={cat.id} value={cat.id}>
-                                                {name}
-                                            </MenuItem>
-                                        )
-                                    })
-                                )}
-                            </Select>
-                        </FormControl>
+                                    setSectionTargetId(nextInputValue)
+                                }
+                            }}
+                            renderInput={(params) => (
+                                <TextField
+                                    {...params}
+                                    label={t('layouts.menuEditor.itemSection', 'Entity section')}
+                                    helperText={t(
+                                        'layouts.menuEditor.itemSectionHint',
+                                        'Select any layout-capable Entity instance, or enter an id/codename manually.'
+                                    )}
+                                />
+                            )}
+                        />
                     )}
                     {kind === 'hub' && (
                         <FormControl fullWidth>
@@ -414,19 +480,6 @@ function ItemFormDialog({
                             </Select>
                         </FormControl>
                     )}
-                    {kind === 'page' && (
-                        <TextField
-                            label={t('layouts.menuEditor.itemPage', 'Page id or codename')}
-                            value={pageSectionId}
-                            onChange={(e) => {
-                                setSubmitError(null)
-                                setPageSectionId(e.target.value)
-                            }}
-                            fullWidth
-                            placeholder='LearnerHome'
-                        />
-                    )}
-
                     <FormControlLabel
                         sx={{ ml: 0 }}
                         control={
@@ -454,7 +507,10 @@ export default function MenuWidgetEditorDialog({
     open,
     metahubId,
     config,
+    layoutId,
+    widgetId,
     showSharedBehavior = false,
+    showScopeVisibility = false,
     onSave,
     onCancel
 }: MenuWidgetEditorDialogProps) {
@@ -539,21 +595,19 @@ export default function MenuWidgetEditorDialog({
         setDialogError(null)
         onSave({
             ...draft,
-            autoShowAllCatalogs: draft.bindToHub ? false : Boolean(draft.autoShowAllCatalogs),
+            autoShowAllSections: draft.bindToHub ? false : Boolean(draft.autoShowAllSections),
             maxPrimaryItems: normalizeMaxPrimaryItems(draft.maxPrimaryItems),
             overflowLabelKey:
                 typeof draft.overflowLabelKey === 'string' && draft.overflowLabelKey.trim() ? draft.overflowLabelKey.trim() : null,
             startPage: typeof draft.startPage === 'string' && draft.startPage.trim() ? draft.startPage.trim() : null,
             workspacePlacement: normalizeWorkspacePlacement(draft.workspacePlacement),
-            items: draft.items.filter((item) => item.kind !== 'catalogs_all')
+            items: draft.items
         })
     }
 
     const kindLabels: Record<MetahubMenuItemKind, string> = {
-        catalog: t('layouts.menuEditor.kindCatalog'),
-        catalogs_all: t('layouts.menuEditor.kindCatalogsAll'),
+        section: t('layouts.menuEditor.kindSection', 'Entity section'),
         hub: t('layouts.menuEditor.kindHub'),
-        page: t('layouts.menuEditor.kindPage', 'Page'),
         link: t('layouts.menuEditor.kindLink')
     }
 
@@ -608,7 +662,7 @@ export default function MenuWidgetEditorDialog({
                                                     setDraft((p) => ({
                                                         ...p,
                                                         bindToHub: checked,
-                                                        autoShowAllCatalogs: checked ? false : p.autoShowAllCatalogs,
+                                                        autoShowAllSections: checked ? false : p.autoShowAllSections,
                                                         boundTreeEntityId: checked ? p.boundTreeEntityId ?? null : null
                                                     }))
                                                 }}
@@ -655,20 +709,20 @@ export default function MenuWidgetEditorDialog({
                                         sx={{ ml: 0 }}
                                         control={
                                             <Switch
-                                                checked={draft.autoShowAllCatalogs}
+                                                checked={draft.autoShowAllSections}
                                                 onChange={(_, checked) => {
                                                     setDialogError(null)
-                                                    setDraft((p) => ({ ...p, autoShowAllCatalogs: checked }))
+                                                    setDraft((p) => ({ ...p, autoShowAllSections: checked }))
                                                 }}
                                                 disabled={Boolean(draft.bindToHub)}
                                             />
                                         }
-                                        label={t('layouts.menuEditor.autoShowAllCatalogs')}
+                                        label={t('layouts.menuEditor.autoShowAllSections', 'Automatically show all sections')}
                                     />
                                     <FormHelperText sx={{ mt: -0.5, ml: 7 }}>
                                         {draft.bindToHub
-                                            ? t('layouts.menuEditor.autoShowAllCatalogsDisabledByBinding')
-                                            : t('layouts.menuEditor.autoShowAllCatalogsHint')}
+                                            ? t('layouts.menuEditor.autoShowAllSectionsDisabledByBinding')
+                                            : t('layouts.menuEditor.autoShowAllSectionsHint')}
                                     </FormHelperText>
                                     <Stack spacing={2} sx={{ mt: 2 }}>
                                         <TextField
@@ -712,7 +766,7 @@ export default function MenuWidgetEditorDialog({
                                             size='small'
                                             helperText={t(
                                                 'layouts.menuEditor.startPageHint',
-                                                'Use a hub/catalog id or codename to choose the first opened section.'
+                                                'Use a hub or Entity section id/codename to choose the first opened section.'
                                             )}
                                         />
                                         <FormControl fullWidth size='small'>
@@ -746,6 +800,10 @@ export default function MenuWidgetEditorDialog({
                                 value={draft}
                                 onChange={(nextValue) => setDraft(nextValue as MenuWidgetConfig)}
                             />
+                        ) : null}
+
+                        {showScopeVisibility && layoutId && widgetId ? (
+                            <WidgetScopeVisibilityPanel metahubId={metahubId} layoutId={layoutId} widgetId={widgetId} />
                         ) : null}
 
                         {/* --- Menu items DnD --- */}

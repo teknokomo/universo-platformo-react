@@ -22,7 +22,7 @@ const createPoolExecutor = (): MockPoolExecutor => ({
             return [
                 {
                     id: 'layout-global-active',
-                    catalog_id: null,
+                    scope_entity_id: null,
                     base_layout_id: null,
                     template_key: 'dashboard',
                     name: { en: 'Global active' },
@@ -34,7 +34,7 @@ const createPoolExecutor = (): MockPoolExecutor => ({
                 },
                 {
                     id: 'layout-global-inactive',
-                    catalog_id: null,
+                    scope_entity_id: null,
                     base_layout_id: null,
                     template_key: 'dashboard',
                     name: { en: 'Global inactive' },
@@ -46,7 +46,7 @@ const createPoolExecutor = (): MockPoolExecutor => ({
                 },
                 {
                     id: 'layout-catalog-active',
-                    catalog_id: 'catalog-1',
+                    scope_entity_id: 'catalog-1',
                     base_layout_id: 'layout-global-active',
                     template_key: 'dashboard',
                     name: { en: 'Catalog active' },
@@ -58,7 +58,7 @@ const createPoolExecutor = (): MockPoolExecutor => ({
                 },
                 {
                     id: 'layout-catalog-inactive',
-                    catalog_id: 'catalog-2',
+                    scope_entity_id: 'catalog-2',
                     base_layout_id: 'layout-global-inactive',
                     template_key: 'dashboard',
                     name: { en: 'Catalog inactive' },
@@ -116,15 +116,15 @@ const createPoolExecutor = (): MockPoolExecutor => ({
             ]
         }
 
-        if (sql.includes('information_schema.tables') && params[1] === '_mhb_catalog_widget_overrides') {
+        if (sql.includes('information_schema.tables') && params[1] === '_mhb_layout_widget_overrides') {
             return [{ exists: true }]
         }
 
-        if (sql.includes('_mhb_catalog_widget_overrides')) {
+        if (sql.includes('_mhb_layout_widget_overrides')) {
             return [
                 {
                     id: 'override-active',
-                    catalog_layout_id: 'layout-catalog-active',
+                    layout_id: 'layout-catalog-active',
                     base_widget_id: 'widget-global-active',
                     zone: 'center',
                     sort_order: 2,
@@ -134,7 +134,7 @@ const createPoolExecutor = (): MockPoolExecutor => ({
                 },
                 {
                     id: 'override-inactive',
-                    catalog_layout_id: 'layout-catalog-inactive',
+                    layout_id: 'layout-catalog-inactive',
                     base_widget_id: 'widget-global-inactive',
                     zone: 'left',
                     sort_order: 1,
@@ -144,7 +144,7 @@ const createPoolExecutor = (): MockPoolExecutor => ({
                 },
                 {
                     id: 'override-orphan',
-                    catalog_layout_id: 'layout-missing',
+                    layout_id: 'layout-missing',
                     base_widget_id: 'widget-global-active',
                     zone: 'right',
                     sort_order: 9,
@@ -164,7 +164,7 @@ describe('attachLayoutsToSnapshot', () => {
         jest.clearAllMocks()
     })
 
-    it('exports the full design-time layout set and keeps override rows scoped to exported catalog layouts', async () => {
+    it('exports the full design-time layout set and keeps override rows scoped to exported entity layouts', async () => {
         const poolExecutor = createPoolExecutor()
         mockGetPoolExecutor.mockReturnValue(poolExecutor)
 
@@ -188,11 +188,11 @@ describe('attachLayoutsToSnapshot', () => {
             expect.objectContaining({ id: 'layout-global-inactive', isActive: false, isDefault: false })
         ])
 
-        expect(snapshot.catalogLayouts).toEqual([
-            expect.objectContaining({ id: 'layout-catalog-active', linkedCollectionId: 'catalog-1', baseLayoutId: 'layout-global-active' }),
+        expect(snapshot.scopedLayouts).toEqual([
+            expect.objectContaining({ id: 'layout-catalog-active', scopeEntityId: 'catalog-1', baseLayoutId: 'layout-global-active' }),
             expect.objectContaining({
                 id: 'layout-catalog-inactive',
-                linkedCollectionId: 'catalog-2',
+                scopeEntityId: 'catalog-2',
                 baseLayoutId: 'layout-global-inactive'
             })
         ])
@@ -209,16 +209,16 @@ describe('attachLayoutsToSnapshot', () => {
             ])
         )
 
-        expect(snapshot.catalogLayoutWidgetOverrides).toEqual([
+        expect(snapshot.layoutWidgetOverrides).toEqual([
             expect.objectContaining({
                 id: 'override-active',
-                catalogLayoutId: 'layout-catalog-active',
+                layoutId: 'layout-catalog-active',
                 baseWidgetId: 'widget-global-active',
                 config: null
             }),
             expect.objectContaining({
                 id: 'override-inactive',
-                catalogLayoutId: 'layout-catalog-inactive',
+                layoutId: 'layout-catalog-inactive',
                 baseWidgetId: 'widget-global-inactive',
                 isActive: false
             })

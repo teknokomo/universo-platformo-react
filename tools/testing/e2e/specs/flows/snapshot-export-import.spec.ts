@@ -353,10 +353,10 @@ test.describe('Snapshot Export/Import Flow', () => {
         const importedSharedEntityOverrides = Array.isArray(importedSnapshot.sharedEntityOverrides)
             ? importedSnapshot.sharedEntityOverrides
             : []
-        const importedCatalogLayouts = Array.isArray(importedSnapshot.catalogLayouts) ? importedSnapshot.catalogLayouts : []
+        const importedScopedLayouts = Array.isArray(importedSnapshot.scopedLayouts) ? importedSnapshot.scopedLayouts : []
         const importedLayoutZoneWidgets = Array.isArray(importedSnapshot.layoutZoneWidgets) ? importedSnapshot.layoutZoneWidgets : []
-        const importedCatalogLayoutWidgetOverrides = Array.isArray(importedSnapshot.catalogLayoutWidgetOverrides)
-            ? importedSnapshot.catalogLayoutWidgetOverrides
+        const importedLayoutWidgetOverrides = Array.isArray(importedSnapshot.layoutWidgetOverrides)
+            ? importedSnapshot.layoutWidgetOverrides
             : []
 
         expect(importedEntities.filter((entity) => entity.kind === 'catalog')).toHaveLength(fixture.expectedCounts.catalogs)
@@ -414,9 +414,7 @@ test.describe('Snapshot Export/Import Flow', () => {
             )
         ).toBe(true)
 
-        const settingsLayouts = importedCatalogLayouts.filter(
-            (layout) => (layout?.linkedCollectionId ?? layout?.catalogId) === settingsCatalog?.id
-        )
+        const settingsLayouts = importedScopedLayouts.filter((layout) => layout?.scopeEntityId === settingsCatalog?.id)
         expect(settingsLayouts).toHaveLength(1)
         const settingsLayout = settingsLayouts[0]
         expect(readLocalizedText(settingsLayout?.name)).toBe(SELF_HOSTED_APP_SETTINGS_LAYOUT.name.en)
@@ -432,8 +430,8 @@ test.describe('Snapshot Export/Import Flow', () => {
             (widget) => widget?.layoutId === settingsLayout?.baseLayoutId && widget?.widgetKey === 'detailsTitle'
         )
         expect(typeof baseDetailsTitleWidget?.id).toBe('string')
-        const detailsTitleWidgetOverride = importedCatalogLayoutWidgetOverrides.find(
-            (widget) => widget?.catalogLayoutId === settingsLayout?.id && widget?.baseWidgetId === baseDetailsTitleWidget?.id
+        const detailsTitleWidgetOverride = importedLayoutWidgetOverrides.find(
+            (widget) => widget?.layoutId === settingsLayout?.id && widget?.baseWidgetId === baseDetailsTitleWidget?.id
         )
         expect(detailsTitleWidgetOverride?.isActive).toBe(false)
 

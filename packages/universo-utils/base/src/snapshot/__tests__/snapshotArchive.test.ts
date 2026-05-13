@@ -88,10 +88,10 @@ function makeSnapshotWithExtendedSections(): Record<string, unknown> {
                 isActive: true
             }
         ],
-        catalogLayouts: [
+        scopedLayouts: [
             {
-                id: 'catalog-layout-1',
-                catalogId: 'ent-1',
+                id: 'entity-layout-1',
+                scopeEntityId: 'ent-1',
                 baseLayoutId: 'layout-1',
                 templateKey: 'dashboard',
                 name: { en: 'Catalog Layout' },
@@ -102,10 +102,10 @@ function makeSnapshotWithExtendedSections(): Record<string, unknown> {
                 sortOrder: 1
             }
         ],
-        catalogLayoutWidgetOverrides: [
+        layoutWidgetOverrides: [
             {
                 id: 'override-1',
-                catalogLayoutId: 'catalog-layout-1',
+                layoutId: 'entity-layout-1',
                 baseWidgetId: 'widget-1',
                 zone: 'aside',
                 sortOrder: 3,
@@ -163,11 +163,11 @@ describe('computeSnapshotHash', () => {
         expect(computeSnapshotHash(snap1)).not.toBe(computeSnapshotHash(snap2))
     })
 
-    it('produces different hashes when catalog layouts change', () => {
+    it('produces different hashes when scoped layouts change', () => {
         const snap1 = makeSnapshotWithExtendedSections()
         const snap2 = makeSnapshotWithExtendedSections()
 
-        ;((snap2.catalogLayouts as Array<Record<string, unknown>>)[0] as Record<string, unknown>).config = { searchMode: 'simple' }
+        ;((snap2.scopedLayouts as Array<Record<string, unknown>>)[0] as Record<string, unknown>).config = { searchMode: 'simple' }
 
         expect(computeSnapshotHash(snap1)).not.toBe(computeSnapshotHash(snap2))
     })
@@ -176,7 +176,7 @@ describe('computeSnapshotHash', () => {
         const snap1 = makeSnapshotWithExtendedSections()
         const snap2 = makeSnapshotWithExtendedSections()
 
-        ;((snap2.catalogLayoutWidgetOverrides as Array<Record<string, unknown>>)[0] as Record<string, unknown>).sortOrder = 4
+        ;((snap2.layoutWidgetOverrides as Array<Record<string, unknown>>)[0] as Record<string, unknown>).sortOrder = 4
 
         expect(computeSnapshotHash(snap1)).not.toBe(computeSnapshotHash(snap2))
     })
@@ -250,7 +250,7 @@ describe('validateSnapshotEnvelope', () => {
         })
 
         ;(
-            ((envelope.snapshot as Record<string, unknown>).catalogLayoutWidgetOverrides as Array<Record<string, unknown>>)[0] as Record<
+            ((envelope.snapshot as Record<string, unknown>).layoutWidgetOverrides as Array<Record<string, unknown>>)[0] as Record<
                 string,
                 unknown
             >

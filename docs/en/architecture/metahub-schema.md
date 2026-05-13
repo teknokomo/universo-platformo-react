@@ -15,7 +15,7 @@ The shared-entity feature adds virtual container objects and sparse override row
 - Each metahub branch owns design-time tables inside its metahub schema.
 - Shared attributes, constants, and values live in virtual Common containers inside `_mhb_objects`.
 - Sparse target differences live in `_mhb_shared_entity_overrides`.
-- Catalog layout widget differences live in `_mhb_catalog_widget_overrides`.
+- Entity-scoped layout widget differences live in `_mhb_layout_widget_overrides`.
 
 ## Shared Entity Storage
 

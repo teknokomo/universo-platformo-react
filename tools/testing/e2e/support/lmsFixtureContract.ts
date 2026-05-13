@@ -723,7 +723,10 @@ type SnapshotEnvelope = Record<string, unknown> & {
         fixedValues?: Record<string, Array<Record<string, unknown>>>
         optionValues?: Record<string, Array<Record<string, unknown>>>
         scripts?: SnapshotScript[]
+        layouts?: Array<Record<string, unknown>>
+        scopedLayouts?: Array<Record<string, unknown>>
         layoutZoneWidgets?: SnapshotLayoutWidget[]
+        defaultLayoutId?: unknown
         runtimePolicy?: {
             workspaceMode?: unknown
         }
@@ -1006,13 +1009,39 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
     }
 
     const widgets = Array.isArray(envelope.snapshot?.layoutZoneWidgets) ? envelope.snapshot.layoutZoneWidgets : []
+    const scopedLayouts = Array.isArray(envelope.snapshot?.scopedLayouts) ? envelope.snapshot.scopedLayouts : []
+    const learnerHomeEntityForLayout = entityByCodename.get('LearnerHome')
+    const learnerHomeLayout = scopedLayouts.find(
+        (layout) =>
+            layout?.scopeEntityId === learnerHomeEntityForLayout?.id &&
+            layout?.baseLayoutId === envelope.snapshot?.defaultLayoutId &&
+            layout?.isActive !== false
+    )
+    const globalLayout = Array.isArray(envelope.snapshot?.layouts)
+        ? envelope.snapshot.layouts.find((layout) => layout?.id === envelope.snapshot?.defaultLayoutId)
+        : null
+    const globalLayoutConfig = readWidgetConfig(globalLayout?.config)
+
+    if (!learnerHomeLayout) {
+        errors.push('LMS fixture must scope dashboard statistics to the LearnerHome page layout')
+    }
+    if (
+        globalLayoutConfig.showOverviewCards !== false ||
+        globalLayoutConfig.showSessionsChart !== false ||
+        globalLayoutConfig.showPageViewsChart !== false ||
+        globalLayoutConfig.showColumnsContainer !== false
+    ) {
+        errors.push('LMS global layout must not enable home-only dashboard statistics or empty report columns')
+    }
+
     const forbiddenWidgetKeys = new Set([
         'moduleViewerWidget',
         'statsViewerWidget',
         'qrCodeWidget',
         'brandSelector',
         'productTree',
-        'usersByCountryChart'
+        'usersByCountryChart',
+        'columnsContainer'
     ])
     for (const widget of widgets) {
         if (forbiddenWidgetKeys.has(String(widget?.widgetKey))) {
@@ -1027,8 +1056,8 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         const config = readWidgetConfig(menuWidget.config)
         const menuItems = Array.isArray(config.items) ? config.items : []
         const activeItems = menuItems.filter((item) => (item as Record<string, unknown>)?.isActive !== false)
-        if (config.autoShowAllCatalogs !== false) {
-            errors.push('LMS menuWidget must disable autoShowAllCatalogs and expose only curated primary sections')
+        if (config.autoShowAllSections !== false) {
+            errors.push('LMS menuWidget must disable autoShowAllSections and expose only curated primary sections')
         }
         if (activeItems.length < 4) {
             errors.push('LMS menuWidget must include product-facing primary navigation items')
@@ -1041,12 +1070,10 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
             if (normalizedItem.kind === 'link' && typeof normalizedItem.href !== 'string') {
                 errors.push(`LMS menuWidget item ${String(normalizedItem.id ?? '<unknown>')} must not be an inert link`)
             }
-            if (
-                (normalizedItem.kind === 'catalog' || normalizedItem.kind === 'page') &&
-                typeof normalizedItem.catalogId !== 'string' &&
-                typeof normalizedItem.sectionId !== 'string' &&
-                typeof normalizedItem.linkedCollectionId !== 'string'
-            ) {
+            if (normalizedItem.kind !== 'section' && normalizedItem.kind !== 'link') {
+                errors.push(`LMS menuWidget item ${String(normalizedItem.id ?? '<unknown>')} must use section or link kind`)
+            }
+            if (normalizedItem.kind === 'section' && typeof normalizedItem.sectionId !== 'string' && typeof normalizedItem.linkedCollectionId !== 'string') {
                 errors.push(`LMS menuWidget section item ${String(normalizedItem.id ?? '<unknown>')} must target a real section`)
             }
         }
@@ -1064,6 +1091,9 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         }
     }
     const overviewCardsWidget = widgets.find((widget) => widget?.widgetKey === 'overviewCards')
+    if (learnerHomeLayout && overviewCardsWidget?.layoutId !== learnerHomeLayout.id) {
+        errors.push('LMS overviewCards must belong to the LearnerHome scoped layout')
+    }
     const overviewCardsConfig = readWidgetConfig(overviewCardsWidget?.config)
     const overviewCards = Array.isArray(overviewCardsConfig.cards) ? overviewCardsConfig.cards : []
     if (overviewCards.length < 4) {
@@ -1083,6 +1113,9 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
 
     for (const chartWidgetKey of ['sessionsChart', 'pageViewsChart']) {
         const chartWidget = widgets.find((widget) => widget?.widgetKey === chartWidgetKey)
+        if (learnerHomeLayout && chartWidget?.layoutId !== learnerHomeLayout.id) {
+            errors.push(`LMS ${chartWidgetKey} must belong to the LearnerHome scoped layout`)
+        }
         const chartConfig = readWidgetConfig(chartWidget?.config)
         const datasource = chartConfig.datasource as Record<string, unknown> | undefined
         const chartTitleRu = readLocalizedText(chartConfig.title, 'ru')
@@ -1097,30 +1130,6 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         }
         if (chartWidgetKey === 'pageViewsChart' && chartTitleRu !== 'Оценки заданий') {
             errors.push('LMS pageViewsChart must store localized chart titles in widget config')
-        }
-    }
-
-    const columnsContainerWidget = widgets.find((widget) => widget?.widgetKey === 'columnsContainer')
-    const columnsContainerConfig = readWidgetConfig(columnsContainerWidget?.config)
-    const columns = Array.isArray(columnsContainerConfig.columns) ? columnsContainerConfig.columns : []
-    const nestedDetailsTables = columns.flatMap((column) => {
-        const widgetsInColumn = (column as Record<string, unknown>)?.widgets
-        return Array.isArray(widgetsInColumn) ? widgetsInColumn : []
-    })
-    if (nestedDetailsTables.length < 3) {
-        errors.push('LMS fixture must configure reusable report tables through columnsContainer + detailsTable widgets')
-    }
-    for (const nestedWidget of nestedDetailsTables) {
-        const typedWidget = nestedWidget as Record<string, unknown>
-        const nestedConfig = readWidgetConfig(typedWidget.config)
-        const datasource = (nestedConfig.datasource ?? {}) as Record<string, unknown>
-        if (
-            typedWidget.widgetKey !== 'detailsTable' ||
-            datasource.kind !== 'records.list' ||
-            typeof datasource.sectionCodename !== 'string'
-        ) {
-            errors.push('LMS report table widgets must use generic detailsTable records.list datasources targeted by section codename')
-            break
         }
     }
 

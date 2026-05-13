@@ -4,6 +4,7 @@ import { EntityFormDialog } from '@universo/template-mui'
 import { useTranslation } from 'react-i18next'
 
 import LayoutWidgetSharedBehaviorFields from './LayoutWidgetSharedBehaviorFields'
+import WidgetScopeVisibilityPanel from './WidgetScopeVisibilityPanel'
 
 const normalizeConfig = (value: unknown): Record<string, unknown> =>
     value && typeof value === 'object' && !Array.isArray(value) ? { ...(value as Record<string, unknown>) } : {}
@@ -11,11 +12,24 @@ const normalizeConfig = (value: unknown): Record<string, unknown> =>
 export interface WidgetBehaviorEditorDialogProps {
     open: boolean
     config?: Record<string, unknown> | null
+    metahubId?: string | null
+    layoutId?: string | null
+    widgetId?: string | null
+    showScopeVisibility?: boolean
     onSave: (config: Record<string, unknown>) => void
     onCancel: () => void
 }
 
-export default function WidgetBehaviorEditorDialog({ open, config, onSave, onCancel }: WidgetBehaviorEditorDialogProps) {
+export default function WidgetBehaviorEditorDialog({
+    open,
+    config,
+    metahubId,
+    layoutId,
+    widgetId,
+    showScopeVisibility = false,
+    onSave,
+    onCancel
+}: WidgetBehaviorEditorDialogProps) {
     const { t } = useTranslation(['metahubs', 'common'])
     const [draft, setDraft] = useState<Record<string, unknown>>(() => normalizeConfig(config))
 
@@ -42,9 +56,15 @@ export default function WidgetBehaviorEditorDialog({ open, config, onSave, onCan
             extraFields={() => (
                 <Stack spacing={2.5}>
                     <Typography variant='body2' color='text.secondary'>
-                        {t('layouts.widgetBehaviorEditor.description', 'Configure how catalog layouts can override this inherited widget.')}
+                        {t(
+                            'layouts.widgetBehaviorEditor.description',
+                            'Configure how scoped entity layouts can override this inherited widget.'
+                        )}
                     </Typography>
                     <LayoutWidgetSharedBehaviorFields value={draft} onChange={setDraft} />
+                    {showScopeVisibility && metahubId && layoutId && widgetId ? (
+                        <WidgetScopeVisibilityPanel metahubId={metahubId} layoutId={layoutId} widgetId={widgetId} />
+                    ) : null}
                 </Stack>
             )}
         />

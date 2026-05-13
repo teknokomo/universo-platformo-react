@@ -88,7 +88,7 @@
 * [Управление рабочими пространствами](guides/workspace-management.md)
 * [Рабочее пространство ресурсов](guides/general-section.md)
 * [Пользовательские типы сущностей](guides/custom-entity-types.md)
-* [Макеты каталогов](guides/catalog-layouts.md)
+* [Макеты, привязанные к сущностям](guides/entity-scoped-layouts.md)
 * [Макеты приложения](guides/application-layouts.md)
 * [Скрипты метахаба](guides/metahub-scripting.md)
 * [Создание приложений](guides/creating-application.md)

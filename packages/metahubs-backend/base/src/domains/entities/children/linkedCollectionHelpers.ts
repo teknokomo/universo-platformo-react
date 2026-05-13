@@ -2,7 +2,7 @@ import { z } from 'zod'
 import type { DbExecutor, SqlQueryable } from '@universo/utils'
 import { localizedContent, validation, database } from '@universo/utils'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
-const { normalizeLinkedCollectionCopyOptions, normalizeCodenameForStyle, isValidCodenameForStyle } = validation
+const { normalizeCodenameForStyle, isValidCodenameForStyle } = validation
 import { MetaEntityKind, normalizeCatalogRecordBehavior, normalizeLedgerConfig, validateLedgerConfigReferences } from '@universo/types'
 import type { LedgerConfig } from '@universo/types'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
@@ -87,25 +87,6 @@ type LinkedCollectionListItemRow = {
     hubs: ContainerSummaryRow[]
 }
 
-type CopiedLinkedCollectionRow = {
-    id: string
-    codename: unknown
-    presentation?: {
-        name?: unknown
-        description?: unknown
-    }
-    config?: {
-        hubs?: unknown
-        isSingleHub?: boolean
-        isRequiredHub?: boolean
-        sortOrder?: number
-        runtimeConfig?: unknown
-    }
-    _upl_version?: number
-    _upl_created_at?: unknown
-    _upl_updated_at?: unknown
-}
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -169,28 +150,6 @@ const mapLinkedCollectionListItem = (
     recordsCount,
     hubs: []
 })
-
-const normalizeLocaleCode = (locale: string): string => locale.split('-')[0].split('_')[0].toLowerCase()
-
-const buildDefaultCopyNameInput = (name: unknown): Record<string, string> => {
-    const locales = (name as { locales?: Record<string, { content?: string }> } | undefined)?.locales ?? {}
-    const entries = Object.entries(locales)
-        .map(([locale, value]) => [normalizeLocaleCode(locale), typeof value?.content === 'string' ? value.content.trim() : ''] as const)
-        .filter(([, content]) => content.length > 0)
-
-    if (entries.length === 0) {
-        return {
-            en: 'Copy (copy)'
-        }
-    }
-
-    const result: Record<string, string> = {}
-    for (const [locale, content] of entries) {
-        const suffix = locale === 'ru' ? ' (копия)' : ' (copy)'
-        result[locale] = `${content}${suffix}`
-    }
-    return result
-}
 
 const getLocalizedCandidates = (value: unknown): string[] => {
     if (!value || typeof value !== 'object') return []
@@ -320,31 +279,6 @@ const validateLinkedCollectionLedgerConfig = async ({
 
     return referenceErrors.length > 0 ? 'Ledger schema references unknown or incompatible field definitions' : null
 }
-
-const copyLinkedCollectionSchema = z
-    .object({
-        codename: optionalCodenamePayloadSchema,
-        name: localizedInputSchema.optional(),
-        description: optionalLocalizedInputSchema.optional(),
-        namePrimaryLocale: z.string().optional(),
-        descriptionPrimaryLocale: z.string().optional(),
-        copyFieldDefinitions: z.boolean().optional(),
-        copyRecords: z.boolean().optional(),
-        copyAttributes: z.boolean().optional(),
-        copyElements: z.boolean().optional()
-    })
-    .strict()
-    .superRefine((value, ctx) => {
-        const copyFieldDefinitions = value.copyFieldDefinitions ?? value.copyAttributes
-        const copyRecords = value.copyRecords ?? value.copyElements
-        if (copyFieldDefinitions === false && copyRecords === true) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['copyRecords'],
-                message: 'copyRecords requires copyFieldDefinitions=true'
-            })
-        }
-    })
 
 const reorderLinkedCollectionsSchema = z
     .object({
@@ -863,7 +797,9 @@ export const updateLinkedCollectionByHub = async ({ req, res, metahubId, userId,
         isRequiredHub: isRequiredHub ?? currentConfig.isRequiredHub,
         sortOrder: sortOrder ?? currentConfig.sortOrder,
         recordBehavior:
-            recordBehavior !== undefined ? normalizeCatalogRecordBehavior(recordBehavior) : normalizeCatalogRecordBehavior(currentConfig.recordBehavior),
+            recordBehavior !== undefined
+                ? normalizeCatalogRecordBehavior(recordBehavior)
+                : normalizeCatalogRecordBehavior(currentConfig.recordBehavior),
         runtimeConfig: currentConfig.runtimeConfig
     }
     if (normalizedLedgerConfig !== undefined) {

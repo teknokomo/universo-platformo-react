@@ -119,7 +119,7 @@ export default function LayoutDetails() {
     const layout = layoutQuery.data as MetahubLayout | undefined
     const zoneWidgets = zoneWidgetsQuery.data ?? EMPTY_ZONE_WIDGETS
     const widgetCatalog = widgetCatalogQuery.data ?? EMPTY_WIDGET_CATALOG
-    const isGlobalLayout = layout?.linkedCollectionId == null
+    const isGlobalLayout = layout?.scopeEntityId == null
     const uiLocale = normalizeLocale(i18n.language)
     const layoutName = layout ? getVLCString(layout.name, uiLocale) || getVLCString(layout.name, 'en') || layout.templateKey : ''
     const catalogBehaviorConfig = useMemo(
@@ -256,13 +256,13 @@ export default function LayoutDetails() {
 
     const persistAndRefresh = useCallback(async () => {
         if (!metahubId || !layoutId) return
-        if (layout?.linkedCollectionId == null) {
+        if (layout?.scopeEntityId == null) {
             await invalidateLayoutsQueries.all(queryClient, metahubId)
             return
         }
         await invalidateLayoutsQueries.detail(queryClient, metahubId, layoutId)
         await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.layoutZoneWidgets(metahubId, layoutId) })
-    }, [layout?.linkedCollectionId, layoutId, metahubId, queryClient])
+    }, [layout?.scopeEntityId, layoutId, metahubId, queryClient])
 
     const upsertZoneWidgetInCache = (nextWidget: MetahubLayoutZoneWidget) => {
         if (!metahubId || !layoutId) return
@@ -295,13 +295,13 @@ export default function LayoutDetails() {
         async (nextConfig: Record<string, unknown>) => {
             if (!metahubId || !layoutId) return
             await layoutsApi.updateLayout(metahubId, layoutId, { config: nextConfig })
-            if (layout?.linkedCollectionId == null) {
+            if (layout?.scopeEntityId == null) {
                 await invalidateLayoutsQueries.all(queryClient, metahubId)
                 return
             }
             await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.layoutDetail(metahubId, layoutId) })
         },
-        [layout?.linkedCollectionId, layoutId, metahubId, queryClient]
+        [layout?.scopeEntityId, layoutId, metahubId, queryClient]
     )
 
     const handleViewSettingChange = useCallback(
@@ -639,22 +639,19 @@ export default function LayoutDetails() {
                                     <Fragment>
                                         <Paper variant='outlined' sx={{ p: 2 }}>
                                             <Typography variant='subtitle1' sx={{ mb: 1.5 }}>
-                                                {layout?.linkedCollectionId
-                                                    ? t(
-                                                          'layouts.details.catalogBehaviorTitleCatalog',
-                                                          'LinkedCollectionEntity runtime behavior'
-                                                      )
-                                                    : t('layouts.details.catalogBehaviorTitleGlobal', 'Default catalog runtime behavior')}
+                                                {layout?.scopeEntityId
+                                                    ? t('layouts.details.catalogBehaviorTitleCatalog', 'Entity runtime behavior')
+                                                    : t('layouts.details.catalogBehaviorTitleGlobal', 'Default entity runtime behavior')}
                                             </Typography>
                                             <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
-                                                {layout?.linkedCollectionId
+                                                {layout?.scopeEntityId
                                                     ? t(
                                                           'layouts.details.catalogBehaviorDescriptionCatalog',
-                                                          'This catalog layout overrides the create/search behavior inherited from its global base layout.'
+                                                          'This scoped layout overrides the create/search behavior inherited from its global base layout.'
                                                       )
                                                     : t(
                                                           'layouts.details.catalogBehaviorDescriptionGlobal',
-                                                          'These settings define the default create/search behavior for linkedCollections that use this global layout until a catalog-specific layout overrides it.'
+                                                          'These settings define the default create/search behavior for entities that use this global layout until an entity-specific layout overrides it.'
                                                       )}
                                             </Typography>
                                             <Stack spacing={1.5}>
@@ -874,7 +871,10 @@ export default function LayoutDetails() {
                 open={menuEditor.open}
                 metahubId={metahubId}
                 config={menuEditor.config ?? undefined}
+                layoutId={layoutId}
+                widgetId={menuEditor.widgetId}
                 showSharedBehavior={isGlobalLayout}
+                showScopeVisibility={isGlobalLayout && Boolean(menuEditor.widgetId)}
                 onSave={async (config) => {
                     const zone = menuEditor.zone
                     const widgetId = menuEditor.widgetId
@@ -913,7 +913,11 @@ export default function LayoutDetails() {
             <ColumnsContainerEditorDialog
                 open={columnsEditor.open}
                 config={columnsEditor.config ?? undefined}
+                metahubId={metahubId}
+                layoutId={layoutId}
+                widgetId={columnsEditor.widgetId}
                 showSharedBehavior={isGlobalLayout}
+                showScopeVisibility={isGlobalLayout && Boolean(columnsEditor.widgetId)}
                 onSave={async (config) => {
                     const zone = columnsEditor.zone
                     const widgetId = columnsEditor.widgetId
@@ -950,7 +954,10 @@ export default function LayoutDetails() {
                 open={quizEditor.open}
                 metahubId={metahubId}
                 config={quizEditor.config ?? undefined}
+                layoutId={layoutId}
+                widgetId={quizEditor.widgetId}
                 showSharedBehavior={isGlobalLayout}
+                showScopeVisibility={isGlobalLayout && Boolean(quizEditor.widgetId)}
                 onSave={async (config) => {
                     const zone = quizEditor.zone
                     const widgetId = quizEditor.widgetId
@@ -986,6 +993,10 @@ export default function LayoutDetails() {
             <WidgetBehaviorEditorDialog
                 open={widgetBehaviorEditor.open}
                 config={widgetBehaviorEditor.config ?? undefined}
+                metahubId={metahubId}
+                layoutId={layoutId}
+                widgetId={widgetBehaviorEditor.widgetId}
+                showScopeVisibility={isGlobalLayout && Boolean(widgetBehaviorEditor.widgetId)}
                 onSave={async (config) => {
                     const widgetId = widgetBehaviorEditor.widgetId
                     if (!widgetId || !metahubId || !layoutId) return

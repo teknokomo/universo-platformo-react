@@ -254,6 +254,7 @@ import { ColumnsContainerEditorDialog } from '@universo/metahubs-frontend'
 // - Per-column width slider (1–12 grid units, MUI 12-column grid)
 // - Per-column widget list: add/remove center-zone widgets (max MAX_WIDGETS_PER_COLUMN=6)
 // - Max columns: MAX_COLUMNS=6 per container
+// - Nested widgets can be inactive; empty columns are ignored by the runtime renderer
 // - Save-time validation: strips nested columnsContainer widgetKey to prevent recursion
 // - Dirty tracking with isDirty memo (JSON snapshot comparison)
 // - UUID v7 generation for new column IDs via generateUuidV7()

@@ -3,12 +3,12 @@ import { LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY, MetahubLayoutsService } fro
 describe('MetahubLayoutsService', () => {
     it('reuses the active transaction runner for optimistic-lock layout updates', async () => {
         const tx = {
-            query: jest.fn(async (sql: string, params?: unknown[]) => {
+            query: jest.fn(async (sql: string, _params?: unknown[]) => {
                 if (sql.includes('SELECT * FROM') && sql.includes('_mhb_layouts') && sql.includes('FOR UPDATE')) {
                     return [
                         {
                             id: 'layout-1',
-                            catalog_id: null,
+                            scope_entity_id: null,
                             template_key: 'dashboard',
                             name: { en: 'Current layout' },
                             description: null,
@@ -27,7 +27,7 @@ describe('MetahubLayoutsService', () => {
                     return [
                         {
                             id: 'layout-1',
-                            catalog_id: null,
+                            scope_entity_id: null,
                             template_key: 'dashboard',
                             name: { en: 'Updated layout' },
                             description: null,
@@ -82,7 +82,7 @@ describe('MetahubLayoutsService', () => {
 
         const baseLayoutScopeRow = {
             id: layoutId,
-            catalog_id: null,
+            scope_entity_id: null,
             base_layout_id: null,
             config: {
                 showViewToggle: true,
@@ -102,7 +102,7 @@ describe('MetahubLayoutsService', () => {
         }
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
-            if (sql.includes('SELECT id, catalog_id, base_layout_id, config') && sql.includes('_mhb_layouts')) {
+            if (sql.includes('SELECT id, scope_entity_id, base_layout_id, config') && sql.includes('_mhb_layouts')) {
                 return [baseLayoutScopeRow]
             }
 
@@ -156,7 +156,7 @@ describe('MetahubLayoutsService', () => {
                         widget_key: 'menuWidget',
                         sort_order: 1,
                         config: {
-                            autoShowAllCatalogs: true,
+                            autoShowAllSections: true,
                             showTitle: true,
                             title: {
                                 _schema: '1',
@@ -187,7 +187,7 @@ describe('MetahubLayoutsService', () => {
                         widget_key: 'menuWidget',
                         sort_order: 1,
                         config: {
-                            autoShowAllCatalogs: true,
+                            autoShowAllSections: true,
                             showTitle: true,
                             title: {
                                 _schema: '1',
@@ -227,7 +227,7 @@ describe('MetahubLayoutsService', () => {
                 widgetKey: 'menuWidget',
                 sortOrder: 1,
                 config: {
-                    autoShowAllCatalogs: true,
+                    autoShowAllSections: true,
                     showTitle: true,
                     title: {
                         en: 'Catalogs',
@@ -257,9 +257,9 @@ describe('MetahubLayoutsService', () => {
         })
     })
 
-    it('creates catalog layouts against the active global base layout without seeding default widgets', async () => {
+    it('creates entity-scoped layouts against the active global base layout without seeding default widgets', async () => {
         const layoutId = 'catalog-layout-1'
-        const linkedCollectionId = 'catalog-1'
+        const scopeEntityId = 'catalog-1'
         const baseLayoutConfig = {
             showHeader: false,
             showFooter: true,
@@ -272,7 +272,7 @@ describe('MetahubLayoutsService', () => {
         }
         const createdRow = {
             id: layoutId,
-            catalog_id: linkedCollectionId,
+            scope_entity_id: scopeEntityId,
             base_layout_id: 'global-layout-1',
             template_key: 'dashboard',
             name: {
@@ -301,16 +301,17 @@ describe('MetahubLayoutsService', () => {
         }
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
-            if (sql.includes('SELECT id FROM') && sql.includes("kind = 'catalog'") && sql.includes('_mhb_objects')) {
-                expect(params).toEqual([linkedCollectionId])
-                return [{ id: linkedCollectionId }]
+            if (sql.includes('_mhb_objects') && sql.includes('_mhb_entity_type_definitions')) {
+                expect(params).toEqual([scopeEntityId])
+                expect(sql).not.toContain('t.is_active')
+                return [{ id: scopeEntityId, kind: 'catalog', components: { layoutConfig: { enabled: true } } }]
             }
 
-            if (sql.includes('catalog_id IS NULL') && sql.includes('is_active = true') && sql.includes('_mhb_layouts')) {
+            if (sql.includes('scope_entity_id IS NULL') && sql.includes('is_active = true') && sql.includes('_mhb_layouts')) {
                 return [
                     {
                         id: 'global-layout-1',
-                        catalog_id: null,
+                        scope_entity_id: null,
                         base_layout_id: null,
                         config: baseLayoutConfig
                     }
@@ -318,7 +319,7 @@ describe('MetahubLayoutsService', () => {
             }
 
             if (sql.includes('INSERT INTO') && sql.includes('_mhb_layouts') && sql.includes('RETURNING *')) {
-                expect(params?.[0]).toBe(linkedCollectionId)
+                expect(params?.[0]).toBe(scopeEntityId)
                 expect(params?.[1]).toBe('global-layout-1')
                 expect(JSON.parse(String(params?.[5] ?? '{}'))).toEqual({
                     showViewToggle: true,
@@ -336,7 +337,7 @@ describe('MetahubLayoutsService', () => {
                 return []
             }
 
-            throw new Error(`Unexpected SQL in create catalog layout test: ${sql}`)
+            throw new Error(`Unexpected SQL in create scoped layout test: ${sql}`)
         })
 
         const tx = { query }
@@ -354,7 +355,7 @@ describe('MetahubLayoutsService', () => {
         const created = await service.createLayout(
             'metahub-1',
             {
-                linkedCollectionId,
+                scopeEntityId,
                 templateKey: 'dashboard',
                 name: {
                     _schema: '1',
@@ -372,7 +373,7 @@ describe('MetahubLayoutsService', () => {
             'user-1'
         )
 
-        expect(created.linkedCollectionId).toBe(linkedCollectionId)
+        expect(created.scopeEntityId).toBe(scopeEntityId)
         expect(created.baseLayoutId).toBe('global-layout-1')
         expect(created.config).toEqual({
             showViewToggle: true,
@@ -391,7 +392,7 @@ describe('MetahubLayoutsService', () => {
         const layoutId = 'global-layout-1'
         const createdRow = {
             id: layoutId,
-            catalog_id: null,
+            scope_entity_id: null,
             base_layout_id: null,
             template_key: 'dashboard',
             name: {
@@ -482,7 +483,7 @@ describe('MetahubLayoutsService', () => {
             'user-1'
         )
 
-        expect(created.linkedCollectionId).toBeNull()
+        expect(created.scopeEntityId).toBeNull()
         expect(created.baseLayoutId).toBeNull()
         expect(created.config).toMatchObject({
             showSideMenu: false,
@@ -495,13 +496,13 @@ describe('MetahubLayoutsService', () => {
         expect(query.mock.calls.some(([sql]) => String(sql).includes('_mhb_widgets'))).toBe(false)
     })
 
-    it('rejects catalog layout creation when linkedCollectionId points to a non-catalog object', async () => {
+    it('rejects scoped layout creation when scopeEntityId points to an entity without layoutConfig support', async () => {
         const query = jest.fn(async (sql: string) => {
-            if (sql.includes('SELECT id FROM') && sql.includes("kind = 'catalog'") && sql.includes('_mhb_objects')) {
-                return []
+            if (sql.includes('_mhb_objects') && sql.includes('_mhb_entity_type_definitions')) {
+                return [{ id: 'catalog-1', kind: 'set', components: { layoutConfig: false } }]
             }
 
-            throw new Error(`Unexpected SQL in catalog validation test: ${sql}`)
+            throw new Error(`Unexpected SQL in scoped layout validation test: ${sql}`)
         })
 
         const tx = { query }
@@ -520,7 +521,7 @@ describe('MetahubLayoutsService', () => {
             service.createLayout(
                 'metahub-1',
                 {
-                    linkedCollectionId: 'catalog-1',
+                    scopeEntityId: 'catalog-1',
                     templateKey: 'dashboard',
                     name: {
                         _schema: '1',
@@ -538,8 +539,8 @@ describe('MetahubLayoutsService', () => {
                 'user-1'
             )
         ).rejects.toMatchObject({
-            message: 'Catalog not found',
-            statusCode: 404
+            message: 'Entity "set" does not support custom layouts',
+            statusCode: 400
         })
     })
 
@@ -570,12 +571,12 @@ describe('MetahubLayoutsService', () => {
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
             if (
                 sql.includes('_mhb_layouts') &&
-                (sql.includes('SELECT id, catalog_id, base_layout_id, config') || sql.includes('SELECT * FROM'))
+                (sql.includes('SELECT id, scope_entity_id, base_layout_id, config') || sql.includes('SELECT * FROM'))
             ) {
                 return [
                     {
                         id: layoutId,
-                        catalog_id: 'catalog-1',
+                        scope_entity_id: 'catalog-1',
                         base_layout_id: baseLayoutId,
                         config: {}
                     }
@@ -592,11 +593,11 @@ describe('MetahubLayoutsService', () => {
                 }
             }
 
-            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_catalog_widget_overrides') && sql.includes('catalog_layout_id = $1')) {
+            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_layout_widget_overrides') && sql.includes('layout_id = $1')) {
                 return [
                     {
                         id: 'override-1',
-                        catalog_layout_id: layoutId,
+                        layout_id: layoutId,
                         base_widget_id: baseWidgetId,
                         zone: 'right',
                         sort_order: 9,
@@ -651,12 +652,12 @@ describe('MetahubLayoutsService', () => {
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
             if (
                 sql.includes('_mhb_layouts') &&
-                (sql.includes('SELECT id, catalog_id, base_layout_id, config') || sql.includes('SELECT * FROM'))
+                (sql.includes('SELECT id, scope_entity_id, base_layout_id, config') || sql.includes('SELECT * FROM'))
             ) {
                 return [
                     {
                         id: layoutId,
-                        catalog_id: 'catalog-1',
+                        scope_entity_id: 'catalog-1',
                         base_layout_id: baseLayoutId,
                         config: {}
                     }
@@ -685,7 +686,7 @@ describe('MetahubLayoutsService', () => {
                 }
             }
 
-            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_catalog_widget_overrides') && sql.includes('catalog_layout_id = $1')) {
+            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_layout_widget_overrides') && sql.includes('layout_id = $1')) {
                 return []
             }
 
@@ -711,7 +712,7 @@ describe('MetahubLayoutsService', () => {
             statusCode: 400
         })
         expect(
-            query.mock.calls.some(([sql]) => String(sql).includes('UPDATE') && String(sql).includes('_mhb_catalog_widget_overrides'))
+            query.mock.calls.some(([sql]) => String(sql).includes('UPDATE') && String(sql).includes('_mhb_layout_widget_overrides'))
         ).toBe(false)
     })
 
@@ -723,12 +724,12 @@ describe('MetahubLayoutsService', () => {
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
             if (
                 sql.includes('_mhb_layouts') &&
-                (sql.includes('SELECT id, catalog_id, base_layout_id, config') || sql.includes('SELECT * FROM'))
+                (sql.includes('SELECT id, scope_entity_id, base_layout_id, config') || sql.includes('SELECT * FROM'))
             ) {
                 return [
                     {
                         id: layoutId,
-                        catalog_id: 'catalog-1',
+                        scope_entity_id: 'catalog-1',
                         base_layout_id: baseLayoutId,
                         config: {}
                     }
@@ -757,7 +758,7 @@ describe('MetahubLayoutsService', () => {
                 }
             }
 
-            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_catalog_widget_overrides') && sql.includes('catalog_layout_id = $1')) {
+            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_layout_widget_overrides') && sql.includes('layout_id = $1')) {
                 return []
             }
 
@@ -797,12 +798,12 @@ describe('MetahubLayoutsService', () => {
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
             if (
                 sql.includes('_mhb_layouts') &&
-                (sql.includes('SELECT id, catalog_id, base_layout_id, config') || sql.includes('SELECT * FROM'))
+                (sql.includes('SELECT id, scope_entity_id, base_layout_id, config') || sql.includes('SELECT * FROM'))
             ) {
                 return [
                     {
                         id: layoutId,
-                        catalog_id: 'catalog-1',
+                        scope_entity_id: 'catalog-1',
                         base_layout_id: baseLayoutId,
                         config: {}
                     }
@@ -831,18 +832,18 @@ describe('MetahubLayoutsService', () => {
                 }
             }
 
-            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_catalog_widget_overrides') && sql.includes('catalog_layout_id = $1')) {
+            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_layout_widget_overrides') && sql.includes('layout_id = $1')) {
                 return overrideRows
             }
 
-            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_catalog_widget_overrides') && sql.includes('base_widget_id = $2')) {
+            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_layout_widget_overrides') && sql.includes('base_widget_id = $2')) {
                 return overrideRows.filter((row) => row.base_widget_id === params?.[1])
             }
 
-            if (sql.includes('INSERT INTO') && sql.includes('_mhb_catalog_widget_overrides')) {
+            if (sql.includes('INSERT INTO') && sql.includes('_mhb_layout_widget_overrides')) {
                 overrideRows.push({
                     id: 'override-1',
-                    catalog_layout_id: params?.[0],
+                    layout_id: params?.[0],
                     base_widget_id: params?.[1],
                     zone: params?.[2],
                     sort_order: params?.[3],
@@ -883,7 +884,7 @@ describe('MetahubLayoutsService', () => {
             ])
         )
         expect(
-            query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO') && String(sql).includes('_mhb_catalog_widget_overrides'))
+            query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO') && String(sql).includes('_mhb_layout_widget_overrides'))
         ).toBe(true)
     })
 
@@ -893,11 +894,11 @@ describe('MetahubLayoutsService', () => {
         const baseWidgetId = 'base-widget-1'
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
-            if (sql.includes('SELECT id, catalog_id, base_layout_id, config') && sql.includes('_mhb_layouts')) {
+            if (sql.includes('SELECT id, scope_entity_id, base_layout_id, config') && sql.includes('_mhb_layouts')) {
                 return [
                     {
                         id: layoutId,
-                        catalog_id: 'catalog-1',
+                        scope_entity_id: 'catalog-1',
                         base_layout_id: baseLayoutId,
                         config: {}
                     }
@@ -926,7 +927,7 @@ describe('MetahubLayoutsService', () => {
                 }
             }
 
-            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_catalog_widget_overrides') && sql.includes('catalog_layout_id = $1')) {
+            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_layout_widget_overrides') && sql.includes('layout_id = $1')) {
                 return []
             }
 
@@ -961,12 +962,12 @@ describe('MetahubLayoutsService', () => {
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
             if (
                 sql.includes('_mhb_layouts') &&
-                (sql.includes('SELECT id, catalog_id, base_layout_id, config') || sql.includes('SELECT * FROM'))
+                (sql.includes('SELECT id, scope_entity_id, base_layout_id, config') || sql.includes('SELECT * FROM'))
             ) {
                 return [
                     {
                         id: layoutId,
-                        catalog_id: 'catalog-1',
+                        scope_entity_id: 'catalog-1',
                         base_layout_id: baseLayoutId,
                         config: {}
                     }
@@ -995,7 +996,7 @@ describe('MetahubLayoutsService', () => {
                 }
             }
 
-            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_catalog_widget_overrides') && sql.includes('catalog_layout_id = $1')) {
+            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_layout_widget_overrides') && sql.includes('layout_id = $1')) {
                 return []
             }
 
@@ -1020,7 +1021,7 @@ describe('MetahubLayoutsService', () => {
         })
     })
 
-    it('blocks deletion of a global layout that is still referenced by catalog layouts', async () => {
+    it('blocks deletion of a global layout that is still referenced by scoped layouts', async () => {
         const layoutId = 'global-layout-1'
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
@@ -1028,7 +1029,7 @@ describe('MetahubLayoutsService', () => {
                 return [
                     {
                         id: layoutId,
-                        catalog_id: null,
+                        scope_entity_id: null,
                         base_layout_id: null,
                         is_default: false,
                         is_active: true
@@ -1057,8 +1058,258 @@ describe('MetahubLayoutsService', () => {
         const service = new MetahubLayoutsService(exec as never, schemaService as never)
 
         await expect(service.deleteLayout('metahub-1', layoutId, 'user-1')).rejects.toMatchObject({
-            message: 'Cannot delete a global layout that is used by catalog layouts',
+            message: 'Cannot delete a global layout that is used by scoped layouts',
             statusCode: 409
         })
+    })
+
+    it('lists global widget visibility for every layout-capable entity scope', async () => {
+        const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (
+                sql.includes('FROM') &&
+                sql.includes('_mhb_layouts') &&
+                sql.includes('_mhb_widgets') &&
+                sql.includes('l.scope_entity_id IS NULL')
+            ) {
+                expect(params).toEqual(['global-layout-1', 'base-widget-1'])
+                return [{ layout_id: 'global-layout-1', widget_id: 'base-widget-1', widget_is_active: true }]
+            }
+
+            if (sql.includes('_mhb_objects') && sql.includes('_mhb_entity_type_definitions')) {
+                return [
+                    {
+                        id: 'catalog-1',
+                        kind: 'catalog',
+                        codename: {
+                            _schema: 'v1',
+                            _primary: 'en',
+                            locales: { en: { content: 'Courses' }, ru: { content: 'Курсы' } }
+                        },
+                        presentation: {
+                            name: {
+                                _schema: 'v1',
+                                _primary: 'en',
+                                locales: { en: { content: 'Courses' }, ru: { content: 'Курсы' } }
+                            }
+                        },
+                        components: { layoutConfig: { enabled: true } }
+                    },
+                    {
+                        id: 'set-1',
+                        kind: 'set',
+                        codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Settings' } } },
+                        presentation: {},
+                        components: { layoutConfig: false }
+                    },
+                    {
+                        id: 'page-1',
+                        kind: 'page',
+                        codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Home' } } },
+                        presentation: {
+                            name: {
+                                _schema: 'v1',
+                                _primary: 'en',
+                                locales: { en: { content: 'Home' } }
+                            }
+                        },
+                        components: { layoutConfig: { enabled: true } }
+                    }
+                ]
+            }
+
+            if (sql.includes('FROM') && sql.includes('_mhb_layouts') && sql.includes('base_layout_id = $1')) {
+                expect(params).toEqual(['global-layout-1', ['catalog-1', 'page-1']])
+                return [
+                    {
+                        id: 'catalog-layout-1',
+                        scope_entity_id: 'catalog-1',
+                        name: {
+                            _schema: 'v1',
+                            _primary: 'en',
+                            locales: { en: { content: 'Courses layout' } }
+                        },
+                        is_default: true,
+                        is_active: true,
+                        sort_order: 0
+                    }
+                ]
+            }
+
+            if (sql.includes('FROM') && sql.includes('_mhb_layout_widget_overrides') && sql.includes('base_widget_id = $1')) {
+                expect(params).toEqual(['base-widget-1', ['catalog-layout-1']])
+                return [{ layout_id: 'catalog-layout-1', is_active: false, is_deleted_override: false }]
+            }
+
+            throw new Error(`Unexpected SQL in scope visibility list test: ${sql}`)
+        })
+
+        const exec = { query, transaction: jest.fn(), isReleased: () => false }
+        const schemaService = {
+            ensureSchema: jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+        }
+
+        const service = new MetahubLayoutsService(exec as never, schemaService as never)
+        const result = await service.listLayoutWidgetScopeVisibility('metahub-1', 'global-layout-1', 'base-widget-1', 'user-1')
+
+        expect(result).toEqual([
+            expect.objectContaining({
+                scopeEntityId: 'catalog-1',
+                kind: 'catalog',
+                layoutId: 'catalog-layout-1',
+                isVisible: false,
+                isOverridden: true
+            }),
+            expect.objectContaining({
+                scopeEntityId: 'page-1',
+                kind: 'page',
+                layoutId: null,
+                isVisible: true,
+                isOverridden: false
+            })
+        ])
+    })
+
+    it('auto-creates a scoped layout when saving global widget visibility for a layout-capable scope', async () => {
+        let insertedScopedLayout = false
+        let insertedOverride = false
+
+        const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('_mhb_objects') && sql.includes('_mhb_entity_type_definitions') && sql.includes('WHERE o.id = $1')) {
+                expect(params).toEqual(['page-1'])
+                return [{ id: 'page-1', kind: 'page', components: { layoutConfig: { enabled: true } } }]
+            }
+
+            if (
+                sql.includes('SELECT id, scope_entity_id, base_layout_id, config') &&
+                sql.includes('_mhb_layouts') &&
+                sql.includes('FOR UPDATE')
+            ) {
+                if (sql.includes('scope_entity_id IS NULL')) {
+                    return [{ id: 'global-layout-1', scope_entity_id: null, base_layout_id: null, config: { showDetailsTable: true } }]
+                }
+                if (sql.includes('scope_entity_id = $1') && sql.includes('base_layout_id = $2')) {
+                    return []
+                }
+            }
+
+            if (sql.includes('SELECT *') && sql.includes('_mhb_widgets') && sql.includes('FOR UPDATE')) {
+                expect(params).toEqual(['base-widget-1', 'global-layout-1'])
+                return [{ id: 'base-widget-1', layout_id: 'global-layout-1', is_active: true, config: {} }]
+            }
+
+            if (sql.includes('SELECT presentation, codename') && sql.includes('_mhb_objects')) {
+                expect(params).toEqual(['page-1'])
+                return [
+                    {
+                        presentation: {
+                            name: {
+                                _schema: 'v1',
+                                _primary: 'en',
+                                locales: { en: { content: 'Home' }, ru: { content: 'Главная' } }
+                            }
+                        },
+                        codename: {
+                            _schema: 'v1',
+                            _primary: 'en',
+                            locales: { en: { content: 'Home' }, ru: { content: 'Главная' } }
+                        }
+                    }
+                ]
+            }
+
+            if (sql.includes('INSERT INTO') && sql.includes('_mhb_layouts')) {
+                insertedScopedLayout = true
+                expect(params?.[0]).toBe('page-1')
+                expect(params?.[1]).toBe('global-layout-1')
+                return [{ id: 'page-layout-1', scope_entity_id: 'page-1', base_layout_id: 'global-layout-1', config: {} }]
+            }
+
+            if (sql.includes('SELECT *') && sql.includes('_mhb_layout_widget_overrides')) {
+                return []
+            }
+
+            if (sql.includes('INSERT INTO') && sql.includes('_mhb_layout_widget_overrides')) {
+                insertedOverride = true
+                expect(params?.[0]).toBe('page-layout-1')
+                expect(params?.[1]).toBe('base-widget-1')
+                expect(params?.[5]).toBe(false)
+                return []
+            }
+
+            if (sql.includes('SELECT id, scope_entity_id, base_layout_id, config') && sql.includes('_mhb_layouts')) {
+                return [{ id: 'page-layout-1', scope_entity_id: 'page-1', base_layout_id: 'global-layout-1', config: {} }]
+            }
+
+            if (sql.includes('UPDATE') && sql.includes('_mhb_layouts') && sql.includes('config = $1')) {
+                return []
+            }
+
+            if (sql.includes('_mhb_layouts') && sql.includes('_mhb_widgets') && sql.includes('l.scope_entity_id IS NULL')) {
+                return [{ layout_id: 'global-layout-1', widget_id: 'base-widget-1', widget_is_active: true }]
+            }
+
+            if (sql.includes('_mhb_objects') && sql.includes('_mhb_entity_type_definitions')) {
+                return [
+                    {
+                        id: 'page-1',
+                        kind: 'page',
+                        codename: {
+                            _schema: 'v1',
+                            _primary: 'en',
+                            locales: { en: { content: 'Home' } }
+                        },
+                        presentation: {
+                            name: {
+                                _schema: 'v1',
+                                _primary: 'en',
+                                locales: { en: { content: 'Home' } }
+                            }
+                        },
+                        components: { layoutConfig: { enabled: true } }
+                    }
+                ]
+            }
+
+            if (sql.includes('FROM') && sql.includes('_mhb_layouts') && sql.includes('base_layout_id = $1')) {
+                return [{ id: 'page-layout-1', scope_entity_id: 'page-1', name: {}, is_default: true, is_active: true, sort_order: 0 }]
+            }
+
+            if (sql.includes('FROM') && sql.includes('_mhb_layout_widget_overrides') && sql.includes('base_widget_id = $1')) {
+                return [{ layout_id: 'page-layout-1', is_active: false, is_deleted_override: false }]
+            }
+
+            throw new Error(`Unexpected SQL in scope visibility update test: ${sql}`)
+        })
+
+        const tx = { query }
+        const exec = {
+            query,
+            transaction: jest.fn(async (callback: (trx: typeof tx) => Promise<unknown>) => callback(tx)),
+            isReleased: () => false
+        }
+        const schemaService = {
+            ensureSchema: jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+        }
+
+        const service = new MetahubLayoutsService(exec as never, schemaService as never)
+        const result = await service.setLayoutWidgetScopeVisibility(
+            'metahub-1',
+            'global-layout-1',
+            'base-widget-1',
+            'page-1',
+            false,
+            'user-1'
+        )
+
+        expect(insertedScopedLayout).toBe(true)
+        expect(insertedOverride).toBe(true)
+        expect(result).toEqual([
+            expect.objectContaining({
+                scopeEntityId: 'page-1',
+                layoutId: 'page-layout-1',
+                isVisible: false,
+                isOverridden: true
+            })
+        ])
     })
 })

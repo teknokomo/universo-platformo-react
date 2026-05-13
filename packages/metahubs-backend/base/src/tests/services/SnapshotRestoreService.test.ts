@@ -571,10 +571,10 @@ describe('SnapshotRestoreService', () => {
 
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
 
-        expect(deletedTables).toEqual(['_mhb_scripts', '_mhb_widgets', '_mhb_catalog_widget_overrides', '_mhb_layouts'])
+        expect(deletedTables).toEqual(['_mhb_scripts', '_mhb_widgets', '_mhb_layout_widget_overrides', '_mhb_layouts'])
         expect(insertedRows['_mhb_layouts']).toHaveLength(1)
         expect(insertedRows['_mhb_layouts']![0]).toMatchObject({
-            catalog_id: null,
+            scope_entity_id: null,
             base_layout_id: null,
             template_key: 'dashboard',
             is_default: true
@@ -826,12 +826,12 @@ describe('SnapshotRestoreService', () => {
 
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
 
-        expect(deletedTables).toEqual(['_mhb_scripts', '_mhb_widgets', '_mhb_catalog_widget_overrides', '_mhb_layouts'])
+        expect(deletedTables).toEqual(['_mhb_scripts', '_mhb_widgets', '_mhb_layout_widget_overrides', '_mhb_layouts'])
         expect(insertedRows['_mhb_layouts']).toBeUndefined()
         expect(insertedRows['_mhb_widgets']).toBeUndefined()
     })
 
-    it('restores catalog layouts and sparse widget overrides with remapped ids', async () => {
+    it('restores scoped layouts and sparse widget overrides with remapped ids', async () => {
         const snapshot = makeMinimalSnapshot({
             layouts: [
                 {
@@ -845,13 +845,13 @@ describe('SnapshotRestoreService', () => {
                     sortOrder: 0
                 }
             ],
-            catalogLayouts: [
+            scopedLayouts: [
                 {
                     id: 'old-catalog-layout-id',
-                    linkedCollectionId: 'old-catalog-id',
+                    scopeEntityId: 'old-catalog-id',
                     baseLayoutId: 'old-global-layout-id',
                     templateKey: 'dashboard',
-                    name: { en: 'Catalog override' },
+                    name: { en: 'Entity override' },
                     description: null,
                     config: { showHeader: false },
                     isActive: true,
@@ -879,10 +879,10 @@ describe('SnapshotRestoreService', () => {
                     isActive: true
                 }
             ],
-            catalogLayoutWidgetOverrides: [
+            layoutWidgetOverrides: [
                 {
                     id: 'old-override-id',
-                    catalogLayoutId: 'old-catalog-layout-id',
+                    layoutId: 'old-catalog-layout-id',
                     baseWidgetId: 'old-global-widget-id',
                     zone: 'top',
                     sortOrder: 2,
@@ -900,19 +900,19 @@ describe('SnapshotRestoreService', () => {
 
         expect(insertedRows['_mhb_layouts']).toHaveLength(2)
         const globalLayoutRow = insertedRows['_mhb_layouts']![0] as Record<string, unknown>
-        const catalogLayoutRow = insertedRows['_mhb_layouts']![1] as Record<string, unknown>
+        const scopedLayoutRow = insertedRows['_mhb_layouts']![1] as Record<string, unknown>
         const globalWidgetRow = insertedRows['_mhb_widgets']![0] as Record<string, unknown>
-        const catalogWidgetRow = insertedRows['_mhb_widgets']![1] as Record<string, unknown>
-        const overrideRow = insertedRows['_mhb_catalog_widget_overrides']![0] as Record<string, unknown>
+        const scopedWidgetRow = insertedRows['_mhb_widgets']![1] as Record<string, unknown>
+        const overrideRow = insertedRows['_mhb_layout_widget_overrides']![0] as Record<string, unknown>
 
         expect(globalLayoutRow).toMatchObject({
-            catalog_id: null,
+            scope_entity_id: null,
             base_layout_id: null,
             template_key: 'dashboard',
             is_default: true
         })
-        expect(catalogLayoutRow).toMatchObject({
-            catalog_id: 'generated-id-1',
+        expect(scopedLayoutRow).toMatchObject({
+            scope_entity_id: 'generated-id-1',
             base_layout_id: globalLayoutRow.id,
             template_key: 'dashboard',
             is_default: true
@@ -924,15 +924,15 @@ describe('SnapshotRestoreService', () => {
             zone: 'left',
             widget_key: 'menuWidget'
         })
-        expect(catalogWidgetRow).toMatchObject({
-            layout_id: catalogLayoutRow.id,
+        expect(scopedWidgetRow).toMatchObject({
+            layout_id: scopedLayoutRow.id,
             zone: 'right',
             widget_key: 'statsOverview'
         })
 
-        expect(insertedRows['_mhb_catalog_widget_overrides']).toHaveLength(1)
+        expect(insertedRows['_mhb_layout_widget_overrides']).toHaveLength(1)
         expect(overrideRow).toMatchObject({
-            catalog_layout_id: catalogLayoutRow.id,
+            layout_id: scopedLayoutRow.id,
             base_widget_id: globalWidgetRow.id,
             zone: 'top',
             sort_order: 2,

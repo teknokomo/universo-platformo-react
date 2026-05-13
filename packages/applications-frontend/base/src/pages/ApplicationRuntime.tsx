@@ -53,7 +53,7 @@ const toRuntimeSectionLinkMenuItem = (
     sectionLinksEnabled: boolean,
     forceLink: boolean
 ): DashboardMenuItem => {
-    if (item.kind !== 'catalog' && item.kind !== 'section' && item.kind !== 'page') {
+    if (item.kind !== 'section') {
         return { ...item, selected: false }
     }
 

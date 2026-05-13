@@ -5,14 +5,14 @@ import { PaginationParams } from '../../types'
 
 type FieldDefinitionListScope = 'business' | 'system' | 'all'
 
-const normalizeLayoutScopeLinkedCollectionId = (linkedCollectionId?: string | null): string | null => {
-    if (typeof linkedCollectionId !== 'string') return null
-    const trimmed = linkedCollectionId.trim()
+const normalizeLayoutScopeEntityId = (scopeEntityId?: string | null): string | null => {
+    if (typeof scopeEntityId !== 'string') return null
+    const trimmed = scopeEntityId.trim()
     return trimmed.length > 0 ? trimmed : null
 }
 
-const normalizeLayoutScope = (linkedCollectionId?: string | null) => ({
-    linkedCollectionId: normalizeLayoutScopeLinkedCollectionId(linkedCollectionId)
+const normalizeLayoutScope = (scopeEntityId?: string | null) => ({
+    scopeEntityId: normalizeLayoutScopeEntityId(scopeEntityId)
 })
 
 const normalizeEntityRouteKindKey = (kindKey?: string | null): string | undefined => {
@@ -191,22 +191,22 @@ export const metahubsQueryKeys = {
     sharedEntityTargets: (metahubId: string, entityKind: SharedEntityKind, locale?: string) =>
         [...metahubsQueryKeys.detail(metahubId), 'sharedEntityTargets', entityKind, locale ?? 'default'] as const,
 
-    layouts: (metahubId: string, linkedCollectionId?: string | null) =>
-        [...metahubsQueryKeys.layoutsRoot(metahubId), normalizeLayoutScope(linkedCollectionId)] as const,
+    layouts: (metahubId: string, scopeEntityId?: string | null) =>
+        [...metahubsQueryKeys.layoutsRoot(metahubId), normalizeLayoutScope(scopeEntityId)] as const,
 
-    layoutsListBase: (metahubId: string, linkedCollectionId?: string | null) =>
-        [...metahubsQueryKeys.layouts(metahubId, linkedCollectionId), 'list'] as const,
+    layoutsListBase: (metahubId: string, scopeEntityId?: string | null) =>
+        [...metahubsQueryKeys.layouts(metahubId, scopeEntityId), 'list'] as const,
 
-    layoutsList: (metahubId: string, params?: PaginationParams & { linkedCollectionId?: string | null }) => {
+    layoutsList: (metahubId: string, params?: PaginationParams & { scopeEntityId?: string | null }) => {
         const normalized = {
             limit: params?.limit ?? 100,
             offset: params?.offset ?? 0,
             sortBy: params?.sortBy ?? 'updated',
             sortOrder: params?.sortOrder ?? 'desc',
             search: params?.search?.trim() || undefined,
-            linkedCollectionId: normalizeLayoutScopeLinkedCollectionId(params?.linkedCollectionId)
+            scopeEntityId: normalizeLayoutScopeEntityId(params?.scopeEntityId)
         }
-        return [...metahubsQueryKeys.layoutsListBase(metahubId, normalized.linkedCollectionId), normalized] as const
+        return [...metahubsQueryKeys.layoutsListBase(metahubId, normalized.scopeEntityId), normalized] as const
     },
 
     layoutDetail: (metahubId: string, layoutId: string) => [...metahubsQueryKeys.layouts(metahubId), 'detail', layoutId] as const,
@@ -237,8 +237,8 @@ export const metahubsQueryKeys = {
         [...metahubsQueryKeys.treeEntityDetail(metahubId, treeEntityId, kindKey), 'blockingTreeDependencies'] as const,
 
     // Blocking references for catalog deletion (REF fieldDefinitions in other linkedCollections)
-    blockingLinkedCollectionReferences: (metahubId: string, linkedCollectionId: string, kindKey?: string | null) =>
-        [...metahubsQueryKeys.linkedCollectionDetail(metahubId, linkedCollectionId, kindKey), 'blockingReferences'] as const,
+    blockingLinkedCollectionReferences: (metahubId: string, scopeEntityId: string, kindKey?: string | null) =>
+        [...metahubsQueryKeys.linkedCollectionDetail(metahubId, scopeEntityId, kindKey), 'blockingReferences'] as const,
 
     // Catalogs scoped to a specific hub
     linkedCollections: (metahubId: string, treeEntityId: string) =>
@@ -286,12 +286,12 @@ export const metahubsQueryKeys = {
     },
 
     // LinkedCollectionEntity detail without hub context (catalog-centric navigation)
-    linkedCollectionDetail: (metahubId: string, linkedCollectionId: string, kindKey?: string | null) =>
-        [...metahubsQueryKeys.allLinkedCollectionsScope(metahubId, kindKey), 'detail', linkedCollectionId] as const,
+    linkedCollectionDetail: (metahubId: string, scopeEntityId: string, kindKey?: string | null) =>
+        [...metahubsQueryKeys.allLinkedCollectionsScope(metahubId, kindKey), 'detail', scopeEntityId] as const,
 
     // LinkedCollectionEntity detail scoped to a specific hub
-    linkedCollectionDetailInTreeEntity: (metahubId: string, treeEntityId: string, linkedCollectionId: string, kindKey?: string | null) =>
-        [...metahubsQueryKeys.linkedCollectionsScope(metahubId, treeEntityId, kindKey), 'detail', linkedCollectionId] as const,
+    linkedCollectionDetailInTreeEntity: (metahubId: string, treeEntityId: string, scopeEntityId: string, kindKey?: string | null) =>
+        [...metahubsQueryKeys.linkedCollectionsScope(metahubId, treeEntityId, kindKey), 'detail', scopeEntityId] as const,
 
     // Blocking references for set deletion (REF fieldDefinitions in linkedCollections)
     blockingValueGroupReferences: (metahubId: string, valueGroupId: string, kindKey?: string | null) =>
@@ -465,16 +465,16 @@ export const metahubsQueryKeys = {
     },
 
     // Attributes scoped to a specific catalog
-    fieldDefinitions: (metahubId: string, treeEntityId: string, linkedCollectionId: string, kindKey?: string | null) =>
+    fieldDefinitions: (metahubId: string, treeEntityId: string, scopeEntityId: string, kindKey?: string | null) =>
         [
-            ...metahubsQueryKeys.linkedCollectionDetailInTreeEntity(metahubId, treeEntityId, linkedCollectionId, kindKey),
+            ...metahubsQueryKeys.linkedCollectionDetailInTreeEntity(metahubId, treeEntityId, scopeEntityId, kindKey),
             'fieldDefinitions'
         ] as const,
 
     fieldDefinitionsList: (
         metahubId: string,
         treeEntityId: string,
-        linkedCollectionId: string,
+        scopeEntityId: string,
         params?: PaginationParams & { locale?: string; scope?: FieldDefinitionListScope; includeShared?: boolean; kindKey?: string }
     ) => {
         const normalized = {
@@ -489,19 +489,19 @@ export const metahubsQueryKeys = {
             kindKey: normalizeEntityRouteKindKey(params?.kindKey)
         }
         return [
-            ...metahubsQueryKeys.fieldDefinitions(metahubId, treeEntityId, linkedCollectionId, normalized.kindKey),
+            ...metahubsQueryKeys.fieldDefinitions(metahubId, treeEntityId, scopeEntityId, normalized.kindKey),
             'list',
             normalized
         ] as const
     },
 
     // Attributes scoped directly to catalog (without hub context)
-    fieldDefinitionsDirect: (metahubId: string, linkedCollectionId: string, kindKey?: string | null) =>
-        [...metahubsQueryKeys.linkedCollectionDetail(metahubId, linkedCollectionId, kindKey), 'fieldDefinitions'] as const,
+    fieldDefinitionsDirect: (metahubId: string, scopeEntityId: string, kindKey?: string | null) =>
+        [...metahubsQueryKeys.linkedCollectionDetail(metahubId, scopeEntityId, kindKey), 'fieldDefinitions'] as const,
 
     fieldDefinitionsListDirect: (
         metahubId: string,
-        linkedCollectionId: string,
+        scopeEntityId: string,
         params?: PaginationParams & { locale?: string; scope?: FieldDefinitionListScope; includeShared?: boolean; kindKey?: string }
     ) => {
         const normalized = {
@@ -515,23 +515,18 @@ export const metahubsQueryKeys = {
             includeShared: params?.includeShared ?? false,
             kindKey: normalizeEntityRouteKindKey(params?.kindKey)
         }
-        return [...metahubsQueryKeys.fieldDefinitionsDirect(metahubId, linkedCollectionId, normalized.kindKey), 'list', normalized] as const
+        return [...metahubsQueryKeys.fieldDefinitionsDirect(metahubId, scopeEntityId, normalized.kindKey), 'list', normalized] as const
     },
 
     // All attribute codenames for a catalog (root + children, for global scope duplicate checking)
-    allFieldDefinitionCodenames: (metahubId: string, linkedCollectionId: string, kindKey?: string | null) =>
-        [...metahubsQueryKeys.linkedCollectionDetail(metahubId, linkedCollectionId, kindKey), 'fieldDefinitionCodenames'] as const,
+    allFieldDefinitionCodenames: (metahubId: string, scopeEntityId: string, kindKey?: string | null) =>
+        [...metahubsQueryKeys.linkedCollectionDetail(metahubId, scopeEntityId, kindKey), 'fieldDefinitionCodenames'] as const,
 
     // Elements scoped to a specific catalog
-    records: (metahubId: string, treeEntityId: string, linkedCollectionId: string, kindKey?: string | null) =>
-        [...metahubsQueryKeys.linkedCollectionDetailInTreeEntity(metahubId, treeEntityId, linkedCollectionId, kindKey), 'records'] as const,
+    records: (metahubId: string, treeEntityId: string, scopeEntityId: string, kindKey?: string | null) =>
+        [...metahubsQueryKeys.linkedCollectionDetailInTreeEntity(metahubId, treeEntityId, scopeEntityId, kindKey), 'records'] as const,
 
-    recordsList: (
-        metahubId: string,
-        treeEntityId: string,
-        linkedCollectionId: string,
-        params?: PaginationParams & { kindKey?: string }
-    ) => {
+    recordsList: (metahubId: string, treeEntityId: string, scopeEntityId: string, params?: PaginationParams & { kindKey?: string }) => {
         const normalized = {
             limit: params?.limit ?? 100,
             offset: params?.offset ?? 0,
@@ -540,14 +535,14 @@ export const metahubsQueryKeys = {
             search: params?.search?.trim() || undefined,
             kindKey: normalizeEntityRouteKindKey(params?.kindKey)
         }
-        return [...metahubsQueryKeys.records(metahubId, treeEntityId, linkedCollectionId, normalized.kindKey), 'list', normalized] as const
+        return [...metahubsQueryKeys.records(metahubId, treeEntityId, scopeEntityId, normalized.kindKey), 'list', normalized] as const
     },
 
     // Elements scoped directly to catalog (without hub context)
-    recordsDirect: (metahubId: string, linkedCollectionId: string, kindKey?: string | null) =>
-        [...metahubsQueryKeys.linkedCollectionDetail(metahubId, linkedCollectionId, kindKey), 'records'] as const,
+    recordsDirect: (metahubId: string, scopeEntityId: string, kindKey?: string | null) =>
+        [...metahubsQueryKeys.linkedCollectionDetail(metahubId, scopeEntityId, kindKey), 'records'] as const,
 
-    recordsListDirect: (metahubId: string, linkedCollectionId: string, params?: PaginationParams & { kindKey?: string }) => {
+    recordsListDirect: (metahubId: string, scopeEntityId: string, params?: PaginationParams & { kindKey?: string }) => {
         const normalized = {
             limit: params?.limit ?? 100,
             offset: params?.offset ?? 0,
@@ -556,7 +551,7 @@ export const metahubsQueryKeys = {
             search: params?.search?.trim() || undefined,
             kindKey: normalizeEntityRouteKindKey(params?.kindKey)
         }
-        return [...metahubsQueryKeys.recordsDirect(metahubId, linkedCollectionId, normalized.kindKey), 'list', normalized] as const
+        return [...metahubsQueryKeys.recordsDirect(metahubId, scopeEntityId, normalized.kindKey), 'list', normalized] as const
     },
 
     // ============ PUBLICATIONS (INFORMATION BASES) QUERY KEYS ============
@@ -621,8 +616,8 @@ export const invalidateLayoutsQueries = {
     all: (queryClient: QueryClient, metahubId: string) =>
         queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.layoutsRoot(metahubId) }),
 
-    lists: (queryClient: QueryClient, metahubId: string, linkedCollectionId?: string | null) =>
-        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.layoutsListBase(metahubId, linkedCollectionId) }),
+    lists: (queryClient: QueryClient, metahubId: string, scopeEntityId?: string | null) =>
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.layoutsListBase(metahubId, scopeEntityId) }),
 
     detail: (queryClient: QueryClient, metahubId: string, layoutId: string) =>
         queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.layoutDetail(metahubId, layoutId) })
@@ -678,11 +673,11 @@ export const invalidateLinkedCollectionsQueries = {
                 : metahubsQueryKeys.allLinkedCollectionsList(metahubId, { kindKey: kindKey ?? undefined })
         }),
 
-    detail: (queryClient: QueryClient, metahubId: string, linkedCollectionId: string, treeEntityId?: string, kindKey?: string | null) =>
+    detail: (queryClient: QueryClient, metahubId: string, scopeEntityId: string, treeEntityId?: string, kindKey?: string | null) =>
         queryClient.invalidateQueries({
             queryKey: treeEntityId
-                ? metahubsQueryKeys.linkedCollectionDetailInTreeEntity(metahubId, treeEntityId, linkedCollectionId, kindKey)
-                : metahubsQueryKeys.linkedCollectionDetail(metahubId, linkedCollectionId, kindKey)
+                ? metahubsQueryKeys.linkedCollectionDetailInTreeEntity(metahubId, treeEntityId, scopeEntityId, kindKey)
+                : metahubsQueryKeys.linkedCollectionDetail(metahubId, scopeEntityId, kindKey)
         })
 }
 
@@ -759,27 +754,27 @@ export const invalidateOptionValuesQueries = {
 }
 
 export const invalidateFieldDefinitionsQueries = {
-    all: (queryClient: QueryClient, metahubId: string, treeEntityId: string, linkedCollectionId: string, kindKey?: string | null) =>
+    all: (queryClient: QueryClient, metahubId: string, treeEntityId: string, scopeEntityId: string, kindKey?: string | null) =>
         queryClient.invalidateQueries({
-            queryKey: metahubsQueryKeys.fieldDefinitions(metahubId, treeEntityId, linkedCollectionId, kindKey)
+            queryKey: metahubsQueryKeys.fieldDefinitions(metahubId, treeEntityId, scopeEntityId, kindKey)
         }),
 
-    lists: (queryClient: QueryClient, metahubId: string, treeEntityId: string, linkedCollectionId: string, kindKey?: string | null) =>
+    lists: (queryClient: QueryClient, metahubId: string, treeEntityId: string, scopeEntityId: string, kindKey?: string | null) =>
         queryClient.invalidateQueries({
-            queryKey: metahubsQueryKeys.fieldDefinitionsList(metahubId, treeEntityId, linkedCollectionId, { kindKey: kindKey ?? undefined })
+            queryKey: metahubsQueryKeys.fieldDefinitionsList(metahubId, treeEntityId, scopeEntityId, { kindKey: kindKey ?? undefined })
         }),
 
-    allCodenames: (queryClient: QueryClient, metahubId: string, linkedCollectionId: string, kindKey?: string | null) =>
-        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allFieldDefinitionCodenames(metahubId, linkedCollectionId, kindKey) })
+    allCodenames: (queryClient: QueryClient, metahubId: string, scopeEntityId: string, kindKey?: string | null) =>
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allFieldDefinitionCodenames(metahubId, scopeEntityId, kindKey) })
 }
 
 export const invalidateRecordsQueries = {
-    all: (queryClient: QueryClient, metahubId: string, treeEntityId: string, linkedCollectionId: string, kindKey?: string | null) =>
-        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.records(metahubId, treeEntityId, linkedCollectionId, kindKey) }),
+    all: (queryClient: QueryClient, metahubId: string, treeEntityId: string, scopeEntityId: string, kindKey?: string | null) =>
+        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.records(metahubId, treeEntityId, scopeEntityId, kindKey) }),
 
-    lists: (queryClient: QueryClient, metahubId: string, treeEntityId: string, linkedCollectionId: string, kindKey?: string | null) =>
+    lists: (queryClient: QueryClient, metahubId: string, treeEntityId: string, scopeEntityId: string, kindKey?: string | null) =>
         queryClient.invalidateQueries({
-            queryKey: metahubsQueryKeys.recordsList(metahubId, treeEntityId, linkedCollectionId, { kindKey: kindKey ?? undefined })
+            queryKey: metahubsQueryKeys.recordsList(metahubId, treeEntityId, scopeEntityId, { kindKey: kindKey ?? undefined })
         })
 }
 

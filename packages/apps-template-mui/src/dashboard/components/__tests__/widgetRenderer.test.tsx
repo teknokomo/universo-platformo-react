@@ -176,4 +176,35 @@ describe('widgetRenderer detailsTable datasource', () => {
         expect(requestedUrl.searchParams.get('limit')).toBe('20')
         expect(requestedUrl.searchParams.get('offset')).toBe('0')
     })
+
+    it('does not render columnsContainer when all child widgets are inactive or missing', () => {
+        const { container } = render(
+            <>
+                {renderWidget({
+                    id: 'columns-widget',
+                    widgetKey: 'columnsContainer',
+                    sortOrder: 0,
+                    config: {
+                        columns: [
+                            { id: 'empty-column', width: 4, widgets: [] },
+                            {
+                                id: 'inactive-column',
+                                width: 4,
+                                widgets: [
+                                    {
+                                        id: 'inactive-table',
+                                        widgetKey: 'detailsTable',
+                                        isActive: false,
+                                        config: {}
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                })}
+            </>
+        )
+
+        expect(container).toBeEmptyDOMElement()
+    })
 })

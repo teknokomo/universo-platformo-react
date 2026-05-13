@@ -6,6 +6,51 @@
 
 ## Current Task Ledger (Canonical)
 
+## Active: Scoped Widget Visibility Lint And Generic Menu Closure (2026-05-13)
+
+> Goal: close the final QA findings by fixing frontend lint formatting and removing the remaining catalog/page-only menu item editor path in favor of generic layout-capable Entity section targets.
+> Status: completed. Menu widget authoring/runtime now uses the neutral `section/hub/link` item contract, active templates and fixture contracts use `autoShowAllSections`, and the remaining catalog/page-only menu branches were removed from the editor/runtime path.
+
+-   [x] Fix Prettier lint errors in connector diff and runtime menu components.
+-   [x] Generalize menu item target editing so layout-capable Entity sections can be selected without Catalog/Page-only editor branches or legacy menu item kinds.
+-   [x] Add focused regression coverage for the generic section menu item editor behavior.
+-   [x] Run targeted lint/build/tests and update memory-bank progress/context.
+
+## Active: Scoped Widget Visibility QA Closure (2026-05-13)
+
+> Goal: close the remaining scoped widget visibility QA findings by adding centralized global-layout widget visibility management for all layout-capable Entity scopes, preserving generic scoped layout contracts, and aligning runtime startup resolution with renderable sections.
+> Status: completed. Global widgets can now be managed centrally per layout-capable Entity scope, scoped layouts are auto-created on first visibility override, runtime startup lookup is aligned with renderable sections, and focused backend/frontend/build/browser validation passes.
+
+-   [x] Add a generic backend contract to list and update global widget visibility per layout-capable Entity scope, auto-creating scoped layouts when the first override is saved.
+-   [x] Add a metahub global widget visibility panel that reuses existing layout dialogs and exposes reverse scoped-layout override state without LMS-specific UI.
+-   [x] Align runtime start-page lookup with renderable runtime sections so unsupported Entity tokens cannot silently fall back after being resolved.
+-   [x] Add backend/frontend/browser regression coverage for centralized visibility, scoped-layout auto-creation, reverse state display, and startup token fallback behavior.
+-   [x] Run focused lint/tests/Playwright validation and update memory-bank progress/context.
+
+## Active: Scoped Layout QA Closure (2026-05-13)
+
+> Goal: close the final QA findings for the generic scoped layout rollout by removing the remaining kind-specific startup lookup restriction and proving through browser coverage that Home-only dashboard widgets do not leak into non-Home LMS destinations.
+> Status: completed. Runtime startup token lookup no longer filters candidates by Catalog/Page kinds, the resolver has focused regression coverage for generic Entity tokens, and the imported LMS runtime flow now fails if Home dashboard widgets leak into non-Home sections.
+
+-   [x] Generalize runtime menu startup scope lookup so token resolution is not restricted to Catalog/Page objects.
+-   [x] Add focused backend regression coverage for generic startup scope lookup behavior.
+-   [x] Extend imported LMS Playwright coverage with explicit negative assertions and screenshot evidence for Home-only widget absence on non-Home sections.
+-   [x] Run targeted tests, lint/diff checks, and update memory-bank progress/context after validation.
+
+## Active: Scoped Layout Widget Visibility Implementation (2026-05-12)
+
+> Goal: implement generic Entity-scoped layout overlays and widget visibility so published LMS dashboard widgets render only on configured destinations, without LMS-specific runtime forks or catalog-specific layout contracts.
+> Status: completed. Generic scoped layouts now use `scopeEntityId`/`scopedLayouts`/`layoutWidgetOverrides`, LMS Home owns dashboard widgets through a Page-scoped layout, non-Home runtime sections do not inherit Home dashboard widgets, empty columns containers fail closed, and the dedicated fresh-database Entity-scoped Playwright flow passes.
+
+-   [x] Phase 0: Capture and verify the current layout/snapshot/schema baseline and remaining catalog-specific layout names.
+-   [x] Phase 1: Refactor shared layout contracts from catalog-scoped fields to generic `scopeEntityId` / `scopedLayouts` / `layoutWidgetOverrides`.
+-   [x] Phase 2: Refactor metahub design-time layout schema, services, snapshot export/restore, and tests to use generic scoped layout tables and capability gates.
+-   [x] Phase 3: Refactor application runtime layout schema, sync materialization, persistence store, runtime layout selection, and snapshot hashing.
+-   [x] Phase 4: Update existing layout/widget editor UI, query keys, i18n, and runtime MUI rendering guards without adding LMS-only UI.
+-   [x] Phase 5: Rebuild the LMS template/generator/fixture contract so Home gets scoped dashboard widgets and non-Home sections do not inherit them.
+-   [x] Phase 6: Add focused unit, backend, frontend, and Playwright coverage for scoped visibility, UUID v7 persisted rows, and LMS UX sanity.
+-   [x] Phase 7: Update GitBook docs, package README notes, progress, and run targeted validation.
+
 ## Active: Connector Schema Diff Entity Metrics QA (2026-05-12)
 
 > Goal: replace misleading zero field/element summaries for non-Catalog entity types in the application connector schema diff with entity-appropriate metrics and add focused component/backend/browser coverage that catches unfinished, illogical schema-diff UI states.

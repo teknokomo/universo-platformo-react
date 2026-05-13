@@ -1245,7 +1245,7 @@ describe('Metahubs Routes', () => {
 
                 const app = buildApp()
 
-                const response = await request(app)
+                await request(app)
                     .post('/metahub/metahub-1/members')
                     .send({
                         email: 'target@example.com',

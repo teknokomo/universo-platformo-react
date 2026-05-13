@@ -32,7 +32,7 @@ const createSnapshot = (): PublishedApplicationSnapshot => ({
     layouts: [
         {
             id: 'layout-1',
-            linkedCollectionId: null,
+            scopeEntityId: null,
             templateKey: 'dashboard',
             name: { en: 'Main' },
             description: null,
@@ -76,7 +76,7 @@ const createMockSyncKnex = (overrides?: { layoutRows?: StoredRow[]; widgetRows?:
             negativeFilters.every((filter) => Object.entries(filter).every(([key, value]) => row[key] !== value)) &&
             (whereInColumn === null || whereInValues.includes(row[whereInColumn])) &&
             (whereNotInColumn === null || !whereNotInValues.includes(row[whereNotInColumn])) &&
-            (rawCatalogId === undefined || row.catalog_id === rawCatalogId)
+            (rawCatalogId === undefined || row.scope_entity_id === rawCatalogId)
 
         const builder = {
             where(filter: Record<string, unknown>) {
@@ -88,7 +88,7 @@ const createMockSyncKnex = (overrides?: { layoutRows?: StoredRow[]; widgetRows?:
                 return builder
             },
             whereRaw(sql: string, params: unknown[]) {
-                if (sql.includes('catalog_id IS NOT DISTINCT FROM ?')) {
+                if (sql.includes('scope_entity_id IS NOT DISTINCT FROM ?')) {
                     rawCatalogId = params[0]
                 }
                 return builder
@@ -110,13 +110,13 @@ const createMockSyncKnex = (overrides?: { layoutRows?: StoredRow[]; widgetRows?:
             async first(columns: string[]) {
                 const row = state[rowsRef]
                     .filter(matches)
-                    .find((candidate) => (rawCatalogId === undefined ? true : candidate.catalog_id === rawCatalogId))
+                    .find((candidate) => (rawCatalogId === undefined ? true : candidate.scope_entity_id === rawCatalogId))
                 return row ? Object.fromEntries(columns.map((column) => [column, row[column]])) : undefined
             },
             async select(columns: string[]) {
                 return state[rowsRef]
                     .filter(matches)
-                    .filter((row) => (rawCatalogId === undefined ? true : row.catalog_id === rawCatalogId))
+                    .filter((row) => (rawCatalogId === undefined ? true : row.scope_entity_id === rawCatalogId))
                     .map((row) => Object.fromEntries(columns.map((column) => [column, row[column]])))
             },
             async update(payload: Record<string, unknown>) {
@@ -198,7 +198,7 @@ describe('syncLayoutPersistence', () => {
             layoutRows: [
                 {
                     id: 'layout-1',
-                    catalog_id: null,
+                    scope_entity_id: null,
                     name: { en: 'Main' },
                     is_active: true,
                     is_default: true,
@@ -232,7 +232,7 @@ describe('syncLayoutPersistence', () => {
             layoutRows: [
                 {
                     id: 'layout-1',
-                    catalog_id: null,
+                    scope_entity_id: null,
                     template_key: 'dashboard',
                     name: { en: 'Main' },
                     description: null,
@@ -288,5 +288,85 @@ describe('syncLayoutPersistence', () => {
         expect(currentKnex.layoutRows[0]?.source_snapshot_hash).toBe('snapshot-new')
         expect(currentKnex.layoutRows[0]?.sync_state).toBe('local_modified')
         expect(currentKnex.widgetRows[0]?.config).toEqual({ columns: ['legacy'] })
+    })
+
+    it('persists inherited scoped widgets with UUID v7 ids and stable base widget links', async () => {
+        currentKnex = createMockSyncKnex({
+            layoutRows: [
+                {
+                    id: 'layout-main',
+                    scope_entity_id: null,
+                    source_kind: 'metahub',
+                    sync_state: 'clean',
+                    is_source_excluded: false,
+                    _upl_deleted: false,
+                    _app_deleted: false
+                },
+                {
+                    id: 'layout-page-home',
+                    scope_entity_id: 'page-home',
+                    source_kind: 'metahub',
+                    sync_state: 'clean',
+                    is_source_excluded: false,
+                    _upl_deleted: false,
+                    _app_deleted: false
+                }
+            ]
+        })
+
+        const snapshot: PublishedApplicationSnapshot = {
+            entities: {},
+            layouts: [
+                {
+                    id: 'layout-main',
+                    scopeEntityId: null,
+                    templateKey: 'dashboard',
+                    name: { en: 'Main' },
+                    description: null,
+                    config: { showDetailsTable: true },
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            scopedLayouts: [
+                {
+                    id: 'layout-page-home',
+                    scopeEntityId: 'page-home',
+                    baseLayoutId: 'layout-main',
+                    templateKey: 'dashboard',
+                    name: { en: 'Home' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            layoutZoneWidgets: [
+                {
+                    id: 'base-widget',
+                    layoutId: 'layout-main',
+                    zone: 'center',
+                    widgetKey: 'detailsTable',
+                    sortOrder: 10,
+                    config: { datasource: { kind: 'records.list', sectionId: 'catalog-1' } },
+                    isActive: true
+                }
+            ],
+            defaultLayoutId: 'layout-main'
+        }
+
+        await persistPublishedWidgets({
+            schemaName: 'app_schema',
+            snapshot,
+            userId: 'user-1'
+        })
+
+        const inheritedWidget = currentKnex.widgetRows.find((row) => row.layout_id === 'layout-page-home')
+        expect(inheritedWidget?.source_widget_id).toBe('base-widget')
+        expect(inheritedWidget?.source_base_widget_id).toBe('base-widget')
+        expect(inheritedWidget?.id).toEqual(expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/))
+        expect(inheritedWidget?.id).not.toBe('base-widget')
     })
 })

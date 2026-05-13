@@ -38,7 +38,7 @@ const isLocallyModifiedLayout = (row: { source_kind?: unknown; source_content_ha
     typeof row.local_content_hash === 'string' &&
     row.source_content_hash !== row.local_content_hash
 
-const resolveLayoutScope = (linkedCollectionId: string | null | undefined): string => linkedCollectionId ?? 'global'
+const resolveLayoutScope = (scopeEntityId: string | null | undefined): string => scopeEntityId ?? 'global'
 
 const toLocalizedTitle = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {})
 
@@ -69,7 +69,7 @@ export async function buildApplicationLayoutChanges(options: {
         .where({ _upl_deleted: false, _app_deleted: false })
         .select([
             'id',
-            'catalog_id',
+            'scope_entity_id',
             'name',
             'is_active',
             'is_default',
@@ -81,7 +81,7 @@ export async function buildApplicationLayoutChanges(options: {
             'is_source_excluded'
         ])) as Array<{
         id: unknown
-        catalog_id: unknown
+        scope_entity_id: unknown
         name: unknown
         is_active: unknown
         is_default: unknown
@@ -97,7 +97,7 @@ export async function buildApplicationLayoutChanges(options: {
     const defaultsByScope = new Map<string, typeof existingRows>()
     for (const row of existingRows) {
         if (row.is_default !== true || row.is_active !== true) continue
-        const scope = resolveLayoutScope(typeof row.catalog_id === 'string' ? row.catalog_id : null)
+        const scope = resolveLayoutScope(typeof row.scope_entity_id === 'string' ? row.scope_entity_id : null)
         const bucket = defaultsByScope.get(scope) ?? []
         bucket.push(row)
         defaultsByScope.set(scope, bucket)
@@ -107,7 +107,7 @@ export async function buildApplicationLayoutChanges(options: {
 
     for (const row of nextLayouts) {
         const sourceHash = hashApplicationLayoutContent({ layout: row, widgets: widgetsByLayoutId.get(row.id) ?? [] })
-        const scope = resolveLayoutScope(row.linkedCollectionId)
+        const scope = resolveLayoutScope(row.scopeEntityId)
         const existing = existingById.get(row.id)
 
         if (row.isDefault) {
@@ -189,7 +189,7 @@ export async function buildApplicationLayoutChanges(options: {
         }
         changes.push({
             type: 'LAYOUT_SOURCE_REMOVED',
-            scope: resolveLayoutScope(typeof row.catalog_id === 'string' ? row.catalog_id : null),
+            scope: resolveLayoutScope(typeof row.scope_entity_id === 'string' ? row.scope_entity_id : null),
             sourceLayoutId: String(row.id),
             applicationLayoutId: String(row.id),
             sourceKind: 'metahub',
@@ -259,7 +259,7 @@ export async function persistPublishedLayouts(options: {
                     .withSchema(schemaName)
                     .from('_app_layouts')
                     .where({ _upl_deleted: false, _app_deleted: false, is_default: true })
-                    .whereRaw('catalog_id IS NOT DISTINCT FROM ?', [row.linkedCollectionId])
+                    .whereRaw('scope_entity_id IS NOT DISTINCT FROM ?', [row.scopeEntityId])
                     .whereNot({ id: row.id })
                     .select(['id', 'source_kind', 'source_content_hash', 'local_content_hash'])
                 const hasAppOwnedDefault = defaultRows.some((defaultRow) => String(defaultRow.source_kind) === 'application')
@@ -277,13 +277,13 @@ export async function persistPublishedLayouts(options: {
                         .withSchema(schemaName)
                         .from('_app_layouts')
                         .where({ _upl_deleted: false, _app_deleted: false, is_default: true })
-                        .whereRaw('catalog_id IS NOT DISTINCT FROM ?', [row.linkedCollectionId])
+                        .whereRaw('scope_entity_id IS NOT DISTINCT FROM ?', [row.scopeEntityId])
                         .whereNot({ id: row.id })
                         .update({ is_default: false, _upl_updated_at: now, _upl_updated_by: userId ?? null })
                 }
             }
             const payload = {
-                catalog_id: row.linkedCollectionId,
+                scope_entity_id: row.scopeEntityId,
                 template_key: row.templateKey,
                 name: row.name,
                 description: row.description,
@@ -355,7 +355,7 @@ export async function persistPublishedLayouts(options: {
                                 .into('_app_layouts')
                                 .insert({
                                     id: copiedLayoutId,
-                                    catalog_id: row.linkedCollectionId,
+                                    scope_entity_id: row.scopeEntityId,
                                     template_key: row.templateKey,
                                     name: row.name,
                                     description: row.description,
@@ -396,7 +396,8 @@ export async function persistPublishedLayouts(options: {
                                         sort_order: widget.sortOrder,
                                         config: widget.config,
                                         is_active: widget.isActive !== false,
-                                        source_widget_id: widget.id,
+                                        source_widget_id: widget.sourceBaseWidgetId ?? widget.id,
+                                        source_base_widget_id: widget.sourceBaseWidgetId ?? null,
                                         source_content_hash: sourceContentHash,
                                         local_content_hash: sourceContentHash,
                                         _upl_created_at: now,
@@ -607,10 +608,21 @@ export async function persistPublishedWidgets(options: {
             .withSchema(schemaName)
             .from('_app_widgets')
             .where({ _upl_deleted: false, _app_deleted: false })
-            .select(['id'])
+            .select(['id', 'layout_id', 'source_base_widget_id'])
         const existingIds = new Set(existingRows.map((row) => String(row.id)))
+        const existingInheritedIdsByKey = new Map(
+            existingRows
+                .filter((row) => typeof row.layout_id === 'string' && typeof row.source_base_widget_id === 'string')
+                .map((row) => [`${String(row.layout_id)}:${String(row.source_base_widget_id)}`, String(row.id)])
+        )
+        const nextPersistedIds: string[] = []
 
         for (const row of syncableRows) {
+            const inheritedKey = row.sourceBaseWidgetId ? `${row.layoutId}:${row.sourceBaseWidgetId}` : null
+            const existingInheritedId = inheritedKey ? existingInheritedIdsByKey.get(inheritedKey) ?? null : null
+            const persistedRowId = existingInheritedId ?? (row.sourceBaseWidgetId ? generateUuidV7() : row.id)
+            nextPersistedIds.push(persistedRowId)
+
             const payload = {
                 layout_id: row.layoutId,
                 zone: row.zone,
@@ -618,13 +630,14 @@ export async function persistPublishedWidgets(options: {
                 sort_order: row.sortOrder,
                 config: row.config,
                 is_active: row.isActive !== false,
-                source_widget_id: row.id
+                source_widget_id: row.sourceBaseWidgetId ?? row.id,
+                source_base_widget_id: row.sourceBaseWidgetId ?? null
             }
-            if (existingIds.has(row.id)) {
+            if (existingIds.has(persistedRowId)) {
                 await activeTrx
                     .withSchema(schemaName)
                     .from('_app_widgets')
-                    .where({ id: row.id, _upl_deleted: false, _app_deleted: false })
+                    .where({ id: persistedRowId, _upl_deleted: false, _app_deleted: false })
                     .update({
                         ...payload,
                         _upl_updated_at: now,
@@ -636,7 +649,7 @@ export async function persistPublishedWidgets(options: {
                     .withSchema(schemaName)
                     .into('_app_widgets')
                     .insert({
-                        id: row.id,
+                        id: persistedRowId,
                         ...payload,
                         _upl_created_at: now,
                         _upl_created_by: userId ?? null,
@@ -653,14 +666,13 @@ export async function persistPublishedWidgets(options: {
             }
         }
 
-        const nextIds = syncableRows.map((row) => row.id)
-        if (nextIds.length > 0) {
+        if (nextPersistedIds.length > 0) {
             await activeTrx
                 .withSchema(schemaName)
                 .from('_app_widgets')
                 .where({ _upl_deleted: false, _app_deleted: false })
                 .whereIn('layout_id', Array.from(syncableLayoutIds))
-                .whereNotIn('id', nextIds)
+                .whereNotIn('id', nextPersistedIds)
                 .del()
         } else {
             await activeTrx
@@ -693,7 +705,7 @@ export async function getPersistedDashboardLayoutConfig(options: { schemaName: s
     const preferredDefault = await knex
         .withSchema(schemaName)
         .from('_app_layouts')
-        .where({ catalog_id: null, is_default: true, _upl_deleted: false, _app_deleted: false })
+        .where({ scope_entity_id: null, is_default: true, _upl_deleted: false, _app_deleted: false })
         .select(['config'])
         .first()
 
@@ -702,7 +714,7 @@ export async function getPersistedDashboardLayoutConfig(options: { schemaName: s
         : await knex
               .withSchema(schemaName)
               .from('_app_layouts')
-              .where({ catalog_id: null, is_active: true, _upl_deleted: false, _app_deleted: false })
+              .where({ scope_entity_id: null, is_active: true, _upl_deleted: false, _app_deleted: false })
               .orderBy([
                   { column: 'sort_order', order: 'asc' },
                   { column: '_upl_created_at', order: 'asc' }
@@ -730,16 +742,16 @@ export async function getPersistedPublishedLayouts(options: {
         .from('_app_layouts')
         .where({ _upl_deleted: false, _app_deleted: false, source_kind: 'metahub', is_source_excluded: false })
         .whereNot({ sync_state: 'conflict' })
-        .select(['id', 'catalog_id', 'template_key', 'name', 'description', 'config', 'is_active', 'is_default', 'sort_order'])
+        .select(['id', 'scope_entity_id', 'template_key', 'name', 'description', 'config', 'is_active', 'is_default', 'sort_order'])
         .orderBy([
-            { column: 'catalog_id', order: 'asc', nulls: 'first' },
+            { column: 'scope_entity_id', order: 'asc', nulls: 'first' },
             { column: 'sort_order', order: 'asc' },
             { column: '_upl_created_at', order: 'asc' }
         ])) as PersistedAppLayoutRowDb[]
 
     const layouts = rows.map((row) => ({
         id: String(row.id),
-        linkedCollectionId: typeof row.catalog_id === 'string' && row.catalog_id.length > 0 ? row.catalog_id : null,
+        scopeEntityId: typeof row.scope_entity_id === 'string' && row.scope_entity_id.length > 0 ? row.scope_entity_id : null,
         templateKey: typeof row.template_key === 'string' && row.template_key.length > 0 ? row.template_key : 'dashboard',
         name: isRecord(row.name) ? row.name : {},
         description: isRecord(row.description) ? row.description : null,
@@ -748,7 +760,7 @@ export async function getPersistedPublishedLayouts(options: {
         isDefault: Boolean(row.is_default),
         sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0
     }))
-    const defaultLayoutId = layouts.find((layout) => layout.linkedCollectionId === null && layout.isDefault)?.id ?? null
+    const defaultLayoutId = layouts.find((layout) => layout.scopeEntityId === null && layout.isDefault)?.id ?? null
     return { layouts, defaultLayoutId }
 }
 

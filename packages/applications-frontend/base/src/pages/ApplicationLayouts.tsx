@@ -90,7 +90,7 @@ const buildInitialWidgetConfig = (widgetKey: string): Record<string, unknown> =>
     if (widgetKey === 'menuWidget') {
         return {
             items: [],
-            autoShowAllCatalogs: false,
+            autoShowAllSections: false,
             maxPrimaryItems: 6,
             overflowLabelKey: 'runtime.menu.more',
             startPage: null,
@@ -156,14 +156,14 @@ const ApplicationLayouts = () => {
             ? applicationsQueryKeys.layoutsList(applicationId, {
                   limit: 100,
                   offset: 0,
-                  linkedCollectionId: scopeFilter === 'all' ? undefined : scopeFilter === 'global' ? null : scopeFilter
+                  scopeEntityId: scopeFilter === 'all' ? undefined : scopeFilter === 'global' ? null : scopeFilter
               })
             : ['application-layouts-empty'],
         queryFn: () =>
             listApplicationLayouts(String(applicationId), {
                 limit: 100,
                 offset: 0,
-                linkedCollectionId: scopeFilter === 'all' ? undefined : scopeFilter === 'global' ? null : scopeFilter
+                scopeEntityId: scopeFilter === 'all' ? undefined : scopeFilter === 'global' ? null : scopeFilter
             }),
         enabled: Boolean(applicationId)
     })
@@ -332,7 +332,7 @@ const ApplicationLayouts = () => {
         createMutation.mutate({
             templateKey: 'dashboard',
             name: { en: name || 'Layout', ru: name || 'Макет' },
-            linkedCollectionId: selectedScope?.linkedCollectionId ?? null,
+            scopeEntityId: selectedScope?.scopeEntityId ?? null,
             isActive: true,
             isDefault: false,
             sortOrder: layouts.length + 1,
@@ -420,13 +420,13 @@ const ApplicationLayouts = () => {
         const widgetLabelByKey = Object.fromEntries(
             widgetCatalog.map((item) => [item.key, t(`layouts.widgets.${item.key}`, item.key)])
         ) as Record<string, string>
-        const catalogOptions = (scopesQuery.data ?? [])
-            .filter((scope) => scope.linkedCollectionId)
-            .map((scope) => ({ id: String(scope.linkedCollectionId), label: scope.name }))
+        const sectionOptions = (scopesQuery.data ?? [])
+            .filter((scope) => scope.scopeEntityId)
+            .map((scope) => ({ id: String(scope.scopeEntityId), label: scope.name }))
         const datasourceSectionOptions = (scopesQuery.data ?? [])
-            .filter((scope) => scope.linkedCollectionId)
+            .filter((scope) => scope.scopeEntityId)
             .map((scope) => ({
-                id: String(scope.linkedCollectionId),
+                id: String(scope.scopeEntityId),
                 label: scope.name,
                 codename: resolveLocalizedText(scope.codename ?? {}, 'en', scope.tableName ?? scope.name)
             }))
@@ -629,19 +629,19 @@ const ApplicationLayouts = () => {
                             <Stack spacing={2}>
                                 <PaperSection
                                     title={
-                                        layout.linkedCollectionId
-                                            ? t('layouts.catalogBehaviorTitleCatalog', 'Catalog runtime behavior')
-                                            : t('layouts.catalogBehaviorTitleGlobal', 'Default catalog runtime behavior')
+                                        layout.scopeEntityId
+                                            ? t('layouts.catalogBehaviorTitleCatalog', 'Entity runtime behavior')
+                                            : t('layouts.catalogBehaviorTitleGlobal', 'Default entity runtime behavior')
                                     }
                                     description={
-                                        layout.linkedCollectionId
+                                        layout.scopeEntityId
                                             ? t(
                                                   'layouts.catalogBehaviorDescriptionCatalog',
-                                                  'This catalog layout overrides the create/search behavior inherited from its global base layout.'
+                                                  'This scoped layout overrides the create/search behavior inherited from its global base layout.'
                                               )
                                             : t(
                                                   'layouts.catalogBehaviorDescriptionGlobal',
-                                                  'These settings define the default create/search behavior for linkedCollections that use this global layout until a catalog-specific layout overrides it.'
+                                                  'These settings define the default create/search behavior for entities that use this global layout until an entity-specific layout overrides it.'
                                               )
                                     }
                                 >
@@ -852,7 +852,7 @@ const ApplicationLayouts = () => {
                 <ApplicationMenuWidgetEditorDialog
                     open={Boolean(menuEditorZone)}
                     config={editingWidget?.widgetKey === 'menuWidget' ? (editingWidget.config as MenuWidgetConfig) : null}
-                    catalogOptions={catalogOptions}
+                    sectionOptions={sectionOptions}
                     onSave={(config) => {
                         if (!menuEditorZone) return
                         if (editingWidget?.widgetKey === 'menuWidget') {

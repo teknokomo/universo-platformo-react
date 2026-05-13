@@ -906,8 +906,8 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
         if (!menuWidget) {
             errors.push('Self-hosted app fixture default layout is missing the menuWidget zone widget')
         } else {
-            if (menuWidget?.config?.autoShowAllCatalogs !== true) {
-                errors.push('Self-hosted app fixture menuWidget must enable autoShowAllCatalogs')
+            if (menuWidget?.config?.autoShowAllSections !== true) {
+                errors.push('Self-hosted app fixture menuWidget must enable autoShowAllSections')
             }
             if (menuWidget?.config?.showTitle !== true) {
                 errors.push('Self-hosted app fixture menuWidget must show its title')
@@ -993,41 +993,41 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
             }
         }
 
-        const catalogLayouts = Array.isArray(envelope?.snapshot?.catalogLayouts) ? envelope.snapshot.catalogLayouts : []
-        const settingsCatalogLayouts = catalogLayouts.filter(
-            (layout) => (layout?.linkedCollectionId ?? layout?.catalogId) === settingsCatalog.id
+        const scopedLayouts = Array.isArray(envelope?.snapshot?.scopedLayouts) ? envelope.snapshot.scopedLayouts : []
+        const settingsScopedLayouts = scopedLayouts.filter(
+            (layout) => layout?.scopeEntityId === settingsCatalog.id
         )
 
-        if (settingsCatalogLayouts.length !== 1) {
+        if (settingsScopedLayouts.length !== 1) {
             errors.push(
-                `Self-hosted app fixture must contain exactly one catalog-specific layout for Settings, received ${settingsCatalogLayouts.length}`
+                `Self-hosted app fixture must contain exactly one entity-scoped layout for Settings, received ${settingsScopedLayouts.length}`
             )
         }
 
-        const settingsLayout = settingsCatalogLayouts[0]
+        const settingsLayout = settingsScopedLayouts[0]
         const defaultLayout = findDefaultLayout(envelope)
         const layoutWidgets = Array.isArray(envelope?.snapshot?.layoutZoneWidgets) ? envelope.snapshot.layoutZoneWidgets : []
-        const catalogLayoutWidgetOverrides = Array.isArray(envelope?.snapshot?.catalogLayoutWidgetOverrides)
-            ? envelope.snapshot.catalogLayoutWidgetOverrides
+        const layoutWidgetOverrides = Array.isArray(envelope?.snapshot?.layoutWidgetOverrides)
+            ? envelope.snapshot.layoutWidgetOverrides
             : []
 
         if (!settingsLayout) {
-            errors.push('Self-hosted app fixture is missing the Settings catalog-specific layout override')
+            errors.push('Self-hosted app fixture is missing the Settings entity-scoped layout override')
         } else {
             if (readLocalizedText(settingsLayout.name, 'en') !== SELF_HOSTED_APP_SETTINGS_LAYOUT.name.en) {
-                errors.push('Settings catalog layout is missing the canonical English name')
+                errors.push('Settings entity-scoped layout is missing the canonical English name')
             }
             if (readLocalizedText(settingsLayout.name, 'ru') !== SELF_HOSTED_APP_SETTINGS_LAYOUT.name.ru) {
-                errors.push('Settings catalog layout is missing the canonical Russian name')
+                errors.push('Settings entity-scoped layout is missing the canonical Russian name')
             }
             if (readLocalizedText(settingsLayout.description, 'en') !== SELF_HOSTED_APP_SETTINGS_LAYOUT.description.en) {
-                errors.push('Settings catalog layout is missing the canonical English description')
+                errors.push('Settings entity-scoped layout is missing the canonical English description')
             }
             if (readLocalizedText(settingsLayout.description, 'ru') !== SELF_HOSTED_APP_SETTINGS_LAYOUT.description.ru) {
-                errors.push('Settings catalog layout is missing the canonical Russian description')
+                errors.push('Settings entity-scoped layout is missing the canonical Russian description')
             }
             if (defaultLayout?.id && settingsLayout.baseLayoutId !== defaultLayout.id) {
-                errors.push('Settings catalog layout must inherit from the canonical default layout')
+                errors.push('Settings entity-scoped layout must inherit from the canonical default layout')
             }
 
             const settingsLayoutConfig = settingsLayout?.config && typeof settingsLayout.config === 'object' ? settingsLayout.config : {}
@@ -1038,7 +1038,7 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
             })) {
                 if (settingsLayoutConfig[key] !== expectedValue) {
                     errors.push(
-                        `Settings catalog layout runtime config drifted for ${key}: ${String(settingsLayoutConfig[key])} != ${String(expectedValue)}`
+                        `Settings entity-scoped layout runtime config drifted for ${key}: ${String(settingsLayoutConfig[key])} != ${String(expectedValue)}`
                     )
                 }
             }
@@ -1051,7 +1051,7 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
             for (const [key, expectedValue] of Object.entries(SELF_HOSTED_APP_SETTINGS_LAYOUT.catalogBehavior)) {
                 if (settingsCatalogBehavior[key] !== expectedValue) {
                     errors.push(
-                        `Settings catalog layout catalogBehavior drifted for ${key}: ${String(settingsCatalogBehavior[key])} != ${String(expectedValue)}`
+                        `Settings entity-scoped layout catalogBehavior drifted for ${key}: ${String(settingsCatalogBehavior[key])} != ${String(expectedValue)}`
                     )
                 }
             }
@@ -1062,15 +1062,15 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
             if (!defaultDetailsTitleWidget?.id) {
                 errors.push('Self-hosted app fixture default layout is missing the active detailsTitle widget needed for Settings overrides')
             } else {
-                const detailsTitleOverride = catalogLayoutWidgetOverrides.find(
+                const detailsTitleOverride = layoutWidgetOverrides.find(
                     (override) =>
-                        override?.catalogLayoutId === settingsLayout.id &&
+                        override?.layoutId === settingsLayout.id &&
                         override?.baseWidgetId === defaultDetailsTitleWidget.id &&
                         override?.isDeletedOverride !== true
                 )
 
                 if (!detailsTitleOverride || detailsTitleOverride.isActive !== false) {
-                    errors.push('Settings catalog layout must disable the inherited detailsTitle widget via a catalog layout override')
+                    errors.push('Settings entity-scoped layout must disable the inherited detailsTitle widget via a scoped layout override')
                 }
             }
         }

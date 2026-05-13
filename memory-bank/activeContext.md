@@ -4,7 +4,49 @@
 
 ---
 
-## Current Implementation: Connector Schema Diff Entity Metrics QA (2026-05-12)
+## Current Implementation: Scoped Menu Contract Closure (2026-05-13)
+
+-   The final scoped menu contract cleanup is complete.
+-   Menu widget authoring now uses neutral `section`, `hub`, and `link` item kinds; the editor no longer exposes Catalog/Page/Ledger-specific menu branches.
+-   Entity section targets are discovered from layout-capable Entity type metadata, so future Entity types can participate without menu-editor hardcoding.
+-   Published app runtime section selection and standalone section-link generation now accept only `section` menu items for Entity destinations.
+-   Shared schemas, active templates, LMS/self-hosted/quiz fixtures, and fixture contracts now use `autoShowAllSections`.
+-   Latest targeted validation passes for applications frontend/backend, apps-template-mui, metahubs frontend/backend, and `@universo/types`; direct focused tests for menu helpers, widget visibility, runtime menu behavior, application layout/runtime behavior, and runtime controller behavior pass.
+-   Package test scripts for `metahubs-frontend` and `applications-frontend` still run the whole suite when passed file args and surface unrelated existing flaky/timeouting tests; direct focused `vitest run` commands for the touched files pass.
+
+## Previous Implementation: Scoped Layout QA Closure (2026-05-13)
+
+-   The scoped widget visibility QA closure is complete.
+-   Global layout widgets now expose generic per-Entity visibility controls for every layout-capable scope, without catalog-specific naming or LMS-specific UI.
+-   Saving a global widget visibility override auto-creates a scoped layout for the target Entity when needed and stores only sparse override state.
+-   The global editor panel shows localized Entity labels, inherited/overridden state, and whether a scoped layout already exists.
+-   Runtime startup token resolution is aligned with renderable sections, so non-renderable Entity tokens do not resolve and then silently fall back.
+-   Latest validation: focused metahubs backend layout service tests pass; focused applications runtime resolver tests pass; metahubs frontend package test suite passes; metahubs-backend, metahubs-frontend, and applications-backend builds pass; `node tools/testing/e2e/run-playwright-suite.mjs specs/flows/metahub-global-entity-layouts.spec.ts` passes.
+
+## Previous Implementation: Scoped Layout QA Closure (2026-05-13)
+
+-   The final scoped-layout QA closure is complete.
+-   Global-menu startup token resolution no longer restricts candidate object lookup to Catalog/Page kinds; the resolver now stays Entity-agnostic at the lookup boundary.
+-   A focused backend regression covers generic startup token resolution with a non-Catalog/non-Page object token.
+-   The imported LMS browser flow now asserts that Home-only dashboard labels are absent on Knowledge, Development, and Reports, directly covering the previously reported leakage regression.
+-   The same Playwright flow records a non-Home Knowledge screenshot after those absence checks.
+-   Latest validation: `git diff --check` passes; targeted runtime controller tests pass; `@universo/applications-backend` lint passes; `node tools/testing/e2e/run-playwright-suite.mjs specs/flows/snapshot-import-lms-runtime.spec.ts` passes.
+
+## Current Implementation: Scoped Layout Widget Visibility (2026-05-12)
+
+-   The scoped layout widget visibility implementation is complete.
+-   Generic layout scope contracts now use `scopeEntityId`; snapshot/public contracts use `scopedLayouts` and `layoutWidgetOverrides`.
+-   Metahub layout creation validates scoped targets through Entity component capability metadata instead of hardcoded kind names.
+-   Application sync materializes inherited scoped widgets with `source_base_widget_id` and persists real UUID v7 widget row ids.
+-   Sparse widget overrides now preserve placement, activation, and config for inherited widgets.
+-   Runtime layout selection resolves the preferred Entity scope from application navigation and falls back to the global default when no scoped layout exists.
+-   LMS fixture/template now gives the `LearnerHome` Page its own scoped layout with overview cards and charts; the global layout no longer enables Home-only charts or the empty columns container.
+-   `columnsContainer` rendering ignores inactive nested widgets and suppresses fully empty containers.
+-   Final clean-database browser validation exposed and closed one SQL/schema drift in scoped layout capability checks; `_mhb_entity_type_definitions` is filtered by soft-delete flags rather than a nonexistent `is_active` column.
+-   GitBook docs now describe Entity-scoped layouts instead of catalog-only layouts.
+-   Latest validation: focused applications backend tests pass; focused metahubs backend tests pass; apps-template runtime widget tests pass; metahubs frontend tests pass; package builds pass for types, schema-ddl, applications-backend, metahubs-backend, metahubs-frontend, and apps-template-mui; `pnpm run build:e2e` passes; `node tools/testing/e2e/run-playwright-suite.mjs specs/flows/metahub-global-entity-layouts.spec.ts` passes.
+
+## Previous Implementation: Connector Schema Diff Entity Metrics QA (2026-05-12)
 
 -   The connector schema diff metric QA closure is complete.
 -   Backend sync diff details now include generic `metrics` for created Entity previews.

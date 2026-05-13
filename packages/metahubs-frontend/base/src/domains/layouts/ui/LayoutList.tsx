@@ -81,7 +81,7 @@ type LayoutMenuState = {
 
 type LayoutListProps = {
     metahubId?: string
-    linkedCollectionId?: string | null
+    scopeEntityId?: string | null
     detailBasePath?: string
     title?: string | null
     emptyTitle?: string
@@ -94,9 +94,9 @@ type LayoutListContentProps = LayoutListProps & {
     renderPageShell?: boolean
 }
 
-const normalizeLinkedCollectionId = (linkedCollectionId?: string | null): string | null => {
-    if (typeof linkedCollectionId !== 'string') return null
-    const trimmed = linkedCollectionId.trim()
+const normalizeScopeEntityId = (scopeEntityId?: string | null): string | null => {
+    if (typeof scopeEntityId !== 'string') return null
+    const trimmed = scopeEntityId.trim()
     return trimmed.length > 0 ? trimmed : null
 }
 
@@ -155,7 +155,7 @@ const hasHttpResponseStatus = (error: unknown): boolean => {
 
 export const LayoutListContent = ({
     metahubId: metahubIdProp,
-    linkedCollectionId: catalogIdProp,
+    scopeEntityId: scopeEntityIdProp,
     detailBasePath: detailBasePathProp,
     title,
     emptyTitle,
@@ -167,28 +167,29 @@ export const LayoutListContent = ({
     const navigate = useNavigate()
     const {
         metahubId: routeMetahubId,
+        scopeEntityId: routeScopeEntityId,
         linkedCollectionId: routeLinkedCollectionId,
         kindKey: routeKindKey,
         treeEntityId: routeTreeEntityId
-    } = useParams<{ metahubId: string; linkedCollectionId?: string; kindKey?: string; treeEntityId?: string }>()
+    } = useParams<{ metahubId: string; scopeEntityId?: string; linkedCollectionId?: string; kindKey?: string; treeEntityId?: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
 
     const metahubId = metahubIdProp ?? routeMetahubId
-    const linkedCollectionId = normalizeLinkedCollectionId(catalogIdProp ?? routeLinkedCollectionId)
+    const scopeEntityId = normalizeScopeEntityId(scopeEntityIdProp ?? routeScopeEntityId ?? routeLinkedCollectionId)
     const metahubDetailsQuery = useMetahubDetails(metahubId ?? '', { enabled: Boolean(metahubId) })
     const cachedMetahub = metahubId ? queryClient.getQueryData<Metahub>(metahubsQueryKeys.detail(metahubId)) : undefined
     const canManageLayouts = (metahubDetailsQuery.data?.permissions ?? cachedMetahub?.permissions)?.manageMetahub === true
-    const useCompactEmbeddedHeader = _compactHeader ?? (embedded && Boolean(linkedCollectionId))
+    const useCompactEmbeddedHeader = _compactHeader ?? (embedded && Boolean(scopeEntityId))
     const detailBasePath =
         detailBasePathProp ??
         (metahubId
-            ? linkedCollectionId
+            ? scopeEntityId
                 ? buildLinkedCollectionAuthoringPath({
                       metahubId,
-                      linkedCollectionId,
+                      linkedCollectionId: scopeEntityId,
                       treeEntityId: routeTreeEntityId ?? null,
                       kindKey: routeKindKey ?? null,
                       tab: 'fieldDefinitions'
@@ -211,9 +212,9 @@ export const LayoutListContent = ({
     const copyLayoutMutation = useCopyLayout()
 
     const paginationResult = usePaginated<MetahubLayout, 'name' | 'created' | 'updated'>({
-        queryKeyFn: metahubId ? (params) => metahubsQueryKeys.layoutsList(metahubId, { ...params, linkedCollectionId }) : () => ['empty'],
+        queryKeyFn: metahubId ? (params) => metahubsQueryKeys.layoutsList(metahubId, { ...params, scopeEntityId }) : () => ['empty'],
         queryFn: metahubId
-            ? (params) => layoutsApi.listLayouts(metahubId, { ...params, linkedCollectionId })
+            ? (params) => layoutsApi.listLayouts(metahubId, { ...params, scopeEntityId })
             : async () => ({ items: [], pagination: { limit: 20, offset: 0, count: 0, total: 0, hasMore: false } }),
         initialLimit: 20,
         sortBy: 'updated',
@@ -235,13 +236,13 @@ export const LayoutListContent = ({
             if (!metahubId) return
             revealPendingEntityFeedback({
                 queryClient,
-                queryKeyPrefix: metahubsQueryKeys.layouts(metahubId, linkedCollectionId),
+                queryKeyPrefix: metahubsQueryKeys.layouts(metahubId, scopeEntityId),
                 entityId: layoutId,
                 extraQueryKeys: [metahubsQueryKeys.layoutDetail(metahubId, layoutId)]
             })
             enqueueSnackbar(pendingInteractionMessage, { variant: 'info' })
         },
-        [linkedCollectionId, enqueueSnackbar, metahubId, pendingInteractionMessage, queryClient]
+        [scopeEntityId, enqueueSnackbar, metahubId, pendingInteractionMessage, queryClient]
     )
 
     const activeCount = useMemo(() => layouts.filter((l) => l.isActive).length, [layouts])
@@ -412,7 +413,7 @@ export const LayoutListContent = ({
         setDialogError(null)
         const payload: MetahubCreateLayoutPayload = {
             ...toPayload(values),
-            ...(linkedCollectionId ? { linkedCollectionId } : {})
+            ...(scopeEntityId ? { scopeEntityId } : {})
         }
         createLayoutMutation.mutate({ metahubId, data: payload })
         close('create')
@@ -433,7 +434,7 @@ export const LayoutListContent = ({
             {
                 metahubId,
                 layoutId: currentLayout.id,
-                linkedCollectionId: currentLayout.linkedCollectionId ?? linkedCollectionId,
+                scopeEntityId: currentLayout.scopeEntityId ?? scopeEntityId,
                 data: payload
             },
             {
@@ -454,7 +455,7 @@ export const LayoutListContent = ({
             copyLayoutMutation.mutate({
                 metahubId,
                 layoutId: dialogs.copy.item.id,
-                linkedCollectionId: dialogs.copy.item.linkedCollectionId ?? linkedCollectionId,
+                scopeEntityId: dialogs.copy.item.scopeEntityId ?? scopeEntityId,
                 data: payload
             })
             close('copy')
@@ -470,7 +471,7 @@ export const LayoutListContent = ({
             updateLayoutMutation.mutate({
                 metahubId,
                 layoutId: layout.id,
-                linkedCollectionId: layout.linkedCollectionId ?? linkedCollectionId,
+                scopeEntityId: layout.scopeEntityId ?? scopeEntityId,
                 data: { isDefault: true, expectedVersion: layout.version }
             })
         } catch (e: unknown) {
@@ -484,7 +485,7 @@ export const LayoutListContent = ({
             updateLayoutMutation.mutate({
                 metahubId,
                 layoutId: layout.id,
-                linkedCollectionId: layout.linkedCollectionId ?? linkedCollectionId,
+                scopeEntityId: layout.scopeEntityId ?? scopeEntityId,
                 data: { isActive: !layout.isActive, expectedVersion: layout.version }
             })
         } catch (e: unknown) {
@@ -503,7 +504,7 @@ export const LayoutListContent = ({
             deleteLayoutMutation.mutate({
                 metahubId,
                 layoutId: dialogs.delete.item.id,
-                linkedCollectionId: dialogs.delete.item.linkedCollectionId ?? linkedCollectionId
+                scopeEntityId: dialogs.delete.item.scopeEntityId ?? scopeEntityId
             })
             close('delete')
         } catch (e: unknown) {

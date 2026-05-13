@@ -43,7 +43,10 @@ import { createLogger } from '../../../utils/logger'
 
 const log = createLogger('SnapshotSerializer')
 
-const resolveEntityMetadataKind = (kind: unknown, config?: unknown): 'catalog' | 'hub' | 'set' | 'enumeration' | 'page' | 'ledger' | null =>
+const resolveEntityMetadataKind = (
+    kind: unknown,
+    _config?: unknown
+): 'catalog' | 'hub' | 'set' | 'enumeration' | 'page' | 'ledger' | null =>
     typeof kind === 'string' && isBuiltinEntityKind(kind) ? kind : null
 
 export type SnapshotCodenameValue = VersionedLocalizedContent<string> | string
@@ -104,12 +107,12 @@ export interface MetahubSnapshot {
      * MVP: only the Dashboard template is supported.
      */
     layouts?: MetahubLayoutSnapshot[]
-    catalogLayouts?: MetahubCatalogLayoutSnapshot[]
+    scopedLayouts?: MetahubScopedLayoutSnapshot[]
     /**
      * Zone/widget assignments for layouts.
      */
     layoutZoneWidgets?: MetahubLayoutZoneWidgetSnapshot[]
-    catalogLayoutWidgetOverrides?: MetahubCatalogLayoutWidgetOverrideSnapshot[]
+    layoutWidgetOverrides?: MetahubLayoutWidgetOverrideSnapshot[]
     settings?: MetahubSettingSnapshot[]
     /**
      * Default layout id (must reference one of `layouts` when present).
@@ -141,8 +144,9 @@ export interface MetahubLayoutSnapshot {
     sortOrder: number
 }
 
-export interface MetahubCatalogLayoutSnapshot extends MetahubLayoutSnapshot {
-    linkedCollectionId: string
+export interface MetahubScopedLayoutSnapshot extends MetahubLayoutSnapshot {
+    scopeEntityId: string
+    scopeEntityKind?: string | null
     baseLayoutId: string
 }
 
@@ -204,9 +208,9 @@ export interface MetahubLayoutZoneWidgetSnapshot {
 /** @deprecated Use MetahubLayoutZoneWidgetSnapshot instead. */
 export type MetahubLayoutZoneModuleSnapshot = MetahubLayoutZoneWidgetSnapshot
 
-export interface MetahubCatalogLayoutWidgetOverrideSnapshot {
+export interface MetahubLayoutWidgetOverrideSnapshot {
     id: string
-    catalogLayoutId: string
+    layoutId: string
     baseWidgetId: string
     zone?: string | null
     sortOrder?: number | null

@@ -26,9 +26,9 @@ export interface PublicationSnapshotHashInput {
     systemFields?: Record<string, CatalogSystemFieldsSnapshot | SnapshotRecord>
     scripts?: unknown
     layouts?: unknown
-    catalogLayouts?: unknown
+    scopedLayouts?: unknown
     layoutZoneWidgets?: unknown
-    catalogLayoutWidgetOverrides?: unknown
+    layoutWidgetOverrides?: unknown
     defaultLayoutId?: unknown
     layoutConfig?: unknown
     settings?: unknown
@@ -395,19 +395,23 @@ export const normalizePublicationSnapshotForHash = (
             return compareStrings(left.id, right.id)
         })
 
-    const catalogLayouts = asArray<unknown>(snapshot.catalogLayouts)
+    const scopedLayouts = asArray<unknown>(snapshot.scopedLayouts)
         .map((layoutValue) => {
             const layout = asRecord(layoutValue)
 
             return {
                 ...normalizeLayout(layout),
-                catalogId: typeof layout.catalogId === 'string' ? layout.catalogId : '',
+                scopeEntityId: typeof layout.scopeEntityId === 'string' ? layout.scopeEntityId : '',
+                scopeEntityKind: typeof layout.scopeEntityKind === 'string' ? layout.scopeEntityKind : null,
                 baseLayoutId: typeof layout.baseLayoutId === 'string' ? layout.baseLayoutId : ''
             }
         })
         .sort((left, right) => {
-            if ((left.catalogId as string) !== (right.catalogId as string)) {
-                return compareStrings(left.catalogId as string, right.catalogId as string)
+            if ((left.scopeEntityId as string) !== (right.scopeEntityId as string)) {
+                return compareStrings(left.scopeEntityId as string, right.scopeEntityId as string)
+            }
+            if ((left.scopeEntityKind as string | null) !== (right.scopeEntityKind as string | null)) {
+                return compareStrings(String(left.scopeEntityKind ?? ''), String(right.scopeEntityKind ?? ''))
             }
             if ((left.sortOrder as number) !== (right.sortOrder as number)) {
                 return (left.sortOrder as number) - (right.sortOrder as number)
@@ -435,13 +439,13 @@ export const normalizePublicationSnapshotForHash = (
             return compareStrings(left.id, right.id)
         })
 
-    const catalogLayoutWidgetOverrides = asArray<unknown>(snapshot.catalogLayoutWidgetOverrides)
+    const layoutWidgetOverrides = asArray<unknown>(snapshot.layoutWidgetOverrides)
         .map((itemValue) => {
             const item = asRecord(itemValue)
 
             return {
                 id: typeof item.id === 'string' ? item.id : '',
-                catalogLayoutId: typeof item.catalogLayoutId === 'string' ? item.catalogLayoutId : '',
+                layoutId: typeof item.layoutId === 'string' ? item.layoutId : '',
                 baseWidgetId: typeof item.baseWidgetId === 'string' ? item.baseWidgetId : '',
                 zone: typeof item.zone === 'string' ? item.zone : null,
                 sortOrder: typeof item.sortOrder === 'number' ? item.sortOrder : null,
@@ -451,8 +455,8 @@ export const normalizePublicationSnapshotForHash = (
             }
         })
         .sort((left, right) => {
-            if ((left.catalogLayoutId as string) !== (right.catalogLayoutId as string)) {
-                return compareStrings(left.catalogLayoutId as string, right.catalogLayoutId as string)
+            if ((left.layoutId as string) !== (right.layoutId as string)) {
+                return compareStrings(left.layoutId as string, right.layoutId as string)
             }
             if ((left.baseWidgetId as string) !== (right.baseWidgetId as string)) {
                 return compareStrings(left.baseWidgetId as string, right.baseWidgetId as string)
@@ -500,9 +504,9 @@ export const normalizePublicationSnapshotForHash = (
         systemFields,
         scripts,
         layouts,
-        catalogLayouts,
+        scopedLayouts,
         layoutZoneWidgets,
-        catalogLayoutWidgetOverrides,
+        layoutWidgetOverrides,
         defaultLayoutId: snapshot.defaultLayoutId ?? null,
         layoutConfig: snapshot.layoutConfig ?? {},
         settings

@@ -96,7 +96,7 @@ export const COMPONENT_REGISTRY: Record<keyof ComponentManifest, BackendComponen
     },
     layoutConfig: {
         key: 'layoutConfig',
-        tables: ['_mhb_layouts', '_mhb_widgets', '_mhb_catalog_widget_overrides'],
+        tables: ['_mhb_layouts', '_mhb_widgets', '_mhb_layout_widget_overrides'],
         dependencies: [...COMPONENT_DEPENDENCIES.layoutConfig],
         requiresPhysicalTable: false,
         supportedKinds: null

@@ -116,7 +116,7 @@ describe('LayoutDetails inherited widget contract', () => {
         getLayout.mockResolvedValue({
             data: {
                 id: 'layout-1',
-                linkedCollectionId: 'catalog-1',
+                scopeEntityId: 'catalog-1',
                 templateKey: 'dashboard',
                 name: {
                     _schema: 'v1',
@@ -196,7 +196,7 @@ describe('LayoutDetails inherited widget contract', () => {
                 <MemoryRouter initialEntries={['/metahub/metahub-1/entities/catalog/instance/catalog-1/layout/layout-1']}>
                     <Routes>
                         <Route
-                            path='/metahub/:metahubId/entities/:kindKey/instance/:linkedCollectionId/layout/:layoutId'
+                            path='/metahub/:metahubId/entities/:kindKey/instance/:scopeEntityId/layout/:layoutId'
                             element={<LayoutDetails />}
                         />
                     </Routes>
@@ -241,7 +241,7 @@ describe('LayoutDetails inherited widget contract', () => {
                 <MemoryRouter initialEntries={['/metahub/metahub-1/entities/catalog/instance/catalog-1/layout/layout-1']}>
                     <Routes>
                         <Route
-                            path='/metahub/:metahubId/entities/:kindKey/instance/:linkedCollectionId/layout/:layoutId'
+                            path='/metahub/:metahubId/entities/:kindKey/instance/:scopeEntityId/layout/:layoutId'
                             element={<LayoutDetails />}
                         />
                     </Routes>

@@ -88,7 +88,7 @@
 * [Workspace Management](guides/workspace-management.md)
 * [Resources Workspace](guides/general-section.md)
 * [Custom Entity Types](guides/custom-entity-types.md)
-* [Catalog Layouts](guides/catalog-layouts.md)
+* [Entity-Scoped Layouts](guides/entity-scoped-layouts.md)
 * [Application Layouts](guides/application-layouts.md)
 * [Metahub Scripting](guides/metahub-scripting.md)
 * [Creating Applications](guides/creating-application.md)

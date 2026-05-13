@@ -95,7 +95,8 @@ const resolveLinkedCollectionAttachmentKind = (ctx: Pick<LinkedCollectionActionC
 
 const getRecordBehaviorFormValue = (value: unknown): CatalogRecordBehavior => normalizeCatalogRecordBehavior(value)
 const getLedgerConfigFormValue = (value: unknown): LedgerConfig => normalizeLedgerConfig(value)
-const hasLedgerConfig = (config: unknown): boolean => Boolean(config && typeof config === 'object' && !Array.isArray(config) && 'ledger' in config)
+const hasLedgerConfig = (config: unknown): boolean =>
+    Boolean(config && typeof config === 'object' && !Array.isArray(config) && 'ledger' in config)
 
 const toRecordBehaviorOption = (entity: { id: string; codename?: unknown; name?: unknown }, uiLocale: string): RecordBehaviorOption => {
     const codename = getVLCString(entity.codename as VersionedLocalizedContent<string> | string | undefined, uiLocale) || entity.id
@@ -311,7 +312,7 @@ export const LinkedCollectionLayoutTabFields = ({
     isLoading: _isLoading,
     t,
     metahubId,
-    linkedCollectionId,
+    scopeEntityId,
     currentTreeEntityId,
     routeKindKey
 }: {
@@ -320,16 +321,16 @@ export const LinkedCollectionLayoutTabFields = ({
     isLoading: boolean
     t: ActionContext<LinkedCollectionDisplayWithContainer, LinkedCollectionLocalizedPayload>['t']
     metahubId?: string | null
-    linkedCollectionId?: string | null
+    scopeEntityId?: string | null
     currentTreeEntityId?: string | null
     routeKindKey?: string | null
 }) => {
-    const showCatalogLayoutManager = Boolean(metahubId && linkedCollectionId)
+    const showScopedLayoutManager = Boolean(metahubId && scopeEntityId)
     const detailBasePath =
-        metahubId && linkedCollectionId
+        metahubId && scopeEntityId
             ? buildLinkedCollectionAuthoringPath({
                   metahubId,
-                  linkedCollectionId,
+                  linkedCollectionId: scopeEntityId,
                   treeEntityId: currentTreeEntityId ?? null,
                   kindKey: routeKindKey ?? null,
                   tab: 'fieldDefinitions'
@@ -338,23 +339,23 @@ export const LinkedCollectionLayoutTabFields = ({
 
     return (
         <Stack spacing={2.5}>
-            {showCatalogLayoutManager ? (
+            {showScopedLayoutManager ? (
                 <>
                     <Typography variant='body2' color='text.secondary'>
                         {t(
-                            'catalogs.layoutTab.catalogLayoutsHelper',
-                            'LinkedCollectionEntity layouts own widget composition and catalog runtime behavior. The active global layout continues to work until you create a catalog-specific override.'
+                            'catalogs.layoutTab.entityLayoutsHelper',
+                            'Entity layouts own widget composition and runtime behavior. The active global layout continues to work until you create an entity-specific override.'
                         )}
                     </Typography>
                     <LayoutList
                         metahubId={metahubId ?? undefined}
-                        linkedCollectionId={linkedCollectionId ?? undefined}
+                        scopeEntityId={scopeEntityId ?? undefined}
                         detailBasePath={detailBasePath}
                         title={null}
-                        emptyTitle={t('catalogs.layoutTab.emptyTitle', 'No catalog layouts')}
+                        emptyTitle={t('catalogs.layoutTab.emptyTitle', 'No entity layouts')}
                         emptyDescription={t(
                             'catalogs.layoutTab.emptyDescription',
-                            'This catalog currently uses the active global layout. Create the first catalog layout to override widgets and catalog runtime behavior.'
+                            'This entity currently uses the active global layout. Create the first entity layout to override widgets and runtime behavior.'
                         )}
                         embedded
                     />
@@ -363,7 +364,7 @@ export const LinkedCollectionLayoutTabFields = ({
                 <Typography variant='body2' color='text.secondary'>
                     {t(
                         'catalogs.layoutTab.unavailable',
-                        'LinkedCollectionEntity layouts are available when this catalog is opened inside a metahub context.'
+                        'Entity layouts are available when this entity is opened inside a metahub context.'
                     )}
                 </Typography>
             )}
@@ -781,7 +782,7 @@ export const buildFormTabs = (
                         isLoading={isFormLoading}
                         t={ctx.t}
                         metahubId={metahubId}
-                        linkedCollectionId={editingEntityId}
+                        scopeEntityId={editingEntityId}
                         currentTreeEntityId={currentTreeEntityId}
                         routeKindKey={ctx.routeKindKey ?? null}
                     />

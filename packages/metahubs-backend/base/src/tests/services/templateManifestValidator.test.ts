@@ -74,20 +74,8 @@ describe('TemplateManifestValidator', () => {
             .map((item) => item.kindKey)
 
         expect(orderedKinds).toEqual(['hub', 'page', 'catalog', 'set', 'enumeration', 'ledger'])
-        expect(basicTemplate.presets?.map((preset) => preset.presetCodename)).toEqual([
-            'hub',
-            'page',
-            'catalog',
-            'set',
-            'enumeration'
-        ])
-        expect(basicDemoTemplate.presets?.map((preset) => preset.presetCodename)).toEqual([
-            'hub',
-            'page',
-            'catalog',
-            'set',
-            'enumeration'
-        ])
+        expect(basicTemplate.presets?.map((preset) => preset.presetCodename)).toEqual(['hub', 'page', 'catalog', 'set', 'enumeration'])
+        expect(basicDemoTemplate.presets?.map((preset) => preset.presetCodename)).toEqual(['hub', 'page', 'catalog', 'set', 'enumeration'])
     })
 
     it('keeps standard resource surface definitions aligned with component capabilities', () => {
@@ -160,6 +148,7 @@ describe('TemplateManifestValidator', () => {
     it('keeps the lms template aligned with curated navigation and canonical entities', () => {
         const manifest = cloneTemplate(lmsTemplate)
         const widgets = manifest.seed.layoutZoneWidgets.main ?? []
+        const homeWidgets = manifest.seed.layoutZoneWidgets.learnerHome ?? []
         const entityCodenames = manifest.seed.entities.map((entity) => entity.codename)
         const entityByCodename = new Map(manifest.seed.entities.map((entity) => [entity.codename, entity]))
         const menuWidget = widgets.find((widget) => widget.widgetKey === 'menuWidget')
@@ -167,7 +156,15 @@ describe('TemplateManifestValidator', () => {
         expect(widgets.some((widget) => widget.widgetKey === 'moduleViewerWidget')).toBe(false)
         expect(widgets.some((widget) => widget.widgetKey === 'statsViewerWidget')).toBe(false)
         expect(widgets.some((widget) => widget.widgetKey === 'qrCodeWidget')).toBe(false)
-        expect(widgets).toEqual(
+        expect(manifest.seed.scopedLayouts).toEqual([
+            expect.objectContaining({
+                codename: 'learnerHome',
+                scopeEntityCodename: 'LearnerHome',
+                scopeEntityKind: 'page',
+                baseLayoutCodename: 'main'
+            })
+        ])
+        expect(widgets).not.toEqual(
             expect.arrayContaining([
                 expect.objectContaining({ zone: 'center', widgetKey: 'overviewCards' }),
                 expect.objectContaining({ zone: 'center', widgetKey: 'sessionsChart' }),
@@ -175,14 +172,20 @@ describe('TemplateManifestValidator', () => {
                 expect.objectContaining({ zone: 'center', widgetKey: 'columnsContainer' })
             ])
         )
-        for (const widget of widgets.filter((item) =>
-            ['overviewCards', 'sessionsChart', 'pageViewsChart', 'columnsContainer'].includes(item.widgetKey)
-        )) {
+        expect(homeWidgets).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ zone: 'center', widgetKey: 'overviewCards' }),
+                expect.objectContaining({ zone: 'center', widgetKey: 'sessionsChart' }),
+                expect.objectContaining({ zone: 'center', widgetKey: 'pageViewsChart' })
+            ])
+        )
+        expect(homeWidgets.some((widget) => widget.widgetKey === 'columnsContainer')).toBe(false)
+        for (const widget of homeWidgets.filter((item) => ['overviewCards', 'sessionsChart', 'pageViewsChart'].includes(item.widgetKey))) {
             expect(() => parseApplicationLayoutWidgetConfig(widget.widgetKey, widget.config ?? {})).not.toThrow()
         }
         expect(menuWidget?.config).toMatchObject(
             expect.objectContaining({
-                autoShowAllCatalogs: false,
+                autoShowAllSections: false,
                 maxPrimaryItems: 6,
                 overflowLabelKey: 'runtime.menu.more',
                 startPage: 'LearnerHome',
@@ -193,11 +196,11 @@ describe('TemplateManifestValidator', () => {
         expect(menuItems).not.toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'link', href: null })]))
         expect(menuItems).toEqual(
             expect.arrayContaining([
-                expect.objectContaining({ id: 'lms-nav-home', kind: 'page', sectionId: 'LearnerHome' }),
-                expect.objectContaining({ id: 'lms-nav-catalog', kind: 'catalog', catalogId: 'Modules' }),
-                expect.objectContaining({ id: 'lms-nav-knowledge', kind: 'catalog', catalogId: 'Quizzes' }),
-                expect.objectContaining({ id: 'lms-nav-development', kind: 'catalog', catalogId: 'Classes' }),
-                expect.objectContaining({ id: 'lms-nav-reports', kind: 'catalog', catalogId: 'Reports' })
+                expect.objectContaining({ id: 'lms-nav-home', kind: 'section', sectionId: 'LearnerHome' }),
+                expect.objectContaining({ id: 'lms-nav-catalog', kind: 'section', sectionId: 'Modules' }),
+                expect.objectContaining({ id: 'lms-nav-knowledge', kind: 'section', sectionId: 'Quizzes' }),
+                expect.objectContaining({ id: 'lms-nav-development', kind: 'section', sectionId: 'Classes' }),
+                expect.objectContaining({ id: 'lms-nav-reports', kind: 'section', sectionId: 'Reports' })
             ])
         )
         expect(entityCodenames).toEqual(

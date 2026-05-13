@@ -11,10 +11,21 @@ import type {
 import type { DashboardLayoutWidgetKey, DashboardLayoutZone, LayoutCopyOptions } from '@universo/types'
 
 export type LayoutScopeParams = {
-    linkedCollectionId?: string | null
+    scopeEntityId?: string | null
 }
 
 export type LayoutListParams = PaginationParams & LayoutScopeParams
+
+export type LayoutWidgetScopeVisibility = {
+    scopeEntityId: string
+    kind: string
+    codename: unknown
+    name: unknown
+    layoutId: string | null
+    layoutName: unknown
+    isVisible: boolean
+    isOverridden: boolean
+}
 
 /**
  * List layouts for a specific metahub
@@ -29,7 +40,7 @@ export const listLayouts = async (metahubId: string, params?: LayoutListParams):
                 sortBy: params?.sortBy,
                 sortOrder: params?.sortOrder,
                 search: params?.search,
-                linkedCollectionId: params?.linkedCollectionId ?? undefined
+                scopeEntityId: params?.scopeEntityId ?? undefined
             }
         }
     )
@@ -128,3 +139,26 @@ export const toggleLayoutZoneWidgetActive = (metahubId: string, layoutId: string
     apiClient.patch<{ item: MetahubLayoutZoneWidget }>(`/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widgetId}/toggle-active`, {
         isActive
     })
+
+export const listLayoutWidgetScopeVisibility = async (
+    metahubId: string,
+    layoutId: string,
+    widgetId: string
+): Promise<LayoutWidgetScopeVisibility[]> => {
+    const response = await apiClient.get<{ items: LayoutWidgetScopeVisibility[] }>(
+        `/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widgetId}/scope-visibility`
+    )
+    return response.data.items ?? []
+}
+
+export const updateLayoutWidgetScopeVisibility = (
+    metahubId: string,
+    layoutId: string,
+    widgetId: string,
+    scopeEntityId: string,
+    isVisible: boolean
+) =>
+    apiClient.patch<{ item: LayoutWidgetScopeVisibility }>(
+        `/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widgetId}/scope-visibility/${scopeEntityId}`,
+        { isVisible }
+    )

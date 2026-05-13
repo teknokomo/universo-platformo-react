@@ -71,8 +71,8 @@ export interface PublishedApplicationSnapshot {
     scripts?: SnapshotScriptDefinition[]
     layouts?: unknown[]
     layoutZoneWidgets?: unknown[]
-    catalogLayouts?: unknown[]
-    catalogLayoutWidgetOverrides?: unknown[]
+    scopedLayouts?: unknown[]
+    layoutWidgetOverrides?: unknown[]
     defaultLayoutId?: string | null
     layoutConfig?: unknown
     [key: string]: unknown

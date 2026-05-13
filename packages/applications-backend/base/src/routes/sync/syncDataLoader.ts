@@ -427,7 +427,7 @@ export async function loadApplicationRuntimeLayouts(
         const layouts = await exec.query<RuntimeApplicationLayoutRow>(
             `
                 SELECT
-                  id, template_key, name, description, config, is_active, is_default, sort_order,
+                  id, scope_entity_id, template_key, name, description, config, is_active, is_default, sort_order,
                   source_kind, source_layout_id, source_snapshot_hash, source_content_hash,
                   local_content_hash, sync_state, is_source_excluded
                 FROM ${schemaIdent}._app_layouts
@@ -439,6 +439,7 @@ export async function loadApplicationRuntimeLayouts(
 
         const normalizedLayouts = layouts.map((row) => ({
             id: String(row.id ?? ''),
+            scopeEntityId: typeof row.scope_entity_id === 'string' && row.scope_entity_id.length > 0 ? row.scope_entity_id : null,
             templateKey: typeof row.template_key === 'string' && row.template_key.length > 0 ? row.template_key : 'dashboard',
             name: isRecord(row.name) ? row.name : {},
             description: isRecord(row.description) ? row.description : null,

@@ -99,7 +99,7 @@ const seedGlobalLayoutResponse = () => {
     getLayout.mockResolvedValue({
         data: {
             id: 'layout-global',
-            linkedCollectionId: null,
+            scopeEntityId: null,
             templateKey: 'dashboard',
             name: {
                 _schema: 'v1',

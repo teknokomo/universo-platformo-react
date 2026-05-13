@@ -1435,9 +1435,6 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
         const codenameConfig = await getGlobalMetahubCodenameConfig(exec)
 
         const updateInput: Parameters<typeof updateMetahubStore>[2] = { userId }
-        let resolvedCodename = getCodenamePayloadText(metahub.codename)
-        let resolvedSlug = metahub.slug
-
         if (result.data.codename !== undefined) {
             const normalizedCodename = normalizeCodenameForStyle(
                 getCodenamePayloadText(result.data.codename),
@@ -1468,7 +1465,6 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                 return res.status(400).json({ error: 'Invalid input', details: { codename: ['Codename is required'] } })
             }
             updateInput.codename = nextCodename
-            resolvedCodename = normalizedCodename
         }
 
         if (result.data.slug !== undefined && result.data.slug !== metahub.slug) {
@@ -1479,7 +1475,6 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                 }
             }
             updateInput.slug = result.data.slug || null
-            resolvedSlug = result.data.slug || null
         }
 
         if (result.data.name !== undefined) {

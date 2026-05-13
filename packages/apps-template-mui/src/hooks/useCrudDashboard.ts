@@ -191,14 +191,14 @@ function mapMenuItems(
     return items.flatMap((item): DashboardMenuItem[] => {
         if (!item.isActive) return []
 
-        if (item.kind === 'catalog' || item.kind === 'section' || item.kind === 'page') {
+        if (item.kind === 'section') {
             const targetSectionId = item.sectionId ?? item.linkedCollectionId ?? null
             return [
                 {
                     id: item.id,
                     label: item.title,
                     icon: item.icon ?? null,
-                    kind: item.kind === 'page' ? ('page' as const) : targetSectionId ? ('section' as const) : ('catalog' as const),
+                    kind: 'section' as const,
                     sectionId: targetSectionId,
                     linkedCollectionId: item.linkedCollectionId ?? targetSectionId,
                     href: null,
@@ -221,19 +221,6 @@ function mapMenuItems(
                     selected: false
                 }
             ]
-        }
-
-        if (item.kind === 'catalogs_all') {
-            return sections.map((section) => ({
-                id: `${item.id}:${section.id}`,
-                label: section.name,
-                icon: item.icon ?? null,
-                kind: 'section' as const,
-                sectionId: section.id,
-                linkedCollectionId: section.id,
-                href: null,
-                selected: section.id === activeSectionId
-            }))
         }
 
         return [
@@ -536,10 +523,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         const menu = appData.menus.find((item) => item.id === appData.activeMenuId) ?? appData.menus[0]
         if (menu?.startSectionId) return menu.startSectionId
         const firstSectionItem = menu?.items?.find(
-            (item) =>
-                item.isActive !== false &&
-                (item.kind === 'catalog' || item.kind === 'section' || item.kind === 'page') &&
-                Boolean(item.sectionId ?? item.linkedCollectionId)
+            (item) => item.isActive !== false && item.kind === 'section' && Boolean(item.sectionId ?? item.linkedCollectionId)
         )
         return firstSectionItem?.sectionId ?? firstSectionItem?.linkedCollectionId ?? undefined
     }, [appData])
