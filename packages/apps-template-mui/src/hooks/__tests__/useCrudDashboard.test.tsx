@@ -204,7 +204,7 @@ describe('useCrudDashboard optimistic mutations', () => {
                         items: [
                             {
                                 id: 'home',
-                                kind: 'page',
+                                kind: 'section',
                                 title: 'Home',
                                 linkedCollectionId: 'welcome-page',
                                 sectionId: 'welcome-page',
@@ -265,7 +265,7 @@ describe('useCrudDashboard optimistic mutations', () => {
                         items: [
                             {
                                 id: 'home',
-                                kind: 'page',
+                                kind: 'section',
                                 title: 'Home',
                                 linkedCollectionId: 'welcome-page',
                                 sectionId: 'welcome-page',
@@ -286,7 +286,7 @@ describe('useCrudDashboard optimistic mutations', () => {
         })
     })
 
-    it('exposes section aliases and section-aware menu items while keeping catalog compatibility', async () => {
+    it('exposes section aliases and section-aware menu items', async () => {
         const adapter = createAdapter({
             fetchList: vi.fn().mockResolvedValue({
                 ...createAppData(),
@@ -299,7 +299,7 @@ describe('useCrudDashboard optimistic mutations', () => {
                         items: [
                             {
                                 id: 'item-1',
-                                kind: 'catalog',
+                                kind: 'section',
                                 title: 'Products',
                                 linkedCollectionId: 'catalog-1',
                                 sectionId: 'catalog-1',

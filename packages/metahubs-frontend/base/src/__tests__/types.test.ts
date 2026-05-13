@@ -6,7 +6,7 @@ describe('metahubs frontend attribute types', () => {
     it('preserves system metadata when converting to display form', () => {
         const attribute: FieldDefinition = {
             id: 'attribute-1',
-            linkedCollectionId: 'catalog-1',
+            scopeEntityId: 'catalog-1',
             codename: {
                 _primary: 'en',
                 locales: {

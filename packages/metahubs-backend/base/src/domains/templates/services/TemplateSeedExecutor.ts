@@ -2,6 +2,7 @@ import type { Knex } from 'knex'
 import type {
     MetahubTemplateSeed,
     TemplateSeedLayout,
+    TemplateSeedScopedLayout,
     TemplateSeedZoneWidget,
     TemplateSeedElement,
     TemplateSeedScript,
@@ -144,18 +145,15 @@ export class TemplateSeedExecutor {
             const codenameConfig = resolveTemplateSeedCodenameConfig(seed.settings)
             let entityIdMap = new Map<string, string>()
 
-            // 1. Create layouts (generate UUID→codename map)
+            // 1. Create global layouts (generate UUID→codename map)
             const layoutIdMap = await this.createLayouts(trx, seed.layouts)
 
-            // 2. Create zone widgets (resolve layout codename → UUID)
-            await this.createZoneWidgets(trx, seed.layoutZoneWidgets, layoutIdMap)
-
-            // 3. Create settings
+            // 2. Create settings
             if (seed.settings?.length) {
                 await this.createSettings(trx, seed.settings)
             }
 
-            // 4. Create entities (catalogs, hubs, documents) if any
+            // 3. Create entities before scoped layouts so codename references can resolve to UUIDs.
             if (seed.entities?.length) {
                 entityIdMap = await this.createEntities(trx, seed.entities, codenameConfig)
 
@@ -168,6 +166,14 @@ export class TemplateSeedExecutor {
                     await this.createElements(trx, seed.elements, entityIdMap)
                 }
             }
+
+            // 4. Create entity-scoped layouts after both global layouts and entities exist.
+            if (seed.scopedLayouts?.length) {
+                await this.createScopedLayouts(trx, seed.scopedLayouts, layoutIdMap, entityIdMap)
+            }
+
+            // 5. Create zone widgets after all layout codenames have been registered.
+            await this.createZoneWidgets(trx, seed.layoutZoneWidgets, layoutIdMap)
 
             if (seed.scripts?.length) {
                 await this.createScripts(trx, seed.scripts, entityIdMap)
@@ -184,6 +190,7 @@ export class TemplateSeedExecutor {
                 .withSchema(this.schemaName)
                 .from('_mhb_layouts')
                 .where({ template_key: layout.templateKey, _upl_deleted: false, _mhb_deleted: false })
+                .whereNull('scope_entity_id')
                 .first()
 
             if (existing) {
@@ -202,6 +209,8 @@ export class TemplateSeedExecutor {
                     name: layout.name,
                     description: layout.description ?? null,
                     config,
+                    scope_entity_id: null,
+                    base_layout_id: null,
                     is_active: layout.isActive,
                     is_default: layout.isDefault,
                     sort_order: layout.sortOrder,
@@ -224,6 +233,78 @@ export class TemplateSeedExecutor {
         }
 
         return layoutIdMap
+    }
+
+    private async createScopedLayouts(
+        qb: Knex,
+        layouts: TemplateSeedScopedLayout[],
+        layoutIdMap: Map<string, string>,
+        entityIdMap: Map<string, string>
+    ): Promise<void> {
+        const now = new Date()
+
+        for (const layout of layouts) {
+            const baseLayoutId = layoutIdMap.get(layout.baseLayoutCodename)
+            if (!baseLayoutId) {
+                log.warn(`Base layout codename "${layout.baseLayoutCodename}" not found, skipping scoped layout "${layout.codename}"`)
+                continue
+            }
+
+            const scopeEntityId = resolveEntityIdByCodename(entityIdMap, layout.scopeEntityCodename, layout.scopeEntityKind)
+            if (!scopeEntityId) {
+                log.warn(
+                    `Scope entity codename "${layout.scopeEntityCodename}" not found or ambiguous, skipping scoped layout "${layout.codename}"`
+                )
+                continue
+            }
+
+            const existing = await qb
+                .withSchema(this.schemaName)
+                .from('_mhb_layouts')
+                .where({
+                    template_key: layout.templateKey,
+                    scope_entity_id: scopeEntityId,
+                    base_layout_id: baseLayoutId,
+                    _upl_deleted: false,
+                    _mhb_deleted: false
+                })
+                .first()
+
+            if (existing) {
+                layoutIdMap.set(layout.codename, existing.id)
+                continue
+            }
+
+            const [inserted] = await qb
+                .withSchema(this.schemaName)
+                .into('_mhb_layouts')
+                .insert({
+                    template_key: layout.templateKey,
+                    name: layout.name,
+                    description: layout.description ?? null,
+                    config: layout.config ?? {},
+                    scope_entity_id: scopeEntityId,
+                    base_layout_id: baseLayoutId,
+                    is_active: layout.isActive,
+                    is_default: layout.isDefault,
+                    sort_order: layout.sortOrder,
+                    owner_id: null,
+                    _upl_created_at: now,
+                    _upl_created_by: null,
+                    _upl_updated_at: now,
+                    _upl_updated_by: null,
+                    _upl_version: 1,
+                    _upl_archived: false,
+                    _upl_deleted: false,
+                    _upl_locked: false,
+                    _mhb_published: true,
+                    _mhb_archived: false,
+                    _mhb_deleted: false
+                })
+                .returning('id')
+
+            layoutIdMap.set(layout.codename, inserted.id)
+        }
     }
 
     private async createZoneWidgets(

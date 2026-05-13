@@ -12,12 +12,16 @@ import LayoutWidgetSharedBehaviorFields, {
     getSharedBehaviorFromWidgetConfig,
     setSharedBehaviorInWidgetConfig
 } from './LayoutWidgetSharedBehaviorFields'
+import WidgetScopeVisibilityPanel from './WidgetScopeVisibilityPanel'
 
 export interface QuizWidgetEditorDialogProps {
     open: boolean
     metahubId: string
     config?: QuizWidgetConfig | null
+    layoutId?: string | null
+    widgetId?: string | null
     showSharedBehavior?: boolean
+    showScopeVisibility?: boolean
     onSave: (config: QuizWidgetConfig) => void
     onCancel: () => void
 }
@@ -96,7 +100,10 @@ export default function QuizWidgetEditorDialog({
     open,
     metahubId,
     config,
+    layoutId,
+    widgetId,
     showSharedBehavior = false,
+    showScopeVisibility = false,
     onSave,
     onCancel
 }: QuizWidgetEditorDialogProps) {
@@ -294,6 +301,10 @@ export default function QuizWidgetEditorDialog({
                             value={{ sharedBehavior: sharedBehaviorValue }}
                             onChange={(nextValue) => setSharedBehaviorValue(getSharedBehaviorFromWidgetConfig(nextValue))}
                         />
+                    ) : null}
+
+                    {showScopeVisibility && layoutId && widgetId ? (
+                        <WidgetScopeVisibilityPanel metahubId={metahubId} layoutId={layoutId} widgetId={widgetId} />
                     ) : null}
                 </Stack>
             )}

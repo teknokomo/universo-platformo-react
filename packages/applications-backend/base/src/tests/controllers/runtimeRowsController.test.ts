@@ -1,5 +1,5 @@
 import { ApplicationMembershipState } from '@universo/types'
-import { partitionRuntimeMenuItems, resolvePreferredLinkedCollectionIdFromGlobalMenu } from '../../controllers/runtimeRowsController'
+import { partitionRuntimeMenuItems, resolvePreferredScopeEntityIdFromGlobalMenu } from '../../controllers/runtimeRowsController'
 import {
     UpdateFailure,
     coerceRuntimeValue,
@@ -8,8 +8,8 @@ import {
 } from '../../shared/runtimeHelpers'
 import { createMockDbExecutor } from '../utils/dbMocks'
 
-describe('runtimeRowsController startup catalog resolution', () => {
-    it('prefers the menu startPage catalog before bound hub fallback', async () => {
+describe('runtimeRowsController startup section resolution', () => {
+    it('prefers the menu startPage section before bound hub fallback', async () => {
         const { executor } = createMockDbExecutor()
 
         executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
@@ -28,7 +28,7 @@ describe('runtimeRowsController startup catalog resolution', () => {
                             bindToHub: true,
                             boundHubId: 'hub-1',
                             startPage: 'Modules',
-                            items: [{ id: 'catalog', kind: 'catalog', catalogId: 'Modules' }]
+                            items: [{ id: 'section', kind: 'section', sectionId: 'Modules' }]
                         }
                     }
                 ]
@@ -36,6 +36,9 @@ describe('runtimeRowsController startup catalog resolution', () => {
 
             if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('id::text = $1')) {
                 expect(params).toEqual(['Modules'])
+                expect(sql).toContain("config->'components'->'layoutConfig'->>'enabled'")
+                expect(sql).not.toContain("COALESCE(kind, '') NOT IN")
+                expect(sql).not.toContain("= 'page'")
                 return [{ id: 'modules-catalog-id' }]
             }
 
@@ -43,7 +46,7 @@ describe('runtimeRowsController startup catalog resolution', () => {
         })
 
         await expect(
-            resolvePreferredLinkedCollectionIdFromGlobalMenu({
+            resolvePreferredScopeEntityIdFromGlobalMenu({
                 manager: executor,
                 schemaName: 'runtime_schema',
                 schemaIdent: 'runtime_schema'
@@ -54,7 +57,43 @@ describe('runtimeRowsController startup catalog resolution', () => {
         expect(executedSql).not.toContain("config->'hubs' @>")
     })
 
-    it('derives startup catalog bindings from the global default or active layout only with config-aware section filtering', async () => {
+    it('limits startup scope tokens to layout-capable runtime sections', async () => {
+        const { executor } = createMockDbExecutor()
+
+        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('information_schema.tables')) {
+                return [{ layoutsExists: true, widgetsExists: true }]
+            }
+
+            if (sql.includes('FROM runtime_schema._app_layouts')) {
+                return [{ id: 'global-layout-1' }]
+            }
+
+            if (sql.includes('FROM runtime_schema._app_widgets')) {
+                return [{ config: { startPage: 'CustomLanding' } }]
+            }
+
+            if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('id::text = $1')) {
+                expect(params).toEqual(['CustomLanding'])
+                expect(sql).toContain("config->'components'->'layoutConfig'->>'enabled'")
+                expect(sql).not.toContain("COALESCE(kind, '') NOT IN")
+                expect(sql).not.toContain("= 'page'")
+                return [{ id: 'custom-layout-capable-entity-id' }]
+            }
+
+            throw new Error(`Unexpected SQL: ${sql}`)
+        })
+
+        await expect(
+            resolvePreferredScopeEntityIdFromGlobalMenu({
+                manager: executor,
+                schemaName: 'runtime_schema',
+                schemaIdent: 'runtime_schema'
+            })
+        ).resolves.toBe('custom-layout-capable-entity-id')
+    })
+
+    it('derives startup section bindings from the global default or active layout only with config-aware section filtering', async () => {
         const { executor } = createMockDbExecutor()
 
         executor.query.mockImplementation(async (sql: string) => {
@@ -63,7 +102,7 @@ describe('runtimeRowsController startup catalog resolution', () => {
             }
 
             if (sql.includes('FROM runtime_schema._app_layouts')) {
-                expect(sql).toContain('catalog_id IS NULL')
+                expect(sql).toContain('scope_entity_id IS NULL')
                 return [{ id: 'global-layout-1' }]
             }
 
@@ -81,7 +120,7 @@ describe('runtimeRowsController startup catalog resolution', () => {
         })
 
         await expect(
-            resolvePreferredLinkedCollectionIdFromGlobalMenu({
+            resolvePreferredScopeEntityIdFromGlobalMenu({
                 manager: executor,
                 schemaName: 'runtime_schema',
                 schemaIdent: 'runtime_schema'

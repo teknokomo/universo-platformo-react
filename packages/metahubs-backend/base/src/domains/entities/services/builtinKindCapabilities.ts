@@ -18,7 +18,7 @@ export const resolveBuiltinGeneratedTableName = (kindKey: BuiltinEntityKind, obj
     resolveEntitySurfaceKey(kindKey) === 'linkedCollection' ? generateTableName(objectId, kindKey) : null
 
 type PageLayoutReference = {
-    source: 'layoutWidget' | 'catalogWidgetOverride'
+    source: 'layoutWidget' | 'layoutWidgetOverride'
     layoutId: string
     widgetId: string
     layoutName: unknown
@@ -36,7 +36,7 @@ const findBlockingPageLayoutReferences = async ({
     const objectsQt = qSchemaTable(schemaName, '_mhb_objects')
     const layoutsQt = qSchemaTable(schemaName, '_mhb_layouts')
     const widgetsQt = qSchemaTable(schemaName, '_mhb_widgets')
-    const overridesQt = qSchemaTable(schemaName, '_mhb_catalog_widget_overrides')
+    const overridesQt = qSchemaTable(schemaName, '_mhb_layout_widget_overrides')
     const codenameSql = codenamePrimaryTextSql('codename')
 
     const page = await queryOne<{ id: string; codename: string }>(
@@ -74,13 +74,13 @@ const findBlockingPageLayoutReferences = async ({
 
     const overrideRows = await queryMany<PageLayoutReference>(
         exec,
-        `SELECT 'catalogWidgetOverride'::text AS source,
-                o.catalog_layout_id AS "layoutId",
+        `SELECT 'layoutWidgetOverride'::text AS source,
+                o.layout_id AS "layoutId",
                 o.id AS "widgetId",
                 l.name AS "layoutName",
                 COALESCE(o.config->>'startPage', item.value->>'sectionId') AS reference
            FROM ${overridesQt} o
-           JOIN ${layoutsQt} l ON l.id = o.catalog_layout_id AND l._upl_deleted = false AND l._mhb_deleted = false
+           JOIN ${layoutsQt} l ON l.id = o.layout_id AND l._upl_deleted = false AND l._mhb_deleted = false
       LEFT JOIN LATERAL jsonb_array_elements(
                 CASE WHEN jsonb_typeof(o.config->'items') = 'array' THEN o.config->'items' ELSE '[]'::jsonb END
            ) item(value) ON item.value->>'kind' = 'page' AND item.value->>'sectionId' = ANY($1::text[])

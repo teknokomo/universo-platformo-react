@@ -442,7 +442,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         expect(widgetKeys.has('qrCodeWidget')).toBe(false)
 
         const menuWidget = (layoutWidgets.items ?? []).find((item: Record<string, any>) => item?.widgetKey === 'menuWidget')
-        expect(menuWidget?.config?.autoShowAllCatalogs).toBe(false)
+        expect(menuWidget?.config?.autoShowAllSections).toBe(false)
         expect(menuWidget?.config?.maxPrimaryItems).toBe(6)
         expect(menuWidget?.config?.startPage).toBe('LearnerHome')
 
@@ -707,10 +707,18 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await page.goto(`/a/${applicationId}`)
         await expect(page.getByTestId('runtime-page-blocks')).toBeVisible({ timeout: 30_000 })
 
+        const assertHomeDashboardWidgetsHidden = async () => {
+            await expect(page.getByText('Learners', { exact: true })).toHaveCount(0)
+            await expect(page.getByText('Department Progress', { exact: true })).toHaveCount(0)
+            await expect(page.getByText('Assignment Scores', { exact: true })).toHaveCount(0)
+        }
+
         await clickRuntimeNavigationItem(page, 'Knowledge')
         await expect(page.getByText('Quizzes', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
         await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
         await expect(page.getByText('[object Object]', { exact: true })).toHaveCount(0)
+        await assertHomeDashboardWidgetsHidden()
+        await page.screenshot({ path: testInfo.outputPath('lms-knowledge-without-home-widgets-en.png'), fullPage: true })
         await page.locator('[data-testid^="grid-row-actions-trigger-"]').first().click()
         await page.getByRole('menuitem', { name: 'Edit' }).click()
         const quizEditDialog = page.getByRole('dialog', { name: 'Edit element' })
@@ -722,12 +730,14 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await clickRuntimeNavigationItem(page, 'Development')
         await expect(page.getByText('Classes', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
         await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
+        await assertHomeDashboardWidgetsHidden()
         await clickRuntimeNavigationItem(page, 'Reports')
         await expect(page.getByRole('link', { name: 'Reports' }).first()).toHaveAttribute('aria-current', 'page')
         await expect(page.getByText('Reports', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
         await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
         await expect(page.getByText('[object Object]', { exact: true })).toHaveCount(0)
         await expect(page.getByRole('gridcell', { name: 'All active learners' }).first()).toBeVisible({ timeout: 30_000 })
+        await assertHomeDashboardWidgetsHidden()
 
         await applyBrowserPreferences(page, { language: 'ru' })
         await page.goto(`/a/${applicationId}`)

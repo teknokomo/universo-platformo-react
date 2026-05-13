@@ -13,6 +13,38 @@ import { mhbSoftDelete } from '../../../persistence/metahubsQueryHelpers'
 
 const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
+type RecordAttribute = {
+    id: string
+    codename: string
+    dataType: FieldDefinitionDataType
+    isRequired: boolean
+    parentAttributeId: string | null
+    validationRules?: Record<string, unknown>
+}
+
+type MetahubRecordDto = {
+    id: string
+    linkedCollectionId: string
+    data: Record<string, unknown>
+    ownerId: string | null
+    sortOrder: number
+    version: number
+    createdAt: unknown
+    updatedAt: unknown
+}
+
+const optionalNumberRule = (rules: Record<string, unknown>, key: string): number | undefined =>
+    typeof rules[key] === 'number' ? (rules[key] as number) : undefined
+
+const coerceRecordData = (value: unknown): Record<string, unknown> =>
+    value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
+
+const coerceNumber = (value: unknown, fallback: number): number => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : fallback
+}
+
 /**
  * MetahubRecordsService manages design-time records stored in `_mhb_elements`.
  *
@@ -117,7 +149,7 @@ export class MetahubRecordsService {
         )
 
         const counts = new Map<string, number>()
-        results.forEach((row: any) => {
+        results.forEach((row) => {
             counts.set(row.object_id, parseInt(row.count as string, 10))
         })
         return counts
@@ -141,11 +173,11 @@ export class MetahubRecordsService {
             [objectIds]
         )
 
-        return elements.map((element: any) => ({
-            id: element.id,
-            objectId: element.object_id,
-            data: element.data ?? {},
-            sortOrder: element.sort_order ?? 0
+        return elements.map((element) => ({
+            id: String(element.id),
+            objectId: String(element.object_id),
+            data: coerceRecordData(element.data),
+            sortOrder: coerceNumber(element.sort_order, 0)
         }))
     }
 
@@ -212,7 +244,7 @@ export class MetahubRecordsService {
             `SELECT * FROM ${qt} WHERE ${whereClause} ORDER BY ${orderBy}${paginationClause}`,
             queryParams
         )
-        return items.map((element: any) => this.mapRowToRecord(element))
+        return items.map((element) => this.mapRowToRecord(element))
     }
 
     /**
@@ -284,7 +316,7 @@ export class MetahubRecordsService {
         ])
 
         const total = countResult ? parseInt(countResult.total, 10) : 0
-        return { items: items.map((element: any) => this.mapRowToRecord(element)), total }
+        return { items: items.map((element) => this.mapRowToRecord(element)), total }
     }
 
     /**
@@ -440,8 +472,6 @@ export class MetahubRecordsService {
         if (!catalog) throw new MetahubNotFoundError('Catalog')
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const qt = qSchemaTable(schemaName, '_mhb_elements')
-
         await this.exec.transaction(async (tx: SqlQueryable) => {
             await this.acquireSortOrderLockInTransaction(tx, schemaName, linkedCollectionId)
 
@@ -599,7 +629,7 @@ export class MetahubRecordsService {
     }
 
     // Validation helpers
-    private validateRecordData(data: Record<string, unknown>, attributes: any[]): { valid: boolean; errors: string[] } {
+    private validateRecordData(data: Record<string, unknown>, attributes: RecordAttribute[]): { valid: boolean; errors: string[] } {
         const errors: string[] = []
         const rootAttributes = attributes.filter((a) => !a.parentAttributeId)
         const attributeMap = new Map(rootAttributes.map((a) => [a.codename, a]))
@@ -671,7 +701,7 @@ export class MetahubRecordsService {
         return { valid: errors.length === 0, errors }
     }
 
-    private hasRequiredValue(attr: any, value: unknown): boolean {
+    private hasRequiredValue(attr: RecordAttribute, value: unknown): boolean {
         if (value === undefined || value === null) return false
         if (attr.dataType === FieldDefinitionDataType.TABLE) {
             if (!Array.isArray(value)) return false
@@ -691,20 +721,20 @@ export class MetahubRecordsService {
         return value !== ''
     }
 
-    private mapRowToRecord(row: any) {
+    private mapRowToRecord(row: Record<string, unknown>): MetahubRecordDto {
         return {
-            id: row.id,
-            linkedCollectionId: row.object_id,
-            data: row.data ?? {},
-            ownerId: row.owner_id ?? null,
-            sortOrder: row.sort_order ?? 0,
-            version: row._upl_version || 1,
+            id: String(row.id),
+            linkedCollectionId: String(row.object_id),
+            data: coerceRecordData(row.data),
+            ownerId: typeof row.owner_id === 'string' ? row.owner_id : null,
+            sortOrder: coerceNumber(row.sort_order, 0),
+            version: coerceNumber(row._upl_version, 1),
             createdAt: row._upl_created_at,
             updatedAt: row._upl_updated_at
         }
     }
 
-    private validateType(value: unknown, attr: any): string | null {
+    private validateType(value: unknown, attr: RecordAttribute): string | null {
         const dataType = attr.dataType as FieldDefinitionDataType
         const rules = attr.validationRules ?? {}
 
@@ -727,7 +757,7 @@ export class MetahubRecordsService {
         return null
     }
 
-    private validateDateValue(value: unknown, rules: any): string | null {
+    private validateDateValue(value: unknown, rules: Record<string, unknown>): string | null {
         if (typeof value !== 'string') return 'Expected date/time string'
 
         const composition = rules?.dateComposition ?? 'datetime'
@@ -753,18 +783,20 @@ export class MetahubRecordsService {
         return !isNaN(date.getTime())
     }
 
-    private validateRules(value: unknown, rules: any, fieldName: string): string[] {
+    private validateRules(value: unknown, rules: Record<string, unknown>, fieldName: string): string[] {
         const errors: string[] = []
         const stringValue = typeof value === 'string' ? value : this.extractLocalizedString(value)
 
         if (typeof stringValue === 'string') {
-            if (rules.minLength !== undefined && stringValue.length < rules.minLength) {
-                errors.push(`Field "${fieldName}": minimum length is ${rules.minLength}`)
+            const minLength = optionalNumberRule(rules, 'minLength')
+            const maxLength = optionalNumberRule(rules, 'maxLength')
+            if (minLength !== undefined && stringValue.length < minLength) {
+                errors.push(`Field "${fieldName}": minimum length is ${minLength}`)
             }
-            if (rules.maxLength !== undefined && rules.maxLength !== null && stringValue.length > rules.maxLength) {
-                errors.push(`Field "${fieldName}": maximum length is ${rules.maxLength}`)
+            if (maxLength !== undefined && stringValue.length > maxLength) {
+                errors.push(`Field "${fieldName}": maximum length is ${maxLength}`)
             }
-            if (rules.pattern) {
+            if (typeof rules.pattern === 'string' && rules.pattern.length > 0) {
                 try {
                     const regex = new RegExp(rules.pattern)
                     if (!regex.test(stringValue)) {
@@ -774,18 +806,21 @@ export class MetahubRecordsService {
                     /* ignore invalid regex */
                 }
             }
-            if (rules.options && !rules.options.includes(stringValue)) {
-                errors.push(`Field "${fieldName}": must be one of [${rules.options.join(', ')}]`)
+            const options = Array.isArray(rules.options)
+                ? rules.options.filter((option): option is string => typeof option === 'string')
+                : []
+            if (options.length > 0 && !options.includes(stringValue)) {
+                errors.push(`Field "${fieldName}": must be one of [${options.join(', ')}]`)
             }
         }
         if (typeof value === 'number') {
             // Use shared validator for comprehensive precision/scale checks
             const result = validateNumber(value, {
-                precision: rules.precision,
-                scale: rules.scale,
-                min: rules.min ?? undefined,
-                max: rules.max ?? undefined,
-                nonNegative: rules.nonNegative
+                precision: optionalNumberRule(rules, 'precision'),
+                scale: optionalNumberRule(rules, 'scale'),
+                min: optionalNumberRule(rules, 'min'),
+                max: optionalNumberRule(rules, 'max'),
+                nonNegative: rules.nonNegative === true
             })
 
             if (!result.valid && result.errorMessage) {

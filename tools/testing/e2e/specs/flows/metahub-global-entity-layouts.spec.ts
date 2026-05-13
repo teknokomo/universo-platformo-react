@@ -181,7 +181,7 @@ async function clickCatalogMenuItem(page: import('@playwright/test').Page, catal
     await catalogButton.click()
 }
 
-test('@flow @combined metahub General and catalog-specific layouts drive runtime widget materialization and page surfaces', async ({
+test('@flow @combined metahub global and entity-scoped layouts drive runtime widget materialization and page surfaces', async ({
     page,
     runManifest
 }, testInfo) => {
@@ -192,8 +192,8 @@ test('@flow @combined metahub General and catalog-specific layouts drive runtime
         password: runManifest.testUser.password
     })
 
-    const metahubName = `E2E ${runManifest.runId} general catalog layouts`
-    const metahubCodename = `${runManifest.runId}-general-catalog-layouts`
+    const metahubName = `E2E ${runManifest.runId} global entity layouts`
+    const metahubCodename = `${runManifest.runId}-global-entity-layouts`
     const fallbackCatalogName = `Fallback Catalog ${runManifest.runId}`
     const fallbackCatalogCodename = `${runManifest.runId}-fallback-catalog`
     const customCatalogName = `Custom Catalog ${runManifest.runId}`
@@ -216,7 +216,7 @@ test('@flow @combined metahub General and catalog-specific layouts drive runtime
         })
 
         if (!metahub?.id) {
-            throw new Error('Metahub creation did not return an id for General/catalog layout coverage')
+            throw new Error('Metahub creation did not return an id for global/entity layout coverage')
         }
 
         await recordCreatedMetahub({
@@ -252,7 +252,7 @@ test('@flow @combined metahub General and catalog-specific layouts drive runtime
         })
 
         if (!fallbackCatalog?.id || !customCatalog?.id) {
-            throw new Error('Catalog creation did not return ids for General/catalog layout coverage')
+            throw new Error('Entity creation did not return ids for global/entity layout coverage')
         }
 
         for (const catalogId of [fallbackCatalog.id, customCatalog.id]) {
@@ -270,7 +270,7 @@ test('@flow @combined metahub General and catalog-specific layouts drive runtime
         }
 
         const customLayout = await createLayout(api, metahub.id, {
-            catalogId: customCatalog.id,
+            scopeEntityId: customCatalog.id,
             baseLayoutId: globalLayoutId,
             name: { en: customLayoutName },
             namePrimaryLocale: 'en',
@@ -279,7 +279,7 @@ test('@flow @combined metahub General and catalog-specific layouts drive runtime
         })
 
         if (!customLayout?.id) {
-            throw new Error('Custom catalog layout creation did not return an id')
+            throw new Error('Custom entity-scoped layout creation did not return an id')
         }
 
         await updateLayout(api, metahub.id, customLayout.id, {
@@ -300,7 +300,7 @@ test('@flow @combined metahub General and catalog-specific layouts drive runtime
         const detailsTableWidget = customLayoutWidgets.items?.find((item: { widgetKey?: string }) => item.widgetKey === 'detailsTable')
 
         if (!detailsTitleWidget?.id || !detailsTableWidget?.id) {
-            throw new Error('Custom catalog layout did not expose inherited details widgets for override coverage')
+            throw new Error('Custom entity-scoped layout did not expose inherited details widgets for override coverage')
         }
 
         await toggleLayoutZoneWidgetActive(api, metahub.id, customLayout.id, detailsTitleWidget.id, false)
@@ -318,8 +318,8 @@ test('@flow @combined metahub General and catalog-specific layouts drive runtime
         await expect(page.getByTestId(pageSpacingSelectors.metahubResourcesTabs)).toBeVisible()
         await expect(page.getByRole('tab', { name: 'Layouts' })).toHaveAttribute('aria-selected', 'true')
 
-        await page.goto(`/metahub/${metahub.id}/catalog/${customCatalog.id}/layout/${customLayout.id}`)
-        await expect(page.getByRole('heading', { name: 'Catalog runtime behavior' })).toBeVisible()
+        await page.goto(`/metahub/${metahub.id}/entities/catalog/instance/${customCatalog.id}/layout/${customLayout.id}`)
+        await expect(page.getByRole('heading', { name: 'Entity runtime behavior' })).toBeVisible()
         await expect(page.getByText('Create form type', { exact: true }).last()).toBeVisible()
         await expect(page.getByText('Edit form type', { exact: true }).last()).toBeVisible()
         await expect(page.getByText('Copy form type', { exact: true }).last()).toBeVisible()
@@ -335,7 +335,7 @@ test('@flow @combined metahub General and catalog-specific layouts drive runtime
         })
 
         if (!publication?.id) {
-            throw new Error('Publication creation did not return an id for General/catalog layout coverage')
+            throw new Error('Publication creation did not return an id for global/entity layout coverage')
         }
 
         await recordCreatedPublication({
@@ -359,7 +359,7 @@ test('@flow @combined metahub General and catalog-specific layouts drive runtime
 
         const applicationId = linkedApplication?.application?.id
         if (typeof applicationId !== 'string') {
-            throw new Error('Linked application creation did not return an id for General/catalog layout coverage')
+            throw new Error('Linked application creation did not return an id for global/entity layout coverage')
         }
 
         await recordCreatedApplication({

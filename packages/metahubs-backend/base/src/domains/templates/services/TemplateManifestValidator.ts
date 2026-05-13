@@ -46,6 +46,12 @@ const seedLayoutSchema = z.object({
     config: z.record(z.unknown()).optional()
 })
 
+const seedScopedLayoutSchema = seedLayoutSchema.extend({
+    baseLayoutCodename: z.string().min(1).max(100),
+    scopeEntityCodename: z.string().min(1).max(100),
+    scopeEntityKind: entityKindKeySchema.optional()
+})
+
 const seedZoneWidgetSchema = z.object({
     zone: z.enum(DASHBOARD_LAYOUT_ZONES),
     widgetKey: z.enum(widgetKeys),
@@ -171,6 +177,7 @@ const presetDefaultInstanceSchema = z.object({
 
 const seedSchema = z.object({
     layouts: z.array(seedLayoutSchema).min(1),
+    scopedLayouts: z.array(seedScopedLayoutSchema).optional(),
     layoutZoneWidgets: z.record(z.array(seedZoneWidgetSchema)),
     settings: z.array(seedSettingSchema).optional(),
     entities: z.array(seedEntitySchema).optional(),
@@ -340,6 +347,27 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
         layoutTemplateKeySet.add(layout.templateKey)
     }
 
+    const scopedLayouts = manifest.seed.scopedLayouts ?? []
+    for (let i = 0; i < scopedLayouts.length; i++) {
+        const layout = scopedLayouts[i]
+        if (layoutCodenameSet.has(layout.codename)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['seed', 'scopedLayouts', i, 'codename'],
+                message: `Duplicate layout codename: ${layout.codename}`
+            })
+        }
+        layoutCodenameSet.add(layout.codename)
+
+        if (!layoutCodenameSet.has(layout.baseLayoutCodename)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['seed', 'scopedLayouts', i, 'baseLayoutCodename'],
+                message: `Scoped layout references unknown base layout codename: ${layout.baseLayoutCodename}`
+            })
+        }
+    }
+
     for (const layoutCodename of Object.keys(manifest.seed.layoutZoneWidgets)) {
         if (!layoutCodenameSet.has(layoutCodename)) {
             ctx.addIssue({
@@ -477,6 +505,21 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
                 })
             }
             seenValueCodenames.add(value.codename)
+        }
+    }
+
+    for (let index = 0; index < scopedLayouts.length; index += 1) {
+        const layout = scopedLayouts[index]
+        const hasTarget = layout.scopeEntityKind
+            ? entityByKindCodename.has(`${layout.scopeEntityKind}:${layout.scopeEntityCodename}`)
+            : (entityByCodename.get(layout.scopeEntityCodename) ?? 0) === 1
+
+        if (!hasTarget) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['seed', 'scopedLayouts', index, 'scopeEntityCodename'],
+                message: `Scoped layout target not found or ambiguous: ${layout.scopeEntityCodename}`
+            })
         }
     }
 

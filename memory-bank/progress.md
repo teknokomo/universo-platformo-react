@@ -53,6 +53,108 @@
 
 ---
 
+## Completed: Scoped Menu Contract Closure (2026-05-13)
+
+The remaining catalog/page-specific menu widget authoring and runtime branches are removed from the scoped layout work.
+
+### Changes Made
+
+- Standardized menu widget item kinds on `section`, `hub`, and `link`.
+- Removed Catalog/Page/Ledger-specific menu editor branches and runtime destination comparisons.
+- Menu section targets are discovered from layout-capable Entity type metadata, so future Entity types can opt into menu destinations through constructor capabilities.
+- Replaced active menu auto-generation config with `autoShowAllSections` across shared schemas, templates, LMS/self-hosted/quiz fixtures, and fixture contracts.
+- Updated runtime menu selection and standalone section-link conversion to accept only neutral `section` menu items for Entity destinations.
+
+### Validation
+
+- `git diff --check`
+- `pnpm --filter @universo/types build`
+- `pnpm --filter @universo/applications-frontend lint`
+- `pnpm --filter @universo/metahubs-frontend lint`
+- `pnpm --filter @universo/apps-template-mui lint`
+- `pnpm --filter @universo/applications-backend lint`
+- `pnpm --filter @universo/metahubs-backend exec eslint --ext .ts src/domains/templates/data/basic.template.ts src/domains/shared/layoutDefaults.ts src/tests/services/MetahubLayoutsService.test.ts src/tests/services/templateManifestValidator.test.ts --fix`
+- `pnpm --filter @universo/applications-frontend build`
+- `pnpm --filter @universo/apps-template-mui build`
+- `pnpm --filter @universo/metahubs-frontend build`
+- `pnpm --filter @universo/metahubs-backend build`
+- `pnpm --filter @universo/applications-backend build`
+- Direct focused tests passed through `pnpm --dir ... exec vitest run ...` / `jest --runInBand` for menu helpers, scope visibility, runtime menu behavior, application layout/runtime behavior, and runtime controller behavior.
+- Note: package-level `test` scripts for `metahubs-frontend` and `applications-frontend` still run the full suite when file args are passed and exposed unrelated existing failures; direct focused runs for touched files pass.
+
+## Completed: Scoped Widget Visibility QA Closure (2026-05-13)
+
+The remaining QA gaps in centralized widget visibility management for generic Entity-scoped layouts are closed.
+
+### Changes Made
+
+- Added generic metahub layout API endpoints for listing and updating global widget visibility per layout-capable Entity scope.
+- Global widget visibility updates now validate the target Entity through `layoutConfig`, create a scoped layout automatically on the first override, and store sparse `_mhb_layout_widget_overrides` rows instead of duplicating widget definitions.
+- Added a reusable `WidgetScopeVisibilityPanel` and integrated it into existing global widget editors (`WidgetBehaviorEditorDialog`, `MenuWidgetEditorDialog`, `ColumnsContainerEditorDialog`, `QuizWidgetEditorDialog`) without LMS-specific UI.
+- The panel renders localized Entity names/codenames, inherited/overridden state, and scoped-layout presence, so reverse override state is visible from the global layout editor.
+- Runtime global-menu startup token lookup now filters to renderable runtime sections only: catalog-compatible objects or Pages.
+- Auto-created scoped layout names are stored as canonical VLC records.
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-backend test -- --runTestsByPath src/tests/services/MetahubLayoutsService.test.ts` passes.
+- `pnpm --filter @universo/applications-backend test -- --runTestsByPath src/tests/controllers/runtimeRowsController.test.ts` passes.
+- `pnpm --filter @universo/metahubs-frontend test -- src/domains/layouts/ui/__tests__/WidgetScopeVisibilityPanel.test.tsx --runInBand` ran the package suite and passed: 71 files, 288 tests.
+- `pnpm --filter @universo/metahubs-backend build`, `pnpm --filter @universo/metahubs-frontend build`, and `pnpm --filter @universo/applications-backend build` pass.
+- `pnpm --filter @universo/metahubs-backend exec eslint --fix --ext .ts src/`, `pnpm --filter @universo/metahubs-frontend exec eslint --fix --ext .ts,.tsx,.jsx src/`, and `pnpm --filter @universo/applications-backend lint` pass; metahubs-backend still reports pre-existing warnings only.
+- `node tools/testing/e2e/run-playwright-suite.mjs specs/flows/metahub-global-entity-layouts.spec.ts` passes: 2 tests.
+
+## Completed: Scoped Layout QA Closure (2026-05-13)
+
+The remaining QA gaps in generic startup scope resolution and LMS browser regression coverage are closed.
+
+### Changes Made
+
+- Removed the residual Catalog/Page candidate filter from global-menu startup token resolution so the lookup layer stays Entity-agnostic.
+- Added a backend regression proving startup tokens can resolve arbitrary runtime Entity ids/codenames before downstream rendering rules decide whether a destination is usable.
+- Extended the imported LMS runtime Playwright flow with explicit negative assertions that Home-only dashboard labels never appear on Knowledge, Development, or Reports.
+- Captured a dedicated non-Home screenshot artifact for the clean Knowledge view without inherited Home dashboard widgets.
+- Cleared the outstanding `@universo/applications-backend` Prettier lint findings already present in the scoped-layout sync helper changes.
+
+### Validation
+
+- `git diff --check`
+- `pnpm --filter @universo/applications-backend test -- --runTestsByPath src/tests/controllers/runtimeRowsController.test.ts`
+- `pnpm --filter @universo/applications-backend lint`
+- `node tools/testing/e2e/run-playwright-suite.mjs specs/flows/snapshot-import-lms-runtime.spec.ts`
+
+## Completed: Scoped Layout Widget Visibility Implementation (2026-05-12)
+
+Generic Entity-scoped layout overlays now replace the previous catalog-specific layout contract for widget visibility and runtime materialization.
+
+### Changes Made
+
+- Replaced generic layout contracts with `scopeEntityId`, `scopedLayouts`, and `layoutWidgetOverrides` across shared types, metahub snapshot export/restore, template validation/seeding, application sync, and layout APIs.
+- Kept `linkedCollectionId` only where it still means runtime record/datasource collection identity, not layout scope.
+- Added capability-driven scoped layout validation through `components.layoutConfig.enabled`, so future Entity types can opt into layout customization without hardcoded kind checks.
+- Materialized inherited scoped widgets with `source_base_widget_id` links and persisted UUID v7 row ids instead of storing synthetic ids in runtime widget tables.
+- Preserved sparse override config, activation, and placement when scoped layouts inherit global widgets.
+- Updated the LMS template and snapshot so the `LearnerHome` Page owns overview cards and charts through a Page-scoped layout, while the global layout no longer enables Home-only dashboard widgets or the empty three-column container.
+- Hardened `columnsContainer` rendering so inactive nested widgets and empty columns render nothing instead of blank cards.
+- Closed the final browser-found regression in scoped layout creation by matching Entity type capability SQL to the actual soft-delete-only `_mhb_entity_type_definitions` schema, then updated the generic Playwright flow to use the Entity layout route and current UI heading.
+- Updated GitBook docs and package README notes from catalog-specific layouts to Entity-scoped layouts.
+
+### Validation
+
+- `pnpm --filter @universo/types build`
+- `pnpm --filter @universo/schema-ddl build`
+- `pnpm --filter @universo/applications-backend build`
+- `pnpm --filter @universo/metahubs-backend build`
+- `pnpm --filter @universo/metahubs-frontend build`
+- `pnpm --filter @universo/apps-template-mui build`
+- `pnpm --filter @universo/applications-backend test -- --runTestsByPath src/tests/services/syncLayoutMaterialization.test.ts src/tests/controllers/runtimeRowsController.test.ts src/tests/controllers/applicationLayoutsController.test.ts src/tests/utils/applicationLayoutHash.test.ts src/tests/services/syncLayoutPersistence.test.ts`
+- `pnpm --filter @universo/metahubs-backend test -- --runTestsByPath src/tests/shared/snapshotLayouts.test.ts src/tests/services/SnapshotRestoreService.test.ts src/tests/services/MetahubLayoutsService.test.ts src/tests/routes/layoutsRoutes.test.ts src/tests/services/metahubSchemaService.test.ts src/tests/services/templateManifestValidator.test.ts`
+- `pnpm --filter @universo/metahubs-backend test -- --runTestsByPath src/tests/services/MetahubLayoutsService.test.ts`
+- `pnpm --filter @universo/apps-template-mui test -- src/dashboard/components/__tests__/widgetRenderer.test.tsx`
+- `pnpm --filter @universo/metahubs-frontend test -- src/domains/entities/presets/ui/__tests__/SettingsOriginTabs.test.tsx src/domains/metahubs/ui/__tests__/actionsFactories.test.ts src/domains/layouts/ui/__tests__/LayoutList.copyFlow.test.tsx`
+- `pnpm run build:e2e`
+- `node tools/testing/e2e/run-playwright-suite.mjs specs/flows/metahub-global-entity-layouts.spec.ts`
+
 ## Completed: Connector Schema Diff Entity Metrics QA (2026-05-12)
 
 The schema creation preview in the application connector no longer shows misleading `0 fields, 0 elements` summaries for Entity types whose useful preview data is not field/record based.

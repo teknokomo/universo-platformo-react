@@ -37,6 +37,7 @@ import {
     runtimeCodenameTextSql,
     runtimeCatalogFilterSql,
     runtimeStandardKindSql,
+    runtimeLayoutCapableFilterSql,
     resolveRuntimeCodenameText,
     resolvePresentationName,
     resolveLocalizedContent,
@@ -141,6 +142,7 @@ const RUNTIME_RECORD_SYSTEM_FIELDS = [
 ] as const
 
 const RUNTIME_CATALOG_FILTER_SQL = runtimeCatalogFilterSql()
+const RUNTIME_LAYOUT_CAPABLE_FILTER_SQL = runtimeLayoutCapableFilterSql()
 
 const resolveRuntimeStandardKind = (kind: unknown): BuiltinEntityKind | null =>
     typeof kind === 'string' && isBuiltinEntityKind(kind) ? kind : null
@@ -462,9 +464,9 @@ const loadRuntimeSelectedLayout = async (params: {
     manager: DbExecutor
     schemaName: string
     schemaIdent: string
-    linkedCollectionId: string
+    scopeEntityId: string
 }) => {
-    const { manager, schemaName, schemaIdent, linkedCollectionId } = params
+    const { manager, schemaName, schemaIdent, scopeEntityId } = params
     const layoutsExist = await runtimeSystemTableExists(manager, schemaName, '_app_layouts')
     if (!layoutsExist) {
         return { layoutId: null, layoutConfig: {} as Record<string, unknown> }
@@ -474,18 +476,18 @@ const loadRuntimeSelectedLayout = async (params: {
         `
       SELECT id, config
       FROM ${schemaIdent}._app_layouts
-      WHERE (catalog_id = $1 OR catalog_id IS NULL)
+      WHERE (scope_entity_id = $1 OR scope_entity_id IS NULL)
         AND is_active = true
         AND _upl_deleted = false
         AND _app_deleted = false
-      ORDER BY CASE WHEN catalog_id = $1 THEN 0 ELSE 1 END,
+      ORDER BY CASE WHEN scope_entity_id = $1 THEN 0 ELSE 1 END,
                is_default DESC,
                is_active DESC,
                sort_order ASC,
                _upl_created_at ASC
       LIMIT 1
     `,
-        [linkedCollectionId]
+        [scopeEntityId]
     )) as Array<{ id: string; config: Record<string, unknown> | null }>
 
     return {
@@ -494,14 +496,14 @@ const loadRuntimeSelectedLayout = async (params: {
     }
 }
 
-export const resolvePreferredLinkedCollectionIdFromGlobalMenu = async (params: {
+export const resolvePreferredScopeEntityIdFromGlobalMenu = async (params: {
     manager: DbExecutor
     schemaName: string
     schemaIdent: string
 }) => {
     const { manager, schemaName, schemaIdent } = params
 
-    const resolveLinkedCollectionByToken = async (token: string): Promise<string | null> => {
+    const resolveScopeEntityByToken = async (token: string): Promise<string | null> => {
         const normalized = token.trim()
         if (!normalized) return null
 
@@ -509,9 +511,9 @@ export const resolvePreferredLinkedCollectionIdFromGlobalMenu = async (params: {
             `
         SELECT id
         FROM ${schemaIdent}._app_objects
-        WHERE ${RUNTIME_CATALOG_FILTER_SQL}
-          AND _upl_deleted = false
+        WHERE _upl_deleted = false
           AND _app_deleted = false
+          AND ${RUNTIME_LAYOUT_CAPABLE_FILTER_SQL}
           AND (id::text = $1 OR ${runtimeCodenameTextSql('codename')} = $1)
         ORDER BY CASE
                    WHEN id::text = $1 THEN 0
@@ -538,7 +540,7 @@ export const resolvePreferredLinkedCollectionIdFromGlobalMenu = async (params: {
             .find((item) => item?.id === startPage)
 
         if (matchedItem) {
-            for (const key of ['catalogId', 'sectionId', 'linkedCollectionId']) {
+            for (const key of ['sectionId', 'linkedCollectionId']) {
                 const value = matchedItem[key]
                 if (typeof value === 'string' && value.trim()) {
                     return value.trim()
@@ -573,7 +575,7 @@ export const resolvePreferredLinkedCollectionIdFromGlobalMenu = async (params: {
             `
         SELECT id
         FROM ${schemaIdent}._app_layouts
-        WHERE catalog_id IS NULL
+        WHERE scope_entity_id IS NULL
           AND is_active = true
           AND _upl_deleted = false
           AND _app_deleted = false
@@ -613,9 +615,9 @@ export const resolvePreferredLinkedCollectionIdFromGlobalMenu = async (params: {
             const startPageToken = resolveStartPageTokenFromMenuConfig(cfg)
             if (!startPageToken) continue
 
-            const linkedCollectionId = await resolveLinkedCollectionByToken(startPageToken)
-            if (linkedCollectionId) {
-                return linkedCollectionId
+            const scopeEntityId = await resolveScopeEntityByToken(startPageToken)
+            if (scopeEntityId) {
+                return scopeEntityId
             }
         }
 
@@ -643,7 +645,7 @@ export const resolvePreferredLinkedCollectionIdFromGlobalMenu = async (params: {
         return preferredLinkedCollectionRows[0]?.id ?? null
     } catch (e) {
         // eslint-disable-next-line no-console
-        console.warn('[ApplicationsRuntime] Failed to resolve preferred startup catalog from menu binding (ignored)', e)
+        console.warn('[ApplicationsRuntime] Failed to resolve preferred startup section from menu binding (ignored)', e)
         return null
     }
 }
@@ -658,7 +660,7 @@ const resolveEffectiveLinkedCollectionRuntimeConfig = async (params: {
         manager: params.manager,
         schemaName: params.schemaName,
         schemaIdent: params.schemaIdent,
-        linkedCollectionId: params.linkedCollectionId
+        scopeEntityId: params.linkedCollectionId
     })
 
     return {
@@ -903,7 +905,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
         const preferredLinkedCollectionIdFromMenu = requestedLinkedCollectionId
             ? null
-            : await resolvePreferredLinkedCollectionIdFromGlobalMenu({
+            : await resolvePreferredScopeEntityIdFromGlobalMenu({
                   manager,
                   schemaName,
                   schemaIdent
@@ -1458,7 +1460,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             widgetId: string
             showTitle: boolean
             title: string
-            autoShowAllCatalogs: boolean
+            autoShowAllSections: boolean
             startPage: string | null
             startSectionId: string | null
             maxPrimaryItems: number | null
@@ -1615,7 +1617,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             if (typed.isActive === false) return null
 
             const kind = typeof typed.kind === 'string' && typed.kind.trim().length > 0 ? typed.kind : 'link'
-            const linkedCollectionId = resolveLinkedCollectionId(typed.catalogId ?? typed.sectionId ?? typed.linkedCollectionId)
+            const linkedCollectionId = resolveLinkedCollectionId(typed.sectionId ?? typed.linkedCollectionId)
             const treeEntityId = resolveTreeEntityId(typed.hubId ?? typed.treeEntityId)
             return {
                 id: String(typed.id ?? ''),
@@ -1669,8 +1671,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 const treeEntityLinkedCollections = linkedCollectionsByTreeEntity.get(treeEntityMeta.id) ?? []
                 for (const lc of treeEntityLinkedCollections) {
                     items.push({
-                        id: `${baseItem.id}:hub:${treeEntityMeta.id}:catalog:${lc.id}`,
-                        kind: 'catalog',
+                        id: `${baseItem.id}:hub:${treeEntityMeta.id}:section:${lc.id}`,
+                        kind: 'section',
                         title: `${'\u00A0\u00A0'.repeat(depth + 1)}${lc.title}`,
                         icon: baseItem.icon,
                         href: null,
@@ -1696,8 +1698,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             if (!treeEntityMetaById.has(boundTreeEntityId)) return []
             const directLinkedCollections = linkedCollectionsByTreeEntity.get(boundTreeEntityId) ?? []
             return directLinkedCollections.map((lc, index) => ({
-                id: `${widgetId}:bound-hub:${boundTreeEntityId}:catalog:${lc.id}`,
-                kind: 'catalog',
+                id: `${widgetId}:bound-hub:${boundTreeEntityId}:section:${lc.id}`,
+                kind: 'section',
                 title: lc.title,
                 icon: 'database',
                 href: null,
@@ -1711,8 +1713,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
         const buildAllLinkedCollectionMenuItems = (widgetId: string): RuntimeMenuItem[] => {
             return linkedCollectionsForRuntime.map((lc, index) => ({
-                id: `${widgetId}:all-catalogs:${lc.id}`,
-                kind: 'catalog',
+                id: `${widgetId}:all-sections:${lc.id}`,
+                kind: 'section',
                 title: lc.name,
                 icon: 'database',
                 href: null,
@@ -1746,19 +1748,18 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 const cfg = widget.config as Record<string, unknown>
                 const bindToTreeEntity = Boolean(cfg.bindToHub)
                 const boundTreeEntityId = resolveTreeEntityId(cfg.boundHubId ?? cfg.boundTreeEntityId)
-                const autoShowAllCatalogs = Boolean(cfg.autoShowAllCatalogs) && !bindToTreeEntity
+                const autoShowAllSections = Boolean(cfg.autoShowAllSections) && !bindToTreeEntity
 
                 let resolvedItems: RuntimeMenuItem[] = []
                 if (bindToTreeEntity && boundTreeEntityId) {
                     resolvedItems = buildBoundTreeEntityLinkedCollectionItems(widget.id, boundTreeEntityId)
-                } else if (autoShowAllCatalogs) {
+                } else if (autoShowAllSections) {
                     resolvedItems = buildAllLinkedCollectionMenuItems(widget.id)
                 } else {
                     const rawItems = Array.isArray(cfg.items) ? cfg.items : []
                     const normalizedItems = rawItems
                         .map((item) => normalizeMenuItem(item))
                         .filter((item): item is RuntimeMenuItem => item !== null)
-                        .filter((item) => item.kind !== 'catalogs_all')
                         .sort((a, b) => a.sortOrder - b.sortOrder)
 
                     for (const item of normalizedItems) {
@@ -1797,7 +1798,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     widgetId: widget.id,
                     showTitle: Boolean(cfg.showTitle),
                     title: resolveLocalizedContent(cfg.title, requestedLocale, ''),
-                    autoShowAllCatalogs,
+                    autoShowAllSections,
                     startPage: typeof cfg.startPage === 'string' ? cfg.startPage : null,
                     startSectionId: resolveStartSectionId(cfg.startPage, resolvedItems),
                     maxPrimaryItems,

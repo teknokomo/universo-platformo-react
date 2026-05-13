@@ -2,7 +2,7 @@ import { hashApplicationLayoutContent } from '../../utils/applicationLayoutHash'
 
 describe('application layout content hash', () => {
     const layout = {
-        linkedCollectionId: null,
+        scopeEntityId: null,
         templateKey: 'dashboard',
         name: { en: 'Main' },
         description: null,

@@ -68,7 +68,7 @@ describe('Layouts Routes', () => {
             params?.copiedLayout ??
             ({
                 id: 'layout-copy-id',
-                catalog_id: null,
+                scope_entity_id: null,
                 base_layout_id: null,
                 template_key: 'dashboard',
                 name: {
@@ -262,17 +262,17 @@ describe('Layouts Routes', () => {
             expect(widgetInsertParams?.[5]).toBe(false)
         })
 
-        it('copies catalog layout scope and inherited overrides when deactivating copied widgets', async () => {
+        it('copies scoped layout entity scope and inherited overrides when deactivating copied widgets', async () => {
             mockGetLayoutById.mockResolvedValueOnce({
                 id: 'layout-1',
-                linkedCollectionId: 'catalog-1',
+                scopeEntityId: 'catalog-1',
                 baseLayoutId: 'base-layout-1',
                 templateKey: 'dashboard',
                 name: {
                     _schema: 'v1',
                     _primary: 'en',
                     locales: {
-                        en: { content: 'Catalog dashboard' }
+                        en: { content: 'Entity dashboard' }
                     }
                 },
                 description: null,
@@ -289,14 +289,14 @@ describe('Layouts Routes', () => {
             const trx = createLayoutCopyTransactionTrx({
                 copiedLayout: {
                     id: 'layout-copy-id',
-                    catalog_id: 'catalog-1',
+                    scope_entity_id: 'catalog-1',
                     base_layout_id: 'base-layout-1',
                     template_key: 'dashboard',
                     name: {
                         _schema: 'v1',
                         _primary: 'en',
                         locales: {
-                            en: { content: 'Catalog dashboard (copy)' }
+                            en: { content: 'Entity dashboard (copy)' }
                         }
                     },
                     description: null,
@@ -328,7 +328,7 @@ describe('Layouts Routes', () => {
                         base_widget_id: 'base-widget-1',
                         zone: 'right',
                         sort_order: 2,
-                        config: { title: 'Catalog override' },
+                        config: { title: 'Entity override' },
                         is_active: true,
                         is_deleted_override: false
                     }
@@ -345,11 +345,11 @@ describe('Layouts Routes', () => {
                 .send({
                     copyWidgets: true,
                     deactivateAllWidgets: true,
-                    name: { en: 'Catalog dashboard (copy)' }
+                    name: { en: 'Entity dashboard (copy)' }
                 })
                 .expect(201)
 
-            expect(response.body.linkedCollectionId).toBe('catalog-1')
+            expect(response.body.scopeEntityId).toBe('catalog-1')
             expect(response.body.baseLayoutId).toBe('base-layout-1')
             expect(trx.query).toHaveBeenCalledTimes(6)
 

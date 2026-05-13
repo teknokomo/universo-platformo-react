@@ -52,7 +52,7 @@ description: Как использовать рабочее пространст
 
 ## Что читать дальше
 
-- [Макеты каталогов](catalog-layouts.md)
+- [Макеты, привязанные к сущностям](entity-scoped-layouts.md)
 - [Скрипты метахаба](metahub-scripting.md)
 - [Настройки отображения шаблона приложения](app-template-views.md)
 - [Метахабы](../platform/metahubs.md)

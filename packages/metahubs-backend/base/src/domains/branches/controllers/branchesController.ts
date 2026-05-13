@@ -536,7 +536,7 @@ export function createBranchesController(createHandler: ReturnType<typeof create
     })
 
     const setDefault = createHandler(
-        async ({ req, res, metahubId, userId, exec }) => {
+        async ({ req, res, metahubId, exec }) => {
             const { branchId } = req.params
             const branchesService = getService(exec)
 

@@ -430,7 +430,7 @@ describe('MetahubFieldDefinitionsService active-row filtering', () => {
     })
 
     it('seeds disabled system-field states when explicit catalog states are provided', async () => {
-        mockExecQuery.mockImplementation(async (sql: string, params?: unknown[]) => {
+        mockExecQuery.mockImplementation(async (sql: string, _params?: unknown[]) => {
             if (sql.includes('WHERE object_id = $1 AND is_system = true')) {
                 return []
             }

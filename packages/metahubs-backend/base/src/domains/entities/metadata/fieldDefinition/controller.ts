@@ -10,7 +10,8 @@ import {
     TABLE_CHILD_DATA_TYPES,
     isEnabledComponentConfig,
     type EntityKind,
-    type ResolvedEntityType
+    type ResolvedEntityType,
+    type TableChildDataType
 } from '@universo/types'
 import { MetahubSchemaService } from '../../../metahubs/services/MetahubSchemaService'
 import { MetahubFieldDefinitionsService } from '../../../metahubs/services/MetahubFieldDefinitionsService'
@@ -301,6 +302,9 @@ const normalizeMultilineUiConfig = (
 
     return { uiConfig: nextUiConfig }
 }
+
+const isTableChildDataType = (value: FieldDefinitionDataType): value is TableChildDataType =>
+    (TABLE_CHILD_DATA_TYPES as readonly string[]).includes(value)
 
 const isReferenceableEntityType = (resolvedType: ResolvedEntityType | null | undefined) =>
     Boolean(
@@ -657,7 +661,7 @@ export function createFieldDefinitionsController(_createHandler: CreateHandler, 
             }
         }
 
-        if (parentAttributeId && !TABLE_CHILD_DATA_TYPES.includes(dataType as any)) {
+        if (parentAttributeId && !isTableChildDataType(dataType)) {
             return res.status(400).json({
                 error: `Data type "${dataType}" is not allowed for child attributes`,
                 code: 'INVALID_CHILD_DATA_TYPE'
@@ -1925,7 +1929,7 @@ export function createFieldDefinitionsController(_createHandler: CreateHandler, 
             })
         }
 
-        if (!TABLE_CHILD_DATA_TYPES.includes(dataType as any)) {
+        if (!isTableChildDataType(dataType)) {
             return res.status(400).json({
                 error: `Data type "${dataType}" is not allowed for child attributes`,
                 code: 'INVALID_CHILD_DATA_TYPE'

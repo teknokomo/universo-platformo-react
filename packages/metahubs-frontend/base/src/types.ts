@@ -186,7 +186,7 @@ export type LayoutTemplateKey = 'dashboard'
 
 export interface MetahubLayout {
     id: string
-    linkedCollectionId?: string | null
+    scopeEntityId?: string | null
     baseLayoutId?: string | null
     templateKey: LayoutTemplateKey
     name: VersionedLocalizedContent<string>
@@ -227,7 +227,7 @@ export interface MetahubLayoutLocalizedPayload {
 }
 
 export interface MetahubCreateLayoutPayload extends MetahubLayoutLocalizedPayload {
-    linkedCollectionId?: string
+    scopeEntityId?: string
     baseLayoutId?: string
 }
 

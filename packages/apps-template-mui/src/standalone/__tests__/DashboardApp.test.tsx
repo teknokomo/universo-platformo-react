@@ -121,7 +121,7 @@ vi.mock('../../hooks/useCrudDashboard', () => ({
         menuSlot: {
             title: null,
             showTitle: false,
-            items: [{ id: 'modules', label: 'Modules', kind: 'catalog', linkedCollectionId: 'catalog-1', selected: true }]
+            items: [{ id: 'modules', label: 'Modules', kind: 'section', linkedCollectionId: 'catalog-1', selected: true }]
         },
         menusMap: {},
         activeLinkedCollectionId: 'catalog-1',
@@ -305,7 +305,7 @@ describe('DashboardApp', () => {
                 title: null,
                 showTitle: false,
                 items: [
-                    { id: 'modules', label: 'Modules', kind: 'catalog', linkedCollectionId: 'catalog-1', selected: true },
+                    { id: 'modules', label: 'Modules', kind: 'section', linkedCollectionId: 'catalog-1', selected: true },
                     {
                         id: 'runtime-workspaces',
                         label: 'Workspaces',

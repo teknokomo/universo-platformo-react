@@ -160,7 +160,7 @@ vi.mock('@universo/apps-template-mui', async () => {
                 menuSlot: {
                     title: null,
                     showTitle: false,
-                    items: [{ id: 'modules', label: 'Modules', kind: 'catalog', linkedCollectionId: 'catalog-1', selected: true }]
+                    items: [{ id: 'modules', label: 'Modules', kind: 'section', linkedCollectionId: 'catalog-1', selected: true }]
                 },
                 menusMap: {},
                 formOpen: false,
@@ -351,7 +351,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
                 title: null,
                 showTitle: false,
                 items: [
-                    { id: 'modules', label: 'Modules', kind: 'catalog', linkedCollectionId: 'catalog-1', selected: true },
+                    { id: 'modules', label: 'Modules', kind: 'section', linkedCollectionId: 'catalog-1', selected: true },
                     {
                         id: 'runtime-workspaces',
                         label: 'Workspaces',

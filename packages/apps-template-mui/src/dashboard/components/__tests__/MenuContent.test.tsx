@@ -25,8 +25,8 @@ describe('MenuContent sanitizeHref', () => {
             <MenuContent
                 menu={{
                     items: [
-                        { id: 'home', label: 'Home', kind: 'page', sectionId: 'home', selected: false },
-                        { id: 'reports', label: 'Reports', kind: 'catalog', linkedCollectionId: 'reports', selected: true }
+                        { id: 'home', label: 'Home', kind: 'section', sectionId: 'home', selected: false },
+                        { id: 'reports', label: 'Reports', kind: 'section', linkedCollectionId: 'reports', selected: true }
                     ]
                 }}
             />

@@ -198,7 +198,7 @@
             "emptyZone": "No widgets in this zone yet.",
             "sharedBehavior": {
                 "title": "Shared behavior",
-                "description": "Control how inherited catalog layouts can exclude, deactivate, or move this widget.",
+                "description": "Control how inherited scoped layouts can exclude, deactivate, or move this widget.",
                 "canDeactivate": "Can be deactivated",
                 "canExclude": "Can be excluded",
                 "positionLocked": "Position locked"
@@ -255,12 +255,12 @@
                 "title": "Menu widget",
                 "showTitle": "Show title",
                 "titleField": "Title",
-                "autoShowAllCatalogs": "Show all catalogs automatically",
+                "autoShowAllSections": "Show all sections automatically",
                 "maxPrimaryItems": "Primary menu item limit",
                 "maxPrimaryItemsHint": "Extra active menu items are moved into the overflow menu.",
                 "overflowLabelKey": "Overflow label i18n key",
                 "startPage": "Start page code",
-                "startPageHint": "Use a hub/catalog id or codename to choose the first opened section.",
+                "startPageHint": "Use a hub or Entity section id/codename to choose the first opened section.",
                 "workspacePlacement": "Workspace menu placement",
                 "workspacePlacementHint": "Workspace navigation can stay in the main menu, move to overflow, or be hidden.",
                 "workspacePlacements": {
@@ -275,28 +275,25 @@
                 "itemTitle": "Item title",
                 "icon": "Icon",
                 "href": "Link URL",
-                "catalog": "Catalog",
+                "section": "Entity section",
                 "hubId": "Hub id",
-                "pageId": "Page id or codename",
                 "isActive": "Active",
                 "kinds": {
+                    "section": "Entity section",
                     "link": "Link",
-                    "catalog": "Catalog",
-                    "hub": "Hub",
-                    "page": "Page"
+                    "hub": "Hub"
                 },
                 "validation": {
                     "titleRequired": "Name is required.",
-                    "catalogRequired": "Select a catalog for this menu item.",
-                    "pageRequired": "Enter a page id or codename for this menu item.",
+                    "sectionRequired": "Select an entity section for this menu item.",
                     "hrefRequired": "Link URL is required for link items.",
                     "hrefUnsafeScheme": "This link type is not allowed. Use https, mailto, tel, #, or an internal path."
                 }
             },
-            "catalogBehaviorTitleGlobal": "Default catalog runtime behavior",
-            "catalogBehaviorTitleCatalog": "Catalog runtime behavior",
-            "catalogBehaviorDescriptionGlobal": "These settings define the default create/search behavior for linkedCollections that use this global layout until a catalog-specific layout overrides it.",
-            "catalogBehaviorDescriptionCatalog": "This catalog layout overrides the create/search behavior inherited from its global base layout.",
+            "catalogBehaviorTitleGlobal": "Default entity runtime behavior",
+            "catalogBehaviorTitleCatalog": "Entity runtime behavior",
+            "catalogBehaviorDescriptionGlobal": "These settings define the default create/search behavior for entities that use this global layout until an entity-specific layout overrides it.",
+            "catalogBehaviorDescriptionCatalog": "This scoped layout overrides the create/search behavior inherited from its global base layout.",
             "showCreateButton": "Show create button",
             "searchMode": "Search mode",
             "searchModePageLocal": "Page-local",

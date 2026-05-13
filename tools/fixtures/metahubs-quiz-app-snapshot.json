@@ -1291,7 +1291,6 @@
         "sortOrder": 0
       }
     ],
-    "catalogLayouts": [],
     "defaultLayoutId": "019d9e28-01a6-735c-94bd-1b9bf915d1ab",
     "layoutConfig": {
       "showFooter": false,
@@ -1346,7 +1345,8 @@
         "isActive": true
       }
     ],
-    "catalogLayoutWidgetOverrides": []
+    "scopedLayouts": [],
+    "layoutWidgetOverrides": []
   },
-  "snapshotHash": "9be0020344050dc5de64e27d9a59afa306ace698a7f882805425cdcc4459f708"
+  "snapshotHash": "88a1c9198e685528bc4e35a1c57c7c915ddbc27f971d4ff06fd2c3235bb40856"
 }

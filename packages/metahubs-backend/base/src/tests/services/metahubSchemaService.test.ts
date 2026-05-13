@@ -88,7 +88,7 @@ const buildSchemaScopedQueryBuilder = (_schemaName: string) => ({
 
 const mockKnex = {
     schema: {
-        withSchema: jest.fn((schemaName: string) => ({
+        withSchema: jest.fn((_schemaName: string) => ({
             hasTable: jest.fn(async (tableName: string) => tablePresence.get(tableName) === true)
         }))
     },
@@ -221,7 +221,7 @@ describe('MetahubSchemaService (read_only mode)', () => {
             '_mhb_settings',
             '_mhb_layouts',
             '_mhb_widgets',
-            '_mhb_catalog_widget_overrides',
+            '_mhb_layout_widget_overrides',
             '_mhb_shared_entity_overrides',
             '_mhb_migrations',
             '_mhb_scripts',

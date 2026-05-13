@@ -31354,24 +31354,26 @@
           "showProductTree": false,
           "showDetailsTable": true,
           "showDetailsTitle": true,
-          "showOverviewCards": true,
+          "showOverviewCards": false,
           "showOverviewTitle": false,
           "showRightSideMenu": false,
-          "showSessionsChart": true,
-          "showPageViewsChart": true,
-          "showColumnsContainer": true,
+          "showSessionsChart": false,
+          "showPageViewsChart": false,
+          "showColumnsContainer": false,
           "showLanguageSwitcher": false,
           "showUsersByCountryChart": false
         },
         "isActive": true,
         "isDefault": true,
-        "sortOrder": 0
+        "sortOrder": 0,
+        "scopeEntityId": null,
+        "baseLayoutId": null
       }
     ],
     "layoutZoneWidgets": [
       {
         "id": "019e1ba4-278a-7ba0-aab4-2da3b7942018",
-        "layoutId": "019e1ba4-256c-7dfc-b118-d4511a4f6dff",
+        "layoutId": "019e1ba4-294d-7341-abaa-0006834bb7e0",
         "zone": "center",
         "widgetKey": "overviewCards",
         "sortOrder": 4,
@@ -31596,7 +31598,7 @@
       },
       {
         "id": "019e1ba4-286b-7dd7-b1e9-5ae9304e9181",
-        "layoutId": "019e1ba4-256c-7dfc-b118-d4511a4f6dff",
+        "layoutId": "019e1ba4-294d-7341-abaa-0006834bb7e0",
         "zone": "center",
         "widgetKey": "sessionsChart",
         "sortOrder": 6,
@@ -31686,7 +31688,7 @@
       },
       {
         "id": "019e1ba4-28dc-76b6-b203-280b3672d919",
-        "layoutId": "019e1ba4-256c-7dfc-b118-d4511a4f6dff",
+        "layoutId": "019e1ba4-294d-7341-abaa-0006834bb7e0",
         "zone": "center",
         "widgetKey": "pageViewsChart",
         "sortOrder": 7,
@@ -31774,96 +31776,6 @@
         "isActive": true
       },
       {
-        "id": "019e1ba4-294d-7341-abaa-0006834bb7e0",
-        "layoutId": "019e1ba4-256c-7dfc-b118-d4511a4f6dff",
-        "zone": "center",
-        "widgetKey": "columnsContainer",
-        "sortOrder": 8,
-        "config": {
-          "columns": [
-            {
-              "id": "lms-progress-report",
-              "width": 4,
-              "widgets": [
-                {
-                  "id": "lms-progress-table",
-                  "config": {
-                    "datasource": {
-                      "kind": "records.list",
-                      "query": {
-                        "sort": [
-                          {
-                            "field": "CompletedAt",
-                            "direction": "desc"
-                          }
-                        ]
-                      },
-                      "sectionCodename": "ModuleProgress"
-                    },
-                    "showViewToggle": true
-                  },
-                  "sortOrder": 1,
-                  "widgetKey": "detailsTable"
-                }
-              ]
-            },
-            {
-              "id": "lms-track-report",
-              "width": 4,
-              "widgets": [
-                {
-                  "id": "lms-track-table",
-                  "config": {
-                    "datasource": {
-                      "kind": "records.list",
-                      "query": {
-                        "sort": [
-                          {
-                            "field": "Title",
-                            "direction": "asc"
-                          }
-                        ]
-                      },
-                      "sectionCodename": "LearningTracks"
-                    },
-                    "showViewToggle": true
-                  },
-                  "sortOrder": 1,
-                  "widgetKey": "detailsTable"
-                }
-              ]
-            },
-            {
-              "id": "lms-enrollment-history",
-              "width": 4,
-              "widgets": [
-                {
-                  "id": "lms-enrollment-table",
-                  "config": {
-                    "datasource": {
-                      "kind": "records.list",
-                      "query": {
-                        "sort": [
-                          {
-                            "field": "EnrolledAt",
-                            "direction": "desc"
-                          }
-                        ]
-                      },
-                      "sectionCodename": "Enrollments"
-                    },
-                    "showViewToggle": true
-                  },
-                  "sortOrder": 1,
-                  "widgetKey": "detailsTable"
-                }
-              ]
-            }
-          ]
-        },
-        "isActive": true
-      },
-      {
         "id": "019e1ba4-29c0-7dc9-b08e-afaf5c27fe7b",
         "layoutId": "019e1ba4-256c-7dfc-b118-d4511a4f6dff",
         "zone": "center",
@@ -31884,7 +31796,7 @@
               "id": "lms-nav-home",
               "href": null,
               "icon": "home",
-              "kind": "page",
+              "kind": "section",
               "title": {
                 "_schema": "1",
                 "locales": {
@@ -31913,7 +31825,7 @@
               "id": "lms-nav-catalog",
               "href": null,
               "icon": "catalog",
-              "kind": "catalog",
+              "kind": "section",
               "title": {
                 "_schema": "1",
                 "locales": {
@@ -31935,14 +31847,15 @@
                 "_primary": "en"
               },
               "isActive": true,
-              "catalogId": "Modules",
-              "sortOrder": 1
+              "sortOrder": 1,
+              "sectionId": "Modules",
+              "linkedCollectionId": "Modules"
             },
             {
               "id": "lms-nav-knowledge",
               "href": null,
               "icon": "folder",
-              "kind": "catalog",
+              "kind": "section",
               "title": {
                 "_schema": "1",
                 "locales": {
@@ -31964,14 +31877,15 @@
                 "_primary": "en"
               },
               "isActive": true,
-              "catalogId": "Quizzes",
-              "sortOrder": 2
+              "sortOrder": 2,
+              "sectionId": "Quizzes",
+              "linkedCollectionId": "Quizzes"
             },
             {
               "id": "lms-nav-development",
               "href": null,
               "icon": "tasks",
-              "kind": "catalog",
+              "kind": "section",
               "title": {
                 "_schema": "1",
                 "locales": {
@@ -31993,14 +31907,15 @@
                 "_primary": "en"
               },
               "isActive": true,
-              "catalogId": "Classes",
-              "sortOrder": 3
+              "sortOrder": 3,
+              "sectionId": "Classes",
+              "linkedCollectionId": "Classes"
             },
             {
               "id": "lms-nav-reports",
               "href": null,
               "icon": "analytics",
-              "kind": "catalog",
+              "kind": "section",
               "title": {
                 "_schema": "1",
                 "locales": {
@@ -32022,8 +31937,9 @@
                 "_primary": "en"
               },
               "isActive": true,
-              "catalogId": "Reports",
-              "sortOrder": 4
+              "sortOrder": 4,
+              "sectionId": "Reports",
+              "linkedCollectionId": "Reports"
             }
           ],
           "title": {
@@ -32053,7 +31969,7 @@
           "overflowLabelKey": "runtime.menu.more",
           "boundTreeEntityId": null,
           "workspacePlacement": "primary",
-          "autoShowAllCatalogs": false
+          "autoShowAllSections": false
         },
         "isActive": true
       },
@@ -32089,12 +32005,12 @@
       "showProductTree": false,
       "showDetailsTable": true,
       "showDetailsTitle": true,
-      "showOverviewCards": true,
+      "showOverviewCards": false,
       "showOverviewTitle": false,
       "showRightSideMenu": false,
-      "showSessionsChart": true,
-      "showPageViewsChart": true,
-      "showColumnsContainer": true,
+      "showSessionsChart": false,
+      "showPageViewsChart": false,
+      "showColumnsContainer": false,
       "showLanguageSwitcher": false,
       "showUsersByCountryChart": false
     },
@@ -32261,11 +32177,63 @@
       "templateVersion": null,
       "snapshotFormatVersion": 3
     },
-    "catalogLayouts": [],
-    "catalogLayoutWidgetOverrides": [],
     "runtimePolicy": {
       "workspaceMode": "required"
-    }
+    },
+    "scopedLayouts": [
+      {
+        "id": "019e1ba4-294d-7341-abaa-0006834bb7e0",
+        "scopeEntityId": "019e1ba4-373a-7442-aa06-52cc951741e9",
+        "scopeEntityKind": "page",
+        "baseLayoutId": "019e1ba4-256c-7dfc-b118-d4511a4f6dff",
+        "templateKey": "dashboard",
+        "name": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Learner Home",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            },
+            "ru": {
+              "content": "Главная учащегося",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "description": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Home page layout with LMS overview cards and learning activity charts.",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            },
+            "ru": {
+              "content": "Макет главной страницы с обзорными карточками LMS и графиками учебной активности.",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "config": {},
+        "isActive": true,
+        "isDefault": true,
+        "sortOrder": 0
+      }
+    ],
+    "layoutWidgetOverrides": []
   },
-  "snapshotHash": "8b2e197be434b8fb2b583c17cfcd93e350a36961c11d8e97f17064928438fb5a"
+  "snapshotHash": "1f18cfdcd951fa045c300033bd7b847444c80528dc864fe7de35fd6407ff50bc"
 }

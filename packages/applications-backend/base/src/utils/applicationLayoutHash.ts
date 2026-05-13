@@ -5,7 +5,7 @@ import type { ApplicationLayout, ApplicationLayoutWidget } from '@universo/types
 export interface ApplicationLayoutHashInput {
     layout: Pick<ApplicationLayout, 'templateKey' | 'name'> &
         Partial<Pick<ApplicationLayout, 'description' | 'config' | 'isActive' | 'isDefault' | 'sortOrder'>> & {
-            linkedCollectionId?: string | null
+            scopeEntityId?: string | null
         }
     widgets?: Array<
         Partial<Pick<ApplicationLayoutWidget, 'id' | 'layoutId' | 'version'>> &
@@ -30,7 +30,7 @@ export function normalizeApplicationLayoutForHash(input: ApplicationLayoutHashIn
 
     return {
         layout: {
-            linkedCollectionId: input.layout.linkedCollectionId ?? null,
+            scopeEntityId: input.layout.scopeEntityId ?? null,
             templateKey: input.layout.templateKey,
             name: input.layout.name ?? {},
             description: input.layout.description ?? null,

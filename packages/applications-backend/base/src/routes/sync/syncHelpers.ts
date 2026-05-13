@@ -37,8 +37,8 @@ import {
     type SyncableApplicationRecord,
     type PersistedAppLayout,
     type PersistedAppLayoutZoneWidget,
-    type SnapshotCatalogLayoutRow,
-    type SnapshotCatalogLayoutWidgetOverrideRow,
+    type SnapshotScopedLayoutRow,
+    type SnapshotLayoutWidgetOverrideRow,
     type SnapshotLayoutRow,
     type SnapshotWidgetRow,
     type EntityField
@@ -373,12 +373,12 @@ type MaterializedSnapshotWidget = PersistedAppLayoutZoneWidget & {
     isActive: boolean
 }
 
-type NormalizedCatalogLayout = PersistedAppLayout & {
+type NormalizedScopedLayout = PersistedAppLayout & {
     baseLayoutId: string
 }
 
-type NormalizedCatalogWidgetOverride = {
-    catalogLayoutId: string
+type NormalizedLayoutWidgetOverride = {
+    layoutId: string
     baseWidgetId: string
     zone: string | null
     sortOrder: number | null
@@ -387,7 +387,7 @@ type NormalizedCatalogWidgetOverride = {
     isDeletedOverride: boolean
 }
 
-const CATALOG_LAYOUT_WIDGET_NAMESPACE = 'catalog-layout-widget'
+const SCOPED_LAYOUT_WIDGET_NAMESPACE = 'scoped-layout-widget'
 const WORKSPACE_SWITCHER_WIDGET_NAMESPACE = 'workspace-switcher-widget'
 const WORKSPACE_SWITCHER_DIVIDER_NAMESPACE = 'workspace-switcher-divider-widget'
 
@@ -407,9 +407,9 @@ const normalizeSnapshotLayoutEntries = (snapshot: PublishedApplicationSnapshot):
 
             return {
                 id: String(normalizedLayout.id ?? ''),
-                linkedCollectionId:
-                    typeof normalizedLayout.linkedCollectionId === 'string' && normalizedLayout.linkedCollectionId.length > 0
-                        ? normalizedLayout.linkedCollectionId
+                scopeEntityId:
+                    typeof normalizedLayout.scopeEntityId === 'string' && normalizedLayout.scopeEntityId.length > 0
+                        ? normalizedLayout.scopeEntityId
                         : null,
                 templateKey:
                     typeof normalizedLayout.templateKey === 'string' && normalizedLayout.templateKey.length > 0
@@ -428,7 +428,7 @@ const normalizeSnapshotLayoutEntries = (snapshot: PublishedApplicationSnapshot):
     const desiredDefaultLayoutId = typeof snapshot.defaultLayoutId === 'string' ? snapshot.defaultLayoutId : null
     if (desiredDefaultLayoutId) {
         for (const row of rows) {
-            if (row.linkedCollectionId === null) {
+            if (row.scopeEntityId === null) {
                 row.isDefault = row.id === desiredDefaultLayoutId
             }
         }
@@ -441,7 +441,7 @@ const ensureScopedDefaultLayouts = (rows: PersistedAppLayout[]): PersistedAppLay
     const rowsByScope = new Map<string, PersistedAppLayout[]>()
 
     for (const row of rows) {
-        const scopeKey = row.linkedCollectionId ?? '__global__'
+        const scopeKey = row.scopeEntityId ?? '__global__'
         const bucket = rowsByScope.get(scopeKey) ?? []
         bucket.push(row)
         rowsByScope.set(scopeKey, bucket)
@@ -455,8 +455,8 @@ const ensureScopedDefaultLayouts = (rows: PersistedAppLayout[]): PersistedAppLay
     }
 
     return rows.sort((a, b) => {
-        if ((a.linkedCollectionId ?? '') !== (b.linkedCollectionId ?? '')) {
-            return (a.linkedCollectionId ?? '').localeCompare(b.linkedCollectionId ?? '')
+        if ((a.scopeEntityId ?? '') !== (b.scopeEntityId ?? '')) {
+            return (a.scopeEntityId ?? '').localeCompare(b.scopeEntityId ?? '')
         }
         if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
         return a.id.localeCompare(b.id)
@@ -492,10 +492,9 @@ export const withWorkspaceRuntimeLayoutWidgets = (
     for (const rawLayout of snapshot.layouts) {
         const layout = (rawLayout ?? {}) as SnapshotLayoutRow
         const layoutId = typeof layout.id === 'string' && layout.id.length > 0 ? layout.id : ''
-        const linkedCollectionId =
-            typeof layout.linkedCollectionId === 'string' && layout.linkedCollectionId.length > 0 ? layout.linkedCollectionId : null
+        const scopeEntityId = typeof layout.scopeEntityId === 'string' && layout.scopeEntityId.length > 0 ? layout.scopeEntityId : null
 
-        if (!layoutId || linkedCollectionId) {
+        if (!layoutId || scopeEntityId) {
             continue
         }
 
@@ -534,13 +533,12 @@ export const withWorkspaceRuntimeLayoutWidgets = (
     }
 }
 
-const normalizeSnapshotCatalogLayouts = (snapshot: PublishedApplicationSnapshot): NormalizedCatalogLayout[] => {
-    return (Array.isArray(snapshot.catalogLayouts) ? snapshot.catalogLayouts : [])
-        .map((layout) => (layout ?? {}) as SnapshotCatalogLayoutRow)
+const normalizeSnapshotScopedLayouts = (snapshot: PublishedApplicationSnapshot): NormalizedScopedLayout[] => {
+    return (Array.isArray(snapshot.scopedLayouts) ? snapshot.scopedLayouts : [])
+        .map((layout) => (layout ?? {}) as SnapshotScopedLayoutRow)
         .map((layout) => ({
             id: String(layout.id ?? ''),
-            linkedCollectionId:
-                typeof layout.linkedCollectionId === 'string' && layout.linkedCollectionId.length > 0 ? layout.linkedCollectionId : null,
+            scopeEntityId: typeof layout.scopeEntityId === 'string' && layout.scopeEntityId.length > 0 ? layout.scopeEntityId : null,
             baseLayoutId: typeof layout.baseLayoutId === 'string' && layout.baseLayoutId.length > 0 ? layout.baseLayoutId : '',
             templateKey: typeof layout.templateKey === 'string' && layout.templateKey.length > 0 ? layout.templateKey : 'dashboard',
             name: isRecord(layout.name) ? layout.name : {},
@@ -550,24 +548,22 @@ const normalizeSnapshotCatalogLayouts = (snapshot: PublishedApplicationSnapshot)
             isDefault: Boolean(layout.isDefault),
             sortOrder: typeof layout.sortOrder === 'number' ? layout.sortOrder : 0
         }))
-        .filter(
-            (layout) => layout.id.length > 0 && layout.linkedCollectionId && layout.baseLayoutId.length > 0
-        ) as NormalizedCatalogLayout[]
+        .filter((layout) => layout.id.length > 0 && layout.scopeEntityId && layout.baseLayoutId.length > 0) as NormalizedScopedLayout[]
 }
 
-const normalizeSnapshotCatalogLayoutWidgetOverrides = (snapshot: PublishedApplicationSnapshot): NormalizedCatalogWidgetOverride[] => {
-    return (Array.isArray(snapshot.catalogLayoutWidgetOverrides) ? snapshot.catalogLayoutWidgetOverrides : [])
-        .map((row) => (row ?? {}) as SnapshotCatalogLayoutWidgetOverrideRow)
+const normalizeSnapshotLayoutWidgetOverrides = (snapshot: PublishedApplicationSnapshot): NormalizedLayoutWidgetOverride[] => {
+    return (Array.isArray(snapshot.layoutWidgetOverrides) ? snapshot.layoutWidgetOverrides : [])
+        .map((row) => (row ?? {}) as SnapshotLayoutWidgetOverrideRow)
         .map((row) => ({
-            catalogLayoutId: typeof row.catalogLayoutId === 'string' && row.catalogLayoutId.length > 0 ? row.catalogLayoutId : '',
+            layoutId: typeof row.layoutId === 'string' && row.layoutId.length > 0 ? row.layoutId : '',
             baseWidgetId: typeof row.baseWidgetId === 'string' && row.baseWidgetId.length > 0 ? row.baseWidgetId : '',
             zone: typeof row.zone === 'string' && row.zone.length > 0 ? row.zone : null,
             sortOrder: typeof row.sortOrder === 'number' ? row.sortOrder : null,
-            config: null,
+            config: isRecord(row.config) ? row.config : null,
             isActive: typeof row.isActive === 'boolean' ? row.isActive : null,
             isDeletedOverride: row.isDeletedOverride === true
         }))
-        .filter((row) => row.catalogLayoutId.length > 0 && row.baseWidgetId.length > 0)
+        .filter((row) => row.layoutId.length > 0 && row.baseWidgetId.length > 0)
 }
 
 const materializeSnapshotLayoutsAndWidgets = (
@@ -578,10 +574,10 @@ const materializeSnapshotLayoutsAndWidgets = (
 } => {
     const globalLayouts = normalizeSnapshotLayoutEntries(snapshot)
     const rawWidgets = normalizeSnapshotWidgetEntries(snapshot)
-    const catalogLayouts = normalizeSnapshotCatalogLayouts(snapshot)
-    const overrideRows = normalizeSnapshotCatalogLayoutWidgetOverrides(snapshot)
+    const scopedLayouts = normalizeSnapshotScopedLayouts(snapshot)
+    const overrideRows = normalizeSnapshotLayoutWidgetOverrides(snapshot)
 
-    if (catalogLayouts.length === 0) {
+    if (scopedLayouts.length === 0) {
         const layouts = ensureScopedDefaultLayouts(globalLayouts)
         const allowedLayoutIds = new Set(layouts.map((layout) => layout.id))
         const widgets = rawWidgets
@@ -604,66 +600,67 @@ const materializeSnapshotLayoutsAndWidgets = (
         widgetsByLayoutId.set(widget.layoutId, bucket)
     }
 
-    const overrideMap = new Map<string, NormalizedCatalogWidgetOverride>()
+    const overrideMap = new Map<string, NormalizedLayoutWidgetOverride>()
     for (const override of overrideRows) {
-        overrideMap.set(`${override.catalogLayoutId}:${override.baseWidgetId}`, override)
+        overrideMap.set(`${override.layoutId}:${override.baseWidgetId}`, override)
     }
 
     const materializedLayouts: PersistedAppLayout[] = [...globalLayouts]
     const materializedWidgets: MaterializedSnapshotWidget[] = rawWidgets.filter((item) => baseLayoutMap.has(item.layoutId))
 
-    for (const catalogLayout of catalogLayouts) {
-        const baseLayout = baseLayoutMap.get(catalogLayout.baseLayoutId)
-        if (!baseLayout || !catalogLayout.linkedCollectionId) {
+    for (const scopedLayout of scopedLayouts) {
+        const baseLayout = baseLayoutMap.get(scopedLayout.baseLayoutId)
+        if (!baseLayout || !scopedLayout.scopeEntityId) {
             continue
         }
 
-        const materializedCatalogWidgets: MaterializedSnapshotWidget[] = []
+        const materializedScopedWidgets: MaterializedSnapshotWidget[] = []
 
-        const baseWidgets = widgetsByLayoutId.get(catalogLayout.baseLayoutId) ?? []
-        const ownedWidgets = (widgetsByLayoutId.get(catalogLayout.id) ?? []).map((item) => ({
+        const baseWidgets = widgetsByLayoutId.get(scopedLayout.baseLayoutId) ?? []
+        const ownedWidgets = (widgetsByLayoutId.get(scopedLayout.id) ?? []).map((item) => ({
             ...item,
-            layoutId: catalogLayout.id
+            layoutId: scopedLayout.id
         }))
 
         for (const baseWidget of baseWidgets) {
-            const override = overrideMap.get(`${catalogLayout.id}:${baseWidget.id}`)
+            const override = overrideMap.get(`${scopedLayout.id}:${baseWidget.id}`)
             if (override?.isDeletedOverride) {
                 continue
             }
 
-            materializedCatalogWidgets.push({
-                id: buildSyntheticUuid(CATALOG_LAYOUT_WIDGET_NAMESPACE, catalogLayout.id, baseWidget.id),
-                layoutId: catalogLayout.id,
+            materializedScopedWidgets.push({
+                id: buildSyntheticUuid(SCOPED_LAYOUT_WIDGET_NAMESPACE, scopedLayout.id, baseWidget.id),
+                layoutId: scopedLayout.id,
                 zone: normalizeLayoutZone(override?.zone ?? baseWidget.zone),
                 widgetKey: baseWidget.widgetKey,
                 sortOrder: override?.sortOrder ?? baseWidget.sortOrder,
-                config: baseWidget.config,
+                config: override?.config ?? baseWidget.config,
+                sourceBaseWidgetId: baseWidget.id,
                 isActive: override?.isActive ?? baseWidget.isActive
             })
         }
 
         materializedLayouts.push({
-            id: catalogLayout.id,
-            linkedCollectionId: catalogLayout.linkedCollectionId,
-            templateKey: catalogLayout.templateKey || baseLayout.templateKey,
-            name: Object.keys(catalogLayout.name).length > 0 ? catalogLayout.name : baseLayout.name,
-            description: catalogLayout.description ?? baseLayout.description,
+            id: scopedLayout.id,
+            scopeEntityId: scopedLayout.scopeEntityId,
+            templateKey: scopedLayout.templateKey || baseLayout.templateKey,
+            name: Object.keys(scopedLayout.name).length > 0 ? scopedLayout.name : baseLayout.name,
+            description: scopedLayout.description ?? baseLayout.description,
             config: {
                 ...baseLayout.config,
-                ...catalogLayout.config,
+                ...scopedLayout.config,
                 ...buildDashboardWidgetVisibilityConfig(
-                    [...materializedCatalogWidgets, ...ownedWidgets]
+                    [...materializedScopedWidgets, ...ownedWidgets]
                         .filter((item) => item.isActive !== false)
                         .map((item) => ({ widgetKey: item.widgetKey, zone: item.zone }))
                 )
             },
-            isActive: catalogLayout.isActive,
-            isDefault: catalogLayout.isDefault,
-            sortOrder: catalogLayout.sortOrder
+            isActive: scopedLayout.isActive,
+            isDefault: scopedLayout.isDefault,
+            sortOrder: scopedLayout.sortOrder
         })
 
-        materializedWidgets.push(...materializedCatalogWidgets, ...ownedWidgets)
+        materializedWidgets.push(...materializedScopedWidgets, ...ownedWidgets)
     }
 
     const layouts = ensureScopedDefaultLayouts(materializedLayouts)

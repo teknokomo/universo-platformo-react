@@ -54,7 +54,7 @@ const toStandaloneSectionLinkMenuItem = (
     sectionLinksEnabled: boolean,
     forceLink: boolean
 ): DashboardMenuItem => {
-    if (item.kind !== 'catalog' && item.kind !== 'section') {
+    if (item.kind !== 'section') {
         return { ...item, selected: false }
     }
 

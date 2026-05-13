@@ -4494,72 +4494,6 @@
         "sortOrder": 0
       }
     ],
-    "catalogLayouts": [
-      {
-        "id": "019d9e2b-84a5-78ee-b9f7-177fdec0fb3d",
-        "templateKey": "dashboard",
-        "name": {
-          "_schema": "1",
-          "locales": {
-            "en": {
-              "content": "Settings Catalog Layout",
-              "version": 1,
-              "isActive": true,
-              "createdAt": "2026-04-18T01:19:04.924Z",
-              "updatedAt": "2026-04-18T01:19:04.924Z"
-            },
-            "ru": {
-              "content": "Макет каталога настроек",
-              "version": 1,
-              "isActive": true,
-              "createdAt": "2026-04-18T01:19:04.924Z",
-              "updatedAt": "2026-04-18T01:19:04.924Z"
-            }
-          },
-          "_primary": "en"
-        },
-        "description": {
-          "_schema": "1",
-          "locales": {
-            "en": {
-              "content": "Catalog-specific layout override for the Settings catalog.",
-              "version": 1,
-              "isActive": true,
-              "createdAt": "2026-04-18T01:19:04.924Z",
-              "updatedAt": "2026-04-18T01:19:04.924Z"
-            },
-            "ru": {
-              "content": "Специальный макет каталога для каталога настроек.",
-              "version": 1,
-              "isActive": true,
-              "createdAt": "2026-04-18T01:19:04.924Z",
-              "updatedAt": "2026-04-18T01:19:04.924Z"
-            }
-          },
-          "_primary": "en"
-        },
-        "config": {
-          "rowHeight": "auto",
-          "cardColumns": 3,
-          "showFilterBar": false,
-          "showViewToggle": false,
-          "catalogBehavior": {
-            "searchMode": "server",
-            "copySurface": "page",
-            "editSurface": "page",
-            "createSurface": "page",
-            "showCreateButton": true
-          },
-          "defaultViewMode": "list",
-          "enableRowReordering": true
-        },
-        "isActive": true,
-        "isDefault": true,
-        "sortOrder": 0,
-        "linkedCollectionId": "019d9e2a-2c69-732c-ad2f-2128e776e82c",
-        "baseLayoutId": "019d9e28-96f5-72c6-85d4-de94305f2ab8"
-      }
-    ],
     "defaultLayoutId": "019d9e28-96f5-72c6-85d4-de94305f2ab8",
     "layoutConfig": {
       "rowHeight": "auto",
@@ -4638,7 +4572,7 @@
           "bindToHub": false,
           "showTitle": true,
           "boundTreeEntityId": null,
-          "autoShowAllCatalogs": true
+          "autoShowAllSections": true
         },
         "isActive": true
       },
@@ -4661,18 +4595,84 @@
         "isActive": true
       }
     ],
-    "catalogLayoutWidgetOverrides": [
+    "scopedLayouts": [
+      {
+        "id": "019d9e2b-84a5-78ee-b9f7-177fdec0fb3d",
+        "templateKey": "dashboard",
+        "name": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Settings Catalog Layout",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-18T01:19:04.924Z",
+              "updatedAt": "2026-04-18T01:19:04.924Z"
+            },
+            "ru": {
+              "content": "Макет каталога настроек",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-18T01:19:04.924Z",
+              "updatedAt": "2026-04-18T01:19:04.924Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "description": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Catalog-specific layout override for the Settings catalog.",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-18T01:19:04.924Z",
+              "updatedAt": "2026-04-18T01:19:04.924Z"
+            },
+            "ru": {
+              "content": "Специальный макет каталога для каталога настроек.",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-04-18T01:19:04.924Z",
+              "updatedAt": "2026-04-18T01:19:04.924Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "config": {
+          "rowHeight": "auto",
+          "cardColumns": 3,
+          "showFilterBar": false,
+          "showViewToggle": false,
+          "catalogBehavior": {
+            "searchMode": "server",
+            "copySurface": "page",
+            "editSurface": "page",
+            "createSurface": "page",
+            "showCreateButton": true
+          },
+          "defaultViewMode": "list",
+          "enableRowReordering": true
+        },
+        "isActive": true,
+        "isDefault": true,
+        "sortOrder": 0,
+        "baseLayoutId": "019d9e28-96f5-72c6-85d4-de94305f2ab8",
+        "scopeEntityId": "019d9e2a-2c69-732c-ad2f-2128e776e82c"
+      }
+    ],
+    "layoutWidgetOverrides": [
       {
         "id": "019d9e2b-8d02-77ad-8196-50540a453c61",
-        "catalogLayoutId": "019d9e2b-84a5-78ee-b9f7-177fdec0fb3d",
         "baseWidgetId": "019d9e28-9974-73b4-bcf0-2aaf51b1ac1e",
         "zone": null,
         "sortOrder": null,
         "config": null,
         "isActive": false,
-        "isDeletedOverride": false
+        "isDeletedOverride": false,
+        "layoutId": "019d9e2b-84a5-78ee-b9f7-177fdec0fb3d"
       }
     ]
   },
-  "snapshotHash": "821f1e7947733d48fefc99f3cf5f3eca448bb1fe49ae34bb43a98825ece84b55"
+  "snapshotHash": "c56831d1cce9f8ccb3728aa9fa78c8cdf30220a3e326aa420ff15526d6ae9c1a"
 }

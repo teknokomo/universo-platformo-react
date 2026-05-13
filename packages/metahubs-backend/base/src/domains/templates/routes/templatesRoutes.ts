@@ -29,7 +29,7 @@ export function createTemplatesRoutes(
     }
 
     const asyncHandler =
-        (fn: (req: Request, res: Response) => Promise<any>): RequestHandler =>
+        (fn: (req: Request, res: Response) => Promise<unknown>): RequestHandler =>
         (req, res, next) => {
             fn(req, res).catch(next)
         }

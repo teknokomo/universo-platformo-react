@@ -158,10 +158,10 @@ describe('normalizePublicationSnapshotForHash', () => {
                 { id: 'layout-2', templateKey: 'dashboard', isDefault: false, isActive: true, sortOrder: 2 },
                 { id: 'layout-1', templateKey: 'dashboard', isDefault: true, isActive: true, sortOrder: 1 }
             ],
-            catalogLayouts: [
+            scopedLayouts: [
                 {
-                    id: 'catalog-layout-2',
-                    catalogId: 'catalog-b',
+                    id: 'entity-layout-2',
+                    scopeEntityId: 'catalog-b',
                     baseLayoutId: 'layout-2',
                     templateKey: 'dashboard',
                     name: { en: 'Products Layout' },
@@ -171,8 +171,8 @@ describe('normalizePublicationSnapshotForHash', () => {
                     sortOrder: 2
                 },
                 {
-                    id: 'catalog-layout-1',
-                    catalogId: 'catalog-a',
+                    id: 'entity-layout-1',
+                    scopeEntityId: 'catalog-a',
                     baseLayoutId: 'layout-1',
                     templateKey: 'dashboard',
                     name: { en: 'Articles Layout' },
@@ -186,10 +186,10 @@ describe('normalizePublicationSnapshotForHash', () => {
                 { id: 'widget-2', layoutId: 'layout-1', zone: 'main', widgetKey: 'table', sortOrder: 2, isActive: true },
                 { id: 'widget-1', layoutId: 'layout-1', zone: 'main', widgetKey: 'hero', sortOrder: 1, isActive: true }
             ],
-            catalogLayoutWidgetOverrides: [
+            layoutWidgetOverrides: [
                 {
                     id: 'override-2',
-                    catalogLayoutId: 'catalog-layout-1',
+                    layoutId: 'entity-layout-1',
                     baseWidgetId: 'widget-2',
                     zone: 'aside',
                     sortOrder: 2,
@@ -199,7 +199,7 @@ describe('normalizePublicationSnapshotForHash', () => {
                 },
                 {
                     id: 'override-1',
-                    catalogLayoutId: 'catalog-layout-1',
+                    layoutId: 'entity-layout-1',
                     baseWidgetId: 'widget-1',
                     zone: 'main',
                     sortOrder: 1,
@@ -346,18 +346,18 @@ describe('normalizePublicationSnapshotForHash', () => {
             expect.objectContaining({ id: 'layout-1', isDefault: true, sortOrder: 1 }),
             expect.objectContaining({ id: 'layout-2', isDefault: false, sortOrder: 2 })
         ])
-        expect(normalized.catalogLayouts).toEqual([
-            expect.objectContaining({ id: 'catalog-layout-1', catalogId: 'catalog-a', baseLayoutId: 'layout-1', sortOrder: 1 }),
-            expect.objectContaining({ id: 'catalog-layout-2', catalogId: 'catalog-b', baseLayoutId: 'layout-2', sortOrder: 2 })
+        expect(normalized.scopedLayouts).toEqual([
+            expect.objectContaining({ id: 'entity-layout-1', scopeEntityId: 'catalog-a', baseLayoutId: 'layout-1', sortOrder: 1 }),
+            expect.objectContaining({ id: 'entity-layout-2', scopeEntityId: 'catalog-b', baseLayoutId: 'layout-2', sortOrder: 2 })
         ])
         expect(normalized.layoutZoneWidgets).toEqual([
             expect.objectContaining({ id: 'widget-1', layoutId: 'layout-1', zone: 'main', sortOrder: 1 }),
             expect.objectContaining({ id: 'widget-2', layoutId: 'layout-1', zone: 'main', sortOrder: 2 })
         ])
-        expect(normalized.catalogLayoutWidgetOverrides).toEqual([
+        expect(normalized.layoutWidgetOverrides).toEqual([
             {
                 id: 'override-1',
-                catalogLayoutId: 'catalog-layout-1',
+                layoutId: 'entity-layout-1',
                 baseWidgetId: 'widget-1',
                 zone: 'main',
                 sortOrder: 1,
@@ -367,7 +367,7 @@ describe('normalizePublicationSnapshotForHash', () => {
             },
             {
                 id: 'override-2',
-                catalogLayoutId: 'catalog-layout-1',
+                layoutId: 'entity-layout-1',
                 baseWidgetId: 'widget-2',
                 zone: 'aside',
                 sortOrder: 2,

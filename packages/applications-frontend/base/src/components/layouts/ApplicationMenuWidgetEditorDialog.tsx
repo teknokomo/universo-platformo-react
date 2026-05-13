@@ -21,7 +21,6 @@ import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import type { MenuWidgetConfig, MenuWidgetConfigItem, MetahubMenuItemKind, VersionedLocalizedContent } from '@universo/types'
 import { EntityFormDialog, LocalizedInlineField } from '@universo/template-mui'
-import { METAHUB_MENU_ITEM_KINDS } from '@universo/types'
 import { buildVLC, createLocalizedContent, ensureVLC, generateUuidV7, isSafeMenuHref } from '@universo/utils'
 import { useTranslation } from 'react-i18next'
 
@@ -45,7 +44,7 @@ const getVLCString = (value: VersionedLocalizedContent<string> | null | undefine
 type Props = {
     open: boolean
     config: MenuWidgetConfig | null
-    catalogOptions: OptionItem[]
+    sectionOptions: OptionItem[]
     showSharedBehavior?: boolean
     onSave: (config: MenuWidgetConfig) => void
     onCancel: () => void
@@ -57,7 +56,6 @@ type ItemDraft = {
     title: VersionedLocalizedContent<string> | null
     icon: string
     href: string
-    catalogId: string
     hubId: string
     sectionId: string
     isActive: boolean
@@ -66,6 +64,7 @@ type ItemDraft = {
 type WorkspacePlacement = NonNullable<MenuWidgetConfig['workspacePlacement']>
 
 const WORKSPACE_PLACEMENTS: WorkspacePlacement[] = ['primary', 'overflow', 'hidden']
+const EDITABLE_MENU_ITEM_KINDS: MetahubMenuItemKind[] = ['section', 'hub', 'link']
 
 const normalizeMaxPrimaryItems = (value: unknown): number | null => {
     if (value == null || value === '') return null
@@ -78,10 +77,19 @@ const normalizeWorkspacePlacement = (value: unknown): WorkspacePlacement => {
     return WORKSPACE_PLACEMENTS.includes(value as WorkspacePlacement) ? (value as WorkspacePlacement) : 'primary'
 }
 
+const normalizeEditableMenuItemKind = (kind: MetahubMenuItemKind | string | null | undefined): MetahubMenuItemKind => {
+    if (kind === 'section' || kind === 'hub' || kind === 'link') return kind
+    return 'link'
+}
+
+const resolveMenuItemSectionTarget = (item?: MenuWidgetConfigItem | null): string => {
+    return item?.sectionId ?? item?.linkedCollectionId ?? ''
+}
+
 const makeDefaultConfig = (_uiLocale: string): MenuWidgetConfig => ({
     showTitle: true,
     title: buildVLC('', ''),
-    autoShowAllCatalogs: false,
+    autoShowAllSections: false,
     bindToHub: false,
     boundHubId: null,
     maxPrimaryItems: 6,
@@ -103,26 +111,25 @@ const normalizeMenuConfig = (config: MenuWidgetConfig | null | undefined, uiLoca
             typeof config.overflowLabelKey === 'string' && config.overflowLabelKey.trim() ? config.overflowLabelKey.trim() : null,
         startPage: typeof config.startPage === 'string' && config.startPage.trim() ? config.startPage.trim() : null,
         workspacePlacement: normalizeWorkspacePlacement(config.workspacePlacement),
-        items: Array.isArray(config.items) ? config.items.filter((item) => item.kind !== 'catalogs_all') : []
+        items: Array.isArray(config.items) ? config.items : []
     }
 }
 
 const createItemDraft = (uiLocale: string, item?: MenuWidgetConfigItem | null): ItemDraft => ({
     id: item?.id ?? generateUuidV7(),
-    kind: item?.kind ?? 'link',
+    kind: normalizeEditableMenuItemKind(item?.kind),
     title: ensureVLC(item?.title, uiLocale) ?? createLocalizedContent(normalizeLocale(uiLocale), ''),
     icon: item?.icon ?? '',
     href: item?.href ?? '',
-    catalogId: item?.catalogId ?? '',
     hubId: item?.hubId ?? '',
-    sectionId: item?.sectionId ?? '',
+    sectionId: resolveMenuItemSectionTarget(item),
     isActive: item?.isActive ?? true
 })
 
 export default function ApplicationMenuWidgetEditorDialog({
     open,
     config,
-    catalogOptions,
+    sectionOptions,
     showSharedBehavior = false,
     onSave,
     onCancel
@@ -146,10 +153,7 @@ export default function ApplicationMenuWidgetEditorDialog({
         setSharedBehaviorValue(getSharedBehaviorFromWidgetConfig(config))
     }, [config, open, uiLocale])
 
-    const kindOptions = useMemo(
-        () => METAHUB_MENU_ITEM_KINDS.filter((kind) => kind === 'link' || kind === 'catalog' || kind === 'hub' || kind === 'page'),
-        []
-    )
+    const kindOptions = useMemo(() => EDITABLE_MENU_ITEM_KINDS, [])
 
     const openItemEditor = (index: number | null) => {
         const sourceItem = index == null ? null : draft.items[index] ?? null
@@ -169,12 +173,8 @@ export default function ApplicationMenuWidgetEditorDialog({
             setSubmitError(t('layouts.menuEditor.validation.titleRequired', 'Name is required.'))
             return
         }
-        if (itemDraft.kind === 'catalog' && !itemDraft.catalogId) {
-            setSubmitError(t('layouts.menuEditor.validation.catalogRequired', 'Select a catalog for this menu item.'))
-            return
-        }
-        if (itemDraft.kind === 'page' && !itemDraft.sectionId.trim()) {
-            setSubmitError(t('layouts.menuEditor.validation.pageRequired', 'Enter a page id or codename for this menu item.'))
+        if (itemDraft.kind === 'section' && !itemDraft.sectionId.trim()) {
+            setSubmitError(t('layouts.menuEditor.validation.sectionRequired', 'Select an entity section for this menu item.'))
             return
         }
         if (itemDraft.kind === 'link') {
@@ -200,9 +200,9 @@ export default function ApplicationMenuWidgetEditorDialog({
             title: itemDraft.title ?? createLocalizedContent(normalizeLocale(uiLocale), ''),
             icon: itemDraft.icon.trim() || null,
             href: itemDraft.kind === 'link' ? itemDraft.href.trim() || null : null,
-            catalogId: itemDraft.kind === 'catalog' ? itemDraft.catalogId || null : null,
             hubId: itemDraft.kind === 'hub' ? itemDraft.hubId.trim() || null : null,
-            sectionId: itemDraft.kind === 'page' ? itemDraft.sectionId.trim() || null : null,
+            linkedCollectionId: itemDraft.kind === 'section' ? itemDraft.sectionId.trim() || null : null,
+            sectionId: itemDraft.kind === 'section' ? itemDraft.sectionId.trim() || null : null,
             sortOrder: 0,
             isActive: itemDraft.isActive
         }
@@ -273,11 +273,11 @@ export default function ApplicationMenuWidgetEditorDialog({
                         <FormControlLabel
                             control={
                                 <Switch
-                                    checked={draft.autoShowAllCatalogs}
-                                    onChange={(_, checked) => setDraft((current) => ({ ...current, autoShowAllCatalogs: checked }))}
+                                    checked={draft.autoShowAllSections}
+                                    onChange={(_, checked) => setDraft((current) => ({ ...current, autoShowAllSections: checked }))}
                                 />
                             }
-                            label={t('layouts.menuEditor.autoShowAllCatalogs', 'Show all catalogs automatically')}
+                            label={t('layouts.menuEditor.autoShowAllSections', 'Show all sections automatically')}
                         />
                         <TextField
                             label={t('layouts.menuEditor.maxPrimaryItems', 'Primary menu item limit')}
@@ -309,7 +309,7 @@ export default function ApplicationMenuWidgetEditorDialog({
                             fullWidth
                             helperText={t(
                                 'layouts.menuEditor.startPageHint',
-                                'Use a hub/catalog id or codename to choose the first opened section.'
+                                'Use a hub or Entity section id/codename to choose the first opened section.'
                             )}
                         />
                         <FormControl fullWidth>
@@ -407,7 +407,7 @@ export default function ApplicationMenuWidgetEditorDialog({
                                 onChange={(event) =>
                                     setItemDraft((current) => ({
                                         ...current,
-                                        kind: event.target.value as MetahubMenuItemKind
+                                        kind: normalizeEditableMenuItemKind(event.target.value as MetahubMenuItemKind)
                                     }))
                                 }
                             >
@@ -440,15 +440,15 @@ export default function ApplicationMenuWidgetEditorDialog({
                                 fullWidth
                             />
                         ) : null}
-                        {itemDraft.kind === 'catalog' ? (
+                        {itemDraft.kind === 'section' ? (
                             <FormControl fullWidth>
-                                <InputLabel>{t('layouts.menuEditor.catalog', 'Catalog')}</InputLabel>
+                                <InputLabel>{t('layouts.menuEditor.section', 'Entity section')}</InputLabel>
                                 <Select
-                                    value={itemDraft.catalogId}
-                                    label={t('layouts.menuEditor.catalog', 'Catalog')}
-                                    onChange={(event) => setItemDraft((current) => ({ ...current, catalogId: String(event.target.value) }))}
+                                    value={itemDraft.sectionId}
+                                    label={t('layouts.menuEditor.section', 'Entity section')}
+                                    onChange={(event) => setItemDraft((current) => ({ ...current, sectionId: String(event.target.value) }))}
                                 >
-                                    {catalogOptions.map((option) => (
+                                    {sectionOptions.map((option) => (
                                         <MenuItem key={option.id} value={option.id}>
                                             {option.label}
                                         </MenuItem>
@@ -461,14 +461,6 @@ export default function ApplicationMenuWidgetEditorDialog({
                                 label={t('layouts.menuEditor.hubId', 'Hub id')}
                                 value={itemDraft.hubId}
                                 onChange={(event) => setItemDraft((current) => ({ ...current, hubId: event.target.value }))}
-                                fullWidth
-                            />
-                        ) : null}
-                        {itemDraft.kind === 'page' ? (
-                            <TextField
-                                label={t('layouts.menuEditor.pageId', 'Page id or codename')}
-                                value={itemDraft.sectionId}
-                                onChange={(event) => setItemDraft((current) => ({ ...current, sectionId: event.target.value }))}
                                 fullWidth
                             />
                         ) : null}

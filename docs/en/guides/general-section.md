@@ -52,7 +52,7 @@ This keeps layout, shared-resource, and shared-library work behind one predictab
 
 ## Related Reading
 
-- [Catalog Layouts](catalog-layouts.md)
+- [Entity-Scoped Layouts](entity-scoped-layouts.md)
 - [Metahub Scripting](metahub-scripting.md)
 - [Application Template View Settings](app-template-views.md)
 - [Metahubs](../platform/metahubs.md)

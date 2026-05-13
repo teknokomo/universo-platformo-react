@@ -102,7 +102,7 @@ export default function MenuContent({ menu }: MenuContentProps) {
         item.id === 'runtime-workspaces' || item.id === 'workspaces' || /\/workspaces(?:$|\?)/.test(item.href ?? '')
     const firstWorkspaceRootIndex = items.findIndex(isWorkspaceRootItem)
     const handleItemSelect = (item: DashboardMenuSlot['items'][number]) => {
-        if (item.kind !== 'catalog' && item.kind !== 'section' && item.kind !== 'page') {
+        if (item.kind !== 'section') {
             return
         }
 
@@ -135,7 +135,8 @@ export default function MenuContent({ menu }: MenuContentProps) {
                 const isHubLabel = item.kind === 'hub'
                 const isInertLink = item.kind === 'link' && !sanitizeHref(item.href)
                 const isSelected =
-                    Boolean(item.selected) || (item.kind === 'link' && (isCurrentHref(item.href) || (index === 0 && isRootApplicationStartHref(item.href))))
+                    Boolean(item.selected) ||
+                    (item.kind === 'link' && (isCurrentHref(item.href) || (index === 0 && isRootApplicationStartHref(item.href))))
                 const needsWorkspaceDivider = index === firstWorkspaceRootIndex
                 return (
                     <Fragment key={item.id}>

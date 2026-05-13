@@ -74,6 +74,47 @@ type MetahubAttributeRecord = {
     updatedAt: unknown
 }
 
+type FieldDefinitionMutationInput = Record<string, unknown> & {
+    linkedCollectionId?: string
+    codename?: unknown
+    dataType?: FieldDefinitionDataType
+    isRequired?: boolean
+    isDisplayAttribute?: boolean
+    targetEntityId?: string | null
+    targetEntityKind?: string | null
+    targetConstantId?: string | null
+    parentAttributeId?: string | null
+    sortOrder?: number
+    name?: unknown
+    validationRules?: Record<string, unknown>
+    uiConfig?: Record<string, unknown>
+    system?: Partial<FieldDefinitionSystemMetadata>
+    createdBy?: string | null
+    updatedBy?: string | null
+    expectedVersion?: number
+    isEnabled?: boolean
+    platformSystemFieldDefinitionsPolicy?: PlatformSystemFieldDefinitionsPolicy
+}
+
+type FieldDefinitionCreateInput = FieldDefinitionMutationInput & {
+    linkedCollectionId: string
+    codename: unknown
+    dataType: FieldDefinitionDataType
+}
+
+type ReferenceBlockerRow = {
+    attribute_id: string
+    attribute_codename: string
+    attribute_presentation: unknown
+    source_catalog_id: string
+    source_catalog_codename: string
+    source_catalog_presentation: unknown
+    usage_count?: string
+}
+
+const readPresentationName = (value: unknown): unknown =>
+    value && typeof value === 'object' ? (value as { name?: unknown }).name ?? null : null
+
 /**
  * Service to manage design-time field definitions stored in isolated schemas (_mhb_attributes).
  */
@@ -87,7 +128,7 @@ export class MetahubFieldDefinitionsService {
         db: SqlQueryable
     ): Promise<Record<string, unknown>[]> {
         const qt = qSchemaTable(schemaName, '_mhb_attributes')
-        return queryMany(
+        return queryMany<Record<string, unknown>>(
             db,
             `SELECT * FROM ${qt}
              WHERE object_id = $1 AND parent_attribute_id IS NULL AND ${this.getScopeCondition(scope)} AND ${ACTIVE}
@@ -357,7 +398,7 @@ export class MetahubFieldDefinitionsService {
     async findAllFlat(metahubId: string, objectId: string, userId?: string, scope: AttributeScope = 'business') {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_attributes')
-        const rows = await queryMany(
+        const rows = await queryMany<Record<string, unknown>>(
             this.exec,
             `SELECT * FROM ${qt}
              WHERE object_id = $1 AND ${this.getScopeCondition(scope)} AND ${ACTIVE}
@@ -375,7 +416,7 @@ export class MetahubFieldDefinitionsService {
     async findAllFlatForSnapshot(metahubId: string, objectId: string, userId?: string, scope: AttributeScope = 'business') {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_attributes')
-        const rows = await queryMany(
+        const rows = await queryMany<Record<string, unknown>>(
             this.exec,
             `SELECT * FROM ${qt}
              WHERE object_id = $1 AND ${this.getScopeCondition(scope)} AND ${ACTIVE}
@@ -392,7 +433,7 @@ export class MetahubFieldDefinitionsService {
     async findChildAttributes(metahubId: string, parentAttributeId: string, userId?: string, db?: SqlQueryable) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_attributes')
-        const rows = await queryMany(
+        const rows = await queryMany<Record<string, unknown>>(
             db ?? this.exec,
             `SELECT * FROM ${qt}
              WHERE parent_attribute_id = $1 AND ${this.getScopeCondition('business')} AND ${ACTIVE}
@@ -416,7 +457,7 @@ export class MetahubFieldDefinitionsService {
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_attributes')
-        const rows = await queryMany(
+        const rows = await queryMany<Record<string, unknown>>(
             this.exec,
             `SELECT * FROM ${qt}
              WHERE parent_attribute_id = ANY($1::uuid[]) AND ${this.getScopeCondition('business')} AND ${ACTIVE}
@@ -437,7 +478,7 @@ export class MetahubFieldDefinitionsService {
     async getAllAttributes(metahubId: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_attributes')
-        const rows = await queryMany(
+        const rows = await queryMany<Record<string, unknown>>(
             this.exec,
             `SELECT * FROM ${qt} WHERE ${this.getScopeCondition('all')} AND ${ACTIVE}
              ORDER BY sort_order ASC, _upl_created_at ASC`
@@ -449,7 +490,9 @@ export class MetahubFieldDefinitionsService {
     async findById(metahubId: string, id: string, userId?: string, db?: SqlQueryable) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_attributes')
-        const row = await queryOne(db ?? this.exec, `SELECT * FROM ${qt} WHERE id = $1 AND ${ACTIVE} LIMIT 1`, [id])
+        const row = await queryOne<Record<string, unknown>>(db ?? this.exec, `SELECT * FROM ${qt} WHERE id = $1 AND ${ACTIVE} LIMIT 1`, [
+            id
+        ])
 
         return row ? this.mapRowToFieldDefinition(row) : null
     }
@@ -479,7 +522,11 @@ export class MetahubFieldDefinitionsService {
             }
         }
 
-        const row = await queryOne(db ?? this.exec, `SELECT * FROM ${qt} WHERE ${conditions.join(' AND ')} LIMIT 1`, params)
+        const row = await queryOne<Record<string, unknown>>(
+            db ?? this.exec,
+            `SELECT * FROM ${qt} WHERE ${conditions.join(' AND ')} LIMIT 1`,
+            params
+        )
 
         return row ? this.mapRowToFieldDefinition(row) : null
     }
@@ -699,14 +746,7 @@ export class MetahubFieldDefinitionsService {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const attrTable = qSchemaTable(schemaName, '_mhb_attributes')
         const objTable = qSchemaTable(schemaName, '_mhb_objects')
-        const rows = await queryMany<{
-            attribute_id: string
-            attribute_codename: string
-            attribute_presentation: any
-            source_catalog_id: string
-            source_catalog_codename: string
-            source_catalog_presentation: any
-        }>(
+        const rows = await queryMany<ReferenceBlockerRow>(
             this.exec,
             `SELECT
                 attr.id AS attribute_id,
@@ -730,10 +770,10 @@ export class MetahubFieldDefinitionsService {
         return rows.map((row) => ({
             fieldDefinitionId: row.attribute_id,
             attributeCodename: getCodenameText(row.attribute_codename),
-            attributeName: row.attribute_presentation?.name ?? null,
+            attributeName: readPresentationName(row.attribute_presentation),
             sourceLinkedCollectionId: row.source_catalog_id,
             sourceCatalogCodename: getCodenameText(row.source_catalog_codename),
-            sourceCatalogName: row.source_catalog_presentation?.name ?? null
+            sourceCatalogName: readPresentationName(row.source_catalog_presentation)
         }))
     }
 
@@ -751,14 +791,7 @@ export class MetahubFieldDefinitionsService {
         const attrTable = qSchemaTable(schemaName, '_mhb_attributes')
         const objTable = qSchemaTable(schemaName, '_mhb_objects')
         const compatibleTargetKinds = normalizeCompatibleTargetKinds(targetObjectKinds)
-        const rows = await queryMany<{
-            attribute_id: string
-            attribute_codename: string
-            attribute_presentation: any
-            source_catalog_id: string
-            source_catalog_codename: string
-            source_catalog_presentation: any
-        }>(
+        const rows = await queryMany<ReferenceBlockerRow>(
             this.exec,
             `SELECT
                 attr.id AS attribute_id,
@@ -781,10 +814,10 @@ export class MetahubFieldDefinitionsService {
         return rows.map((row) => ({
             fieldDefinitionId: row.attribute_id,
             attributeCodename: getCodenameText(row.attribute_codename),
-            attributeName: row.attribute_presentation?.name ?? null,
+            attributeName: readPresentationName(row.attribute_presentation),
             sourceLinkedCollectionId: row.source_catalog_id,
             sourceCatalogCodename: getCodenameText(row.source_catalog_codename),
-            sourceCatalogName: row.source_catalog_presentation?.name ?? null
+            sourceCatalogName: readPresentationName(row.source_catalog_presentation)
         }))
     }
 
@@ -797,14 +830,7 @@ export class MetahubFieldDefinitionsService {
         const attrTable = qSchemaTable(schemaName, '_mhb_attributes')
         const objTable = qSchemaTable(schemaName, '_mhb_objects')
         const compatibleTargetKinds = normalizeCompatibleTargetKinds(targetObjectKinds ?? ['enumeration'])
-        const rows = await queryMany<{
-            attribute_id: string
-            attribute_codename: string
-            attribute_presentation: any
-            source_catalog_id: string
-            source_catalog_codename: string
-            source_catalog_presentation: any
-        }>(
+        const rows = await queryMany<ReferenceBlockerRow>(
             this.exec,
             `SELECT
                 attr.id AS attribute_id,
@@ -827,10 +853,10 @@ export class MetahubFieldDefinitionsService {
         return rows.map((row) => ({
             fieldDefinitionId: row.attribute_id,
             attributeCodename: getCodenameText(row.attribute_codename),
-            attributeName: row.attribute_presentation?.name ?? null,
+            attributeName: readPresentationName(row.attribute_presentation),
             sourceLinkedCollectionId: row.source_catalog_id,
             sourceCatalogCodename: getCodenameText(row.source_catalog_codename),
-            sourceCatalogName: row.source_catalog_presentation?.name ?? null
+            sourceCatalogName: readPresentationName(row.source_catalog_presentation)
         }))
     }
 
@@ -850,15 +876,7 @@ export class MetahubFieldDefinitionsService {
         const objTable = qSchemaTable(schemaName, '_mhb_objects')
         const elTable = qSchemaTable(schemaName, '_mhb_elements')
         const compatibleTargetKinds = normalizeCompatibleTargetKinds(targetObjectKinds ?? ['enumeration'])
-        const rows = await queryMany<{
-            attribute_id: string
-            attribute_codename: string
-            attribute_presentation: any
-            source_catalog_id: string
-            source_catalog_codename: string
-            source_catalog_presentation: any
-            usage_count: string
-        }>(
+        const rows = await queryMany<ReferenceBlockerRow>(
             this.exec,
             `SELECT
                 attr.id AS attribute_id,
@@ -886,15 +904,15 @@ export class MetahubFieldDefinitionsService {
         return rows.map((row) => ({
             fieldDefinitionId: row.attribute_id,
             attributeCodename: getCodenameText(row.attribute_codename),
-            attributeName: row.attribute_presentation?.name ?? null,
+            attributeName: readPresentationName(row.attribute_presentation),
             sourceLinkedCollectionId: row.source_catalog_id,
             sourceCatalogCodename: getCodenameText(row.source_catalog_codename),
-            sourceCatalogName: row.source_catalog_presentation?.name ?? null,
+            sourceCatalogName: readPresentationName(row.source_catalog_presentation),
             usageCount: parseInt(row.usage_count ?? '0', 10)
         }))
     }
 
-    async create(metahubId: string, data: any, userId?: string, db?: SqlQueryable) {
+    async create(metahubId: string, data: FieldDefinitionCreateInput, userId?: string, db?: SqlQueryable) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_attributes')
         let explicitAttributeId: string | undefined
@@ -989,7 +1007,7 @@ export class MetahubFieldDefinitionsService {
         const placeholders = values.map((_, i) => `$${i + 1}`).join(', ')
 
         const runner = db ?? this.exec
-        const created = await queryOneOrThrow(
+        const created = await queryOneOrThrow<Record<string, unknown>>(
             runner,
             `INSERT INTO ${qt} (${columns.join(', ')}) VALUES (${placeholders}) RETURNING *`,
             values
@@ -998,7 +1016,7 @@ export class MetahubFieldDefinitionsService {
         return this.mapRowToFieldDefinition(created)
     }
 
-    async update(metahubId: string, id: string, data: any, userId?: string, db?: DbExecutor | SqlQueryable) {
+    async update(metahubId: string, id: string, data: FieldDefinitionMutationInput, userId?: string, db?: DbExecutor | SqlQueryable) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_attributes')
         const runner = db ?? this.exec
@@ -1273,10 +1291,11 @@ export class MetahubFieldDefinitionsService {
             }
 
             // Fetch updated
-            const updated = await queryOneOrThrow(tx, `SELECT * FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE} LIMIT 1`, [
-                fieldDefinitionId,
-                objectId
-            ])
+            const updated = await queryOneOrThrow<Record<string, unknown>>(
+                tx,
+                `SELECT * FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE} LIMIT 1`,
+                [fieldDefinitionId, objectId]
+            )
             return this.mapRowToFieldDefinition(updated)
         })
     }
@@ -1467,7 +1486,7 @@ export class MetahubFieldDefinitionsService {
         db: SqlQueryable,
         schemaName: string,
         objectId: string,
-        attribute: any,
+        attribute: Record<string, unknown>,
         currentParentId: string | null,
         targetParentId: string | null,
         allowCrossListRootChildren: boolean,
@@ -1479,6 +1498,9 @@ export class MetahubFieldDefinitionsService {
         const qt = qSchemaTable(schemaName, '_mhb_attributes')
         const sourceIsRoot = currentParentId === null
         const targetIsRoot = targetParentId === null
+        const attributeId = String(attribute.id)
+        const attributeCodename = getCodenameText(attribute.codename)
+        const attributeDataType = typeof attribute.data_type === 'string' ? attribute.data_type : ''
 
         if ((sourceIsRoot || targetIsRoot) && !allowCrossListRootChildren) {
             throw new MetahubDomainError({
@@ -1506,7 +1528,7 @@ export class MetahubFieldDefinitionsService {
         }
 
         // 2. TABLE attributes can only exist at root level
-        if (attribute.data_type === FieldDefinitionDataType.TABLE && targetParentId !== null) {
+        if (attributeDataType === FieldDefinitionDataType.TABLE && targetParentId !== null) {
             throw new MetahubDomainError({
                 message: 'TABLE attributes can only exist at the root level',
                 statusCode: 403,
@@ -1528,9 +1550,9 @@ export class MetahubFieldDefinitionsService {
                     code: 'TRANSFER_NOT_ALLOWED'
                 })
             }
-            if (!TABLE_CHILD_DATA_TYPES.includes(attribute.data_type)) {
+            if (!(TABLE_CHILD_DATA_TYPES as readonly string[]).includes(attributeDataType)) {
                 throw new MetahubDomainError({
-                    message: `${attribute.data_type} attributes are not allowed in TABLE children`,
+                    message: `${attributeDataType} attributes are not allowed in TABLE children`,
                     statusCode: 403,
                     code: 'TRANSFER_NOT_ALLOWED'
                 })
@@ -1553,7 +1575,7 @@ export class MetahubFieldDefinitionsService {
         // 4. Codename uniqueness check in target scope
         const hasConflict = async (codename: string): Promise<boolean> => {
             const conditions = [`object_id = $1`, `codename = $2`, `id != $3`, ACTIVE]
-            const params: unknown[] = [objectId, codename, attribute.id]
+            const params: unknown[] = [objectId, codename, attributeId]
 
             if (codenameScope !== 'global') {
                 if (targetParentId) {
@@ -1568,18 +1590,18 @@ export class MetahubFieldDefinitionsService {
             return !!row
         }
 
-        if (await hasConflict(attribute.codename)) {
+        if (await hasConflict(attributeCodename)) {
             if (!autoRenameCodename) {
-                throw new MetahubConflictError(`Codename "${attribute.codename}" already exists in the target scope`, {
+                throw new MetahubConflictError(`Codename "${attributeCodename}" already exists in the target scope`, {
                     code: 'CODENAME_CONFLICT',
-                    codename: attribute.codename
+                    codename: attributeCodename
                 })
             }
 
             // Auto-rename using buildCodenameAttempt() retry loop
             let renamed = false
             for (let attempt = 2; attempt <= CODENAME_RETRY_MAX_ATTEMPTS && !renamed; attempt++) {
-                const candidate = buildCodenameAttempt(attribute.codename, attempt, codenameStyle)
+                const candidate = buildCodenameAttempt(attributeCodename, attempt, codenameStyle)
                 if (!(await hasConflict(candidate))) {
                     const nextPresentation =
                         attribute.presentation && typeof attribute.presentation === 'object'
@@ -1588,7 +1610,7 @@ export class MetahubFieldDefinitionsService {
                     await db.query(`UPDATE ${qt} SET codename = $1, presentation = $2 WHERE id = $3`, [
                         candidate,
                         JSON.stringify(nextPresentation),
-                        attribute.id
+                        attributeId
                     ])
                     renamed = true
                 }
@@ -1799,7 +1821,7 @@ export class MetahubFieldDefinitionsService {
         return Number.isFinite(parsed) ? parsed + 1 : 1
     }
 
-    private mapRowToFieldDefinition = (row: any): MetahubAttributeRecord => {
+    private mapRowToFieldDefinition = (row: Record<string, unknown>): MetahubAttributeRecord => {
         const presentation = row.presentation as Record<string, unknown> | null | undefined
         return {
             id: row.id as string,
@@ -1826,7 +1848,7 @@ export class MetahubFieldDefinitionsService {
         }
     }
 
-    private mapRowToSnapshotAttribute = (row: any) => {
+    private mapRowToSnapshotAttribute = (row: Record<string, unknown>) => {
         return {
             ...this.mapRowToFieldDefinition(row),
             codename: ensureCodenameValue(row.codename)

@@ -318,9 +318,9 @@ export class MetahubObjectsService {
         input: {
             id?: string
             codename: unknown
-            name: any // VLC
-            description?: any // VLC
-            config?: any
+            name: unknown
+            description?: unknown
+            config?: Record<string, unknown>
             createdBy?: string | null
         },
         userId?: string,
@@ -395,9 +395,9 @@ export class MetahubObjectsService {
         kind: string,
         input: {
             codename?: unknown
-            name?: any
-            description?: any
-            config?: any
+            name?: unknown
+            description?: unknown
+            config?: Record<string, unknown>
             updatedBy?: string | null
             expectedVersion?: number
         },
@@ -593,7 +593,13 @@ export class MetahubObjectsService {
         }
     }
 
-    async reorderByKind(metahubId: string, kind: string, objectId: string, newSortOrder: number, userId?: string): Promise<any> {
+    async reorderByKind(
+        metahubId: string,
+        kind: string,
+        objectId: string,
+        newSortOrder: number,
+        userId?: string
+    ): Promise<MetahubObjectRow> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_objects')
 
@@ -656,7 +662,7 @@ export class MetahubObjectsService {
                 throw new MetahubNotFoundError(kind, objectId)
             }
 
-            return updated ? this.normalizeObjectRow(updated) : null
+            return this.normalizeObjectRow(updated)
         })
     }
 }

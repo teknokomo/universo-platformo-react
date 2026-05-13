@@ -38,6 +38,16 @@ export function createLayoutsRoutes(
         writeLimiter,
         asyncHandler(ctrl.toggleZoneWidgetActive)
     )
+    router.get(
+        '/metahub/:metahubId/layout/:layoutId/zone-widget/:widgetId/scope-visibility',
+        readLimiter,
+        asyncHandler(ctrl.listWidgetScopeVisibility)
+    )
+    router.patch(
+        '/metahub/:metahubId/layout/:layoutId/zone-widget/:widgetId/scope-visibility/:scopeEntityId',
+        writeLimiter,
+        asyncHandler(ctrl.updateWidgetScopeVisibility)
+    )
 
     return router
 }

@@ -143,6 +143,7 @@ export type RuntimeApplicationEnumerationValueRow = {
 
 export type RuntimeApplicationLayoutRow = {
     id: unknown
+    scope_entity_id?: unknown
     template_key: unknown
     name: unknown
     description: unknown
@@ -202,7 +203,8 @@ export type SnapshotEnumerationValue = {
 
 export type SnapshotLayoutRow = {
     id?: unknown
-    linkedCollectionId?: unknown
+    scopeEntityId?: unknown
+    scopeEntityKind?: unknown
     templateKey?: unknown
     name?: unknown
     description?: unknown
@@ -212,14 +214,15 @@ export type SnapshotLayoutRow = {
     sortOrder?: unknown
 }
 
-export type SnapshotCatalogLayoutRow = SnapshotLayoutRow & {
-    linkedCollectionId?: unknown
+export type SnapshotScopedLayoutRow = SnapshotLayoutRow & {
+    scopeEntityId?: unknown
+    scopeEntityKind?: unknown
     baseLayoutId?: unknown
 }
 
-export type SnapshotCatalogLayoutWidgetOverrideRow = {
+export type SnapshotLayoutWidgetOverrideRow = {
     id?: unknown
-    catalogLayoutId?: unknown
+    layoutId?: unknown
     baseWidgetId?: unknown
     zone?: unknown
     sortOrder?: unknown
@@ -245,7 +248,8 @@ export const REF_DATA_TYPE = FieldDefinitionDataType.REF
 
 export type PersistedAppLayout = {
     id: string
-    linkedCollectionId: string | null
+    scopeEntityId: string | null
+    scopeEntityKind?: string | null
     templateKey: string
     name: Record<string, unknown>
     description: Record<string, unknown> | null
@@ -258,6 +262,7 @@ export type PersistedAppLayout = {
 export type PersistedAppLayoutZoneWidget = {
     id: string
     layoutId: string
+    sourceBaseWidgetId?: string | null
     zone: ApplicationLayoutWidget['zone']
     widgetKey: string
     sortOrder: number
@@ -267,7 +272,8 @@ export type PersistedAppLayoutZoneWidget = {
 
 export type PersistedAppLayoutRowDb = {
     id: unknown
-    catalog_id: unknown
+    scope_entity_id: unknown
+    scope_entity_kind?: unknown
     template_key: unknown
     name: unknown
     description: unknown
@@ -280,6 +286,7 @@ export type PersistedAppLayoutRowDb = {
 export type PersistedAppWidgetRowDb = {
     id: unknown
     layout_id: unknown
+    source_base_widget_id?: unknown
     zone: unknown
     widget_key: unknown
     sort_order: unknown

@@ -76,7 +76,7 @@ const LMS_PUBLIC_GUEST_RUNTIME_CONFIG = {
     }
 } as const
 
-function buildLmsSeedZoneWidgets(): TemplateSeedZoneWidget[] {
+function buildLmsBaseSeedZoneWidgets(): TemplateSeedZoneWidget[] {
     return [
         {
             zone: 'left' as const,
@@ -92,7 +92,7 @@ function buildLmsSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                         ru: { content: 'Обучение', version: 1, isActive: true }
                     }
                 },
-                autoShowAllCatalogs: false,
+                autoShowAllSections: false,
                 bindToHub: false,
                 boundTreeEntityId: null,
                 maxPrimaryItems: 6,
@@ -102,7 +102,7 @@ function buildLmsSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                 items: [
                     {
                         id: 'lms-nav-home',
-                        kind: 'page',
+                        kind: 'section',
                         title: {
                             _schema: '1',
                             _primary: 'en',
@@ -119,7 +119,7 @@ function buildLmsSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                     },
                     {
                         id: 'lms-nav-catalog',
-                        kind: 'catalog',
+                        kind: 'section',
                         title: {
                             _schema: '1',
                             _primary: 'en',
@@ -130,13 +130,13 @@ function buildLmsSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                         },
                         icon: 'catalog',
                         href: null,
-                        catalogId: 'Modules',
+                        sectionId: 'Modules',
                         sortOrder: 1,
                         isActive: true
                     },
                     {
                         id: 'lms-nav-knowledge',
-                        kind: 'catalog',
+                        kind: 'section',
                         title: {
                             _schema: '1',
                             _primary: 'en',
@@ -147,13 +147,13 @@ function buildLmsSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                         },
                         icon: 'folder',
                         href: null,
-                        catalogId: 'Quizzes',
+                        sectionId: 'Quizzes',
                         sortOrder: 2,
                         isActive: true
                     },
                     {
                         id: 'lms-nav-development',
-                        kind: 'catalog',
+                        kind: 'section',
                         title: {
                             _schema: '1',
                             _primary: 'en',
@@ -164,13 +164,13 @@ function buildLmsSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                         },
                         icon: 'tasks',
                         href: null,
-                        catalogId: 'Classes',
+                        sectionId: 'Classes',
                         sortOrder: 3,
                         isActive: true
                     },
                     {
                         id: 'lms-nav-reports',
-                        kind: 'catalog',
+                        kind: 'section',
                         title: {
                             _schema: '1',
                             _primary: 'en',
@@ -181,7 +181,7 @@ function buildLmsSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                         },
                         icon: 'analytics',
                         href: null,
-                        catalogId: 'Reports',
+                        sectionId: 'Reports',
                         sortOrder: 4,
                         isActive: true
                     }
@@ -190,6 +190,13 @@ function buildLmsSeedZoneWidgets(): TemplateSeedZoneWidget[] {
         },
         { zone: 'top' as const, widgetKey: 'appNavbar', sortOrder: 1 },
         { zone: 'top' as const, widgetKey: 'header', sortOrder: 2 },
+        { zone: 'center' as const, widgetKey: 'detailsTitle', sortOrder: 5 },
+        { zone: 'center' as const, widgetKey: 'detailsTable', sortOrder: 9 }
+    ]
+}
+
+function buildLmsHomeSeedZoneWidgets(): TemplateSeedZoneWidget[] {
+    return [
         {
             zone: 'center' as const,
             widgetKey: 'overviewCards',
@@ -243,7 +250,6 @@ function buildLmsSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                 ]
             }
         },
-        { zone: 'center' as const, widgetKey: 'detailsTitle', sortOrder: 5 },
         {
             zone: 'center' as const,
             widgetKey: 'sessionsChart',
@@ -281,80 +287,7 @@ function buildLmsSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                 maxRows: 12,
                 series: [{ field: 'Score', label: vlc('Score', 'Балл') }]
             }
-        },
-        {
-            zone: 'center' as const,
-            widgetKey: 'columnsContainer',
-            sortOrder: 8,
-            config: {
-                columns: [
-                    {
-                        id: 'lms-progress-report',
-                        width: 4,
-                        widgets: [
-                            {
-                                id: 'lms-progress-table',
-                                widgetKey: 'detailsTable',
-                                sortOrder: 1,
-                                config: {
-                                    datasource: {
-                                        kind: 'records.list',
-                                        sectionCodename: 'ModuleProgress',
-                                        query: {
-                                            sort: [{ field: 'CompletedAt', direction: 'desc' }]
-                                        }
-                                    },
-                                    showViewToggle: true
-                                }
-                            }
-                        ]
-                    },
-                    {
-                        id: 'lms-track-report',
-                        width: 4,
-                        widgets: [
-                            {
-                                id: 'lms-track-table',
-                                widgetKey: 'detailsTable',
-                                sortOrder: 1,
-                                config: {
-                                    datasource: {
-                                        kind: 'records.list',
-                                        sectionCodename: 'LearningTracks',
-                                        query: {
-                                            sort: [{ field: 'Title', direction: 'asc' }]
-                                        }
-                                    },
-                                    showViewToggle: true
-                                }
-                            }
-                        ]
-                    },
-                    {
-                        id: 'lms-enrollment-history',
-                        width: 4,
-                        widgets: [
-                            {
-                                id: 'lms-enrollment-table',
-                                widgetKey: 'detailsTable',
-                                sortOrder: 1,
-                                config: {
-                                    datasource: {
-                                        kind: 'records.list',
-                                        sectionCodename: 'Enrollments',
-                                        query: {
-                                            sort: [{ field: 'EnrolledAt', direction: 'desc' }]
-                                        }
-                                    },
-                                    showViewToggle: true
-                                }
-                            }
-                        ]
-                    }
-                ]
-            }
-        },
-        { zone: 'center' as const, widgetKey: 'detailsTable', sortOrder: 9 }
+        }
     ]
 }
 
@@ -958,8 +891,26 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 sortOrder: 0
             }
         ],
+        scopedLayouts: [
+            {
+                codename: 'learnerHome',
+                templateKey: 'dashboard',
+                baseLayoutCodename: 'main',
+                scopeEntityCodename: 'LearnerHome',
+                scopeEntityKind: 'page',
+                name: vlc('Learner Home', 'Главная учащегося'),
+                description: vlc(
+                    'Home page layout with LMS overview cards and learning activity charts.',
+                    'Макет главной страницы с обзорными карточками LMS и графиками учебной активности.'
+                ),
+                isDefault: true,
+                isActive: true,
+                sortOrder: 0
+            }
+        ],
         layoutZoneWidgets: {
-            main: buildLmsSeedZoneWidgets()
+            main: buildLmsBaseSeedZoneWidgets(),
+            learnerHome: buildLmsHomeSeedZoneWidgets()
         },
         entities: [
             {
@@ -2823,7 +2774,10 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 codename: 'KnowledgeFolders',
                 kind: 'catalog',
                 name: vlc('Knowledge Folders', 'Папки знаний'),
-                description: vlc('Folders and article bindings inside knowledge spaces.', 'Папки и привязки статей внутри пространств знаний.'),
+                description: vlc(
+                    'Folders and article bindings inside knowledge spaces.',
+                    'Папки и привязки статей внутри пространств знаний.'
+                ),
                 attributes: [
                     {
                         codename: 'SpaceId',
@@ -2895,7 +2849,10 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 codename: 'DevelopmentPlans',
                 kind: 'catalog',
                 name: vlc('Development Plans', 'Планы развития'),
-                description: vlc('Onboarding and growth plans for learners and teams.', 'Планы адаптации и развития для учащихся и команд.'),
+                description: vlc(
+                    'Onboarding and growth plans for learners and teams.',
+                    'Планы адаптации и развития для учащихся и команд.'
+                ),
                 attributes: [
                     {
                         codename: 'Title',
@@ -3010,7 +2967,10 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 codename: 'NotificationRules',
                 kind: 'catalog',
                 name: vlc('Notification Rules', 'Правила уведомлений'),
-                description: vlc('Generic notification rules triggered by scripts and workflow events.', 'Универсальные правила уведомлений от скриптов и workflow-событий.'),
+                description: vlc(
+                    'Generic notification rules triggered by scripts and workflow events.',
+                    'Универсальные правила уведомлений от скриптов и workflow-событий.'
+                ),
                 attributes: [
                     {
                         codename: 'Name',
@@ -3041,7 +3001,10 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 codename: 'NotificationOutbox',
                 kind: 'catalog',
                 name: vlc('Notification Outbox', 'Очередь уведомлений'),
-                description: vlc('Script-generated notification events awaiting delivery.', 'События уведомлений от скриптов, ожидающие доставки.'),
+                description: vlc(
+                    'Script-generated notification events awaiting delivery.',
+                    'События уведомлений от скриптов, ожидающие доставки.'
+                ),
                 config: buildTransactionalCatalogConfig({
                     prefix: 'NTF-',
                     effectiveDateField: 'CreatedAt',
@@ -3159,13 +3122,19 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 codename: 'CompletionStatus',
                 kind: 'enumeration',
                 name: vlc('Completion Status', 'Статус прохождения'),
-                description: vlc('Generic completion states for resources, courses, tracks, and plans.', 'Универсальные статусы прохождения ресурсов, курсов, треков и планов.')
+                description: vlc(
+                    'Generic completion states for resources, courses, tracks, and plans.',
+                    'Универсальные статусы прохождения ресурсов, курсов, треков и планов.'
+                )
             },
             {
                 codename: 'AttemptStatus',
                 kind: 'enumeration',
                 name: vlc('Attempt Status', 'Статус попытки'),
-                description: vlc('Attempt lifecycle states for quizzes and assessments.', 'Состояния жизненного цикла попыток тестов и оцениваний.')
+                description: vlc(
+                    'Attempt lifecycle states for quizzes and assessments.',
+                    'Состояния жизненного цикла попыток тестов и оцениваний.'
+                )
             },
             {
                 codename: 'AssignmentReviewStatus',

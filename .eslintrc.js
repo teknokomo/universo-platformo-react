@@ -40,6 +40,13 @@ module.exports = {
                 'unused-imports/no-unused-imports': 'warn',
                 'unused-imports/no-unused-vars': 'off' // Use TypeScript version instead
             }
+        },
+        {
+            files: ['packages/metahubs-backend/base/src/tests/**/*.ts'],
+            rules: {
+                '@typescript-eslint/no-explicit-any': 'off',
+                '@typescript-eslint/no-empty-function': 'off'
+            }
         }
     ],
     rules: {

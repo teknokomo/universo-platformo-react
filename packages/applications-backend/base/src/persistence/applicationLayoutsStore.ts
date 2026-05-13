@@ -28,7 +28,7 @@ const ORDERED_LAYOUT_ZONES: Array<ApplicationLayoutWidget['zone']> = ['left', 't
 
 interface LayoutRow {
     id: string
-    catalog_id: string | null
+    scope_entity_id: string | null
     template_key: string
     name: Record<string, unknown>
     description: Record<string, unknown> | null
@@ -75,9 +75,9 @@ function assertApplicationLayoutWidgetConfig(widgetKey: string, config: unknown)
 
 const mapLayout = (row: LayoutRow): ApplicationLayout => ({
     id: row.id,
-    scopeId: row.catalog_id ?? GLOBAL_SCOPE_ID,
-    scopeKind: row.catalog_id ? 'entity' : 'global',
-    linkedCollectionId: row.catalog_id,
+    scopeId: row.scope_entity_id ?? GLOBAL_SCOPE_ID,
+    scopeKind: row.scope_entity_id ? 'entity' : 'global',
+    scopeEntityId: row.scope_entity_id,
     templateKey: row.template_key,
     name: isRecord(row.name) ? row.name : {},
     description: isRecord(row.description) ? row.description : null,
@@ -111,7 +111,7 @@ const mapWidget = (row: WidgetRow): ApplicationLayoutWidget => ({
 const layoutSelect = (layoutsTable: string): string => `
     SELECT
       ${layoutsTable}.id,
-      ${layoutsTable}.catalog_id,
+      ${layoutsTable}.scope_entity_id,
       ${layoutsTable}.template_key,
       ${layoutsTable}.name,
       ${layoutsTable}.description,
@@ -148,12 +148,12 @@ const widgetSelect = (widgetsTable: string): string => `
 async function assignNextDefaultLayout(
     executor: DbExecutor,
     schemaName: string,
-    linkedCollectionId: string | null,
+    scopeEntityId: string | null,
     excludeLayoutId: string | null,
     userId: string | null
 ): Promise<void> {
     const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
-    const params: unknown[] = [linkedCollectionId]
+    const params: unknown[] = [scopeEntityId]
     const exclusionSql =
         excludeLayoutId === null
             ? ''
@@ -166,7 +166,7 @@ async function assignNextDefaultLayout(
         `
         SELECT id
         FROM ${layoutsTable}
-        WHERE catalog_id IS NOT DISTINCT FROM $1
+        WHERE scope_entity_id IS NOT DISTINCT FROM $1
           AND is_active = true
           AND _upl_deleted = false
           AND _app_deleted = false
@@ -188,12 +188,12 @@ async function assignNextDefaultLayout(
         SET is_default = CASE WHEN id = $2 THEN true ELSE false END,
             _upl_updated_at = NOW(),
             _upl_updated_by = $3
-        WHERE catalog_id IS NOT DISTINCT FROM $1
+        WHERE scope_entity_id IS NOT DISTINCT FROM $1
           AND is_active = true
           AND _upl_deleted = false
           AND _app_deleted = false
         `,
-        [linkedCollectionId, nextDefaultId, userId]
+        [scopeEntityId, nextDefaultId, userId]
     )
 }
 
@@ -262,11 +262,11 @@ export async function listApplicationLayoutScopes(
     }
 
     return [
-        { id: GLOBAL_SCOPE_ID, scopeKind: 'global', linkedCollectionId: null, kind: null, tableName: null, name: 'Global' },
+        { id: GLOBAL_SCOPE_ID, scopeKind: 'global', scopeEntityId: null, kind: null, tableName: null, name: 'Global' },
         ...rows.map((row) => ({
             id: row.id,
             scopeKind: 'entity' as const,
-            linkedCollectionId: row.id,
+            scopeEntityId: row.id,
             kind: row.kind,
             tableName: row.table_name,
             codename: row.codename,
@@ -278,21 +278,21 @@ export async function listApplicationLayoutScopes(
 export async function listApplicationLayouts(
     executor: DbExecutor,
     schemaName: string,
-    options: { limit: number; offset: number; linkedCollectionId?: string | null }
+    options: { limit: number; offset: number; scopeEntityId?: string | null }
 ): Promise<{ items: ApplicationLayout[]; total: number }> {
     const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
     const params: unknown[] = []
     const conditions = [`_upl_deleted = false`, `_app_deleted = false`]
-    if (options.linkedCollectionId !== undefined) {
-        params.push(options.linkedCollectionId)
-        conditions.push(options.linkedCollectionId === null ? `catalog_id IS NULL` : `catalog_id = $${params.length}`)
+    if (options.scopeEntityId !== undefined) {
+        params.push(options.scopeEntityId)
+        conditions.push(options.scopeEntityId === null ? `scope_entity_id IS NULL` : `scope_entity_id = $${params.length}`)
     }
     params.push(options.limit, options.offset)
     const rows = await executor.query<LayoutRow & { total: string }>(
         `
         ${layoutSelect(layoutsTable)}
         WHERE ${conditions.join(' AND ')}
-        ORDER BY catalog_id NULLS FIRST, sort_order ASC, _upl_created_at ASC
+        ORDER BY scope_entity_id NULLS FIRST, sort_order ASC, _upl_created_at ASC
         LIMIT $${params.length - 1} OFFSET $${params.length}
         `,
         params
@@ -333,29 +333,29 @@ export async function createApplicationLayout(
 ): Promise<ApplicationLayout> {
     const data = applicationLayoutCreateSchema.parse(input)
     const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
-    const scopeId = data.linkedCollectionId ?? null
+    const scopeId = data.scopeEntityId ?? null
     return executor.transaction(async (tx) => {
         await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${schemaName}:layout:${scopeId ?? GLOBAL_SCOPE_ID}`])
         const activeRows = await tx.query<{ count: string }>(
-            `SELECT COUNT(*)::text AS count FROM ${layoutsTable} WHERE catalog_id IS NOT DISTINCT FROM $1 AND is_active = true AND _upl_deleted = false AND _app_deleted = false`,
+            `SELECT COUNT(*)::text AS count FROM ${layoutsTable} WHERE scope_entity_id IS NOT DISTINCT FROM $1 AND is_active = true AND _upl_deleted = false AND _app_deleted = false`,
             [scopeId]
         )
         const isDefault = data.isDefault ?? Number(activeRows[0]?.count ?? 0) === 0
         const isActive = isDefault ? true : data.isActive ?? true
         if (isDefault) {
             await tx.query(
-                `UPDATE ${layoutsTable} SET is_default = false, _upl_updated_at = NOW(), _upl_updated_by = $2 WHERE catalog_id IS NOT DISTINCT FROM $1 AND is_active = true AND _upl_deleted = false AND _app_deleted = false`,
+                `UPDATE ${layoutsTable} SET is_default = false, _upl_updated_at = NOW(), _upl_updated_by = $2 WHERE scope_entity_id IS NOT DISTINCT FROM $1 AND is_active = true AND _upl_deleted = false AND _app_deleted = false`,
                 [scopeId, userId]
             )
         }
         const localHash = hashApplicationLayoutContent({
-            layout: { ...data, linkedCollectionId: scopeId, isDefault, isActive },
+            layout: { ...data, scopeEntityId: scopeId, isDefault, isActive },
             widgets: []
         })
         const rows = await tx.query<LayoutRow>(
             `
             INSERT INTO ${layoutsTable} (
-              catalog_id, template_key, name, description, config, is_active, is_default, sort_order, owner_id,
+              scope_entity_id, template_key, name, description, config, is_active, is_default, sort_order, owner_id,
               source_kind, local_content_hash, sync_state, _upl_created_by, _upl_updated_by
             )
             VALUES ($1, $2, $3::jsonb, $4::jsonb, $5::jsonb, $6, $7, $8, $9, 'application', $10, 'clean', $9, $9)
@@ -401,14 +401,14 @@ export async function updateApplicationLayout(
         }
         if (data.isDefault === true) {
             await tx.query(
-                `UPDATE ${layoutsTable} SET is_default = false, _upl_updated_at = NOW(), _upl_updated_by = $2 WHERE catalog_id IS NOT DISTINCT FROM $1 AND is_active = true AND id <> $3 AND _upl_deleted = false AND _app_deleted = false`,
-                [current.item.linkedCollectionId, userId, layoutId]
+                `UPDATE ${layoutsTable} SET is_default = false, _upl_updated_at = NOW(), _upl_updated_by = $2 WHERE scope_entity_id IS NOT DISTINCT FROM $1 AND is_active = true AND id <> $3 AND _upl_deleted = false AND _app_deleted = false`,
+                [current.item.scopeEntityId, userId, layoutId]
             )
         }
         if (data.isActive === false || data.isDefault === false) {
             const activeDefaults = await tx.query<{ count: string }>(
-                `SELECT COUNT(*)::text AS count FROM ${layoutsTable} WHERE catalog_id IS NOT DISTINCT FROM $1 AND id <> $2 AND is_active = true AND is_default = true AND _upl_deleted = false AND _app_deleted = false`,
-                [current.item.linkedCollectionId, layoutId]
+                `SELECT COUNT(*)::text AS count FROM ${layoutsTable} WHERE scope_entity_id IS NOT DISTINCT FROM $1 AND id <> $2 AND is_active = true AND is_default = true AND _upl_deleted = false AND _app_deleted = false`,
+                [current.item.scopeEntityId, layoutId]
             )
             if (current.item.isDefault && Number(activeDefaults[0]?.count ?? 0) === 0) {
                 throw new Error('APPLICATION_LAYOUT_LAST_DEFAULT')
@@ -447,7 +447,7 @@ export async function updateApplicationLayout(
             ]
         )
         if (rows[0] && current.item.isDefault && rows[0].is_default !== true) {
-            await assignNextDefaultLayout(tx, schemaName, current.item.linkedCollectionId, null, userId)
+            await assignNextDefaultLayout(tx, schemaName, current.item.scopeEntityId, null, userId)
             return getApplicationLayoutDetail(tx, schemaName, layoutId).then((detail) => detail?.item ?? mapLayout(rows[0]))
         }
         return rows[0] ? mapLayout(rows[0]) : null
@@ -468,8 +468,8 @@ export async function deleteApplicationLayout(
         if (!current) return false
         if (expectedVersion && current.item.version !== expectedVersion) throw new Error('APPLICATION_LAYOUT_VERSION_CONFLICT')
         const activeRows = await tx.query<{ count: string }>(
-            `SELECT COUNT(*)::text AS count FROM ${layoutsTable} WHERE catalog_id IS NOT DISTINCT FROM $1 AND id <> $2 AND is_active = true AND _upl_deleted = false AND _app_deleted = false`,
-            [current.item.linkedCollectionId, layoutId]
+            `SELECT COUNT(*)::text AS count FROM ${layoutsTable} WHERE scope_entity_id IS NOT DISTINCT FROM $1 AND id <> $2 AND is_active = true AND _upl_deleted = false AND _app_deleted = false`,
+            [current.item.scopeEntityId, layoutId]
         )
         if (current.item.isActive && Number(activeRows[0]?.count ?? 0) === 0) throw new Error('APPLICATION_LAYOUT_LAST_ACTIVE')
         if (current.item.sourceKind === 'metahub') {
@@ -490,7 +490,7 @@ export async function deleteApplicationLayout(
                 [layoutId, userId]
             )
             if (current.item.isDefault) {
-                await assignNextDefaultLayout(tx, schemaName, current.item.linkedCollectionId, layoutId, userId)
+                await assignNextDefaultLayout(tx, schemaName, current.item.scopeEntityId, layoutId, userId)
             }
             return true
         }
@@ -501,7 +501,7 @@ export async function deleteApplicationLayout(
             [layoutId, userId]
         )
         if (current.item.isDefault) {
-            await assignNextDefaultLayout(tx, schemaName, current.item.linkedCollectionId, layoutId, userId)
+            await assignNextDefaultLayout(tx, schemaName, current.item.scopeEntityId, layoutId, userId)
         }
         return true
     })
@@ -523,10 +523,10 @@ export async function copyApplicationLayout(
         const rows = await tx.query<LayoutRow>(
             `
             INSERT INTO ${layoutsTable} (
-              catalog_id, template_key, name, description, config, is_active, is_default, sort_order, owner_id,
+              scope_entity_id, template_key, name, description, config, is_active, is_default, sort_order, owner_id,
               source_kind, local_content_hash, sync_state, _upl_created_by, _upl_updated_by
             )
-            SELECT catalog_id, template_key, name, description, config, true, false, sort_order + 1, $2,
+            SELECT scope_entity_id, template_key, name, description, config, true, false, sort_order + 1, $2,
                    'application', $3, 'clean', $2, $2
             FROM ${layoutsTable}
             WHERE id = $1 AND _upl_deleted = false AND _app_deleted = false

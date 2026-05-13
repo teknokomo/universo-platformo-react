@@ -10,7 +10,7 @@ to work with the current platform shape and how to approach common tasks safely.
 ## Available Guides
 
 - [Resources Workspace](general-section.md) — navigation and shared-layout authoring.
-- [Catalog Layouts](catalog-layouts.md) — overlay authoring, inheritance, and runtime behavior ownership.
+- [Entity-Scoped Layouts](entity-scoped-layouts.md) — overlay authoring, inheritance, and runtime behavior ownership.
 - [Application Template View Settings](app-template-views.md) — layout-level runtime display settings.
 - [Creating Applications](creating-application.md) — application and connector creation flow.
 - [Publishing Content](publishing-content.md) — release handoff from metahub to application.

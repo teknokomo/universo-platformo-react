@@ -15,6 +15,7 @@ import LayoutWidgetSharedBehaviorFields, {
     getSharedBehaviorFromWidgetConfig,
     setSharedBehaviorInWidgetConfig
 } from './LayoutWidgetSharedBehaviorFields'
+import WidgetScopeVisibilityPanel from './WidgetScopeVisibilityPanel'
 
 // ---------------------------------------------------------------------------
 // Props
@@ -24,7 +25,11 @@ export interface ColumnsContainerEditorDialogProps {
     open: boolean
     /** Current widget config (null when creating a new columnsContainer). */
     config?: ColumnsContainerConfig | null
+    metahubId?: string | null
+    layoutId?: string | null
+    widgetId?: string | null
     showSharedBehavior?: boolean
+    showScopeVisibility?: boolean
     onSave: (config: ColumnsContainerConfig) => void
     onCancel: () => void
 }
@@ -157,7 +162,11 @@ function SortableColumnRow({
 export default function ColumnsContainerEditorDialog({
     open,
     config,
+    metahubId,
+    layoutId,
+    widgetId,
     showSharedBehavior = false,
+    showScopeVisibility = false,
     onSave,
     onCancel
 }: ColumnsContainerEditorDialogProps) {
@@ -348,6 +357,10 @@ export default function ColumnsContainerEditorDialog({
                             value={{ sharedBehavior: sharedBehaviorValue }}
                             onChange={(nextValue) => setSharedBehaviorValue(getSharedBehaviorFromWidgetConfig(nextValue))}
                         />
+                    ) : null}
+
+                    {showScopeVisibility && metahubId && layoutId && widgetId ? (
+                        <WidgetScopeVisibilityPanel metahubId={metahubId} layoutId={layoutId} widgetId={widgetId} />
                     ) : null}
                 </Stack>
             )}

@@ -38,8 +38,10 @@ describe('entity type contracts', () => {
         expect(version).toBe(3)
     })
 
-    it('exposes Page as a first-class menu item kind', () => {
-        expect(METAHUB_MENU_ITEM_KINDS).toContain('page')
+    it('uses generic section menu items for first-class entity sections', () => {
+        expect(METAHUB_MENU_ITEM_KINDS).toEqual(['section', 'hub', 'link'])
+        expect(METAHUB_MENU_ITEM_KINDS).not.toContain('page')
+        expect(METAHUB_MENU_ITEM_KINDS).not.toContain('ledger')
     })
 
     it('exposes Page copy and delete settings through the shared entity settings registry', () => {
@@ -51,8 +53,7 @@ describe('entity type contracts', () => {
         )
     })
 
-    it('exposes Ledger as a first-class menu item kind and settings tab', () => {
-        expect(METAHUB_MENU_ITEM_KINDS).toContain('ledger')
+    it('exposes Ledger copy and delete settings through the shared entity settings registry', () => {
         expect(METAHUB_SETTINGS_REGISTRY).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({ key: buildEntitySettingKey('ledger', 'allowCopy'), tab: 'ledger', defaultValue: true }),

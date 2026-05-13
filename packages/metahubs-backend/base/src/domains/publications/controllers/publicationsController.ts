@@ -261,16 +261,21 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         metahubId: string,
         userId: string
     ): Promise<Record<string, unknown>> => {
-        const settingsService = new MetahubSettingsService(exec, schemaService)
-        const guestRuntimeSetting = await settingsService.findByKey(metahubId, PUBLIC_GUEST_RUNTIME_SETTING_KEY, userId)
-        const guestRuntimeConfig = unwrapSettingValue(guestRuntimeSetting?.value)
-        if (!isPlainRecord(guestRuntimeConfig)) {
-            return {}
-        }
-        return {
-            publicRuntime: {
-                guest: guestRuntimeConfig
+        try {
+            const settingsService = new MetahubSettingsService(exec, schemaService)
+            const guestRuntimeSetting = await settingsService.findByKey(metahubId, PUBLIC_GUEST_RUNTIME_SETTING_KEY, userId)
+            const guestRuntimeConfig = unwrapSettingValue(guestRuntimeSetting?.value)
+            if (!isPlainRecord(guestRuntimeConfig)) {
+                return {}
             }
+            return {
+                publicRuntime: {
+                    guest: guestRuntimeConfig
+                }
+            }
+        } catch (error) {
+            log.warn('Failed to load linked application runtime settings, continuing with empty settings:', error)
+            return {}
         }
     }
 
@@ -330,7 +335,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             [userId, limit, offset]
         )
 
-        const items = publications.map((pub: any) => ({
+        const items = publications.map((pub) => ({
             id: pub.id,
             codename: pub.codename,
             schemaName: pub.schemaName,
@@ -993,8 +998,8 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             diff: {
                 hasChanges: schemaDiff.hasChanges,
                 summary: schemaDiff.summary,
-                additive: schemaDiff.additive.map((c: any) => c.description),
-                destructive: schemaDiff.destructive.map((c: any) => c.description)
+                additive: schemaDiff.additive.map((change) => change.description),
+                destructive: schemaDiff.destructive.map((change) => change.description)
             }
         })
     }
@@ -1109,7 +1114,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
                     status: 'pending_confirmation',
                     diff: {
                         summary: schemaDiff.summary,
-                        destructive: schemaDiff.destructive.map((c: any) => c.description)
+                        destructive: schemaDiff.destructive.map((change) => change.description)
                     }
                 })
             }

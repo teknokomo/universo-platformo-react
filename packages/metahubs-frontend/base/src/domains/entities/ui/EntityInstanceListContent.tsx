@@ -455,7 +455,9 @@ const EntityInstanceListContent = () => {
         entityType && supportsRecordBehavior(entityType.components) && (requestedTabs.has('behavior') || hasRecordBehaviorConfig)
     )
     const showLedgerSchemaTab = Boolean(
-        entityType && supportsLedgerSchema(entityType.components) && (requestedTabs.has('ledgerSchema') || hasLedgerConfig(entityType.config))
+        entityType &&
+            supportsLedgerSchema(entityType.components) &&
+            (requestedTabs.has('ledgerSchema') || hasLedgerConfig(entityType.config))
     )
     const showScriptsTab = Boolean(entityType && isEnabledComponentConfig(entityType.components?.scripting) && requestedTabs.has('scripts'))
     const showActionsTab = Boolean(entityType && isEnabledComponentConfig(entityType.components?.actions))
@@ -1349,19 +1351,19 @@ const EntityInstanceListContent = () => {
                         options.mode === 'edit' && options.entityId ? (
                             <LayoutList
                                 metahubId={metahubId}
-                                linkedCollectionId={options.entityId}
+                                scopeEntityId={options.entityId}
                                 detailBasePath={buildEntityInstanceLayoutBasePath(metahubId, resolvedKindKey, options.entityId)}
                                 title={null}
                                 emptyTitle={
                                     usesLinkedCollectionAuthoring
-                                        ? t('catalogs.layoutTab.emptyTitle', 'No catalog layouts')
+                                        ? t('catalogs.layoutTab.emptyTitle', 'No entity layouts')
                                         : t('entities.instances.layouts.emptyTitle', 'No layouts')
                                 }
                                 emptyDescription={
                                     usesLinkedCollectionAuthoring
                                         ? t(
                                               'catalogs.layoutTab.emptyDescription',
-                                              'This catalog currently uses the active global layout. Create the first catalog layout to override widgets and catalog runtime behavior.'
+                                              'This entity currently uses the active global layout. Create the first entity layout to override widgets and runtime behavior.'
                                           )
                                         : t(
                                               'entities.instances.layouts.emptyDescription',

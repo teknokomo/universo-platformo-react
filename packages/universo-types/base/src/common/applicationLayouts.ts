@@ -53,11 +53,10 @@ const localizedWidgetTextSchema = z.union([z.string().min(1).max(160), applicati
 const menuWidgetItemSchema = z
     .object({
         id: z.string().min(1),
-        kind: z.string().min(1),
+        kind: z.enum(['section', 'hub', 'link']),
         title: applicationLayoutLocalizedContentSchema,
         icon: z.string().nullable().optional(),
         href: z.string().nullable().optional(),
-        catalogId: z.string().nullable().optional(),
         linkedCollectionId: z.string().nullable().optional(),
         sectionId: z.string().nullable().optional(),
         hubId: z.string().nullable().optional(),
@@ -69,13 +68,12 @@ const menuWidgetItemSchema = z
 
 export const menuWidgetConfigSchema = z
     .object({
-        boundCatalogId: z.string().nullable().optional(),
         boundHubId: z.string().nullable().optional(),
         boundTreeEntityId: z.string().nullable().optional(),
         bindToHub: z.boolean().optional(),
         showTitle: z.boolean().optional(),
         title: applicationLayoutLocalizedContentSchema.optional(),
-        autoShowAllCatalogs: z.boolean().optional(),
+        autoShowAllSections: z.boolean().optional(),
         maxPrimaryItems: z.number().int().min(1).max(12).optional(),
         overflowLabelKey: z.string().nullable().optional(),
         startPage: z.string().nullable().optional(),
@@ -97,6 +95,7 @@ const columnsContainerNestedWidgetSchema = z
         id: z.string().min(1).optional(),
         widgetKey: nestedColumnsContainerWidgetKeySchema,
         sortOrder: z.number().int().optional(),
+        isActive: z.boolean().optional(),
         config: z.record(z.unknown()).optional()
     })
     .strict()
@@ -213,7 +212,8 @@ export const parseApplicationLayoutWidgetConfig = (widgetKey: string, config: un
 export const applicationLayoutScopeSchema = z.object({
     id: z.string(),
     scopeKind: applicationLayoutScopeKindSchema,
-    linkedCollectionId: z.string().nullable(),
+    scopeEntityId: z.string().nullable(),
+    scopeEntityKind: z.string().nullable().optional(),
     kind: z.string().nullable().optional(),
     tableName: z.string().nullable().optional(),
     codename: applicationLayoutLocalizedContentSchema.optional(),
@@ -237,7 +237,8 @@ export const applicationLayoutSchema = z.object({
     id: z.string(),
     scopeId: z.string().nullable(),
     scopeKind: applicationLayoutScopeKindSchema,
-    linkedCollectionId: z.string().nullable(),
+    scopeEntityId: z.string().nullable(),
+    scopeEntityKind: z.string().nullable().optional(),
     templateKey: z.string(),
     name: applicationLayoutLocalizedContentSchema,
     description: applicationLayoutLocalizedContentSchema.nullable().optional(),
@@ -274,7 +275,7 @@ export const applicationLayoutMutationSchema = z.object({
     name: applicationLayoutLocalizedContentSchema.optional(),
     description: applicationLayoutLocalizedContentSchema.nullable().optional(),
     config: dashboardLayoutConfigSchema.optional(),
-    linkedCollectionId: z.string().nullable().optional(),
+    scopeEntityId: z.string().nullable().optional(),
     isActive: z.boolean().optional(),
     isDefault: z.boolean().optional(),
     sortOrder: z.number().int().optional(),
